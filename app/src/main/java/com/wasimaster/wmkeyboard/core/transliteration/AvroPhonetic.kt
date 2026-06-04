@@ -1,0 +1,159 @@
+package com.wasimaster.wmkeyboard.core.transliteration
+
+/**
+ * Rule-based Avro-style phonetic transliteration from romanized Bengali
+ * ("banglish") to Bengali script.
+ *
+ * The engine is a greedy longest-match transliterator over a rule table,
+ * with three pieces of context sensitivity:
+ *
+ *  1. Vowels render as independent letters at a word boundary or after
+ *     another vowel, and as vowel signs (kar) after a consonant.
+ *  2. Consecutive consonants are joined into conjuncts with a hasant.
+ *     The inherent vowel "o" produces no glyph but breaks the cluster,
+ *     so "kolkata" stays কলকাতা rather than forming a false conjunct.
+ *  3. "o" is inherent (silent) between consonants, অ at a word start and
+ *     ো at a word end — matching how Avro users expect "valo" → ভালো
+ *     while "kori" → করি.
+ *
+ * Dictionary-level corrections (e.g. "asi" → আছি rather than আসি) are the
+ * suggestion engine's job, not this transliterator's.
+ */
+object AvroPhonetic {
+
+    private const val HASANT = '্'
+
+    private enum class Kind { CONSONANT, VOWEL, OTHER }
+
+    /**
+     * @param full independent form (word start or after a vowel)
+     * @param kar vowel-sign form used after a consonant; null means the rule
+     *        is not a vowel
+     */
+    private data class Rule(
+        val match: String,
+        val full: String,
+        val kar: String? = null,
+        val kind: Kind = if (kar != null) Kind.VOWEL else Kind.CONSONANT,
+    )
+
+    private val rules: List<Rule> = buildList {
+        // Vowels — longest patterns first within same prefix handled by sort below.
+        add(Rule("OI", "ঐ", "ৈ"))
+        add(Rule("OU", "ঔ", "ৌ"))
+        add(Rule("rri", "ঋ", "ৃ"))
+        add(Rule("a", "আ", "া"))
+        add(Rule("A", "আ", "া"))
+        add(Rule("i", "ই", "ি"))
+        add(Rule("I", "ঈ", "ী"))
+        add(Rule("u", "উ", "ু"))
+        add(Rule("U", "ঊ", "ূ"))
+        add(Rule("e", "এ", "ে"))
+        add(Rule("E", "এ", "ে"))
+        add(Rule("O", "ও", "ো"))
+        // "o" handled specially in transliterate().
+
+        // Aspirated / two-letter consonants first (longest match wins).
+        add(Rule("kh", "খ"))
+        add(Rule("gh", "ঘ"))
+        add(Rule("Ng", "ঙ"))
+        add(Rule("ch", "ছ"))
+        add(Rule("jh", "ঝ"))
+        add(Rule("NG", "ঞ"))
+        add(Rule("Th", "ঠ"))
+        add(Rule("Dh", "ঢ"))
+        add(Rule("th", "থ"))
+        add(Rule("dh", "ধ"))
+        add(Rule("ph", "ফ"))
+        add(Rule("bh", "ভ"))
+        add(Rule("sh", "শ"))
+        add(Rule("Sh", "ষ"))
+        add(Rule("Rh", "ঢ়"))
+        add(Rule("ng", "ং"))
+
+        // Single consonants.
+        add(Rule("k", "ক"))
+        add(Rule("g", "গ"))
+        add(Rule("c", "চ"))
+        add(Rule("j", "জ"))
+        add(Rule("T", "ট"))
+        add(Rule("D", "ড"))
+        add(Rule("N", "ণ"))
+        add(Rule("t", "ত"))
+        add(Rule("d", "দ"))
+        add(Rule("n", "ন"))
+        add(Rule("p", "প"))
+        add(Rule("f", "ফ"))
+        add(Rule("b", "ব"))
+        add(Rule("v", "ভ"))
+        add(Rule("m", "ম"))
+        add(Rule("z", "য"))
+        add(Rule("r", "র"))
+        add(Rule("l", "ল"))
+        add(Rule("S", "শ"))
+        add(Rule("s", "স"))
+        add(Rule("h", "হ"))
+        add(Rule("R", "ড়"))
+        add(Rule("y", "য়"))
+        add(Rule("Y", "য়"))
+        add(Rule("w", "ও", "ো"))
+        add(Rule("x", "ক্স"))
+
+        // Signs and digits.
+        add(Rule(":", "ঃ", null, Kind.OTHER))
+        add(Rule("^", "ঁ", null, Kind.OTHER))
+        add(Rule(",,", HASANT.toString(), null, Kind.OTHER))
+        add(Rule("..", ".", null, Kind.OTHER))
+        add(Rule(".", "।", null, Kind.OTHER))
+        add(Rule("$", "৳", null, Kind.OTHER))
+        "0123456789".forEachIndexed { index, digit ->
+            add(Rule(digit.toString(), ('০' + index).toString(), null, Kind.OTHER))
+        }
+    }.sortedByDescending { it.match.length }
+
+    /** Transliterates one romanized word (or free text) into Bengali script. */
+    fun transliterate(input: String): String {
+        val out = StringBuilder()
+        var prev = Kind.OTHER
+        var i = 0
+        while (i < input.length) {
+            // Inherent vowel: silent between consonants, অ at word start, ো at word end.
+            if (input[i] == 'o' && !input.startsWith("oo", i)) {
+                val atWordEnd = i == input.length - 1 || !input[i + 1].isLetter()
+                when {
+                    prev == Kind.CONSONANT && atWordEnd -> out.append('ো')
+                    prev == Kind.CONSONANT -> Unit // inherent vowel, no glyph
+                    else -> out.append('অ')
+                }
+                prev = Kind.VOWEL
+                i++
+                continue
+            }
+            if (input.startsWith("oo", i)) {
+                out.append(if (prev == Kind.CONSONANT) "ু" else "উ")
+                prev = Kind.VOWEL
+                i += 2
+                continue
+            }
+
+            val rule = rules.firstOrNull { input.startsWith(it.match, i) }
+            if (rule == null) {
+                out.append(input[i])
+                prev = Kind.OTHER
+                i++
+                continue
+            }
+            when (rule.kind) {
+                Kind.VOWEL -> out.append(if (prev == Kind.CONSONANT) rule.kar else rule.full)
+                Kind.CONSONANT -> {
+                    if (prev == Kind.CONSONANT) out.append(HASANT)
+                    out.append(rule.full)
+                }
+                Kind.OTHER -> out.append(rule.full)
+            }
+            prev = rule.kind
+            i += rule.match.length
+        }
+        return out.toString()
+    }
+}
