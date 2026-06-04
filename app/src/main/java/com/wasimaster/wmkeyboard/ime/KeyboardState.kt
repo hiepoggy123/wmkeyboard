@@ -1,0 +1,33 @@
+package com.wasimaster.wmkeyboard.ime
+
+import com.wasimaster.wmkeyboard.core.clipboard.ClipItem
+import com.wasimaster.wmkeyboard.core.emoji.EmojiEntry
+import com.wasimaster.wmkeyboard.core.settings.InputMode
+import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
+
+enum class ShiftState { OFF, ON, CAPS_LOCK }
+
+enum class LayoutMode { LETTERS, SYMBOLS, SYMBOLS_SHIFTED }
+
+enum class PanelMode { NONE, EMOJI, CLIPBOARD }
+
+/**
+ * Immutable UI state rendered by the Compose keyboard. The service owns a
+ * MutableStateFlow of this and mutates it via copy().
+ */
+data class KeyboardUiState(
+    val settings: KeyboardSettings = KeyboardSettings(),
+    val inputMode: InputMode = InputMode.ENGLISH,
+    val layoutMode: LayoutMode = LayoutMode.LETTERS,
+    val shiftState: ShiftState = ShiftState.OFF,
+    val panel: PanelMode = PanelMode.NONE,
+    val suggestions: List<String> = emptyList(),
+    val composingPreview: String = "",
+    val emojiQuery: String = "",
+    val emojiSearchActive: Boolean = false,
+    val emojiResults: List<EmojiEntry> = emptyList(),
+    val emojiRecents: List<String> = emptyList(),
+    val emojiCatalog: List<EmojiEntry> = emptyList(),
+    val clipboardItems: List<ClipItem> = emptyList(),
+    val secureField: Boolean = false,
+)
