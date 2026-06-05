@@ -26,6 +26,8 @@ import com.wasimaster.wmkeyboard.core.prediction.Trie
 import com.wasimaster.wmkeyboard.core.prediction.UserLexicon
 import com.wasimaster.wmkeyboard.core.settings.InputMode
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
+import com.wasimaster.wmkeyboard.core.snippets.Snippet
+import com.wasimaster.wmkeyboard.core.snippets.SnippetStore
 import com.wasimaster.wmkeyboard.core.transliteration.AvroPhonetic
 import com.wasimaster.wmkeyboard.core.transliteration.BengaliGraphemes
 import com.wasimaster.wmkeyboard.core.transliteration.BengaliPhoneticIndex
@@ -68,6 +70,7 @@ class WMKeyboardService : InputMethodService() {
     private lateinit var userLexicon: UserLexicon
     private lateinit var emojiUsage: EmojiUsage
     private lateinit var clipboardStore: ClipboardStore
+    private lateinit var snippetStore: SnippetStore
 
     private var composing = StringBuilder()
     private var previousWord: String? = null
@@ -100,6 +103,7 @@ class WMKeyboardService : InputMethodService() {
         userLexicon = UserLexicon(File(filesDir, "learning/user_lexicon.json"))
         emojiUsage = EmojiUsage(File(filesDir, "learning/emoji_usage.json"))
         clipboardStore = ClipboardStore(File(filesDir, "clipboard/history.json"))
+        snippetStore = SnippetStore(File(filesDir, "snippets/snippets.json"))
 
         serviceScope.launch {
             settingsRepository.settings.collect { settings ->
@@ -148,6 +152,7 @@ class WMKeyboardService : InputMethodService() {
                 onClipboardItem = ::onClipboardItemTapped,
                 onClipboardPin = ::onClipboardPin,
                 onClipboardDelete = ::onClipboardDelete,
+                onSnippet = ::onSnippetTapped,
                 onOpenSettings = ::openSettings,
             )
         }
@@ -515,6 +520,8 @@ class WMKeyboardService : InputMethodService() {
 
     fun onPanelChange(panel: PanelMode) {
         vibrate()
+        // The settings app edits snippets in the same file; re-read on open.
+        if (panel == PanelMode.SNIPPETS) snippetStore.reload()
         _uiState.update {
             val closing = it.panel == panel
             it.copy(
@@ -524,8 +531,19 @@ class WMKeyboardService : InputMethodService() {
                 emojiResults = emptyList(),
                 emojiRecents = emojiUsage.recents(),
                 clipboardItems = clipboardStore.items(),
+                snippets = snippetStore.items(),
             )
         }
+    }
+
+    fun onSnippetTapped(snippet: Snippet) {
+        vibrate()
+        val expanded = SnippetStore.expand(
+            text = snippet.text,
+            clipboard = clipboardStore.items().firstOrNull()?.text,
+        )
+        currentInputConnection?.commitText(expanded, 1)
+        _uiState.update { it.copy(panel = PanelMode.NONE) }
     }
 
     fun onEmojiTapped(emoji: String) {

@@ -42,6 +42,7 @@ import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.TextSnippet
 import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -84,6 +85,7 @@ import com.wasimaster.wmkeyboard.core.gesture.GesturePoint
 import com.wasimaster.wmkeyboard.core.gesture.KeyCenter
 import com.wasimaster.wmkeyboard.core.settings.InputMode
 import com.wasimaster.wmkeyboard.core.settings.ThemeMode
+import com.wasimaster.wmkeyboard.core.snippets.Snippet
 import com.wasimaster.wmkeyboard.ime.EnterAction
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
 import com.wasimaster.wmkeyboard.ime.LayoutMode
@@ -113,6 +115,7 @@ fun KeyboardScreen(
     onClipboardItem: (ClipItem) -> Unit,
     onClipboardPin: (ClipItem) -> Unit,
     onClipboardDelete: (ClipItem) -> Unit,
+    onSnippet: (Snippet) -> Unit = {},
     onOpenSettings: () -> Unit,
 ) {
     val state by stateFlow.collectAsState()
@@ -130,6 +133,7 @@ fun KeyboardScreen(
                 when (state.panel) {
                     PanelMode.EMOJI -> EmojiPanel(state, onEmoji, onEmojiQueryTap, onKey, onText)
                     PanelMode.CLIPBOARD -> ClipboardPanel(state, onClipboardItem, onClipboardPin, onClipboardDelete)
+                    PanelMode.SNIPPETS -> SnippetsPanel(state, onSnippet)
                     PanelMode.NONE -> KeyRows(state, onKey, onText, onGesture, onCursorMove)
                 }
                 // In emoji search mode the letters stay visible for typing the query.
@@ -201,6 +205,13 @@ private fun TopBar(
                 Icon(
                     Icons.Filled.ContentPaste,
                     contentDescription = "Clipboard",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            IconButton(onClick = { onPanelChange(PanelMode.SNIPPETS) }) {
+                Icon(
+                    Icons.Filled.TextSnippet,
+                    contentDescription = "Snippets",
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
@@ -710,6 +721,61 @@ private fun EmojiPanel(
                         fontSize = 26.sp,
                     )
                 }
+            }
+        }
+    }
+}
+
+// ---- snippets panel ----
+
+@Composable
+private fun SnippetsPanel(state: KeyboardUiState, onSnippet: (Snippet) -> Unit) {
+    val height = (state.settings.keyHeightDp * 4 + 40).dp
+    if (state.snippets.isEmpty()) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(height),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                "No snippets yet.\nAdd them in Settings → Snippets.\nVariables: {date} {time} {datetime} {clip}",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        return
+    }
+    LazyVerticalGrid(
+        columns = GridCells.Fixed(2),
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(height),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        items(state.snippets, key = { it.id }) { snippet ->
+            Column(
+                modifier = Modifier
+                    .background(MaterialTheme.colorScheme.surfaceContainer, RoundedCornerShape(12.dp))
+                    .clickable { onSnippet(snippet) }
+                    .padding(10.dp),
+            ) {
+                Text(
+                    text = snippet.label,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                Text(
+                    text = snippet.text,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
             }
         }
     }

@@ -21,6 +21,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -30,6 +33,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -37,6 +41,7 @@ import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
@@ -45,8 +50,10 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -61,6 +68,8 @@ import com.wasimaster.wmkeyboard.core.settings.InputMode
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import com.wasimaster.wmkeyboard.core.settings.ThemeMode
+import com.wasimaster.wmkeyboard.core.snippets.Snippet
+import com.wasimaster.wmkeyboard.core.snippets.SnippetStore
 import kotlinx.coroutines.launch
 
 /**
@@ -135,6 +144,11 @@ private fun SettingsNavHost(repository: SettingsRepository, settings: KeyboardSe
                 ClipboardEmojiSettings(repository, settings)
             }
         }
+        composable("snippets") {
+            SettingsScreen("Snippets", { navController.popBackStack() }) {
+                SnippetSettings()
+            }
+        }
         composable("privacy") {
             SettingsScreen("Privacy", { navController.popBackStack() }) {
                 PrivacySettings(repository, settings)
@@ -165,6 +179,7 @@ private fun HomeScreen(settings: KeyboardSettings, onNavigate: (String) -> Unit)
             SectionItem("Appearance & themes", "Material You, AMOLED, key size") { onNavigate("appearance") }
             SectionItem("Languages", "English, বাংলা (Avro phonetic, প্রভাত)") { onNavigate("languages") }
             SectionItem("Clipboard & emoji", "History, expiry, toolbar") { onNavigate("clipboard") }
+            SectionItem("Snippets", "Reusable text with {date}, {time}, {clip} variables") { onNavigate("snippets") }
             SectionItem("Privacy", "On-device learning, incognito") { onNavigate("privacy") }
         }
     }
@@ -429,5 +444,99 @@ private fun PrivacySettings(repository: SettingsRepository, settings: KeyboardSe
             "emoji search are all bundled. There is no telemetry.",
         style = MaterialTheme.typography.bodySmall,
         modifier = Modifier.padding(vertical = 12.dp),
+    )
+}
+
+@Composable
+private fun SnippetSettings() {
+    val context = LocalContext.current
+    val store = remember {
+        SnippetStore(java.io.File(context.filesDir, "snippets/snippets.json"))
+    }
+    var snippets by remember { mutableStateOf(store.items()) }
+    var editing by remember { mutableStateOf<Snippet?>(null) }
+    var showAdd by remember { mutableStateOf(false) }
+
+    Text(
+        "Snippets appear in the keyboard's snippet panel. Variables {date}, " +
+            "{time}, {datetime} and {clip} expand when inserted.",
+        style = MaterialTheme.typography.bodySmall,
+        modifier = Modifier.padding(vertical = 12.dp),
+    )
+    Button(onClick = { showAdd = true }) { Text("Add snippet") }
+    Spacer(Modifier.height(8.dp))
+    for (snippet in snippets) {
+        ListItem(
+            headlineContent = { Text(snippet.label) },
+            supportingContent = { Text(snippet.text, maxLines = 2) },
+            trailingContent = {
+                Row {
+                    IconButton(onClick = { editing = snippet }) {
+                        Icon(Icons.Filled.Edit, contentDescription = "Edit")
+                    }
+                    IconButton(onClick = {
+                        store.remove(snippet.id)
+                        store.save()
+                        snippets = store.items()
+                    }) {
+                        Icon(Icons.Filled.Delete, contentDescription = "Delete")
+                    }
+                }
+            },
+        )
+        HorizontalDivider()
+    }
+
+    if (showAdd || editing != null) {
+        SnippetDialog(
+            initial = editing,
+            onDismiss = { showAdd = false; editing = null },
+            onSave = { label, text ->
+                val current = editing
+                if (current == null) store.add(label, text) else store.update(current.id, label, text)
+                store.save()
+                snippets = store.items()
+                showAdd = false
+                editing = null
+            },
+        )
+    }
+}
+
+@Composable
+private fun SnippetDialog(
+    initial: Snippet?,
+    onDismiss: () -> Unit,
+    onSave: (String, String) -> Unit,
+) {
+    var label by remember { mutableStateOf(initial?.label.orEmpty()) }
+    var text by remember { mutableStateOf(initial?.text.orEmpty()) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(if (initial == null) "New snippet" else "Edit snippet") },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = label,
+                    onValueChange = { label = it },
+                    label = { Text("Label") },
+                    singleLine = true,
+                )
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = { text = it },
+                    label = { Text("Text — supports {date} {time} {datetime} {clip}") },
+                    minLines = 3,
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = label.isNotBlank() && text.isNotBlank(),
+                onClick = { onSave(label.trim(), text) },
+            ) { Text("Save") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     )
 }

@@ -4,12 +4,13 @@ import com.wasimaster.wmkeyboard.core.clipboard.ClipItem
 import com.wasimaster.wmkeyboard.core.emoji.EmojiEntry
 import com.wasimaster.wmkeyboard.core.settings.InputMode
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
+import com.wasimaster.wmkeyboard.core.snippets.Snippet
 
 enum class ShiftState { OFF, ON, CAPS_LOCK }
 
 enum class LayoutMode { LETTERS, SYMBOLS, SYMBOLS_SHIFTED }
 
-enum class PanelMode { NONE, EMOJI, CLIPBOARD }
+enum class PanelMode { NONE, EMOJI, CLIPBOARD, SNIPPETS }
 
 /** What the enter key does in the focused field, from EditorInfo.imeOptions. */
 enum class EnterAction { DEFAULT, SEARCH, SEND, GO, NEXT, PREVIOUS, DONE }
@@ -32,6 +33,7 @@ data class KeyboardUiState(
     val emojiRecents: List<String> = emptyList(),
     val emojiCatalog: List<EmojiEntry> = emptyList(),
     val clipboardItems: List<ClipItem> = emptyList(),
+    val snippets: List<Snippet> = emptyList(),
     val secureField: Boolean = false,
     val enterAction: EnterAction = EnterAction.DEFAULT,
 )
