@@ -18,10 +18,14 @@ Working checklist. Roadmap-level planning lives in [docs/ROADMAP.md](docs/ROADMA
 - [x] Emoji panel with in-keyboard search; clipboard panel
 - [x] Settings app with setup wizard + 5 sections
 - [x] README / ARCHITECTURE / ROADMAP docs
+- [x] Swipe typing: SHARK²-style GestureDecoder in core + 10 tests, gesture
+      overlay + trail on the Compose keyboard, alternates-in-suggestion-bar
+      with tap-to-replace, settings toggle (English QWERTY only for now)
 
 ## Next up (Beta)
 
-- [ ] Swipe typing (path decoding over trie)
+- [ ] Swipe typing follow-ups: Bengali layouts, bigram-aware ranking,
+      trail fade animation, decode-while-swiping preview
 - [ ] National (Jatiya) layout; Bijoy compatibility
 - [ ] Spacebar swipe cursor movement
 - [ ] One-handed / floating / resizable keyboard

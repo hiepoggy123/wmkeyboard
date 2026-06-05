@@ -22,8 +22,11 @@ end (Bengali phonetic typing, semantic emoji search).
 
 Typing feel and completeness. Ordered by impact:
 
-1. **Gesture/swipe typing** — path decoding against the trie (SHARK²-style).
-   Largest single win for typing speed.
+1. ~~**Gesture/swipe typing**~~ — ✅ shipped: SHARK²-style decoder
+   (`core/gesture/GestureDecoder`), gesture overlay + trail in the Compose
+   keyboard, alternates in the suggestion bar with tap-to-replace, settings
+   toggle. English QWERTY only so far; Bengali layouts and mid-swipe
+   preview are follow-ups.
 2. **National (Jatiya) layout + Bijoy compatibility mode.**
 3. **Spacebar cursor control**, multi-touch key handling, undo/redo.
 4. **One-handed mode, floating keyboard, resize/split.**

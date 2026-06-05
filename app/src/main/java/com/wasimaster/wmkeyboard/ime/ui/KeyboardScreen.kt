@@ -1,7 +1,10 @@
 package com.wasimaster.wmkeyboard.ime.ui
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
@@ -46,14 +49,23 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -62,6 +74,8 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
 import android.os.Build
 import com.wasimaster.wmkeyboard.core.clipboard.ClipItem
+import com.wasimaster.wmkeyboard.core.gesture.GesturePoint
+import com.wasimaster.wmkeyboard.core.gesture.KeyCenter
 import com.wasimaster.wmkeyboard.core.settings.InputMode
 import com.wasimaster.wmkeyboard.core.settings.ThemeMode
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
@@ -83,6 +97,7 @@ fun KeyboardScreen(
     stateFlow: StateFlow<KeyboardUiState>,
     onKey: (Key) -> Unit,
     onText: (String) -> Unit = {},
+    onGesture: (List<GesturePoint>, List<KeyCenter>, Float) -> Unit = { _, _, _ -> },
     onSuggestion: (String) -> Unit,
     onEmoji: (String) -> Unit,
     onEmojiQueryTap: () -> Unit,
@@ -101,11 +116,11 @@ fun KeyboardScreen(
                 when (state.panel) {
                     PanelMode.EMOJI -> EmojiPanel(state, onEmoji, onEmojiQueryTap, onKey, onText)
                     PanelMode.CLIPBOARD -> ClipboardPanel(state, onClipboardItem, onClipboardPin, onClipboardDelete)
-                    PanelMode.NONE -> KeyRows(state, onKey, onText)
+                    PanelMode.NONE -> KeyRows(state, onKey, onText, onGesture)
                 }
                 // In emoji search mode the letters stay visible for typing the query.
                 if (state.panel == PanelMode.EMOJI && state.emojiSearchActive) {
-                    KeyRows(state, onKey, onText)
+                    KeyRows(state, onKey, onText, onGesture)
                 }
             }
         }
@@ -214,42 +229,135 @@ private fun TopBar(
 // ---- key grid ----
 
 @Composable
-private fun KeyRows(state: KeyboardUiState, onKey: (Key) -> Unit, onText: (String) -> Unit) {
+private fun KeyRows(
+    state: KeyboardUiState,
+    onKey: (Key) -> Unit,
+    onText: (String) -> Unit,
+    onGesture: (List<GesturePoint>, List<KeyCenter>, Float) -> Unit = { _, _, _ -> },
+) {
     val layout = currentLayout(state)
-    Column(
+    val gestureEnabled = state.settings.gestureTyping &&
+        state.layoutMode == LayoutMode.LETTERS &&
+        state.inputMode == InputMode.ENGLISH &&
+        state.panel == PanelMode.NONE
+
+    // Letter-key centres and width, captured from layout in this Box's space.
+    val keyCenters = remember { mutableStateMapOf<Char, Offset>() }
+    var keyWidthPx by remember { mutableStateOf(0f) }
+    var boxOrigin by remember { mutableStateOf(Offset.Zero) }
+    var trail by remember { mutableStateOf<List<Offset>>(emptyList()) }
+    val trailColor = MaterialTheme.colorScheme.primary
+
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 2.dp, vertical = 4.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
+            .onGloballyPositioned { boxOrigin = it.positionInRoot() }
+            .pointerInput(gestureEnabled) {
+                if (!gestureEnabled) return@pointerInput
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                    val slop = viewConfiguration.touchSlop
+                    var isGesture = false
+                    val points = ArrayList<Offset>()
+                    points.add(down.position)
+                    while (true) {
+                        val event = awaitPointerEvent(PointerEventPass.Initial)
+                        val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                        if (!change.pressed) {
+                            if (isGesture) change.consume()
+                            break
+                        }
+                        points.add(change.position)
+                        if (!isGesture && keyWidthPx > 0f &&
+                            (change.position - down.position).getDistance() > slop * 2 &&
+                            nearLetterKey(down.position, keyCenters, keyWidthPx)
+                        ) {
+                            isGesture = true
+                        }
+                        if (isGesture) {
+                            change.consume()
+                            trail = points.toList()
+                        }
+                    }
+                    if (isGesture && points.size >= 4) {
+                        onGesture(
+                            points.map { GesturePoint(it.x, it.y) },
+                            keyCenters.map { (char, center) -> KeyCenter(char, center.x, center.y) },
+                            keyWidthPx,
+                        )
+                    }
+                    trail = emptyList()
+                }
+            },
     ) {
-        if (state.settings.numberRow && state.layoutMode == LayoutMode.LETTERS) {
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                "1234567890".forEach { digit ->
-                    KeyButton(
-                        key = Key(digit.toString()),
-                        state = state,
-                        modifier = Modifier.weight(1f),
-                        onKey = onKey,
-                        onText = onText,
-                    )
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 2.dp, vertical = 4.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            if (state.settings.numberRow && state.layoutMode == LayoutMode.LETTERS) {
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    "1234567890".forEach { digit ->
+                        KeyButton(
+                            key = Key(digit.toString()),
+                            state = state,
+                            modifier = Modifier.weight(1f),
+                            onKey = onKey,
+                            onText = onText,
+                        )
+                    }
+                }
+            }
+            for (row in layout.rows) {
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    for (key in row) {
+                        val letter = key.label.singleOrNull()?.takeIf {
+                            key.action == KeyAction.Text && it.isLetter()
+                        }
+                        KeyButton(
+                            key = key,
+                            state = state,
+                            modifier = if (letter != null) {
+                                Modifier
+                                    .weight(key.width)
+                                    .onGloballyPositioned { coords ->
+                                        val topLeft = coords.positionInRoot() - boxOrigin
+                                        keyCenters[letter.lowercaseChar()] = Offset(
+                                            topLeft.x + coords.size.width / 2f,
+                                            topLeft.y + coords.size.height / 2f,
+                                        )
+                                        keyWidthPx = coords.size.width.toFloat()
+                                    }
+                            } else {
+                                Modifier.weight(key.width)
+                            },
+                            onKey = onKey,
+                            onText = onText,
+                        )
+                    }
                 }
             }
         }
-        for (row in layout.rows) {
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                for (key in row) {
-                    KeyButton(
-                        key = key,
-                        state = state,
-                        modifier = Modifier.weight(key.width),
-                        onKey = onKey,
-                        onText = onText,
-                    )
-                }
+
+        if (trail.size > 1) {
+            Canvas(modifier = Modifier.matchParentSize()) {
+                val path = Path()
+                path.moveTo(trail.first().x, trail.first().y)
+                for (point in trail.drop(1)) path.lineTo(point.x, point.y)
+                drawPath(
+                    path = path,
+                    color = trailColor.copy(alpha = 0.55f),
+                    style = Stroke(width = 9.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round),
+                )
             }
         }
     }
 }
+
+/** True when [position] falls within roughly one key of a tracked letter key. */
+private fun nearLetterKey(position: Offset, centers: Map<Char, Offset>, keyWidth: Float): Boolean =
+    centers.values.any { (it - position).getDistance() < keyWidth }
 
 private fun currentLayout(state: KeyboardUiState): KeyboardLayout = when (state.layoutMode) {
     LayoutMode.SYMBOLS -> Layouts.SYMBOLS
@@ -436,10 +544,11 @@ private fun Modifier.pointerInputKey(
                         onKey(key)
                     }
                 }
-                tryAwaitRelease()
+                // A cancelled press (finger became a swipe gesture) must not commit.
+                val released = tryAwaitRelease()
                 longPressJob.cancel()
                 setPressed(false)
-                if (!longPressFired) onKey(key)
+                if (released && !longPressFired) onKey(key)
             },
         )
     }

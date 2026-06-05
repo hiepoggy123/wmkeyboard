@@ -33,6 +33,7 @@ data class KeyboardSettings(
     val autoCapitalize: Boolean = true,
     val doubleSpacePeriod: Boolean = true,
     val suggestions: Boolean = true,
+    val gestureTyping: Boolean = true,
     val learnFromTyping: Boolean = true,
     val clipboardHistory: Boolean = true,
     val clipboardExpiryHours: Int = 24,
@@ -67,6 +68,7 @@ class SettingsRepository(private val context: Context) {
         private val AUTO_CAPITALIZE = booleanPreferencesKey("auto_capitalize")
         private val DOUBLE_SPACE_PERIOD = booleanPreferencesKey("double_space_period")
         private val SUGGESTIONS = booleanPreferencesKey("suggestions")
+        private val GESTURE_TYPING = booleanPreferencesKey("gesture_typing")
         private val LEARN_FROM_TYPING = booleanPreferencesKey("learn_from_typing")
         private val CLIPBOARD_HISTORY = booleanPreferencesKey("clipboard_history")
         private val CLIPBOARD_EXPIRY_HOURS = intPreferencesKey("clipboard_expiry_hours")
@@ -101,6 +103,7 @@ class SettingsRepository(private val context: Context) {
             autoCapitalize = p[AUTO_CAPITALIZE] ?: defaults.autoCapitalize,
             doubleSpacePeriod = p[DOUBLE_SPACE_PERIOD] ?: defaults.doubleSpacePeriod,
             suggestions = p[SUGGESTIONS] ?: defaults.suggestions,
+            gestureTyping = p[GESTURE_TYPING] ?: defaults.gestureTyping,
             learnFromTyping = p[LEARN_FROM_TYPING] ?: defaults.learnFromTyping,
             clipboardHistory = p[CLIPBOARD_HISTORY] ?: defaults.clipboardHistory,
             clipboardExpiryHours = p[CLIPBOARD_EXPIRY_HOURS] ?: defaults.clipboardExpiryHours,
@@ -158,6 +161,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setSuggestions(value: Boolean) =
         context.dataStore.edit { it[SUGGESTIONS] = value }
+
+    suspend fun setGestureTyping(value: Boolean) =
+        context.dataStore.edit { it[GESTURE_TYPING] = value }
 
     suspend fun setLearnFromTyping(value: Boolean) =
         context.dataStore.edit { it[LEARN_FROM_TYPING] = value }

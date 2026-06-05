@@ -284,6 +284,9 @@ private fun TypingSettings(repository: SettingsRepository, settings: KeyboardSet
     ToggleSetting("Suggestions", "Show the suggestion bar while typing", settings.suggestions) {
         scope.launch { repository.setSuggestions(it) }
     }
+    ToggleSetting("Gesture typing", "Swipe across letters to type a word", settings.gestureTyping) {
+        scope.launch { repository.setGestureTyping(it) }
+    }
     ToggleSetting("Auto-capitalize", "Capitalize the first word of sentences", settings.autoCapitalize) {
         scope.launch { repository.setAutoCapitalize(it) }
     }

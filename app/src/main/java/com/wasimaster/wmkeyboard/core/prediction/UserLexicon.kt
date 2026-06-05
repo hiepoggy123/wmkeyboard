@@ -63,6 +63,10 @@ class UserLexicon(private val storageFile: File?) {
     @Synchronized
     fun frequencyOf(word: String): Int = trie.frequencyOf(word)
 
+    /** Snapshot of all learned words with their counts. */
+    @Synchronized
+    fun allWords(): List<Pair<String, Int>> = words.toList()
+
     @Synchronized
     fun forget(word: String) {
         val key = word.lowercase()

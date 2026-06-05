@@ -17,6 +17,9 @@ import com.wasimaster.wmkeyboard.core.emoji.EmojiCatalog
 import com.wasimaster.wmkeyboard.core.emoji.EmojiEntry
 import com.wasimaster.wmkeyboard.core.emoji.EmojiSearch
 import com.wasimaster.wmkeyboard.core.emoji.EmojiUsage
+import com.wasimaster.wmkeyboard.core.gesture.GestureDecoder
+import com.wasimaster.wmkeyboard.core.gesture.GesturePoint
+import com.wasimaster.wmkeyboard.core.gesture.KeyCenter
 import com.wasimaster.wmkeyboard.core.prediction.DictionaryLoader
 import com.wasimaster.wmkeyboard.core.prediction.SuggestionEngine
 import com.wasimaster.wmkeyboard.core.prediction.Trie
@@ -70,6 +73,12 @@ class WMKeyboardService : InputMethodService() {
     private var lastSpaceTime = 0L
     private var suggestionJob: Job? = null
 
+    /** English word list used by the gesture decoder (bundled dictionary). */
+    private var gestureLexicon: List<Pair<String, Int>> = emptyList()
+
+    /** Last word committed by a swipe, so tapping an alternate replaces it. */
+    private var lastGestureWord: String? = null
+
     private val clipboardListener = ClipboardManager.OnPrimaryClipChangedListener {
         val state = _uiState.value
         if (!state.settings.clipboardHistory || state.settings.incognito || state.secureField) return@OnPrimaryClipChangedListener
@@ -101,12 +110,14 @@ class WMKeyboardService : InputMethodService() {
         // keyboard is usable immediately and suggestions appear when ready.
         serviceScope.launch {
             val loaded = withContext(Dispatchers.Default) {
-                val english = assets.open("dictionaries/en.txt").use { DictionaryLoader.load(it) }
+                val englishEntries = assets.open("dictionaries/en.txt").use { DictionaryLoader.loadEntries(it) }
                 val bengaliEntries = assets.open("dictionaries/bn.txt").use { DictionaryLoader.loadEntries(it) }
                 val catalog = assets.open("emoji/catalog.tsv").use { EmojiCatalog.load(it) }
-                Triple(english, bengaliEntries, catalog)
+                Triple(englishEntries, bengaliEntries, catalog)
             }
-            val (english: Trie, bengaliEntries, catalog) = loaded
+            val (englishEntries, bengaliEntries, catalog) = loaded
+            val english = Trie().apply { for ((word, freq) in englishEntries) insert(word, freq) }
+            gestureLexicon = englishEntries
             suggestionEngine = SuggestionEngine(english, BengaliPhoneticIndex(bengaliEntries), userLexicon)
             emojiEntries = catalog
             emojiSearch = EmojiSearch(catalog)
@@ -126,6 +137,7 @@ class WMKeyboardService : InputMethodService() {
                 stateFlow = uiState,
                 onKey = ::onKey,
                 onText = ::onText,
+                onGesture = ::onGesture,
                 onSuggestion = ::onSuggestionTapped,
                 onEmoji = ::onEmojiTapped,
                 onEmojiQueryTap = ::onEmojiSearchToggled,
@@ -144,6 +156,7 @@ class WMKeyboardService : InputMethodService() {
         lifecycleOwner.onResume()
         composing = StringBuilder()
         previousWord = null
+        lastGestureWord = null
         val secure = info.isSecureField()
         _uiState.update {
             it.copy(
@@ -181,6 +194,7 @@ class WMKeyboardService : InputMethodService() {
 
     fun onKey(key: Key) {
         vibrate()
+        if (key.action != KeyAction.Shift) lastGestureWord = null
         when (key.action) {
             KeyAction.Text -> onTextKey(key)
             KeyAction.Shift -> onShift()
@@ -416,11 +430,62 @@ class WMKeyboardService : InputMethodService() {
     fun onSuggestionTapped(suggestion: String) {
         vibrate()
         val ic = currentInputConnection ?: return
+        // After a swipe, the alternates replace the committed gesture word.
+        val gestureWord = lastGestureWord
+        if (composing.isEmpty() && gestureWord != null) {
+            val before = ic.getTextBeforeCursor(gestureWord.length, 0)?.toString()
+            if (before == gestureWord) ic.deleteSurroundingText(gestureWord.length, 0)
+        }
+        lastGestureWord = null
         ic.commitText("$suggestion ", 1)
         learn(suggestion)
         composing = StringBuilder()
         _uiState.update { it.copy(composingPreview = "", suggestions = emptyList()) }
         maybeAutoCapitalize()
+    }
+
+    // ---- gesture typing ----
+
+    /**
+     * Decodes a swipe drawn over the letter keys and commits the best word.
+     * Alternates go to the suggestion bar; tapping one replaces the word.
+     */
+    fun onGesture(points: List<GesturePoint>, keys: List<KeyCenter>, keyWidthPx: Float) {
+        val state = _uiState.value
+        if (!state.settings.gestureTyping || state.secureField) return
+        if (state.inputMode != InputMode.ENGLISH) return
+        val lexicon = gestureLexicon
+        if (lexicon.isEmpty() || keys.isEmpty()) return
+
+        val shiftAtGesture = state.shiftState
+        suggestionJob?.cancel()
+        suggestionJob = serviceScope.launch {
+            val candidates = withContext(Dispatchers.Default) {
+                val personal = userLexicon.allWords().map { (word, count) -> word to count * 500 }
+                GestureDecoder(keys, keyWidthPx).decode(points, lexicon + personal)
+            }
+            if (candidates.isEmpty()) return@launch
+            val ic = currentInputConnection ?: return@launch
+
+            commitComposing(ic, autocorrect = false)
+            val word = when (shiftAtGesture) {
+                ShiftState.CAPS_LOCK -> candidates.first().word.uppercase()
+                ShiftState.ON -> candidates.first().word.replaceFirstChar { it.uppercase() }
+                ShiftState.OFF -> candidates.first().word
+            }
+            // Auto-space between consecutive swiped words.
+            val before = ic.getTextBeforeCursor(1, 0)?.toString().orEmpty()
+            if (before.isNotEmpty() && !before.last().isWhitespace()) {
+                ic.commitText(" ", 1)
+            }
+            ic.commitText(word, 1)
+            learn(word)
+            lastGestureWord = word
+            consumeShift()
+            _uiState.update {
+                it.copy(suggestions = candidates.map { candidate -> candidate.word })
+            }
+        }
     }
 
     // ---- panels ----
