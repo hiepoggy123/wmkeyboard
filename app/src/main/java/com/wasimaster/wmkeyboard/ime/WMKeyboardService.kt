@@ -27,6 +27,7 @@ import com.wasimaster.wmkeyboard.core.prediction.UserLexicon
 import com.wasimaster.wmkeyboard.core.settings.InputMode
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import com.wasimaster.wmkeyboard.core.transliteration.AvroPhonetic
+import com.wasimaster.wmkeyboard.core.transliteration.BengaliGraphemes
 import com.wasimaster.wmkeyboard.core.transliteration.BengaliPhoneticIndex
 import com.wasimaster.wmkeyboard.ime.layout.Key
 import com.wasimaster.wmkeyboard.ime.layout.KeyAction
@@ -291,11 +292,17 @@ class WMKeyboardService : InputMethodService() {
             updateComposingText(ic)
             refreshSuggestions()
         } else {
-            // Delete a full surrogate pair / grapheme where possible.
-            val before = ic.getTextBeforeCursor(2, 0)
-            val deleteLength = if (before != null && before.length >= 2 &&
-                Character.isSurrogatePair(before[before.length - 2], before[before.length - 1])
-            ) 2 else 1
+            // Delete a full surrogate pair / grapheme; optionally a whole
+            // Bengali conjunct cluster as one unit.
+            val before = ic.getTextBeforeCursor(12, 0)
+            val deleteLength = when {
+                before.isNullOrEmpty() -> 1
+                state.settings.conjunctBackspace ->
+                    BengaliGraphemes.clusterDeleteLength(before).coerceAtLeast(1)
+                before.length >= 2 &&
+                    Character.isSurrogatePair(before[before.length - 2], before[before.length - 1]) -> 2
+                else -> 1
+            }
             ic.deleteSurroundingText(deleteLength, 0)
         }
     }

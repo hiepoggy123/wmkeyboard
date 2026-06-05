@@ -374,6 +374,18 @@ private fun LanguageSettings(repository: SettingsRepository, settings: KeyboardS
             }
         }
     }
+    Text(
+        "Bengali",
+        style = MaterialTheme.typography.titleSmall,
+        modifier = Modifier.padding(top = 16.dp),
+    )
+    ToggleSetting(
+        "Conjunct-aware backspace",
+        "Delete a whole যুক্তবর্ণ (like ক্ষ or স্ত্রী) as one unit",
+        settings.conjunctBackspace,
+    ) {
+        scope.launch { repository.setConjunctBackspace(it) }
+    }
 }
 
 @Composable

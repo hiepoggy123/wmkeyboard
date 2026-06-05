@@ -1,0 +1,71 @@
+package com.wasimaster.wmkeyboard.core.transliteration
+
+/**
+ * Bengali grapheme-cluster helpers for editing.
+ *
+ * Backspace normally removes one code unit, which visually shatters a
+ * conjunct (জ্ঞ → জ্ + delete → জ). With the conjunct-aware option the
+ * whole cluster — consonant(s) joined by hasant, plus any vowel sign and
+ * modifiers — is removed as a single unit.
+ */
+object BengaliGraphemes {
+
+    private const val HASANT = '্'
+    private const val ZWJ = '‍'
+    private const val ZWNJ = '‌'
+    private const val NUKTA = '়'
+
+    private fun isBengali(c: Char) = c.code in 0x0980..0x09FF
+
+    private fun isConsonant(c: Char) =
+        c.code in 0x0995..0x09B9 || c.code in 0x09DC..0x09DF || c == 'ৎ' || c == 'ৰ' || c == 'ৱ'
+
+    private fun isVowelSign(c: Char) =
+        c.code in 0x09BE..0x09C4 || c.code in 0x09C7..0x09C8 ||
+            c.code in 0x09CB..0x09CC || c == 'ৗ' || c.code in 0x09E2..0x09E3
+
+    /** Candrabindu, anusvara, visarga. */
+    private fun isModifier(c: Char) = c.code in 0x0981..0x0983
+
+    /**
+     * How many chars to remove from the end of [text] to delete the last
+     * Bengali cluster as one unit. Returns 0 when [text] is empty; falls
+     * back to 1 (or 2 for a surrogate pair) for non-Bengali endings.
+     */
+    fun clusterDeleteLength(text: CharSequence): Int {
+        if (text.isEmpty()) return 0
+        var i = text.length - 1
+
+        val last = text[i]
+        if (!isBengali(last) && last != ZWJ && last != ZWNJ) {
+            return if (text.length >= 2 && Character.isSurrogatePair(text[i - 1], last)) 2 else 1
+        }
+        // A bare trailing hasant deletes alone: typing an explicit hasant
+        // then backspace should undo just the hasant.
+        if (last == HASANT) return 1
+
+        // Trailing modifiers, vowel signs, nukta and joiners.
+        while (i >= 0 && (isVowelSign(text[i]) || isModifier(text[i]) ||
+                text[i] == NUKTA || text[i] == ZWJ || text[i] == ZWNJ)
+        ) i--
+        if (i < 0) return text.length
+
+        if (!isConsonant(text[i])) {
+            // Independent vowel, digit or sign: it plus any trailing marks.
+            return text.length - i
+        }
+        i-- // the base consonant
+
+        // Walk back over (consonant + hasant [+ joiner] [+ nukta]) pairs.
+        while (i >= 0) {
+            var j = i
+            if (text[j] == ZWJ || text[j] == ZWNJ) j--
+            if (j < 0 || text[j] != HASANT) break
+            j--
+            if (j >= 0 && text[j] == NUKTA) j--
+            if (j < 0 || !isConsonant(text[j])) break
+            i = j - 1
+        }
+        return text.length - (i + 1)
+    }
+}

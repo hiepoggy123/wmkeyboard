@@ -35,6 +35,7 @@ data class KeyboardSettings(
     val suggestions: Boolean = true,
     val gestureTyping: Boolean = true,
     val spacebarCursor: Boolean = true,
+    val conjunctBackspace: Boolean = false,
     val learnFromTyping: Boolean = true,
     val clipboardHistory: Boolean = true,
     val clipboardExpiryHours: Int = 24,
@@ -71,6 +72,7 @@ class SettingsRepository(private val context: Context) {
         private val SUGGESTIONS = booleanPreferencesKey("suggestions")
         private val GESTURE_TYPING = booleanPreferencesKey("gesture_typing")
         private val SPACEBAR_CURSOR = booleanPreferencesKey("spacebar_cursor")
+        private val CONJUNCT_BACKSPACE = booleanPreferencesKey("conjunct_backspace")
         private val LEARN_FROM_TYPING = booleanPreferencesKey("learn_from_typing")
         private val CLIPBOARD_HISTORY = booleanPreferencesKey("clipboard_history")
         private val CLIPBOARD_EXPIRY_HOURS = intPreferencesKey("clipboard_expiry_hours")
@@ -107,6 +109,7 @@ class SettingsRepository(private val context: Context) {
             suggestions = p[SUGGESTIONS] ?: defaults.suggestions,
             gestureTyping = p[GESTURE_TYPING] ?: defaults.gestureTyping,
             spacebarCursor = p[SPACEBAR_CURSOR] ?: defaults.spacebarCursor,
+            conjunctBackspace = p[CONJUNCT_BACKSPACE] ?: defaults.conjunctBackspace,
             learnFromTyping = p[LEARN_FROM_TYPING] ?: defaults.learnFromTyping,
             clipboardHistory = p[CLIPBOARD_HISTORY] ?: defaults.clipboardHistory,
             clipboardExpiryHours = p[CLIPBOARD_EXPIRY_HOURS] ?: defaults.clipboardExpiryHours,
@@ -170,6 +173,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setSpacebarCursor(value: Boolean) =
         context.dataStore.edit { it[SPACEBAR_CURSOR] = value }
+
+    suspend fun setConjunctBackspace(value: Boolean) =
+        context.dataStore.edit { it[CONJUNCT_BACKSPACE] = value }
 
     suspend fun setLearnFromTyping(value: Boolean) =
         context.dataStore.edit { it[LEARN_FROM_TYPING] = value }
