@@ -81,6 +81,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
 import android.os.Build
 import com.wasimaster.wmkeyboard.core.clipboard.ClipItem
+import com.wasimaster.wmkeyboard.core.emoji.EmojiVariants
 import com.wasimaster.wmkeyboard.core.gesture.GesturePoint
 import com.wasimaster.wmkeyboard.core.gesture.KeyCenter
 import com.wasimaster.wmkeyboard.core.settings.InputMode
@@ -713,13 +714,57 @@ private fun EmojiPanel(
                     }
                 }
                 items(emojis) { emoji ->
-                    Text(
-                        text = emoji,
-                        modifier = Modifier
-                            .clickable { onEmoji(emoji) }
-                            .padding(6.dp),
-                        fontSize = 26.sp,
+                    EmojiCell(emoji, onEmoji)
+                }
+            }
+        }
+    }
+}
+
+/** One emoji in the grid; long-press opens skin-tone variants. */
+@Composable
+private fun EmojiCell(emoji: String, onEmoji: (String) -> Unit) {
+    var showVariants by remember { mutableStateOf(false) }
+    val variants = remember(emoji) { EmojiVariants.variants(emoji) }
+    Box {
+        Text(
+            text = emoji,
+            modifier = Modifier
+                .pointerInput(emoji) {
+                    detectTapGestures(
+                        onTap = { onEmoji(emoji) },
+                        onLongPress = {
+                            if (variants.size > 1) showVariants = true else onEmoji(emoji)
+                        },
                     )
+                }
+                .padding(6.dp),
+            fontSize = 26.sp,
+        )
+        if (showVariants) {
+            Popup(
+                alignment = Alignment.TopCenter,
+                onDismissRequest = { showVariants = false },
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerHighest,
+                    shadowElevation = 8.dp,
+                ) {
+                    Row(modifier = Modifier.padding(4.dp)) {
+                        for (variant in variants) {
+                            Text(
+                                text = variant,
+                                modifier = Modifier
+                                    .clickable {
+                                        showVariants = false
+                                        onEmoji(variant)
+                                    }
+                                    .padding(horizontal = 8.dp, vertical = 8.dp),
+                                fontSize = 24.sp,
+                            )
+                        }
+                    }
                 }
             }
         }
