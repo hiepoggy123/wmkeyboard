@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -25,8 +26,13 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.Backspace
 import androidx.compose.material.icons.automirrored.filled.KeyboardReturn
+import androidx.compose.material.icons.automirrored.filled.KeyboardTab
+import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.Delete
@@ -78,6 +84,7 @@ import com.wasimaster.wmkeyboard.core.gesture.GesturePoint
 import com.wasimaster.wmkeyboard.core.gesture.KeyCenter
 import com.wasimaster.wmkeyboard.core.settings.InputMode
 import com.wasimaster.wmkeyboard.core.settings.ThemeMode
+import com.wasimaster.wmkeyboard.ime.EnterAction
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
 import com.wasimaster.wmkeyboard.ime.LayoutMode
 import com.wasimaster.wmkeyboard.ime.PanelMode
@@ -98,6 +105,7 @@ fun KeyboardScreen(
     onKey: (Key) -> Unit,
     onText: (String) -> Unit = {},
     onGesture: (List<GesturePoint>, List<KeyCenter>, Float) -> Unit = { _, _, _ -> },
+    onCursorMove: (Int) -> Unit = {},
     onSuggestion: (String) -> Unit,
     onEmoji: (String) -> Unit,
     onEmojiQueryTap: () -> Unit,
@@ -111,16 +119,22 @@ fun KeyboardScreen(
 
     KeyboardTheme(themeMode = state.settings.themeMode, dynamicColor = state.settings.dynamicColor) {
         Surface(color = MaterialTheme.colorScheme.surfaceContainerLow) {
-            Column(modifier = Modifier.fillMaxWidth()) {
+            // navigationBarsPadding keeps the bottom key row clear of the
+            // gesture-navigation bar on edge-to-edge (SDK 35+) IME windows.
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding(),
+            ) {
                 TopBar(state, onSuggestion, onPanelChange, onOpenSettings)
                 when (state.panel) {
                     PanelMode.EMOJI -> EmojiPanel(state, onEmoji, onEmojiQueryTap, onKey, onText)
                     PanelMode.CLIPBOARD -> ClipboardPanel(state, onClipboardItem, onClipboardPin, onClipboardDelete)
-                    PanelMode.NONE -> KeyRows(state, onKey, onText, onGesture)
+                    PanelMode.NONE -> KeyRows(state, onKey, onText, onGesture, onCursorMove)
                 }
                 // In emoji search mode the letters stay visible for typing the query.
                 if (state.panel == PanelMode.EMOJI && state.emojiSearchActive) {
-                    KeyRows(state, onKey, onText, onGesture)
+                    KeyRows(state, onKey, onText, onGesture, onCursorMove)
                 }
             }
         }
@@ -234,6 +248,7 @@ private fun KeyRows(
     onKey: (Key) -> Unit,
     onText: (String) -> Unit,
     onGesture: (List<GesturePoint>, List<KeyCenter>, Float) -> Unit = { _, _, _ -> },
+    onCursorMove: (Int) -> Unit = {},
 ) {
     val layout = currentLayout(state)
     val gestureEnabled = state.settings.gestureTyping &&
@@ -293,11 +308,11 @@ private fun KeyRows(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 2.dp, vertical = 4.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
+                .padding(horizontal = 4.dp, vertical = 6.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             if (state.settings.numberRow && state.layoutMode == LayoutMode.LETTERS) {
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                     "1234567890".forEach { digit ->
                         KeyButton(
                             key = Key(digit.toString()),
@@ -310,7 +325,7 @@ private fun KeyRows(
                 }
             }
             for (row in layout.rows) {
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                     for (key in row) {
                         val letter = key.label.singleOrNull()?.takeIf {
                             key.action == KeyAction.Text && it.isLetter()
@@ -334,6 +349,7 @@ private fun KeyRows(
                             },
                             onKey = onKey,
                             onText = onText,
+                            onCursorMove = onCursorMove,
                         )
                     }
                 }
@@ -375,17 +391,20 @@ private fun KeyButton(
     modifier: Modifier,
     onKey: (Key) -> Unit,
     onText: (String) -> Unit,
+    onCursorMove: (Int) -> Unit = {},
 ) {
     var pressed by remember { mutableStateOf(false) }
     var showAlternates by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val settings = state.settings
 
+    // Samsung-style contrast: letter keys clearly lighter than the board,
+    // modifier keys a shade darker than the letters.
     val background = when {
         pressed -> MaterialTheme.colorScheme.primaryContainer
         key.action == KeyAction.Enter -> MaterialTheme.colorScheme.primary
         key.action != KeyAction.Text -> MaterialTheme.colorScheme.surfaceContainerHigh
-        else -> MaterialTheme.colorScheme.surfaceContainer
+        else -> MaterialTheme.colorScheme.surfaceContainerHighest
     }
     val contentColor = when {
         key.action == KeyAction.Enter && !pressed -> MaterialTheme.colorScheme.onPrimary
@@ -397,9 +416,11 @@ private fun KeyButton(
             .height(settings.keyHeightDp.dp)
             .background(background, RoundedCornerShape(settings.keyCornerRadiusDp.dp))
             .pointerInputKey(key, settings.longPressDelayMs, settings.keyRepeatIntervalMs,
+                spacebarCursor = settings.spacebarCursor,
                 setPressed = { pressed = it },
                 openAlternates = { showAlternates = true },
                 onKey = onKey,
+                onCursorMove = onCursorMove,
                 scope = scope),
         contentAlignment = Alignment.Center,
     ) {
@@ -469,7 +490,15 @@ private fun KeyContent(key: Key, state: KeyboardUiState, contentColor: Color) {
             tint = contentColor,
         )
         KeyAction.Enter -> Icon(
-            Icons.AutoMirrored.Filled.KeyboardReturn,
+            when (state.enterAction) {
+                EnterAction.SEARCH -> Icons.Filled.Search
+                EnterAction.SEND -> Icons.AutoMirrored.Filled.Send
+                EnterAction.GO -> Icons.AutoMirrored.Filled.ArrowForward
+                EnterAction.NEXT -> Icons.AutoMirrored.Filled.KeyboardTab
+                EnterAction.PREVIOUS -> Icons.AutoMirrored.Filled.ArrowBack
+                EnterAction.DONE -> Icons.Filled.Check
+                EnterAction.DEFAULT -> Icons.AutoMirrored.Filled.KeyboardReturn
+            },
             contentDescription = "Enter",
             tint = contentColor,
         )
@@ -505,52 +534,91 @@ private fun KeyContent(key: Key, state: KeyboardUiState, contentColor: Color) {
 
 private fun displayLabel(key: Key, state: KeyboardUiState): String = when {
     state.shiftState != ShiftState.OFF && key.shiftLabel != null -> key.shiftLabel
-    state.shiftState != ShiftState.OFF && key.action == KeyAction.Text &&
-        state.inputMode != InputMode.PROBHAT -> key.label.uppercase()
+    // Latin letters display uppercase regardless of shift (Samsung style);
+    // shift state shows on the shift key and in the committed text.
+    key.action == KeyAction.Text && state.inputMode != InputMode.PROBHAT &&
+        key.label.singleOrNull()?.code?.let { it in 'a'.code..'z'.code } == true ->
+        key.label.uppercase()
     else -> key.label
 }
 
 /**
  * Press handling: tap commits, long-press opens alternates (or begins
- * repeating for delete), release cancels. Implemented with raw press
- * detection so repeat and popup can share the gesture.
+ * repeating for delete), release cancels. The spacebar instead supports a
+ * horizontal drag that moves the text cursor. Implemented with raw press
+ * detection so repeat, popup and drag can share the gesture.
  */
 private fun Modifier.pointerInputKey(
     key: Key,
     longPressDelayMs: Int,
     repeatIntervalMs: Int,
+    spacebarCursor: Boolean,
     setPressed: (Boolean) -> Unit,
     openAlternates: () -> Unit,
     onKey: (Key) -> Unit,
+    onCursorMove: (Int) -> Unit,
     scope: kotlinx.coroutines.CoroutineScope,
 ): Modifier = this.then(
-    Modifier.pointerInput(key) {
-        detectTapGestures(
-            onPress = {
+    if (key.action == KeyAction.Space && spacebarCursor) {
+        Modifier.pointerInput(key) {
+            val stepPx = 16.dp.toPx()
+            awaitEachGesture {
+                val down = awaitFirstDown()
                 setPressed(true)
-                var longPressFired = false
-                val longPressJob: Job = scope.launch {
-                    delay(longPressDelayMs.toLong())
-                    longPressFired = true
-                    if (key.action == KeyAction.Delete || key.action == KeyAction.Space) {
-                        while (true) {
-                            onKey(key)
-                            delay(repeatIntervalMs.toLong())
-                        }
-                    } else if (key.longPress.isNotEmpty()) {
-                        openAlternates()
-                    } else {
-                        // No alternates: long press behaves like a tap.
-                        onKey(key)
+                var moved = false
+                var accumulated = 0f
+                var lastX = down.position.x
+                while (true) {
+                    val event = awaitPointerEvent()
+                    val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                    if (!change.pressed) break
+                    accumulated += change.position.x - lastX
+                    lastX = change.position.x
+                    while (accumulated > stepPx) {
+                        onCursorMove(1)
+                        accumulated -= stepPx
+                        moved = true
                     }
+                    while (accumulated < -stepPx) {
+                        onCursorMove(-1)
+                        accumulated += stepPx
+                        moved = true
+                    }
+                    if (moved) change.consume()
                 }
-                // A cancelled press (finger became a swipe gesture) must not commit.
-                val released = tryAwaitRelease()
-                longPressJob.cancel()
                 setPressed(false)
-                if (released && !longPressFired) onKey(key)
-            },
-        )
+                if (!moved) onKey(key)
+            }
+        }
+    } else {
+        Modifier.pointerInput(key) {
+            detectTapGestures(
+                onPress = {
+                    setPressed(true)
+                    var longPressFired = false
+                    val longPressJob: Job = scope.launch {
+                        delay(longPressDelayMs.toLong())
+                        longPressFired = true
+                        if (key.action == KeyAction.Delete || key.action == KeyAction.Space) {
+                            while (true) {
+                                onKey(key)
+                                delay(repeatIntervalMs.toLong())
+                            }
+                        } else if (key.longPress.isNotEmpty()) {
+                            openAlternates()
+                        } else {
+                            // No alternates: long press behaves like a tap.
+                            onKey(key)
+                        }
+                    }
+                    // A cancelled press (finger became a swipe gesture) must not commit.
+                    val released = tryAwaitRelease()
+                    longPressJob.cancel()
+                    setPressed(false)
+                    if (released && !longPressFired) onKey(key)
+                },
+            )
+        }
     }
 )
 

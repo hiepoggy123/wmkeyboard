@@ -11,6 +11,9 @@ enum class LayoutMode { LETTERS, SYMBOLS, SYMBOLS_SHIFTED }
 
 enum class PanelMode { NONE, EMOJI, CLIPBOARD }
 
+/** What the enter key does in the focused field, from EditorInfo.imeOptions. */
+enum class EnterAction { DEFAULT, SEARCH, SEND, GO, NEXT, PREVIOUS, DONE }
+
 /**
  * Immutable UI state rendered by the Compose keyboard. The service owns a
  * MutableStateFlow of this and mutates it via copy().
@@ -30,4 +33,5 @@ data class KeyboardUiState(
     val emojiCatalog: List<EmojiEntry> = emptyList(),
     val clipboardItems: List<ClipItem> = emptyList(),
     val secureField: Boolean = false,
+    val enterAction: EnterAction = EnterAction.DEFAULT,
 )

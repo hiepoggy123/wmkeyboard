@@ -71,6 +71,7 @@ class WMKeyboardService : InputMethodService() {
     private var composing = StringBuilder()
     private var previousWord: String? = null
     private var lastSpaceTime = 0L
+    private var lastShiftTapTime = 0L
     private var suggestionJob: Job? = null
 
     /** English word list used by the gesture decoder (bundled dictionary). */
@@ -138,6 +139,7 @@ class WMKeyboardService : InputMethodService() {
                 onKey = ::onKey,
                 onText = ::onText,
                 onGesture = ::onGesture,
+                onCursorMove = ::onCursorMove,
                 onSuggestion = ::onSuggestionTapped,
                 onEmoji = ::onEmojiTapped,
                 onEmojiQueryTap = ::onEmojiSearchToggled,
@@ -168,6 +170,7 @@ class WMKeyboardService : InputMethodService() {
                 secureField = secure,
                 shiftState = if (shouldAutoCapitalize()) ShiftState.ON else ShiftState.OFF,
                 clipboardItems = clipboardStore.items(),
+                enterAction = info.enterAction(),
             )
         }
     }
@@ -253,12 +256,15 @@ class WMKeyboardService : InputMethodService() {
     }
 
     private fun onShift() {
+        val now = System.currentTimeMillis()
+        val doubleTap = now - lastShiftTapTime < SHIFT_DOUBLE_TAP_MS
+        lastShiftTapTime = now
         _uiState.update {
             it.copy(
-                shiftState = when (it.shiftState) {
-                    ShiftState.OFF -> ShiftState.ON
-                    ShiftState.ON -> ShiftState.CAPS_LOCK
-                    ShiftState.CAPS_LOCK -> ShiftState.OFF
+                shiftState = when {
+                    doubleTap && it.shiftState != ShiftState.CAPS_LOCK -> ShiftState.CAPS_LOCK
+                    it.shiftState == ShiftState.OFF -> ShiftState.ON
+                    else -> ShiftState.OFF
                 },
             )
         }
@@ -444,6 +450,16 @@ class WMKeyboardService : InputMethodService() {
         maybeAutoCapitalize()
     }
 
+    /** Spacebar drag: move the cursor one position left (-1) or right (+1). */
+    fun onCursorMove(delta: Int) {
+        val ic = currentInputConnection ?: return
+        commitComposing(ic, autocorrect = false)
+        lastGestureWord = null
+        sendDownUpKeyEvents(
+            if (delta < 0) KeyEvent.KEYCODE_DPAD_LEFT else KeyEvent.KEYCODE_DPAD_RIGHT
+        )
+    }
+
     // ---- gesture typing ----
 
     /**
@@ -594,6 +610,21 @@ class WMKeyboardService : InputMethodService() {
 
     companion object {
         private val SENTENCE_ENDERS = charArrayOf('.', '!', '?', '।')
+        private const val SHIFT_DOUBLE_TAP_MS = 350L
+
+        private fun EditorInfo?.enterAction(): EnterAction {
+            val options = this?.imeOptions ?: return EnterAction.DEFAULT
+            if (options and EditorInfo.IME_FLAG_NO_ENTER_ACTION != 0) return EnterAction.DEFAULT
+            return when (options and EditorInfo.IME_MASK_ACTION) {
+                EditorInfo.IME_ACTION_SEARCH -> EnterAction.SEARCH
+                EditorInfo.IME_ACTION_SEND -> EnterAction.SEND
+                EditorInfo.IME_ACTION_GO -> EnterAction.GO
+                EditorInfo.IME_ACTION_NEXT -> EnterAction.NEXT
+                EditorInfo.IME_ACTION_PREVIOUS -> EnterAction.PREVIOUS
+                EditorInfo.IME_ACTION_DONE -> EnterAction.DONE
+                else -> EnterAction.DEFAULT
+            }
+        }
 
         private fun EditorInfo?.isSecureField(): Boolean {
             val inputType = this?.inputType ?: return false
