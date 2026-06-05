@@ -38,6 +38,7 @@ import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.EmojiEmotions
 import androidx.compose.material.icons.filled.Fullscreen
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.KeyboardCapslock
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.PushPin
@@ -110,6 +111,7 @@ fun KeyboardScreen(
     onKey: (Key) -> Unit,
     onText: (String) -> Unit = {},
     onGesture: (List<GesturePoint>, List<KeyCenter>, Float) -> Unit = { _, _, _ -> },
+    onGesturePreview: (List<GesturePoint>, List<KeyCenter>, Float) -> Unit = { _, _, _ -> },
     onCursorMove: (Int) -> Unit = {},
     onSuggestion: (String) -> Unit,
     onEmoji: (String) -> Unit,
@@ -146,11 +148,11 @@ fun KeyboardScreen(
                         PanelMode.EMOJI -> EmojiPanel(state, onEmoji, onEmojiQueryTap, onKey, onText)
                         PanelMode.CLIPBOARD -> ClipboardPanel(state, onClipboardItem, onClipboardPin, onClipboardDelete)
                         PanelMode.SNIPPETS -> SnippetsPanel(state, onSnippet)
-                        PanelMode.NONE -> KeyRows(state, onKey, onText, onGesture, onCursorMove)
+                        PanelMode.NONE -> KeyRows(state, onKey, onText, onGesture, onGesturePreview, onCursorMove)
                     }
                     // In emoji search mode the letters stay visible for typing the query.
                     if (state.panel == PanelMode.EMOJI && state.emojiSearchActive) {
-                        KeyRows(state, onKey, onText, onGesture, onCursorMove)
+                        KeyRows(state, onKey, onText, onGesture, onGesturePreview, onCursorMove)
                     }
                 }
                 if (oneHanded == OneHandedMode.LEFT) {
@@ -310,6 +312,7 @@ private fun KeyRows(
     onKey: (Key) -> Unit,
     onText: (String) -> Unit,
     onGesture: (List<GesturePoint>, List<KeyCenter>, Float) -> Unit = { _, _, _ -> },
+    onGesturePreview: (List<GesturePoint>, List<KeyCenter>, Float) -> Unit = { _, _, _ -> },
     onCursorMove: (Int) -> Unit = {},
 ) {
     val layout = currentLayout(state)
@@ -354,6 +357,14 @@ private fun KeyRows(
                         if (isGesture) {
                             change.consume()
                             trail = points.toList()
+                            // Live preview: decode every few samples.
+                            if (points.size % 6 == 0) {
+                                onGesturePreview(
+                                    points.map { GesturePoint(it.x, it.y) },
+                                    keyCenters.map { (char, center) -> KeyCenter(char, center.x, center.y) },
+                                    keyWidthPx,
+                                )
+                            }
                         }
                     }
                     if (isGesture && points.size >= 4) {
@@ -542,8 +553,16 @@ private fun KeyContent(key: Key, state: KeyboardUiState, contentColor: Color) {
     val fontScale = state.settings.fontScale
     when (key.action) {
         KeyAction.Shift -> Icon(
-            Icons.Filled.KeyboardCapslock,
-            contentDescription = "Shift",
+            if (state.shiftState == ShiftState.CAPS_LOCK) {
+                Icons.Filled.KeyboardCapslock
+            } else {
+                Icons.Filled.KeyboardArrowUp
+            },
+            contentDescription = when (state.shiftState) {
+                ShiftState.CAPS_LOCK -> "Caps lock on"
+                ShiftState.ON -> "Shift on"
+                ShiftState.OFF -> "Shift"
+            },
             tint = if (state.shiftState != ShiftState.OFF) MaterialTheme.colorScheme.primary else contentColor,
         )
         KeyAction.Delete -> Icon(

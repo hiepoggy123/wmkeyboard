@@ -84,6 +84,7 @@ class WMKeyboardService : InputMethodService() {
 
     /** Last word committed by a swipe, so tapping an alternate replaces it. */
     private var lastGestureWord: String? = null
+    private var previewJob: Job? = null
 
     private val clipboardListener = ClipboardManager.OnPrimaryClipChangedListener {
         val state = _uiState.value
@@ -145,6 +146,7 @@ class WMKeyboardService : InputMethodService() {
                 onKey = ::onKey,
                 onText = ::onText,
                 onGesture = ::onGesture,
+                onGesturePreview = ::onGesturePreview,
                 onCursorMove = ::onCursorMove,
                 onSuggestion = ::onSuggestionTapped,
                 onEmoji = ::onEmojiTapped,
@@ -476,6 +478,24 @@ class WMKeyboardService : InputMethodService() {
 
     // ---- gesture typing ----
 
+    /** Mid-swipe: show the current best candidates without committing. */
+    fun onGesturePreview(points: List<GesturePoint>, keys: List<KeyCenter>, keyWidthPx: Float) {
+        val state = _uiState.value
+        if (!state.settings.gestureTyping || state.secureField) return
+        if (state.inputMode != InputMode.ENGLISH) return
+        val lexicon = gestureLexicon
+        if (lexicon.isEmpty() || keys.isEmpty()) return
+        previewJob?.cancel()
+        previewJob = serviceScope.launch {
+            val candidates = withContext(Dispatchers.Default) {
+                GestureDecoder(keys, keyWidthPx).decode(points, lexicon)
+            }
+            if (candidates.isNotEmpty()) {
+                _uiState.update { it.copy(suggestions = candidates.map { candidate -> candidate.word }) }
+            }
+        }
+    }
+
     /**
      * Decodes a swipe drawn over the letter keys and commits the best word.
      * Alternates go to the suggestion bar; tapping one replaces the word.
@@ -488,11 +508,19 @@ class WMKeyboardService : InputMethodService() {
         if (lexicon.isEmpty() || keys.isEmpty()) return
 
         val shiftAtGesture = state.shiftState
+        previewJob?.cancel()
         suggestionJob?.cancel()
         suggestionJob = serviceScope.launch {
             val candidates = withContext(Dispatchers.Default) {
                 val personal = userLexicon.allWords().map { (word, count) -> word to count * 500 }
                 GestureDecoder(keys, keyWidthPx).decode(points, lexicon + personal)
+            }
+            // Debug builds only: typed content must never be logged in release.
+            if (applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0) {
+                android.util.Log.d(
+                    "WMKeyboard",
+                    "gesture shift=$shiftAtGesture candidates=${candidates.map { it.word }}",
+                )
             }
             if (candidates.isEmpty()) return@launch
             val ic = currentInputConnection ?: return@launch
