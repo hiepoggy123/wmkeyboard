@@ -37,6 +37,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.EmojiEmotions
+import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material.icons.filled.KeyboardCapslock
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.PushPin
@@ -85,6 +86,7 @@ import com.wasimaster.wmkeyboard.core.emoji.EmojiVariants
 import com.wasimaster.wmkeyboard.core.gesture.GesturePoint
 import com.wasimaster.wmkeyboard.core.gesture.KeyCenter
 import com.wasimaster.wmkeyboard.core.settings.InputMode
+import com.wasimaster.wmkeyboard.core.settings.OneHandedMode
 import com.wasimaster.wmkeyboard.core.settings.ThemeMode
 import com.wasimaster.wmkeyboard.core.snippets.Snippet
 import com.wasimaster.wmkeyboard.ime.EnterAction
@@ -117,6 +119,7 @@ fun KeyboardScreen(
     onClipboardPin: (ClipItem) -> Unit,
     onClipboardDelete: (ClipItem) -> Unit,
     onSnippet: (Snippet) -> Unit = {},
+    onOneHanded: (OneHandedMode) -> Unit = {},
     onOpenSettings: () -> Unit,
 ) {
     val state by stateFlow.collectAsState()
@@ -125,23 +128,70 @@ fun KeyboardScreen(
         Surface(color = MaterialTheme.colorScheme.surfaceContainerLow) {
             // navigationBarsPadding keeps the bottom key row clear of the
             // gesture-navigation bar on edge-to-edge (SDK 35+) IME windows.
-            Column(
+            val oneHanded = state.settings.oneHandedMode
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .navigationBarsPadding(),
+                verticalAlignment = Alignment.Bottom,
             ) {
-                TopBar(state, onSuggestion, onPanelChange, onOpenSettings)
-                when (state.panel) {
-                    PanelMode.EMOJI -> EmojiPanel(state, onEmoji, onEmojiQueryTap, onKey, onText)
-                    PanelMode.CLIPBOARD -> ClipboardPanel(state, onClipboardItem, onClipboardPin, onClipboardDelete)
-                    PanelMode.SNIPPETS -> SnippetsPanel(state, onSnippet)
-                    PanelMode.NONE -> KeyRows(state, onKey, onText, onGesture, onCursorMove)
+                if (oneHanded == OneHandedMode.RIGHT) {
+                    OneHandedRail(current = oneHanded, onOneHanded = onOneHanded, modifier = Modifier.weight(0.22f))
                 }
-                // In emoji search mode the letters stay visible for typing the query.
-                if (state.panel == PanelMode.EMOJI && state.emojiSearchActive) {
-                    KeyRows(state, onKey, onText, onGesture, onCursorMove)
+                Column(
+                    modifier = Modifier.weight(if (oneHanded == OneHandedMode.OFF) 1f else 0.78f),
+                ) {
+                    TopBar(state, onSuggestion, onPanelChange, onOpenSettings)
+                    when (state.panel) {
+                        PanelMode.EMOJI -> EmojiPanel(state, onEmoji, onEmojiQueryTap, onKey, onText)
+                        PanelMode.CLIPBOARD -> ClipboardPanel(state, onClipboardItem, onClipboardPin, onClipboardDelete)
+                        PanelMode.SNIPPETS -> SnippetsPanel(state, onSnippet)
+                        PanelMode.NONE -> KeyRows(state, onKey, onText, onGesture, onCursorMove)
+                    }
+                    // In emoji search mode the letters stay visible for typing the query.
+                    if (state.panel == PanelMode.EMOJI && state.emojiSearchActive) {
+                        KeyRows(state, onKey, onText, onGesture, onCursorMove)
+                    }
+                }
+                if (oneHanded == OneHandedMode.LEFT) {
+                    OneHandedRail(current = oneHanded, onOneHanded = onOneHanded, modifier = Modifier.weight(0.22f))
                 }
             }
+        }
+    }
+}
+
+/** Side rail shown in one-handed mode: swap sides or return to full width. */
+@Composable
+private fun OneHandedRail(
+    current: OneHandedMode,
+    onOneHanded: (OneHandedMode) -> Unit,
+    modifier: Modifier,
+) {
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        IconButton(onClick = {
+            onOneHanded(if (current == OneHandedMode.LEFT) OneHandedMode.RIGHT else OneHandedMode.LEFT)
+        }) {
+            Icon(
+                if (current == OneHandedMode.LEFT) {
+                    Icons.AutoMirrored.Filled.ArrowForward
+                } else {
+                    Icons.AutoMirrored.Filled.ArrowBack
+                },
+                contentDescription = "Move keyboard to the other side",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        IconButton(onClick = { onOneHanded(OneHandedMode.OFF) }) {
+            Icon(
+                Icons.Filled.Fullscreen,
+                contentDescription = "Exit one-handed mode",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }

@@ -66,6 +66,7 @@ import androidx.navigation.compose.rememberNavController
 import android.os.Build
 import com.wasimaster.wmkeyboard.core.settings.InputMode
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
+import com.wasimaster.wmkeyboard.core.settings.OneHandedMode
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import com.wasimaster.wmkeyboard.core.settings.ThemeMode
 import com.wasimaster.wmkeyboard.core.snippets.Snippet
@@ -354,6 +355,24 @@ private fun AppearanceSettings(repository: SettingsRepository, settings: Keyboar
     }
     ToggleSetting("Material You colors", "Use wallpaper-based dynamic color", settings.dynamicColor) {
         scope.launch { repository.setDynamicColor(it) }
+    }
+    Text(
+        "One-handed mode",
+        style = MaterialTheme.typography.titleSmall,
+        modifier = Modifier.padding(top = 16.dp),
+    )
+    SingleChoiceSegmentedButtonRow(modifier = Modifier
+        .fillMaxWidth()
+        .padding(vertical = 8.dp)) {
+        OneHandedMode.entries.forEachIndexed { index, mode ->
+            SegmentedButton(
+                selected = settings.oneHandedMode == mode,
+                onClick = { scope.launch { repository.setOneHandedMode(mode) } },
+                shape = SegmentedButtonDefaults.itemShape(index, OneHandedMode.entries.size),
+            ) {
+                Text(mode.name.lowercase().replaceFirstChar { it.uppercase() })
+            }
+        }
     }
     SliderSetting("Key height", settings.keyHeightDp.toFloat(), 40f..80f, "${settings.keyHeightDp} dp") {
         scope.launch { repository.setKeyHeightDp(it.toInt()) }

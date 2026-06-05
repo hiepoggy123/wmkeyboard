@@ -25,6 +25,7 @@ import com.wasimaster.wmkeyboard.core.prediction.SuggestionEngine
 import com.wasimaster.wmkeyboard.core.prediction.Trie
 import com.wasimaster.wmkeyboard.core.prediction.UserLexicon
 import com.wasimaster.wmkeyboard.core.settings.InputMode
+import com.wasimaster.wmkeyboard.core.settings.OneHandedMode
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import com.wasimaster.wmkeyboard.core.snippets.Snippet
 import com.wasimaster.wmkeyboard.core.snippets.SnippetStore
@@ -153,6 +154,7 @@ class WMKeyboardService : InputMethodService() {
                 onClipboardPin = ::onClipboardPin,
                 onClipboardDelete = ::onClipboardDelete,
                 onSnippet = ::onSnippetTapped,
+                onOneHanded = ::onOneHandedChange,
                 onOpenSettings = ::openSettings,
             )
         }
@@ -581,6 +583,11 @@ class WMKeyboardService : InputMethodService() {
         clipboardStore.remove(item.id)
         clipboardStore.save()
         _uiState.update { it.copy(clipboardItems = clipboardStore.items()) }
+    }
+
+    fun onOneHandedChange(mode: OneHandedMode) {
+        vibrate()
+        serviceScope.launch { settingsRepository.setOneHandedMode(mode) }
     }
 
     fun openSettings() {

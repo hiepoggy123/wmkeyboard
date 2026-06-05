@@ -16,6 +16,9 @@ enum class InputMode { ENGLISH, AVRO, PROBHAT }
 /** Visual theme for the keyboard and settings app. */
 enum class ThemeMode { SYSTEM, LIGHT, DARK, AMOLED }
 
+/** Shrinks the keyboard toward one edge for thumb reach. */
+enum class OneHandedMode { OFF, LEFT, RIGHT }
+
 data class KeyboardSettings(
     val inputMode: InputMode = InputMode.ENGLISH,
     val enabledModes: List<InputMode> = listOf(InputMode.ENGLISH, InputMode.AVRO, InputMode.PROBHAT),
@@ -36,6 +39,7 @@ data class KeyboardSettings(
     val gestureTyping: Boolean = true,
     val spacebarCursor: Boolean = true,
     val conjunctBackspace: Boolean = false,
+    val oneHandedMode: OneHandedMode = OneHandedMode.OFF,
     val learnFromTyping: Boolean = true,
     val clipboardHistory: Boolean = true,
     val clipboardExpiryHours: Int = 24,
@@ -73,6 +77,7 @@ class SettingsRepository(private val context: Context) {
         private val GESTURE_TYPING = booleanPreferencesKey("gesture_typing")
         private val SPACEBAR_CURSOR = booleanPreferencesKey("spacebar_cursor")
         private val CONJUNCT_BACKSPACE = booleanPreferencesKey("conjunct_backspace")
+        private val ONE_HANDED_MODE = stringPreferencesKey("one_handed_mode")
         private val LEARN_FROM_TYPING = booleanPreferencesKey("learn_from_typing")
         private val CLIPBOARD_HISTORY = booleanPreferencesKey("clipboard_history")
         private val CLIPBOARD_EXPIRY_HOURS = intPreferencesKey("clipboard_expiry_hours")
@@ -110,6 +115,9 @@ class SettingsRepository(private val context: Context) {
             gestureTyping = p[GESTURE_TYPING] ?: defaults.gestureTyping,
             spacebarCursor = p[SPACEBAR_CURSOR] ?: defaults.spacebarCursor,
             conjunctBackspace = p[CONJUNCT_BACKSPACE] ?: defaults.conjunctBackspace,
+            oneHandedMode = p[ONE_HANDED_MODE]
+                ?.let { runCatching { OneHandedMode.valueOf(it) }.getOrNull() }
+                ?: defaults.oneHandedMode,
             learnFromTyping = p[LEARN_FROM_TYPING] ?: defaults.learnFromTyping,
             clipboardHistory = p[CLIPBOARD_HISTORY] ?: defaults.clipboardHistory,
             clipboardExpiryHours = p[CLIPBOARD_EXPIRY_HOURS] ?: defaults.clipboardExpiryHours,
@@ -176,6 +184,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setConjunctBackspace(value: Boolean) =
         context.dataStore.edit { it[CONJUNCT_BACKSPACE] = value }
+
+    suspend fun setOneHandedMode(value: OneHandedMode) =
+        context.dataStore.edit { it[ONE_HANDED_MODE] = value.name }
 
     suspend fun setLearnFromTyping(value: Boolean) =
         context.dataStore.edit { it[LEARN_FROM_TYPING] = value }
