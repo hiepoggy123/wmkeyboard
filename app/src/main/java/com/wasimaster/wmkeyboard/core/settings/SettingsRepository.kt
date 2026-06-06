@@ -41,6 +41,9 @@ data class KeyboardSettings(
     val hapticStyle: HapticStyle = HapticStyle.CUSTOM,
     val keySound: Boolean = false,
     val keyPopup: Boolean = true,
+    val keyPopupMinDurationMs: Int = 60,
+    val popupFontScale: Float = 1.0f,
+    val keyPopupHeightDp: Int = 46,
     val numberRow: Boolean = false,
     val autocorrect: Boolean = true,
     val autoCapitalize: Boolean = true,
@@ -82,6 +85,9 @@ class SettingsRepository(private val context: Context) {
         private val HAPTIC_STYLE = stringPreferencesKey("haptic_style")
         private val KEY_SOUND = booleanPreferencesKey("key_sound")
         private val KEY_POPUP = booleanPreferencesKey("key_popup")
+        private val KEY_POPUP_MIN_DURATION = intPreferencesKey("key_popup_min_duration")
+        private val POPUP_FONT_SCALE = floatPreferencesKey("popup_font_scale")
+        private val KEY_POPUP_HEIGHT = intPreferencesKey("key_popup_height")
         private val NUMBER_ROW = booleanPreferencesKey("number_row")
         private val AUTOCORRECT = booleanPreferencesKey("autocorrect")
         private val AUTO_CAPITALIZE = booleanPreferencesKey("auto_capitalize")
@@ -124,6 +130,9 @@ class SettingsRepository(private val context: Context) {
                 ?: defaults.hapticStyle,
             keySound = p[KEY_SOUND] ?: defaults.keySound,
             keyPopup = p[KEY_POPUP] ?: defaults.keyPopup,
+            keyPopupMinDurationMs = p[KEY_POPUP_MIN_DURATION] ?: defaults.keyPopupMinDurationMs,
+            popupFontScale = p[POPUP_FONT_SCALE] ?: defaults.popupFontScale,
+            keyPopupHeightDp = p[KEY_POPUP_HEIGHT] ?: defaults.keyPopupHeightDp,
             numberRow = p[NUMBER_ROW] ?: defaults.numberRow,
             autocorrect = p[AUTOCORRECT] ?: defaults.autocorrect,
             autoCapitalize = p[AUTO_CAPITALIZE] ?: defaults.autoCapitalize,
@@ -186,6 +195,15 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setKeyPopup(value: Boolean) =
         context.dataStore.edit { it[KEY_POPUP] = value }
+
+    suspend fun setKeyPopupMinDurationMs(value: Int) =
+        context.dataStore.edit { it[KEY_POPUP_MIN_DURATION] = value.coerceIn(0, 300) }
+
+    suspend fun setPopupFontScale(value: Float) =
+        context.dataStore.edit { it[POPUP_FONT_SCALE] = value.coerceIn(0.7f, 1.6f) }
+
+    suspend fun setKeyPopupHeightDp(value: Int) =
+        context.dataStore.edit { it[KEY_POPUP_HEIGHT] = value.coerceIn(32, 80) }
 
     suspend fun setNumberRow(value: Boolean) =
         context.dataStore.edit { it[NUMBER_ROW] = value }

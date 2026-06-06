@@ -524,6 +524,19 @@ private fun TypingSettings(repository: SettingsRepository, settings: KeyboardSet
         info = "While a key is held, its character floats in a bubble above your finger " +
             "so you can see what you hit.",
     ) { scope.launch { repository.setKeyPopup(it) } }
+    if (settings.keyPopup) {
+        SliderSetting(
+            "Minimum popup duration",
+            subtitle = "How long the bubble stays up even on a fast tap",
+            value = settings.keyPopupMinDurationMs.toFloat(),
+            range = 0f..300f,
+            display = "${settings.keyPopupMinDurationMs} ms",
+            info = "On a quick tap the key is released almost instantly, which can make " +
+                "the bubble a barely-visible flicker. The bubble lingers after release " +
+                "until it has been shown for at least this long. 0 hides it the moment " +
+                "you let go.",
+        ) { scope.launch { repository.setKeyPopupMinDurationMs(it.toInt()) } }
+    }
 
     SectionHeader("Timing")
     SliderSetting(
@@ -614,14 +627,36 @@ private fun AppearanceSettings(repository: SettingsRepository, settings: Keyboar
         info = "0 gives square keys, 28 gives fully pill-shaped keys.",
     ) { scope.launch { repository.setKeyCornerRadiusDp(it.toInt()) } }
     SliderSetting(
-        "Font size",
-        subtitle = "Scale of key labels and popup bubbles",
+        "Key label font size",
+        subtitle = "Scale of the labels printed on the keys",
         value = settings.fontScale,
         range = 0.7f..1.5f,
         display = "×%.2f".format(settings.fontScale),
-        info = "Multiplies the size of every label on the keyboard, including the " +
-            "long-press alternates and the key preview bubble.",
+        info = "Multiplies the size of every label on the keys themselves. Popup " +
+            "bubbles have their own font size below.",
     ) { scope.launch { repository.setFontScale(it) } }
+
+    SectionHeader("Popups")
+    SliderSetting(
+        "Popup font size",
+        subtitle = "Scale of the key preview bubble and long-press alternates",
+        value = settings.popupFontScale,
+        range = 0.7f..1.6f,
+        display = "×%.2f".format(settings.popupFontScale),
+        info = "Multiplies the text size inside the character bubble shown while a key " +
+            "is pressed and in the long-press alternates popup, independently of the " +
+            "key label size.",
+    ) { scope.launch { repository.setPopupFontScale(it) } }
+    SliderSetting(
+        "Popup height",
+        subtitle = "Height of the key preview bubble",
+        value = settings.keyPopupHeightDp.toFloat(),
+        range = 32f..80f,
+        display = "${settings.keyPopupHeightDp} dp",
+        info = "Height of the character bubble above a pressed key; the long-press " +
+            "alternates popup uses it as a minimum. Taller popups are easier to read " +
+            "above your finger.",
+    ) { scope.launch { repository.setKeyPopupHeightDp(it.toInt()) } }
 }
 
 @Composable

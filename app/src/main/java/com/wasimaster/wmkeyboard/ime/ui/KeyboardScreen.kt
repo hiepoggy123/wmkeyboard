@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -71,9 +72,11 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -110,6 +113,8 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import android.os.Build
+import android.os.SystemClock
+import kotlinx.coroutines.delay
 import com.wasimaster.wmkeyboard.core.clipboard.ClipItem
 import com.wasimaster.wmkeyboard.core.clipboard.ClipKind
 import com.wasimaster.wmkeyboard.core.emoji.EmojiVariants
@@ -555,6 +560,23 @@ private fun KeyButton(
     val scope = rememberCoroutineScope()
     val settings = state.settings
 
+    // The preview bubble outlives the physical press by up to the minimum
+    // popup duration, so a fast tap still shows a readable bubble instead
+    // of a single-frame flash.
+    var previewVisible by remember { mutableStateOf(false) }
+    var previewShownAt by remember { mutableLongStateOf(0L) }
+    LaunchedEffect(pressed) {
+        if (pressed) {
+            previewShownAt = SystemClock.uptimeMillis()
+            previewVisible = true
+        } else if (previewVisible) {
+            val remaining = settings.keyPopupMinDurationMs -
+                (SystemClock.uptimeMillis() - previewShownAt)
+            if (remaining > 0) delay(remaining)
+            previewVisible = false
+        }
+    }
+
     // Samsung-style contrast: letter keys clearly lighter than the board,
     // modifier keys a shade darker than the letters.
     val background = when {
@@ -598,7 +620,12 @@ private fun KeyButton(
                     color = MaterialTheme.colorScheme.surfaceContainerHighest,
                     shadowElevation = 8.dp,
                 ) {
-                    Row(modifier = Modifier.padding(4.dp)) {
+                    Row(
+                        modifier = Modifier
+                            .heightIn(min = settings.keyPopupHeightDp.dp)
+                            .padding(4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
                         for (alternate in key.longPress) {
                             Text(
                                 text = alternate,
@@ -608,7 +635,7 @@ private fun KeyButton(
                                         onText(alternate)
                                     }
                                     .padding(horizontal = 10.dp, vertical = 10.dp),
-                                fontSize = (18 * settings.fontScale).sp,
+                                fontSize = (18 * settings.popupFontScale).sp,
                                 color = MaterialTheme.colorScheme.onSurface,
                             )
                         }
@@ -618,19 +645,25 @@ private fun KeyButton(
         }
 
         // Key preview bubble while pressed, lifted above the fingertip.
-        if (pressed && settings.keyPopup && key.action == KeyAction.Text && !showAlternates) {
+        if (previewVisible && settings.keyPopup && key.action == KeyAction.Text && !showAlternates) {
             Popup(popupPositionProvider = popupPosition) {
                 Surface(
                     shape = RoundedCornerShape(10.dp),
                     color = MaterialTheme.colorScheme.surfaceContainerHighest,
                     shadowElevation = 6.dp,
                 ) {
-                    Text(
-                        text = displayLabel(key, state),
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
-                        fontSize = (22 * settings.fontScale).sp,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
+                    Box(
+                        modifier = Modifier
+                            .height(settings.keyPopupHeightDp.dp)
+                            .padding(horizontal = 14.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = displayLabel(key, state),
+                            fontSize = (22 * settings.popupFontScale).sp,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                    }
                 }
             }
         }
