@@ -21,28 +21,38 @@ Working checklist. Roadmap-level planning lives in [docs/ROADMAP.md](docs/ROADMA
 - [x] Swipe typing: SHARK²-style GestureDecoder in core + 10 tests, gesture
       overlay + trail on the Compose keyboard, alternates-in-suggestion-bar
       with tap-to-replace, settings toggle (English QWERTY only for now)
+- [x] Mid-swipe live candidate preview in the suggestion bar
+- [x] Nav-bar inset padding (edge-to-edge IME windows) + Samsung-style key
+      look (contrast, rounded corners, uppercase Latin labels)
+- [x] Shift double-tap → caps lock (350 ms window); distinct shift icons
+- [x] Enter-key action icon from imeOptions (search/send/go/next/prev/done)
+- [x] Spacebar-swipe cursor movement (toggleable)
+- [x] Bengali conjunct-aware backspace option + 13 tests
+- [x] Text snippets with {date}/{time}/{datetime}/{clip} variables: panel,
+      settings CRUD screen, 6 tests
+- [x] Emoji skin-tone variants via long-press (Emoji_Modifier_Base ranges,
+      ZWJ-safe) + 8 tests
+- [x] One-handed mode (left/right, side rail on keyboard, appearance setting)
 
 ## Next up (Beta)
 
 - [ ] Swipe typing follow-ups: Bengali layouts, bigram-aware ranking,
-      trail fade animation, decode-while-swiping preview
-- [ ] National (Jatiya) layout; Bijoy compatibility
-- [ ] Spacebar swipe cursor movement
-- [ ] One-handed / floating / resizable keyboard
+      trail fade animation
+- [ ] Investigate: first gesture word committed ALL-CAPS in Keep note field
+      (expected sentence case; debug log now prints shift state)
+- [ ] National (Jatiya) layout; Bijoy compatibility — needs an authoritative
+      key map (native-speaker review) before shipping
+- [ ] Floating / resizable keyboard
 - [ ] Dictionary import pipeline (CLDR/AOSP wordlists, full emoji annotations)
-- [ ] Snippets with variables (date, time, clipboard)
 - [ ] GIF/sticker panels (opt-in network)
 - [ ] Toolbar reordering
 - [ ] Compose UI tests for the keyboard view
-- [ ] Enter-key action label (Search/Send/Go) from imeOptions
-- [ ] Shift double-tap → caps lock timing window
-- [ ] Bengali conjunct-aware backspace (delete jukto-borno as one unit option)
+- [ ] Undo/redo; multi-touch key handling
 
 ## Known gaps / polish
 
 - [ ] Avro: khanda-ta (ৎ), explicit hasant edge cases, য-ফলা shortcuts
 - [ ] Seed dictionaries are small; autocorrect confidence is conservative
-- [ ] Emoji skin-tone variants not yet exposed in the panel
 - [ ] Clipboard images (text only today)
 - [ ] Settings search box
 - [ ] App icon

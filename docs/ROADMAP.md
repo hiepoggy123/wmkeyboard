@@ -27,12 +27,18 @@ Typing feel and completeness. Ordered by impact:
    keyboard, alternates in the suggestion bar with tap-to-replace, settings
    toggle. English QWERTY only so far; Bengali layouts and mid-swipe
    preview are follow-ups.
-2. **National (Jatiya) layout + Bijoy compatibility mode.**
-3. **Spacebar cursor control**, multi-touch key handling, undo/redo.
-4. **One-handed mode, floating keyboard, resize/split.**
+2. **National (Jatiya) layout + Bijoy compatibility mode.** Blocked on an
+   authoritative key map / native-speaker review. Conjunct-aware backspace
+   ✅ shipped.
+3. **Spacebar cursor control** ✅ shipped; multi-touch key handling and
+   undo/redo remain.
+4. **One-handed mode** ✅ shipped (left/right + side rail); floating
+   keyboard and resize/split remain.
 5. **Bigger dictionaries** — import CLDR/AOSP wordlists (en, bn), full
    Unicode CLDR emoji annotations; asset pipeline script.
-6. **Text snippets** with date/time/clipboard variables.
+6. ~~**Text snippets**~~ ✅ shipped: {date}/{time}/{datetime}/{clip}
+   variables, keyboard panel + settings CRUD. Shortcut-triggered expansion
+   while typing is a follow-up.
 7. **Sticker & GIF panels** (Tenor/Giphy providers, cached, optional — network
    features stay opt-in).
 8. **Toolbar customization** — reorder/enable buttons.
