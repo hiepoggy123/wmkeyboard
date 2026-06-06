@@ -55,31 +55,78 @@ object Layouts {
     )
 
     /**
-     * Probhat: the fixed Bengali layout popular on Linux. Vowel signs on the
-     * home row, consonants arranged by frequency; shift carries the
-     * aspirates and less-common letters.
+     * Probhat: the fixed Bengali layout popular on Linux, following the
+     * standard keymap (as shipped by Avro/OpenBangla). Letter keys q–m match
+     * the desktop layout exactly; characters that live on desktop punctuation
+     * keys are adapted for the 10-column phone grid:
+     *  - the 10th home-row key carries ে/ো (desktop `[`/`]`) with ৈ/ৌ on
+     *    long-press (desktop Shift+`[`/Shift+`]`);
+     *  - ৎ ঞ ঁ ৃ ৗ ঽ ় ॥ move to long-press on their phonetic neighbours.
      */
     val PROBHAT = KeyboardLayout(
         name = "probhat",
         rows = listOf(
             listOf(
                 Key("দ", shiftLabel = "ধ"), Key("ূ", shiftLabel = "ঊ"), Key("ী", shiftLabel = "ঈ"),
-                Key("র", shiftLabel = "ড়", longPress = listOf("ড়", "ঢ়")), Key("ট", shiftLabel = "ঠ"),
-                Key("এ", shiftLabel = "ঐ", longPress = listOf("ৃ")), Key("ু", shiftLabel = "উ"),
-                Key("ি", shiftLabel = "ই"), Key("ও", shiftLabel = "ঔ"), Key("প", shiftLabel = "ফ"),
+                Key("র", shiftLabel = "ড়"), Key("ট", shiftLabel = "ঠ"),
+                Key("এ", shiftLabel = "ঐ"), Key("ু", shiftLabel = "উ"),
+                Key("ি", shiftLabel = "ই"), Key("ও", shiftLabel = "ঔ", longPress = listOf("ৗ")),
+                Key("প", shiftLabel = "ফ"),
             ),
             listOf(
-                Key("া", shiftLabel = "আ", longPress = listOf("অ")), Key("স", shiftLabel = "ষ", longPress = listOf("শ")),
+                Key("া", shiftLabel = "অ"), Key("স", shiftLabel = "ষ"),
                 Key("ড", shiftLabel = "ঢ"), Key("ত", shiftLabel = "থ", longPress = listOf("ৎ")),
-                Key("গ", shiftLabel = "ঘ"), Key("হ", shiftLabel = "ঃ"),
-                Key("জ", shiftLabel = "ঝ", longPress = listOf("য")), Key("ক", shiftLabel = "খ"),
-                Key("ল", shiftLabel = "ং"), Key("ে", shiftLabel = "ৈ"),
+                Key("গ", shiftLabel = "ঘ"), Key("হ", shiftLabel = "ঃ", longPress = listOf("ঽ")),
+                Key("জ", shiftLabel = "ঝ", longPress = listOf("ঞ")), Key("ক", shiftLabel = "খ"),
+                Key("ল", shiftLabel = "ং"), Key("ে", shiftLabel = "ো", longPress = listOf("ৈ", "ৌ")),
             ),
             listOf(
                 Key("⇧", action = KeyAction.Shift, width = 1.2f),
-                Key("য়", shiftLabel = "ঞ"), Key("ষ", shiftLabel = "ঁ"), Key("চ", shiftLabel = "ছ"),
-                Key("ভ", shiftLabel = "ণ"), Key("ব", shiftLabel = "ন"), Key("ন", shiftLabel = "ম"),
-                Key("ম", shiftLabel = "ঙ"), Key("্", shiftLabel = "।", longPress = listOf("।", "॥")),
+                Key("য়", shiftLabel = "য"), Key("শ", shiftLabel = "ঢ়"), Key("চ", shiftLabel = "ছ"),
+                Key("আ", shiftLabel = "ঋ", longPress = listOf("ৃ")), Key("ব", shiftLabel = "ভ"),
+                Key("ন", shiftLabel = "ণ"), Key("ম", shiftLabel = "ঙ"),
+                Key("্", shiftLabel = "।", longPress = listOf("ঁ", "়", "॥")),
+                Key("⌫", action = KeyAction.Delete, width = 1.3f),
+            ),
+            bottomRow(),
+        ),
+    )
+
+    /**
+     * National (Jatiya): the Bangladesh national standard fixed layout,
+     * following the standard keymap (as shipped by Avro/OpenBangla). Letter
+     * keys match the desktop layout; independent vowels sit on desktop AltGr
+     * and are adapted here as long-press on their kar keys (ই on ি, উ on ু,
+     * …), matching how fixed-layout phone keyboards ship Jatiya.
+     *
+     * Not yet wired to an InputMode — rendering and mode selection follow.
+     */
+    val JATIYA = KeyboardLayout(
+        name = "jatiya",
+        rows = listOf(
+            listOf(
+                Key("ঙ", shiftLabel = "ং"), Key("য", shiftLabel = "য়"), Key("ড", shiftLabel = "ঢ"),
+                Key("প", shiftLabel = "ফ"), Key("ট", shiftLabel = "ঠ"), Key("চ", shiftLabel = "ছ"),
+                Key("জ", shiftLabel = "ঝ"), Key("হ", shiftLabel = "ঞ", longPress = listOf("ঽ")),
+                Key("গ", shiftLabel = "ঘ"), Key("ড়", shiftLabel = "ঢ়"),
+            ),
+            listOf(
+                Key("ৃ", shiftLabel = "ৗ", longPress = listOf("ঋ")),
+                Key("ু", shiftLabel = "ূ", longPress = listOf("উ", "ঊ")),
+                Key("ি", shiftLabel = "ী", longPress = listOf("ই", "ঈ")),
+                Key("ব", shiftLabel = "ভ"),
+                Key("্", shiftLabel = "।", longPress = listOf("॥", "ৎ")),
+                Key("া", shiftLabel = "অ", longPress = listOf("আ")),
+                Key("ক", shiftLabel = "খ"), Key("ত", shiftLabel = "থ"),
+                Key("দ", shiftLabel = "ধ"),
+            ),
+            listOf(
+                Key("⇧", action = KeyAction.Shift, width = 1.2f),
+                Key("ঁ", shiftLabel = "ঃ"),
+                Key("ো", shiftLabel = "ৌ", longPress = listOf("ও", "ঔ")),
+                Key("ে", shiftLabel = "ৈ", longPress = listOf("এ", "ঐ")),
+                Key("র", shiftLabel = "ল"), Key("ন", shiftLabel = "ণ"),
+                Key("স", shiftLabel = "ষ"), Key("ম", shiftLabel = "শ"),
                 Key("⌫", action = KeyAction.Delete, width = 1.3f),
             ),
             bottomRow(),
