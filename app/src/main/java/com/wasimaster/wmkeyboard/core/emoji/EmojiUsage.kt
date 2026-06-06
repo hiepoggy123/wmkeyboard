@@ -58,6 +58,12 @@ class EmojiUsage(private val storageFile: File?) {
         }
     }
 
+    /** Clears only the recents list, keeping frequency counts. */
+    @Synchronized
+    fun clearRecents() {
+        recents.clear()
+    }
+
     @Synchronized
     fun clear() {
         recents.clear()

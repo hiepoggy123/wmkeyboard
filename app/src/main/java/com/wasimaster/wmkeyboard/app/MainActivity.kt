@@ -7,6 +7,11 @@ import android.provider.Settings
 import android.view.inputmethod.InputMethodManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Column
@@ -20,9 +25,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -48,8 +55,10 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -58,6 +67,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.NavHost
@@ -71,6 +81,7 @@ import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import com.wasimaster.wmkeyboard.core.settings.ThemeMode
 import com.wasimaster.wmkeyboard.core.snippets.Snippet
 import com.wasimaster.wmkeyboard.core.snippets.SnippetStore
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
@@ -118,7 +129,17 @@ private fun AppTheme(settings: KeyboardSettings, content: @Composable () -> Unit
 @Composable
 private fun SettingsNavHost(repository: SettingsRepository, settings: KeyboardSettings) {
     val navController = rememberNavController()
-    NavHost(navController = navController, startDestination = "home") {
+    // Quick shared-axis slide instead of the sluggish default cross-fade.
+    val spec = tween<androidx.compose.ui.unit.IntOffset>(220)
+    val fadeSpec = tween<Float>(220)
+    NavHost(
+        navController = navController,
+        startDestination = "home",
+        enterTransition = { slideInHorizontally(spec) { it / 5 } + fadeIn(fadeSpec) },
+        exitTransition = { slideOutHorizontally(spec) { -it / 5 } + fadeOut(fadeSpec) },
+        popEnterTransition = { slideInHorizontally(spec) { -it / 5 } + fadeIn(fadeSpec) },
+        popExitTransition = { slideOutHorizontally(spec) { it / 5 } + fadeOut(fadeSpec) },
+    ) {
         composable("home") {
             HomeScreen(
                 settings = settings,
@@ -189,7 +210,45 @@ private fun HomeScreen(settings: KeyboardSettings, onNavigate: (String) -> Unit)
 @Composable
 private fun SetupCard(context: Context) {
     val imm = remember { context.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager }
-    val enabled = imm.enabledInputMethodList.any { it.packageName == context.packageName }
+    // The IME picker is a system dialog, so the activity never pauses or
+    // resumes when the user switches keyboards — poll while visible to
+    // keep the card's state honest.
+    var refresh by remember { mutableIntStateOf(0) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            refresh++
+            delay(1000)
+        }
+    }
+    val enabled = remember(refresh) {
+        imm.enabledInputMethodList.any { it.packageName == context.packageName }
+    }
+    val selected = remember(refresh) {
+        Settings.Secure.getString(context.contentResolver, Settings.Secure.DEFAULT_INPUT_METHOD)
+            ?.substringBefore('/') == context.packageName
+    }
+
+    if (enabled && selected) {
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier.padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    Icons.Outlined.CheckCircle,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+                Spacer(Modifier.width(12.dp))
+                Text(
+                    "WM Keyboard is your active keyboard.",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+        }
+        return
+    }
+
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text("Setup", style = MaterialTheme.typography.titleMedium)
@@ -242,20 +301,53 @@ private fun SettingsScreen(
                 title = { Text(title) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Back")
                     }
                 },
             )
         },
     ) { padding ->
+        // No horizontal padding here: ListItem pads its own content 16dp,
+        // and the non-ListItem rows (sliders, headers) match it explicitly,
+        // so every setting aligns to the same left edge.
         Column(
             modifier = Modifier
                 .padding(padding)
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp),
+                .verticalScroll(rememberScrollState()),
         ) { content() }
     }
+}
+
+/** "?" affordance that opens a dialog with the full explanation of a setting. */
+@Composable
+private fun InfoButton(title: String, detail: String) {
+    var open by remember { mutableStateOf(false) }
+    IconButton(onClick = { open = true }) {
+        Icon(
+            Icons.Outlined.Info,
+            contentDescription = "More about $title",
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+    if (open) {
+        AlertDialog(
+            onDismissRequest = { open = false },
+            title = { Text(title) },
+            text = { Text(detail) },
+            confirmButton = { TextButton(onClick = { open = false }) { Text("Got it") } },
+        )
+    }
+}
+
+@Composable
+private fun SectionHeader(text: String) {
+    Text(
+        text,
+        style = MaterialTheme.typography.titleSmall,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 4.dp),
+    )
 }
 
 @Composable
@@ -263,27 +355,44 @@ private fun ToggleSetting(
     title: String,
     subtitle: String?,
     checked: Boolean,
+    info: String? = null,
     onChange: (Boolean) -> Unit,
 ) {
     ListItem(
         headlineContent = { Text(title) },
         supportingContent = subtitle?.let { { Text(it) } },
-        trailingContent = { Switch(checked = checked, onCheckedChange = onChange) },
+        trailingContent = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (info != null) InfoButton(title, info)
+                Switch(checked = checked, onCheckedChange = onChange)
+            }
+        },
     )
 }
 
 @Composable
 private fun SliderSetting(
     title: String,
+    subtitle: String? = null,
     value: Float,
     range: ClosedFloatingPointRange<Float>,
     display: String,
+    info: String? = null,
     onChange: (Float) -> Unit,
 ) {
-    Column(modifier = Modifier.padding(vertical = 8.dp)) {
+    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text(title, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
+            Text(title, style = MaterialTheme.typography.bodyLarge)
+            if (info != null) InfoButton(title, info)
+            Spacer(Modifier.weight(1f))
             Text(display, style = MaterialTheme.typography.labelLarge)
+        }
+        if (subtitle != null) {
+            Text(
+                subtitle,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
         Slider(value = value, onValueChange = onChange, valueRange = range)
     }
@@ -294,44 +403,94 @@ private fun SliderSetting(
 @Composable
 private fun TypingSettings(repository: SettingsRepository, settings: KeyboardSettings) {
     val scope = rememberCoroutineScope()
-    ToggleSetting("Autocorrect", "Fix typos when you press space", settings.autocorrect) {
-        scope.launch { repository.setAutocorrect(it) }
-    }
-    ToggleSetting("Suggestions", "Show the suggestion bar while typing", settings.suggestions) {
-        scope.launch { repository.setSuggestions(it) }
-    }
-    ToggleSetting("Gesture typing", "Swipe across letters to type a word", settings.gestureTyping) {
-        scope.launch { repository.setGestureTyping(it) }
-    }
-    ToggleSetting("Spacebar cursor control", "Slide on the spacebar to move the cursor", settings.spacebarCursor) {
-        scope.launch { repository.setSpacebarCursor(it) }
-    }
-    ToggleSetting("Auto-capitalize", "Capitalize the first word of sentences", settings.autoCapitalize) {
-        scope.launch { repository.setAutoCapitalize(it) }
-    }
-    ToggleSetting("Double-space period", "Two spaces insert “. ”", settings.doubleSpacePeriod) {
-        scope.launch { repository.setDoubleSpacePeriod(it) }
-    }
-    ToggleSetting("Number row", "Dedicated row of digits above the letters", settings.numberRow) {
-        scope.launch { repository.setNumberRow(it) }
-    }
-    ToggleSetting("Key press haptics", null, settings.hapticFeedback) {
-        scope.launch { repository.setHapticFeedback(it) }
-    }
+    SectionHeader("Corrections")
+    ToggleSetting(
+        "Autocorrect", "Fix typos automatically when you press space", settings.autocorrect,
+        info = "When you press space, the word you just typed is checked against the " +
+            "dictionary. If it looks like a slip of an obviously more common word, it is " +
+            "replaced. Words you have taught the keyboard are never \"corrected\" away, " +
+            "and autocorrect stays off in password fields.",
+    ) { scope.launch { repository.setAutocorrect(it) } }
+    ToggleSetting(
+        "Suggestions", "Show word predictions above the keyboard", settings.suggestions,
+        info = "Shows up to three candidates above the keys while you type: completions, " +
+            "corrections, and next-word predictions learned from your typing. Tap one to " +
+            "insert it followed by a space.",
+    ) { scope.launch { repository.setSuggestions(it) } }
+    ToggleSetting(
+        "Auto-capitalize", "Capitalize the first letter of sentences", settings.autoCapitalize,
+        info = "Shift turns on by itself at the start of a text field and after " +
+            "sentence-ending punctuation (. ! ? ।). It only applies in fields that ask " +
+            "for sentence capitalization, and only in English mode. Caps lock is never " +
+            "changed automatically.",
+    ) { scope.launch { repository.setAutoCapitalize(it) } }
+    ToggleSetting(
+        "Double-space period", "Double-tapping space inserts “. ”", settings.doubleSpacePeriod,
+        info = "Tapping space twice quickly at the end of a word replaces the first " +
+            "space with a period, so you can end sentences without visiting the symbols " +
+            "layout.",
+    ) { scope.launch { repository.setDoubleSpacePeriod(it) } }
+
+    SectionHeader("Gestures")
+    ToggleSetting(
+        "Gesture typing", "Swipe across letters to type a word", settings.gestureTyping,
+        info = "Slide your finger from letter to letter without lifting; the word is " +
+            "committed when you lift. Alternate interpretations appear in the suggestion " +
+            "bar, so a wrong guess is one tap away from fixed. English only for now.",
+    ) { scope.launch { repository.setGestureTyping(it) } }
+    ToggleSetting(
+        "Spacebar cursor control", "Slide on the spacebar to move the cursor", settings.spacebarCursor,
+        info = "Press and drag horizontally on the spacebar to move the text cursor one " +
+            "character at a time — far more precise than tapping in the text. A tap " +
+            "without movement still types a space.",
+    ) { scope.launch { repository.setSpacebarCursor(it) } }
+
+    SectionHeader("Layout")
+    ToggleSetting(
+        "Number row", "Show a dedicated digit row above the letters", settings.numberRow,
+        info = "Adds a 1–0 row on top of the letter layout so you never long-press for " +
+            "digits. Costs one extra row of height.",
+    ) { scope.launch { repository.setNumberRow(it) } }
+
+    SectionHeader("Feedback")
+    ToggleSetting(
+        "Key press haptics", "Vibrate on every key press", settings.hapticFeedback,
+        info = "A short vibration confirms each key press, including spacebar cursor " +
+            "movement steps. Strength is adjustable below.",
+    ) { scope.launch { repository.setHapticFeedback(it) } }
     SliderSetting(
-        "Haptic strength", settings.hapticStrengthMs.toFloat(), 5f..60f,
-        "${settings.hapticStrengthMs} ms",
+        "Haptic strength",
+        subtitle = "Vibration length per key press",
+        value = settings.hapticStrengthMs.toFloat(),
+        range = 5f..60f,
+        display = "${settings.hapticStrengthMs} ms",
+        info = "Duration of the vibration pulse in milliseconds. Longer pulses feel " +
+            "stronger on most phones.",
     ) { scope.launch { repository.setHapticStrengthMs(it.toInt()) } }
-    ToggleSetting("Key popup", "Show a character bubble while pressing", settings.keyPopup) {
-        scope.launch { repository.setKeyPopup(it) }
-    }
+    ToggleSetting(
+        "Key popup", "Show a character bubble above the pressed key", settings.keyPopup,
+        info = "While a key is held, its character floats in a bubble above your finger " +
+            "so you can see what you hit.",
+    ) { scope.launch { repository.setKeyPopup(it) } }
+
+    SectionHeader("Timing")
     SliderSetting(
-        "Long-press delay", settings.longPressDelayMs.toFloat(), 150f..700f,
-        "${settings.longPressDelayMs} ms",
+        "Long-press delay",
+        subtitle = "Hold time before alternate characters appear",
+        value = settings.longPressDelayMs.toFloat(),
+        range = 150f..700f,
+        display = "${settings.longPressDelayMs} ms",
+        info = "How long a key must be held before its long-press alternates (accents, " +
+            "digits, symbols) pop up. Lower is faster but easier to trigger by accident.",
     ) { scope.launch { repository.setLongPressDelayMs(it.toInt()) } }
     SliderSetting(
-        "Key repeat interval", settings.keyRepeatIntervalMs.toFloat(), 20f..200f,
-        "${settings.keyRepeatIntervalMs} ms",
+        "Key repeat interval",
+        subtitle = "Speed of repeated delete while held",
+        value = settings.keyRepeatIntervalMs.toFloat(),
+        range = 20f..200f,
+        display = "${settings.keyRepeatIntervalMs} ms",
+        info = "While delete (or space) is held it repeats at this interval. Lower " +
+            "values delete faster.",
     ) { scope.launch { repository.setKeyRepeatIntervalMs(it.toInt()) } }
 }
 
@@ -339,10 +498,10 @@ private fun TypingSettings(repository: SettingsRepository, settings: KeyboardSet
 @Composable
 private fun AppearanceSettings(repository: SettingsRepository, settings: KeyboardSettings) {
     val scope = rememberCoroutineScope()
-    Text("Theme", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 16.dp))
+    SectionHeader("Theme")
     SingleChoiceSegmentedButtonRow(modifier = Modifier
         .fillMaxWidth()
-        .padding(vertical = 8.dp)) {
+        .padding(horizontal = 16.dp, vertical = 8.dp)) {
         ThemeMode.entries.forEachIndexed { index, mode ->
             SegmentedButton(
                 selected = settings.themeMode == mode,
@@ -353,17 +512,16 @@ private fun AppearanceSettings(repository: SettingsRepository, settings: Keyboar
             }
         }
     }
-    ToggleSetting("Material You colors", "Use wallpaper-based dynamic color", settings.dynamicColor) {
-        scope.launch { repository.setDynamicColor(it) }
-    }
-    Text(
-        "One-handed mode",
-        style = MaterialTheme.typography.titleSmall,
-        modifier = Modifier.padding(top = 16.dp),
-    )
+    ToggleSetting(
+        "Material You colors", "Use wallpaper-based dynamic color", settings.dynamicColor,
+        info = "On Android 12 and newer, the keyboard picks up the accent palette " +
+            "generated from your wallpaper. Turn off for the standard Material palette.",
+    ) { scope.launch { repository.setDynamicColor(it) } }
+
+    SectionHeader("One-handed mode")
     SingleChoiceSegmentedButtonRow(modifier = Modifier
         .fillMaxWidth()
-        .padding(vertical = 8.dp)) {
+        .padding(horizontal = 16.dp, vertical = 8.dp)) {
         OneHandedMode.entries.forEachIndexed { index, mode ->
             SegmentedButton(
                 selected = settings.oneHandedMode == mode,
@@ -374,49 +532,83 @@ private fun AppearanceSettings(repository: SettingsRepository, settings: Keyboar
             }
         }
     }
-    SliderSetting("Key height", settings.keyHeightDp.toFloat(), 40f..80f, "${settings.keyHeightDp} dp") {
-        scope.launch { repository.setKeyHeightDp(it.toInt()) }
-    }
+
+    SectionHeader("Size & shape")
     SliderSetting(
-        "Key corner radius", settings.keyCornerRadiusDp.toFloat(), 0f..28f,
-        "${settings.keyCornerRadiusDp} dp",
+        "Keyboard height",
+        subtitle = "Height of each key row — sets the overall input height",
+        value = settings.keyHeightDp.toFloat(),
+        range = 40f..80f,
+        display = "${settings.keyHeightDp} dp",
+        info = "Taller keys are easier to hit but the keyboard covers more of the " +
+            "screen. The emoji, clipboard and snippet panels scale with this value too.",
+    ) { scope.launch { repository.setKeyHeightDp(it.toInt()) } }
+    SliderSetting(
+        "Bottom padding",
+        subtitle = "Extra space below the keys, above the navigation bar",
+        value = settings.bottomPaddingDp.toFloat(),
+        range = 0f..40f,
+        display = "${settings.bottomPaddingDp} dp",
+        info = "Raises the whole keyboard away from the bottom edge and the gesture " +
+            "navigation bar. Increase it if the bottom row feels cramped against the " +
+            "edge of the screen or you keep triggering system navigation.",
+    ) { scope.launch { repository.setBottomPaddingDp(it.toInt()) } }
+    SliderSetting(
+        "Key corner radius",
+        subtitle = "Roundness of the key corners",
+        value = settings.keyCornerRadiusDp.toFloat(),
+        range = 0f..28f,
+        display = "${settings.keyCornerRadiusDp} dp",
+        info = "0 gives square keys, 28 gives fully pill-shaped keys.",
     ) { scope.launch { repository.setKeyCornerRadiusDp(it.toInt()) } }
-    SliderSetting("Font size", settings.fontScale, 0.7f..1.5f, "×%.2f".format(settings.fontScale)) {
-        scope.launch { repository.setFontScale(it) }
-    }
+    SliderSetting(
+        "Font size",
+        subtitle = "Scale of key labels and popup bubbles",
+        value = settings.fontScale,
+        range = 0.7f..1.5f,
+        display = "×%.2f".format(settings.fontScale),
+        info = "Multiplies the size of every label on the keyboard, including the " +
+            "long-press alternates and the key preview bubble.",
+    ) { scope.launch { repository.setFontScale(it) } }
 }
 
 @Composable
 private fun LanguageSettings(repository: SettingsRepository, settings: KeyboardSettings) {
     val scope = rememberCoroutineScope()
-    Text(
-        "Enabled input modes (cycle with the 🌐 key)",
-        style = MaterialTheme.typography.titleSmall,
-        modifier = Modifier.padding(top = 16.dp),
-    )
+    SectionHeader("Enabled input modes (cycle with the 🌐 key)")
     val labels = mapOf(
-        InputMode.ENGLISH to ("English" to "QWERTY with suggestions"),
-        InputMode.AVRO to ("বাংলা — Avro phonetic" to "Type \"ami valo achi\", get আমি ভালো আছি"),
-        InputMode.PROBHAT to ("বাংলা — প্রভাত (Probhat)" to "Fixed Bengali layout"),
+        InputMode.ENGLISH to Triple(
+            "English", "QWERTY with suggestions",
+            "Standard QWERTY layout with autocorrect, predictions and gesture typing.",
+        ),
+        InputMode.AVRO to Triple(
+            "বাংলা — Avro phonetic", "Type \"ami valo achi\", get আমি ভালো আছি",
+            "Type Bengali phonetically with Latin letters; the transliteration happens " +
+                "live as you type, and the suggestion bar offers dictionary spellings.",
+        ),
+        InputMode.PROBHAT to Triple(
+            "বাংলা — প্রভাত (Probhat)", "Fixed Bengali layout",
+            "The fixed Probhat layout familiar from Linux: vowel signs on the home row, " +
+                "consonants by frequency, aspirates on shift.",
+        ),
     )
     for (mode in InputMode.entries) {
-        val (title, subtitle) = labels.getValue(mode)
-        ToggleSetting(title, subtitle, mode in settings.enabledModes) { enable ->
+        val (title, subtitle, info) = labels.getValue(mode)
+        ToggleSetting(title, subtitle, mode in settings.enabledModes, info = info) { enable ->
             scope.launch {
                 val next = if (enable) settings.enabledModes + mode else settings.enabledModes - mode
                 if (next.isNotEmpty()) repository.setEnabledModes(next.distinct())
             }
         }
     }
-    Text(
-        "Bengali",
-        style = MaterialTheme.typography.titleSmall,
-        modifier = Modifier.padding(top = 16.dp),
-    )
+    SectionHeader("Bengali")
     ToggleSetting(
         "Conjunct-aware backspace",
         "Delete a whole যুক্তবর্ণ (like ক্ষ or স্ত্রী) as one unit",
         settings.conjunctBackspace,
+        info = "Normally backspace removes one code point at a time, which can leave " +
+            "half-formed conjuncts. With this on, a conjunct cluster like স্ত্রী is " +
+            "deleted in a single press.",
     ) {
         scope.launch { repository.setConjunctBackspace(it) }
     }
@@ -425,17 +617,30 @@ private fun LanguageSettings(repository: SettingsRepository, settings: KeyboardS
 @Composable
 private fun ClipboardEmojiSettings(repository: SettingsRepository, settings: KeyboardSettings) {
     val scope = rememberCoroutineScope()
-    ToggleSetting("Clipboard history", "Save copied text for quick paste", settings.clipboardHistory) {
-        scope.launch { repository.setClipboardHistory(it) }
-    }
+    SectionHeader("Clipboard")
+    ToggleSetting(
+        "Clipboard history", "Save copied text for quick paste", settings.clipboardHistory,
+        info = "Everything you copy is kept in the keyboard's clipboard panel for quick " +
+            "pasting. Nothing is captured from password fields or while incognito mode " +
+            "is on, and history never leaves your device.",
+    ) { scope.launch { repository.setClipboardHistory(it) } }
     SliderSetting(
         "Clipboard expiry",
-        settings.clipboardExpiryHours.toFloat(), 0f..168f,
-        if (settings.clipboardExpiryHours == 0) "never" else "${settings.clipboardExpiryHours} h",
+        subtitle = "Remove unpinned items after this long",
+        value = settings.clipboardExpiryHours.toFloat(),
+        range = 0f..168f,
+        display = if (settings.clipboardExpiryHours == 0) "never" else "${settings.clipboardExpiryHours} h",
+        info = "Unpinned clipboard items are deleted automatically after this many " +
+            "hours. Pinned items never expire. Set to \"never\" (all the way left) to " +
+            "keep items until you delete them yourself.",
     ) { scope.launch { repository.setClipboardExpiryHours(it.toInt()) } }
-    ToggleSetting("Emoji button in toolbar", "One-tap emoji access", settings.emojiToolbar) {
-        scope.launch { repository.setEmojiToolbar(it) }
-    }
+    SectionHeader("Emoji")
+    ToggleSetting(
+        "Emoji button in toolbar", "One-tap emoji access from the top bar", settings.emojiToolbar,
+        info = "Keeps the emoji button visible in the top bar even while suggestions " +
+            "are showing. The emoji panel itself has tabs per category, search in " +
+            "English and Bengali, and skin-tone variants on long-press.",
+    ) { scope.launch { repository.setEmojiToolbar(it) } }
 }
 
 @Composable
@@ -446,23 +651,32 @@ private fun PrivacySettings(repository: SettingsRepository, settings: KeyboardSe
         "Learn from typing",
         "Personalize suggestions on-device. Nothing ever leaves your phone.",
         settings.learnFromTyping,
+        info = "Words and word pairs you type are stored in a private on-device " +
+            "dictionary to improve suggestions and gesture typing. Learning is skipped " +
+            "in password fields and while incognito mode is on, and can be wiped below " +
+            "at any time.",
     ) { scope.launch { repository.setLearnFromTyping(it) } }
     ToggleSetting(
         "Incognito mode",
         "Pause learning and clipboard capture",
         settings.incognito,
+        info = "While on, the keyboard learns nothing from your typing and clipboard " +
+            "history is not recorded. Existing learned words are untouched.",
     ) { scope.launch { repository.setIncognito(it) } }
     Spacer(Modifier.height(12.dp))
-    OutlinedButton(onClick = {
-        java.io.File(context.filesDir, "learning/user_lexicon.json").delete()
-        java.io.File(context.filesDir, "learning/emoji_usage.json").delete()
-    }) { Text("Clear learned words") }
+    OutlinedButton(
+        onClick = {
+            java.io.File(context.filesDir, "learning/user_lexicon.json").delete()
+            java.io.File(context.filesDir, "learning/emoji_usage.json").delete()
+        },
+        modifier = Modifier.padding(horizontal = 16.dp),
+    ) { Text("Clear learned words") }
     Spacer(Modifier.height(4.dp))
     Text(
         "WM Keyboard works fully offline: dictionaries, Bengali transliteration and " +
             "emoji search are all bundled. There is no telemetry.",
         style = MaterialTheme.typography.bodySmall,
-        modifier = Modifier.padding(vertical = 12.dp),
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
     )
 }
 
@@ -477,28 +691,65 @@ private fun SnippetSettings() {
     var showAdd by remember { mutableStateOf(false) }
 
     Text(
-        "Snippets appear in the keyboard's snippet panel. Variables {date}, " +
-            "{time}, {datetime} and {clip} expand when inserted.",
-        style = MaterialTheme.typography.bodySmall,
-        modifier = Modifier.padding(vertical = 12.dp),
+        "Snippets are reusable pieces of text — an address, an email sign-off, a " +
+            "canned reply — inserted from the keyboard's snippet panel with one tap.",
+        style = MaterialTheme.typography.bodyMedium,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
     )
-    Button(onClick = { showAdd = true }) { Text("Add snippet") }
+    Card(modifier = Modifier
+        .fillMaxWidth()
+        .padding(horizontal = 16.dp)) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text("Template variables", style = MaterialTheme.typography.titleSmall)
+            Spacer(Modifier.height(8.dp))
+            // Live examples: expand the actual templates so the preview
+            // always matches what an insertion would produce right now.
+            VariableRow("{date}", "today's date", SnippetStore.expand("{date}"))
+            VariableRow("{time}", "current time", SnippetStore.expand("{time}"))
+            VariableRow("{datetime}", "date and time", SnippetStore.expand("{datetime}"))
+            VariableRow("{clip}", "latest clipboard entry", "whatever you copied last")
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "Variables expand at the moment the snippet is inserted, not when it " +
+                    "is saved — so {date} always produces the current date.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+    Spacer(Modifier.height(12.dp))
+    Button(
+        onClick = { showAdd = true },
+        modifier = Modifier.padding(horizontal = 16.dp),
+    ) { Text("Add snippet") }
     Spacer(Modifier.height(8.dp))
     for (snippet in snippets) {
         ListItem(
             headlineContent = { Text(snippet.label) },
-            supportingContent = { Text(snippet.text, maxLines = 2) },
+            supportingContent = {
+                Column {
+                    Text(snippet.text, maxLines = 2)
+                    if (snippet.text != SnippetStore.expand(snippet.text, clipboard = "…")) {
+                        Text(
+                            "Inserts as: " + SnippetStore.expand(snippet.text, clipboard = "…"),
+                            maxLines = 2,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                }
+            },
             trailingContent = {
                 Row {
                     IconButton(onClick = { editing = snippet }) {
-                        Icon(Icons.Filled.Edit, contentDescription = "Edit")
+                        Icon(Icons.Outlined.Edit, contentDescription = "Edit")
                     }
                     IconButton(onClick = {
                         store.remove(snippet.id)
                         store.save()
                         snippets = store.items()
                     }) {
-                        Icon(Icons.Filled.Delete, contentDescription = "Delete")
+                        Icon(Icons.Outlined.Delete, contentDescription = "Delete")
                     }
                 }
             },
@@ -519,6 +770,28 @@ private fun SnippetSettings() {
                 editing = null
             },
         )
+    }
+}
+
+/** One row in the template-variable reference card. */
+@Composable
+private fun VariableRow(variable: String, meaning: String, example: String) {
+    Row(modifier = Modifier.padding(vertical = 3.dp)) {
+        Text(
+            variable,
+            style = MaterialTheme.typography.bodyMedium,
+            fontFamily = FontFamily.Monospace,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.width(96.dp),
+        )
+        Column {
+            Text(meaning, style = MaterialTheme.typography.bodyMedium)
+            Text(
+                "e.g. $example",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
 }
 

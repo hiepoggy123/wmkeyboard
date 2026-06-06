@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -18,39 +20,38 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.automirrored.filled.Backspace
-import androidx.compose.material.icons.automirrored.filled.KeyboardReturn
-import androidx.compose.material.icons.automirrored.filled.KeyboardTab
-import androidx.compose.material.icons.automirrored.filled.Send
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.ContentPaste
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.EmojiEmotions
-import androidx.compose.material.icons.filled.Fullscreen
-import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material.icons.filled.KeyboardCapslock
-import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.ArrowForward
+import androidx.compose.material.icons.automirrored.outlined.Backspace
+import androidx.compose.material.icons.automirrored.outlined.KeyboardReturn
+import androidx.compose.material.icons.automirrored.outlined.KeyboardTab
+import androidx.compose.material.icons.automirrored.outlined.Send
 import androidx.compose.material.icons.filled.PushPin
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.TextSnippet
+import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.ContentPaste
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.DeleteSweep
+import androidx.compose.material.icons.outlined.EmojiEmotions
+import androidx.compose.material.icons.outlined.Fullscreen
+import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.PushPin
+import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.TextSnippet
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.VerticalDivider
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
@@ -76,11 +77,18 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntRect
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupPositionProvider
 import android.os.Build
 import com.wasimaster.wmkeyboard.core.clipboard.ClipItem
 import com.wasimaster.wmkeyboard.core.emoji.EmojiVariants
@@ -116,6 +124,7 @@ fun KeyboardScreen(
     onSuggestion: (String) -> Unit,
     onEmoji: (String) -> Unit,
     onEmojiQueryTap: () -> Unit,
+    onEmojiRecentsClear: () -> Unit = {},
     onPanelChange: (PanelMode) -> Unit,
     onClipboardItem: (ClipItem) -> Unit,
     onClipboardPin: (ClipItem) -> Unit,
@@ -134,7 +143,10 @@ fun KeyboardScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .navigationBarsPadding(),
+                    .navigationBarsPadding()
+                    // Extra breathing room above the gesture bar, adjustable
+                    // in Settings → Appearance.
+                    .padding(bottom = state.settings.bottomPaddingDp.dp),
                 verticalAlignment = Alignment.Bottom,
             ) {
                 if (oneHanded == OneHandedMode.RIGHT) {
@@ -145,7 +157,7 @@ fun KeyboardScreen(
                 ) {
                     TopBar(state, onSuggestion, onPanelChange, onOpenSettings)
                     when (state.panel) {
-                        PanelMode.EMOJI -> EmojiPanel(state, onEmoji, onEmojiQueryTap, onKey, onText)
+                        PanelMode.EMOJI -> EmojiPanel(state, onEmoji, onEmojiQueryTap, onEmojiRecentsClear)
                         PanelMode.CLIPBOARD -> ClipboardPanel(state, onClipboardItem, onClipboardPin, onClipboardDelete)
                         PanelMode.SNIPPETS -> SnippetsPanel(state, onSnippet)
                         PanelMode.NONE -> KeyRows(state, onKey, onText, onGesture, onGesturePreview, onCursorMove)
@@ -180,9 +192,9 @@ private fun OneHandedRail(
         }) {
             Icon(
                 if (current == OneHandedMode.LEFT) {
-                    Icons.AutoMirrored.Filled.ArrowForward
+                    Icons.AutoMirrored.Outlined.ArrowForward
                 } else {
-                    Icons.AutoMirrored.Filled.ArrowBack
+                    Icons.AutoMirrored.Outlined.ArrowBack
                 },
                 contentDescription = "Move keyboard to the other side",
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -190,7 +202,7 @@ private fun OneHandedRail(
         }
         IconButton(onClick = { onOneHanded(OneHandedMode.OFF) }) {
             Icon(
-                Icons.Filled.Fullscreen,
+                Icons.Outlined.Fullscreen,
                 contentDescription = "Exit one-handed mode",
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -247,7 +259,7 @@ private fun TopBar(
         if (state.settings.emojiToolbar || state.suggestions.isEmpty()) {
             IconButton(onClick = { onPanelChange(PanelMode.EMOJI) }) {
                 Icon(
-                    Icons.Filled.EmojiEmotions,
+                    Icons.Outlined.EmojiEmotions,
                     contentDescription = "Emoji",
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -256,14 +268,14 @@ private fun TopBar(
         if (state.suggestions.isEmpty()) {
             IconButton(onClick = { onPanelChange(PanelMode.CLIPBOARD) }) {
                 Icon(
-                    Icons.Filled.ContentPaste,
+                    Icons.Outlined.ContentPaste,
                     contentDescription = "Clipboard",
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
             IconButton(onClick = { onPanelChange(PanelMode.SNIPPETS) }) {
                 Icon(
-                    Icons.Filled.TextSnippet,
+                    Icons.Outlined.TextSnippet,
                     contentDescription = "Snippets",
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -274,30 +286,45 @@ private fun TopBar(
             Box(modifier = Modifier.weight(1f))
             IconButton(onClick = onOpenSettings) {
                 Icon(
-                    Icons.Filled.Settings,
+                    Icons.Outlined.Settings,
                     contentDescription = "Settings",
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         } else {
-            LazyRow(
-                modifier = Modifier.weight(1f),
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            // The top candidates split the whole bar evenly (Gboard style),
+            // so each one gets the largest possible tap target.
+            Row(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight(),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                items(state.suggestions) { suggestion ->
-                    Text(
-                        text = suggestion,
+                val shown = state.suggestions.take(3)
+                shown.forEachIndexed { index, suggestion ->
+                    if (index > 0) {
+                        VerticalDivider(
+                            modifier = Modifier.height(20.dp),
+                            color = MaterialTheme.colorScheme.outlineVariant,
+                        )
+                    }
+                    Box(
                         modifier = Modifier
-                            .clickable { onSuggestion(suggestion) }
-                            .background(
-                                MaterialTheme.colorScheme.surfaceContainer,
-                                RoundedCornerShape(16.dp),
-                            )
-                            .padding(horizontal = 14.dp, vertical = 8.dp),
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1,
-                    )
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .clickable { onSuggestion(suggestion) },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = suggestion,
+                            modifier = Modifier.padding(horizontal = 6.dp),
+                            color = MaterialTheme.colorScheme.onSurface,
+                            fontWeight = if (index == 0) FontWeight.SemiBold else FontWeight.Normal,
+                            textAlign = TextAlign.Center,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
                 }
             }
         }
@@ -457,6 +484,33 @@ private fun currentLayout(state: KeyboardUiState): KeyboardLayout = when (state.
     }
 }
 
+/**
+ * Places a popup centered above its anchor with a clear gap, so the
+ * character bubble and long-press alternates are not hidden under the
+ * pressing finger.
+ */
+private class AboveAnchorPopupPositionProvider(private val gapPx: Int) : PopupPositionProvider {
+    override fun calculatePosition(
+        anchorBounds: IntRect,
+        windowSize: IntSize,
+        layoutDirection: LayoutDirection,
+        popupContentSize: IntSize,
+    ): IntOffset {
+        val x = (anchorBounds.left + (anchorBounds.width - popupContentSize.width) / 2)
+            .coerceIn(0, (windowSize.width - popupContentSize.width).coerceAtLeast(0))
+        val y = (anchorBounds.top - popupContentSize.height - gapPx).coerceAtLeast(0)
+        return IntOffset(x, y)
+    }
+}
+
+@Composable
+private fun rememberAboveAnchorPopup(): PopupPositionProvider {
+    val density = LocalDensity.current
+    return remember(density) {
+        AboveAnchorPopupPositionProvider(with(density) { 10.dp.roundToPx() })
+    }
+}
+
 @Composable
 private fun KeyButton(
     key: Key,
@@ -498,10 +552,11 @@ private fun KeyButton(
         contentAlignment = Alignment.Center,
     ) {
         KeyContent(key, state, contentColor)
+        val popupPosition = rememberAboveAnchorPopup()
 
         if (showAlternates && key.longPress.isNotEmpty()) {
             Popup(
-                alignment = Alignment.TopCenter,
+                popupPositionProvider = popupPosition,
                 onDismissRequest = { showAlternates = false },
             ) {
                 Surface(
@@ -528,9 +583,9 @@ private fun KeyButton(
             }
         }
 
-        // Key preview bubble while pressed.
+        // Key preview bubble while pressed, lifted above the fingertip.
         if (pressed && settings.keyPopup && key.action == KeyAction.Text && !showAlternates) {
-            Popup(alignment = Alignment.TopCenter) {
+            Popup(popupPositionProvider = popupPosition) {
                 Surface(
                     shape = RoundedCornerShape(10.dp),
                     color = MaterialTheme.colorScheme.surfaceContainerHighest,
@@ -553,10 +608,10 @@ private fun KeyContent(key: Key, state: KeyboardUiState, contentColor: Color) {
     val fontScale = state.settings.fontScale
     when (key.action) {
         KeyAction.Shift -> Icon(
-            if (state.shiftState == ShiftState.CAPS_LOCK) {
-                Icons.Filled.KeyboardCapslock
-            } else {
-                Icons.Filled.KeyboardArrowUp
+            when (state.shiftState) {
+                ShiftState.CAPS_LOCK -> KeyboardIcons.ShiftLock
+                ShiftState.ON -> KeyboardIcons.ShiftFilled
+                ShiftState.OFF -> KeyboardIcons.Shift
             },
             contentDescription = when (state.shiftState) {
                 ShiftState.CAPS_LOCK -> "Caps lock on"
@@ -566,25 +621,25 @@ private fun KeyContent(key: Key, state: KeyboardUiState, contentColor: Color) {
             tint = if (state.shiftState != ShiftState.OFF) MaterialTheme.colorScheme.primary else contentColor,
         )
         KeyAction.Delete -> Icon(
-            Icons.AutoMirrored.Filled.Backspace,
+            Icons.AutoMirrored.Outlined.Backspace,
             contentDescription = "Delete",
             tint = contentColor,
         )
         KeyAction.Enter -> Icon(
             when (state.enterAction) {
-                EnterAction.SEARCH -> Icons.Filled.Search
-                EnterAction.SEND -> Icons.AutoMirrored.Filled.Send
-                EnterAction.GO -> Icons.AutoMirrored.Filled.ArrowForward
-                EnterAction.NEXT -> Icons.AutoMirrored.Filled.KeyboardTab
-                EnterAction.PREVIOUS -> Icons.AutoMirrored.Filled.ArrowBack
-                EnterAction.DONE -> Icons.Filled.Check
-                EnterAction.DEFAULT -> Icons.AutoMirrored.Filled.KeyboardReturn
+                EnterAction.SEARCH -> Icons.Outlined.Search
+                EnterAction.SEND -> Icons.AutoMirrored.Outlined.Send
+                EnterAction.GO -> Icons.AutoMirrored.Outlined.ArrowForward
+                EnterAction.NEXT -> Icons.AutoMirrored.Outlined.KeyboardTab
+                EnterAction.PREVIOUS -> Icons.AutoMirrored.Outlined.ArrowBack
+                EnterAction.DONE -> Icons.Outlined.Check
+                EnterAction.DEFAULT -> Icons.AutoMirrored.Outlined.KeyboardReturn
             },
             contentDescription = "Enter",
             tint = contentColor,
         )
         KeyAction.LanguageSwitch -> Icon(
-            Icons.Filled.Language,
+            Icons.Outlined.Language,
             contentDescription = "Switch language",
             tint = contentColor,
         )
@@ -615,9 +670,10 @@ private fun KeyContent(key: Key, state: KeyboardUiState, contentColor: Color) {
 
 private fun displayLabel(key: Key, state: KeyboardUiState): String = when {
     state.shiftState != ShiftState.OFF && key.shiftLabel != null -> key.shiftLabel
-    // Latin letters display uppercase regardless of shift (Samsung style);
-    // shift state shows on the shift key and in the committed text.
-    key.action == KeyAction.Text && state.inputMode != InputMode.PROBHAT &&
+    // Latin letter labels track the live shift state: lowercase normally,
+    // uppercase while shift or caps lock is active.
+    state.shiftState != ShiftState.OFF && key.action == KeyAction.Text &&
+        state.inputMode != InputMode.PROBHAT &&
         key.label.singleOrNull()?.code?.let { it in 'a'.code..'z'.code } == true ->
         key.label.uppercase()
     else -> key.label
@@ -705,13 +761,15 @@ private fun Modifier.pointerInputKey(
 
 // ---- emoji panel ----
 
+/** Sentinel tab id for the recents tab; ★ avoids clashing with catalog categories. */
+private const val RECENT_TAB = "★recent"
+
 @Composable
 private fun EmojiPanel(
     state: KeyboardUiState,
     onEmoji: (String) -> Unit,
     onEmojiQueryTap: () -> Unit,
-    onKey: (Key) -> Unit,
-    onText: (String) -> Unit,
+    onClearRecents: () -> Unit,
 ) {
     val height = if (state.emojiSearchActive) 120.dp else (state.settings.keyHeightDp * 4 + 40).dp
     Column(
@@ -734,7 +792,7 @@ private fun EmojiPanel(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Icon(
-                    Icons.Filled.Search,
+                    Icons.Outlined.Search,
                     contentDescription = null,
                     modifier = Modifier.size(18.dp),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -755,64 +813,126 @@ private fun EmojiPanel(
             }
         }
 
-        val emojisToShow: List<Pair<String?, List<String>>> = when {
-            state.emojiQuery.isNotEmpty() -> listOf(null to state.emojiResults.map { it.emoji })
-            else -> buildList {
-                if (state.emojiRecents.isNotEmpty()) add("Recent" to state.emojiRecents)
-                state.emojiCatalog.groupBy { it.category }.forEach { (category, entries) ->
-                    add(category.replaceFirstChar { it.uppercase() } to entries.map { it.emoji })
+        if (state.emojiQuery.isNotEmpty()) {
+            LazyVerticalGrid(
+                columns = GridCells.Adaptive(minSize = 44.dp),
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(8.dp),
+            ) {
+                items(state.emojiResults.map { it.emoji }) { emoji ->
+                    EmojiCell(emoji, onEmoji)
+                }
+            }
+            return@Column
+        }
+
+        // One category rendered at a time behind tabs: the full catalog in a
+        // single grid was a composition/measure hog.
+        val categories = remember(state.emojiCatalog) {
+            state.emojiCatalog.map { it.category }.distinct()
+        }
+        val hasRecents = state.emojiRecents.isNotEmpty()
+        val tabs = remember(categories, hasRecents) {
+            buildList {
+                if (hasRecents) add(RECENT_TAB)
+                addAll(categories)
+            }
+        }
+        var selectedTab by remember { mutableStateOf(tabs.firstOrNull().orEmpty()) }
+        if (selectedTab !in tabs) selectedTab = tabs.firstOrNull().orEmpty()
+
+        if (tabs.isNotEmpty()) {
+            ScrollableTabRow(
+                selectedTabIndex = tabs.indexOf(selectedTab).coerceAtLeast(0),
+                edgePadding = 4.dp,
+                containerColor = Color.Transparent,
+            ) {
+                for (tab in tabs) {
+                    Tab(
+                        selected = tab == selectedTab,
+                        onClick = { selectedTab = tab },
+                        text = {
+                            Text(
+                                text = if (tab == RECENT_TAB) "Recent"
+                                else tab.replaceFirstChar { it.uppercase() },
+                                fontSize = 12.sp,
+                                maxLines = 1,
+                            )
+                        },
+                    )
                 }
             }
         }
 
+        if (selectedTab == RECENT_TAB) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(modifier = Modifier.weight(1f))
+                TextButton(onClick = onClearRecents) {
+                    Icon(
+                        Icons.Outlined.DeleteSweep,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                    )
+                    Box(modifier = Modifier.width(4.dp))
+                    Text("Clear recents", fontSize = 12.sp)
+                }
+            }
+        }
+
+        val emojis = if (selectedTab == RECENT_TAB) {
+            state.emojiRecents
+        } else {
+            remember(state.emojiCatalog, selectedTab) {
+                state.emojiCatalog.filter { it.category == selectedTab }.map { it.emoji }
+            }
+        }
         LazyVerticalGrid(
             columns = GridCells.Adaptive(minSize = 44.dp),
             modifier = Modifier.fillMaxSize(),
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(8.dp),
+            contentPadding = PaddingValues(8.dp),
         ) {
-            for ((header, emojis) in emojisToShow) {
-                if (header != null) {
-                    item(span = { GridItemSpan(maxLineSpan) }) {
-                        Text(
-                            text = header,
-                            modifier = Modifier.padding(vertical = 6.dp, horizontal = 4.dp),
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.primary,
-                        )
-                    }
-                }
-                items(emojis) { emoji ->
-                    EmojiCell(emoji, onEmoji)
-                }
+            items(emojis) { emoji ->
+                EmojiCell(emoji, onEmoji)
             }
         }
     }
 }
 
-/** One emoji in the grid; long-press opens skin-tone variants. */
+/**
+ * One emoji in the grid. Only emojis with skin-tone variants register a
+ * long-press handler; everything else is a plain tap with no long-press
+ * timeout involved.
+ */
 @Composable
 private fun EmojiCell(emoji: String, onEmoji: (String) -> Unit) {
     var showVariants by remember { mutableStateOf(false) }
     val variants = remember(emoji) { EmojiVariants.variants(emoji) }
+    val hasVariants = variants.size > 1
     Box {
         Text(
             text = emoji,
             modifier = Modifier
-                .pointerInput(emoji) {
-                    detectTapGestures(
-                        onTap = { onEmoji(emoji) },
-                        onLongPress = {
-                            if (variants.size > 1) showVariants = true else onEmoji(emoji)
-                        },
-                    )
+                .pointerInput(emoji, hasVariants) {
+                    if (hasVariants) {
+                        detectTapGestures(
+                            onTap = { onEmoji(emoji) },
+                            onLongPress = { showVariants = true },
+                        )
+                    } else {
+                        detectTapGestures(onTap = { onEmoji(emoji) })
+                    }
                 }
                 .padding(6.dp),
             fontSize = 26.sp,
         )
         if (showVariants) {
             Popup(
-                alignment = Alignment.TopCenter,
+                popupPositionProvider = rememberAboveAnchorPopup(),
                 onDismissRequest = { showVariants = false },
             ) {
                 Surface(
@@ -954,7 +1074,7 @@ private fun ClipboardPanel(
                     }
                     IconButton(onClick = { onClipboardDelete(item) }, modifier = Modifier.size(32.dp)) {
                         Icon(
-                            Icons.Filled.Delete,
+                            Icons.Outlined.Delete,
                             contentDescription = "Delete",
                             modifier = Modifier.size(16.dp),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,

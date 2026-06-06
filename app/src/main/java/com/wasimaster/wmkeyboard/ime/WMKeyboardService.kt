@@ -155,6 +155,7 @@ class WMKeyboardService : InputMethodService() {
                 onSuggestion = ::onSuggestionTapped,
                 onEmoji = ::onEmojiTapped,
                 onEmojiQueryTap = ::onEmojiSearchToggled,
+                onEmojiRecentsClear = ::onEmojiRecentsClear,
                 onPanelChange = ::onPanelChange,
                 onClipboardItem = ::onClipboardItemTapped,
                 onClipboardPin = ::onClipboardPin,
@@ -187,6 +188,29 @@ class WMKeyboardService : InputMethodService() {
                 enterAction = info.enterAction(),
             )
         }
+    }
+
+    override fun onUpdateSelection(
+        oldSelStart: Int,
+        oldSelEnd: Int,
+        newSelStart: Int,
+        newSelEnd: Int,
+        candidatesStart: Int,
+        candidatesEnd: Int,
+    ) {
+        super.onUpdateSelection(oldSelStart, oldSelEnd, newSelStart, newSelEnd, candidatesStart, candidatesEnd)
+        // The cursor moved away from the composing region (tap elsewhere,
+        // selection handle drag): stop composing so edits apply at the new
+        // position instead of the stale word.
+        if (composing.isNotEmpty() &&
+            (newSelStart != candidatesEnd || newSelEnd != candidatesEnd)
+        ) {
+            composing = StringBuilder()
+            currentInputConnection?.finishComposingText()
+            suggestionJob?.cancel()
+            _uiState.update { it.copy(composingPreview = "", suggestions = emptyList()) }
+        }
+        refreshShiftForContext()
     }
 
     override fun onFinishInputView(finishingInput: Boolean) {
@@ -242,6 +266,19 @@ class WMKeyboardService : InputMethodService() {
         }
 
         val ic = currentInputConnection ?: return
+
+        // Typing over a selection replaces it and puts the cursor after the
+        // new character, like every other keyboard. Never route through the
+        // composing buffer in that case.
+        if (hasSelection(ic)) {
+            composing = StringBuilder()
+            ic.commitText(text, 1)
+            consumeShift()
+            _uiState.update { it.copy(composingPreview = "", suggestions = emptyList()) }
+            if (text.length == 1 && text[0] in SENTENCE_ENDERS) maybeAutoCapitalize()
+            return
+        }
+
         val isWordChar = text.length == 1 && (text[0].isLetter() || text[0] == '\'')
         val composingMode = state.inputMode != InputMode.PROBHAT && !state.secureField && state.settings.suggestions
 
@@ -249,14 +286,17 @@ class WMKeyboardService : InputMethodService() {
             composing.append(text)
             updateComposingText(ic)
             refreshSuggestions()
+            consumeShift()
         } else {
             commitComposing(ic, autocorrect = false)
             ic.commitText(text, 1)
+            // Consume one-shot shift before evaluating auto-capitalize, so a
+            // sentence ender can turn shift back on for the next sentence.
+            consumeShift()
             if (text.length == 1 && text[0] in SENTENCE_ENDERS) {
                 maybeAutoCapitalize()
             }
         }
-        consumeShift()
     }
 
     private fun keyOutput(key: Key, state: KeyboardUiState): String {
@@ -300,6 +340,11 @@ class WMKeyboardService : InputMethodService() {
             return
         }
         val ic = currentInputConnection ?: return
+        // Deleting with an active selection removes the selected text only.
+        if (hasSelection(ic)) {
+            ic.commitText("", 1)
+            return
+        }
         if (composing.isNotEmpty()) {
             composing.deleteCharAt(composing.length - 1)
             updateComposingText(ic)
@@ -328,6 +373,14 @@ class WMKeyboardService : InputMethodService() {
         if (state.emojiSearchActive) {
             _uiState.update { it.copy(emojiQuery = it.emojiQuery + " ") }
             refreshEmojiResults()
+            return
+        }
+
+        // Space over a selection replaces it; skip autocorrect/double-space.
+        if (hasSelection(ic)) {
+            ic.commitText(" ", 1)
+            lastSpaceTime = 0
+            maybeAutoCapitalize()
             return
         }
 
@@ -360,6 +413,7 @@ class WMKeyboardService : InputMethodService() {
         } else {
             ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER))
             ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_ENTER))
+            maybeAutoCapitalize()
         }
     }
 
@@ -473,6 +527,7 @@ class WMKeyboardService : InputMethodService() {
     /** Spacebar drag: move the cursor one position left (-1) or right (+1). */
     fun onCursorMove(delta: Int) {
         val ic = currentInputConnection ?: return
+        vibrate()
         commitComposing(ic, autocorrect = false)
         lastGestureWord = null
         sendDownUpKeyEvents(
@@ -591,6 +646,13 @@ class WMKeyboardService : InputMethodService() {
         _uiState.update { it.copy(emojiSearchActive = !it.emojiSearchActive) }
     }
 
+    fun onEmojiRecentsClear() {
+        vibrate()
+        emojiUsage.clearRecents()
+        emojiUsage.save()
+        _uiState.update { it.copy(emojiRecents = emptyList()) }
+    }
+
     private fun refreshEmojiResults() {
         val search = emojiSearch ?: return
         val query = _uiState.value.emojiQuery
@@ -631,6 +693,27 @@ class WMKeyboardService : InputMethodService() {
     }
 
     // ---- helpers ----
+
+    private fun hasSelection(ic: InputConnection): Boolean =
+        !ic.getSelectedText(0).isNullOrEmpty()
+
+    /**
+     * Re-evaluates the one-shot shift state after the cursor moved or text
+     * changed: turns shift on at a sentence start, off when no longer at
+     * one. Caps lock is never touched.
+     */
+    private fun refreshShiftForContext() {
+        _uiState.update {
+            when {
+                it.shiftState == ShiftState.CAPS_LOCK -> it
+                it.shiftState == ShiftState.OFF && shouldAutoCapitalize() ->
+                    it.copy(shiftState = ShiftState.ON)
+                it.shiftState == ShiftState.ON && it.settings.autoCapitalize && !shouldAutoCapitalize() ->
+                    it.copy(shiftState = ShiftState.OFF)
+                else -> it
+            }
+        }
+    }
 
     private fun shouldAutoCapitalize(): Boolean {
         val state = _uiState.value
