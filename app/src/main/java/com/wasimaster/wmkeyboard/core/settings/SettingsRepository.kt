@@ -19,6 +19,13 @@ enum class ThemeMode { SYSTEM, LIGHT, DARK, AMOLED }
 /** Shrinks the keyboard toward one edge for thumb reach. */
 enum class OneHandedMode { OFF, LEFT, RIGHT }
 
+/**
+ * Key-press haptic waveform: [CUSTOM] drives the motor directly with the
+ * duration/amplitude settings; [CLICK] and [HEAVY_CLICK] use the device's
+ * hardware-tuned predefined effects (Android 10+, falls back to CUSTOM).
+ */
+enum class HapticStyle { CUSTOM, CLICK, HEAVY_CLICK }
+
 data class KeyboardSettings(
     val inputMode: InputMode = InputMode.ENGLISH,
     val enabledModes: List<InputMode> = listOf(InputMode.ENGLISH, InputMode.AVRO, InputMode.PROBHAT),
@@ -30,6 +37,8 @@ data class KeyboardSettings(
     val fontScale: Float = 1.0f,
     val hapticFeedback: Boolean = true,
     val hapticStrengthMs: Int = 15,
+    val hapticAmplitude: Int = 255,
+    val hapticStyle: HapticStyle = HapticStyle.CUSTOM,
     val keySound: Boolean = false,
     val keyPopup: Boolean = true,
     val numberRow: Boolean = false,
@@ -69,6 +78,8 @@ class SettingsRepository(private val context: Context) {
         private val FONT_SCALE = floatPreferencesKey("font_scale")
         private val HAPTIC = booleanPreferencesKey("haptic")
         private val HAPTIC_STRENGTH = intPreferencesKey("haptic_strength")
+        private val HAPTIC_AMPLITUDE = intPreferencesKey("haptic_amplitude")
+        private val HAPTIC_STYLE = stringPreferencesKey("haptic_style")
         private val KEY_SOUND = booleanPreferencesKey("key_sound")
         private val KEY_POPUP = booleanPreferencesKey("key_popup")
         private val NUMBER_ROW = booleanPreferencesKey("number_row")
@@ -108,6 +119,9 @@ class SettingsRepository(private val context: Context) {
             fontScale = p[FONT_SCALE] ?: defaults.fontScale,
             hapticFeedback = p[HAPTIC] ?: defaults.hapticFeedback,
             hapticStrengthMs = p[HAPTIC_STRENGTH] ?: defaults.hapticStrengthMs,
+            hapticAmplitude = p[HAPTIC_AMPLITUDE] ?: defaults.hapticAmplitude,
+            hapticStyle = p[HAPTIC_STYLE]?.let { runCatching { HapticStyle.valueOf(it) }.getOrNull() }
+                ?: defaults.hapticStyle,
             keySound = p[KEY_SOUND] ?: defaults.keySound,
             keyPopup = p[KEY_POPUP] ?: defaults.keyPopup,
             numberRow = p[NUMBER_ROW] ?: defaults.numberRow,
@@ -160,6 +174,12 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setHapticStrengthMs(value: Int) =
         context.dataStore.edit { it[HAPTIC_STRENGTH] = value.coerceIn(5, 60) }
+
+    suspend fun setHapticAmplitude(value: Int) =
+        context.dataStore.edit { it[HAPTIC_AMPLITUDE] = value.coerceIn(1, 255) }
+
+    suspend fun setHapticStyle(value: HapticStyle) =
+        context.dataStore.edit { it[HAPTIC_STYLE] = value.name }
 
     suspend fun setKeySound(value: Boolean) =
         context.dataStore.edit { it[KEY_SOUND] = value }

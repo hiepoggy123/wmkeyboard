@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -29,7 +30,7 @@ import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
-import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.automirrored.outlined.HelpOutline
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -74,6 +75,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import android.os.Build
+import com.wasimaster.wmkeyboard.core.settings.HapticStyle
 import com.wasimaster.wmkeyboard.core.settings.InputMode
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.OneHandedMode
@@ -325,9 +327,10 @@ private fun InfoButton(title: String, detail: String) {
     var open by remember { mutableStateOf(false) }
     IconButton(onClick = { open = true }) {
         Icon(
-            Icons.Outlined.Info,
+            Icons.AutoMirrored.Outlined.HelpOutline,
             contentDescription = "More about $title",
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(20.dp),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
         )
     }
     if (open) {
@@ -456,17 +459,66 @@ private fun TypingSettings(repository: SettingsRepository, settings: KeyboardSet
     ToggleSetting(
         "Key press haptics", "Vibrate on every key press", settings.hapticFeedback,
         info = "A short vibration confirms each key press, including spacebar cursor " +
-            "movement steps. Strength is adjustable below.",
+            "movement steps. Style and strength are adjustable below.",
     ) { scope.launch { repository.setHapticFeedback(it) } }
-    SliderSetting(
-        "Haptic strength",
-        subtitle = "Vibration length per key press",
-        value = settings.hapticStrengthMs.toFloat(),
-        range = 5f..60f,
-        display = "${settings.hapticStrengthMs} ms",
-        info = "Duration of the vibration pulse in milliseconds. Longer pulses feel " +
-            "stronger on most phones.",
-    ) { scope.launch { repository.setHapticStrengthMs(it.toInt()) } }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 16.dp, end = 16.dp, top = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text("Haptic style", style = MaterialTheme.typography.bodyLarge)
+        InfoButton(
+            "Haptic style",
+            "Click and Heavy click use the device's hardware-tuned haptic effects " +
+                "(Android 10+) — the same crisp feedback stock keyboards use, and " +
+                "usually the strongest-feeling option. Custom drives the vibration " +
+                "motor directly using the duration and intensity sliders. On older " +
+                "devices Click and Heavy click fall back to Custom.",
+        )
+    }
+    SingleChoiceSegmentedButtonRow(modifier = Modifier
+        .fillMaxWidth()
+        .padding(horizontal = 16.dp, vertical = 8.dp)) {
+        HapticStyle.entries.forEachIndexed { index, style ->
+            SegmentedButton(
+                selected = settings.hapticStyle == style,
+                onClick = { scope.launch { repository.setHapticStyle(style) } },
+                shape = SegmentedButtonDefaults.itemShape(index, HapticStyle.entries.size),
+            ) {
+                Text(
+                    when (style) {
+                        HapticStyle.CUSTOM -> "Custom"
+                        HapticStyle.CLICK -> "Click"
+                        HapticStyle.HEAVY_CLICK -> "Heavy click"
+                    },
+                    maxLines = 1,
+                )
+            }
+        }
+    }
+    if (settings.hapticStyle == HapticStyle.CUSTOM) {
+        SliderSetting(
+            "Haptic strength",
+            subtitle = "Vibration length per key press",
+            value = settings.hapticStrengthMs.toFloat(),
+            range = 5f..60f,
+            display = "${settings.hapticStrengthMs} ms",
+            info = "Duration of the vibration pulse in milliseconds. Longer pulses feel " +
+                "stronger on most phones.",
+        ) { scope.launch { repository.setHapticStrengthMs(it.toInt()) } }
+        SliderSetting(
+            "Haptic intensity",
+            subtitle = "Vibration amplitude per key press",
+            value = settings.hapticAmplitude.toFloat(),
+            range = 1f..255f,
+            display = "${settings.hapticAmplitude * 100 / 255}%",
+            info = "How hard the vibration motor is driven (1–255). Only takes effect on " +
+                "devices whose vibrator supports amplitude control; on others only the " +
+                "duration above matters. The system-wide \"Touch feedback\" vibration " +
+                "setting still scales the final strength on top of this.",
+        ) { scope.launch { repository.setHapticAmplitude(it.toInt()) } }
+    }
     ToggleSetting(
         "Key popup", "Show a character bubble above the pressed key", settings.keyPopup,
         info = "While a key is held, its character floats in a bubble above your finger " +

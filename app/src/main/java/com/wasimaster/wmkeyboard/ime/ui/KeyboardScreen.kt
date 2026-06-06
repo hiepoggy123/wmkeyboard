@@ -38,19 +38,31 @@ import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.ContentPaste
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.DeleteSweep
+import androidx.compose.material.icons.outlined.DirectionsCar
 import androidx.compose.material.icons.outlined.EmojiEmotions
+import androidx.compose.material.icons.outlined.EmojiNature
+import androidx.compose.material.icons.outlined.EmojiObjects
+import androidx.compose.material.icons.outlined.EmojiPeople
+import androidx.compose.material.icons.outlined.EmojiSymbols
+import androidx.compose.material.icons.outlined.Fastfood
 import androidx.compose.material.icons.outlined.Fullscreen
 import androidx.compose.material.icons.outlined.Language
+import androidx.compose.material.icons.outlined.Pets
 import androidx.compose.material.icons.outlined.PushPin
+import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.SportsSoccer
 import androidx.compose.material.icons.outlined.TextSnippet
+import androidx.compose.material.icons.outlined.EmojiFlags
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRowDefaults
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.VerticalDivider
@@ -79,6 +91,7 @@ import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -415,14 +428,17 @@ private fun KeyRows(
                 }
             },
     ) {
+        // No spacing between cells: each key's touch target fills its whole
+        // grid cell (gaps included) so a press landing between two keys
+        // still hits the nearest one. The visual gap comes from per-key
+        // padding inside KeyButton.
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 4.dp, vertical = 6.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+                .padding(horizontal = 1.5.dp, vertical = 2.dp),
         ) {
             if (state.settings.numberRow && state.layoutMode == LayoutMode.LETTERS) {
-                Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                Row {
                     "1234567890".forEach { digit ->
                         KeyButton(
                             key = Key(digit.toString()),
@@ -435,7 +451,7 @@ private fun KeyRows(
                 }
             }
             for (row in layout.rows) {
-                Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                Row {
                     for (key in row) {
                         val letter = key.label.singleOrNull()?.takeIf {
                             key.action == KeyAction.Text && it.isLetter()
@@ -521,6 +537,10 @@ private fun rememberAboveAnchorPopup(): PopupPositionProvider {
     }
 }
 
+/** Visual gap between keys, provided as padding inside each touch cell. */
+private val KeyGapHorizontal = 2.5.dp
+private val KeyGapVertical = 4.dp
+
 @Composable
 private fun KeyButton(
     key: Key,
@@ -548,17 +568,21 @@ private fun KeyButton(
         else -> MaterialTheme.colorScheme.onSurface
     }
 
+    // Outer box = full grid cell and the touch target; inner box = the
+    // visible key, inset by the gap. Presses in the gap between keys land
+    // on whichever cell they fall in, so there are no dead zones.
     Box(
         modifier = modifier
-            .height(settings.keyHeightDp.dp)
-            .background(background, RoundedCornerShape(settings.keyCornerRadiusDp.dp))
+            .height(settings.keyHeightDp.dp + KeyGapVertical * 2)
             .pointerInputKey(key, settings.longPressDelayMs, settings.keyRepeatIntervalMs,
                 spacebarCursor = settings.spacebarCursor,
                 setPressed = { pressed = it },
                 openAlternates = { showAlternates = true },
                 onKey = onKey,
                 onCursorMove = onCursorMove,
-                scope = scope),
+                scope = scope)
+            .padding(horizontal = KeyGapHorizontal, vertical = KeyGapVertical)
+            .background(background, RoundedCornerShape(settings.keyCornerRadiusDp.dp)),
         contentAlignment = Alignment.Center,
     ) {
         KeyContent(key, state, contentColor)
@@ -669,12 +693,17 @@ private fun KeyContent(key: Key, state: KeyboardUiState, contentColor: Color) {
                 color = contentColor.copy(alpha = 0.5f),
             )
         }
-        else -> Text(
-            text = displayLabel(key, state),
-            fontSize = (19 * fontScale).sp,
-            fontWeight = FontWeight.Medium,
-            color = contentColor,
-        )
+        else -> {
+            // Multi-character mode labels (?123, ABC, =\<) read as labels,
+            // not characters — render them clearly smaller than letters.
+            val isModeLabel = key.action != KeyAction.Text && key.label.length > 1
+            Text(
+                text = displayLabel(key, state),
+                fontSize = ((if (isModeLabel) 13 else 19) * fontScale).sp,
+                fontWeight = FontWeight.Medium,
+                color = contentColor,
+            )
+        }
     }
 }
 
@@ -774,6 +803,22 @@ private fun Modifier.pointerInputKey(
 /** Sentinel tab id for the recents tab; ★ avoids clashing with catalog categories. */
 private const val RECENT_TAB = "★recent"
 
+/** Category → tab icon; falls back to the smiley for unknown categories. */
+private fun emojiTabIcon(tab: String): ImageVector = when (tab) {
+    RECENT_TAB -> Icons.Outlined.Schedule
+    "smileys" -> Icons.Outlined.EmojiEmotions
+    "people" -> Icons.Outlined.EmojiPeople
+    "animals" -> Icons.Outlined.Pets
+    "nature" -> Icons.Outlined.EmojiNature
+    "food" -> Icons.Outlined.Fastfood
+    "travel" -> Icons.Outlined.DirectionsCar
+    "activities" -> Icons.Outlined.SportsSoccer
+    "objects" -> Icons.Outlined.EmojiObjects
+    "symbols" -> Icons.Outlined.EmojiSymbols
+    "flags" -> Icons.Outlined.EmojiFlags
+    else -> Icons.Outlined.EmojiEmotions
+}
+
 @Composable
 private fun EmojiPanel(
     state: KeyboardUiState,
@@ -852,21 +897,32 @@ private fun EmojiPanel(
         if (selectedTab !in tabs) selectedTab = tabs.firstOrNull().orEmpty()
 
         if (tabs.isNotEmpty()) {
+            val selectedIndex = tabs.indexOf(selectedTab).coerceAtLeast(0)
             ScrollableTabRow(
-                selectedTabIndex = tabs.indexOf(selectedTab).coerceAtLeast(0),
+                selectedTabIndex = selectedIndex,
                 edgePadding = 4.dp,
                 containerColor = Color.Transparent,
+                indicator = { tabPositions ->
+                    if (selectedIndex < tabPositions.size) {
+                        TabRowDefaults.SecondaryIndicator(
+                            modifier = Modifier.tabIndicatorOffset(tabPositions[selectedIndex]),
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                    }
+                },
             ) {
                 for (tab in tabs) {
                     Tab(
                         selected = tab == selectedTab,
                         onClick = { selectedTab = tab },
-                        text = {
-                            Text(
-                                text = if (tab == RECENT_TAB) "Recent"
+                        selectedContentColor = MaterialTheme.colorScheme.onSurface,
+                        unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                        icon = {
+                            Icon(
+                                emojiTabIcon(tab),
+                                contentDescription = if (tab == RECENT_TAB) "Recent"
                                 else tab.replaceFirstChar { it.uppercase() },
-                                fontSize = 12.sp,
-                                maxLines = 1,
+                                modifier = Modifier.size(20.dp),
                             )
                         },
                     )

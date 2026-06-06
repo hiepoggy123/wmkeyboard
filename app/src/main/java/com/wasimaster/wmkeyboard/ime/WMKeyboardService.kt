@@ -32,6 +32,7 @@ import com.wasimaster.wmkeyboard.core.prediction.EnglishBengaliMap
 import com.wasimaster.wmkeyboard.core.prediction.SuggestionEngine
 import com.wasimaster.wmkeyboard.core.prediction.Trie
 import com.wasimaster.wmkeyboard.core.prediction.UserLexicon
+import com.wasimaster.wmkeyboard.core.settings.HapticStyle
 import com.wasimaster.wmkeyboard.core.settings.InputMode
 import com.wasimaster.wmkeyboard.core.settings.OneHandedMode
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
@@ -309,15 +310,17 @@ class WMKeyboardService : InputMethodService() {
 
     private fun onTextKey(key: Key) {
         val state = _uiState.value
-        val text = keyOutput(key, state)
+        var text = keyOutput(key, state)
 
         if (state.emojiSearchActive) {
+            text = probhatContextualVowel(text, state.emojiQuery.lastOrNull())
             _uiState.update { it.copy(emojiQuery = it.emojiQuery + text) }
             refreshEmojiResults()
             return
         }
 
         val ic = currentInputConnection ?: return
+        text = probhatContextualVowel(text, ic.getTextBeforeCursor(1, 0)?.lastOrNull())
 
         // Typing over a selection replaces it and puts the cursor after the
         // new character, like every other keyboard. Never route through the
@@ -359,6 +362,17 @@ class WMKeyboardService : InputMethodService() {
                 base.uppercase()
             else -> base
         }
+    }
+
+    /**
+     * Probhat: a vowel-sign key yields the independent vowel (আ, ই, …) at a
+     * word start and the kar form (া, ি, …) only after a consonant it can
+     * attach to — matching how the vowels are actually written.
+     */
+    private fun probhatContextualVowel(text: String, previous: Char?): String {
+        if (_uiState.value.inputMode != InputMode.PROBHAT) return text
+        val vowel = KAR_TO_VOWEL[text.singleOrNull() ?: return text] ?: return text
+        return if (previous != null && karAttachesTo(previous)) text else vowel
     }
 
     private fun onShift() {
@@ -843,11 +857,32 @@ class WMKeyboardService : InputMethodService() {
         } else {
             getSystemService(Context.VIBRATOR_SERVICE) as android.os.Vibrator
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        if (settings.hapticStyle != HapticStyle.CUSTOM &&
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
+        ) {
+            // Hardware-tuned click effects — crisper than a raw one-shot and
+            // what most stock keyboards use.
+            vibrator.vibrate(
+                android.os.VibrationEffect.createPredefined(
+                    when (settings.hapticStyle) {
+                        HapticStyle.HEAVY_CLICK -> android.os.VibrationEffect.EFFECT_HEAVY_CLICK
+                        else -> android.os.VibrationEffect.EFFECT_CLICK
+                    }
+                )
+            )
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            // Explicit amplitude: DEFAULT_AMPLITUDE defers to a (often weak)
+            // device default. Devices without amplitude control ignore the
+            // value, so fall back to the default constant there.
+            val amplitude = if (vibrator.hasAmplitudeControl()) {
+                settings.hapticAmplitude.coerceIn(1, 255)
+            } else {
+                android.os.VibrationEffect.DEFAULT_AMPLITUDE
+            }
             vibrator.vibrate(
                 android.os.VibrationEffect.createOneShot(
                     settings.hapticStrengthMs.toLong(),
-                    android.os.VibrationEffect.DEFAULT_AMPLITUDE,
+                    amplitude,
                 )
             )
         } else {
@@ -858,6 +893,18 @@ class WMKeyboardService : InputMethodService() {
     companion object {
         private val SENTENCE_ENDERS = charArrayOf('.', '!', '?', '।')
         private const val SHIFT_DOUBLE_TAP_MS = 350L
+
+        /** Bengali vowel sign (kar) → independent vowel letter. */
+        private val KAR_TO_VOWEL = mapOf(
+            'া' to "আ", 'ি' to "ই", 'ী' to "ঈ", 'ু' to "উ", 'ূ' to "ঊ",
+            'ৃ' to "ঋ", 'ে' to "এ", 'ৈ' to "ঐ", 'ো' to "ও", 'ৌ' to "ঔ",
+        )
+
+        /** True for characters a kar can follow: consonants, nukta, hasant. */
+        private fun karAttachesTo(c: Char): Boolean =
+            c in '\u0995'..'\u09B9' || // consonants ক..হ
+            c == '\u09DC' || c == '\u09DD' || c == '\u09DF' || // ড় ঢ় য়
+            c == '\u09BC' || c == '\u09CD' // nukta, hasant
 
         private fun EditorInfo?.enterAction(): EnterAction {
             val options = this?.imeOptions ?: return EnterAction.DEFAULT
