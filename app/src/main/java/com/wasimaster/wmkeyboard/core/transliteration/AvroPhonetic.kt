@@ -11,7 +11,8 @@ package com.wasimaster.wmkeyboard.core.transliteration
  *     another vowel, and as vowel signs (kar) after a consonant.
  *  2. Consecutive consonants are joined into conjuncts with a hasant.
  *     The inherent vowel "o" produces no glyph but breaks the cluster,
- *     so "kolkata" stays কলকাতা rather than forming a false conjunct.
+ *     so "kolokata" stays কলকাতা rather than forming a false conjunct
+ *     (whereas "kolkata", with no vowel between l and k, does conjunct).
  *  3. "o" is inherent (silent) between consonants, অ at a word start and
  *     ো at a word end — matching how Avro users expect "valo" → ভালো
  *     while "kori" → করি.
@@ -52,6 +53,9 @@ object AvroPhonetic {
         add(Rule("E", "এ", "ে"))
         add(Rule("O", "ও", "ো"))
         // "o" handled specially in transliterate().
+
+        // Common fixed conjuncts spelled by digraph in Avro (longest match wins).
+        add(Rule("kkh", "ক্ষ")) // লক্ষ, ক্ষমা — "kkh" is the conventional key
 
         // Aspirated / two-letter consonants first (longest match wins).
         add(Rule("kh", "খ"))

@@ -42,6 +42,18 @@ class AvroPhoneticTest {
         assertEquals("বন্ধু", t("bondhu"))
     }
 
+    @Test fun fixedConjunctKkh() {
+        // "kkh" is the conventional Avro key for ক্ষ.
+        assertEquals("ক্ষ", t("kkh"))
+        assertEquals("ক্ষমা", t("kkhoma"))
+        assertEquals("লক্ষ", t("lokkh"))
+    }
+
+    @Test fun clusterBreaksOnlyWithInherentVowel() {
+        // Documented invariant: an explicit medial "o" breaks the cluster.
+        assertEquals("কলকাতা", t("kolokata"))
+    }
+
     @Test fun vowelSigns() {
         assertEquals("বই", t("boi"))
         assertEquals("নদী", t("nodI"))

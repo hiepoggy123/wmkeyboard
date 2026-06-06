@@ -1,0 +1,241 @@
+# English → Bengali loanword map.
+#
+# Words Bengalis routinely type in Bengali script but which are NOT
+# phonetically derivable from Avro rules (or whose phonetic output is
+# wrong/ambiguous). Typed in the Avro/Bengali input mode, the English
+# spelling on the left resolves directly to the Bengali form on the right,
+# jumping ahead of the raw transliteration.
+#
+# Format: english<TAB>bengali   (one mapping per line; # starts a comment)
+# Keep the English key lowercase. First column is matched case-insensitively.
+
+# --- Technology / devices ---
+keyboard	কিবোর্ড
+mouse	মাউস
+computer	কম্পিউটার
+laptop	ল্যাপটপ
+desktop	ডেস্কটপ
+mobile	মোবাইল
+phone	ফোন
+smartphone	স্মার্টফোন
+tablet	ট্যাবলেট
+charger	চার্জার
+battery	ব্যাটারি
+screen	স্ক্রিন
+display	ডিসপ্লে
+camera	ক্যামেরা
+speaker	স্পিকার
+headphone	হেডফোন
+earphone	ইয়ারফোন
+printer	প্রিন্টার
+scanner	স্ক্যানার
+router	রাউটার
+monitor	মনিটর
+processor	প্রসেসর
+button	বাটন
+cable	ক্যাবল
+adapter	অ্যাডাপ্টার
+
+# --- Internet / software ---
+internet	ইন্টারনেট
+online	অনলাইন
+offline	অফলাইন
+website	ওয়েবসাইট
+web	ওয়েব
+email	ইমেইল
+password	পাসওয়ার্ড
+account	অ্যাকাউন্ট
+profile	প্রোফাইল
+login	লগইন
+logout	লগআউট
+download	ডাউনলোড
+upload	আপলোড
+link	লিংক
+app	অ্যাপ
+application	অ্যাপ্লিকেশন
+software	সফটওয়্যার
+hardware	হার্ডওয়্যার
+update	আপডেট
+version	ভার্সন
+file	ফাইল
+folder	ফোল্ডার
+data	ডেটা
+backup	ব্যাকআপ
+network	নেটওয়ার্ক
+wifi	ওয়াইফাই
+signal	সিগন্যাল
+server	সার্ভার
+browser	ব্রাউজার
+message	মেসেজ
+notification	নোটিফিকেশন
+setting	সেটিং
+settings	সেটিংস
+menu	মেনু
+search	সার্চ
+
+# --- Social media / actions ---
+like	লাইক
+share	শেয়ার
+comment	কমেন্ট
+post	পোস্ট
+follow	ফলো
+group	গ্রুপ
+chat	চ্যাট
+call	কল
+video	ভিডিও
+photo	ফটো
+story	স্টোরি
+status	স্ট্যাটাস
+reels	রিলস
+live	লাইভ
+
+# --- Places / institutions ---
+office	অফিস
+school	স্কুল
+college	কলেজ
+university	ইউনিভার্সিটি
+class	ক্লাস
+bank	ব্যাংক
+market	মার্কেট
+shop	শপ
+mall	মল
+hotel	হোটেল
+restaurant	রেস্টুরেন্ট
+hospital	হাসপাতাল
+clinic	ক্লিনিক
+pharmacy	ফার্মেসি
+airport	এয়ারপোর্ট
+station	স্টেশন
+station	ইস্টিশন
+factory	ফ্যাক্টরি
+company	কোম্পানি
+gym	জিম
+park	পার্ক
+
+# --- Transport ---
+bus	বাস
+car	কার
+train	ট্রেন
+truck	ট্রাক
+bike	বাইক
+cycle	সাইকেল
+rickshaw	রিকশা
+plane	প্লেন
+flight	ফ্লাইট
+ticket	টিকেট
+ticket	টিকিট
+driver	ড্রাইভার
+engine	ইঞ্জিন
+petrol	পেট্রল
+gas	গ্যাস
+
+# --- Furniture / household ---
+chair	চেয়ার
+table	টেবিল
+sofa	সোফা
+bed	বেড
+fan	ফ্যান
+light	লাইট
+bulb	বাল্ব
+fridge	ফ্রিজ
+ac	এসি
+tv	টিভি
+television	টেলিভিশন
+radio	রেডিও
+machine	মেশিন
+bottle	বোতল
+glass	গ্লাস
+plate	প্লেট
+cup	কাপ
+box	বক্স
+bag	ব্যাগ
+lock	লক
+key	চাবি
+
+# --- Work / study / money ---
+job	জব
+boss	বস
+manager	ম্যানেজার
+staff	স্টাফ
+salary	স্যালারি
+meeting	মিটিং
+project	প্রজেক্ট
+team	টিম
+report	রিপোর্ট
+form	ফর্ম
+exam	এক্সাম
+result	রেজাল্ট
+teacher	টিচার
+student	স্টুডেন্ট
+doctor	ডাক্তার
+nurse	নার্স
+engineer	ইঞ্জিনিয়ার
+lawyer	উকিল
+police	পুলিশ
+cash	ক্যাশ
+card	কার্ড
+credit	ক্রেডিট
+payment	পেমেন্ট
+balance	ব্যালেন্স
+dollar	ডলার
+order	অর্ডার
+delivery	ডেলিভারি
+offer	অফার
+discount	ডিসকাউন্ট
+free	ফ্রি
+customer	কাস্টমার
+product	প্রোডাক্ট
+business	বিজনেস
+
+# --- Everyday loanwords ---
+ok	ওকে
+okay	ওকে
+sorry	সরি
+thanks	থ্যাংকস
+please	প্লিজ
+welcome	ওয়েলকাম
+hi	হাই
+hello	হ্যালো
+bye	বাই
+time	টাইম
+date	ডেট
+plan	প্ল্যান
+idea	আইডিয়া
+tension	টেনশন
+problem	প্রবলেম
+important	ইম্পরট্যান্ট
+special	স্পেশাল
+normal	নরমাল
+simple	সিম্পল
+double	ডাবল
+single	সিঙ্গেল
+number	নাম্বার
+size	সাইজ
+color	কালার
+style	স্টাইল
+brand	ব্র্যান্ড
+model	মডেল
+gift	গিফট
+party	পার্টি
+program	প্রোগ্রাম
+event	ইভেন্ট
+music	মিউজিক
+game	গেম
+movie	মুভি
+cinema	সিনেমা
+picnic	পিকনিক
+
+# --- Clothing / food loanwords ---
+shirt	শার্ট
+pant	প্যান্ট
+tshirt	টিশার্ট
+jacket	জ্যাকেট
+coffee	কফি
+burger	বার্গার
+pizza	পিজ্জা
+cake	কেক
+chocolate	চকলেট
+biscuit	বিস্কুট
+juice	জুস
+ice	আইস
+cream	ক্রিম

@@ -20,6 +20,7 @@ class SuggestionEngine(
     private val dictionary: Trie,
     private val bengaliIndex: BengaliPhoneticIndex,
     private val userLexicon: UserLexicon,
+    private val loanwords: EnglishBengaliMap = EnglishBengaliMap.EMPTY,
 ) {
 
     companion object {
@@ -75,7 +76,11 @@ class SuggestionEngine(
     private fun bengaliSuggestions(composing: String, limit: Int): List<String> {
         val phonetic = AvroPhonetic.transliterate(composing)
         val ordered = LinkedHashSet<String>()
-        // Phonetic siblings from the dictionary come first (আছি for "asi"),
+        // Manually mapped loanwords win outright: "keyboard" → কিবোর্ড,
+        // "chair" → চেয়ার. Avro phonetics can't reach these conventional
+        // spellings, so the map is consulted before anything else.
+        ordered.addAll(loanwords.lookup(composing))
+        // Phonetic siblings from the dictionary come next (আছি for "asi"),
         // then the literal transliteration, so the primary suggestion is a
         // real word whenever one matches the sound of what was typed.
         ordered.addAll(bengaliIndex.lookup(composing))

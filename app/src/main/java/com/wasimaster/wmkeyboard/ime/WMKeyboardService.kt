@@ -21,6 +21,7 @@ import com.wasimaster.wmkeyboard.core.gesture.GestureDecoder
 import com.wasimaster.wmkeyboard.core.gesture.GesturePoint
 import com.wasimaster.wmkeyboard.core.gesture.KeyCenter
 import com.wasimaster.wmkeyboard.core.prediction.DictionaryLoader
+import com.wasimaster.wmkeyboard.core.prediction.EnglishBengaliMap
 import com.wasimaster.wmkeyboard.core.prediction.SuggestionEngine
 import com.wasimaster.wmkeyboard.core.prediction.Trie
 import com.wasimaster.wmkeyboard.core.prediction.UserLexicon
@@ -124,9 +125,12 @@ class WMKeyboardService : InputMethodService() {
                 Triple(englishEntries, bengaliEntries, catalog)
             }
             val (englishEntries, bengaliEntries, catalog) = loaded
+            val loanwords = withContext(Dispatchers.Default) {
+                assets.open("dictionaries/en_bn.tsv").use { EnglishBengaliMap.load(it) }
+            }
             val english = Trie().apply { for ((word, freq) in englishEntries) insert(word, freq) }
             gestureLexicon = englishEntries
-            suggestionEngine = SuggestionEngine(english, BengaliPhoneticIndex(bengaliEntries), userLexicon)
+            suggestionEngine = SuggestionEngine(english, BengaliPhoneticIndex(bengaliEntries), userLexicon, loanwords)
             emojiEntries = catalog
             emojiSearch = EmojiSearch(catalog)
             _uiState.update { it.copy(emojiRecents = emojiUsage.recents(), emojiCatalog = catalog) }
