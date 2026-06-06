@@ -11,7 +11,14 @@ import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputConnection
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
+import android.content.ClipDescription
+import android.widget.Toast
+import androidx.core.content.FileProvider
+import androidx.core.view.inputmethod.EditorInfoCompat
+import androidx.core.view.inputmethod.InputConnectionCompat
+import androidx.core.view.inputmethod.InputContentInfoCompat
 import com.wasimaster.wmkeyboard.app.MainActivity
+import com.wasimaster.wmkeyboard.core.clipboard.ClipKind
 import com.wasimaster.wmkeyboard.core.clipboard.ClipboardStore
 import com.wasimaster.wmkeyboard.core.emoji.EmojiCatalog
 import com.wasimaster.wmkeyboard.core.emoji.EmojiEntry
@@ -91,11 +98,53 @@ class WMKeyboardService : InputMethodService() {
         val state = _uiState.value
         if (!state.settings.clipboardHistory || state.settings.incognito || state.secureField) return@OnPrimaryClipChangedListener
         val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        val text = clipboard.primaryClip?.getItemAt(0)?.coerceToText(this)?.toString() ?: return@OnPrimaryClipChangedListener
-        clipboardStore.add(text)
+        val clip = clipboard.primaryClip ?: return@OnPrimaryClipChangedListener
+        val item = clip.getItemAt(0) ?: return@OnPrimaryClipChangedListener
+
+        val uri = item.uri
+        // Skip clips we set ourselves (pasting an image re-copies it to the
+        // system clipboard as a fallback); re-adding would duplicate it.
+        if (uri != null && uri.authority == clipboardFileProviderAuthority) return@OnPrimaryClipChangedListener
+
+        val imageMime = uri?.let { u ->
+            runCatching { contentResolver.getType(u) }.getOrNull()?.takeIf { it.startsWith("image/") }
+        }
+        if (uri != null && imageMime != null) {
+            // Copy the image out of the source app's content provider while the
+            // clip's URI grant is valid; the store owns the file afterwards.
+            serviceScope.launch(Dispatchers.IO) {
+                val copied = runCatching {
+                    val dir = File(filesDir, "clipboard/images").apply { mkdirs() }
+                    val extension = when (imageMime) {
+                        "image/png" -> "png"
+                        "image/gif" -> "gif"
+                        "image/webp" -> "webp"
+                        else -> "jpg"
+                    }
+                    val target = File(dir, "clip_${System.currentTimeMillis()}.$extension")
+                    contentResolver.openInputStream(uri)?.use { input ->
+                        target.outputStream().use { output -> input.copyTo(output) }
+                    } ?: return@runCatching null
+                    target
+                }.getOrNull()
+                if (copied != null) {
+                    clipboardStore.addImage(copied, imageMime)
+                    clipboardStore.save()
+                    _uiState.update { it.copy(clipboardItems = clipboardStore.items()) }
+                }
+            }
+            return@OnPrimaryClipChangedListener
+        }
+
+        val text = item.coerceToText(this)?.toString() ?: return@OnPrimaryClipChangedListener
+        val html = item.htmlText
+        if (html != null) clipboardStore.addHtml(text, html) else clipboardStore.add(text)
         clipboardStore.save()
         _uiState.update { it.copy(clipboardItems = clipboardStore.items()) }
     }
+
+    private val clipboardFileProviderAuthority: String
+        get() = "$packageName.clipboard"
 
     override fun onCreate() {
         super.onCreate()
@@ -105,7 +154,10 @@ class WMKeyboardService : InputMethodService() {
         settingsRepository = SettingsRepository(this)
         userLexicon = UserLexicon(File(filesDir, "learning/user_lexicon.json"))
         emojiUsage = EmojiUsage(File(filesDir, "learning/emoji_usage.json"))
-        clipboardStore = ClipboardStore(File(filesDir, "clipboard/history.json"))
+        clipboardStore = ClipboardStore(
+            File(filesDir, "clipboard/history.json"),
+            imagesDir = File(filesDir, "clipboard/images"),
+        )
         snippetStore = SnippetStore(File(filesDir, "snippets/snippets.json"))
 
         serviceScope.launch {
@@ -629,7 +681,7 @@ class WMKeyboardService : InputMethodService() {
         vibrate()
         val expanded = SnippetStore.expand(
             text = snippet.text,
-            clipboard = clipboardStore.items().firstOrNull()?.text,
+            clipboard = clipboardStore.latestText(),
         )
         currentInputConnection?.commitText(expanded, 1)
         _uiState.update { it.copy(panel = PanelMode.NONE) }
@@ -664,7 +716,55 @@ class WMKeyboardService : InputMethodService() {
 
     fun onClipboardItemTapped(item: com.wasimaster.wmkeyboard.core.clipboard.ClipItem) {
         vibrate()
+        if (item.kind == ClipKind.IMAGE) {
+            commitImageClip(item)
+            return
+        }
         currentInputConnection?.commitText(item.text, 1)
+    }
+
+    /**
+     * Inserts an image clip with the commitContent API. Editors advertise the
+     * MIME types they accept in EditorInfo; when the current one doesn't take
+     * images, put the image back on the system clipboard so a long-press
+     * paste still works.
+     */
+    private fun commitImageClip(item: com.wasimaster.wmkeyboard.core.clipboard.ClipItem) {
+        val file = item.imagePath?.let(::File)?.takeIf { it.exists() } ?: run {
+            clipboardStore.remove(item.id)
+            clipboardStore.save()
+            _uiState.update { it.copy(clipboardItems = clipboardStore.items()) }
+            return
+        }
+        val contentUri = runCatching {
+            FileProvider.getUriForFile(this, clipboardFileProviderAuthority, file)
+        }.getOrNull() ?: return
+
+        val ic = currentInputConnection
+        val editorInfo = currentInputEditorInfo
+        val supported = editorInfo != null &&
+            EditorInfoCompat.getContentMimeTypes(editorInfo)
+                .any { ClipDescription.compareMimeTypes(item.mimeType, it) }
+
+        if (ic != null && editorInfo != null && supported) {
+            val info = InputContentInfoCompat(
+                contentUri,
+                ClipDescription("image", arrayOf(item.mimeType)),
+                null,
+            )
+            val committed = InputConnectionCompat.commitContent(
+                ic,
+                editorInfo,
+                info,
+                InputConnectionCompat.INPUT_CONTENT_GRANT_READ_URI_PERMISSION,
+                null,
+            )
+            if (committed) return
+        }
+
+        (getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager)
+            .setPrimaryClip(android.content.ClipData.newUri(contentResolver, "image", contentUri))
+        Toast.makeText(this, "This app doesn't accept images here — image copied, paste it instead", Toast.LENGTH_SHORT).show()
     }
 
     fun onClipboardPin(item: com.wasimaster.wmkeyboard.core.clipboard.ClipItem) {

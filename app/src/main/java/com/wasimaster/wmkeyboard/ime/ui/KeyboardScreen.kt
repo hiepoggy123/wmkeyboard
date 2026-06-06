@@ -1,6 +1,8 @@
 package com.wasimaster.wmkeyboard.ime.ui
 
+import android.graphics.BitmapFactory
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -59,6 +61,7 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -68,10 +71,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -91,6 +98,7 @@ import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import android.os.Build
 import com.wasimaster.wmkeyboard.core.clipboard.ClipItem
+import com.wasimaster.wmkeyboard.core.clipboard.ClipKind
 import com.wasimaster.wmkeyboard.core.emoji.EmojiVariants
 import com.wasimaster.wmkeyboard.core.gesture.GesturePoint
 import com.wasimaster.wmkeyboard.core.gesture.KeyCenter
@@ -107,10 +115,12 @@ import com.wasimaster.wmkeyboard.ime.layout.Key
 import com.wasimaster.wmkeyboard.ime.layout.KeyAction
 import com.wasimaster.wmkeyboard.ime.layout.KeyboardLayout
 import com.wasimaster.wmkeyboard.ime.layout.Layouts
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /** Root composable for the IME. Renders [KeyboardUiState] and forwards input. */
 @Composable
@@ -1055,14 +1065,26 @@ private fun ClipboardPanel(
                     .clickable { onClipboardItem(item) }
                     .padding(10.dp),
             ) {
-                Text(
-                    text = item.text,
-                    maxLines = 3,
-                    overflow = TextOverflow.Ellipsis,
-                    fontSize = 13.sp,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
+                if (item.kind == ClipKind.IMAGE) {
+                    ClipThumbnail(item)
+                } else {
+                    Text(
+                        text = item.text,
+                        maxLines = 3,
+                        overflow = TextOverflow.Ellipsis,
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                }
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (item.kind == ClipKind.HTML) {
+                        Text(
+                            "Rich text",
+                            fontSize = 10.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(end = 4.dp),
+                        )
+                    }
                     IconButton(onClick = { onClipboardPin(item) }, modifier = Modifier.size(32.dp)) {
                         Icon(
                             if (item.pinned) Icons.Filled.PushPin else Icons.Outlined.PushPin,
@@ -1085,3 +1107,40 @@ private fun ClipboardPanel(
         }
     }
 }
+
+/** Decodes a downsampled preview of an image clip off the main thread. */
+@Composable
+private fun ClipThumbnail(item: ClipItem) {
+    val bitmap by produceState<ImageBitmap?>(initialValue = null, item.imagePath) {
+        value = withContext(Dispatchers.IO) {
+            val path = item.imagePath ?: return@withContext null
+            runCatching {
+                val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                BitmapFactory.decodeFile(path, bounds)
+                var sample = 1
+                while (bounds.outWidth / (sample * 2) >= THUMBNAIL_TARGET_PX &&
+                    bounds.outHeight / (sample * 2) >= THUMBNAIL_TARGET_PX
+                ) {
+                    sample *= 2
+                }
+                BitmapFactory.decodeFile(path, BitmapFactory.Options().apply { inSampleSize = sample })
+                    ?.asImageBitmap()
+            }.getOrNull()
+        }
+    }
+    val shape = RoundedCornerShape(8.dp)
+    val modifier = Modifier
+        .fillMaxWidth()
+        .height(64.dp)
+        .background(MaterialTheme.colorScheme.surfaceContainerHigh, shape)
+    bitmap?.let {
+        Image(
+            bitmap = it,
+            contentDescription = "Copied image",
+            modifier = modifier.clip(shape),
+            contentScale = ContentScale.Crop,
+        )
+    } ?: Box(modifier)
+}
+
+private const val THUMBNAIL_TARGET_PX = 256

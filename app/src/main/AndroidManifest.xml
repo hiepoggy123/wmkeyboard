@@ -23,6 +23,17 @@
             </intent-filter>
         </activity>
 
+        <!-- Serves copied clipboard images to target apps via commitContent. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.clipboard"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/clipboard_file_paths" />
+        </provider>
+
         <service
             android:name="com.wasimaster.wmkeyboard.ime.WMKeyboardService"
             android:exported="true"
