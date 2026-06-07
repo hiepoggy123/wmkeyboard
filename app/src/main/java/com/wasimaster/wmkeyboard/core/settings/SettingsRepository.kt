@@ -11,7 +11,14 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
 /** Which script/input method the keyboard is currently in. */
-enum class InputMode { ENGLISH, AVRO, PROBHAT }
+enum class InputMode { ENGLISH, AVRO, PROBHAT, JATIYA }
+
+/**
+ * Fixed Bengali layouts type Bengali characters directly (no roman
+ * composing, no transliteration): Probhat and the National (Jatiya) layout.
+ */
+val InputMode.isFixedBengali: Boolean
+    get() = this == InputMode.PROBHAT || this == InputMode.JATIYA
 
 /** Visual theme for the keyboard and settings app. */
 enum class ThemeMode { SYSTEM, LIGHT, DARK, AMOLED }
@@ -28,7 +35,8 @@ enum class HapticStyle { CUSTOM, CLICK, HEAVY_CLICK }
 
 data class KeyboardSettings(
     val inputMode: InputMode = InputMode.ENGLISH,
-    val enabledModes: List<InputMode> = listOf(InputMode.ENGLISH, InputMode.AVRO, InputMode.PROBHAT),
+    val enabledModes: List<InputMode> =
+        listOf(InputMode.ENGLISH, InputMode.AVRO, InputMode.PROBHAT, InputMode.JATIYA),
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val dynamicColor: Boolean = true,
     val keyHeightDp: Int = 54,

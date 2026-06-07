@@ -34,6 +34,7 @@ import com.wasimaster.wmkeyboard.core.prediction.Trie
 import com.wasimaster.wmkeyboard.core.prediction.UserLexicon
 import com.wasimaster.wmkeyboard.core.settings.HapticStyle
 import com.wasimaster.wmkeyboard.core.settings.InputMode
+import com.wasimaster.wmkeyboard.core.settings.isFixedBengali
 import com.wasimaster.wmkeyboard.core.settings.OneHandedMode
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import com.wasimaster.wmkeyboard.core.snippets.Snippet
@@ -241,6 +242,7 @@ class WMKeyboardService : InputMethodService() {
                 enterAction = info.enterAction(),
             )
         }
+        refreshKarContext()
     }
 
     override fun onUpdateSelection(
@@ -264,6 +266,7 @@ class WMKeyboardService : InputMethodService() {
             _uiState.update { it.copy(composingPreview = "", suggestions = emptyList()) }
         }
         refreshShiftForContext()
+        refreshKarContext()
     }
 
     override fun onFinishInputView(finishingInput: Boolean) {
@@ -313,14 +316,15 @@ class WMKeyboardService : InputMethodService() {
         var text = keyOutput(key, state)
 
         if (state.emojiSearchActive) {
-            text = probhatContextualVowel(text, state.emojiQuery.lastOrNull())
+            text = fixedLayoutContextualVowel(text, state.emojiQuery.lastOrNull())
             _uiState.update { it.copy(emojiQuery = it.emojiQuery + text) }
+            refreshKarContext()
             refreshEmojiResults()
             return
         }
 
         val ic = currentInputConnection ?: return
-        text = probhatContextualVowel(text, ic.getTextBeforeCursor(1, 0)?.lastOrNull())
+        text = fixedLayoutContextualVowel(text, ic.getTextBeforeCursor(1, 0)?.lastOrNull())
 
         // Typing over a selection replaces it and puts the cursor after the
         // new character, like every other keyboard. Never route through the
@@ -335,7 +339,7 @@ class WMKeyboardService : InputMethodService() {
         }
 
         val isWordChar = text.length == 1 && (text[0].isLetter() || text[0] == '\'')
-        val composingMode = state.inputMode != InputMode.PROBHAT && !state.secureField && state.settings.suggestions
+        val composingMode = !state.inputMode.isFixedBengali && !state.secureField && state.settings.suggestions
 
         if (isWordChar && composingMode) {
             composing.append(text)
@@ -358,21 +362,38 @@ class WMKeyboardService : InputMethodService() {
         val base = key.output ?: key.label
         return when {
             state.shiftState != ShiftState.OFF && key.shiftLabel != null -> key.shiftLabel
-            state.shiftState != ShiftState.OFF && state.inputMode != InputMode.PROBHAT ->
+            state.shiftState != ShiftState.OFF && !state.inputMode.isFixedBengali ->
                 base.uppercase()
             else -> base
         }
     }
 
     /**
-     * Probhat: a vowel-sign key yields the independent vowel (আ, ই, …) at a
-     * word start and the kar form (া, ি, …) only after a consonant it can
-     * attach to — matching how the vowels are actually written.
+     * Fixed Bengali layouts (Probhat, Jatiya): a vowel-sign key yields the
+     * independent vowel (আ, ই, …) at a word start and the kar form (া, ি, …)
+     * only after a consonant it can attach to — matching how the vowels are
+     * actually written.
      */
-    private fun probhatContextualVowel(text: String, previous: Char?): String {
-        if (_uiState.value.inputMode != InputMode.PROBHAT) return text
-        val vowel = KAR_TO_VOWEL[text.singleOrNull() ?: return text] ?: return text
-        return if (previous != null && karAttachesTo(previous)) text else vowel
+    private fun fixedLayoutContextualVowel(text: String, previous: Char?): String {
+        if (!_uiState.value.inputMode.isFixedBengali) return text
+        val vowel = BengaliGraphemes.KAR_TO_VOWEL[text.singleOrNull() ?: return text] ?: return text
+        return if (previous != null && BengaliGraphemes.karAttachesTo(previous)) text else vowel
+    }
+
+    /**
+     * Recomputes [KeyboardUiState.karContext] from the character before the
+     * cursor (or the emoji query) so the fixed-layout vowel keys track the
+     * word position both in output and on the key labels.
+     */
+    private fun refreshKarContext() {
+        if (!_uiState.value.inputMode.isFixedBengali) return
+        val previous = if (_uiState.value.emojiSearchActive) {
+            _uiState.value.emojiQuery.lastOrNull()
+        } else {
+            currentInputConnection?.getTextBeforeCursor(1, 0)?.lastOrNull()
+        }
+        val attaches = previous != null && BengaliGraphemes.karAttachesTo(previous)
+        _uiState.update { if (it.karContext == attaches) it else it.copy(karContext = attaches) }
     }
 
     private fun onShift() {
@@ -401,6 +422,7 @@ class WMKeyboardService : InputMethodService() {
         if (state.emojiSearchActive) {
             if (state.emojiQuery.isNotEmpty()) {
                 _uiState.update { it.copy(emojiQuery = it.emojiQuery.dropLast(1)) }
+                refreshKarContext()
                 refreshEmojiResults()
             }
             return
@@ -501,6 +523,7 @@ class WMKeyboardService : InputMethodService() {
         val next = modes[(modes.indexOf(state.inputMode) + 1).mod(modes.size)]
         currentInputConnection?.let { commitComposing(it, autocorrect = false) }
         _uiState.update { it.copy(inputMode = next, layoutMode = LayoutMode.LETTERS) }
+        refreshKarContext()
         serviceScope.launch { settingsRepository.setInputMode(next) }
     }
 
@@ -893,18 +916,6 @@ class WMKeyboardService : InputMethodService() {
     companion object {
         private val SENTENCE_ENDERS = charArrayOf('.', '!', '?', '।')
         private const val SHIFT_DOUBLE_TAP_MS = 350L
-
-        /** Bengali vowel sign (kar) → independent vowel letter. */
-        private val KAR_TO_VOWEL = mapOf(
-            'া' to "আ", 'ি' to "ই", 'ী' to "ঈ", 'ু' to "উ", 'ূ' to "ঊ",
-            'ৃ' to "ঋ", 'ে' to "এ", 'ৈ' to "ঐ", 'ো' to "ও", 'ৌ' to "ঔ",
-        )
-
-        /** True for characters a kar can follow: consonants, nukta, hasant. */
-        private fun karAttachesTo(c: Char): Boolean =
-            c in '\u0995'..'\u09B9' || // consonants ক..হ
-            c == '\u09DC' || c == '\u09DD' || c == '\u09DF' || // ড় ঢ় য়
-            c == '\u09BC' || c == '\u09CD' // nukta, hasant
 
         private fun EditorInfo?.enterAction(): EnterAction {
             val options = this?.imeOptions ?: return EnterAction.DEFAULT

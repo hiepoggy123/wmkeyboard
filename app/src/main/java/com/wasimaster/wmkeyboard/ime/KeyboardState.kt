@@ -36,4 +36,11 @@ data class KeyboardUiState(
     val snippets: List<Snippet> = emptyList(),
     val secureField: Boolean = false,
     val enterAction: EnterAction = EnterAction.DEFAULT,
+    /**
+     * True when the character before the cursor can carry a vowel sign
+     * (a consonant, nukta or hasant). Fixed Bengali layouts use this to
+     * flip the vowel keys between kar (া, ি …) and independent (আ, ই …)
+     * forms, both for the committed output and the displayed key labels.
+     */
+    val karContext: Boolean = false,
 )

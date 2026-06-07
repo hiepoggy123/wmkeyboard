@@ -68,7 +68,7 @@ object Layouts {
         rows = listOf(
             listOf(
                 Key("দ", shiftLabel = "ধ"), Key("ূ", shiftLabel = "ঊ"), Key("ী", shiftLabel = "ঈ"),
-                Key("র", shiftLabel = "ড়"), Key("ট", shiftLabel = "ঠ"),
+                Key("র", shiftLabel = "ড়"), Key("ট", shiftLabel = "ঠ"),
                 Key("এ", shiftLabel = "ঐ"), Key("ু", shiftLabel = "উ"),
                 Key("ি", shiftLabel = "ই"), Key("ও", shiftLabel = "ঔ", longPress = listOf("ৗ")),
                 Key("প", shiftLabel = "ফ"),
@@ -82,7 +82,7 @@ object Layouts {
             ),
             listOf(
                 Key("⇧", action = KeyAction.Shift, width = 1.2f),
-                Key("য়", shiftLabel = "য"), Key("শ", shiftLabel = "ঢ়"), Key("চ", shiftLabel = "ছ"),
+                Key("য়", shiftLabel = "য"), Key("শ", shiftLabel = "ঢ়"), Key("চ", shiftLabel = "ছ"),
                 Key("আ", shiftLabel = "ঋ", longPress = listOf("ৃ")), Key("ব", shiftLabel = "ভ"),
                 Key("ন", shiftLabel = "ণ"), Key("ম", shiftLabel = "ঙ"),
                 Key("্", shiftLabel = "।", longPress = listOf("ঁ", "়", "॥")),
@@ -98,17 +98,15 @@ object Layouts {
      * keys match the desktop layout; independent vowels sit on desktop AltGr
      * and are adapted here as long-press on their kar keys (ই on ি, উ on ু,
      * …), matching how fixed-layout phone keyboards ship Jatiya.
-     *
-     * Not yet wired to an InputMode — rendering and mode selection follow.
      */
     val JATIYA = KeyboardLayout(
         name = "jatiya",
         rows = listOf(
             listOf(
-                Key("ঙ", shiftLabel = "ং"), Key("য", shiftLabel = "য়"), Key("ড", shiftLabel = "ঢ"),
+                Key("ঙ", shiftLabel = "ং"), Key("য", shiftLabel = "য়"), Key("ড", shiftLabel = "ঢ"),
                 Key("প", shiftLabel = "ফ"), Key("ট", shiftLabel = "ঠ"), Key("চ", shiftLabel = "ছ"),
                 Key("জ", shiftLabel = "ঝ"), Key("হ", shiftLabel = "ঞ", longPress = listOf("ঽ")),
-                Key("গ", shiftLabel = "ঘ"), Key("ড়", shiftLabel = "ঢ়"),
+                Key("গ", shiftLabel = "ঘ"), Key("ড়", shiftLabel = "ঢ়"),
             ),
             listOf(
                 Key("ৃ", shiftLabel = "ৗ", longPress = listOf("ঋ")),

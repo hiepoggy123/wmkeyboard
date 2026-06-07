@@ -15,6 +15,18 @@ object BengaliGraphemes {
     private const val ZWNJ = '‌'
     private const val NUKTA = '়'
 
+    /** Bengali vowel sign (kar) → independent vowel letter. */
+    val KAR_TO_VOWEL: Map<Char, String> = mapOf(
+        'া' to "আ", 'ি' to "ই", 'ী' to "ঈ", 'ু' to "উ", 'ূ' to "ঊ",
+        'ৃ' to "ঋ", 'ে' to "এ", 'ৈ' to "ঐ", 'ো' to "ও", 'ৌ' to "ঔ",
+    )
+
+    /** True for characters a kar can attach to: consonants, nukta, hasant. */
+    fun karAttachesTo(c: Char): Boolean =
+        c in 'ক'..'হ' || // consonants ক..হ
+            c == 'ড়' || c == 'ঢ়' || c == 'য়' || // ড় ঢ় য়
+            c == NUKTA || c == HASANT
+
     private fun isBengali(c: Char) = c.code in 0x0980..0x09FF
 
     private fun isConsonant(c: Char) =

@@ -678,6 +678,12 @@ private fun LanguageSettings(repository: SettingsRepository, settings: KeyboardS
             "The fixed Probhat layout familiar from Linux: vowel signs on the home row, " +
                 "consonants by frequency, aspirates on shift.",
         ),
+        InputMode.JATIYA to Triple(
+            "বাংলা — জাতীয় (National)", "Bangladesh standard fixed layout",
+            "The National (Jatiya) fixed layout standardized in Bangladesh; the same " +
+                "arrangement used by Bijoy-style keyboards, with aspirates on shift and " +
+                "independent vowels on long-press.",
+        ),
     )
     for (mode in InputMode.entries) {
         val (title, subtitle, info) = labels.getValue(mode)

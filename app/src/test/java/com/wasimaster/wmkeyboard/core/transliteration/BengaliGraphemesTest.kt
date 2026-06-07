@@ -70,4 +70,18 @@ class BengaliGraphemesTest {
         // আছি = আ ছ ি → final cluster ছি = 2
         assertEquals(2, len("আছি"))
     }
+
+    @Test fun karHelpers() {
+        // Kar → independent vowel used by the fixed layouts' contextual keys.
+        org.junit.Assert.assertEquals("আ", BengaliGraphemes.KAR_TO_VOWEL['া'])
+        org.junit.Assert.assertEquals("ই", BengaliGraphemes.KAR_TO_VOWEL['ি'])
+        org.junit.Assert.assertEquals("ও", BengaliGraphemes.KAR_TO_VOWEL['ো'])
+        // Kar attaches to consonants, nukta letters, hasant — not vowels/space.
+        org.junit.Assert.assertTrue(BengaliGraphemes.karAttachesTo('ক'))
+        org.junit.Assert.assertTrue(BengaliGraphemes.karAttachesTo('\u09DF'))
+        org.junit.Assert.assertTrue(BengaliGraphemes.karAttachesTo('্'))
+        org.junit.Assert.assertFalse(BengaliGraphemes.karAttachesTo('আ'))
+        org.junit.Assert.assertFalse(BengaliGraphemes.karAttachesTo(' '))
+        org.junit.Assert.assertFalse(BengaliGraphemes.karAttachesTo('া'))
+    }
 }

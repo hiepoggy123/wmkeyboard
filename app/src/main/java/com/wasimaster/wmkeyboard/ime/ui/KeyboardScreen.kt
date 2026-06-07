@@ -121,6 +121,8 @@ import com.wasimaster.wmkeyboard.core.emoji.EmojiVariants
 import com.wasimaster.wmkeyboard.core.gesture.GesturePoint
 import com.wasimaster.wmkeyboard.core.gesture.KeyCenter
 import com.wasimaster.wmkeyboard.core.settings.InputMode
+import com.wasimaster.wmkeyboard.core.settings.isFixedBengali
+import com.wasimaster.wmkeyboard.core.transliteration.BengaliGraphemes
 import com.wasimaster.wmkeyboard.core.settings.OneHandedMode
 import com.wasimaster.wmkeyboard.core.settings.ThemeMode
 import com.wasimaster.wmkeyboard.core.snippets.Snippet
@@ -511,6 +513,7 @@ private fun currentLayout(state: KeyboardUiState): KeyboardLayout = when (state.
     LayoutMode.SYMBOLS_SHIFTED -> Layouts.SYMBOLS_SHIFTED
     LayoutMode.LETTERS -> when (state.inputMode) {
         InputMode.PROBHAT -> Layouts.PROBHAT
+        InputMode.JATIYA -> Layouts.JATIYA
         else -> Layouts.QWERTY
     }
 }
@@ -721,6 +724,7 @@ private fun KeyContent(key: Key, state: KeyboardUiState, contentColor: Color) {
                     InputMode.ENGLISH -> "English"
                     InputMode.AVRO -> "বাংলা · Avro"
                     InputMode.PROBHAT -> "বাংলা · প্রভাত"
+                    InputMode.JATIYA -> "বাংলা · জাতীয়"
                 },
                 fontSize = (11 * fontScale).sp,
                 color = contentColor.copy(alpha = 0.5f),
@@ -740,15 +744,24 @@ private fun KeyContent(key: Key, state: KeyboardUiState, contentColor: Color) {
     }
 }
 
-private fun displayLabel(key: Key, state: KeyboardUiState): String = when {
-    state.shiftState != ShiftState.OFF && key.shiftLabel != null -> key.shiftLabel
-    // Latin letter labels track the live shift state: lowercase normally,
-    // uppercase while shift or caps lock is active.
-    state.shiftState != ShiftState.OFF && key.action == KeyAction.Text &&
-        state.inputMode != InputMode.PROBHAT &&
-        key.label.singleOrNull()?.code?.let { it in 'a'.code..'z'.code } == true ->
-        key.label.uppercase()
-    else -> key.label
+private fun displayLabel(key: Key, state: KeyboardUiState): String {
+    val raw = when {
+        state.shiftState != ShiftState.OFF && key.shiftLabel != null -> key.shiftLabel
+        // Latin letter labels track the live shift state: lowercase normally,
+        // uppercase while shift or caps lock is active.
+        state.shiftState != ShiftState.OFF && key.action == KeyAction.Text &&
+            !state.inputMode.isFixedBengali &&
+            key.label.singleOrNull()?.code?.let { it in 'a'.code..'z'.code } == true ->
+            key.label.uppercase()
+        else -> key.label
+    }
+    // Fixed Bengali layouts: vowel keys show the independent letter (আ, ই …)
+    // at a word start and the kar (া, ি …) only where it can attach, matching
+    // what the key will actually commit.
+    if (state.inputMode.isFixedBengali && !state.karContext && key.action == KeyAction.Text) {
+        raw.singleOrNull()?.let { BengaliGraphemes.KAR_TO_VOWEL[it] }?.let { return it }
+    }
+    return raw
 }
 
 /**
@@ -888,7 +901,7 @@ private fun EmojiPanel(
                 Box(modifier = Modifier.width(8.dp))
                 Text(
                     text = state.emojiQuery.ifEmpty {
-                        if (state.emojiSearchActive) "Type to search…" else "Search emoji (happy, বিড়াল, fire…)"
+                        if (state.emojiSearchActive) "Type to search…" else "Search emoji (happy, বিড়াল, fire…)"
                     },
                     color = if (state.emojiQuery.isEmpty()) {
                         MaterialTheme.colorScheme.onSurfaceVariant
