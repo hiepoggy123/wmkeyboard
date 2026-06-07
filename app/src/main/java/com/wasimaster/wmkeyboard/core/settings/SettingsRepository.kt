@@ -31,6 +31,13 @@ enum class OneHandedMode { OFF, LEFT, RIGHT }
 enum class KeyboardAlignment { LEFT, CENTER, RIGHT }
 
 /**
+ * A tool that can live on the top toolbar. Tools not in
+ * [KeyboardSettings.toolbarTools] wait in the toolbox panel; the user drags
+ * them between the two while the toolbox is open (Gboard style).
+ */
+enum class ToolbarTool { EMOJI, CLIPBOARD, SNIPPETS, ONE_HANDED, SPLIT, FLOATING, SETTINGS }
+
+/**
  * Key-press haptic waveform: [CUSTOM] drives the motor directly with the
  * duration/amplitude settings; [CLICK] and [HEAVY_CLICK] use the device's
  * hardware-tuned predefined effects (Android 10+, falls back to CUSTOM).
@@ -86,6 +93,11 @@ data class KeyboardSettings(
     val keyRepeatIntervalMs: Int = 50,
     val emojiToolbar: Boolean = true,
     val incognito: Boolean = false,
+    val toolbarTools: List<ToolbarTool> =
+        listOf(ToolbarTool.EMOJI, ToolbarTool.CLIPBOARD, ToolbarTool.SNIPPETS, ToolbarTool.SETTINGS),
+    val toolbarGreedy: Boolean = true,
+    val toolCircleRadiusDp: Int = 20,
+    val commaAsEmoji: Boolean = false,
 )
 
 /**
@@ -142,6 +154,10 @@ class SettingsRepository(private val context: Context) {
         private val KEY_REPEAT_INTERVAL = intPreferencesKey("key_repeat_interval")
         private val EMOJI_TOOLBAR = booleanPreferencesKey("emoji_toolbar")
         private val INCOGNITO = booleanPreferencesKey("incognito")
+        private val TOOLBAR_TOOLS = stringPreferencesKey("toolbar_tools")
+        private val TOOLBAR_GREEDY = booleanPreferencesKey("toolbar_greedy")
+        private val TOOL_CIRCLE_RADIUS = intPreferencesKey("tool_circle_radius")
+        private val COMMA_AS_EMOJI = booleanPreferencesKey("comma_as_emoji")
     }
 
     val settings: Flow<KeyboardSettings> = context.dataStore.data.map { p ->
@@ -204,8 +220,46 @@ class SettingsRepository(private val context: Context) {
             keyRepeatIntervalMs = p[KEY_REPEAT_INTERVAL] ?: defaults.keyRepeatIntervalMs,
             emojiToolbar = p[EMOJI_TOOLBAR] ?: defaults.emojiToolbar,
             incognito = p[INCOGNITO] ?: defaults.incognito,
+            // Empty stored string is a valid state (everything in the toolbox),
+            // distinct from never-set (defaults apply).
+            toolbarTools = p[TOOLBAR_TOOLS]?.let { csv ->
+                if (csv.isEmpty()) emptyList()
+                else csv.split(',').mapNotNull { runCatching { ToolbarTool.valueOf(it) }.getOrNull() }
+            } ?: defaults.toolbarTools,
+            toolbarGreedy = p[TOOLBAR_GREEDY] ?: defaults.toolbarGreedy,
+            toolCircleRadiusDp = p[TOOL_CIRCLE_RADIUS] ?: defaults.toolCircleRadiusDp,
+            commaAsEmoji = p[COMMA_AS_EMOJI] ?: defaults.commaAsEmoji,
         )
     }
+
+    suspend fun setToolbarTools(tools: List<ToolbarTool>) =
+        context.dataStore.edit {
+            it[TOOLBAR_TOOLS] = tools.distinct().joinToString(",") { tool -> tool.name }
+        }
+
+    suspend fun setToolbarGreedy(value: Boolean) =
+        context.dataStore.edit { it[TOOLBAR_GREEDY] = value }
+
+    suspend fun setToolCircleRadiusDp(value: Int) =
+        context.dataStore.edit { it[TOOL_CIRCLE_RADIUS] = value.coerceIn(0, 20) }
+
+    /**
+     * Moving emoji onto the comma key also pulls the emoji tool off the
+     * toolbar (it would be redundant); the user can drag it back from the
+     * toolbox. Turning the setting off leaves the toolbar as-is.
+     */
+    suspend fun setCommaAsEmoji(value: Boolean) =
+        context.dataStore.edit { prefs ->
+            prefs[COMMA_AS_EMOJI] = value
+            if (value) {
+                val current = prefs[TOOLBAR_TOOLS]
+                    ?.split(',')
+                    ?.mapNotNull { runCatching { ToolbarTool.valueOf(it) }.getOrNull() }
+                    ?: KeyboardSettings().toolbarTools
+                prefs[TOOLBAR_TOOLS] = current.filter { it != ToolbarTool.EMOJI }
+                    .joinToString(",") { it.name }
+            }
+        }
 
     suspend fun setInputMode(mode: InputMode) =
         context.dataStore.edit { it[INPUT_MODE] = mode.name }

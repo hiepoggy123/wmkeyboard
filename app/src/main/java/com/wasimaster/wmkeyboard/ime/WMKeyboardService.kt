@@ -38,6 +38,7 @@ import com.wasimaster.wmkeyboard.core.settings.InputMode
 import com.wasimaster.wmkeyboard.core.settings.isFixedBengali
 import com.wasimaster.wmkeyboard.core.settings.OneHandedMode
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
+import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
 import com.wasimaster.wmkeyboard.core.snippets.Snippet
 import com.wasimaster.wmkeyboard.core.snippets.SnippetStore
 import com.wasimaster.wmkeyboard.core.transliteration.AvroPhonetic
@@ -55,6 +56,8 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -194,6 +197,13 @@ class WMKeyboardService : InputMethodService() {
 
         (getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager)
             .addPrimaryClipChangedListener(clipboardListener)
+
+        serviceScope.launch {
+            uiState
+                .map { it.panel != PanelMode.NONE }
+                .distinctUntilChanged()
+                .collect { updatePanelBackCallback(it) }
+        }
     }
 
     override fun onCreateInputView(): View {
@@ -223,6 +233,8 @@ class WMKeyboardService : InputMethodService() {
                 onFloatingMoved = ::onFloatingMoved,
                 onFloatingResized = ::onFloatingResized,
                 onFloatingBounds = ::onFloatingBounds,
+                onToggleSplit = ::onToggleSplit,
+                onToolbarToolsChange = ::onToolbarToolsChange,
                 onOpenSettings = ::openSettings,
             )
         }
@@ -878,6 +890,68 @@ class WMKeyboardService : InputMethodService() {
     fun onOneHandedChange(mode: OneHandedMode) {
         vibrate()
         serviceScope.launch { settingsRepository.setOneHandedMode(mode) }
+    }
+
+    fun onToggleSplit() {
+        vibrate()
+        val current = _uiState.value.settings.splitKeyboard
+        serviceScope.launch { settingsRepository.setSplitKeyboard(!current) }
+    }
+
+    fun onToolbarToolsChange(tools: List<ToolbarTool>) {
+        vibrate()
+        serviceScope.launch { settingsRepository.setToolbarTools(tools) }
+    }
+
+    /**
+     * On Android 13+ the IME's back handling goes through the
+     * OnBackInvokedDispatcher, never [onKeyDown] — register a callback while
+     * a panel is open so back closes the panel; unregister when none is,
+     * letting the system's default callback hide the keyboard as usual.
+     */
+    private var panelBackCallback: android.window.OnBackInvokedCallback? = null
+
+    private fun updatePanelBackCallback(panelOpen: Boolean) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+        val dispatcher = window?.window?.onBackInvokedDispatcher ?: return
+        if (panelOpen && panelBackCallback == null) {
+            val callback = android.window.OnBackInvokedCallback {
+                val panel = _uiState.value.panel
+                if (panel != PanelMode.NONE) onPanelChange(panel)
+            }
+            dispatcher.registerOnBackInvokedCallback(
+                android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT,
+                callback,
+            )
+            panelBackCallback = callback
+        } else if (!panelOpen && panelBackCallback != null) {
+            panelBackCallback?.let { dispatcher.unregisterOnBackInvokedCallback(it) }
+            panelBackCallback = null
+        }
+    }
+
+    /**
+     * Back with a tool panel (emoji, clipboard, snippets, toolbox) open
+     * returns to the plain keyboard instead of hiding the IME (pre-T path).
+     * Consume the DOWN too so the app underneath never sees half an event
+     * stream.
+     */
+    override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
+        if (keyCode == KeyEvent.KEYCODE_BACK && isInputViewShown &&
+            _uiState.value.panel != PanelMode.NONE
+        ) {
+            return true
+        }
+        return super.onKeyDown(keyCode, event)
+    }
+
+    override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean {
+        val panel = _uiState.value.panel
+        if (keyCode == KeyEvent.KEYCODE_BACK && isInputViewShown && panel != PanelMode.NONE) {
+            onPanelChange(panel)
+            return true
+        }
+        return super.onKeyUp(keyCode, event)
     }
 
     fun openSettings() {

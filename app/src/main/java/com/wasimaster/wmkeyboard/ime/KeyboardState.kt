@@ -11,7 +11,7 @@ enum class ShiftState { OFF, ON, CAPS_LOCK }
 
 enum class LayoutMode { LETTERS, SYMBOLS, SYMBOLS_SHIFTED }
 
-enum class PanelMode { NONE, EMOJI, CLIPBOARD, SNIPPETS }
+enum class PanelMode { NONE, EMOJI, CLIPBOARD, SNIPPETS, TOOLBOX }
 
 /** What the enter key does in the focused field, from EditorInfo.imeOptions. */
 enum class EnterAction { DEFAULT, SEARCH, SEND, GO, NEXT, PREVIOUS, DONE }

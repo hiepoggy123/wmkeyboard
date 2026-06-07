@@ -8,6 +8,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
@@ -32,6 +33,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
@@ -42,6 +44,8 @@ import androidx.compose.material.icons.automirrored.outlined.KeyboardTab
 import androidx.compose.material.icons.automirrored.outlined.Send
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.ChevronLeft
+import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.CloseFullscreen
 import androidx.compose.material.icons.outlined.ContentPaste
 import androidx.compose.material.icons.outlined.Delete
@@ -54,14 +58,18 @@ import androidx.compose.material.icons.outlined.EmojiPeople
 import androidx.compose.material.icons.outlined.EmojiSymbols
 import androidx.compose.material.icons.outlined.Fastfood
 import androidx.compose.material.icons.outlined.Fullscreen
+import androidx.compose.material.icons.outlined.GridView
 import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.OpenInFull
 import androidx.compose.material.icons.outlined.Pets
+import androidx.compose.material.icons.outlined.PictureInPictureAlt
 import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.Smartphone
 import androidx.compose.material.icons.outlined.SportsSoccer
+import androidx.compose.material.icons.outlined.VerticalSplit
 import androidx.compose.material.icons.outlined.TextSnippet
 import androidx.compose.material.icons.outlined.EmojiFlags
 import androidx.compose.material3.Icon
@@ -97,6 +105,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Path
@@ -111,6 +120,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.layout.positionInWindow
@@ -141,6 +151,7 @@ import com.wasimaster.wmkeyboard.core.settings.isFixedBengali
 import com.wasimaster.wmkeyboard.core.transliteration.BengaliGraphemes
 import com.wasimaster.wmkeyboard.core.settings.OneHandedMode
 import com.wasimaster.wmkeyboard.core.settings.ThemeMode
+import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
 import com.wasimaster.wmkeyboard.core.snippets.Snippet
 import com.wasimaster.wmkeyboard.ime.EnterAction
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
@@ -190,23 +201,49 @@ fun KeyboardScreen(
     onFloatingMoved: (Float, Float) -> Unit = { _, _ -> },
     onFloatingResized: (Int) -> Unit = {},
     onFloatingBounds: (IntRect) -> Unit = {},
+    onToggleSplit: () -> Unit = {},
+    onToolbarToolsChange: (List<ToolbarTool>) -> Unit = {},
     onOpenSettings: () -> Unit,
 ) {
     val state by stateFlow.collectAsState()
 
+    // One entry point for every toolbar/toolbox tool.
+    val onToolTap: (ToolbarTool) -> Unit = { tool ->
+        when (tool) {
+            ToolbarTool.EMOJI -> onPanelChange(PanelMode.EMOJI)
+            ToolbarTool.CLIPBOARD -> onPanelChange(PanelMode.CLIPBOARD)
+            ToolbarTool.SNIPPETS -> onPanelChange(PanelMode.SNIPPETS)
+            ToolbarTool.SETTINGS -> onOpenSettings()
+            ToolbarTool.ONE_HANDED -> onOneHanded(
+                if (state.settings.oneHandedMode == OneHandedMode.OFF) OneHandedMode.RIGHT
+                else OneHandedMode.OFF
+            )
+            ToolbarTool.SPLIT -> onToggleSplit()
+            ToolbarTool.FLOATING -> onFloatingChange(!state.settings.floatingKeyboard)
+        }
+    }
+
     val body: @Composable ColumnScope.() -> Unit = {
         CompositionLocalProvider(LocalKeyPressFeedback provides onKeyPressed) {
-            TopBar(state, onSuggestion, onPanelChange, onOpenSettings)
-            when (state.panel) {
-                PanelMode.EMOJI -> EmojiPanel(state, onEmoji, onEmojiQueryTap, onEmojiRecentsClear)
-                PanelMode.CLIPBOARD -> ClipboardPanel(state, onClipboardItem, onClipboardPin, onClipboardDelete)
-                PanelMode.SNIPPETS -> SnippetsPanel(state, onSnippet)
-                PanelMode.NONE -> KeyRows(state, onKey, onText, onGesture, onGesturePreview, onCursorMove)
-            }
-            // In emoji search mode the letters stay visible for typing the query.
-            if (state.panel == PanelMode.EMOJI && state.emojiSearchActive) {
-                KeyRows(state, onKey, onText, onGesture, onGesturePreview, onCursorMove)
-            }
+            KeyboardBody(
+                state = state,
+                onKey = onKey,
+                onText = onText,
+                onGesture = onGesture,
+                onGesturePreview = onGesturePreview,
+                onCursorMove = onCursorMove,
+                onSuggestion = onSuggestion,
+                onEmoji = onEmoji,
+                onEmojiQueryTap = onEmojiQueryTap,
+                onEmojiRecentsClear = onEmojiRecentsClear,
+                onPanelChange = onPanelChange,
+                onClipboardItem = onClipboardItem,
+                onClipboardPin = onClipboardPin,
+                onClipboardDelete = onClipboardDelete,
+                onSnippet = onSnippet,
+                onToolTap = onToolTap,
+                onToolbarToolsChange = onToolbarToolsChange,
+            )
         }
     }
 
@@ -507,50 +544,42 @@ private fun TopBar(
     state: KeyboardUiState,
     onSuggestion: (String) -> Unit,
     onPanelChange: (PanelMode) -> Unit,
-    onOpenSettings: () -> Unit,
+    onToolTap: (ToolbarTool) -> Unit,
+    drag: ToolDragController,
 ) {
+    // "Show the toolbar instead" while suggestions are up; resets once the
+    // suggestions go away so the bar returns to candidates next time.
+    var toolbarOverride by remember { mutableStateOf(false) }
+    val hasSuggestions = state.suggestions.isNotEmpty()
+    LaunchedEffect(hasSuggestions) { if (!hasSuggestions) toolbarOverride = false }
+    val showToolbar = !hasSuggestions || toolbarOverride || state.panel == PanelMode.TOOLBOX
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .height(44.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (state.settings.emojiToolbar || state.suggestions.isEmpty()) {
-            IconButton(onClick = { onPanelChange(PanelMode.EMOJI) }) {
+        if (hasSuggestions) {
+            IconButton(onClick = { toolbarOverride = !toolbarOverride }, modifier = Modifier.size(36.dp)) {
                 Icon(
-                    Icons.Outlined.EmojiEmotions,
-                    contentDescription = "Emoji",
+                    if (showToolbar) Icons.Outlined.ChevronLeft else Icons.Outlined.ChevronRight,
+                    contentDescription = if (showToolbar) "Show suggestions" else "Show toolbar",
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
-        if (state.suggestions.isEmpty()) {
-            IconButton(onClick = { onPanelChange(PanelMode.CLIPBOARD) }) {
-                Icon(
-                    Icons.Outlined.ContentPaste,
-                    contentDescription = "Clipboard",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            IconButton(onClick = { onPanelChange(PanelMode.SNIPPETS) }) {
-                Icon(
-                    Icons.Outlined.TextSnippet,
-                    contentDescription = "Snippets",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            if (state.settings.incognito) {
-                Text("🕶 incognito", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            Box(modifier = Modifier.weight(1f))
-            IconButton(onClick = onOpenSettings) {
-                Icon(
-                    Icons.Outlined.Settings,
-                    contentDescription = "Settings",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
+        if (showToolbar) {
+            ToolbarRow(state, onPanelChange, onToolTap, drag)
         } else {
+            if (state.settings.emojiToolbar) {
+                ToolCircle(
+                    icon = toolIcon(ToolbarTool.EMOJI),
+                    description = "Emoji",
+                    active = false,
+                    radiusDp = state.settings.toolCircleRadiusDp,
+                ) { onToolTap(ToolbarTool.EMOJI) }
+            }
             // The top candidates split the whole bar evenly (Gboard style),
             // so each one gets the largest possible tap target.
             Row(
@@ -585,6 +614,347 @@ private fun TopBar(
                         )
                     }
                 }
+            }
+        }
+    }
+}
+
+// ---- customizable toolbar & toolbox ----
+
+private fun toolIcon(tool: ToolbarTool): ImageVector = when (tool) {
+    ToolbarTool.EMOJI -> Icons.Outlined.EmojiEmotions
+    ToolbarTool.CLIPBOARD -> Icons.Outlined.ContentPaste
+    ToolbarTool.SNIPPETS -> Icons.Outlined.TextSnippet
+    ToolbarTool.ONE_HANDED -> Icons.Outlined.Smartphone
+    ToolbarTool.SPLIT -> Icons.Outlined.VerticalSplit
+    ToolbarTool.FLOATING -> Icons.Outlined.PictureInPictureAlt
+    ToolbarTool.SETTINGS -> Icons.Outlined.Settings
+}
+
+private fun toolLabel(tool: ToolbarTool): String = when (tool) {
+    ToolbarTool.EMOJI -> "Emoji"
+    ToolbarTool.CLIPBOARD -> "Clipboard"
+    ToolbarTool.SNIPPETS -> "Snippets"
+    ToolbarTool.ONE_HANDED -> "One-handed"
+    ToolbarTool.SPLIT -> "Split"
+    ToolbarTool.FLOATING -> "Floating"
+    ToolbarTool.SETTINGS -> "Settings"
+}
+
+private fun toolActive(tool: ToolbarTool, state: KeyboardUiState): Boolean = when (tool) {
+    ToolbarTool.EMOJI -> state.panel == PanelMode.EMOJI
+    ToolbarTool.CLIPBOARD -> state.panel == PanelMode.CLIPBOARD
+    ToolbarTool.SNIPPETS -> state.panel == PanelMode.SNIPPETS
+    ToolbarTool.ONE_HANDED -> state.settings.oneHandedMode != OneHandedMode.OFF
+    ToolbarTool.SPLIT -> state.settings.splitKeyboard
+    ToolbarTool.FLOATING -> state.settings.floatingKeyboard
+    ToolbarTool.SETTINGS -> false
+}
+
+/**
+ * Live state of a toolbar-customization drag. Bounds and positions are all
+ * in window-root coordinates; the ghost is drawn relative to the keyboard
+ * body's origin. Drops on the toolbar insert at the slot under the finger,
+ * drops anywhere else send a toolbar tool back to the toolbox.
+ */
+private class ToolDragController {
+    var dragging by mutableStateOf<ToolbarTool?>(null)
+        private set
+    var position by mutableStateOf(Offset.Zero)
+        private set
+    private var fromToolbar = false
+    var toolbarBounds: Rect? = null
+    var currentTools: List<ToolbarTool> = emptyList()
+    var onCommit: (List<ToolbarTool>) -> Unit = {}
+
+    fun start(tool: ToolbarTool, fromBar: Boolean, at: Offset) {
+        dragging = tool
+        fromToolbar = fromBar
+        position = at
+    }
+
+    fun move(to: Offset) {
+        position = to
+    }
+
+    fun cancel() {
+        dragging = null
+    }
+
+    fun end() {
+        val tool = dragging ?: return
+        dragging = null
+        // Generous hit box: a drop just above/below the bar still counts.
+        val bar = toolbarBounds?.inflate(30f)
+        val tools = currentTools
+        if (bar != null && bar.contains(position)) {
+            val without = tools - tool
+            val slot = if (without.isEmpty()) {
+                0
+            } else {
+                (((position.x - bar.left) / bar.width) * (without.size + 1))
+                    .toInt()
+                    .coerceIn(0, without.size)
+            }
+            onCommit(without.toMutableList().apply { add(slot, tool) })
+        } else if (fromToolbar) {
+            onCommit(tools - tool)
+        }
+    }
+}
+
+/** Wires long-press-drag onto a tool while customization (toolbox) is open. */
+@Composable
+private fun DraggableTool(
+    tool: ToolbarTool,
+    fromToolbar: Boolean,
+    enabled: Boolean,
+    drag: ToolDragController,
+    content: @Composable (Modifier) -> Unit,
+) {
+    var origin by remember { mutableStateOf(Offset.Zero) }
+    content(
+        Modifier
+            .onGloballyPositioned { origin = it.positionInRoot() }
+            .pointerInput(enabled, tool) {
+                if (!enabled) return@pointerInput
+                detectDragGesturesAfterLongPress(
+                    onDragStart = { at -> drag.start(tool, fromToolbar, origin + at) },
+                    onDrag = { change, _ ->
+                        change.consume()
+                        drag.move(origin + change.position)
+                    },
+                    onDragEnd = { drag.end() },
+                    onDragCancel = { drag.cancel() },
+                )
+            }
+    )
+}
+
+/** One round tool button; the circle radius comes from settings (0 = bare icon). */
+@Composable
+private fun ToolCircle(
+    icon: ImageVector,
+    description: String,
+    active: Boolean,
+    radiusDp: Int,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    val shape = RoundedCornerShape(radiusDp.dp)
+    val background = when {
+        active -> MaterialTheme.colorScheme.primaryContainer
+        radiusDp > 0 -> MaterialTheme.colorScheme.surfaceContainerHigh
+        else -> Color.Transparent
+    }
+    Box(
+        modifier = modifier
+            .size(38.dp)
+            .clip(shape)
+            .background(background, shape)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            icon,
+            contentDescription = description,
+            modifier = Modifier.size(20.dp),
+            tint = if (active) MaterialTheme.colorScheme.primary
+            else MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+/**
+ * The toolbar itself: fixed toolbox launcher, then the user's tools —
+ * spread across the free space when the greedy setting is on, packed to
+ * the left otherwise.
+ */
+@Composable
+private fun RowScope.ToolbarRow(
+    state: KeyboardUiState,
+    onPanelChange: (PanelMode) -> Unit,
+    onToolTap: (ToolbarTool) -> Unit,
+    drag: ToolDragController,
+) {
+    val customizing = state.panel == PanelMode.TOOLBOX
+    val radius = state.settings.toolCircleRadiusDp
+    ToolCircle(
+        icon = Icons.Outlined.GridView,
+        description = "Toolbox",
+        active = customizing,
+        radiusDp = radius,
+        modifier = Modifier.padding(horizontal = 3.dp),
+    ) { onPanelChange(PanelMode.TOOLBOX) }
+    Row(
+        modifier = Modifier
+            .weight(1f)
+            .fillMaxHeight()
+            .onGloballyPositioned { drag.toolbarBounds = it.boundsInRoot() },
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        for (tool in state.settings.toolbarTools) {
+            val cell = if (state.settings.toolbarGreedy) {
+                Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+            } else {
+                Modifier.padding(horizontal = 3.dp)
+            }
+            Box(cell, contentAlignment = Alignment.Center) {
+                DraggableTool(tool, fromToolbar = true, enabled = customizing, drag = drag) { dragModifier ->
+                    ToolCircle(
+                        icon = toolIcon(tool),
+                        description = toolLabel(tool),
+                        active = toolActive(tool, state),
+                        radiusDp = radius,
+                        modifier = dragModifier,
+                    ) { onToolTap(tool) }
+                }
+            }
+        }
+        if (!state.settings.toolbarGreedy) Spacer(modifier = Modifier.weight(1f))
+    }
+    if (state.settings.incognito) {
+        Text(
+            "🕶",
+            fontSize = 12.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(end = 6.dp),
+        )
+    }
+}
+
+/**
+ * Gboard-style toolbox: every tool that is not on the toolbar, shown in a
+ * labeled grid. Tap to use a tool in place; hold and drag it up onto the
+ * toolbar to pin it. Toolbar tools drag down here to unpin.
+ */
+@Composable
+private fun ToolboxPanel(
+    state: KeyboardUiState,
+    onToolTap: (ToolbarTool) -> Unit,
+    drag: ToolDragController,
+) {
+    val height = (state.settings.keyHeightDp * 4 + 40).dp
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(height),
+    ) {
+        Text(
+            "Hold and drag a tool onto the toolbar to pin it — or drag a toolbar tool down here to remove it.",
+            fontSize = 12.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp, vertical = 10.dp),
+        )
+        val available = ToolbarTool.entries.filter { it !in state.settings.toolbarTools }
+        if (available.isEmpty()) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text(
+                    "Every tool is on the toolbar.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            return@Column
+        }
+        for (rowTools in available.chunked(4)) {
+            Row(modifier = Modifier.fillMaxWidth()) {
+                for (tool in rowTools) {
+                    Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                        DraggableTool(tool, fromToolbar = false, enabled = true, drag = drag) { dragModifier ->
+                            Column(
+                                modifier = dragModifier.padding(vertical = 10.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                            ) {
+                                ToolCircle(
+                                    icon = toolIcon(tool),
+                                    description = toolLabel(tool),
+                                    active = toolActive(tool, state),
+                                    radiusDp = state.settings.toolCircleRadiusDp,
+                                ) { onToolTap(tool) }
+                                Text(
+                                    toolLabel(tool),
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(top = 4.dp),
+                                )
+                            }
+                        }
+                    }
+                }
+                repeat(4 - rowTools.size) { Spacer(modifier = Modifier.weight(1f)) }
+            }
+        }
+    }
+}
+
+/**
+ * Toolbar + panels + key rows, wrapped in a Box so the tool-drag ghost can
+ * float over everything while the toolbox is open.
+ */
+@Composable
+private fun KeyboardBody(
+    state: KeyboardUiState,
+    onKey: (Key) -> Unit,
+    onText: (String) -> Unit,
+    onGesture: (List<GesturePoint>, List<KeyCenter>, Float) -> Unit,
+    onGesturePreview: (List<GesturePoint>, List<KeyCenter>, Float) -> Unit,
+    onCursorMove: (Int) -> Unit,
+    onSuggestion: (String) -> Unit,
+    onEmoji: (String) -> Unit,
+    onEmojiQueryTap: () -> Unit,
+    onEmojiRecentsClear: () -> Unit,
+    onPanelChange: (PanelMode) -> Unit,
+    onClipboardItem: (ClipItem) -> Unit,
+    onClipboardPin: (ClipItem) -> Unit,
+    onClipboardDelete: (ClipItem) -> Unit,
+    onSnippet: (Snippet) -> Unit,
+    onToolTap: (ToolbarTool) -> Unit,
+    onToolbarToolsChange: (List<ToolbarTool>) -> Unit,
+) {
+    val drag = remember { ToolDragController() }
+    drag.currentTools = state.settings.toolbarTools
+    drag.onCommit = onToolbarToolsChange
+    var bodyOrigin by remember { mutableStateOf(Offset.Zero) }
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .onGloballyPositioned { bodyOrigin = it.positionInRoot() },
+    ) {
+        Column {
+            TopBar(state, onSuggestion, onPanelChange, onToolTap, drag)
+            when (state.panel) {
+                PanelMode.EMOJI -> EmojiPanel(state, onEmoji, onEmojiQueryTap, onEmojiRecentsClear)
+                PanelMode.CLIPBOARD -> ClipboardPanel(state, onClipboardItem, onClipboardPin, onClipboardDelete)
+                PanelMode.SNIPPETS -> SnippetsPanel(state, onSnippet)
+                PanelMode.TOOLBOX -> ToolboxPanel(state, onToolTap, drag)
+                PanelMode.NONE -> KeyRows(state, onKey, onText, onGesture, onGesturePreview, onCursorMove)
+            }
+            // In emoji search mode the letters stay visible for typing the query.
+            if (state.panel == PanelMode.EMOJI && state.emojiSearchActive) {
+                KeyRows(state, onKey, onText, onGesture, onGesturePreview, onCursorMove)
+            }
+        }
+        drag.dragging?.let { tool ->
+            val ghost = drag.position - bodyOrigin
+            Box(
+                modifier = Modifier
+                    .offset { IntOffset((ghost.x - 22.dp.toPx()).roundToInt(), (ghost.y - 22.dp.toPx()).roundToInt()) }
+                    .size(44.dp)
+                    .background(MaterialTheme.colorScheme.primaryContainer, CircleShape),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    toolIcon(tool),
+                    contentDescription = null,
+                    modifier = Modifier.size(22.dp),
+                    tint = MaterialTheme.colorScheme.primary,
+                )
             }
         }
     }
@@ -833,14 +1203,31 @@ internal fun splitKeys(keys: List<Key>): Pair<List<Key>, List<Key>> {
 private fun nearLetterKey(position: Offset, centers: Map<Char, Offset>, keyWidth: Float): Boolean =
     centers.values.any { (it - position).getDistance() < keyWidth }
 
-private fun currentLayout(state: KeyboardUiState): KeyboardLayout = when (state.layoutMode) {
-    LayoutMode.SYMBOLS -> Layouts.SYMBOLS
-    LayoutMode.SYMBOLS_SHIFTED -> Layouts.SYMBOLS_SHIFTED
-    LayoutMode.LETTERS -> when (state.inputMode) {
-        InputMode.PROBHAT -> Layouts.PROBHAT
-        InputMode.JATIYA -> Layouts.JATIYA
-        else -> Layouts.QWERTY
+private fun currentLayout(state: KeyboardUiState): KeyboardLayout {
+    val base = when (state.layoutMode) {
+        LayoutMode.SYMBOLS -> Layouts.SYMBOLS
+        LayoutMode.SYMBOLS_SHIFTED -> Layouts.SYMBOLS_SHIFTED
+        LayoutMode.LETTERS -> when (state.inputMode) {
+            InputMode.PROBHAT -> Layouts.PROBHAT
+            InputMode.JATIYA -> Layouts.JATIYA
+            else -> Layouts.QWERTY
+        }
     }
+    // Optional Gboard-style emoji key: the letter layouts' comma key becomes
+    // an emoji-panel key, with comma demoted to its long-press alternates.
+    if (!state.settings.commaAsEmoji || state.layoutMode != LayoutMode.LETTERS) return base
+    return KeyboardLayout(
+        base.name,
+        base.rows.map { row ->
+            row.map { key ->
+                if (key.action == KeyAction.Text && key.label == ",") {
+                    Key(",", action = KeyAction.Emoji, longPress = listOf(",") + key.longPress)
+                } else {
+                    key
+                }
+            }
+        },
+    )
 }
 
 /**
@@ -1069,6 +1456,11 @@ private fun KeyContent(key: Key, state: KeyboardUiState, contentColor: Color) {
         KeyAction.LanguageSwitch -> Icon(
             Icons.Outlined.Language,
             contentDescription = "Switch language",
+            tint = contentColor,
+        )
+        KeyAction.Emoji -> Icon(
+            Icons.Outlined.EmojiEmotions,
+            contentDescription = "Emoji",
             tint = contentColor,
         )
         KeyAction.Space -> Box(

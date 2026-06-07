@@ -41,7 +41,7 @@ Working checklist. Roadmap-level planning lives in [docs/ROADMAP.md](docs/ROADMA
 - [x] Floating / resizable / split keyboard
 - [ ] Dictionary import pipeline (CLDR/AOSP wordlists, full emoji annotations)
 - [ ] GIF/sticker panels (opt-in network)
-- [ ] Toolbar reordering
+- [x] Toolbar reordering
 - [ ] Compose UI tests for the keyboard view
 - [ ] Undo/redo; multi-touch key handling
 

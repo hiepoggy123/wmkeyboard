@@ -738,6 +738,37 @@ private fun AppearanceSettings(repository: SettingsRepository, settings: Keyboar
         }
     }
 
+    SectionHeader("Toolbar")
+    ToggleSetting(
+        "Spread tools across the bar",
+        "Toolbar tools split the available width evenly",
+        settings.toolbarGreedy,
+        info = "On: the tools on the top toolbar greedily share the whole bar, like " +
+            "the suggestion candidates do. Off: they pack to the left at a fixed " +
+            "size. Which tools appear there is customized from the keyboard itself: " +
+            "open the toolbox (grid button on the toolbar), then hold and drag tools " +
+            "between the toolbar and the toolbox.",
+    ) { scope.launch { repository.setToolbarGreedy(it) } }
+    SliderSetting(
+        "Tool circle radius",
+        subtitle = "Roundness of the circle behind each toolbar tool",
+        value = settings.toolCircleRadiusDp.toFloat(),
+        range = 0f..20f,
+        display = if (settings.toolCircleRadiusDp == 0) "off" else "${settings.toolCircleRadiusDp} dp",
+        info = "20 draws a full circle behind every tool icon (Gboard style), " +
+            "smaller values give rounded squares, and 0 removes the background " +
+            "entirely, leaving bare icons.",
+    ) { scope.launch { repository.setToolCircleRadiusDp(it.toInt()) } }
+    ToggleSetting(
+        "Comma key opens emoji",
+        "Replace the comma key with an emoji key",
+        settings.commaAsEmoji,
+        info = "The bottom-row comma key becomes an emoji-panel key; comma moves " +
+            "into its long-press alternates. Turning this on also removes the " +
+            "emoji tool from the toolbar since the key replaces it — drag it back " +
+            "out of the toolbox if you want both.",
+    ) { scope.launch { repository.setCommaAsEmoji(it) } }
+
     SectionHeader("Popups")
     ToggleSetting(
         "Popup on key",
