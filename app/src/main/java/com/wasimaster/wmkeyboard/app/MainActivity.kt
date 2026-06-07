@@ -637,6 +637,14 @@ private fun AppearanceSettings(repository: SettingsRepository, settings: Keyboar
     ) { scope.launch { repository.setFontScale(it) } }
 
     SectionHeader("Popups")
+    ToggleSetting(
+        "Popup on key",
+        "Grow the bubble upward from the pressed key itself",
+        settings.keyPopupOnKey,
+        info = "On: the preview bubble sits on the pressed key and stretches upward, " +
+            "key-wide with a large character near its top — the stock-keyboard look. " +
+            "Off: a compact bubble floats above your fingertip with a gap.",
+    ) { scope.launch { repository.setKeyPopupOnKey(it) } }
     SliderSetting(
         "Popup font size",
         subtitle = "Scale of the key preview bubble and long-press alternates",
@@ -651,11 +659,11 @@ private fun AppearanceSettings(repository: SettingsRepository, settings: Keyboar
         "Popup height",
         subtitle = "Height of the key preview bubble",
         value = settings.keyPopupHeightDp.toFloat(),
-        range = 32f..80f,
+        range = 32f..160f,
         display = "${settings.keyPopupHeightDp} dp",
-        info = "Height of the character bubble above a pressed key; the long-press " +
-            "alternates popup uses it as a minimum. Taller popups are easier to read " +
-            "above your finger.",
+        info = "Height of the character bubble. With \"Popup on key\" enabled this is " +
+            "measured from the bottom of the pressed key, so anything taller than the " +
+            "key extends above it and stays visible past your finger.",
     ) { scope.launch { repository.setKeyPopupHeightDp(it.toInt()) } }
 }
 

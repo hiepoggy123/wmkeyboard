@@ -18,11 +18,11 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -76,6 +76,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
@@ -545,6 +546,25 @@ private fun rememberAboveAnchorPopup(): PopupPositionProvider {
     }
 }
 
+/**
+ * Places the popup so its bottom edge lines up with the pressed key's
+ * bottom, growing upward from the key itself — the tall stock-keyboard
+ * style where the bubble visually replaces the key.
+ */
+private object OnKeyPopupPositionProvider : PopupPositionProvider {
+    override fun calculatePosition(
+        anchorBounds: IntRect,
+        windowSize: IntSize,
+        layoutDirection: LayoutDirection,
+        popupContentSize: IntSize,
+    ): IntOffset {
+        val x = (anchorBounds.left + (anchorBounds.width - popupContentSize.width) / 2)
+            .coerceIn(0, (windowSize.width - popupContentSize.width).coerceAtLeast(0))
+        val y = (anchorBounds.bottom - popupContentSize.height).coerceAtLeast(0)
+        return IntOffset(x, y)
+    }
+}
+
 /** Visual gap between keys, provided as padding inside each touch cell. */
 private val KeyGapHorizontal = 2.5.dp
 private val KeyGapVertical = 4.dp
@@ -596,6 +616,8 @@ private fun KeyButton(
     // Outer box = full grid cell and the touch target; inner box = the
     // visible key, inset by the gap. Presses in the gap between keys land
     // on whichever cell they fall in, so there are no dead zones.
+    val density = LocalDensity.current
+    var keyWidthPx by remember { mutableIntStateOf(0) }
     Box(
         modifier = modifier
             .height(settings.keyHeightDp.dp + KeyGapVertical * 2)
@@ -607,7 +629,8 @@ private fun KeyButton(
                 onCursorMove = onCursorMove,
                 scope = scope)
             .padding(horizontal = KeyGapHorizontal, vertical = KeyGapVertical)
-            .background(background, RoundedCornerShape(settings.keyCornerRadiusDp.dp)),
+            .background(background, RoundedCornerShape(settings.keyCornerRadiusDp.dp))
+            .onGloballyPositioned { keyWidthPx = it.size.width },
         contentAlignment = Alignment.Center,
     ) {
         KeyContent(key, state, contentColor)
@@ -624,9 +647,7 @@ private fun KeyButton(
                     shadowElevation = 8.dp,
                 ) {
                     Row(
-                        modifier = Modifier
-                            .heightIn(min = settings.keyPopupHeightDp.dp)
-                            .padding(4.dp),
+                        modifier = Modifier.padding(4.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         for (alternate in key.longPress) {
@@ -647,9 +668,15 @@ private fun KeyButton(
             }
         }
 
-        // Key preview bubble while pressed, lifted above the fingertip.
+        // Key preview bubble while pressed. In on-key mode the bubble
+        // grows upward from the pressed key itself (stock-keyboard style,
+        // key-wide with a large label near the top, clear of the finger);
+        // otherwise it floats above the fingertip.
         if (previewVisible && settings.keyPopup && key.action == KeyAction.Text && !showAlternates) {
-            Popup(popupPositionProvider = popupPosition) {
+            val onKeyStyle = settings.keyPopupOnKey
+            Popup(
+                popupPositionProvider = if (onKeyStyle) OnKeyPopupPositionProvider else popupPosition,
+            ) {
                 Surface(
                     shape = RoundedCornerShape(10.dp),
                     color = MaterialTheme.colorScheme.surfaceContainerHighest,
@@ -658,12 +685,14 @@ private fun KeyButton(
                     Box(
                         modifier = Modifier
                             .height(settings.keyPopupHeightDp.dp)
+                            .widthIn(min = if (onKeyStyle) with(density) { keyWidthPx.toDp() } + 8.dp else 0.dp)
                             .padding(horizontal = 14.dp),
-                        contentAlignment = Alignment.Center,
+                        contentAlignment = if (onKeyStyle) Alignment.TopCenter else Alignment.Center,
                     ) {
                         Text(
                             text = displayLabel(key, state),
-                            fontSize = (22 * settings.popupFontScale).sp,
+                            modifier = if (onKeyStyle) Modifier.padding(top = 8.dp) else Modifier,
+                            fontSize = ((if (onKeyStyle) 34 else 22) * settings.popupFontScale).sp,
                             color = MaterialTheme.colorScheme.onSurface,
                         )
                     }
