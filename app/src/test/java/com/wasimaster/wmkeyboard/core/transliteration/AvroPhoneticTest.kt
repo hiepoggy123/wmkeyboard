@@ -63,7 +63,7 @@ class AvroPhoneticTest {
     @Test fun retroflex() {
         assertEquals("টাকা", t("Taka"))
         assertEquals("ডাল", t("Dal"))
-        assertEquals("বড়", t("boR"))
+        assertEquals("বড়", t("boR"))
     }
 
     @Test fun digitsAndPunctuation() {
@@ -77,6 +77,20 @@ class AvroPhoneticTest {
         assertEquals("রং", t("rong"))
         assertEquals("চাঁদ", t("ca^d"))
         assertEquals("দুঃখ", t("du:kh"))
+    }
+
+    @Test fun jofolaAndAntastyaYo() {
+        // "y" after a consonant is jofola; elsewhere it is য়.
+        assertEquals("শ্যাম", t("shyam"))
+        assertEquals("ত্যাগ", t("tyag"))
+        assertEquals("ব্যাপার", t("byapar"))
+        assertEquals("মেয়ে", t("meye"))
+        assertEquals("নিয়ে", t("niye"))
+        assertEquals("হয়", t("hoy"))
+        assertEquals("য়", t("y"))
+        assertEquals("য়া", t("ya"))
+        // "Y" never joins the cluster, so য় is reachable after a consonant.
+        assertEquals("কয়া", t("kYa"))
     }
 
     @Test fun mixedTextPassesThrough() {

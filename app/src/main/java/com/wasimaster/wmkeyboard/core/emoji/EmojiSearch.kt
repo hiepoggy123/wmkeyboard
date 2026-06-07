@@ -9,7 +9,7 @@ package com.wasimaster.wmkeyboard.core.emoji
  *  - prefix matching while the user is still typing;
  *  - fuzzy matching for one-typo queries ("hapy" still finds 😀);
  *  - multilingual queries — Bengali keywords live in the same index, so
- *    বিড়াল finds the cat emojis and হাসি the smiles.
+ *    বিড়াল finds the cat emojis and হাসি the smiles.
  *
  * Scoring: exact keyword > synonym-expanded > prefix > fuzzy; matches on
  * multiple query tokens accumulate.
@@ -151,7 +151,7 @@ class EmojiSearch(private val entries: List<EmojiEntry>) {
             "মজা" to listOf("হাসি", "funny"),
             "কান্না" to listOf("দুঃখ", "cry"),
             "রাগ" to listOf("angry", "mad"),
-            "ভালোবাসা" to listOf("প্রেম", "হৃদয়", "heart"),
+            "ভালোবাসা" to listOf("প্রেম", "হৃদয়", "heart"),
             "খাবার" to listOf("food", "ভাত"),
             "আগুন" to listOf("fire", "শিখা"),
         )

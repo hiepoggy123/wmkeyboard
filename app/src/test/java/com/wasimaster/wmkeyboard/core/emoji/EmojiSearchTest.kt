@@ -72,7 +72,7 @@ class EmojiSearchTest {
     }
 
     @Test fun bengaliCatQuery() {
-        val r = results("বিড়াল")
+        val r = results("বিড়াল")
         assertTrue("🐱" in r)
         assertTrue("😺" in r)
     }

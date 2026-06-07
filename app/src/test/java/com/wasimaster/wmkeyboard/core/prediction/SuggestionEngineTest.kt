@@ -59,13 +59,13 @@ class SuggestionEngineTest {
     @Test fun avroLoanwordWinsOverPhonetics() {
         val dictionary = Trie()
         val loanwords = EnglishBengaliMap.load(
-            "keyboard\tকিবোর্ড\nchair\tচেয়ার\n".byteInputStream(Charsets.UTF_8)
+            "keyboard\tকিবোর্ড\nchair\tচেয়ার\n".byteInputStream(Charsets.UTF_8)
         )
         val e = SuggestionEngine(
             dictionary, BengaliPhoneticIndex(emptyList()), UserLexicon(null), loanwords,
         )
         assertEquals("কিবোর্ড", e.suggest("keyboard", null, avroMode = true).first())
-        assertEquals("চেয়ার", e.suggest("chair", null, avroMode = true).first())
+        assertEquals("চেয়ার", e.suggest("chair", null, avroMode = true).first())
     }
 
     @Test fun avroSentenceWords() {

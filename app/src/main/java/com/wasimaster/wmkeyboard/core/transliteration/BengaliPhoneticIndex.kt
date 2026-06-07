@@ -38,7 +38,7 @@ class BengaliPhoneticIndex(entries: List<Pair<String, Int>>) {
             'প' to 'p', 'ফ' to 'p', 'ব' to 'b', 'ভ' to 'b', 'ম' to 'm',
             'য' to 'j', 'র' to 'r', 'ল' to 'l', 'শ' to 's', 'ষ' to 's',
             'স' to 's', 'হ' to 'h',
-            // Nukta letters as precomposed code points (ড় ঢ় য়); decomposed
+            // Nukta letters as precomposed code points (ড় ঢ় য়); decomposed
             // input is normalized before lookup.
             'ড়' to 'r', 'ঢ়' to 'r', 'য়' to 'y',
             'ং' to 'q', 'ঃ' to 'h',

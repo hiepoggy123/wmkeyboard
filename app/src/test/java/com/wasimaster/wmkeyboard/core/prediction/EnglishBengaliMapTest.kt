@@ -11,16 +11,16 @@ class EnglishBengaliMapTest {
         EnglishBengaliMap.load(text.byteInputStream(Charsets.UTF_8))
 
     @Test fun mapsLoanword() {
-        val m = map("keyboard\tকিবোর্ড\nchair\tচেয়ার\n")
+        val m = map("keyboard\tকিবোর্ড\nchair\tচেয়ার\n")
         assertEquals(listOf("কিবোর্ড"), m.lookup("keyboard"))
-        assertEquals(listOf("চেয়ার"), m.lookup("chair"))
+        assertEquals(listOf("চেয়ার"), m.lookup("chair"))
         assertTrue(m.contains("keyboard"))
     }
 
     @Test fun lookupIsCaseInsensitiveAndTrimmed() {
-        val m = map("chair\tচেয়ার\n")
-        assertEquals(listOf("চেয়ার"), m.lookup("Chair"))
-        assertEquals(listOf("চেয়ার"), m.lookup("  CHAIR "))
+        val m = map("chair\tচেয়ার\n")
+        assertEquals(listOf("চেয়ার"), m.lookup("Chair"))
+        assertEquals(listOf("চেয়ার"), m.lookup("  CHAIR "))
     }
 
     @Test fun duplicateKeysAccumulateInOrder() {
@@ -47,6 +47,6 @@ class EnglishBengaliMapTest {
 
     @Test fun unmappedReturnsEmpty() {
         assertTrue(EnglishBengaliMap.EMPTY.lookup("anything").isEmpty())
-        assertTrue(map("chair\tচেয়ার").lookup("mouse").isEmpty())
+        assertTrue(map("chair\tচেয়ার").lookup("mouse").isEmpty())
     }
 }

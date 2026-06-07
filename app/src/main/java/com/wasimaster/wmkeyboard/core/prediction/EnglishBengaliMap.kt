@@ -5,7 +5,7 @@ import java.io.InputStream
 /**
  * Manual English → Bengali map for common loanwords.
  *
- * Words like "keyboard" (কিবোর্ড) or "chair" (চেয়ার) are typed constantly in
+ * Words like "keyboard" (কিবোর্ড) or "chair" (চেয়ার) are typed constantly in
  * Bengali script but are not reliably reachable from Avro phonetic rules —
  * their Bengali spelling is fixed by convention, not by sound-for-sound
  * transliteration. When the keyboard is in the Bengali (Avro) input mode,

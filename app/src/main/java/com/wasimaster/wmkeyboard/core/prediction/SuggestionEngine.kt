@@ -77,7 +77,7 @@ class SuggestionEngine(
         val phonetic = AvroPhonetic.transliterate(composing)
         val ordered = LinkedHashSet<String>()
         // Manually mapped loanwords win outright: "keyboard" → কিবোর্ড,
-        // "chair" → চেয়ার. Avro phonetics can't reach these conventional
+        // "chair" → চেয়ার. Avro phonetics can't reach these conventional
         // spellings, so the map is consulted before anything else.
         ordered.addAll(loanwords.lookup(composing))
         // Phonetic siblings from the dictionary come next (আছি for "asi"),

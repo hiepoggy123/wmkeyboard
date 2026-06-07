@@ -13,7 +13,7 @@ data class EmojiEntry(
  *
  * Format: TSV with `emoji<TAB>category<TAB>en,keywords<TAB>bn,keywords`.
  * English and Bengali keywords are merged into one list so search is
- * language-agnostic — searching বিড়াল or "cat" hits the same entries.
+ * language-agnostic — searching বিড়াল or "cat" hits the same entries.
  */
 object EmojiCatalog {
 

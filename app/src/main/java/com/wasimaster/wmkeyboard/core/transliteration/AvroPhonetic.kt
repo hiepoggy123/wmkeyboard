@@ -72,7 +72,7 @@ object AvroPhonetic {
         add(Rule("bh", "ভ"))
         add(Rule("sh", "শ"))
         add(Rule("Sh", "ষ"))
-        add(Rule("Rh", "ঢ়"))
+        add(Rule("Rh", "ঢ়"))
         add(Rule("ng", "ং"))
 
         // Single consonants.
@@ -97,9 +97,8 @@ object AvroPhonetic {
         add(Rule("S", "শ"))
         add(Rule("s", "স"))
         add(Rule("h", "হ"))
-        add(Rule("R", "ড়"))
-        add(Rule("y", "য়"))
-        add(Rule("Y", "য়"))
+        add(Rule("R", "ড়"))
+        // "y"/"Y" are context-sensitive (jofola vs য়), handled in transliterate().
         add(Rule("w", "ও", "ো"))
         add(Rule("x", "ক্স"))
 
@@ -137,6 +136,21 @@ object AvroPhonetic {
                 out.append(if (prev == Kind.CONSONANT) "ু" else "উ")
                 prev = Kind.VOWEL
                 i += 2
+                continue
+            }
+
+            // "y": jofola (্য) after a consonant — "shyam" → শ্যাম — and
+            // য় elsewhere (word start, after a vowel) — "meye" → মেয়ে.
+            // "Y" is always য় and never joins the running cluster, so য়
+            // itself stays reachable right after a consonant ("kY" → কয়).
+            if (input[i] == 'y' || input[i] == 'Y') {
+                if (input[i] == 'y' && prev == Kind.CONSONANT) {
+                    out.append(HASANT).append('য')
+                } else {
+                    out.append('য়')
+                }
+                prev = Kind.CONSONANT
+                i++
                 continue
             }
 
