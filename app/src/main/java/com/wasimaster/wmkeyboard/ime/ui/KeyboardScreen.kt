@@ -1,9 +1,11 @@
 package com.wasimaster.wmkeyboard.ime.ui
 
 import android.graphics.BitmapFactory
+import android.view.WindowManager
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -118,6 +120,9 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.PointerId
+import androidx.compose.ui.input.pointer.changedToDown
+import androidx.compose.ui.input.pointer.changedToUp
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.boundsInRoot
@@ -137,6 +142,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
+import androidx.compose.ui.window.PopupProperties
 import android.os.Build
 import android.os.SystemClock
 import kotlinx.coroutines.delay
@@ -247,7 +253,7 @@ fun KeyboardScreen(
         }
     }
 
-    KeyboardTheme(themeMode = state.settings.themeMode, dynamicColor = state.settings.dynamicColor) {
+    KeyboardThemeProvider(settings = state.settings) {
         if (state.settings.floatingKeyboard) {
             // Floating mode: the compose root spans the whole IME window with
             // no background; the service restricts the touchable region to
@@ -260,9 +266,10 @@ fun KeyboardScreen(
                 onBounds = onFloatingBounds,
                 content = body,
             )
-            return@KeyboardTheme
+            return@KeyboardThemeProvider
         }
-        Surface(color = MaterialTheme.colorScheme.surfaceContainerLow) {
+        Box(modifier = Modifier.fillMaxWidth()) {
+            BoardBackground(LocalKbTheme.current)
             // navigationBarsPadding keeps the bottom key row clear of the
             // gesture-navigation bar on edge-to-edge (SDK 35+) IME windows.
             val oneHanded = state.settings.oneHandedMode
@@ -363,33 +370,38 @@ private fun FloatingKeyboardFrame(
                     )
                 },
             shape = RoundedCornerShape(18.dp),
-            color = MaterialTheme.colorScheme.surfaceContainerLow,
+            // The theme paints the panel (color + optional image); Surface
+            // just supplies the shape, clip and shadow.
+            color = Color.Transparent,
             shadowElevation = 10.dp,
         ) {
-            Column {
-                FloatingHandleBar(
-                    onDock = onDock,
-                    onDragBy = { delta ->
-                        val current = dragOffset ?: offset
-                        dragOffset = Offset(
-                            (current.x + delta.x).coerceIn(0f, slackX()),
-                            (current.y + delta.y).coerceIn(0f, slackY()),
-                        )
-                    },
-                    onDragEnd = {
-                        val end = dragOffset ?: return@FloatingHandleBar
-                        onMoved(
-                            if (slackX() > 0f) end.x / slackX() else 0.5f,
-                            if (slackY() > 0f) end.y / slackY() else 0.5f,
-                        )
-                    },
-                    onResizeBy = { deltaXPx ->
-                        liveWidthDp = (liveWidthDp + with(density) { deltaXPx.toDp().value })
-                            .coerceIn(FLOATING_MIN_WIDTH_DP, maxWidthDp.coerceAtLeast(FLOATING_MIN_WIDTH_DP))
-                    },
-                    onResizeEnd = { onResized(panelWidthDp.roundToInt()) },
-                )
-                content()
+            Box {
+                BoardBackground(LocalKbTheme.current)
+                Column {
+                    FloatingHandleBar(
+                        onDock = onDock,
+                        onDragBy = { delta ->
+                            val current = dragOffset ?: offset
+                            dragOffset = Offset(
+                                (current.x + delta.x).coerceIn(0f, slackX()),
+                                (current.y + delta.y).coerceIn(0f, slackY()),
+                            )
+                        },
+                        onDragEnd = {
+                            val end = dragOffset ?: return@FloatingHandleBar
+                            onMoved(
+                                if (slackX() > 0f) end.x / slackX() else 0.5f,
+                                if (slackY() > 0f) end.y / slackY() else 0.5f,
+                            )
+                        },
+                        onResizeBy = { deltaXPx ->
+                            liveWidthDp = (liveWidthDp + with(density) { deltaXPx.toDp().value })
+                                .coerceIn(FLOATING_MIN_WIDTH_DP, maxWidthDp.coerceAtLeast(FLOATING_MIN_WIDTH_DP))
+                        },
+                        onResizeEnd = { onResized(panelWidthDp.roundToInt()) },
+                    )
+                    content()
+                }
             }
         }
     }
@@ -506,37 +518,6 @@ private fun OneHandedRail(
     }
 }
 
-@Composable
-private fun KeyboardTheme(
-    themeMode: ThemeMode,
-    dynamicColor: Boolean,
-    content: @Composable () -> Unit,
-) {
-    val context = LocalContext.current
-    val systemDark = isSystemInDarkTheme()
-    val dark = when (themeMode) {
-        ThemeMode.SYSTEM -> systemDark
-        ThemeMode.LIGHT -> false
-        ThemeMode.DARK, ThemeMode.AMOLED -> true
-    }
-    val supportsDynamic = dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
-    var scheme = when {
-        supportsDynamic && dark -> dynamicDarkColorScheme(context)
-        supportsDynamic -> dynamicLightColorScheme(context)
-        dark -> darkColorScheme()
-        else -> lightColorScheme()
-    }
-    if (themeMode == ThemeMode.AMOLED) {
-        scheme = scheme.copy(
-            surface = Color.Black,
-            surfaceContainerLow = Color.Black,
-            surfaceContainer = Color(0xFF0A0A0A),
-            surfaceContainerHigh = Color(0xFF111111),
-        )
-    }
-    MaterialTheme(colorScheme = scheme, content = content)
-}
-
 // ---- top bar: suggestions or toolbar ----
 
 @Composable
@@ -577,7 +558,6 @@ private fun TopBar(
                     icon = toolIcon(ToolbarTool.EMOJI),
                     description = "Emoji",
                     active = false,
-                    radiusDp = state.settings.toolCircleRadiusDp,
                 ) { onToolTap(ToolbarTool.EMOJI) }
             }
             // The top candidates split the whole bar evenly (Gboard style),
@@ -731,20 +711,20 @@ private fun DraggableTool(
     )
 }
 
-/** One round tool button; the circle radius comes from settings (0 = bare icon). */
+/** One round tool button; the circle radius comes from the theme (0 = bare icon). */
 @Composable
 private fun ToolCircle(
     icon: ImageVector,
     description: String,
     active: Boolean,
-    radiusDp: Int,
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
-    val shape = RoundedCornerShape(radiusDp.dp)
+    val kb = LocalKbTheme.current
+    val shape = RoundedCornerShape(kb.toolRadiusDp.dp)
     val background = when {
-        active -> MaterialTheme.colorScheme.primaryContainer
-        radiusDp > 0 -> MaterialTheme.colorScheme.surfaceContainerHigh
+        active -> kb.toolCircleActive
+        kb.toolRadiusDp > 0 -> kb.toolCircle
         else -> Color.Transparent
     }
     Box(
@@ -759,8 +739,7 @@ private fun ToolCircle(
             icon,
             contentDescription = description,
             modifier = Modifier.size(20.dp),
-            tint = if (active) MaterialTheme.colorScheme.primary
-            else MaterialTheme.colorScheme.onSurfaceVariant,
+            tint = if (active) kb.toolCircleActiveIcon else kb.toolbarIcon,
         )
     }
 }
@@ -778,12 +757,10 @@ private fun RowScope.ToolbarRow(
     drag: ToolDragController,
 ) {
     val customizing = state.panel == PanelMode.TOOLBOX
-    val radius = state.settings.toolCircleRadiusDp
     ToolCircle(
         icon = Icons.Outlined.GridView,
         description = "Toolbox",
         active = customizing,
-        radiusDp = radius,
         modifier = Modifier.padding(horizontal = 3.dp),
     ) { onPanelChange(PanelMode.TOOLBOX) }
     Row(
@@ -807,7 +784,6 @@ private fun RowScope.ToolbarRow(
                         icon = toolIcon(tool),
                         description = toolLabel(tool),
                         active = toolActive(tool, state),
-                        radiusDp = radius,
                         modifier = dragModifier,
                     ) { onToolTap(tool) }
                 }
@@ -874,7 +850,6 @@ private fun ToolboxPanel(
                                     icon = toolIcon(tool),
                                     description = toolLabel(tool),
                                     active = toolActive(tool, state),
-                                    radiusDp = state.settings.toolCircleRadiusDp,
                                 ) { onToolTap(tool) }
                                 Text(
                                     toolLabel(tool),
@@ -941,19 +916,20 @@ private fun KeyboardBody(
             }
         }
         drag.dragging?.let { tool ->
+            val kb = LocalKbTheme.current
             val ghost = drag.position - bodyOrigin
             Box(
                 modifier = Modifier
                     .offset { IntOffset((ghost.x - 22.dp.toPx()).roundToInt(), (ghost.y - 22.dp.toPx()).roundToInt()) }
                     .size(44.dp)
-                    .background(MaterialTheme.colorScheme.primaryContainer, CircleShape),
+                    .background(kb.toolCircleActive, CircleShape),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
                     toolIcon(tool),
                     contentDescription = null,
                     modifier = Modifier.size(22.dp),
-                    tint = MaterialTheme.colorScheme.primary,
+                    tint = kb.toolCircleActiveIcon,
                 )
             }
         }
@@ -982,7 +958,7 @@ private fun KeyRows(
     var keyWidthPx by remember { mutableStateOf(0f) }
     var boxOrigin by remember { mutableStateOf(Offset.Zero) }
     var trail by remember { mutableStateOf<List<Offset>>(emptyList()) }
-    val trailColor = MaterialTheme.colorScheme.primary
+    val trailColor = LocalKbTheme.current.accent
 
     Box(
         modifier = Modifier
@@ -1315,16 +1291,19 @@ private fun KeyButton(
 
     // Samsung-style contrast: letter keys clearly lighter than the board,
     // modifier keys a shade darker than the letters.
+    val kb = LocalKbTheme.current
     val background = when {
-        pressed -> MaterialTheme.colorScheme.primaryContainer
-        key.action == KeyAction.Enter -> MaterialTheme.colorScheme.primary
-        key.action != KeyAction.Text -> MaterialTheme.colorScheme.surfaceContainerHigh
-        else -> MaterialTheme.colorScheme.surfaceContainerHighest
+        pressed -> kb.pressedKey
+        key.action == KeyAction.Enter -> kb.enterKey
+        key.action != KeyAction.Text -> kb.modifierKey
+        else -> kb.key
     }
     val contentColor = when {
-        key.action == KeyAction.Enter && !pressed -> MaterialTheme.colorScheme.onPrimary
-        else -> MaterialTheme.colorScheme.onSurface
+        key.action == KeyAction.Enter && !pressed -> kb.enterKeyText
+        key.action != KeyAction.Text -> kb.modifierKeyText
+        else -> kb.keyText
     }
+    val keyShape = RoundedCornerShape(kb.keyRadiusDp.dp)
 
     // Outer box = full grid cell and the touch target; inner box = the
     // visible key, inset by the gap. Presses in the gap between keys land
@@ -1345,7 +1324,14 @@ private fun KeyButton(
                 onCursorMove = onCursorMove,
                 scope = scope)
             .padding(horizontal = KeyGapHorizontal, vertical = KeyGapVertical)
-            .background(background, RoundedCornerShape(settings.keyCornerRadiusDp.dp))
+            .background(background, keyShape)
+            .then(
+                if (kb.keyBorder != null && kb.keyBorderWidthDp > 0f) {
+                    Modifier.border(kb.keyBorderWidthDp.dp, kb.keyBorder, keyShape)
+                } else {
+                    Modifier
+                }
+            )
             .onGloballyPositioned { keyWidthPx = it.size.width },
         contentAlignment = Alignment.Center,
     ) {
@@ -1358,8 +1344,8 @@ private fun KeyButton(
                 onDismissRequest = { showAlternates = false },
             ) {
                 Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = MaterialTheme.colorScheme.surfaceContainerHighest,
+                    shape = RoundedCornerShape(kb.popupRadiusDp.dp),
+                    color = kb.popup,
                     shadowElevation = 8.dp,
                 ) {
                     Row(
@@ -1376,7 +1362,7 @@ private fun KeyButton(
                                     }
                                     .padding(horizontal = 10.dp, vertical = 10.dp),
                                 fontSize = (18 * settings.popupFontScale).sp,
-                                color = MaterialTheme.colorScheme.onSurface,
+                                color = kb.popupText,
                             )
                         }
                     }
@@ -1392,10 +1378,11 @@ private fun KeyButton(
             val onKeyStyle = settings.keyPopupOnKey
             Popup(
                 popupPositionProvider = if (onKeyStyle) OnKeyPopupPositionProvider else popupPosition,
+                properties = PreviewPopupProperties,
             ) {
                 Surface(
-                    shape = RoundedCornerShape(10.dp),
-                    color = MaterialTheme.colorScheme.surfaceContainerHighest,
+                    shape = RoundedCornerShape(kb.popupRadiusDp.dp),
+                    color = kb.popup,
                     shadowElevation = 6.dp,
                 ) {
                     Box(
@@ -1409,7 +1396,7 @@ private fun KeyButton(
                             text = displayLabel(key, state),
                             modifier = if (onKeyStyle) Modifier.padding(top = 8.dp) else Modifier,
                             fontSize = ((if (onKeyStyle) 34 else 22) * settings.popupFontScale).sp,
-                            color = MaterialTheme.colorScheme.onSurface,
+                            color = kb.popupText,
                         )
                     }
                 }
@@ -1521,6 +1508,17 @@ private fun displayLabel(key: Key, state: KeyboardUiState): String {
 }
 
 /**
+ * The preview bubble is a separate window that lingers briefly after release
+ * and, in on-key mode, covers the key itself plus part of the row above. It
+ * must never intercept touches, or rapid re-taps land on the bubble window
+ * and get dropped before the keyboard sees them.
+ */
+private val PreviewPopupProperties = PopupProperties(
+    flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+        WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,
+)
+
+/**
  * Press handling: tap commits, long-press opens alternates (or begins
  * repeating for delete), release cancels. The spacebar instead supports a
  * horizontal drag that moves the text cursor. Implemented with raw press
@@ -1541,7 +1539,7 @@ private fun Modifier.pointerInputKey(
     scope: kotlinx.coroutines.CoroutineScope,
 ): Modifier = this.then(
     if (key.action == KeyAction.Space && spacebarCursor) {
-        Modifier.pointerInput(key) {
+        Modifier.pointerInput(key, spacebarCursor) {
             val stepPx = 16.dp.toPx()
             awaitEachGesture {
                 val down = awaitFirstDown()
@@ -1573,42 +1571,87 @@ private fun Modifier.pointerInputKey(
             }
         }
     } else {
-        Modifier.pointerInput(key) {
-            detectTapGestures(
-                onPress = {
-                    setPressed(true)
-                    onKeyPress()
-                    var longPressFired = false
-                    val longPressJob: Job = scope.launch {
-                        delay(longPressDelayMs.toLong())
-                        longPressFired = true
-                        if (key.action == KeyAction.Delete || key.action == KeyAction.Space) {
-                            while (true) {
+        // Settings are part of the pointerInput keys: pointerInput only
+        // restarts when its keys change, so leaving them out would keep a
+        // stale closure alive (e.g. release haptics still firing after the
+        // toggle was turned off).
+        Modifier.pointerInput(key, spacebarCursor, longPressDelayMs, repeatIntervalMs,
+            hapticOnLongPress, hapticOnLongPressRelease) {
+            // Raw per-pointer tracking rather than detectTapGestures, which
+            // handles one gesture at a time per key: a second finger landing
+            // on the same key before the first lifts (burst double-taps) was
+            // swallowed. Here every pointer gets its own press lifecycle.
+            class Press {
+                var longPressFired = false
+                var job: Job? = null
+            }
+            val presses = HashMap<PointerId, Press>()
+            awaitPointerEventScope {
+                while (true) {
+                    val event = awaitPointerEvent()
+                    for (change in event.changes) {
+                        val press = presses[change.id]
+                        when {
+                            press == null && change.changedToDown() -> {
+                                val p = Press()
+                                presses[change.id] = p
+                                setPressed(true)
                                 onKeyPress()
-                                onKey(key)
-                                delay(repeatIntervalMs.toLong())
+                                p.job = scope.launch {
+                                    delay(longPressDelayMs.toLong())
+                                    p.longPressFired = true
+                                    if (key.action == KeyAction.Delete || key.action == KeyAction.Space) {
+                                        while (true) {
+                                            onKeyPress()
+                                            onKey(key)
+                                            delay(repeatIntervalMs.toLong())
+                                        }
+                                    } else if (key.longPress.isNotEmpty()) {
+                                        // Tactile cue that the long press registered and the
+                                        // finger can be released (alternates are open / the
+                                        // long-press action fired). Delete/space skip it:
+                                        // their repeat loop already buzzes per repeat.
+                                        if (hapticOnLongPress) onKeyPress()
+                                        openAlternates()
+                                    } else {
+                                        // No alternates: long press behaves like a tap.
+                                        if (hapticOnLongPress) onKeyPress()
+                                        onKey(key)
+                                    }
+                                }
                             }
-                        } else if (key.longPress.isNotEmpty()) {
-                            // Tactile cue that the long press registered and the
-                            // finger can be released (alternates are open / the
-                            // long-press action fired). Delete/space skip it:
-                            // their repeat loop already buzzes per repeat.
-                            if (hapticOnLongPress) onKeyPress()
-                            openAlternates()
-                        } else {
-                            // No alternates: long press behaves like a tap.
-                            if (hapticOnLongPress) onKeyPress()
-                            onKey(key)
+                            // Another handler claimed the pointer (glide typing
+                            // consumed the move/up on the Initial pass): the
+                            // press must not commit.
+                            press != null && change.isConsumed -> {
+                                press.job?.cancel()
+                                presses.remove(change.id)
+                                if (presses.isEmpty()) setPressed(false)
+                            }
+                            press != null && change.changedToUp() -> {
+                                change.consume()
+                                press.job?.cancel()
+                                presses.remove(change.id)
+                                if (presses.isEmpty()) setPressed(false)
+                                // Forgiving bounds: a sloppy fast tap that drifts
+                                // slightly off the cell still commits; a deliberate
+                                // slide well away (≥ half a key beyond the edge)
+                                // cancels, preserving slide-off-to-cancel.
+                                val inBounds =
+                                    change.position.x > -size.width * 0.5f &&
+                                        change.position.x < size.width * 1.5f &&
+                                        change.position.y > -size.height * 0.5f &&
+                                        change.position.y < size.height * 1.5f
+                                if (!press.longPressFired) {
+                                    if (inBounds) onKey(key)
+                                } else if (hapticOnLongPressRelease) {
+                                    onKeyPress()
+                                }
+                            }
                         }
                     }
-                    // A cancelled press (finger became a swipe gesture) must not commit.
-                    val released = tryAwaitRelease()
-                    longPressJob.cancel()
-                    setPressed(false)
-                    if (released && !longPressFired) onKey(key)
-                    else if (released && hapticOnLongPressRelease) onKeyPress()
-                },
-            )
+                }
+            }
         }
     }
 )
@@ -1812,13 +1855,14 @@ private fun EmojiCell(emoji: String, onEmoji: (String) -> Unit) {
             fontSize = 26.sp,
         )
         if (showVariants) {
+            val kb = LocalKbTheme.current
             Popup(
                 popupPositionProvider = rememberAboveAnchorPopup(),
                 onDismissRequest = { showVariants = false },
             ) {
                 Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = MaterialTheme.colorScheme.surfaceContainerHighest,
+                    shape = RoundedCornerShape(kb.popupRadiusDp.dp),
+                    color = kb.popup,
                     shadowElevation = 8.dp,
                 ) {
                     Row(modifier = Modifier.padding(4.dp)) {

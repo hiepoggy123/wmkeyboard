@@ -156,7 +156,18 @@ private fun SettingsNavHost(repository: SettingsRepository, settings: KeyboardSe
         }
         composable("appearance") {
             SettingsScreen("Appearance & themes", { navController.popBackStack() }) {
-                AppearanceSettings(repository, settings)
+                AppearanceSettings(repository, settings) { navController.navigate("themes") }
+            }
+        }
+        composable("themes") {
+            SettingsScreen("Keyboard themes", { navController.popBackStack() }) {
+                ThemesScreen(repository, settings) { id -> navController.navigate("theme_edit/$id") }
+            }
+        }
+        composable("theme_edit/{themeId}") { backStackEntry ->
+            val themeId = backStackEntry.arguments?.getString("themeId").orEmpty()
+            SettingsScreen("Edit theme", { navController.popBackStack() }) {
+                ThemeEditorScreen(repository, settings, themeId)
             }
         }
         composable("languages") {
@@ -576,27 +587,29 @@ private fun TypingSettings(repository: SettingsRepository, settings: KeyboardSet
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun AppearanceSettings(repository: SettingsRepository, settings: KeyboardSettings) {
+private fun AppearanceSettings(
+    repository: SettingsRepository,
+    settings: KeyboardSettings,
+    onOpenThemes: () -> Unit,
+) {
     val scope = rememberCoroutineScope()
     SectionHeader("Theme")
-    SingleChoiceSegmentedButtonRow(modifier = Modifier
-        .fillMaxWidth()
-        .padding(horizontal = 16.dp, vertical = 8.dp)) {
-        ThemeMode.entries.forEachIndexed { index, mode ->
-            SegmentedButton(
-                selected = settings.themeMode == mode,
-                onClick = { scope.launch { repository.setThemeMode(mode) } },
-                shape = SegmentedButtonDefaults.itemShape(index, ThemeMode.entries.size),
-            ) {
-                Text(mode.name.lowercase().replaceFirstChar { it.uppercase() })
-            }
-        }
-    }
-    ToggleSetting(
-        "Material You colors", "Use wallpaper-based dynamic color", settings.dynamicColor,
-        info = "On Android 12 and newer, the keyboard picks up the accent palette " +
-            "generated from your wallpaper. Turn off for the standard Material palette.",
-    ) { scope.launch { repository.setDynamicColor(it) } }
+    ListItem(
+        headlineContent = { Text("Keyboard themes") },
+        supportingContent = {
+            Text("Light/dark/AMOLED, color themes, custom colors & background images, import/export")
+        },
+        trailingContent = {
+            val selected = settings.customThemes.find { it.id == settings.keyboardThemeId }
+                ?: com.wasimaster.wmkeyboard.core.theme.BuiltInThemes
+                    .find { it.id == settings.keyboardThemeId }
+            Text(selected?.name ?: "Default")
+        },
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onOpenThemes),
+    )
+    HorizontalDivider()
 
     SectionHeader("One-handed mode")
     SingleChoiceSegmentedButtonRow(modifier = Modifier

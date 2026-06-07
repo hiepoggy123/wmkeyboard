@@ -8,6 +8,9 @@ import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.wasimaster.wmkeyboard.core.theme.DEFAULT_THEME_ID
+import com.wasimaster.wmkeyboard.core.theme.ThemeCodec
+import com.wasimaster.wmkeyboard.core.theme.ThemeSpec
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -50,6 +53,10 @@ data class KeyboardSettings(
         listOf(InputMode.ENGLISH, InputMode.AVRO, InputMode.PROBHAT, InputMode.JATIYA),
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val dynamicColor: Boolean = true,
+    /** Selected keyboard theme: [DEFAULT_THEME_ID], a built-in id, or a custom id. */
+    val keyboardThemeId: String = DEFAULT_THEME_ID,
+    /** User-created themes; built-ins live in code (BuiltInThemes). */
+    val customThemes: List<ThemeSpec> = emptyList(),
     val keyHeightDp: Int = 48,
     val numberRowHeightDp: Int = 42,
     // Edge-to-edge IME windows (enforced on Android 15+) draw behind the
@@ -113,6 +120,8 @@ class SettingsRepository(private val context: Context) {
         private val ENABLED_MODES = stringPreferencesKey("enabled_modes")
         private val THEME_MODE = stringPreferencesKey("theme_mode")
         private val DYNAMIC_COLOR = booleanPreferencesKey("dynamic_color")
+        private val KEYBOARD_THEME_ID = stringPreferencesKey("keyboard_theme_id")
+        private val CUSTOM_THEMES = stringPreferencesKey("custom_themes")
         private val KEY_HEIGHT = intPreferencesKey("key_height")
         private val NUMBER_ROW_HEIGHT = intPreferencesKey("number_row_height")
         private val BOTTOM_PADDING = intPreferencesKey("bottom_padding")
@@ -173,6 +182,9 @@ class SettingsRepository(private val context: Context) {
             themeMode = p[THEME_MODE]?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() }
                 ?: defaults.themeMode,
             dynamicColor = p[DYNAMIC_COLOR] ?: defaults.dynamicColor,
+            keyboardThemeId = p[KEYBOARD_THEME_ID] ?: defaults.keyboardThemeId,
+            customThemes = p[CUSTOM_THEMES]?.let { ThemeCodec.decodeList(it) }
+                ?: defaults.customThemes,
             keyHeightDp = p[KEY_HEIGHT] ?: defaults.keyHeightDp,
             numberRowHeightDp = p[NUMBER_ROW_HEIGHT] ?: p[KEY_HEIGHT] ?: defaults.numberRowHeightDp,
             bottomPaddingDp = p[BOTTOM_PADDING] ?: defaults.bottomPaddingDp,
@@ -272,6 +284,25 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setDynamicColor(value: Boolean) =
         context.dataStore.edit { it[DYNAMIC_COLOR] = value }
+
+    suspend fun setKeyboardThemeId(id: String) =
+        context.dataStore.edit { it[KEYBOARD_THEME_ID] = id }
+
+    /** Adds the theme or replaces the stored theme with the same id. */
+    suspend fun upsertCustomTheme(theme: ThemeSpec) =
+        context.dataStore.edit { prefs ->
+            val current = prefs[CUSTOM_THEMES]?.let { ThemeCodec.decodeList(it) } ?: emptyList()
+            val next = current.filter { it.id != theme.id } + theme
+            prefs[CUSTOM_THEMES] = ThemeCodec.encodeList(next)
+        }
+
+    /** Deletes a custom theme; falls back to the default theme if it was selected. */
+    suspend fun deleteCustomTheme(id: String) =
+        context.dataStore.edit { prefs ->
+            val current = prefs[CUSTOM_THEMES]?.let { ThemeCodec.decodeList(it) } ?: emptyList()
+            prefs[CUSTOM_THEMES] = ThemeCodec.encodeList(current.filter { it.id != id })
+            if (prefs[KEYBOARD_THEME_ID] == id) prefs[KEYBOARD_THEME_ID] = DEFAULT_THEME_ID
+        }
 
     suspend fun setKeyHeightDp(value: Int) =
         context.dataStore.edit { it[KEY_HEIGHT] = value.coerceIn(32, 100) }
