@@ -784,11 +784,16 @@ private fun displayLabel(key: Key, state: KeyboardUiState): String {
             key.label.uppercase()
         else -> key.label
     }
-    // Fixed Bengali layouts: vowel keys show the independent letter (আ, ই …)
-    // at a word start and the kar (া, ি …) only where it can attach, matching
-    // what the key will actually commit.
-    if (state.inputMode.isFixedBengali && !state.karContext && key.action == KeyAction.Text) {
-        raw.singleOrNull()?.let { BengaliGraphemes.KAR_TO_VOWEL[it] }?.let { return it }
+    // Fixed Bengali layouts: vowel keys track the cursor context — the
+    // independent letter (আ, ই …) at a word start, the kar (া, ি …) after a
+    // consonant, the য়-glide (য়া) after a vowel — matching what the key
+    // will actually commit.
+    if (state.inputMode.isFixedBengali && key.action == KeyAction.Text &&
+        state.vowelForm != BengaliGraphemes.VowelKeyForm.KAR
+    ) {
+        raw.singleOrNull()
+            ?.let { BengaliGraphemes.vowelKeyText(it, state.vowelForm) }
+            ?.let { return it }
     }
     return raw
 }

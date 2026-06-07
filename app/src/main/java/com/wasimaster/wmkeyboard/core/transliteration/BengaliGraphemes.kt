@@ -21,11 +21,52 @@ object BengaliGraphemes {
         'ৃ' to "ঋ", 'ে' to "এ", 'ৈ' to "ঐ", 'ো' to "ও", 'ৌ' to "ঔ",
     )
 
+    /**
+     * Kar → য়-glide form used after another vowel, where a bare আ or এ is
+     * invalid: কা + আ must give কায়া (never কাআ), দি + এ gives দিয়ে. Only
+     * া and ে take the glide; the other vowels are written independently
+     * after a vowel (খাই, বউ, খাও).
+     */
+    val KAR_TO_GLIDE: Map<Char, String> = mapOf(
+        'া' to "\u09DFা", 'ে' to "\u09DFে",
+    )
+
     /** True for characters a kar can attach to: consonants, nukta, hasant. */
     fun karAttachesTo(c: Char): Boolean =
         c in 'ক'..'হ' || // consonants ক..হ
-            c == 'ড়' || c == 'ঢ়' || c == 'য়' || // ড় ঢ় য়
+            c == '\u09DC' || c == '\u09DD' || c == '\u09DF' || // ড় ঢ় য়
             c == NUKTA || c == HASANT
+
+    /** What a vowel key should produce given the character before the cursor. */
+    enum class VowelKeyForm { INDEPENDENT, KAR, GLIDE }
+
+    /**
+     * Chooses the vowel-key form from the preceding character: kar after
+     * anything it can attach to, the য়-glide after a vowel (sign or
+     * independent, including trailing modifiers like ঁ), and the
+     * independent letter at a word start or after non-Bengali text.
+     */
+    fun vowelFormAfter(previous: Char?): VowelKeyForm = when {
+        previous == null -> VowelKeyForm.INDEPENDENT
+        karAttachesTo(previous) -> VowelKeyForm.KAR
+        isVowelSign(previous) || previous in 'অ'..'ঔ' || isModifier(previous) ->
+            VowelKeyForm.GLIDE
+        else -> VowelKeyForm.INDEPENDENT
+    }
+
+    /**
+     * Output of a vowel key whose base (kar) form is [kar], in the given
+     * [form]. Falls back to the independent letter for vowels that have no
+     * glide form (ই, উ, ও … stay independent after a vowel: খাই, বউ, খাও).
+     */
+    fun vowelKeyText(kar: Char, form: VowelKeyForm): String? {
+        val independent = KAR_TO_VOWEL[kar] ?: return null
+        return when (form) {
+            VowelKeyForm.KAR -> kar.toString()
+            VowelKeyForm.GLIDE -> KAR_TO_GLIDE[kar] ?: independent
+            VowelKeyForm.INDEPENDENT -> independent
+        }
+    }
 
     private fun isBengali(c: Char) = c.code in 0x0980..0x09FF
 

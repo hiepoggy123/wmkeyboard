@@ -370,18 +370,19 @@ class WMKeyboardService : InputMethodService() {
 
     /**
      * Fixed Bengali layouts (Probhat, Jatiya): a vowel-sign key yields the
-     * independent vowel (আ, ই, …) at a word start and the kar form (া, ি, …)
-     * only after a consonant it can attach to — matching how the vowels are
-     * actually written.
+     * kar form (া, ি, …) after a consonant it can attach to, the য়-glide
+     * (য়া, য়ে) after another vowel — so কা + আ gives কায়া, never the
+     * invalid কাআ — and the independent vowel (আ, ই, …) at a word start.
      */
     private fun fixedLayoutContextualVowel(text: String, previous: Char?): String {
         if (!_uiState.value.inputMode.isFixedBengali) return text
-        val vowel = BengaliGraphemes.KAR_TO_VOWEL[text.singleOrNull() ?: return text] ?: return text
-        return if (previous != null && BengaliGraphemes.karAttachesTo(previous)) text else vowel
+        val kar = text.singleOrNull() ?: return text
+        val form = BengaliGraphemes.vowelFormAfter(previous)
+        return BengaliGraphemes.vowelKeyText(kar, form) ?: text
     }
 
     /**
-     * Recomputes [KeyboardUiState.karContext] from the character before the
+     * Recomputes [KeyboardUiState.vowelForm] from the character before the
      * cursor (or the emoji query) so the fixed-layout vowel keys track the
      * word position both in output and on the key labels.
      */
@@ -392,8 +393,8 @@ class WMKeyboardService : InputMethodService() {
         } else {
             currentInputConnection?.getTextBeforeCursor(1, 0)?.lastOrNull()
         }
-        val attaches = previous != null && BengaliGraphemes.karAttachesTo(previous)
-        _uiState.update { if (it.karContext == attaches) it else it.copy(karContext = attaches) }
+        val form = BengaliGraphemes.vowelFormAfter(previous)
+        _uiState.update { if (it.vowelForm == form) it else it.copy(vowelForm = form) }
     }
 
     private fun onShift() {

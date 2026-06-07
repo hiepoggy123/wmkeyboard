@@ -71,6 +71,33 @@ class BengaliGraphemesTest {
         assertEquals(2, len("আছি"))
     }
 
+    @Test fun vowelKeyForms() {
+        val kar = BengaliGraphemes.VowelKeyForm.KAR
+        val glide = BengaliGraphemes.VowelKeyForm.GLIDE
+        val indep = BengaliGraphemes.VowelKeyForm.INDEPENDENT
+
+        // Form selection from the preceding character.
+        org.junit.Assert.assertEquals(indep, BengaliGraphemes.vowelFormAfter(null))
+        org.junit.Assert.assertEquals(indep, BengaliGraphemes.vowelFormAfter(' '))
+        org.junit.Assert.assertEquals(kar, BengaliGraphemes.vowelFormAfter('ক'))
+        org.junit.Assert.assertEquals(kar, BengaliGraphemes.vowelFormAfter('\u09DF')) // য়
+        org.junit.Assert.assertEquals(glide, BengaliGraphemes.vowelFormAfter('া'))
+        org.junit.Assert.assertEquals(glide, BengaliGraphemes.vowelFormAfter('আ'))
+        org.junit.Assert.assertEquals(glide, BengaliGraphemes.vowelFormAfter('ে'))
+        org.junit.Assert.assertEquals(glide, BengaliGraphemes.vowelFormAfter('ঁ'))
+
+        // Output per form: কা + আ-key must give the glide য়া (কায়া, never কাআ).
+        org.junit.Assert.assertEquals("া", BengaliGraphemes.vowelKeyText('া', kar))
+        org.junit.Assert.assertEquals("\u09DFা", BengaliGraphemes.vowelKeyText('া', glide))
+        org.junit.Assert.assertEquals("আ", BengaliGraphemes.vowelKeyText('া', indep))
+        org.junit.Assert.assertEquals("\u09DFে", BengaliGraphemes.vowelKeyText('ে', glide))
+        // Vowels without a glide form stay independent after a vowel (খাই, বউ).
+        org.junit.Assert.assertEquals("ই", BengaliGraphemes.vowelKeyText('ি', glide))
+        org.junit.Assert.assertEquals("উ", BengaliGraphemes.vowelKeyText('ু', glide))
+        // Non-vowel keys are untouched.
+        org.junit.Assert.assertNull(BengaliGraphemes.vowelKeyText('ক', glide))
+    }
+
     @Test fun karHelpers() {
         // Kar → independent vowel used by the fixed layouts' contextual keys.
         org.junit.Assert.assertEquals("আ", BengaliGraphemes.KAR_TO_VOWEL['া'])

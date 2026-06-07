@@ -3,6 +3,7 @@ package com.wasimaster.wmkeyboard.ime
 import com.wasimaster.wmkeyboard.core.clipboard.ClipItem
 import com.wasimaster.wmkeyboard.core.emoji.EmojiEntry
 import com.wasimaster.wmkeyboard.core.settings.InputMode
+import com.wasimaster.wmkeyboard.core.transliteration.BengaliGraphemes
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.snippets.Snippet
 
@@ -37,10 +38,11 @@ data class KeyboardUiState(
     val secureField: Boolean = false,
     val enterAction: EnterAction = EnterAction.DEFAULT,
     /**
-     * True when the character before the cursor can carry a vowel sign
-     * (a consonant, nukta or hasant). Fixed Bengali layouts use this to
-     * flip the vowel keys between kar (া, ি …) and independent (আ, ই …)
-     * forms, both for the committed output and the displayed key labels.
+     * What the vowel keys should produce given the character before the
+     * cursor: kar (া, ি …) after a consonant, the য়-glide (য়া, য়ে) after
+     * a vowel, and the independent letter (আ, ই …) at a word start. Fixed
+     * Bengali layouts use it for both the committed output and the
+     * displayed key labels.
      */
-    val karContext: Boolean = false,
+    val vowelForm: BengaliGraphemes.VowelKeyForm = BengaliGraphemes.VowelKeyForm.INDEPENDENT,
 )
