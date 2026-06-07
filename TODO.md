@@ -38,11 +38,7 @@ Working checklist. Roadmap-level planning lives in [docs/ROADMAP.md](docs/ROADMA
 
 - [ ] Swipe typing follow-ups: Bengali layouts, bigram-aware ranking,
       trail fade animation
-- [ ] Investigate: first gesture word committed ALL-CAPS in Keep note field
-      (expected sentence case; debug log now prints shift state)
-- [ ] National (Jatiya) layout; Bijoy compatibility — needs an authoritative
-      key map (native-speaker review) before shipping
-- [ ] Floating / resizable keyboard
+- [ ] Floating keyboard (resizable width/height + split shipped; floating window remains)
 - [ ] Dictionary import pipeline (CLDR/AOSP wordlists, full emoji annotations)
 - [ ] GIF/sticker panels (opt-in network)
 - [ ] Toolbar reordering
@@ -53,6 +49,5 @@ Working checklist. Roadmap-level planning lives in [docs/ROADMAP.md](docs/ROADMA
 
 - [ ] Avro: khanda-ta (ৎ), explicit hasant edge cases, য-ফলা shortcuts
 - [ ] Seed dictionaries are small; autocorrect confidence is conservative
-- [ ] Clipboard images (text only today)
 - [ ] Settings search box
 - [ ] App icon

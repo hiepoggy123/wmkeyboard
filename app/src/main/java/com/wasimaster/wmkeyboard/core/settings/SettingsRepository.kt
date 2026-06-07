@@ -26,6 +26,9 @@ enum class ThemeMode { SYSTEM, LIGHT, DARK, AMOLED }
 /** Shrinks the keyboard toward one edge for thumb reach. */
 enum class OneHandedMode { OFF, LEFT, RIGHT }
 
+/** Where a width-reduced keyboard sits horizontally. */
+enum class KeyboardAlignment { LEFT, CENTER, RIGHT }
+
 /**
  * Key-press haptic waveform: [CUSTOM] drives the motor directly with the
  * duration/amplitude settings; [CLICK] and [HEAVY_CLICK] use the device's
@@ -40,7 +43,12 @@ data class KeyboardSettings(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val dynamicColor: Boolean = true,
     val keyHeightDp: Int = 54,
+    val numberRowHeightDp: Int = 54,
     val bottomPaddingDp: Int = 8,
+    val splitKeyboard: Boolean = false,
+    val splitGapPercent: Int = 12,
+    val keyboardWidthPercent: Int = 100,
+    val keyboardAlignment: KeyboardAlignment = KeyboardAlignment.CENTER,
     val keyCornerRadiusDp: Int = 14,
     val fontScale: Float = 1.0f,
     val hapticFeedback: Boolean = true,
@@ -85,7 +93,12 @@ class SettingsRepository(private val context: Context) {
         private val THEME_MODE = stringPreferencesKey("theme_mode")
         private val DYNAMIC_COLOR = booleanPreferencesKey("dynamic_color")
         private val KEY_HEIGHT = intPreferencesKey("key_height")
+        private val NUMBER_ROW_HEIGHT = intPreferencesKey("number_row_height")
         private val BOTTOM_PADDING = intPreferencesKey("bottom_padding")
+        private val SPLIT_KEYBOARD = booleanPreferencesKey("split_keyboard")
+        private val SPLIT_GAP_PERCENT = intPreferencesKey("split_gap_percent")
+        private val KEYBOARD_WIDTH_PERCENT = intPreferencesKey("keyboard_width_percent")
+        private val KEYBOARD_ALIGNMENT = stringPreferencesKey("keyboard_alignment")
         private val KEY_CORNER_RADIUS = intPreferencesKey("key_corner_radius")
         private val FONT_SCALE = floatPreferencesKey("font_scale")
         private val HAPTIC = booleanPreferencesKey("haptic")
@@ -130,7 +143,14 @@ class SettingsRepository(private val context: Context) {
                 ?: defaults.themeMode,
             dynamicColor = p[DYNAMIC_COLOR] ?: defaults.dynamicColor,
             keyHeightDp = p[KEY_HEIGHT] ?: defaults.keyHeightDp,
+            numberRowHeightDp = p[NUMBER_ROW_HEIGHT] ?: p[KEY_HEIGHT] ?: defaults.numberRowHeightDp,
             bottomPaddingDp = p[BOTTOM_PADDING] ?: defaults.bottomPaddingDp,
+            splitKeyboard = p[SPLIT_KEYBOARD] ?: defaults.splitKeyboard,
+            splitGapPercent = p[SPLIT_GAP_PERCENT] ?: defaults.splitGapPercent,
+            keyboardWidthPercent = p[KEYBOARD_WIDTH_PERCENT] ?: defaults.keyboardWidthPercent,
+            keyboardAlignment = p[KEYBOARD_ALIGNMENT]
+                ?.let { runCatching { KeyboardAlignment.valueOf(it) }.getOrNull() }
+                ?: defaults.keyboardAlignment,
             keyCornerRadiusDp = p[KEY_CORNER_RADIUS] ?: defaults.keyCornerRadiusDp,
             fontScale = p[FONT_SCALE] ?: defaults.fontScale,
             hapticFeedback = p[HAPTIC] ?: defaults.hapticFeedback,
@@ -178,7 +198,22 @@ class SettingsRepository(private val context: Context) {
         context.dataStore.edit { it[DYNAMIC_COLOR] = value }
 
     suspend fun setKeyHeightDp(value: Int) =
-        context.dataStore.edit { it[KEY_HEIGHT] = value.coerceIn(40, 80) }
+        context.dataStore.edit { it[KEY_HEIGHT] = value.coerceIn(32, 100) }
+
+    suspend fun setNumberRowHeightDp(value: Int) =
+        context.dataStore.edit { it[NUMBER_ROW_HEIGHT] = value.coerceIn(32, 100) }
+
+    suspend fun setSplitKeyboard(value: Boolean) =
+        context.dataStore.edit { it[SPLIT_KEYBOARD] = value }
+
+    suspend fun setSplitGapPercent(value: Int) =
+        context.dataStore.edit { it[SPLIT_GAP_PERCENT] = value.coerceIn(5, 40) }
+
+    suspend fun setKeyboardWidthPercent(value: Int) =
+        context.dataStore.edit { it[KEYBOARD_WIDTH_PERCENT] = value.coerceIn(50, 100) }
+
+    suspend fun setKeyboardAlignment(value: KeyboardAlignment) =
+        context.dataStore.edit { it[KEYBOARD_ALIGNMENT] = value.name }
 
     suspend fun setBottomPaddingDp(value: Int) =
         context.dataStore.edit { it[BOTTOM_PADDING] = value.coerceIn(0, 40) }

@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -21,6 +22,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -98,6 +100,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalContext
@@ -122,6 +125,7 @@ import com.wasimaster.wmkeyboard.core.emoji.EmojiVariants
 import com.wasimaster.wmkeyboard.core.gesture.GesturePoint
 import com.wasimaster.wmkeyboard.core.gesture.KeyCenter
 import com.wasimaster.wmkeyboard.core.settings.InputMode
+import com.wasimaster.wmkeyboard.core.settings.KeyboardAlignment
 import com.wasimaster.wmkeyboard.core.settings.isFixedBengali
 import com.wasimaster.wmkeyboard.core.transliteration.BengaliGraphemes
 import com.wasimaster.wmkeyboard.core.settings.OneHandedMode
@@ -142,6 +146,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlin.math.abs
 
 /** Root composable for the IME. Renders [KeyboardUiState] and forwards input. */
 @Composable
@@ -183,8 +188,23 @@ fun KeyboardScreen(
                 if (oneHanded == OneHandedMode.RIGHT) {
                     OneHandedRail(current = oneHanded, onOneHanded = onOneHanded, modifier = Modifier.weight(0.22f))
                 }
+                // Resizable width: below 100% the keyboard shrinks and sits at
+                // the chosen edge (or centered). One-handed mode has its own
+                // fixed 78% width, so the two never compose.
+                val widthFraction = if (oneHanded == OneHandedMode.OFF) {
+                    state.settings.keyboardWidthPercent / 100f
+                } else {
+                    0.78f
+                }
+                val slack = if (oneHanded == OneHandedMode.OFF) 1f - widthFraction else 0f
+                val leftSlack = when (state.settings.keyboardAlignment) {
+                    KeyboardAlignment.LEFT -> 0f
+                    KeyboardAlignment.CENTER -> slack / 2f
+                    KeyboardAlignment.RIGHT -> slack
+                }
+                if (leftSlack > 0.001f) Spacer(modifier = Modifier.weight(leftSlack))
                 Column(
-                    modifier = Modifier.weight(if (oneHanded == OneHandedMode.OFF) 1f else 0.78f),
+                    modifier = Modifier.weight(widthFraction),
                 ) {
                     TopBar(state, onSuggestion, onPanelChange, onOpenSettings)
                     when (state.panel) {
@@ -198,6 +218,8 @@ fun KeyboardScreen(
                         KeyRows(state, onKey, onText, onGesture, onGesturePreview, onCursorMove)
                     }
                 }
+                val rightSlack = slack - leftSlack
+                if (rightSlack > 0.001f) Spacer(modifier = Modifier.weight(rightSlack))
                 if (oneHanded == OneHandedMode.LEFT) {
                     OneHandedRail(current = oneHanded, onOneHanded = onOneHanded, modifier = Modifier.weight(0.22f))
                 }
@@ -445,48 +467,48 @@ private fun KeyRows(
                 .fillMaxWidth()
                 .padding(horizontal = 1.5.dp, vertical = 2.dp),
         ) {
+            val onLetterPositioned: (Char, LayoutCoordinates) -> Unit = { letter, coords ->
+                val topLeft = coords.positionInRoot() - boxOrigin
+                keyCenters[letter] = Offset(
+                    topLeft.x + coords.size.width / 2f,
+                    topLeft.y + coords.size.height / 2f,
+                )
+                keyWidthPx = coords.size.width.toFloat()
+            }
+            // Rows narrower than the top row (e.g. the 9-key QWERTY home row)
+            // keep the top row's key width and are centered with side gaps,
+            // instead of stretching their keys to fill the full width.
+            val gridWeight = layout.rows.first().map { it.width }.sum()
+            val split = state.settings.splitKeyboard
+            val splitGapPercent = state.settings.splitGapPercent
             if (state.settings.numberRow && state.layoutMode == LayoutMode.LETTERS) {
-                Row {
-                    "1234567890".forEach { digit ->
-                        KeyButton(
-                            key = Key(digit.toString()),
-                            state = state,
-                            modifier = Modifier.weight(1f),
-                            onKey = onKey,
-                            onText = onText,
-                        )
-                    }
-                }
+                val digits = remember { "1234567890".map { Key(it.toString()) } }
+                KeyRow(
+                    keys = digits,
+                    gridWeight = digits.size.toFloat(),
+                    split = split,
+                    splitGapPercent = splitGapPercent,
+                    keyHeightDp = state.settings.numberRowHeightDp,
+                    state = state,
+                    onKey = onKey,
+                    onText = onText,
+                    onCursorMove = onCursorMove,
+                    onLetterPositioned = onLetterPositioned,
+                )
             }
             for (row in layout.rows) {
-                Row {
-                    for (key in row) {
-                        val letter = key.label.singleOrNull()?.takeIf {
-                            key.action == KeyAction.Text && it.isLetter()
-                        }
-                        KeyButton(
-                            key = key,
-                            state = state,
-                            modifier = if (letter != null) {
-                                Modifier
-                                    .weight(key.width)
-                                    .onGloballyPositioned { coords ->
-                                        val topLeft = coords.positionInRoot() - boxOrigin
-                                        keyCenters[letter.lowercaseChar()] = Offset(
-                                            topLeft.x + coords.size.width / 2f,
-                                            topLeft.y + coords.size.height / 2f,
-                                        )
-                                        keyWidthPx = coords.size.width.toFloat()
-                                    }
-                            } else {
-                                Modifier.weight(key.width)
-                            },
-                            onKey = onKey,
-                            onText = onText,
-                            onCursorMove = onCursorMove,
-                        )
-                    }
-                }
+                KeyRow(
+                    keys = row,
+                    gridWeight = gridWeight,
+                    split = split,
+                    splitGapPercent = splitGapPercent,
+                    keyHeightDp = state.settings.keyHeightDp,
+                    state = state,
+                    onKey = onKey,
+                    onText = onText,
+                    onCursorMove = onCursorMove,
+                    onLetterPositioned = onLetterPositioned,
+                )
             }
         }
 
@@ -503,6 +525,102 @@ private fun KeyRows(
             }
         }
     }
+}
+
+/**
+ * One row of keys. In split mode the row is cut near its midpoint and the
+ * halves are pushed apart by a center gap sized as a percentage of the
+ * keyboard width; a spacebar straddling the cut is divided between the halves.
+ */
+@Composable
+private fun KeyRow(
+    keys: List<Key>,
+    gridWeight: Float,
+    split: Boolean,
+    splitGapPercent: Int,
+    keyHeightDp: Int,
+    state: KeyboardUiState,
+    onKey: (Key) -> Unit,
+    onText: (String) -> Unit,
+    onCursorMove: (Int) -> Unit,
+    onLetterPositioned: (Char, LayoutCoordinates) -> Unit,
+) {
+    val sidePad = (gridWeight - keys.map { it.width }.sum()) / 2f
+    Row {
+        if (sidePad > 0.01f) Spacer(modifier = Modifier.weight(sidePad))
+        if (split) {
+            val (left, right) = remember(keys) { splitKeys(keys) }
+            for (key in left) {
+                KeyCell(key, keyHeightDp, state, onKey, onText, onCursorMove, onLetterPositioned)
+            }
+            Spacer(modifier = Modifier.weight(gridWeight * splitGapPercent / 100f))
+            for (key in right) {
+                KeyCell(key, keyHeightDp, state, onKey, onText, onCursorMove, onLetterPositioned)
+            }
+        } else {
+            for (key in keys) {
+                KeyCell(key, keyHeightDp, state, onKey, onText, onCursorMove, onLetterPositioned)
+            }
+        }
+        if (sidePad > 0.01f) Spacer(modifier = Modifier.weight(sidePad))
+    }
+}
+
+@Composable
+private fun RowScope.KeyCell(
+    key: Key,
+    keyHeightDp: Int,
+    state: KeyboardUiState,
+    onKey: (Key) -> Unit,
+    onText: (String) -> Unit,
+    onCursorMove: (Int) -> Unit,
+    onLetterPositioned: (Char, LayoutCoordinates) -> Unit,
+) {
+    val letter = key.label.singleOrNull()?.takeIf {
+        key.action == KeyAction.Text && it.isLetter()
+    }
+    KeyButton(
+        key = key,
+        state = state,
+        modifier = if (letter != null) {
+            Modifier
+                .weight(key.width)
+                .onGloballyPositioned { onLetterPositioned(letter.lowercaseChar(), it) }
+        } else {
+            Modifier.weight(key.width)
+        },
+        heightDp = keyHeightDp,
+        onKey = onKey,
+        onText = onText,
+        onCursorMove = onCursorMove,
+    )
+}
+
+/**
+ * Cuts a row for split mode. A spacebar spanning the midpoint is divided
+ * into a half per side (the left half loses its label so the language name
+ * is not shown twice); otherwise the cut lands on the key boundary nearest
+ * the midpoint, with ties going right so QWERTY splits asdfg | hjkl.
+ */
+internal fun splitKeys(keys: List<Key>): Pair<List<Key>, List<Key>> {
+    val boundaries = FloatArray(keys.size + 1)
+    for (i in keys.indices) boundaries[i + 1] = boundaries[i] + keys[i].width
+    val mid = boundaries[keys.size] / 2f
+    for (i in keys.indices) {
+        if (keys[i].action == KeyAction.Space &&
+            boundaries[i] < mid - 0.01f && boundaries[i + 1] > mid + 0.01f
+        ) {
+            val left = keys.subList(0, i) + keys[i].copy(label = "", width = mid - boundaries[i])
+            val right = listOf(keys[i].copy(width = boundaries[i + 1] - mid)) +
+                keys.subList(i + 1, keys.size)
+            return left to right
+        }
+    }
+    var cut = 1
+    for (b in 2 until keys.size) {
+        if (abs(boundaries[b] - mid) <= abs(boundaries[cut] - mid) + 0.001f) cut = b
+    }
+    return keys.subList(0, cut) to keys.subList(cut, keys.size)
 }
 
 /** True when [position] falls within roughly one key of a tracked letter key. */
@@ -577,6 +695,7 @@ private fun KeyButton(
     onKey: (Key) -> Unit,
     onText: (String) -> Unit,
     onCursorMove: (Int) -> Unit = {},
+    heightDp: Int? = null,
 ) {
     var pressed by remember { mutableStateOf(false) }
     var showAlternates by remember { mutableStateOf(false) }
@@ -620,7 +739,7 @@ private fun KeyButton(
     var keyWidthPx by remember { mutableIntStateOf(0) }
     Box(
         modifier = modifier
-            .height(settings.keyHeightDp.dp + KeyGapVertical * 2)
+            .height((heightDp ?: settings.keyHeightDp).dp + KeyGapVertical * 2)
             .pointerInputKey(key, settings.longPressDelayMs, settings.keyRepeatIntervalMs,
                 spacebarCursor = settings.spacebarCursor,
                 setPressed = { pressed = it },
@@ -748,7 +867,8 @@ private fun KeyContent(key: Key, state: KeyboardUiState, contentColor: Color) {
                 .padding(horizontal = 16.dp),
             contentAlignment = Alignment.Center,
         ) {
-            Text(
+            // Split-spacebar left halves carry an empty label: no language name.
+            if (key.label.isNotEmpty()) Text(
                 text = when (state.inputMode) {
                     InputMode.ENGLISH -> "English"
                     InputMode.AVRO -> "বাংলা · Avro"

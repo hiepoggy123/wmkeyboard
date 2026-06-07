@@ -77,6 +77,7 @@ import androidx.navigation.compose.rememberNavController
 import android.os.Build
 import com.wasimaster.wmkeyboard.core.settings.HapticStyle
 import com.wasimaster.wmkeyboard.core.settings.InputMode
+import com.wasimaster.wmkeyboard.core.settings.KeyboardAlignment
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.OneHandedMode
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
@@ -200,7 +201,7 @@ private fun HomeScreen(settings: KeyboardSettings, onNavigate: (String) -> Unit)
             SetupCard(context)
             Spacer(Modifier.height(16.dp))
             SectionItem("Typing", "Autocorrect, suggestions, key behavior") { onNavigate("typing") }
-            SectionItem("Appearance & themes", "Material You, AMOLED, key size") { onNavigate("appearance") }
+            SectionItem("Appearance & themes", "Material You, AMOLED, key size, split & resize") { onNavigate("appearance") }
             SectionItem("Languages", "English, বাংলা (Avro phonetic, প্রভাত)") { onNavigate("languages") }
             SectionItem("Clipboard & emoji", "History, expiry, toolbar") { onNavigate("clipboard") }
             SectionItem("Snippets", "Reusable text with {date}, {time}, {clip} variables") { onNavigate("snippets") }
@@ -600,14 +601,24 @@ private fun AppearanceSettings(repository: SettingsRepository, settings: Keyboar
 
     SectionHeader("Size & shape")
     SliderSetting(
-        "Keyboard height",
+        "Key height",
         subtitle = "Height of each key row — sets the overall input height",
         value = settings.keyHeightDp.toFloat(),
-        range = 40f..80f,
+        range = 32f..100f,
         display = "${settings.keyHeightDp} dp",
         info = "Taller keys are easier to hit but the keyboard covers more of the " +
             "screen. The emoji, clipboard and snippet panels scale with this value too.",
     ) { scope.launch { repository.setKeyHeightDp(it.toInt()) } }
+    SliderSetting(
+        "Number row height",
+        subtitle = "Height of the digit row, independent of the letter keys",
+        value = settings.numberRowHeightDp.toFloat(),
+        range = 32f..100f,
+        display = "${settings.numberRowHeightDp} dp",
+        info = "Only applies while the number row (Typing → Layout) is enabled. A " +
+            "shorter digit row keeps quick number access without costing a full row " +
+            "of extra keyboard height.",
+    ) { scope.launch { repository.setNumberRowHeightDp(it.toInt()) } }
     SliderSetting(
         "Bottom padding",
         subtitle = "Extra space below the keys, above the navigation bar",
@@ -635,6 +646,64 @@ private fun AppearanceSettings(repository: SettingsRepository, settings: Keyboar
         info = "Multiplies the size of every label on the keys themselves. Popup " +
             "bubbles have their own font size below.",
     ) { scope.launch { repository.setFontScale(it) } }
+
+    SectionHeader("Split & resize")
+    ToggleSetting(
+        "Split keyboard", "Divide the keys into left and right halves", settings.splitKeyboard,
+        info = "Splits every row down the middle with a gap between the halves, so " +
+            "your thumbs travel less on wide screens — most useful on tablets, " +
+            "foldables and phones in landscape. The spacebar is divided between the " +
+            "two halves.",
+    ) { scope.launch { repository.setSplitKeyboard(it) } }
+    if (settings.splitKeyboard) {
+        SliderSetting(
+            "Split gap",
+            subtitle = "Width of the gap between the halves",
+            value = settings.splitGapPercent.toFloat(),
+            range = 5f..40f,
+            display = "${settings.splitGapPercent}%",
+            info = "The center gap, as a percentage of the keyboard width. Bigger gaps " +
+                "push the halves further toward the edges but make each key narrower.",
+        ) { scope.launch { repository.setSplitGapPercent(it.toInt()) } }
+    }
+    SliderSetting(
+        "Keyboard width",
+        subtitle = "Shrink the keyboard horizontally",
+        value = settings.keyboardWidthPercent.toFloat(),
+        range = 50f..100f,
+        display = "${settings.keyboardWidthPercent}%",
+        info = "Below 100% the keyboard no longer spans the whole screen; choose which " +
+            "edge it sits at below. Handy on very wide screens. One-handed mode " +
+            "(above) is a quick preset that overrides this while active.",
+    ) { scope.launch { repository.setKeyboardWidthPercent(it.toInt()) } }
+    if (settings.keyboardWidthPercent < 100) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 16.dp, end = 16.dp, top = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text("Keyboard position", style = MaterialTheme.typography.bodyLarge)
+            InfoButton(
+                "Keyboard position",
+                "Where the narrowed keyboard sits: hugging the left edge, centered, " +
+                    "or hugging the right edge.",
+            )
+        }
+        SingleChoiceSegmentedButtonRow(modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp)) {
+            KeyboardAlignment.entries.forEachIndexed { index, alignment ->
+                SegmentedButton(
+                    selected = settings.keyboardAlignment == alignment,
+                    onClick = { scope.launch { repository.setKeyboardAlignment(alignment) } },
+                    shape = SegmentedButtonDefaults.itemShape(index, KeyboardAlignment.entries.size),
+                ) {
+                    Text(alignment.name.lowercase().replaceFirstChar { it.uppercase() })
+                }
+            }
+        }
+    }
 
     SectionHeader("Popups")
     ToggleSetting(

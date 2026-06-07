@@ -187,7 +187,7 @@ object Layouts {
         ),
         Key(",", longPress = listOf("!", "?")),
         Key("🌐", action = KeyAction.LanguageSwitch),
-        Key(" ", action = KeyAction.Space, width = 3.5f),
+        Key(" ", action = KeyAction.Space, width = 4f),
         Key(".", longPress = listOf("…", ",", "?", "!", ":", ";", "।")),
         Key("⏎", action = KeyAction.Enter, width = 1.5f),
     )
