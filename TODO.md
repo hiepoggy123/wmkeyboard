@@ -38,7 +38,7 @@ Working checklist. Roadmap-level planning lives in [docs/ROADMAP.md](docs/ROADMA
 
 - [ ] Swipe typing follow-ups: Bengali layouts, bigram-aware ranking,
       trail fade animation
-- [ ] Floating keyboard (resizable width/height + split shipped; floating window remains)
+- [x] Floating / resizable / split keyboard
 - [ ] Dictionary import pipeline (CLDR/AOSP wordlists, full emoji annotations)
 - [ ] GIF/sticker panels (opt-in network)
 - [ ] Toolbar reordering

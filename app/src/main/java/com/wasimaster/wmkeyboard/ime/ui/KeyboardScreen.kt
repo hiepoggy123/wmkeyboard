@@ -7,11 +7,14 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.PaddingValues
@@ -20,6 +23,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Spacer
@@ -38,6 +42,7 @@ import androidx.compose.material.icons.automirrored.outlined.KeyboardTab
 import androidx.compose.material.icons.automirrored.outlined.Send
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.CloseFullscreen
 import androidx.compose.material.icons.outlined.ContentPaste
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.DeleteSweep
@@ -50,6 +55,7 @@ import androidx.compose.material.icons.outlined.EmojiSymbols
 import androidx.compose.material.icons.outlined.Fastfood
 import androidx.compose.material.icons.outlined.Fullscreen
 import androidx.compose.material.icons.outlined.Language
+import androidx.compose.material.icons.outlined.OpenInFull
 import androidx.compose.material.icons.outlined.Pets
 import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material.icons.outlined.Schedule
@@ -74,10 +80,12 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateMapOf
@@ -85,6 +93,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -94,6 +103,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
@@ -103,6 +113,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
@@ -147,12 +158,20 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.abs
+import kotlin.math.roundToInt
+
+/**
+ * Fired at pointer-down on any key so feedback (haptics) lands on press,
+ * not on release when the key's action commits.
+ */
+private val LocalKeyPressFeedback = staticCompositionLocalOf<() -> Unit> { {} }
 
 /** Root composable for the IME. Renders [KeyboardUiState] and forwards input. */
 @Composable
 fun KeyboardScreen(
     stateFlow: StateFlow<KeyboardUiState>,
     onKey: (Key) -> Unit,
+    onKeyPressed: () -> Unit = {},
     onText: (String) -> Unit = {},
     onGesture: (List<GesturePoint>, List<KeyCenter>, Float) -> Unit = { _, _, _ -> },
     onGesturePreview: (List<GesturePoint>, List<KeyCenter>, Float) -> Unit = { _, _, _ -> },
@@ -167,11 +186,45 @@ fun KeyboardScreen(
     onClipboardDelete: (ClipItem) -> Unit,
     onSnippet: (Snippet) -> Unit = {},
     onOneHanded: (OneHandedMode) -> Unit = {},
+    onFloatingChange: (Boolean) -> Unit = {},
+    onFloatingMoved: (Float, Float) -> Unit = { _, _ -> },
+    onFloatingResized: (Int) -> Unit = {},
+    onFloatingBounds: (IntRect) -> Unit = {},
     onOpenSettings: () -> Unit,
 ) {
     val state by stateFlow.collectAsState()
 
+    val body: @Composable ColumnScope.() -> Unit = {
+        CompositionLocalProvider(LocalKeyPressFeedback provides onKeyPressed) {
+            TopBar(state, onSuggestion, onPanelChange, onOpenSettings)
+            when (state.panel) {
+                PanelMode.EMOJI -> EmojiPanel(state, onEmoji, onEmojiQueryTap, onEmojiRecentsClear)
+                PanelMode.CLIPBOARD -> ClipboardPanel(state, onClipboardItem, onClipboardPin, onClipboardDelete)
+                PanelMode.SNIPPETS -> SnippetsPanel(state, onSnippet)
+                PanelMode.NONE -> KeyRows(state, onKey, onText, onGesture, onGesturePreview, onCursorMove)
+            }
+            // In emoji search mode the letters stay visible for typing the query.
+            if (state.panel == PanelMode.EMOJI && state.emojiSearchActive) {
+                KeyRows(state, onKey, onText, onGesture, onGesturePreview, onCursorMove)
+            }
+        }
+    }
+
     KeyboardTheme(themeMode = state.settings.themeMode, dynamicColor = state.settings.dynamicColor) {
+        if (state.settings.floatingKeyboard) {
+            // Floating mode: the compose root spans the whole IME window with
+            // no background; the service restricts the touchable region to
+            // the panel so everything else falls through to the app behind.
+            FloatingKeyboardFrame(
+                state = state,
+                onDock = { onFloatingChange(false) },
+                onMoved = onFloatingMoved,
+                onResized = onFloatingResized,
+                onBounds = onFloatingBounds,
+                content = body,
+            )
+            return@KeyboardTheme
+        }
         Surface(color = MaterialTheme.colorScheme.surfaceContainerLow) {
             // navigationBarsPadding keeps the bottom key row clear of the
             // gesture-navigation bar on edge-to-edge (SDK 35+) IME windows.
@@ -205,25 +258,178 @@ fun KeyboardScreen(
                 if (leftSlack > 0.001f) Spacer(modifier = Modifier.weight(leftSlack))
                 Column(
                     modifier = Modifier.weight(widthFraction),
-                ) {
-                    TopBar(state, onSuggestion, onPanelChange, onOpenSettings)
-                    when (state.panel) {
-                        PanelMode.EMOJI -> EmojiPanel(state, onEmoji, onEmojiQueryTap, onEmojiRecentsClear)
-                        PanelMode.CLIPBOARD -> ClipboardPanel(state, onClipboardItem, onClipboardPin, onClipboardDelete)
-                        PanelMode.SNIPPETS -> SnippetsPanel(state, onSnippet)
-                        PanelMode.NONE -> KeyRows(state, onKey, onText, onGesture, onGesturePreview, onCursorMove)
-                    }
-                    // In emoji search mode the letters stay visible for typing the query.
-                    if (state.panel == PanelMode.EMOJI && state.emojiSearchActive) {
-                        KeyRows(state, onKey, onText, onGesture, onGesturePreview, onCursorMove)
-                    }
-                }
+                    content = body,
+                )
                 val rightSlack = slack - leftSlack
                 if (rightSlack > 0.001f) Spacer(modifier = Modifier.weight(rightSlack))
                 if (oneHanded == OneHandedMode.LEFT) {
                     OneHandedRail(current = oneHanded, onOneHanded = onOneHanded, modifier = Modifier.weight(0.22f))
                 }
             }
+        }
+    }
+}
+
+/**
+ * Floating mode chrome: a detached, elevated panel holding the regular
+ * keyboard body, movable by its drag handle and resizable from the corner
+ * handle. Position is kept as fractions of the free space so it survives
+ * rotation; width in dp. Both persist via the callbacks on gesture end.
+ */
+@Composable
+private fun FloatingKeyboardFrame(
+    state: KeyboardUiState,
+    onDock: () -> Unit,
+    onMoved: (Float, Float) -> Unit,
+    onResized: (Int) -> Unit,
+    onBounds: (IntRect) -> Unit,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        val density = LocalDensity.current
+        val boxWidthPx = constraints.maxWidth
+        val boxHeightPx = constraints.maxHeight
+        val maxWidthDp = with(density) { boxWidthPx.toDp().value } - 16f
+        var liveWidthDp by remember(state.settings.floatingWidthDp) {
+            mutableFloatStateOf(state.settings.floatingWidthDp.toFloat())
+        }
+        val panelWidthDp = liveWidthDp.coerceIn(FLOATING_MIN_WIDTH_DP, maxWidthDp.coerceAtLeast(FLOATING_MIN_WIDTH_DP))
+
+        var panelSize by remember { mutableStateOf(IntSize.Zero) }
+        // Live drag position in px; null = follow the persisted fractions.
+        // Reset when the window size changes (rotation) so the fractions
+        // re-anchor the panel.
+        var dragOffset by remember(boxWidthPx, boxHeightPx) { mutableStateOf<Offset?>(null) }
+        fun slackX() = (boxWidthPx - panelSize.width).coerceAtLeast(0).toFloat()
+        fun slackY() = (boxHeightPx - panelSize.height).coerceAtLeast(0).toFloat()
+        val offset = dragOffset ?: Offset(
+            state.settings.floatingXFraction * slackX(),
+            state.settings.floatingYFraction * slackY(),
+        )
+
+        Surface(
+            modifier = Modifier
+                .offset { IntOffset(offset.x.roundToInt(), offset.y.roundToInt()) }
+                .width(panelWidthDp.dp)
+                // Invisible for the first frame, before the panel has been
+                // measured and placed from real sizes — avoids a flash at a
+                // wrong position.
+                .alpha(if (panelSize == IntSize.Zero) 0f else 1f)
+                .onGloballyPositioned { coords ->
+                    panelSize = coords.size
+                    val position = coords.positionInWindow()
+                    onBounds(
+                        IntRect(
+                            offset = IntOffset(position.x.roundToInt(), position.y.roundToInt()),
+                            size = coords.size,
+                        )
+                    )
+                },
+            shape = RoundedCornerShape(18.dp),
+            color = MaterialTheme.colorScheme.surfaceContainerLow,
+            shadowElevation = 10.dp,
+        ) {
+            Column {
+                FloatingHandleBar(
+                    onDock = onDock,
+                    onDragBy = { delta ->
+                        val current = dragOffset ?: offset
+                        dragOffset = Offset(
+                            (current.x + delta.x).coerceIn(0f, slackX()),
+                            (current.y + delta.y).coerceIn(0f, slackY()),
+                        )
+                    },
+                    onDragEnd = {
+                        val end = dragOffset ?: return@FloatingHandleBar
+                        onMoved(
+                            if (slackX() > 0f) end.x / slackX() else 0.5f,
+                            if (slackY() > 0f) end.y / slackY() else 0.5f,
+                        )
+                    },
+                    onResizeBy = { deltaXPx ->
+                        liveWidthDp = (liveWidthDp + with(density) { deltaXPx.toDp().value })
+                            .coerceIn(FLOATING_MIN_WIDTH_DP, maxWidthDp.coerceAtLeast(FLOATING_MIN_WIDTH_DP))
+                    },
+                    onResizeEnd = { onResized(panelWidthDp.roundToInt()) },
+                )
+                content()
+            }
+        }
+    }
+}
+
+private const val FLOATING_MIN_WIDTH_DP = 240f
+
+/** Handle row on top of the floating panel: dock button, drag pill, resize grip. */
+@Composable
+private fun FloatingHandleBar(
+    onDock: () -> Unit,
+    onDragBy: (Offset) -> Unit,
+    onDragEnd: () -> Unit,
+    onResizeBy: (Float) -> Unit,
+    onResizeEnd: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(30.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        IconButton(onClick = onDock, modifier = Modifier.size(30.dp)) {
+            Icon(
+                Icons.Outlined.CloseFullscreen,
+                contentDescription = "Dock keyboard",
+                modifier = Modifier.size(16.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxHeight()
+                .pointerInput(Unit) {
+                    detectDragGestures(
+                        onDrag = { change, amount ->
+                            change.consume()
+                            onDragBy(amount)
+                        },
+                        onDragEnd = onDragEnd,
+                        onDragCancel = onDragEnd,
+                    )
+                },
+            contentAlignment = Alignment.Center,
+        ) {
+            Box(
+                modifier = Modifier
+                    .width(44.dp)
+                    .height(4.dp)
+                    .background(
+                        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                        RoundedCornerShape(2.dp),
+                    ),
+            )
+        }
+        Box(
+            modifier = Modifier
+                .size(30.dp)
+                .pointerInput(Unit) {
+                    detectDragGestures(
+                        onDrag = { change, amount ->
+                            change.consume()
+                            onResizeBy(amount.x)
+                        },
+                        onDragEnd = onResizeEnd,
+                        onDragCancel = onResizeEnd,
+                    )
+                },
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                Icons.Outlined.OpenInFull,
+                contentDescription = "Resize keyboard",
+                modifier = Modifier.size(14.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }
@@ -701,6 +907,7 @@ private fun KeyButton(
     var showAlternates by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val settings = state.settings
+    val onKeyPress = LocalKeyPressFeedback.current
 
     // The preview bubble outlives the physical press by up to the minimum
     // popup duration, so a fast tap still shows a readable bubble instead
@@ -743,6 +950,9 @@ private fun KeyButton(
             .pointerInputKey(key, settings.longPressDelayMs, settings.keyRepeatIntervalMs,
                 spacebarCursor = settings.spacebarCursor,
                 setPressed = { pressed = it },
+                onKeyPress = onKeyPress,
+                hapticOnLongPress = settings.hapticOnLongPress,
+                hapticOnLongPressRelease = settings.hapticOnLongPressRelease,
                 openAlternates = { showAlternates = true },
                 onKey = onKey,
                 onCursorMove = onCursorMove,
@@ -885,7 +1095,7 @@ private fun KeyContent(key: Key, state: KeyboardUiState, contentColor: Color) {
             val isModeLabel = key.action != KeyAction.Text && key.label.length > 1
             Text(
                 text = displayLabel(key, state),
-                fontSize = ((if (isModeLabel) 13 else 19) * fontScale).sp,
+                fontSize = ((if (isModeLabel) 15.6f else 23f) * fontScale).sp,
                 fontWeight = FontWeight.Medium,
                 color = contentColor,
             )
@@ -930,6 +1140,9 @@ private fun Modifier.pointerInputKey(
     repeatIntervalMs: Int,
     spacebarCursor: Boolean,
     setPressed: (Boolean) -> Unit,
+    onKeyPress: () -> Unit,
+    hapticOnLongPress: Boolean,
+    hapticOnLongPressRelease: Boolean,
     openAlternates: () -> Unit,
     onKey: (Key) -> Unit,
     onCursorMove: (Int) -> Unit,
@@ -941,6 +1154,7 @@ private fun Modifier.pointerInputKey(
             awaitEachGesture {
                 val down = awaitFirstDown()
                 setPressed(true)
+                onKeyPress()
                 var moved = false
                 var accumulated = 0f
                 var lastX = down.position.x
@@ -971,19 +1185,27 @@ private fun Modifier.pointerInputKey(
             detectTapGestures(
                 onPress = {
                     setPressed(true)
+                    onKeyPress()
                     var longPressFired = false
                     val longPressJob: Job = scope.launch {
                         delay(longPressDelayMs.toLong())
                         longPressFired = true
                         if (key.action == KeyAction.Delete || key.action == KeyAction.Space) {
                             while (true) {
+                                onKeyPress()
                                 onKey(key)
                                 delay(repeatIntervalMs.toLong())
                             }
                         } else if (key.longPress.isNotEmpty()) {
+                            // Tactile cue that the long press registered and the
+                            // finger can be released (alternates are open / the
+                            // long-press action fired). Delete/space skip it:
+                            // their repeat loop already buzzes per repeat.
+                            if (hapticOnLongPress) onKeyPress()
                             openAlternates()
                         } else {
                             // No alternates: long press behaves like a tap.
+                            if (hapticOnLongPress) onKeyPress()
                             onKey(key)
                         }
                     }
@@ -992,6 +1214,7 @@ private fun Modifier.pointerInputKey(
                     longPressJob.cancel()
                     setPressed(false)
                     if (released && !longPressFired) onKey(key)
+                    else if (released && hapticOnLongPressRelease) onKeyPress()
                 },
             )
         }

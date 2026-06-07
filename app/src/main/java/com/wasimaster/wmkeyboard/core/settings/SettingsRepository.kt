@@ -1,6 +1,7 @@
 package com.wasimaster.wmkeyboard.core.settings
 
 import android.content.Context
+import android.os.Build
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
@@ -42,19 +43,27 @@ data class KeyboardSettings(
         listOf(InputMode.ENGLISH, InputMode.AVRO, InputMode.PROBHAT, InputMode.JATIYA),
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val dynamicColor: Boolean = true,
-    val keyHeightDp: Int = 54,
-    val numberRowHeightDp: Int = 54,
-    val bottomPaddingDp: Int = 8,
+    val keyHeightDp: Int = 48,
+    val numberRowHeightDp: Int = 42,
+    // Edge-to-edge IME windows (enforced on Android 15+) draw behind the
+    // gesture bar; a larger default keeps the bottom row comfortably above it.
+    val bottomPaddingDp: Int = if (Build.VERSION.SDK_INT >= 35) 32 else 8,
     val splitKeyboard: Boolean = false,
     val splitGapPercent: Int = 12,
+    val floatingKeyboard: Boolean = false,
+    val floatingWidthDp: Int = 320,
+    val floatingXFraction: Float = 0.5f,
+    val floatingYFraction: Float = 1.0f,
     val keyboardWidthPercent: Int = 100,
     val keyboardAlignment: KeyboardAlignment = KeyboardAlignment.CENTER,
-    val keyCornerRadiusDp: Int = 14,
+    val keyCornerRadiusDp: Int = 8,
     val fontScale: Float = 1.0f,
     val hapticFeedback: Boolean = true,
     val hapticStrengthMs: Int = 15,
     val hapticAmplitude: Int = 255,
     val hapticStyle: HapticStyle = HapticStyle.CUSTOM,
+    val hapticOnLongPress: Boolean = true,
+    val hapticOnLongPressRelease: Boolean = false,
     val keySound: Boolean = false,
     val keyPopup: Boolean = true,
     val keyPopupMinDurationMs: Int = 150,
@@ -97,6 +106,10 @@ class SettingsRepository(private val context: Context) {
         private val BOTTOM_PADDING = intPreferencesKey("bottom_padding")
         private val SPLIT_KEYBOARD = booleanPreferencesKey("split_keyboard")
         private val SPLIT_GAP_PERCENT = intPreferencesKey("split_gap_percent")
+        private val FLOATING_KEYBOARD = booleanPreferencesKey("floating_keyboard")
+        private val FLOATING_WIDTH = intPreferencesKey("floating_width")
+        private val FLOATING_X = floatPreferencesKey("floating_x")
+        private val FLOATING_Y = floatPreferencesKey("floating_y")
         private val KEYBOARD_WIDTH_PERCENT = intPreferencesKey("keyboard_width_percent")
         private val KEYBOARD_ALIGNMENT = stringPreferencesKey("keyboard_alignment")
         private val KEY_CORNER_RADIUS = intPreferencesKey("key_corner_radius")
@@ -105,6 +118,8 @@ class SettingsRepository(private val context: Context) {
         private val HAPTIC_STRENGTH = intPreferencesKey("haptic_strength")
         private val HAPTIC_AMPLITUDE = intPreferencesKey("haptic_amplitude")
         private val HAPTIC_STYLE = stringPreferencesKey("haptic_style")
+        private val HAPTIC_ON_LONG_PRESS = booleanPreferencesKey("haptic_on_long_press")
+        private val HAPTIC_ON_LONG_PRESS_RELEASE = booleanPreferencesKey("haptic_on_long_press_release")
         private val KEY_SOUND = booleanPreferencesKey("key_sound")
         private val KEY_POPUP = booleanPreferencesKey("key_popup")
         private val KEY_POPUP_MIN_DURATION = intPreferencesKey("key_popup_min_duration")
@@ -147,6 +162,10 @@ class SettingsRepository(private val context: Context) {
             bottomPaddingDp = p[BOTTOM_PADDING] ?: defaults.bottomPaddingDp,
             splitKeyboard = p[SPLIT_KEYBOARD] ?: defaults.splitKeyboard,
             splitGapPercent = p[SPLIT_GAP_PERCENT] ?: defaults.splitGapPercent,
+            floatingKeyboard = p[FLOATING_KEYBOARD] ?: defaults.floatingKeyboard,
+            floatingWidthDp = p[FLOATING_WIDTH] ?: defaults.floatingWidthDp,
+            floatingXFraction = p[FLOATING_X] ?: defaults.floatingXFraction,
+            floatingYFraction = p[FLOATING_Y] ?: defaults.floatingYFraction,
             keyboardWidthPercent = p[KEYBOARD_WIDTH_PERCENT] ?: defaults.keyboardWidthPercent,
             keyboardAlignment = p[KEYBOARD_ALIGNMENT]
                 ?.let { runCatching { KeyboardAlignment.valueOf(it) }.getOrNull() }
@@ -158,6 +177,9 @@ class SettingsRepository(private val context: Context) {
             hapticAmplitude = p[HAPTIC_AMPLITUDE] ?: defaults.hapticAmplitude,
             hapticStyle = p[HAPTIC_STYLE]?.let { runCatching { HapticStyle.valueOf(it) }.getOrNull() }
                 ?: defaults.hapticStyle,
+            hapticOnLongPress = p[HAPTIC_ON_LONG_PRESS] ?: defaults.hapticOnLongPress,
+            hapticOnLongPressRelease = p[HAPTIC_ON_LONG_PRESS_RELEASE]
+                ?: defaults.hapticOnLongPressRelease,
             keySound = p[KEY_SOUND] ?: defaults.keySound,
             keyPopup = p[KEY_POPUP] ?: defaults.keyPopup,
             keyPopupMinDurationMs = p[KEY_POPUP_MIN_DURATION] ?: defaults.keyPopupMinDurationMs,
@@ -209,6 +231,18 @@ class SettingsRepository(private val context: Context) {
     suspend fun setSplitGapPercent(value: Int) =
         context.dataStore.edit { it[SPLIT_GAP_PERCENT] = value.coerceIn(5, 40) }
 
+    suspend fun setFloatingKeyboard(value: Boolean) =
+        context.dataStore.edit { it[FLOATING_KEYBOARD] = value }
+
+    suspend fun setFloatingWidthDp(value: Int) =
+        context.dataStore.edit { it[FLOATING_WIDTH] = value.coerceIn(240, 500) }
+
+    suspend fun setFloatingPosition(x: Float, y: Float) =
+        context.dataStore.edit {
+            it[FLOATING_X] = x.coerceIn(0f, 1f)
+            it[FLOATING_Y] = y.coerceIn(0f, 1f)
+        }
+
     suspend fun setKeyboardWidthPercent(value: Int) =
         context.dataStore.edit { it[KEYBOARD_WIDTH_PERCENT] = value.coerceIn(50, 100) }
 
@@ -235,6 +269,12 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setHapticStyle(value: HapticStyle) =
         context.dataStore.edit { it[HAPTIC_STYLE] = value.name }
+
+    suspend fun setHapticOnLongPress(value: Boolean) =
+        context.dataStore.edit { it[HAPTIC_ON_LONG_PRESS] = value }
+
+    suspend fun setHapticOnLongPressRelease(value: Boolean) =
+        context.dataStore.edit { it[HAPTIC_ON_LONG_PRESS_RELEASE] = value }
 
     suspend fun setKeySound(value: Boolean) =
         context.dataStore.edit { it[KEY_SOUND] = value }

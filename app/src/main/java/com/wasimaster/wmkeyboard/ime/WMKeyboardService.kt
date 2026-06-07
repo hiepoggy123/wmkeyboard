@@ -11,6 +11,7 @@ import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputConnection
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
+import androidx.compose.ui.unit.IntRect
 import android.content.ClipDescription
 import android.widget.Toast
 import androidx.core.content.FileProvider
@@ -165,6 +166,7 @@ class WMKeyboardService : InputMethodService() {
         serviceScope.launch {
             settingsRepository.settings.collect { settings ->
                 clipboardStore.expiryMillis = settings.clipboardExpiryHours * 60L * 60 * 1000
+                if (!settings.floatingKeyboard) floatingPanelBounds = null
                 _uiState.update { it.copy(settings = settings, inputMode = settings.inputMode) }
             }
         }
@@ -202,6 +204,7 @@ class WMKeyboardService : InputMethodService() {
             KeyboardScreen(
                 stateFlow = uiState,
                 onKey = ::onKey,
+                onKeyPressed = ::vibrate,
                 onText = ::onText,
                 onGesture = ::onGesture,
                 onGesturePreview = ::onGesturePreview,
@@ -216,11 +219,65 @@ class WMKeyboardService : InputMethodService() {
                 onClipboardDelete = ::onClipboardDelete,
                 onSnippet = ::onSnippetTapped,
                 onOneHanded = ::onOneHandedChange,
+                onFloatingChange = ::onFloatingChange,
+                onFloatingMoved = ::onFloatingMoved,
+                onFloatingResized = ::onFloatingResized,
+                onFloatingBounds = ::onFloatingBounds,
                 onOpenSettings = ::openSettings,
             )
         }
         return view
     }
+
+    // ---- floating mode ----
+
+    /** Panel bounds in IME-window coordinates, for the touchable region. */
+    private var floatingPanelBounds: android.graphics.Rect? = null
+
+    fun onFloatingBounds(bounds: IntRect) {
+        val rect = android.graphics.Rect(bounds.left, bounds.top, bounds.right, bounds.bottom)
+        if (rect != floatingPanelBounds) {
+            floatingPanelBounds = rect
+            // Insets are only re-queried on a window layout pass; the panel
+            // can move without the view tree changing size, so force one.
+            window?.window?.decorView?.requestLayout()
+        }
+    }
+
+    fun onFloatingChange(enabled: Boolean) {
+        vibrate()
+        if (!enabled) floatingPanelBounds = null
+        serviceScope.launch { settingsRepository.setFloatingKeyboard(enabled) }
+    }
+
+    fun onFloatingMoved(xFraction: Float, yFraction: Float) {
+        serviceScope.launch { settingsRepository.setFloatingPosition(xFraction, yFraction) }
+    }
+
+    fun onFloatingResized(widthDp: Int) {
+        serviceScope.launch { settingsRepository.setFloatingWidthDp(widthDp) }
+    }
+
+    /**
+     * Floating mode: the compose root covers the whole IME window, but the
+     * app behind must neither resize nor lose touches. Content insets say
+     * "the keyboard occupies nothing"; the touchable region shrinks to the
+     * floating panel so all other touches pass through.
+     */
+    override fun onComputeInsets(outInsets: Insets) {
+        super.onComputeInsets(outInsets)
+        if (!_uiState.value.settings.floatingKeyboard) return
+        val decorHeight = window?.window?.decorView?.height ?: return
+        outInsets.contentTopInsets = decorHeight
+        outInsets.visibleTopInsets = decorHeight
+        outInsets.touchableInsets = Insets.TOUCHABLE_INSETS_REGION
+        outInsets.touchableRegion.setEmpty()
+        floatingPanelBounds?.let { outInsets.touchableRegion.set(it) }
+    }
+
+    /** Never use the fullscreen (extract) editor while floating. */
+    override fun onEvaluateFullscreenMode(): Boolean =
+        if (_uiState.value.settings.floatingKeyboard) false else super.onEvaluateFullscreenMode()
 
     override fun onStartInputView(info: EditorInfo?, restarting: Boolean) {
         super.onStartInputView(info, restarting)
@@ -289,8 +346,9 @@ class WMKeyboardService : InputMethodService() {
 
     // ---- key handling ----
 
+    // No vibrate() here: press-time haptics fire from the UI's pointer-down
+    // callback (onKeyPressed) so feedback lands on touch, not on release.
     fun onKey(key: Key) {
-        vibrate()
         if (key.action != KeyAction.Shift) lastGestureWord = null
         when (key.action) {
             KeyAction.Text -> onTextKey(key)

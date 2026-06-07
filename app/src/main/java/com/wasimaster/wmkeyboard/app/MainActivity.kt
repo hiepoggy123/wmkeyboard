@@ -521,6 +521,20 @@ private fun TypingSettings(repository: SettingsRepository, settings: KeyboardSet
         ) { scope.launch { repository.setHapticAmplitude(it.toInt()) } }
     }
     ToggleSetting(
+        "Long-press haptics", "Vibrate when a long press registers", settings.hapticOnLongPress,
+        info = "A second buzz the moment a long press kicks in — when the alternate-" +
+            "character popup opens, or a long-press action fires — telling your finger " +
+            "it can let go. Delete and space are unaffected; their key-repeat already " +
+            "vibrates on every repeat.",
+    ) { scope.launch { repository.setHapticOnLongPress(it) } }
+    ToggleSetting(
+        "Long-press release haptics", "Vibrate on release after a long press",
+        settings.hapticOnLongPressRelease,
+        info = "An extra buzz when you lift your finger at the end of a long press, " +
+            "closing the press-hold-release loop. Off by default; some find the third " +
+            "vibration excessive.",
+    ) { scope.launch { repository.setHapticOnLongPressRelease(it) } }
+    ToggleSetting(
         "Key popup", "Show a character bubble above the pressed key", settings.keyPopup,
         info = "While a key is held, its character floats in a bubble above your finger " +
             "so you can see what you hit.",
@@ -665,6 +679,25 @@ private fun AppearanceSettings(repository: SettingsRepository, settings: Keyboar
             info = "The center gap, as a percentage of the keyboard width. Bigger gaps " +
                 "push the halves further toward the edges but make each key narrower.",
         ) { scope.launch { repository.setSplitGapPercent(it.toInt()) } }
+    }
+    ToggleSetting(
+        "Floating keyboard", "Detach the keyboard into a movable panel", settings.floatingKeyboard,
+        info = "The keyboard becomes a compact floating panel that hovers over apps " +
+            "instead of docking to the bottom of the screen. Drag the pill at the top " +
+            "of the panel to move it, drag the corner grip to resize it, and tap the " +
+            "dock button to return to the normal keyboard. Apps are no longer resized " +
+            "while it floats, and touches outside the panel go straight to the app.",
+    ) { scope.launch { repository.setFloatingKeyboard(it) } }
+    if (settings.floatingKeyboard) {
+        SliderSetting(
+            "Floating keyboard width",
+            subtitle = "Also adjustable by dragging the panel's corner grip",
+            value = settings.floatingWidthDp.toFloat(),
+            range = 240f..500f,
+            display = "${settings.floatingWidthDp} dp",
+            info = "Width of the floating panel. Key heights still follow the sliders " +
+                "above.",
+        ) { scope.launch { repository.setFloatingWidthDp(it.toInt()) } }
     }
     SliderSetting(
         "Keyboard width",
