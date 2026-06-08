@@ -276,6 +276,7 @@ fun KeyboardScreen(
                     val scaled = if (heightScale == 1f) state else state.copy(
                         settings = state.settings.copy(
                             keyHeightDp = (state.settings.keyHeightDp * heightScale).roundToInt(),
+                            numberRowHeightDp = (state.settings.numberRowHeightDp * heightScale).roundToInt(),
                         ),
                     )
                     body(scaled)
@@ -566,8 +567,15 @@ private fun TopBar(
             .height(44.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        val feedback = LocalKeyPressFeedback.current
         if (hasSuggestions) {
-            IconButton(onClick = { toolbarOverride = !toolbarOverride }, modifier = Modifier.size(36.dp)) {
+            IconButton(
+                onClick = {
+                    feedback()
+                    toolbarOverride = !toolbarOverride
+                },
+                modifier = Modifier.size(36.dp),
+            ) {
                 Icon(
                     if (showToolbar) Icons.Outlined.ChevronLeft else Icons.Outlined.ChevronRight,
                     contentDescription = if (showToolbar) "Show suggestions" else "Show toolbar",
@@ -583,6 +591,7 @@ private fun TopBar(
                     icon = toolIcon(ToolbarTool.EMOJI),
                     description = "Emoji",
                     active = false,
+                    longPressLabel = "Emoji",
                 ) { onToolTap(ToolbarTool.EMOJI) }
             }
             // The top candidates split the whole bar evenly (Gboard style),
@@ -674,15 +683,24 @@ private class ToolDragController {
     var toolbarBounds: Rect? = null
     var currentTools: List<ToolbarTool> = emptyList()
     var onCommit: (List<ToolbarTool>) -> Unit = {}
+    /** Haptic tick when the drop target changes: slot to slot, or on/off the bar. */
+    var onSnap: () -> Unit = {}
+    private var lastSlot: Int? = null
 
     fun start(tool: ToolbarTool, fromBar: Boolean, at: Offset) {
         dragging = tool
         fromToolbar = fromBar
         position = at
+        lastSlot = slotAt(at)
     }
 
     fun move(to: Offset) {
         position = to
+        val slot = slotAt(to)
+        if (slot != lastSlot) {
+            lastSlot = slot
+            onSnap()
+        }
     }
 
     fun cancel() {
@@ -691,23 +709,29 @@ private class ToolDragController {
 
     fun end() {
         val tool = dragging ?: return
+        val slot = slotAt(position)
         dragging = null
-        // Generous hit box: a drop just above/below the bar still counts.
-        val bar = toolbarBounds?.inflate(30f)
-        val tools = currentTools
-        if (bar != null && bar.contains(position)) {
-            val without = tools - tool
-            val slot = if (without.isEmpty()) {
-                0
-            } else {
-                (((position.x - bar.left) / bar.width) * (without.size + 1))
-                    .toInt()
-                    .coerceIn(0, without.size)
-            }
+        if (slot != null) {
+            val without = currentTools - tool
             onCommit(without.toMutableList().apply { add(slot, tool) })
         } else if (fromToolbar) {
-            onCommit(tools - tool)
+            onCommit(currentTools - tool)
         }
+    }
+
+    /**
+     * Insertion slot under [at], or null when off the toolbar. The bar's hit
+     * box is inflated so a drop just above/below it still counts.
+     */
+    private fun slotAt(at: Offset): Int? {
+        val tool = dragging ?: return null
+        val bar = toolbarBounds?.inflate(30f) ?: return null
+        if (!bar.contains(at)) return null
+        val without = currentTools - tool
+        if (without.isEmpty()) return 0
+        return (((at.x - bar.left) / bar.width) * (without.size + 1))
+            .toInt()
+            .coerceIn(0, without.size)
     }
 }
 
@@ -721,13 +745,19 @@ private fun DraggableTool(
     content: @Composable (Modifier) -> Unit,
 ) {
     var origin by remember { mutableStateOf(Offset.Zero) }
+    val feedback = LocalKeyPressFeedback.current
     content(
         Modifier
             .onGloballyPositioned { origin = it.positionInRoot() }
             .pointerInput(enabled, tool) {
                 if (!enabled) return@pointerInput
                 detectDragGesturesAfterLongPress(
-                    onDragStart = { at -> drag.start(tool, fromToolbar, origin + at) },
+                    onDragStart = { at ->
+                        // The pick-up is invisible until the first move; the
+                        // buzz tells the user the long-press registered.
+                        feedback()
+                        drag.start(tool, fromToolbar, origin + at)
+                    },
                     onDrag = { change, _ ->
                         change.consume()
                         drag.move(origin + change.position)
@@ -739,13 +769,19 @@ private fun DraggableTool(
     )
 }
 
-/** One round tool button; the circle radius comes from the theme (0 = bare icon). */
+/**
+ * One round tool button; the circle radius comes from the theme (0 = bare
+ * icon). With [longPressLabel] set, holding the button pops the tool's name
+ * above it — the toolbar shows bare icons, so this is how a user finds out
+ * what one does without tapping it.
+ */
 @Composable
 private fun ToolCircle(
     icon: ImageVector,
     description: String,
     active: Boolean,
     modifier: Modifier = Modifier,
+    longPressLabel: String? = null,
     onClick: () -> Unit,
 ) {
     val kb = LocalKbTheme.current
@@ -755,12 +791,27 @@ private fun ToolCircle(
         kb.toolRadiusDp > 0 -> kb.toolCircle
         else -> Color.Transparent
     }
+    var showLabel by remember { mutableStateOf(false) }
+    val feedback = LocalKeyPressFeedback.current
+    val click = if (longPressLabel == null) {
+        Modifier.clickable(onClick = onClick)
+    } else {
+        Modifier.pointerInput(longPressLabel) {
+            detectTapGestures(
+                onTap = { onClick() },
+                onLongPress = {
+                    feedback()
+                    showLabel = true
+                },
+            )
+        }
+    }
     Box(
         modifier = modifier
             .size(38.dp)
             .clip(shape)
             .background(background, shape)
-            .clickable(onClick = onClick),
+            .then(click),
         contentAlignment = Alignment.Center,
     ) {
         Icon(
@@ -769,6 +820,29 @@ private fun ToolCircle(
             modifier = Modifier.size(20.dp),
             tint = if (active) kb.toolCircleActiveIcon else kb.toolbarIcon,
         )
+        if (showLabel && longPressLabel != null) {
+            LaunchedEffect(Unit) {
+                delay(1200)
+                showLabel = false
+            }
+            Popup(
+                popupPositionProvider = rememberAboveAnchorPopup(),
+                onDismissRequest = { showLabel = false },
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(kb.popupRadiusDp.dp),
+                    color = kb.popup,
+                    shadowElevation = 6.dp,
+                ) {
+                    Text(
+                        longPressLabel,
+                        color = kb.popupText,
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -790,6 +864,7 @@ private fun RowScope.ToolbarRow(
         description = "Toolbox",
         active = customizing,
         modifier = Modifier.padding(horizontal = 3.dp),
+        longPressLabel = "Toolbox",
     ) { onPanelChange(PanelMode.TOOLBOX) }
     Row(
         modifier = Modifier
@@ -813,6 +888,8 @@ private fun RowScope.ToolbarRow(
                         description = toolLabel(tool),
                         active = toolActive(tool, state),
                         modifier = dragModifier,
+                        // While customizing, long-press belongs to the drag.
+                        longPressLabel = if (customizing) null else toolLabel(tool),
                     ) { onToolTap(tool) }
                 }
             }
@@ -924,6 +1001,7 @@ private fun KeyboardBody(
     val drag = remember { ToolDragController() }
     drag.currentTools = state.settings.toolbarTools
     drag.onCommit = onToolbarToolsChange
+    drag.onSnap = LocalKeyPressFeedback.current
     var bodyOrigin by remember { mutableStateOf(Offset.Zero) }
 
     Box(
