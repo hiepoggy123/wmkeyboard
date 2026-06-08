@@ -270,8 +270,8 @@ class WMKeyboardService : InputMethodService() {
         serviceScope.launch { settingsRepository.setFloatingPosition(xFraction, yFraction) }
     }
 
-    fun onFloatingResized(widthDp: Int) {
-        serviceScope.launch { settingsRepository.setFloatingWidthDp(widthDp) }
+    fun onFloatingResized(widthDp: Int, heightScale: Float) {
+        serviceScope.launch { settingsRepository.setFloatingSize(widthDp, heightScale) }
     }
 
     /**

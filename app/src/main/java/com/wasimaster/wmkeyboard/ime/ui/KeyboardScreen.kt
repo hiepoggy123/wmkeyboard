@@ -208,7 +208,7 @@ fun KeyboardScreen(
     onOneHanded: (OneHandedMode) -> Unit = {},
     onFloatingChange: (Boolean) -> Unit = {},
     onFloatingMoved: (Float, Float) -> Unit = { _, _ -> },
-    onFloatingResized: (Int) -> Unit = {},
+    onFloatingResized: (Int, Float) -> Unit = { _, _ -> },
     onFloatingBounds: (IntRect) -> Unit = {},
     onToggleSplit: () -> Unit = {},
     onToolbarToolsChange: (List<ToolbarTool>) -> Unit = {},
@@ -233,10 +233,10 @@ fun KeyboardScreen(
         }
     }
 
-    val body: @Composable ColumnScope.() -> Unit = {
+    val body: @Composable ColumnScope.(KeyboardUiState) -> Unit = { bodyState ->
         CompositionLocalProvider(LocalKeyPressFeedback provides onKeyPressed) {
             KeyboardBody(
-                state = state,
+                state = bodyState,
                 onKey = onKey,
                 onText = onText,
                 onGesture = onGesture,
@@ -270,7 +270,16 @@ fun KeyboardScreen(
                 onMoved = onFloatingMoved,
                 onResized = onFloatingResized,
                 onBounds = onFloatingBounds,
-                content = body,
+                content = { heightScale ->
+                    // Key height carries the whole layout (panels included),
+                    // so scaling it scales the keyboard's height.
+                    val scaled = if (heightScale == 1f) state else state.copy(
+                        settings = state.settings.copy(
+                            keyHeightDp = (state.settings.keyHeightDp * heightScale).roundToInt(),
+                        ),
+                    )
+                    body(scaled)
+                },
             )
             return@KeyboardThemeProvider
         }
@@ -306,10 +315,7 @@ fun KeyboardScreen(
                     KeyboardAlignment.RIGHT -> slack
                 }
                 if (leftSlack > 0.001f) Spacer(modifier = Modifier.weight(leftSlack))
-                Column(
-                    modifier = Modifier.weight(widthFraction),
-                    content = body,
-                )
+                Column(modifier = Modifier.weight(widthFraction)) { body(state) }
                 val rightSlack = slack - leftSlack
                 if (rightSlack > 0.001f) Spacer(modifier = Modifier.weight(rightSlack))
                 if (oneHanded == OneHandedMode.LEFT) {
@@ -331,9 +337,9 @@ private fun FloatingKeyboardFrame(
     state: KeyboardUiState,
     onDock: () -> Unit,
     onMoved: (Float, Float) -> Unit,
-    onResized: (Int) -> Unit,
+    onResized: (Int, Float) -> Unit,
     onBounds: (IntRect) -> Unit,
-    content: @Composable ColumnScope.() -> Unit,
+    content: @Composable ColumnScope.(Float) -> Unit,
 ) {
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val density = LocalDensity.current
@@ -342,6 +348,9 @@ private fun FloatingKeyboardFrame(
         val maxWidthDp = with(density) { boxWidthPx.toDp().value } - 16f
         var liveWidthDp by remember(state.settings.floatingWidthDp) {
             mutableFloatStateOf(state.settings.floatingWidthDp.toFloat())
+        }
+        var liveHeightScale by remember(state.settings.floatingHeightScale) {
+            mutableFloatStateOf(state.settings.floatingHeightScale)
         }
         val panelWidthDp = liveWidthDp.coerceIn(FLOATING_MIN_WIDTH_DP, maxWidthDp.coerceAtLeast(FLOATING_MIN_WIDTH_DP))
 
@@ -400,13 +409,21 @@ private fun FloatingKeyboardFrame(
                                 if (slackY() > 0f) end.y / slackY() else 0.5f,
                             )
                         },
-                        onResizeBy = { deltaXPx ->
-                            liveWidthDp = (liveWidthDp + with(density) { deltaXPx.toDp().value })
+                        onResizeBy = { delta ->
+                            liveWidthDp = (liveWidthDp + with(density) { delta.x.toDp().value })
                                 .coerceIn(FLOATING_MIN_WIDTH_DP, maxWidthDp.coerceAtLeast(FLOATING_MIN_WIDTH_DP))
+                            // Height resizes too: the drag is normalized by the
+                            // panel's unscaled height, so the grip tracks the
+                            // finger no matter how tall the content already is.
+                            val baseHeightPx = if (liveHeightScale > 0f) panelSize.height / liveHeightScale else 0f
+                            if (baseHeightPx > 0f) {
+                                liveHeightScale = (liveHeightScale + delta.y / baseHeightPx)
+                                    .coerceIn(FLOATING_MIN_HEIGHT_SCALE, FLOATING_MAX_HEIGHT_SCALE)
+                            }
                         },
-                        onResizeEnd = { onResized(panelWidthDp.roundToInt()) },
+                        onResizeEnd = { onResized(panelWidthDp.roundToInt(), liveHeightScale) },
                     )
-                    content()
+                    content(liveHeightScale)
                 }
             }
         }
@@ -414,6 +431,8 @@ private fun FloatingKeyboardFrame(
 }
 
 private const val FLOATING_MIN_WIDTH_DP = 240f
+private const val FLOATING_MIN_HEIGHT_SCALE = 0.6f
+private const val FLOATING_MAX_HEIGHT_SCALE = 1.6f
 
 /** Handle row on top of the floating panel: dock button, drag pill, resize grip. */
 @Composable
@@ -421,7 +440,7 @@ private fun FloatingHandleBar(
     onDock: () -> Unit,
     onDragBy: (Offset) -> Unit,
     onDragEnd: () -> Unit,
-    onResizeBy: (Float) -> Unit,
+    onResizeBy: (Offset) -> Unit,
     onResizeEnd: () -> Unit,
 ) {
     Row(
@@ -471,7 +490,7 @@ private fun FloatingHandleBar(
                     detectDragGestures(
                         onDrag = { change, amount ->
                             change.consume()
-                            onResizeBy(amount.x)
+                            onResizeBy(amount)
                         },
                         onDragEnd = onResizeEnd,
                         onDragCancel = onResizeEnd,

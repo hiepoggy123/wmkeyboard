@@ -74,6 +74,8 @@ data class KeyboardSettings(
     val splitGapPercent: Int = 12,
     val floatingKeyboard: Boolean = false,
     val floatingWidthDp: Int = 320,
+    /** Multiplier on key height while floating, set by the resize grip. */
+    val floatingHeightScale: Float = 1f,
     val floatingXFraction: Float = 0.5f,
     val floatingYFraction: Float = 1.0f,
     val keyboardWidthPercent: Int = 100,
@@ -143,6 +145,7 @@ class SettingsRepository(private val context: Context) {
         private val SPLIT_GAP_PERCENT = intPreferencesKey("split_gap_percent")
         private val FLOATING_KEYBOARD = booleanPreferencesKey("floating_keyboard")
         private val FLOATING_WIDTH = intPreferencesKey("floating_width")
+        private val FLOATING_HEIGHT_SCALE = floatPreferencesKey("floating_height_scale")
         private val FLOATING_X = floatPreferencesKey("floating_x")
         private val FLOATING_Y = floatPreferencesKey("floating_y")
         private val KEYBOARD_WIDTH_PERCENT = intPreferencesKey("keyboard_width_percent")
@@ -211,6 +214,7 @@ class SettingsRepository(private val context: Context) {
             splitGapPercent = p[SPLIT_GAP_PERCENT] ?: defaults.splitGapPercent,
             floatingKeyboard = p[FLOATING_KEYBOARD] ?: defaults.floatingKeyboard,
             floatingWidthDp = p[FLOATING_WIDTH] ?: defaults.floatingWidthDp,
+            floatingHeightScale = p[FLOATING_HEIGHT_SCALE] ?: defaults.floatingHeightScale,
             floatingXFraction = p[FLOATING_X] ?: defaults.floatingXFraction,
             floatingYFraction = p[FLOATING_Y] ?: defaults.floatingYFraction,
             keyboardWidthPercent = p[KEYBOARD_WIDTH_PERCENT] ?: defaults.keyboardWidthPercent,
@@ -349,6 +353,13 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setFloatingWidthDp(value: Int) =
         context.dataStore.edit { it[FLOATING_WIDTH] = value.coerceIn(240, 500) }
+
+    /** Both axes from one resize-grip gesture, persisted in a single edit. */
+    suspend fun setFloatingSize(widthDp: Int, heightScale: Float) =
+        context.dataStore.edit {
+            it[FLOATING_WIDTH] = widthDp.coerceIn(240, 500)
+            it[FLOATING_HEIGHT_SCALE] = heightScale.coerceIn(0.6f, 1.6f)
+        }
 
     suspend fun setFloatingPosition(x: Float, y: Float) =
         context.dataStore.edit {
