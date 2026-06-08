@@ -45,7 +45,15 @@ enum class ToolbarTool { EMOJI, CLIPBOARD, SNIPPETS, TEXT_EDIT, ONE_HANDED, SPLI
  * duration/amplitude settings; [CLICK] and [HEAVY_CLICK] use the device's
  * hardware-tuned predefined effects (Android 10+, falls back to CUSTOM).
  */
-enum class HapticStyle { CUSTOM, CLICK, HEAVY_CLICK }
+enum class HapticStyle { CUSTOM, CLICK, HEAVY_CLICK, SHARP }
+
+/**
+ * What a horizontal swipe on the spacebar does. "Short" swipes start
+ * moving right away; "long" swipes hold the spacebar past the long-press
+ * delay first, then drag — distance is deliberately not the discriminator,
+ * a fast flick travels further than a careful drag.
+ */
+enum class SpaceSwipeAction { NONE, LANGUAGE, CURSOR }
 
 data class KeyboardSettings(
     val inputMode: InputMode = InputMode.ENGLISH,
@@ -90,7 +98,13 @@ data class KeyboardSettings(
     val doubleSpacePeriod: Boolean = true,
     val suggestions: Boolean = true,
     val gestureTyping: Boolean = true,
-    val spacebarCursor: Boolean = true,
+    /** Swipe that starts moving before the long-press delay elapses. */
+    val spaceShortSwipe: SpaceSwipeAction = SpaceSwipeAction.LANGUAGE,
+    /** Swipe that begins after holding the spacebar past the long-press delay. */
+    val spaceLongSwipe: SpaceSwipeAction = SpaceSwipeAction.CURSOR,
+    /** Replace the 🌐 key with an emoji key (language switching moves to spacebar swipes). */
+    val globeAsEmoji: Boolean = true,
+    val onboardingDone: Boolean = false,
     val conjunctBackspace: Boolean = false,
     val oneHandedMode: OneHandedMode = OneHandedMode.OFF,
     val learnFromTyping: Boolean = true,
@@ -153,7 +167,12 @@ class SettingsRepository(private val context: Context) {
         private val DOUBLE_SPACE_PERIOD = booleanPreferencesKey("double_space_period")
         private val SUGGESTIONS = booleanPreferencesKey("suggestions")
         private val GESTURE_TYPING = booleanPreferencesKey("gesture_typing")
+        // Legacy boolean, read only to migrate into SPACE_LONG_SWIPE.
         private val SPACEBAR_CURSOR = booleanPreferencesKey("spacebar_cursor")
+        private val SPACE_SHORT_SWIPE = stringPreferencesKey("space_short_swipe")
+        private val SPACE_LONG_SWIPE = stringPreferencesKey("space_long_swipe")
+        private val GLOBE_AS_EMOJI = booleanPreferencesKey("globe_as_emoji")
+        private val ONBOARDING_DONE = booleanPreferencesKey("onboarding_done")
         private val CONJUNCT_BACKSPACE = booleanPreferencesKey("conjunct_backspace")
         private val ONE_HANDED_MODE = stringPreferencesKey("one_handed_mode")
         private val LEARN_FROM_TYPING = booleanPreferencesKey("learn_from_typing")
@@ -220,7 +239,16 @@ class SettingsRepository(private val context: Context) {
             doubleSpacePeriod = p[DOUBLE_SPACE_PERIOD] ?: defaults.doubleSpacePeriod,
             suggestions = p[SUGGESTIONS] ?: defaults.suggestions,
             gestureTyping = p[GESTURE_TYPING] ?: defaults.gestureTyping,
-            spacebarCursor = p[SPACEBAR_CURSOR] ?: defaults.spacebarCursor,
+            spaceShortSwipe = p[SPACE_SHORT_SWIPE]
+                ?.let { runCatching { SpaceSwipeAction.valueOf(it) }.getOrNull() }
+                ?: defaults.spaceShortSwipe,
+            // Users who had explicitly turned spacebar cursor control off
+            // keep it off until they pick a new swipe action.
+            spaceLongSwipe = p[SPACE_LONG_SWIPE]
+                ?.let { runCatching { SpaceSwipeAction.valueOf(it) }.getOrNull() }
+                ?: if (p[SPACEBAR_CURSOR] == false) SpaceSwipeAction.NONE else defaults.spaceLongSwipe,
+            globeAsEmoji = p[GLOBE_AS_EMOJI] ?: defaults.globeAsEmoji,
+            onboardingDone = p[ONBOARDING_DONE] ?: defaults.onboardingDone,
             conjunctBackspace = p[CONJUNCT_BACKSPACE] ?: defaults.conjunctBackspace,
             oneHandedMode = p[ONE_HANDED_MODE]
                 ?.let { runCatching { OneHandedMode.valueOf(it) }.getOrNull() }
@@ -397,8 +425,17 @@ class SettingsRepository(private val context: Context) {
     suspend fun setGestureTyping(value: Boolean) =
         context.dataStore.edit { it[GESTURE_TYPING] = value }
 
-    suspend fun setSpacebarCursor(value: Boolean) =
-        context.dataStore.edit { it[SPACEBAR_CURSOR] = value }
+    suspend fun setSpaceShortSwipe(value: SpaceSwipeAction) =
+        context.dataStore.edit { it[SPACE_SHORT_SWIPE] = value.name }
+
+    suspend fun setSpaceLongSwipe(value: SpaceSwipeAction) =
+        context.dataStore.edit { it[SPACE_LONG_SWIPE] = value.name }
+
+    suspend fun setGlobeAsEmoji(value: Boolean) =
+        context.dataStore.edit { it[GLOBE_AS_EMOJI] = value }
+
+    suspend fun setOnboardingDone(value: Boolean) =
+        context.dataStore.edit { it[ONBOARDING_DONE] = value }
 
     suspend fun setConjunctBackspace(value: Boolean) =
         context.dataStore.edit { it[CONJUNCT_BACKSPACE] = value }

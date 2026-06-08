@@ -4,6 +4,7 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import android.os.SystemClock
 import android.text.InputType
 import android.view.KeyEvent
 import android.view.View
@@ -59,6 +60,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -219,6 +221,7 @@ class WMKeyboardService : InputMethodService() {
                 onGesture = ::onGesture,
                 onGesturePreview = ::onGesturePreview,
                 onCursorMove = ::onCursorMove,
+                onLanguageSelect = ::onLanguageSelected,
                 onSuggestion = ::onSuggestionTapped,
                 onEmoji = ::onEmojiTapped,
                 onEmojiQueryTap = ::onEmojiSearchToggled,
@@ -592,11 +595,15 @@ class WMKeyboardService : InputMethodService() {
     private fun switchLanguage() {
         val state = _uiState.value
         val modes = state.settings.enabledModes.ifEmpty { listOf(InputMode.ENGLISH) }
-        val next = modes[(modes.indexOf(state.inputMode) + 1).mod(modes.size)]
+        onLanguageSelected(modes[(modes.indexOf(state.inputMode) + 1).mod(modes.size)])
+    }
+
+    /** Spacebar swipe (or 🌐 cycle): switch to an explicit input mode. */
+    fun onLanguageSelected(mode: InputMode) {
         currentInputConnection?.let { commitComposing(it, autocorrect = false) }
-        _uiState.update { it.copy(inputMode = next, layoutMode = LayoutMode.LETTERS) }
+        _uiState.update { it.copy(inputMode = mode, layoutMode = LayoutMode.LETTERS) }
         refreshKarContext()
-        serviceScope.launch { settingsRepository.setInputMode(next) }
+        serviceScope.launch { settingsRepository.setInputMode(mode) }
     }
 
     // ---- composing & suggestions ----
@@ -1051,8 +1058,33 @@ class WMKeyboardService : InputMethodService() {
         }
     }
 
-    @Suppress("DEPRECATION")
+    // A vibrate() call while the previous effect is still playing cancels it,
+    // so two presses landing within a few tens of ms (rollover typing, burst
+    // double-taps) collapse into what feels like a single buzz. Enforce a
+    // minimum spacing: the second buzz is deferred just enough to be felt as
+    // its own click. Bursts coalesce to at most one pending buzz.
+    private var lastVibrateAt = 0L
+    private var vibratePending = false
+
     private fun vibrate() {
+        val now = SystemClock.uptimeMillis()
+        val wait = MIN_HAPTIC_GAP_MS - (now - lastVibrateAt)
+        if (wait <= 0) {
+            lastVibrateAt = now
+            doVibrate()
+        } else if (!vibratePending) {
+            vibratePending = true
+            serviceScope.launch {
+                delay(wait)
+                vibratePending = false
+                lastVibrateAt = SystemClock.uptimeMillis()
+                doVibrate()
+            }
+        }
+    }
+
+    @Suppress("DEPRECATION")
+    private fun doVibrate() {
         val settings = _uiState.value.settings
         if (!settings.hapticFeedback) return
         val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -1061,7 +1093,24 @@ class WMKeyboardService : InputMethodService() {
         } else {
             getSystemService(Context.VIBRATOR_SERVICE) as android.os.Vibrator
         }
-        if (settings.hapticStyle != HapticStyle.CUSTOM &&
+        if (settings.hapticStyle == HapticStyle.SHARP &&
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.R &&
+            vibrator.areAllPrimitivesSupported(android.os.VibrationEffect.Composition.PRIMITIVE_CLICK)
+        ) {
+            // Composed primitive: the HAL overdrives the motor on attack and
+            // actively brakes it, so the click is both short (~20ms) and
+            // strong — the crisp thump stock keyboards have. A raw one-shot
+            // can't do this: it just drives the coil at constant amplitude,
+            // which feels mushy. Scale reuses the intensity slider (0..1).
+            vibrator.vibrate(
+                android.os.VibrationEffect.startComposition()
+                    .addPrimitive(
+                        android.os.VibrationEffect.Composition.PRIMITIVE_CLICK,
+                        (settings.hapticAmplitude.coerceIn(1, 255)) / 255f,
+                    )
+                    .compose()
+            )
+        } else if (settings.hapticStyle != HapticStyle.CUSTOM &&
             Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
         ) {
             // Hardware-tuned click effects — crisper than a raw one-shot and
@@ -1095,6 +1144,8 @@ class WMKeyboardService : InputMethodService() {
     }
 
     companion object {
+        /** Minimum spacing between haptic clicks so rapid presses stay distinct. */
+        private const val MIN_HAPTIC_GAP_MS = 45L
         private val SENTENCE_ENDERS = charArrayOf('.', '!', '?', '।')
         private const val SHIFT_DOUBLE_TAP_MS = 350L
 

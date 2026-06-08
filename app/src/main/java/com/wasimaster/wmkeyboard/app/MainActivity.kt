@@ -81,6 +81,7 @@ import com.wasimaster.wmkeyboard.core.settings.KeyboardAlignment
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.OneHandedMode
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
+import com.wasimaster.wmkeyboard.core.settings.SpaceSwipeAction
 import com.wasimaster.wmkeyboard.core.settings.ThemeMode
 import com.wasimaster.wmkeyboard.core.snippets.Snippet
 import com.wasimaster.wmkeyboard.core.snippets.SnippetStore
@@ -99,9 +100,14 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         repository = SettingsRepository(applicationContext)
         setContent {
-            val settings by repository.settings.collectAsStateWithLifecycle(KeyboardSettings())
-            AppTheme(settings) {
-                SettingsNavHost(repository, settings)
+            // Null until DataStore's first emission: rendering nothing for a
+            // frame beats flashing onboarding at users who finished it.
+            val settings by repository.settings
+                .collectAsStateWithLifecycle(null as KeyboardSettings?)
+            settings?.let { loaded ->
+                AppTheme(loaded) {
+                    SettingsNavHost(repository, loaded)
+                }
             }
         }
     }
@@ -135,14 +141,28 @@ private fun SettingsNavHost(repository: SettingsRepository, settings: KeyboardSe
     // Quick shared-axis slide instead of the sluggish default cross-fade.
     val spec = tween<androidx.compose.ui.unit.IntOffset>(220)
     val fadeSpec = tween<Float>(220)
+    // Frozen at first composition: completing onboarding navigates away
+    // explicitly, it must not yank the graph out from under the NavHost.
+    val startDestination = remember { if (settings.onboardingDone) "home" else "onboarding" }
     NavHost(
         navController = navController,
-        startDestination = "home",
+        startDestination = startDestination,
         enterTransition = { slideInHorizontally(spec) { it / 5 } + fadeIn(fadeSpec) },
         exitTransition = { slideOutHorizontally(spec) { -it / 5 } + fadeOut(fadeSpec) },
         popEnterTransition = { slideInHorizontally(spec) { -it / 5 } + fadeIn(fadeSpec) },
         popExitTransition = { slideOutHorizontally(spec) { it / 5 } + fadeOut(fadeSpec) },
     ) {
+        composable("onboarding") {
+            OnboardingScreen(
+                repository = repository,
+                settings = settings,
+                onFinished = {
+                    navController.navigate("home") {
+                        popUpTo("onboarding") { inclusive = true }
+                    }
+                },
+            )
+        }
         composable("home") {
             HomeScreen(
                 settings = settings,
@@ -222,7 +242,7 @@ private fun HomeScreen(settings: KeyboardSettings, onNavigate: (String) -> Unit)
 }
 
 @Composable
-private fun SetupCard(context: Context) {
+internal fun SetupCard(context: Context) {
     val imm = remember { context.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager }
     // The IME picker is a system dialog, so the activity never pauses or
     // resumes when the user switches keyboards — poll while visible to
@@ -413,6 +433,48 @@ private fun SliderSetting(
     }
 }
 
+/** One spacebar-swipe slot (quick or hold+swipe): nothing / language / cursor. */
+@Composable
+private fun SpaceSwipeSetting(
+    title: String,
+    subtitle: String,
+    info: String,
+    value: SpaceSwipeAction,
+    onChange: (SpaceSwipeAction) -> Unit,
+) {
+    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(title, style = MaterialTheme.typography.bodyLarge)
+            InfoButton(title, info)
+        }
+        Text(
+            subtitle,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        SingleChoiceSegmentedButtonRow(modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 8.dp)) {
+            SpaceSwipeAction.entries.forEachIndexed { index, action ->
+                SegmentedButton(
+                    selected = value == action,
+                    onClick = { onChange(action) },
+                    shape = SegmentedButtonDefaults.itemShape(index, SpaceSwipeAction.entries.size),
+                ) {
+                    Text(
+                        when (action) {
+                            SpaceSwipeAction.NONE -> "Nothing"
+                            SpaceSwipeAction.LANGUAGE -> "Language"
+                            SpaceSwipeAction.CURSOR -> "Cursor"
+                        },
+                        maxLines = 1,
+                    )
+                }
+            }
+        }
+    }
+}
+
 // ---- sections ----
 
 @Composable
@@ -453,12 +515,24 @@ private fun TypingSettings(repository: SettingsRepository, settings: KeyboardSet
             "committed when you lift. Alternate interpretations appear in the suggestion " +
             "bar, so a wrong guess is one tap away from fixed. English only for now.",
     ) { scope.launch { repository.setGestureTyping(it) } }
-    ToggleSetting(
-        "Spacebar cursor control", "Slide on the spacebar to move the cursor", settings.spacebarCursor,
-        info = "Press and drag horizontally on the spacebar to move the text cursor one " +
-            "character at a time — far more precise than tapping in the text. A tap " +
-            "without movement still types a space.",
-    ) { scope.launch { repository.setSpacebarCursor(it) } }
+    SpaceSwipeSetting(
+        title = "Quick swipe on spacebar",
+        subtitle = "A swipe that starts moving right away",
+        info = "Slide horizontally on the spacebar without pausing. \"Language\" cycles " +
+            "your enabled input modes with a live preview above the spacebar — release " +
+            "to switch. \"Cursor\" moves the text cursor one character per step. A tap " +
+            "without movement always types a space.",
+        value = settings.spaceShortSwipe,
+    ) { scope.launch { repository.setSpaceShortSwipe(it) } }
+    SpaceSwipeSetting(
+        title = "Hold + swipe on spacebar",
+        subtitle = "Hold the spacebar briefly, then swipe",
+        info = "Hold the spacebar past the long-press delay first, then slide. This " +
+            "gives the spacebar a second, independent swipe action — for example a " +
+            "quick swipe to switch language and a hold + swipe to move the cursor. " +
+            "Both may also be set to the same action.",
+        value = settings.spaceLongSwipe,
+    ) { scope.launch { repository.setSpaceLongSwipe(it) } }
 
     SectionHeader("Layout")
     ToggleSetting(
@@ -483,10 +557,13 @@ private fun TypingSettings(repository: SettingsRepository, settings: KeyboardSet
         InfoButton(
             "Haptic style",
             "Click and Heavy click use the device's hardware-tuned haptic effects " +
-                "(Android 10+) — the same crisp feedback stock keyboards use, and " +
-                "usually the strongest-feeling option. Custom drives the vibration " +
-                "motor directly using the duration and intensity sliders. On older " +
-                "devices Click and Heavy click fall back to Custom.",
+                "(Android 10+). Sharp plays the hardware click primitive (Android 11+) — " +
+                "a short, hard thump whose strength follows the intensity slider; " +
+                "this is how stock keyboards get a powerful buzz that stays crisp. " +
+                "Custom drives the vibration motor directly using the duration and " +
+                "intensity sliders — without the hardware's overdrive and braking it " +
+                "feels softer. On devices without these effects, styles fall back to " +
+                "Click, then Custom.",
         )
     }
     SingleChoiceSegmentedButtonRow(modifier = Modifier
@@ -502,7 +579,8 @@ private fun TypingSettings(repository: SettingsRepository, settings: KeyboardSet
                     when (style) {
                         HapticStyle.CUSTOM -> "Custom"
                         HapticStyle.CLICK -> "Click"
-                        HapticStyle.HEAVY_CLICK -> "Heavy click"
+                        HapticStyle.HEAVY_CLICK -> "Heavy"
+                        HapticStyle.SHARP -> "Sharp"
                     },
                     maxLines = 1,
                 )
@@ -519,16 +597,20 @@ private fun TypingSettings(repository: SettingsRepository, settings: KeyboardSet
             info = "Duration of the vibration pulse in milliseconds. Longer pulses feel " +
                 "stronger on most phones.",
         ) { scope.launch { repository.setHapticStrengthMs(it.toInt()) } }
+    }
+    if (settings.hapticStyle == HapticStyle.CUSTOM || settings.hapticStyle == HapticStyle.SHARP) {
         SliderSetting(
             "Haptic intensity",
             subtitle = "Vibration amplitude per key press",
             value = settings.hapticAmplitude.toFloat(),
             range = 1f..255f,
             display = "${settings.hapticAmplitude * 100 / 255}%",
-            info = "How hard the vibration motor is driven (1–255). Only takes effect on " +
-                "devices whose vibrator supports amplitude control; on others only the " +
-                "duration above matters. The system-wide \"Touch feedback\" vibration " +
-                "setting still scales the final strength on top of this.",
+            info = "How hard the vibration motor is driven (1–255). For Sharp this scales " +
+                "the hardware click primitive; the length stays fixed, only the punch " +
+                "changes. For Custom it only takes effect on devices whose vibrator " +
+                "supports amplitude control; on others only the duration above matters. " +
+                "The system-wide \"Touch feedback\" vibration setting still scales the " +
+                "final strength on top of this.",
         ) { scope.launch { repository.setHapticAmplitude(it.toInt()) } }
     }
     ToggleSetting(
@@ -781,6 +863,15 @@ private fun AppearanceSettings(
             "emoji tool from the toolbar since the key replaces it — drag it back " +
             "out of the toolbox if you want both.",
     ) { scope.launch { repository.setCommaAsEmoji(it) } }
+    ToggleSetting(
+        "Emoji key instead of 🌐",
+        "Replace the language key with an emoji key",
+        settings.globeAsEmoji,
+        info = "The bottom-row 🌐 key opens the emoji panel instead of switching " +
+            "language. Language switching stays available on the spacebar: set a " +
+            "swipe to \"Language\" under Typing → Gestures (a quick swipe does it " +
+            "by default). Turn this off to get the 🌐 key back.",
+    ) { scope.launch { repository.setGlobeAsEmoji(it) } }
 
     SectionHeader("Popups")
     ToggleSetting(

@@ -153,6 +153,7 @@ import com.wasimaster.wmkeyboard.core.settings.KeyboardAlignment
 import com.wasimaster.wmkeyboard.core.settings.isFixedBengali
 import com.wasimaster.wmkeyboard.core.transliteration.BengaliGraphemes
 import com.wasimaster.wmkeyboard.core.settings.OneHandedMode
+import com.wasimaster.wmkeyboard.core.settings.SpaceSwipeAction
 import com.wasimaster.wmkeyboard.core.settings.ThemeMode
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
 import com.wasimaster.wmkeyboard.core.snippets.Snippet
@@ -191,6 +192,7 @@ fun KeyboardScreen(
     onGesture: (List<GesturePoint>, List<KeyCenter>, Float) -> Unit = { _, _, _ -> },
     onGesturePreview: (List<GesturePoint>, List<KeyCenter>, Float) -> Unit = { _, _, _ -> },
     onCursorMove: (Int) -> Unit = {},
+    onLanguageSelect: (InputMode) -> Unit = {},
     onSuggestion: (String) -> Unit,
     onEmoji: (String) -> Unit,
     onEmojiQueryTap: () -> Unit,
@@ -238,6 +240,7 @@ fun KeyboardScreen(
                 onGesture = onGesture,
                 onGesturePreview = onGesturePreview,
                 onCursorMove = onCursorMove,
+                onLanguageSelect = onLanguageSelect,
                 onSuggestion = onSuggestion,
                 onEmoji = onEmoji,
                 onEmojiQueryTap = onEmojiQueryTap,
@@ -883,6 +886,7 @@ private fun KeyboardBody(
     onGesture: (List<GesturePoint>, List<KeyCenter>, Float) -> Unit,
     onGesturePreview: (List<GesturePoint>, List<KeyCenter>, Float) -> Unit,
     onCursorMove: (Int) -> Unit,
+    onLanguageSelect: (InputMode) -> Unit,
     onSuggestion: (String) -> Unit,
     onEmoji: (String) -> Unit,
     onEmojiQueryTap: () -> Unit,
@@ -914,11 +918,11 @@ private fun KeyboardBody(
                 PanelMode.SNIPPETS -> SnippetsPanel(state, onSnippet)
                 PanelMode.TEXT_EDIT -> TextEditPanel(state, onTextEdit)
                 PanelMode.TOOLBOX -> ToolboxPanel(state, onToolTap, drag)
-                PanelMode.NONE -> KeyRows(state, onKey, onText, onGesture, onGesturePreview, onCursorMove)
+                PanelMode.NONE -> KeyRows(state, onKey, onText, onGesture, onGesturePreview, onCursorMove, onLanguageSelect)
             }
             // In emoji search mode the letters stay visible for typing the query.
             if (state.panel == PanelMode.EMOJI && state.emojiSearchActive) {
-                KeyRows(state, onKey, onText, onGesture, onGesturePreview, onCursorMove)
+                KeyRows(state, onKey, onText, onGesture, onGesturePreview, onCursorMove, onLanguageSelect)
             }
         }
         drag.dragging?.let { tool ->
@@ -952,6 +956,7 @@ private fun KeyRows(
     onGesture: (List<GesturePoint>, List<KeyCenter>, Float) -> Unit = { _, _, _ -> },
     onGesturePreview: (List<GesturePoint>, List<KeyCenter>, Float) -> Unit = { _, _, _ -> },
     onCursorMove: (Int) -> Unit = {},
+    onLanguageSelect: (InputMode) -> Unit = {},
 ) {
     val layout = currentLayout(state)
     val gestureEnabled = state.settings.gestureTyping &&
@@ -1051,6 +1056,7 @@ private fun KeyRows(
                     onKey = onKey,
                     onText = onText,
                     onCursorMove = onCursorMove,
+                    onLanguageSelect = onLanguageSelect,
                     onLetterPositioned = onLetterPositioned,
                 )
             }
@@ -1065,6 +1071,7 @@ private fun KeyRows(
                     onKey = onKey,
                     onText = onText,
                     onCursorMove = onCursorMove,
+                    onLanguageSelect = onLanguageSelect,
                     onLetterPositioned = onLetterPositioned,
                 )
             }
@@ -1101,6 +1108,7 @@ private fun KeyRow(
     onKey: (Key) -> Unit,
     onText: (String) -> Unit,
     onCursorMove: (Int) -> Unit,
+    onLanguageSelect: (InputMode) -> Unit,
     onLetterPositioned: (Char, LayoutCoordinates) -> Unit,
 ) {
     val sidePad = (gridWeight - keys.map { it.width }.sum()) / 2f
@@ -1109,15 +1117,15 @@ private fun KeyRow(
         if (split) {
             val (left, right) = remember(keys) { splitKeys(keys) }
             for (key in left) {
-                KeyCell(key, keyHeightDp, state, onKey, onText, onCursorMove, onLetterPositioned)
+                KeyCell(key, keyHeightDp, state, onKey, onText, onCursorMove, onLanguageSelect, onLetterPositioned)
             }
             Spacer(modifier = Modifier.weight(gridWeight * splitGapPercent / 100f))
             for (key in right) {
-                KeyCell(key, keyHeightDp, state, onKey, onText, onCursorMove, onLetterPositioned)
+                KeyCell(key, keyHeightDp, state, onKey, onText, onCursorMove, onLanguageSelect, onLetterPositioned)
             }
         } else {
             for (key in keys) {
-                KeyCell(key, keyHeightDp, state, onKey, onText, onCursorMove, onLetterPositioned)
+                KeyCell(key, keyHeightDp, state, onKey, onText, onCursorMove, onLanguageSelect, onLetterPositioned)
             }
         }
         if (sidePad > 0.01f) Spacer(modifier = Modifier.weight(sidePad))
@@ -1132,6 +1140,7 @@ private fun RowScope.KeyCell(
     onKey: (Key) -> Unit,
     onText: (String) -> Unit,
     onCursorMove: (Int) -> Unit,
+    onLanguageSelect: (InputMode) -> Unit,
     onLetterPositioned: (Char, LayoutCoordinates) -> Unit,
 ) {
     val letter = key.label.singleOrNull()?.takeIf {
@@ -1151,6 +1160,7 @@ private fun RowScope.KeyCell(
         onKey = onKey,
         onText = onText,
         onCursorMove = onCursorMove,
+        onLanguageSelect = onLanguageSelect,
     )
 }
 
@@ -1197,15 +1207,20 @@ private fun currentLayout(state: KeyboardUiState): KeyboardLayout {
     }
     // Optional Gboard-style emoji key: the letter layouts' comma key becomes
     // an emoji-panel key, with comma demoted to its long-press alternates.
-    if (!state.settings.commaAsEmoji || state.layoutMode != LayoutMode.LETTERS) return base
+    val commaAsEmoji = state.settings.commaAsEmoji && state.layoutMode == LayoutMode.LETTERS
+    // 🌐 → emoji key: language switching lives on spacebar swipes instead.
+    val globeAsEmoji = state.settings.globeAsEmoji
+    if (!commaAsEmoji && !globeAsEmoji) return base
     return KeyboardLayout(
         base.name,
         base.rows.map { row ->
             row.map { key ->
-                if (key.action == KeyAction.Text && key.label == ",") {
-                    Key(",", action = KeyAction.Emoji, longPress = listOf(",") + key.longPress)
-                } else {
-                    key
+                when {
+                    commaAsEmoji && key.action == KeyAction.Text && key.label == "," ->
+                        Key(",", action = KeyAction.Emoji, longPress = listOf(",") + key.longPress)
+                    globeAsEmoji && key.action == KeyAction.LanguageSwitch ->
+                        key.copy(action = KeyAction.Emoji)
+                    else -> key
                 }
             }
         },
@@ -1270,10 +1285,14 @@ private fun KeyButton(
     onKey: (Key) -> Unit,
     onText: (String) -> Unit,
     onCursorMove: (Int) -> Unit = {},
+    onLanguageSelect: (InputMode) -> Unit = {},
     heightDp: Int? = null,
 ) {
     var pressed by remember { mutableStateOf(false) }
     var showAlternates by remember { mutableStateOf(false) }
+    // Language the spacebar swipe currently has selected, shown in a tooltip
+    // popup above the spacebar while the finger is still down.
+    var languagePreview by remember { mutableStateOf<InputMode?>(null) }
     val scope = rememberCoroutineScope()
     val settings = state.settings
     val onKeyPress = LocalKeyPressFeedback.current
@@ -1320,7 +1339,10 @@ private fun KeyButton(
         modifier = modifier
             .height((heightDp ?: settings.keyHeightDp).dp + KeyGapVertical * 2)
             .pointerInputKey(key, settings.longPressDelayMs, settings.keyRepeatIntervalMs,
-                spacebarCursor = settings.spacebarCursor,
+                spaceShortSwipe = settings.spaceShortSwipe,
+                spaceLongSwipe = settings.spaceLongSwipe,
+                enabledModes = settings.enabledModes.ifEmpty { listOf(InputMode.ENGLISH) },
+                currentMode = state.inputMode,
                 setPressed = { pressed = it },
                 onKeyPress = onKeyPress,
                 hapticOnLongPress = settings.hapticOnLongPress,
@@ -1328,6 +1350,8 @@ private fun KeyButton(
                 openAlternates = { showAlternates = true },
                 onKey = onKey,
                 onCursorMove = onCursorMove,
+                onLanguageSelect = onLanguageSelect,
+                setLanguagePreview = { languagePreview = it },
                 scope = scope)
             .padding(horizontal = KeyGapHorizontal, vertical = KeyGapVertical)
             .background(background, keyShape)
@@ -1408,7 +1432,52 @@ private fun KeyButton(
                 }
             }
         }
+
+        // Tooltip above the spacebar while a swipe is cycling languages:
+        // every enabled mode in a row, the live selection highlighted.
+        languagePreview?.let { previewMode ->
+            val enabledModes = settings.enabledModes.ifEmpty { listOf(InputMode.ENGLISH) }
+            Popup(
+                popupPositionProvider = popupPosition,
+                properties = PreviewPopupProperties,
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(kb.popupRadiusDp.dp),
+                    color = kb.popup,
+                    shadowElevation = 8.dp,
+                ) {
+                    Row(
+                        modifier = Modifier.padding(6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        for (mode in enabledModes) {
+                            val selected = mode == previewMode
+                            Text(
+                                text = languageDisplayName(mode),
+                                modifier = Modifier
+                                    .padding(horizontal = 2.dp)
+                                    .background(
+                                        if (selected) kb.pressedKey else Color.Transparent,
+                                        RoundedCornerShape(kb.popupRadiusDp.dp),
+                                    )
+                                    .padding(horizontal = 10.dp, vertical = 8.dp),
+                                fontSize = (14 * settings.popupFontScale).sp,
+                                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                                color = if (selected) kb.popupText else kb.popupText.copy(alpha = 0.45f),
+                            )
+                        }
+                    }
+                }
+            }
+        }
     }
+}
+
+private fun languageDisplayName(mode: InputMode): String = when (mode) {
+    InputMode.ENGLISH -> "English"
+    InputMode.AVRO -> "বাংলা · Avro"
+    InputMode.PROBHAT -> "প্রভাত"
+    InputMode.JATIYA -> "জাতীয়"
 }
 
 @Composable
@@ -1526,15 +1595,22 @@ private val PreviewPopupProperties = PopupProperties(
 
 /**
  * Press handling: tap commits, long-press opens alternates (or begins
- * repeating for delete), release cancels. The spacebar instead supports a
- * horizontal drag that moves the text cursor. Implemented with raw press
+ * repeating for delete), release cancels. The spacebar instead supports
+ * horizontal swipes: a swipe that starts moving right away performs
+ * [spaceShortSwipe], one that begins after holding the spacebar past the
+ * long-press delay performs [spaceLongSwipe] — cursor movement steps the
+ * text cursor, language switching cycles the enabled input modes with a
+ * live tooltip preview and commits on release. Implemented with raw press
  * detection so repeat, popup and drag can share the gesture.
  */
 private fun Modifier.pointerInputKey(
     key: Key,
     longPressDelayMs: Int,
     repeatIntervalMs: Int,
-    spacebarCursor: Boolean,
+    spaceShortSwipe: SpaceSwipeAction,
+    spaceLongSwipe: SpaceSwipeAction,
+    enabledModes: List<InputMode>,
+    currentMode: InputMode,
     setPressed: (Boolean) -> Unit,
     onKeyPress: () -> Unit,
     hapticOnLongPress: Boolean,
@@ -1542,38 +1618,99 @@ private fun Modifier.pointerInputKey(
     openAlternates: () -> Unit,
     onKey: (Key) -> Unit,
     onCursorMove: (Int) -> Unit,
+    onLanguageSelect: (InputMode) -> Unit,
+    setLanguagePreview: (InputMode?) -> Unit,
     scope: kotlinx.coroutines.CoroutineScope,
 ): Modifier = this.then(
-    if (key.action == KeyAction.Space && spacebarCursor) {
-        Modifier.pointerInput(key, spacebarCursor) {
-            val stepPx = 16.dp.toPx()
+    if (key.action == KeyAction.Space &&
+        (spaceShortSwipe != SpaceSwipeAction.NONE || spaceLongSwipe != SpaceSwipeAction.NONE)
+    ) {
+        Modifier.pointerInput(
+            key, spaceShortSwipe, spaceLongSwipe, enabledModes, currentMode, longPressDelayMs,
+        ) {
+            val slopPx = 12.dp.toPx()
+            val cursorStepPx = 16.dp.toPx()
+            val langStepPx = 44.dp.toPx()
             awaitEachGesture {
                 val down = awaitFirstDown()
                 setPressed(true)
                 onKeyPress()
-                var moved = false
+                // Resolved on the first movement past the slop; null until
+                // then (and forever for a plain tap).
+                var action: SpaceSwipeAction? = null
                 var accumulated = 0f
                 var lastX = down.position.x
+                var langIndex = enabledModes.indexOf(currentMode).coerceAtLeast(0)
                 while (true) {
                     val event = awaitPointerEvent()
                     val change = event.changes.firstOrNull { it.id == down.id } ?: break
                     if (!change.pressed) break
+                    if (action == null) {
+                        val totalDx = change.position.x - down.position.x
+                        if (abs(totalDx) > slopPx) {
+                            // Short vs long is decided by hold time, not travel
+                            // distance — a fast flick covers more ground than a
+                            // careful drag, so distance can't tell them apart.
+                            val elapsed = change.uptimeMillis - down.uptimeMillis
+                            action = if (elapsed < longPressDelayMs) spaceShortSwipe else spaceLongSwipe
+                            lastX = change.position.x
+                            accumulated = 0f
+                            if (action == SpaceSwipeAction.LANGUAGE) {
+                                // The movement that crossed the slop already
+                                // counts: a quick flick switches one language.
+                                langIndex = (langIndex + if (totalDx > 0) 1 else -1)
+                                    .mod(enabledModes.size)
+                                setLanguagePreview(enabledModes[langIndex])
+                                onKeyPress()
+                            }
+                            change.consume()
+                        }
+                        continue
+                    }
                     accumulated += change.position.x - lastX
                     lastX = change.position.x
-                    while (accumulated > stepPx) {
-                        onCursorMove(1)
-                        accumulated -= stepPx
-                        moved = true
+                    when (action) {
+                        SpaceSwipeAction.CURSOR -> {
+                            var moved = false
+                            while (accumulated > cursorStepPx) {
+                                onCursorMove(1); accumulated -= cursorStepPx; moved = true
+                            }
+                            while (accumulated < -cursorStepPx) {
+                                onCursorMove(-1); accumulated += cursorStepPx; moved = true
+                            }
+                            if (moved) change.consume()
+                        }
+                        SpaceSwipeAction.LANGUAGE -> {
+                            var stepped = false
+                            while (accumulated > langStepPx) {
+                                langIndex = (langIndex + 1).mod(enabledModes.size)
+                                accumulated -= langStepPx; stepped = true
+                            }
+                            while (accumulated < -langStepPx) {
+                                langIndex = (langIndex - 1).mod(enabledModes.size)
+                                accumulated += langStepPx; stepped = true
+                            }
+                            if (stepped) {
+                                setLanguagePreview(enabledModes[langIndex])
+                                onKeyPress()
+                                change.consume()
+                            }
+                        }
+                        // NONE: the swipe is deliberately inert — swallow it
+                        // so release does not type a space.
+                        else -> change.consume()
                     }
-                    while (accumulated < -stepPx) {
-                        onCursorMove(-1)
-                        accumulated += stepPx
-                        moved = true
-                    }
-                    if (moved) change.consume()
                 }
                 setPressed(false)
-                if (!moved) onKey(key)
+                setLanguagePreview(null)
+                when (action) {
+                    null -> onKey(key)
+                    SpaceSwipeAction.LANGUAGE -> {
+                        val selected = enabledModes[langIndex]
+                        if (selected != currentMode) onLanguageSelect(selected)
+                    }
+                    else -> {}
+                }
             }
         }
     } else {
@@ -1581,7 +1718,7 @@ private fun Modifier.pointerInputKey(
         // restarts when its keys change, so leaving them out would keep a
         // stale closure alive (e.g. release haptics still firing after the
         // toggle was turned off).
-        Modifier.pointerInput(key, spacebarCursor, longPressDelayMs, repeatIntervalMs,
+        Modifier.pointerInput(key, spaceShortSwipe, spaceLongSwipe, longPressDelayMs, repeatIntervalMs,
             hapticOnLongPress, hapticOnLongPressRelease) {
             // Raw per-pointer tracking rather than detectTapGestures, which
             // handles one gesture at a time per key: a second finger landing
