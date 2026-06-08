@@ -78,11 +78,7 @@ import androidx.compose.material.icons.outlined.EmojiFlags
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRowDefaults
-import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.VerticalDivider
@@ -1687,6 +1683,45 @@ private fun emojiTabIcon(tab: String): ImageVector = when (tab) {
     else -> Icons.Outlined.EmojiEmotions
 }
 
+/**
+ * One compact emoji tab: a 20dp icon over a 2dp selection bar, in a plain
+ * weighted cell so search + every category share the row evenly.
+ */
+@Composable
+private fun RowScope.EmojiTab(
+    icon: ImageVector,
+    description: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .weight(1f)
+            .height(32.dp)
+            .clickable(onClick = onClick),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+            Icon(
+                icon,
+                contentDescription = description,
+                modifier = Modifier.size(20.dp),
+                tint = if (selected) MaterialTheme.colorScheme.onSurface
+                else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+            )
+        }
+        Box(
+            modifier = Modifier
+                .fillMaxWidth(0.6f)
+                .height(2.dp)
+                .background(
+                    if (selected) MaterialTheme.colorScheme.onSurface else Color.Transparent,
+                    RoundedCornerShape(1.dp),
+                ),
+        )
+    }
+}
+
 @Composable
 private fun EmojiPanel(
     state: KeyboardUiState,
@@ -1700,15 +1735,14 @@ private fun EmojiPanel(
             .fillMaxWidth()
             .height(height),
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
+        // The search field only shows while a search is underway; idle, the
+        // entry point is the first icon of the tab strip below, so the panel
+        // doesn't spend a whole bar of vertical space on it.
+        if (state.emojiSearchActive || state.emojiQuery.isNotEmpty()) {
             Row(
                 modifier = Modifier
-                    .weight(1f)
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp, vertical = 4.dp)
                     .background(MaterialTheme.colorScheme.surfaceContainer, RoundedCornerShape(20.dp))
                     .clickable { onEmojiQueryTap() }
                     .padding(horizontal = 12.dp, vertical = 8.dp),
@@ -1722,9 +1756,7 @@ private fun EmojiPanel(
                 )
                 Box(modifier = Modifier.width(8.dp))
                 Text(
-                    text = state.emojiQuery.ifEmpty {
-                        if (state.emojiSearchActive) "Type to search…" else "Search emoji (happy, বিড়াল, fire…)"
-                    },
+                    text = state.emojiQuery.ifEmpty { "Type to search…" },
                     color = if (state.emojiQuery.isEmpty()) {
                         MaterialTheme.colorScheme.onSurfaceVariant
                     } else {
@@ -1764,35 +1796,29 @@ private fun EmojiPanel(
         var selectedTab by remember { mutableStateOf(tabs.firstOrNull().orEmpty()) }
         if (selectedTab !in tabs) selectedTab = tabs.firstOrNull().orEmpty()
 
-        if (tabs.isNotEmpty()) {
-            val selectedIndex = tabs.indexOf(selectedTab).coerceAtLeast(0)
-            ScrollableTabRow(
-                selectedTabIndex = selectedIndex,
-                edgePadding = 4.dp,
-                containerColor = Color.Transparent,
-                indicator = { tabPositions ->
-                    if (selectedIndex < tabPositions.size) {
-                        TabRowDefaults.SecondaryIndicator(
-                            modifier = Modifier.tabIndicatorOffset(tabPositions[selectedIndex]),
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
-                    }
-                },
+        // Compact icon strip: search plus every category, split evenly across
+        // the width so everything fits with no scrolling — Material's Tab has
+        // a 90dp min width that forced a ScrollableTabRow here before.
+        if (!state.emojiSearchActive && tabs.isNotEmpty()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 2.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
+                EmojiTab(
+                    icon = Icons.Outlined.Search,
+                    description = "Search emoji",
+                    selected = false,
+                    onClick = onEmojiQueryTap,
+                )
                 for (tab in tabs) {
-                    Tab(
+                    EmojiTab(
+                        icon = emojiTabIcon(tab),
+                        description = if (tab == RECENT_TAB) "Recent"
+                        else tab.replaceFirstChar { it.uppercase() },
                         selected = tab == selectedTab,
                         onClick = { selectedTab = tab },
-                        selectedContentColor = MaterialTheme.colorScheme.onSurface,
-                        unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                        icon = {
-                            Icon(
-                                emojiTabIcon(tab),
-                                contentDescription = if (tab == RECENT_TAB) "Recent"
-                                else tab.replaceFirstChar { it.uppercase() },
-                                modifier = Modifier.size(20.dp),
-                            )
-                        },
                     )
                 }
             }
