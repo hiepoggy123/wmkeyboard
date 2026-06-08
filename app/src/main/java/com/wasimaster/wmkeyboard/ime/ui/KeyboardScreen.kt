@@ -135,6 +135,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
@@ -150,6 +151,7 @@ import com.wasimaster.wmkeyboard.core.gesture.GesturePoint
 import com.wasimaster.wmkeyboard.core.gesture.KeyCenter
 import com.wasimaster.wmkeyboard.core.settings.InputMode
 import com.wasimaster.wmkeyboard.core.settings.KeyboardAlignment
+import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.isFixedBengali
 import com.wasimaster.wmkeyboard.core.transliteration.BengaliGraphemes
 import com.wasimaster.wmkeyboard.core.settings.OneHandedMode
@@ -819,7 +821,7 @@ private fun ToolboxPanel(
     onToolTap: (ToolbarTool) -> Unit,
     drag: ToolDragController,
 ) {
-    val height = (state.settings.keyHeightDp * 4 + 40).dp
+    val height = keyRowsHeight(state.settings)
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -1028,7 +1030,7 @@ private fun KeyRows(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 1.5.dp, vertical = 2.dp),
+                .padding(horizontal = 1.5.dp, vertical = KeyRowsPadVertical),
         ) {
             val onLetterPositioned: (Char, LayoutCoordinates) -> Unit = { letter, coords ->
                 val topLeft = coords.positionInRoot() - boxOrigin
@@ -1044,7 +1046,9 @@ private fun KeyRows(
             val gridWeight = layout.rows.first().map { it.width }.sum()
             val split = state.settings.splitKeyboard
             val splitGapPercent = state.settings.splitGapPercent
-            if (state.settings.numberRow && state.layoutMode == LayoutMode.LETTERS) {
+            // The number row stays on every layer (letters and symbols alike),
+            // matching Gboard, so switching layers never changes the height.
+            if (state.settings.numberRow) {
                 val digits = remember { "1234567890".map { Key(it.toString()) } }
                 KeyRow(
                     keys = digits,
@@ -1276,6 +1280,23 @@ private object OnKeyPopupPositionProvider : PopupPositionProvider {
 /** Visual gap between keys, provided as padding inside each touch cell. */
 private val KeyGapHorizontal = 2.5.dp
 private val KeyGapVertical = 4.dp
+
+/** Vertical padding of the [KeyRows] column, mirrored into [keyRowsHeight]. */
+private val KeyRowsPadVertical = 2.dp
+
+/**
+ * Exact height of [KeyRows]: four key rows (each key height plus its
+ * vertical gaps), the optional number row, and the column padding. Every
+ * panel sizes itself with this so opening a tool or switching layers never
+ * changes the keyboard's height under the user's fingers.
+ */
+internal fun keyRowsHeight(settings: KeyboardSettings): Dp {
+    var height = (settings.keyHeightDp.dp + KeyGapVertical * 2) * 4 + KeyRowsPadVertical * 2
+    if (settings.numberRow) {
+        height += settings.numberRowHeightDp.dp + KeyGapVertical * 2
+    }
+    return height
+}
 
 @Composable
 private fun KeyButton(
@@ -1866,7 +1887,7 @@ private fun EmojiPanel(
     onEmojiQueryTap: () -> Unit,
     onClearRecents: () -> Unit,
 ) {
-    val height = if (state.emojiSearchActive) 120.dp else (state.settings.keyHeightDp * 4 + 40).dp
+    val height = if (state.emojiSearchActive) 120.dp else keyRowsHeight(state.settings)
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -2062,7 +2083,7 @@ private fun EmojiCell(emoji: String, onEmoji: (String) -> Unit) {
 
 @Composable
 private fun SnippetsPanel(state: KeyboardUiState, onSnippet: (Snippet) -> Unit) {
-    val height = (state.settings.keyHeightDp * 4 + 40).dp
+    val height = keyRowsHeight(state.settings)
     if (state.snippets.isEmpty()) {
         Box(
             modifier = Modifier
@@ -2122,7 +2143,7 @@ private fun ClipboardPanel(
     onClipboardPin: (ClipItem) -> Unit,
     onClipboardDelete: (ClipItem) -> Unit,
 ) {
-    val height = (state.settings.keyHeightDp * 4 + 40).dp
+    val height = keyRowsHeight(state.settings)
     if (state.clipboardItems.isEmpty()) {
         Box(
             modifier = Modifier
