@@ -1671,6 +1671,9 @@ private fun Modifier.pointerInputKey(
             val slopPx = 12.dp.toPx()
             val cursorStepPx = 16.dp.toPx()
             val langStepPx = 44.dp.toPx()
+            // Extra travel demanded before the language list wraps around at
+            // either end — the boundary acts like a detent, not a wall.
+            val langWrapPx = langStepPx * 2.5f
             awaitEachGesture {
                 val down = awaitFirstDown()
                 setPressed(true)
@@ -1698,10 +1701,16 @@ private fun Modifier.pointerInputKey(
                             if (action == SpaceSwipeAction.LANGUAGE) {
                                 // The movement that crossed the slop already
                                 // counts: a quick flick switches one language.
-                                langIndex = (langIndex + if (totalDx > 0) 1 else -1)
-                                    .mod(enabledModes.size)
+                                // At a list end the flick parks on the boundary
+                                // — wrapping needs a continued drag past the
+                                // langWrapPx detent below.
+                                val flicked = (langIndex + if (totalDx > 0) 1 else -1)
+                                    .coerceIn(0, enabledModes.size - 1)
+                                if (flicked != langIndex) {
+                                    langIndex = flicked
+                                    onKeyPress()
+                                }
                                 setLanguagePreview(enabledModes[langIndex])
-                                onKeyPress()
                             }
                             change.consume()
                         }
@@ -1721,20 +1730,36 @@ private fun Modifier.pointerInputKey(
                             if (moved) change.consume()
                         }
                         SpaceSwipeAction.LANGUAGE -> {
+                            // The list ends put up resistance instead of
+                            // wrapping immediately: a wrap costs langWrapPx of
+                            // travel (vs langStepPx per normal step), so the
+                            // selection parks on the boundary language first
+                            // and only cycles around on a deliberate pull.
+                            val last = enabledModes.size - 1
                             var stepped = false
-                            while (accumulated > langStepPx) {
-                                langIndex = (langIndex + 1).mod(enabledModes.size)
-                                accumulated -= langStepPx; stepped = true
-                            }
-                            while (accumulated < -langStepPx) {
-                                langIndex = (langIndex - 1).mod(enabledModes.size)
-                                accumulated += langStepPx; stepped = true
+                            while (true) {
+                                if (accumulated > langStepPx && langIndex < last) {
+                                    langIndex++
+                                    accumulated -= langStepPx
+                                } else if (accumulated > langWrapPx && langIndex == last && last > 0) {
+                                    langIndex = 0
+                                    accumulated -= langWrapPx
+                                } else if (accumulated < -langStepPx && langIndex > 0) {
+                                    langIndex--
+                                    accumulated += langStepPx
+                                } else if (accumulated < -langWrapPx && langIndex == 0 && last > 0) {
+                                    langIndex = last
+                                    accumulated += langWrapPx
+                                } else {
+                                    break
+                                }
+                                stepped = true
                             }
                             if (stepped) {
                                 setLanguagePreview(enabledModes[langIndex])
                                 onKeyPress()
-                                change.consume()
                             }
+                            change.consume()
                         }
                         // NONE: the swipe is deliberately inert — swallow it
                         // so release does not type a space.
