@@ -223,6 +223,7 @@ class WMKeyboardService : InputMethodService() {
                 onEmoji = ::onEmojiTapped,
                 onEmojiQueryTap = ::onEmojiSearchToggled,
                 onEmojiRecentsClear = ::onEmojiRecentsClear,
+                onTextEdit = ::onTextEdit,
                 onPanelChange = ::onPanelChange,
                 onClipboardItem = ::onClipboardItemTapped,
                 onClipboardPin = ::onClipboardPin,
@@ -775,6 +776,7 @@ class WMKeyboardService : InputMethodService() {
             val closing = it.panel == panel
             it.copy(
                 panel = if (closing) PanelMode.NONE else panel,
+                textEditSelecting = false,
                 emojiSearchActive = false,
                 emojiQuery = "",
                 emojiResults = emptyList(),
@@ -783,6 +785,52 @@ class WMKeyboardService : InputMethodService() {
                 snippets = snippetStore.items(),
             )
         }
+    }
+
+    /**
+     * Text-editing panel buttons. Cursor moves go through the editor as key
+     * events so apps handle them natively; while selection mode is on (or
+     * right after Select all) the moves carry shift and extend the selection.
+     */
+    fun onTextEdit(action: TextEditAction) {
+        val ic = currentInputConnection ?: return
+        vibrate()
+        commitComposing(ic, autocorrect = false)
+        lastGestureWord = null
+        val selecting = _uiState.value.textEditSelecting
+        when (action) {
+            TextEditAction.LEFT -> sendEditorKey(KeyEvent.KEYCODE_DPAD_LEFT, selecting)
+            TextEditAction.RIGHT -> sendEditorKey(KeyEvent.KEYCODE_DPAD_RIGHT, selecting)
+            TextEditAction.UP -> sendEditorKey(KeyEvent.KEYCODE_DPAD_UP, selecting)
+            TextEditAction.DOWN -> sendEditorKey(KeyEvent.KEYCODE_DPAD_DOWN, selecting)
+            TextEditAction.HOME -> sendEditorKey(KeyEvent.KEYCODE_MOVE_HOME, selecting)
+            TextEditAction.END -> sendEditorKey(KeyEvent.KEYCODE_MOVE_END, selecting)
+            TextEditAction.SELECT ->
+                _uiState.update { it.copy(textEditSelecting = !selecting) }
+            TextEditAction.SELECT_ALL -> {
+                ic.performContextMenuAction(android.R.id.selectAll)
+                _uiState.update { it.copy(textEditSelecting = true) }
+            }
+            TextEditAction.COPY -> {
+                ic.performContextMenuAction(android.R.id.copy)
+                _uiState.update { it.copy(textEditSelecting = false) }
+            }
+            TextEditAction.PASTE -> ic.performContextMenuAction(android.R.id.paste)
+            TextEditAction.BACKSPACE -> sendDownUpKeyEvents(KeyEvent.KEYCODE_DEL)
+        }
+    }
+
+    /** DPAD/home/end navigation; with [shift] the move extends the selection. */
+    private fun sendEditorKey(code: Int, shift: Boolean) {
+        if (!shift) {
+            sendDownUpKeyEvents(code)
+            return
+        }
+        val ic = currentInputConnection ?: return
+        val time = android.os.SystemClock.uptimeMillis()
+        val meta = KeyEvent.META_SHIFT_ON or KeyEvent.META_SHIFT_LEFT_ON
+        ic.sendKeyEvent(KeyEvent(time, time, KeyEvent.ACTION_DOWN, code, 0, meta))
+        ic.sendKeyEvent(KeyEvent(time, time, KeyEvent.ACTION_UP, code, 0, meta))
     }
 
     fun onSnippetTapped(snippet: Snippet) {

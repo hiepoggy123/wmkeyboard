@@ -38,7 +38,7 @@ enum class KeyboardAlignment { LEFT, CENTER, RIGHT }
  * [KeyboardSettings.toolbarTools] wait in the toolbox panel; the user drags
  * them between the two while the toolbox is open (Gboard style).
  */
-enum class ToolbarTool { EMOJI, CLIPBOARD, SNIPPETS, ONE_HANDED, SPLIT, FLOATING, SETTINGS }
+enum class ToolbarTool { EMOJI, CLIPBOARD, SNIPPETS, TEXT_EDIT, ONE_HANDED, SPLIT, FLOATING, SETTINGS }
 
 /**
  * Key-press haptic waveform: [CUSTOM] drives the motor directly with the

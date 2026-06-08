@@ -53,6 +53,7 @@ import androidx.compose.material.icons.outlined.ContentPaste
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.DeleteSweep
 import androidx.compose.material.icons.outlined.DirectionsCar
+import androidx.compose.material.icons.outlined.EditNote
 import androidx.compose.material.icons.outlined.EmojiEmotions
 import androidx.compose.material.icons.outlined.EmojiNature
 import androidx.compose.material.icons.outlined.EmojiObjects
@@ -163,6 +164,7 @@ import com.wasimaster.wmkeyboard.ime.EnterAction
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
 import com.wasimaster.wmkeyboard.ime.LayoutMode
 import com.wasimaster.wmkeyboard.ime.PanelMode
+import com.wasimaster.wmkeyboard.ime.TextEditAction
 import com.wasimaster.wmkeyboard.ime.ShiftState
 import com.wasimaster.wmkeyboard.ime.layout.Key
 import com.wasimaster.wmkeyboard.ime.layout.KeyAction
@@ -197,6 +199,7 @@ fun KeyboardScreen(
     onEmoji: (String) -> Unit,
     onEmojiQueryTap: () -> Unit,
     onEmojiRecentsClear: () -> Unit = {},
+    onTextEdit: (TextEditAction) -> Unit = {},
     onPanelChange: (PanelMode) -> Unit,
     onClipboardItem: (ClipItem) -> Unit,
     onClipboardPin: (ClipItem) -> Unit,
@@ -219,6 +222,7 @@ fun KeyboardScreen(
             ToolbarTool.EMOJI -> onPanelChange(PanelMode.EMOJI)
             ToolbarTool.CLIPBOARD -> onPanelChange(PanelMode.CLIPBOARD)
             ToolbarTool.SNIPPETS -> onPanelChange(PanelMode.SNIPPETS)
+            ToolbarTool.TEXT_EDIT -> onPanelChange(PanelMode.TEXT_EDIT)
             ToolbarTool.SETTINGS -> onOpenSettings()
             ToolbarTool.ONE_HANDED -> onOneHanded(
                 if (state.settings.oneHandedMode == OneHandedMode.OFF) OneHandedMode.RIGHT
@@ -242,6 +246,7 @@ fun KeyboardScreen(
                 onEmoji = onEmoji,
                 onEmojiQueryTap = onEmojiQueryTap,
                 onEmojiRecentsClear = onEmojiRecentsClear,
+                onTextEdit = onTextEdit,
                 onPanelChange = onPanelChange,
                 onClipboardItem = onClipboardItem,
                 onClipboardPin = onClipboardPin,
@@ -605,6 +610,7 @@ private fun toolIcon(tool: ToolbarTool): ImageVector = when (tool) {
     ToolbarTool.EMOJI -> Icons.Outlined.EmojiEmotions
     ToolbarTool.CLIPBOARD -> Icons.Outlined.ContentPaste
     ToolbarTool.SNIPPETS -> Icons.Outlined.TextSnippet
+    ToolbarTool.TEXT_EDIT -> Icons.Outlined.EditNote
     ToolbarTool.ONE_HANDED -> Icons.Outlined.Smartphone
     ToolbarTool.SPLIT -> Icons.Outlined.VerticalSplit
     ToolbarTool.FLOATING -> Icons.Outlined.PictureInPictureAlt
@@ -615,6 +621,7 @@ private fun toolLabel(tool: ToolbarTool): String = when (tool) {
     ToolbarTool.EMOJI -> "Emoji"
     ToolbarTool.CLIPBOARD -> "Clipboard"
     ToolbarTool.SNIPPETS -> "Snippets"
+    ToolbarTool.TEXT_EDIT -> "Text editing"
     ToolbarTool.ONE_HANDED -> "One-handed"
     ToolbarTool.SPLIT -> "Split"
     ToolbarTool.FLOATING -> "Floating"
@@ -625,6 +632,7 @@ private fun toolActive(tool: ToolbarTool, state: KeyboardUiState): Boolean = whe
     ToolbarTool.EMOJI -> state.panel == PanelMode.EMOJI
     ToolbarTool.CLIPBOARD -> state.panel == PanelMode.CLIPBOARD
     ToolbarTool.SNIPPETS -> state.panel == PanelMode.SNIPPETS
+    ToolbarTool.TEXT_EDIT -> state.panel == PanelMode.TEXT_EDIT
     ToolbarTool.ONE_HANDED -> state.settings.oneHandedMode != OneHandedMode.OFF
     ToolbarTool.SPLIT -> state.settings.splitKeyboard
     ToolbarTool.FLOATING -> state.settings.floatingKeyboard
@@ -883,6 +891,7 @@ private fun KeyboardBody(
     onEmoji: (String) -> Unit,
     onEmojiQueryTap: () -> Unit,
     onEmojiRecentsClear: () -> Unit,
+    onTextEdit: (TextEditAction) -> Unit,
     onPanelChange: (PanelMode) -> Unit,
     onClipboardItem: (ClipItem) -> Unit,
     onClipboardPin: (ClipItem) -> Unit,
@@ -907,6 +916,7 @@ private fun KeyboardBody(
                 PanelMode.EMOJI -> EmojiPanel(state, onEmoji, onEmojiQueryTap, onEmojiRecentsClear)
                 PanelMode.CLIPBOARD -> ClipboardPanel(state, onClipboardItem, onClipboardPin, onClipboardDelete)
                 PanelMode.SNIPPETS -> SnippetsPanel(state, onSnippet)
+                PanelMode.TEXT_EDIT -> TextEditPanel(state, onTextEdit)
                 PanelMode.TOOLBOX -> ToolboxPanel(state, onToolTap, drag)
                 PanelMode.NONE -> KeyRows(state, onKey, onText, onGesture, onGesturePreview, onCursorMove)
             }

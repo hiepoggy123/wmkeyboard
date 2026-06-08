@@ -11,7 +11,13 @@ enum class ShiftState { OFF, ON, CAPS_LOCK }
 
 enum class LayoutMode { LETTERS, SYMBOLS, SYMBOLS_SHIFTED }
 
-enum class PanelMode { NONE, EMOJI, CLIPBOARD, SNIPPETS, TOOLBOX }
+enum class PanelMode { NONE, EMOJI, CLIPBOARD, SNIPPETS, TOOLBOX, TEXT_EDIT }
+
+/** One button on the text-editing panel (cursor control, selection, clipboard). */
+enum class TextEditAction {
+    UP, DOWN, LEFT, RIGHT, HOME, END,
+    SELECT, SELECT_ALL, COPY, PASTE, BACKSPACE,
+}
 
 /** What the enter key does in the focused field, from EditorInfo.imeOptions. */
 enum class EnterAction { DEFAULT, SEARCH, SEND, GO, NEXT, PREVIOUS, DONE }
@@ -28,6 +34,8 @@ data class KeyboardUiState(
     val panel: PanelMode = PanelMode.NONE,
     val suggestions: List<String> = emptyList(),
     val composingPreview: String = "",
+    /** Text-edit panel: arrows extend the selection instead of moving the cursor. */
+    val textEditSelecting: Boolean = false,
     val emojiQuery: String = "",
     val emojiSearchActive: Boolean = false,
     val emojiResults: List<EmojiEntry> = emptyList(),
