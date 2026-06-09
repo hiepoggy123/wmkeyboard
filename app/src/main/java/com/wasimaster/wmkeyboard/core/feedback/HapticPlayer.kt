@@ -1,0 +1,86 @@
+package com.wasimaster.wmkeyboard.core.feedback
+
+import android.content.Context
+import android.os.Build
+import android.os.SystemClock
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
+import com.wasimaster.wmkeyboard.core.settings.HapticStyle
+
+/**
+ * Plays the key-press haptic effect. Lives outside the IME service so the
+ * settings app and the sound & haptics tool can preview exactly what a key
+ * press will feel like while the user is still adjusting the sliders.
+ */
+object HapticPlayer {
+
+    /** Minimum spacing between previews so slider drags don't buzz-saw. */
+    private const val PREVIEW_GAP_MS = 150L
+
+    private var lastPreviewAt = 0L
+
+    /**
+     * Rate-limited [play] for settings UIs: fires the motor with the values
+     * being edited (not yet necessarily persisted), at most once per
+     * [PREVIEW_GAP_MS].
+     */
+    fun preview(context: Context, style: HapticStyle, amplitude: Int, durationMs: Int) {
+        val now = SystemClock.uptimeMillis()
+        if (now - lastPreviewAt < PREVIEW_GAP_MS) return
+        lastPreviewAt = now
+        play(context, style, amplitude, durationMs)
+    }
+
+    @Suppress("DEPRECATION")
+    fun play(context: Context, style: HapticStyle, amplitude: Int, durationMs: Int) {
+        val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val manager =
+                context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
+            manager.defaultVibrator
+        } else {
+            context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+        }
+        if (style == HapticStyle.SHARP &&
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.R &&
+            vibrator.areAllPrimitivesSupported(VibrationEffect.Composition.PRIMITIVE_CLICK)
+        ) {
+            // Composed primitive: the HAL overdrives the motor on attack and
+            // actively brakes it, so the click is both short (~20ms) and
+            // strong — the crisp thump stock keyboards have. A raw one-shot
+            // can't do this: it just drives the coil at constant amplitude,
+            // which feels mushy. Scale reuses the intensity slider (0..1).
+            vibrator.vibrate(
+                VibrationEffect.startComposition()
+                    .addPrimitive(
+                        VibrationEffect.Composition.PRIMITIVE_CLICK,
+                        amplitude.coerceIn(1, 255) / 255f,
+                    )
+                    .compose()
+            )
+        } else if (style != HapticStyle.CUSTOM && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            // Hardware-tuned click effects — crisper than a raw one-shot and
+            // what most stock keyboards use.
+            vibrator.vibrate(
+                VibrationEffect.createPredefined(
+                    when (style) {
+                        HapticStyle.HEAVY_CLICK -> VibrationEffect.EFFECT_HEAVY_CLICK
+                        else -> VibrationEffect.EFFECT_CLICK
+                    }
+                )
+            )
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            // Explicit amplitude: DEFAULT_AMPLITUDE defers to a (often weak)
+            // device default. Devices without amplitude control ignore the
+            // value, so fall back to the default constant there.
+            val oneShotAmplitude = if (vibrator.hasAmplitudeControl()) {
+                amplitude.coerceIn(1, 255)
+            } else {
+                VibrationEffect.DEFAULT_AMPLITUDE
+            }
+            vibrator.vibrate(VibrationEffect.createOneShot(durationMs.toLong(), oneShotAmplitude))
+        } else {
+            vibrator.vibrate(durationMs.toLong())
+        }
+    }
+}

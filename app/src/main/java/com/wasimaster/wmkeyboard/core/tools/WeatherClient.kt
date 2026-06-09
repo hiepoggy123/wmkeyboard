@@ -1,0 +1,190 @@
+package com.wasimaster.wmkeyboard.core.tools
+
+import java.net.HttpURLConnection
+import java.net.URL
+import java.net.URLEncoder
+import java.util.Locale
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.double
+import kotlinx.serialization.json.doubleOrNull
+import kotlinx.serialization.json.int
+
+/** Snapshot of current conditions from Open-Meteo. Temperatures in °C. */
+data class WeatherInfo(
+    val temperatureC: Double,
+    val feelsLikeC: Double,
+    val humidityPercent: Int,
+    val windKmh: Double,
+    /** Direction the wind comes from, degrees clockwise from north. */
+    val windDirectionDeg: Int,
+    val pressureHpa: Double,
+    val cloudCoverPercent: Int,
+    val precipitationMm: Double,
+    val weatherCode: Int,
+    val isDay: Boolean,
+    val highC: Double,
+    val lowC: Double,
+    /** Today's max UV index; negative when the API omits it. */
+    val uvIndexMax: Double,
+    /** Chance of precipitation today; negative when the API omits it. */
+    val precipProbabilityPercent: Int,
+    /** Local "HH:mm", empty when the API omits them. */
+    val sunrise: String,
+    val sunset: String,
+    val fetchedAtMillis: Long,
+)
+
+/** One geocoding hit: a place the user can pick as the weather location. */
+data class GeoPlace(
+    val name: String,
+    /** Region + country for disambiguation, e.g. "Dhaka Division, Bangladesh". */
+    val region: String,
+    val latitude: Float,
+    val longitude: Float,
+)
+
+/**
+ * Minimal Open-Meteo client (no API key, no account). Only called from the
+ * weather tool: forecasts when the panel opens, geocoding when the user
+ * searches for a place in settings. The keyboard makes no other network
+ * requests.
+ */
+object WeatherClient {
+
+    /** Blocking fetch; call on an IO dispatcher. Throws on any failure. */
+    fun fetch(latitude: Float, longitude: Float): WeatherInfo {
+        val url = String.format(
+            Locale.US,
+            "https://api.open-meteo.com/v1/forecast?latitude=%.4f&longitude=%.4f" +
+                "&current=temperature_2m,relative_humidity_2m,apparent_temperature," +
+                "is_day,weather_code,wind_speed_10m,wind_direction_10m," +
+                "surface_pressure,cloud_cover,precipitation" +
+                "&daily=temperature_2m_max,temperature_2m_min,uv_index_max," +
+                "precipitation_probability_max,sunrise,sunset" +
+                "&timezone=auto&forecast_days=1",
+            latitude,
+            longitude,
+        )
+        return parse(get(url), System.currentTimeMillis())
+    }
+
+    /** Blocking place-name search; call on an IO dispatcher. Throws on failure. */
+    fun geocode(query: String): List<GeoPlace> {
+        if (query.isBlank()) return emptyList()
+        val url = "https://geocoding-api.open-meteo.com/v1/search?name=" +
+            URLEncoder.encode(query.trim(), "UTF-8") + "&count=5&language=en&format=json"
+        val root = Json.parseToJsonElement(get(url)).jsonObject
+        val results = root["results"]?.takeIf { it !is JsonNull }?.jsonArray ?: return emptyList()
+        return results.map { it.jsonObject }.map { place ->
+            GeoPlace(
+                name = place.getValue("name").jsonPrimitive.content,
+                region = listOfNotNull(
+                    place.optString("admin1"),
+                    place.optString("country"),
+                ).joinToString(", "),
+                latitude = place.getValue("latitude").jsonPrimitive.double.toFloat(),
+                longitude = place.getValue("longitude").jsonPrimitive.double.toFloat(),
+            )
+        }
+    }
+
+    private fun get(url: String): String {
+        val connection = URL(url).openConnection() as HttpURLConnection
+        try {
+            connection.connectTimeout = 8000
+            connection.readTimeout = 8000
+            return connection.inputStream.bufferedReader().use { it.readText() }
+        } finally {
+            connection.disconnect()
+        }
+    }
+
+    internal fun parse(body: String, now: Long): WeatherInfo {
+        val root = Json.parseToJsonElement(body).jsonObject
+        val current = root.getValue("current").jsonObject
+        val daily = root.getValue("daily").jsonObject
+        return WeatherInfo(
+            temperatureC = current.getValue("temperature_2m").jsonPrimitive.double,
+            feelsLikeC = current.getValue("apparent_temperature").jsonPrimitive.double,
+            humidityPercent = current.getValue("relative_humidity_2m").jsonPrimitive.int,
+            windKmh = current.getValue("wind_speed_10m").jsonPrimitive.double,
+            windDirectionDeg = current.optFirstDouble("wind_direction_10m")?.toInt() ?: 0,
+            pressureHpa = current.optFirstDouble("surface_pressure") ?: -1.0,
+            cloudCoverPercent = current.optFirstDouble("cloud_cover")?.toInt() ?: -1,
+            precipitationMm = current.optFirstDouble("precipitation") ?: 0.0,
+            weatherCode = current.getValue("weather_code").jsonPrimitive.int,
+            isDay = current.getValue("is_day").jsonPrimitive.int == 1,
+            highC = daily.firstDouble("temperature_2m_max"),
+            lowC = daily.firstDouble("temperature_2m_min"),
+            uvIndexMax = daily.optFirstOfArray("uv_index_max")?.jsonPrimitive?.doubleOrNull ?: -1.0,
+            precipProbabilityPercent = daily.optFirstOfArray("precipitation_probability_max")
+                ?.jsonPrimitive?.doubleOrNull?.toInt() ?: -1,
+            sunrise = daily.optFirstOfArray("sunrise")?.jsonPrimitive?.content
+                ?.substringAfter('T', "").orEmpty(),
+            sunset = daily.optFirstOfArray("sunset")?.jsonPrimitive?.content
+                ?.substringAfter('T', "").orEmpty(),
+            fetchedAtMillis = now,
+        )
+    }
+
+    private fun JsonObject.optString(key: String): String? =
+        this[key]?.takeIf { it !is JsonNull }?.jsonPrimitive?.content?.takeIf { it.isNotBlank() }
+
+    /** A scalar field in `current` that older responses may lack. */
+    private fun JsonObject.optFirstDouble(key: String): Double? =
+        this[key]?.takeIf { it !is JsonNull }?.jsonPrimitive?.doubleOrNull
+
+    private fun JsonObject.firstDouble(key: String): Double =
+        getValue(key).jsonArray[0].jsonPrimitive.double
+
+    private fun JsonObject.optFirstOfArray(key: String) =
+        this[key]?.takeIf { it !is JsonNull }?.jsonArray?.firstOrNull()
+            ?.takeIf { it !is JsonNull }
+
+    /** WMO weather-code groups to a short label. */
+    fun describe(code: Int): String = when (code) {
+        0 -> "Clear sky"
+        1 -> "Mainly clear"
+        2 -> "Partly cloudy"
+        3 -> "Overcast"
+        45, 48 -> "Fog"
+        51, 53, 55 -> "Drizzle"
+        56, 57 -> "Freezing drizzle"
+        61, 63, 65 -> "Rain"
+        66, 67 -> "Freezing rain"
+        71, 73, 75 -> "Snow"
+        77 -> "Snow grains"
+        80, 81, 82 -> "Rain showers"
+        85, 86 -> "Snow showers"
+        95 -> "Thunderstorm"
+        96, 99 -> "Thunderstorm with hail"
+        else -> "Unknown"
+    }
+
+    fun emoji(code: Int, isDay: Boolean): String = when (code) {
+        0 -> if (isDay) "☀️" else "🌙"
+        1 -> if (isDay) "🌤️" else "🌙"
+        2 -> "⛅"
+        3 -> "☁️"
+        45, 48 -> "🌫️"
+        51, 53, 55, 56, 57 -> "🌦️"
+        61, 63, 65, 66, 67, 80, 81, 82 -> "🌧️"
+        71, 73, 75, 77, 85, 86 -> "🌨️"
+        95, 96, 99 -> "⛈️"
+        else -> "🌡️"
+    }
+
+    fun toDisplay(celsius: Double, fahrenheit: Boolean): Int =
+        Math.round(if (fahrenheit) celsius * 9 / 5 + 32 else celsius).toInt()
+
+    /** "NW" style arrow-friendly compass point for a wind direction. */
+    fun windCardinal(degrees: Int): String {
+        val names = listOf("N", "NE", "E", "SE", "S", "SW", "W", "NW")
+        return names[(((degrees % 360) + 360) % 360 + 22) / 45 % 8]
+    }
+}

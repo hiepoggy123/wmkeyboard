@@ -43,17 +43,25 @@ import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material.icons.automirrored.outlined.Backspace
 import androidx.compose.material.icons.automirrored.outlined.KeyboardReturn
 import androidx.compose.material.icons.automirrored.outlined.KeyboardTab
+import androidx.compose.material.icons.automirrored.outlined.Redo
 import androidx.compose.material.icons.automirrored.outlined.Send
+import androidx.compose.material.icons.automirrored.outlined.Undo
 import androidx.compose.material.icons.filled.PushPin
+import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.ChevronLeft
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.CloseFullscreen
 import androidx.compose.material.icons.outlined.ContentPaste
 import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.DarkMode
 import androidx.compose.material.icons.outlined.DeleteSweep
+import androidx.compose.material.icons.outlined.Dialpad
 import androidx.compose.material.icons.outlined.DirectionsCar
 import androidx.compose.material.icons.outlined.EditNote
+import androidx.compose.material.icons.outlined.Explore
+import androidx.compose.material.icons.outlined.FlashlightOn
 import androidx.compose.material.icons.outlined.EmojiEmotions
 import androidx.compose.material.icons.outlined.EmojiNature
 import androidx.compose.material.icons.outlined.EmojiObjects
@@ -64,6 +72,7 @@ import androidx.compose.material.icons.outlined.Fullscreen
 import androidx.compose.material.icons.outlined.GridView
 import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.OpenInFull
+import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Pets
 import androidx.compose.material.icons.outlined.PictureInPictureAlt
 import androidx.compose.material.icons.outlined.PushPin
@@ -71,7 +80,12 @@ import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Smartphone
+import androidx.compose.material.icons.outlined.Spellcheck
 import androidx.compose.material.icons.outlined.SportsSoccer
+import androidx.compose.material.icons.outlined.Straighten
+import androidx.compose.material.icons.outlined.Vibration
+import androidx.compose.material.icons.outlined.VisibilityOff
+import androidx.compose.material.icons.outlined.WbSunny
 import androidx.compose.material.icons.outlined.VerticalSplit
 import androidx.compose.material.icons.outlined.TextSnippet
 import androidx.compose.material.icons.outlined.EmojiFlags
@@ -147,6 +161,8 @@ import kotlinx.coroutines.delay
 import com.wasimaster.wmkeyboard.core.clipboard.ClipItem
 import com.wasimaster.wmkeyboard.core.clipboard.ClipKind
 import com.wasimaster.wmkeyboard.core.emoji.EmojiVariants
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import com.wasimaster.wmkeyboard.core.gesture.GesturePoint
 import com.wasimaster.wmkeyboard.core.gesture.KeyCenter
 import com.wasimaster.wmkeyboard.core.settings.InputMode
@@ -163,6 +179,7 @@ import com.wasimaster.wmkeyboard.ime.EnterAction
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
 import com.wasimaster.wmkeyboard.ime.LayoutMode
 import com.wasimaster.wmkeyboard.ime.PanelMode
+import com.wasimaster.wmkeyboard.ime.SoundHapticAction
 import com.wasimaster.wmkeyboard.ime.TextEditAction
 import com.wasimaster.wmkeyboard.ime.ShiftState
 import com.wasimaster.wmkeyboard.ime.layout.Key
@@ -177,12 +194,13 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.abs
 import kotlin.math.roundToInt
+import kotlin.random.Random
 
 /**
  * Fired at pointer-down on any key so feedback (haptics) lands on press,
  * not on release when the key's action commits.
  */
-private val LocalKeyPressFeedback = staticCompositionLocalOf<() -> Unit> { {} }
+internal val LocalKeyPressFeedback = staticCompositionLocalOf<() -> Unit> { {} }
 
 /** Root composable for the IME. Renders [KeyboardUiState] and forwards input. */
 @Composable
@@ -212,6 +230,14 @@ fun KeyboardScreen(
     onFloatingBounds: (IntRect) -> Unit = {},
     onToggleSplit: () -> Unit = {},
     onToolbarToolsChange: (List<ToolbarTool>) -> Unit = {},
+    onToolboxHintDismiss: () -> Unit = {},
+    onFlashlightToggle: () -> Unit = {},
+    onUndoRedo: (Boolean) -> Unit = {},
+    onWeatherRefresh: () -> Unit = {},
+    onIncognitoToggle: () -> Unit = {},
+    onAutocorrectToggle: () -> Unit = {},
+    onThemeSelect: (String) -> Unit = {},
+    onSoundHaptic: (SoundHapticAction) -> Unit = {},
     onOpenSettings: () -> Unit,
 ) {
     val state by stateFlow.collectAsState()
@@ -230,6 +256,19 @@ fun KeyboardScreen(
             )
             ToolbarTool.SPLIT -> onToggleSplit()
             ToolbarTool.FLOATING -> onFloatingChange(!state.settings.floatingKeyboard)
+            ToolbarTool.FLASHLIGHT -> onFlashlightToggle()
+            ToolbarTool.COMPASS -> onPanelChange(PanelMode.COMPASS)
+            ToolbarTool.LEVEL -> onPanelChange(PanelMode.LEVEL)
+            ToolbarTool.UNDO -> onUndoRedo(false)
+            ToolbarTool.REDO -> onUndoRedo(true)
+            ToolbarTool.MOON_PHASE -> onPanelChange(PanelMode.MOON_PHASE)
+            ToolbarTool.WEATHER -> onPanelChange(PanelMode.WEATHER)
+            ToolbarTool.CALENDAR -> onPanelChange(PanelMode.CALENDAR)
+            ToolbarTool.INCOGNITO -> onIncognitoToggle()
+            ToolbarTool.THEMES -> onPanelChange(PanelMode.THEMES)
+            ToolbarTool.AUTOCORRECT -> onAutocorrectToggle()
+            ToolbarTool.SOUND_HAPTICS -> onPanelChange(PanelMode.SOUND_HAPTICS)
+            ToolbarTool.NUMPAD -> onPanelChange(PanelMode.NUMPAD)
         }
     }
 
@@ -255,6 +294,10 @@ fun KeyboardScreen(
                 onSnippet = onSnippet,
                 onToolTap = onToolTap,
                 onToolbarToolsChange = onToolbarToolsChange,
+                onToolboxHintDismiss = onToolboxHintDismiss,
+                onWeatherRefresh = onWeatherRefresh,
+                onThemeSelect = onThemeSelect,
+                onSoundHaptic = onSoundHaptic,
             )
         }
     }
@@ -416,9 +459,11 @@ private fun FloatingKeyboardFrame(
                             // Height resizes too: the drag is normalized by the
                             // panel's unscaled height, so the grip tracks the
                             // finger no matter how tall the content already is.
+                            // The grip sits on the panel's TOP bar, so dragging
+                            // up (negative y) grows the panel — hence the minus.
                             val baseHeightPx = if (liveHeightScale > 0f) panelSize.height / liveHeightScale else 0f
                             if (baseHeightPx > 0f) {
-                                liveHeightScale = (liveHeightScale + delta.y / baseHeightPx)
+                                liveHeightScale = (liveHeightScale - delta.y / baseHeightPx)
                                     .coerceIn(FLOATING_MIN_HEIGHT_SCALE, FLOATING_MAX_HEIGHT_SCALE)
                             }
                         },
@@ -586,7 +631,7 @@ private fun TopBar(
         if (showToolbar) {
             ToolbarRow(state, onPanelChange, onToolTap, drag)
         } else {
-            if (state.settings.emojiToolbar) {
+            if (state.settings.emojiToolbar && ToolbarTool.EMOJI in state.settings.enabledTools) {
                 ToolCircle(
                     icon = toolIcon(ToolbarTool.EMOJI),
                     description = "Emoji",
@@ -644,6 +689,19 @@ private fun toolIcon(tool: ToolbarTool): ImageVector = when (tool) {
     ToolbarTool.SPLIT -> Icons.Outlined.VerticalSplit
     ToolbarTool.FLOATING -> Icons.Outlined.PictureInPictureAlt
     ToolbarTool.SETTINGS -> Icons.Outlined.Settings
+    ToolbarTool.FLASHLIGHT -> Icons.Outlined.FlashlightOn
+    ToolbarTool.COMPASS -> Icons.Outlined.Explore
+    ToolbarTool.LEVEL -> Icons.Outlined.Straighten
+    ToolbarTool.UNDO -> Icons.AutoMirrored.Outlined.Undo
+    ToolbarTool.REDO -> Icons.AutoMirrored.Outlined.Redo
+    ToolbarTool.MOON_PHASE -> Icons.Outlined.DarkMode
+    ToolbarTool.WEATHER -> Icons.Outlined.WbSunny
+    ToolbarTool.CALENDAR -> Icons.Outlined.CalendarMonth
+    ToolbarTool.INCOGNITO -> Icons.Outlined.VisibilityOff
+    ToolbarTool.THEMES -> Icons.Outlined.Palette
+    ToolbarTool.AUTOCORRECT -> Icons.Outlined.Spellcheck
+    ToolbarTool.SOUND_HAPTICS -> Icons.Outlined.Vibration
+    ToolbarTool.NUMPAD -> Icons.Outlined.Dialpad
 }
 
 private fun toolLabel(tool: ToolbarTool): String = when (tool) {
@@ -655,6 +713,19 @@ private fun toolLabel(tool: ToolbarTool): String = when (tool) {
     ToolbarTool.SPLIT -> "Split"
     ToolbarTool.FLOATING -> "Floating"
     ToolbarTool.SETTINGS -> "Settings"
+    ToolbarTool.FLASHLIGHT -> "Flashlight"
+    ToolbarTool.COMPASS -> "Compass"
+    ToolbarTool.LEVEL -> "Level"
+    ToolbarTool.UNDO -> "Undo"
+    ToolbarTool.REDO -> "Redo"
+    ToolbarTool.MOON_PHASE -> "Moon"
+    ToolbarTool.WEATHER -> "Weather"
+    ToolbarTool.CALENDAR -> "Calendar"
+    ToolbarTool.INCOGNITO -> "Incognito"
+    ToolbarTool.THEMES -> "Themes"
+    ToolbarTool.AUTOCORRECT -> "Autocorrect"
+    ToolbarTool.SOUND_HAPTICS -> "Sound & haptics"
+    ToolbarTool.NUMPAD -> "Numpad"
 }
 
 private fun toolActive(tool: ToolbarTool, state: KeyboardUiState): Boolean = when (tool) {
@@ -666,6 +737,19 @@ private fun toolActive(tool: ToolbarTool, state: KeyboardUiState): Boolean = whe
     ToolbarTool.SPLIT -> state.settings.splitKeyboard
     ToolbarTool.FLOATING -> state.settings.floatingKeyboard
     ToolbarTool.SETTINGS -> false
+    ToolbarTool.FLASHLIGHT -> state.torchOn
+    ToolbarTool.COMPASS -> state.panel == PanelMode.COMPASS
+    ToolbarTool.LEVEL -> state.panel == PanelMode.LEVEL
+    ToolbarTool.UNDO -> false
+    ToolbarTool.REDO -> false
+    ToolbarTool.MOON_PHASE -> state.panel == PanelMode.MOON_PHASE
+    ToolbarTool.WEATHER -> state.panel == PanelMode.WEATHER
+    ToolbarTool.CALENDAR -> state.panel == PanelMode.CALENDAR
+    ToolbarTool.INCOGNITO -> state.settings.incognito
+    ToolbarTool.THEMES -> state.panel == PanelMode.THEMES
+    ToolbarTool.AUTOCORRECT -> state.settings.autocorrect
+    ToolbarTool.SOUND_HAPTICS -> state.panel == PanelMode.SOUND_HAPTICS
+    ToolbarTool.NUMPAD -> state.panel == PanelMode.NUMPAD
 }
 
 /**
@@ -859,22 +943,37 @@ private fun RowScope.ToolbarRow(
     drag: ToolDragController,
 ) {
     val customizing = state.panel == PanelMode.TOOLBOX
-    ToolCircle(
-        icon = Icons.Outlined.GridView,
-        description = "Toolbox",
-        active = customizing,
-        modifier = Modifier.padding(horizontal = 3.dp),
-        longPressLabel = "Toolbox",
-    ) { onPanelChange(PanelMode.TOOLBOX) }
-    Row(
-        modifier = Modifier
-            .weight(1f)
-            .fillMaxHeight()
-            .onGloballyPositioned { drag.toolbarBounds = it.boundsInRoot() },
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        for (tool in state.settings.toolbarTools) {
-            val cell = if (state.settings.toolbarGreedy) {
+    val greedy = state.settings.toolbarGreedy
+    val tools = state.settings.toolbarTools.filter { it in state.settings.enabledTools }
+    val panelOpen = state.panel != PanelMode.NONE
+
+    // In greedy mode every button — chevron, toolbox and tools alike — is an
+    // equal-weight cell, so the whole bar is one evenly spaced grid instead
+    // of fixed buttons on the left with the tools spread over the leftover.
+    val leading: @Composable (Modifier) -> Unit = { cell ->
+        // With any tool panel open, one tap on the chevron returns to the keys.
+        if (panelOpen) {
+            Box(cell, contentAlignment = Alignment.Center) {
+                ToolCircle(
+                    icon = Icons.Outlined.ChevronLeft,
+                    description = "Back to keyboard",
+                    active = false,
+                    longPressLabel = "Back to keyboard",
+                ) { onPanelChange(state.panel) }
+            }
+        }
+        Box(cell, contentAlignment = Alignment.Center) {
+            ToolCircle(
+                icon = Icons.Outlined.GridView,
+                description = "Toolbox",
+                active = customizing,
+                longPressLabel = "Toolbox",
+            ) { onPanelChange(PanelMode.TOOLBOX) }
+        }
+    }
+    val toolCells: @Composable RowScope.() -> Unit = {
+        for (tool in tools) {
+            val cell = if (greedy) {
                 Modifier
                     .weight(1f)
                     .fillMaxHeight()
@@ -894,7 +993,44 @@ private fun RowScope.ToolbarRow(
                 }
             }
         }
-        if (!state.settings.toolbarGreedy) Spacer(modifier = Modifier.weight(1f))
+    }
+    if (greedy) {
+        Row(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxHeight(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            leading(
+                Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+            )
+            // The tools sub-row carries a weight equal to its cell count, so
+            // its cells end up exactly as wide as the leading buttons' cells.
+            // It still exists (zero tools aside) as the drag-drop target.
+            Row(
+                modifier = Modifier
+                    .weight(tools.size.coerceAtLeast(1).toFloat())
+                    .fillMaxHeight()
+                    .onGloballyPositioned { drag.toolbarBounds = it.boundsInRoot() },
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                toolCells()
+            }
+        }
+    } else {
+        leading(Modifier.padding(horizontal = 3.dp))
+        Row(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxHeight()
+                .onGloballyPositioned { drag.toolbarBounds = it.boundsInRoot() },
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            toolCells()
+            Spacer(modifier = Modifier.weight(1f))
+        }
     }
     if (state.settings.incognito) {
         Text(
@@ -915,24 +1051,54 @@ private fun RowScope.ToolbarRow(
 private fun ToolboxPanel(
     state: KeyboardUiState,
     onToolTap: (ToolbarTool) -> Unit,
+    onHintDismiss: () -> Unit,
     drag: ToolDragController,
 ) {
     val height = keyRowsHeight(state.settings)
+    // First open: always show the drag hint. After it was dismissed once,
+    // resurface it only rarely as a reminder. Rolled once per panel open.
+    val rareReminder = remember { Random.nextFloat() < 0.03f }
+    var hintVisible by remember(state.settings.toolboxHintDismissed) {
+        mutableStateOf(!state.settings.toolboxHintDismissed || rareReminder)
+    }
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .height(height),
     ) {
-        Text(
-            "Hold and drag a tool onto the toolbar to pin it — or drag a toolbar tool down here to remove it.",
-            fontSize = 12.sp,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp, vertical = 10.dp),
-        )
-        val available = ToolbarTool.entries.filter { it !in state.settings.toolbarTools }
+        if (hintVisible) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 24.dp, end = 8.dp, top = 4.dp, bottom = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    "Hold and drag a tool onto the toolbar to pin it — or drag a toolbar tool down here to remove it.",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.weight(1f),
+                )
+                IconButton(
+                    onClick = {
+                        hintVisible = false
+                        onHintDismiss()
+                    },
+                    modifier = Modifier.size(28.dp),
+                ) {
+                    Icon(
+                        Icons.Outlined.Close,
+                        contentDescription = "Dismiss hint",
+                        modifier = Modifier.size(16.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+        val available = ToolbarTool.entries.filter {
+            it !in state.settings.toolbarTools && it in state.settings.enabledTools
+        }
         if (available.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text(
@@ -942,31 +1108,34 @@ private fun ToolboxPanel(
             }
             return@Column
         }
-        for (rowTools in available.chunked(4)) {
-            Row(modifier = Modifier.fillMaxWidth()) {
-                for (tool in rowTools) {
-                    Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                        DraggableTool(tool, fromToolbar = false, enabled = true, drag = drag) { dragModifier ->
-                            Column(
-                                modifier = dragModifier.padding(vertical = 10.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                            ) {
-                                ToolCircle(
-                                    icon = toolIcon(tool),
-                                    description = toolLabel(tool),
-                                    active = toolActive(tool, state),
-                                ) { onToolTap(tool) }
-                                Text(
-                                    toolLabel(tool),
-                                    fontSize = 11.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(top = 4.dp),
-                                )
+        // More tools than fit the panel height now — the grid scrolls.
+        Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+            for (rowTools in available.chunked(4)) {
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    for (tool in rowTools) {
+                        Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                            DraggableTool(tool, fromToolbar = false, enabled = true, drag = drag) { dragModifier ->
+                                Column(
+                                    modifier = dragModifier.padding(vertical = 10.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                ) {
+                                    ToolCircle(
+                                        icon = toolIcon(tool),
+                                        description = toolLabel(tool),
+                                        active = toolActive(tool, state),
+                                    ) { onToolTap(tool) }
+                                    Text(
+                                        toolLabel(tool),
+                                        fontSize = 11.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.padding(top = 4.dp),
+                                    )
+                                }
                             }
                         }
                     }
+                    repeat(4 - rowTools.size) { Spacer(modifier = Modifier.weight(1f)) }
                 }
-                repeat(4 - rowTools.size) { Spacer(modifier = Modifier.weight(1f)) }
             }
         }
     }
@@ -997,6 +1166,10 @@ private fun KeyboardBody(
     onSnippet: (Snippet) -> Unit,
     onToolTap: (ToolbarTool) -> Unit,
     onToolbarToolsChange: (List<ToolbarTool>) -> Unit,
+    onToolboxHintDismiss: () -> Unit,
+    onWeatherRefresh: () -> Unit,
+    onThemeSelect: (String) -> Unit,
+    onSoundHaptic: (SoundHapticAction) -> Unit,
 ) {
     val drag = remember { ToolDragController() }
     drag.currentTools = state.settings.toolbarTools
@@ -1016,7 +1189,19 @@ private fun KeyboardBody(
                 PanelMode.CLIPBOARD -> ClipboardPanel(state, onClipboardItem, onClipboardPin, onClipboardDelete)
                 PanelMode.SNIPPETS -> SnippetsPanel(state, onSnippet)
                 PanelMode.TEXT_EDIT -> TextEditPanel(state, onTextEdit)
-                PanelMode.TOOLBOX -> ToolboxPanel(state, onToolTap, drag)
+                PanelMode.TOOLBOX -> ToolboxPanel(state, onToolTap, onToolboxHintDismiss, drag)
+                PanelMode.COMPASS -> CompassPanel(state)
+                PanelMode.LEVEL -> LevelPanel(state)
+                PanelMode.MOON_PHASE -> MoonPhasePanel(state)
+                PanelMode.WEATHER -> WeatherPanel(
+                    state = state,
+                    onRefresh = onWeatherRefresh,
+                    onOpenSettings = { onToolTap(ToolbarTool.SETTINGS) },
+                )
+                PanelMode.CALENDAR -> CalendarPanel(state, onInsert = onText)
+                PanelMode.THEMES -> ThemesPanel(state, onThemeSelect)
+                PanelMode.SOUND_HAPTICS -> SoundHapticsPanel(state, onSoundHaptic)
+                PanelMode.NUMPAD -> NumpadPanel(state, onText, onKey)
                 PanelMode.NONE -> KeyRows(state, onKey, onText, onGesture, onGesturePreview, onCursorMove, onLanguageSelect)
             }
             // In emoji search mode the letters stay visible for typing the query.

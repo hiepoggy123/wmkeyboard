@@ -3,6 +3,8 @@ package com.wasimaster.wmkeyboard.ime
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.hardware.camera2.CameraCharacteristics
+import android.hardware.camera2.CameraManager
 import android.os.Build
 import android.os.SystemClock
 import android.text.InputType
@@ -26,6 +28,7 @@ import com.wasimaster.wmkeyboard.core.emoji.EmojiCatalog
 import com.wasimaster.wmkeyboard.core.emoji.EmojiEntry
 import com.wasimaster.wmkeyboard.core.emoji.EmojiSearch
 import com.wasimaster.wmkeyboard.core.emoji.EmojiUsage
+import com.wasimaster.wmkeyboard.core.feedback.HapticPlayer
 import com.wasimaster.wmkeyboard.core.gesture.GestureDecoder
 import com.wasimaster.wmkeyboard.core.gesture.GesturePoint
 import com.wasimaster.wmkeyboard.core.gesture.KeyCenter
@@ -42,6 +45,7 @@ import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
 import com.wasimaster.wmkeyboard.core.snippets.Snippet
 import com.wasimaster.wmkeyboard.core.snippets.SnippetStore
+import com.wasimaster.wmkeyboard.core.tools.WeatherClient
 import com.wasimaster.wmkeyboard.core.transliteration.AvroPhonetic
 import com.wasimaster.wmkeyboard.core.transliteration.BengaliGraphemes
 import com.wasimaster.wmkeyboard.core.transliteration.BengaliPhoneticIndex
@@ -206,6 +210,19 @@ class WMKeyboardService : InputMethodService() {
                 .distinctUntilChanged()
                 .collect { updatePanelBackCallback(it) }
         }
+
+        // Mirror the torch state so the flashlight tool lights up even when
+        // the torch is toggled from outside the keyboard.
+        val cameraManager = getSystemService(Context.CAMERA_SERVICE) as CameraManager
+        torchCameraId = runCatching {
+            cameraManager.cameraIdList.firstOrNull { id ->
+                cameraManager.getCameraCharacteristics(id)
+                    .get(CameraCharacteristics.FLASH_INFO_AVAILABLE) == true
+            }
+        }.getOrNull()
+        if (torchCameraId != null) {
+            cameraManager.registerTorchCallback(torchCallback, null)
+        }
     }
 
     override fun onCreateInputView(): View {
@@ -239,6 +256,16 @@ class WMKeyboardService : InputMethodService() {
                 onFloatingBounds = ::onFloatingBounds,
                 onToggleSplit = ::onToggleSplit,
                 onToolbarToolsChange = ::onToolbarToolsChange,
+                onToolboxHintDismiss = {
+                    serviceScope.launch { settingsRepository.setToolboxHintDismissed(true) }
+                },
+                onFlashlightToggle = ::onFlashlightToggle,
+                onUndoRedo = ::onUndoRedo,
+                onWeatherRefresh = { refreshWeather(force = true) },
+                onIncognitoToggle = ::onIncognitoToggle,
+                onAutocorrectToggle = ::onAutocorrectToggle,
+                onThemeSelect = ::onThemeSelect,
+                onSoundHaptic = ::onSoundHaptic,
                 onOpenSettings = ::openSettings,
             )
         }
@@ -347,11 +374,18 @@ class WMKeyboardService : InputMethodService() {
         lifecycleOwner.onPause()
         userLexicon.save()
         emojiUsage.save()
+        if (_uiState.value.settings.flashlightAutoOff && _uiState.value.torchOn) {
+            setTorch(false)
+        }
     }
 
     override fun onDestroy() {
         (getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager)
             .removePrimaryClipChangedListener(clipboardListener)
+        if (torchCameraId != null) {
+            (getSystemService(Context.CAMERA_SERVICE) as CameraManager)
+                .unregisterTorchCallback(torchCallback)
+        }
         userLexicon.save()
         emojiUsage.save()
         clipboardStore.save()
@@ -792,6 +826,154 @@ class WMKeyboardService : InputMethodService() {
                 snippets = snippetStore.items(),
             )
         }
+        if (_uiState.value.panel == PanelMode.WEATHER) refreshWeather()
+    }
+
+    // ---- tools: flashlight, undo/redo, weather ----
+
+    /** Camera with a flash unit, or null when the device has none. */
+    private var torchCameraId: String? = null
+
+    private val torchCallback = object : CameraManager.TorchCallback() {
+        override fun onTorchModeChanged(cameraId: String, enabled: Boolean) {
+            if (cameraId == torchCameraId) {
+                _uiState.update { it.copy(torchOn = enabled) }
+            }
+        }
+    }
+
+    fun onFlashlightToggle() {
+        vibrate()
+        if (torchCameraId == null) {
+            Toast.makeText(this, "This device has no flashlight", Toast.LENGTH_SHORT).show()
+            return
+        }
+        setTorch(!_uiState.value.torchOn)
+    }
+
+    private fun setTorch(on: Boolean) {
+        val id = torchCameraId ?: return
+        // Fails if another app holds the camera; the torch callback keeps
+        // the icon truthful either way.
+        runCatching {
+            (getSystemService(Context.CAMERA_SERVICE) as CameraManager).setTorchMode(id, on)
+        }
+    }
+
+    /**
+     * Sends the editor's undo/redo keyboard shortcut (Ctrl+Z / Ctrl+Shift+Z
+     * or Ctrl+Y per settings). Editors without shortcut support ignore it —
+     * the IME has no way to reach their private undo stacks.
+     */
+    fun onUndoRedo(redo: Boolean) {
+        val ic = currentInputConnection ?: return
+        vibrate()
+        commitComposing(ic, autocorrect = false)
+        lastGestureWord = null
+        val settings = _uiState.value.settings
+        val code = if (redo && settings.redoUsesCtrlY) KeyEvent.KEYCODE_Y else KeyEvent.KEYCODE_Z
+        var meta = KeyEvent.META_CTRL_ON or KeyEvent.META_CTRL_LEFT_ON
+        if (redo && !settings.redoUsesCtrlY) {
+            meta = meta or KeyEvent.META_SHIFT_ON or KeyEvent.META_SHIFT_LEFT_ON
+        }
+        val time = SystemClock.uptimeMillis()
+        ic.sendKeyEvent(KeyEvent(time, time, KeyEvent.ACTION_DOWN, code, 0, meta))
+        ic.sendKeyEvent(KeyEvent(time, time, KeyEvent.ACTION_UP, code, 0, meta))
+    }
+
+    /** Incognito tool: pause learning + clipboard capture with one tap. */
+    fun onIncognitoToggle() {
+        vibrate()
+        val next = !_uiState.value.settings.incognito
+        Toast.makeText(
+            this,
+            if (next) "Incognito on — typing is not learned" else "Incognito off",
+            Toast.LENGTH_SHORT,
+        ).show()
+        serviceScope.launch { settingsRepository.setIncognito(next) }
+    }
+
+    fun onAutocorrectToggle() {
+        vibrate()
+        val next = !_uiState.value.settings.autocorrect
+        Toast.makeText(
+            this,
+            if (next) "Autocorrect on" else "Autocorrect off",
+            Toast.LENGTH_SHORT,
+        ).show()
+        serviceScope.launch { settingsRepository.setAutocorrect(next) }
+    }
+
+    fun onThemeSelect(id: String) {
+        vibrate()
+        serviceScope.launch { settingsRepository.setKeyboardThemeId(id) }
+    }
+
+    /** Sound & haptics quick panel writes straight into the shared settings. */
+    fun onSoundHaptic(action: SoundHapticAction) {
+        serviceScope.launch {
+            when (action) {
+                is SoundHapticAction.Haptics -> settingsRepository.setHapticFeedback(action.on)
+                is SoundHapticAction.HapticStyleChange -> settingsRepository.setHapticStyle(action.style)
+                is SoundHapticAction.HapticAmplitude -> settingsRepository.setHapticAmplitude(action.amplitude)
+                is SoundHapticAction.Sound -> settingsRepository.setKeySound(action.on)
+                is SoundHapticAction.SoundStyleChange -> settingsRepository.setKeySoundStyle(action.style)
+                is SoundHapticAction.SoundVolume -> settingsRepository.setKeySoundVolume(action.volume)
+            }
+        }
+        // Preview the result right away so the user can dial it in by feel.
+        // The DataStore write above lands asynchronously, so previews pass
+        // the new value explicitly instead of re-reading settings. The
+        // player's debounce keeps slider drags from buzz-sawing the motor.
+        val settings = _uiState.value.settings
+        when (action) {
+            is SoundHapticAction.Haptics -> if (action.on) {
+                HapticPlayer.preview(
+                    this, settings.hapticStyle, settings.hapticAmplitude, settings.hapticStrengthMs,
+                )
+            }
+            is SoundHapticAction.HapticStyleChange -> HapticPlayer.preview(
+                this, action.style, settings.hapticAmplitude, settings.hapticStrengthMs,
+            )
+            is SoundHapticAction.HapticAmplitude -> HapticPlayer.preview(
+                this, settings.hapticStyle, action.amplitude, settings.hapticStrengthMs,
+            )
+            is SoundHapticAction.Sound -> if (action.on) playKeySound(force = true)
+            is SoundHapticAction.SoundStyleChange -> playKeySound(style = action.style, force = true)
+            is SoundHapticAction.SoundVolume -> playKeySound(volume = action.volume, force = true)
+        }
+    }
+
+    private var weatherJob: Job? = null
+
+    /**
+     * Fetches current conditions when the weather panel opens; cached for
+     * 15 minutes unless [force]d from the refresh button.
+     */
+    private fun refreshWeather(force: Boolean = false) {
+        val settings = _uiState.value.settings
+        val latitude = settings.weatherLatitude
+        val longitude = settings.weatherLongitude
+        if (latitude == null || longitude == null) {
+            _uiState.update { it.copy(weather = WeatherUi.NoLocation) }
+            return
+        }
+        val cached = (_uiState.value.weather as? WeatherUi.Ready)?.info
+        if (!force && cached != null &&
+            System.currentTimeMillis() - cached.fetchedAtMillis < WEATHER_CACHE_MS
+        ) {
+            return
+        }
+        weatherJob?.cancel()
+        _uiState.update { it.copy(weather = WeatherUi.Loading) }
+        weatherJob = serviceScope.launch {
+            val info = withContext(Dispatchers.IO) {
+                runCatching { WeatherClient.fetch(latitude, longitude) }.getOrNull()
+            }
+            _uiState.update {
+                it.copy(weather = if (info != null) WeatherUi.Ready(info) else WeatherUi.Error)
+            }
+        }
     }
 
     /**
@@ -836,8 +1018,17 @@ class WMKeyboardService : InputMethodService() {
         val ic = currentInputConnection ?: return
         val time = android.os.SystemClock.uptimeMillis()
         val meta = KeyEvent.META_SHIFT_ON or KeyEvent.META_SHIFT_LEFT_ON
+        // A bare meta flag isn't enough for every editor: TextView tracks
+        // modifier state from the shift key's own down/up events, so wrap
+        // the arrow in a real shift press like a hardware keyboard would.
+        ic.sendKeyEvent(
+            KeyEvent(time, time, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_SHIFT_LEFT, 0, meta)
+        )
         ic.sendKeyEvent(KeyEvent(time, time, KeyEvent.ACTION_DOWN, code, 0, meta))
         ic.sendKeyEvent(KeyEvent(time, time, KeyEvent.ACTION_UP, code, 0, meta))
+        ic.sendKeyEvent(
+            KeyEvent(time, time, KeyEvent.ACTION_UP, KeyEvent.KEYCODE_SHIFT_LEFT, 0, meta)
+        )
     }
 
     fun onSnippetTapped(snippet: Snippet) {
@@ -1067,6 +1258,9 @@ class WMKeyboardService : InputMethodService() {
     private var vibratePending = false
 
     private fun vibrate() {
+        // Key sound rides along with every feedback point; it has no
+        // interference problem, so it skips the haptic coalescing below.
+        playKeySound()
         val now = SystemClock.uptimeMillis()
         val wait = MIN_HAPTIC_GAP_MS - (now - lastVibrateAt)
         if (wait <= 0) {
@@ -1083,69 +1277,49 @@ class WMKeyboardService : InputMethodService() {
         }
     }
 
-    @Suppress("DEPRECATION")
+    /**
+     * Plays the key-press sound through the system UI sound effects.
+     * [force] previews even while the setting is off (the quick panel's
+     * toggle fires before the DataStore write lands).
+     */
+    private fun playKeySound(
+        style: com.wasimaster.wmkeyboard.core.settings.KeySoundStyle? = null,
+        volume: Float? = null,
+        force: Boolean = false,
+    ) {
+        val settings = _uiState.value.settings
+        if (!force && !settings.keySound) return
+        val audio = getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager
+        val effect = when (style ?: settings.keySoundStyle) {
+            com.wasimaster.wmkeyboard.core.settings.KeySoundStyle.CLICK ->
+                android.media.AudioManager.FX_KEY_CLICK
+            com.wasimaster.wmkeyboard.core.settings.KeySoundStyle.STANDARD ->
+                android.media.AudioManager.FX_KEYPRESS_STANDARD
+            com.wasimaster.wmkeyboard.core.settings.KeySoundStyle.POP ->
+                android.media.AudioManager.FX_KEYPRESS_SPACEBAR
+            com.wasimaster.wmkeyboard.core.settings.KeySoundStyle.THOCK ->
+                android.media.AudioManager.FX_KEYPRESS_DELETE
+            com.wasimaster.wmkeyboard.core.settings.KeySoundStyle.CHIME ->
+                android.media.AudioManager.FX_KEYPRESS_RETURN
+        }
+        audio.playSoundEffect(effect, (volume ?: settings.keySoundVolume).coerceIn(0.05f, 1f))
+    }
+
     private fun doVibrate() {
         val settings = _uiState.value.settings
         if (!settings.hapticFeedback) return
-        val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            val manager = getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as android.os.VibratorManager
-            manager.defaultVibrator
-        } else {
-            getSystemService(Context.VIBRATOR_SERVICE) as android.os.Vibrator
-        }
-        if (settings.hapticStyle == HapticStyle.SHARP &&
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.R &&
-            vibrator.areAllPrimitivesSupported(android.os.VibrationEffect.Composition.PRIMITIVE_CLICK)
-        ) {
-            // Composed primitive: the HAL overdrives the motor on attack and
-            // actively brakes it, so the click is both short (~20ms) and
-            // strong — the crisp thump stock keyboards have. A raw one-shot
-            // can't do this: it just drives the coil at constant amplitude,
-            // which feels mushy. Scale reuses the intensity slider (0..1).
-            vibrator.vibrate(
-                android.os.VibrationEffect.startComposition()
-                    .addPrimitive(
-                        android.os.VibrationEffect.Composition.PRIMITIVE_CLICK,
-                        (settings.hapticAmplitude.coerceIn(1, 255)) / 255f,
-                    )
-                    .compose()
-            )
-        } else if (settings.hapticStyle != HapticStyle.CUSTOM &&
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
-        ) {
-            // Hardware-tuned click effects — crisper than a raw one-shot and
-            // what most stock keyboards use.
-            vibrator.vibrate(
-                android.os.VibrationEffect.createPredefined(
-                    when (settings.hapticStyle) {
-                        HapticStyle.HEAVY_CLICK -> android.os.VibrationEffect.EFFECT_HEAVY_CLICK
-                        else -> android.os.VibrationEffect.EFFECT_CLICK
-                    }
-                )
-            )
-        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            // Explicit amplitude: DEFAULT_AMPLITUDE defers to a (often weak)
-            // device default. Devices without amplitude control ignore the
-            // value, so fall back to the default constant there.
-            val amplitude = if (vibrator.hasAmplitudeControl()) {
-                settings.hapticAmplitude.coerceIn(1, 255)
-            } else {
-                android.os.VibrationEffect.DEFAULT_AMPLITUDE
-            }
-            vibrator.vibrate(
-                android.os.VibrationEffect.createOneShot(
-                    settings.hapticStrengthMs.toLong(),
-                    amplitude,
-                )
-            )
-        } else {
-            vibrator.vibrate(settings.hapticStrengthMs.toLong())
-        }
+        HapticPlayer.play(
+            this,
+            settings.hapticStyle,
+            settings.hapticAmplitude,
+            settings.hapticStrengthMs,
+        )
     }
 
     companion object {
         /** Minimum spacing between haptic clicks so rapid presses stay distinct. */
         private const val MIN_HAPTIC_GAP_MS = 45L
+        private const val WEATHER_CACHE_MS = 15L * 60 * 1000
         private val SENTENCE_ENDERS = charArrayOf('.', '!', '?', '।')
         private const val SHIFT_DOUBLE_TAP_MS = 350L
 

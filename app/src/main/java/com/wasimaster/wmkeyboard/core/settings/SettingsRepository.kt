@@ -36,9 +36,20 @@ enum class KeyboardAlignment { LEFT, CENTER, RIGHT }
 /**
  * A tool that can live on the top toolbar. Tools not in
  * [KeyboardSettings.toolbarTools] wait in the toolbox panel; the user drags
- * them between the two while the toolbox is open (Gboard style).
+ * them between the two while the toolbox is open (Gboard style). Tools not
+ * in [KeyboardSettings.enabledTools] are hidden everywhere.
  */
-enum class ToolbarTool { EMOJI, CLIPBOARD, SNIPPETS, TEXT_EDIT, ONE_HANDED, SPLIT, FLOATING, SETTINGS }
+enum class ToolbarTool {
+    EMOJI, CLIPBOARD, SNIPPETS, TEXT_EDIT, ONE_HANDED, SPLIT, FLOATING, SETTINGS,
+    FLASHLIGHT, COMPASS, LEVEL, UNDO, REDO, MOON_PHASE, WEATHER, CALENDAR,
+    INCOGNITO, THEMES, AUTOCORRECT, SOUND_HAPTICS, NUMPAD,
+}
+
+/**
+ * Key-press sound: which of the system's UI sound effects plays. All come
+ * from the device's sound pack, so they match the stock keyboard's palette.
+ */
+enum class KeySoundStyle { CLICK, STANDARD, POP, THOCK, CHIME }
 
 /**
  * Key-press haptic waveform: [CUSTOM] drives the motor directly with the
@@ -89,6 +100,9 @@ data class KeyboardSettings(
     val hapticOnLongPress: Boolean = true,
     val hapticOnLongPressRelease: Boolean = false,
     val keySound: Boolean = false,
+    val keySoundStyle: KeySoundStyle = KeySoundStyle.CLICK,
+    /** Sound-effect volume, 0..1 of the system media volume. */
+    val keySoundVolume: Float = 0.5f,
     val keyPopup: Boolean = true,
     val keyPopupMinDurationMs: Int = 150,
     val keyPopupOnKey: Boolean = true,
@@ -121,6 +135,28 @@ data class KeyboardSettings(
     val toolbarGreedy: Boolean = true,
     val toolCircleRadiusDp: Int = 20,
     val commaAsEmoji: Boolean = false,
+    /** Tools available anywhere on the keyboard; disabled tools are hidden. */
+    val enabledTools: List<ToolbarTool> = ToolbarTool.entries.toList(),
+    /** The toolbox drag hint was dismissed; after that it only rarely reappears. */
+    val toolboxHintDismissed: Boolean = false,
+    /** Turn the torch off automatically when the keyboard is dismissed. */
+    val flashlightAutoOff: Boolean = true,
+    val compassShowDegrees: Boolean = true,
+    /** Mark the direction of the Kaaba on the compass (needs the saved location). */
+    val compassShowQibla: Boolean = false,
+    val levelShowAngles: Boolean = true,
+    /** Redo sends Ctrl+Y instead of Ctrl+Shift+Z. */
+    val redoUsesCtrlY: Boolean = false,
+    /** Mirrors the moon drawing for southern-hemisphere viewers. */
+    val moonSouthernHemisphere: Boolean = false,
+    val weatherFahrenheit: Boolean = false,
+    val weatherLatitude: Float? = null,
+    val weatherLongitude: Float? = null,
+    val weatherPlaceName: String = "",
+    val calendarShowBengali: Boolean = true,
+    val calendarShowHijri: Boolean = true,
+    /** Day offset applied to the tabular Hijri date (moon-sighting drift). */
+    val hijriAdjustDays: Int = 0,
 )
 
 /**
@@ -189,6 +225,25 @@ class SettingsRepository(private val context: Context) {
         private val TOOLBAR_GREEDY = booleanPreferencesKey("toolbar_greedy")
         private val TOOL_CIRCLE_RADIUS = intPreferencesKey("tool_circle_radius")
         private val COMMA_AS_EMOJI = booleanPreferencesKey("comma_as_emoji")
+        // Stored as the DISABLED set so tools added in future versions
+        // default to enabled even for users who already toggled some off.
+        private val DISABLED_TOOLS = stringPreferencesKey("disabled_tools")
+        private val TOOLBOX_HINT_DISMISSED = booleanPreferencesKey("toolbox_hint_dismissed")
+        private val FLASHLIGHT_AUTO_OFF = booleanPreferencesKey("flashlight_auto_off")
+        private val COMPASS_SHOW_DEGREES = booleanPreferencesKey("compass_show_degrees")
+        private val COMPASS_SHOW_QIBLA = booleanPreferencesKey("compass_show_qibla")
+        private val KEY_SOUND_STYLE = stringPreferencesKey("key_sound_style")
+        private val KEY_SOUND_VOLUME = floatPreferencesKey("key_sound_volume")
+        private val LEVEL_SHOW_ANGLES = booleanPreferencesKey("level_show_angles")
+        private val REDO_USES_CTRL_Y = booleanPreferencesKey("redo_uses_ctrl_y")
+        private val MOON_SOUTHERN = booleanPreferencesKey("moon_southern_hemisphere")
+        private val WEATHER_FAHRENHEIT = booleanPreferencesKey("weather_fahrenheit")
+        private val WEATHER_LAT = floatPreferencesKey("weather_lat")
+        private val WEATHER_LON = floatPreferencesKey("weather_lon")
+        private val WEATHER_PLACE = stringPreferencesKey("weather_place")
+        private val CALENDAR_SHOW_BENGALI = booleanPreferencesKey("calendar_show_bengali")
+        private val CALENDAR_SHOW_HIJRI = booleanPreferencesKey("calendar_show_hijri")
+        private val HIJRI_ADJUST_DAYS = intPreferencesKey("hijri_adjust_days")
     }
 
     val settings: Flow<KeyboardSettings> = context.dataStore.data.map { p ->
@@ -232,6 +287,10 @@ class SettingsRepository(private val context: Context) {
             hapticOnLongPressRelease = p[HAPTIC_ON_LONG_PRESS_RELEASE]
                 ?: defaults.hapticOnLongPressRelease,
             keySound = p[KEY_SOUND] ?: defaults.keySound,
+            keySoundStyle = p[KEY_SOUND_STYLE]
+                ?.let { runCatching { KeySoundStyle.valueOf(it) }.getOrNull() }
+                ?: defaults.keySoundStyle,
+            keySoundVolume = p[KEY_SOUND_VOLUME] ?: defaults.keySoundVolume,
             keyPopup = p[KEY_POPUP] ?: defaults.keyPopup,
             keyPopupMinDurationMs = p[KEY_POPUP_MIN_DURATION] ?: defaults.keyPopupMinDurationMs,
             keyPopupOnKey = p[KEY_POPUP_ON_KEY] ?: defaults.keyPopupOnKey,
@@ -273,8 +332,92 @@ class SettingsRepository(private val context: Context) {
             toolbarGreedy = p[TOOLBAR_GREEDY] ?: defaults.toolbarGreedy,
             toolCircleRadiusDp = p[TOOL_CIRCLE_RADIUS] ?: defaults.toolCircleRadiusDp,
             commaAsEmoji = p[COMMA_AS_EMOJI] ?: defaults.commaAsEmoji,
+            enabledTools = ToolbarTool.entries - decodeDisabledTools(p[DISABLED_TOOLS]),
+            toolboxHintDismissed = p[TOOLBOX_HINT_DISMISSED] ?: defaults.toolboxHintDismissed,
+            flashlightAutoOff = p[FLASHLIGHT_AUTO_OFF] ?: defaults.flashlightAutoOff,
+            compassShowDegrees = p[COMPASS_SHOW_DEGREES] ?: defaults.compassShowDegrees,
+            compassShowQibla = p[COMPASS_SHOW_QIBLA] ?: defaults.compassShowQibla,
+            levelShowAngles = p[LEVEL_SHOW_ANGLES] ?: defaults.levelShowAngles,
+            redoUsesCtrlY = p[REDO_USES_CTRL_Y] ?: defaults.redoUsesCtrlY,
+            moonSouthernHemisphere = p[MOON_SOUTHERN] ?: defaults.moonSouthernHemisphere,
+            weatherFahrenheit = p[WEATHER_FAHRENHEIT] ?: defaults.weatherFahrenheit,
+            weatherLatitude = p[WEATHER_LAT],
+            weatherLongitude = p[WEATHER_LON],
+            weatherPlaceName = p[WEATHER_PLACE] ?: defaults.weatherPlaceName,
+            calendarShowBengali = p[CALENDAR_SHOW_BENGALI] ?: defaults.calendarShowBengali,
+            calendarShowHijri = p[CALENDAR_SHOW_HIJRI] ?: defaults.calendarShowHijri,
+            hijriAdjustDays = p[HIJRI_ADJUST_DAYS] ?: defaults.hijriAdjustDays,
         )
     }
+
+    /**
+     * Enables or disables one tool everywhere on the keyboard. Disabling
+     * leaves [KeyboardSettings.toolbarTools] untouched — the toolbar just
+     * skips disabled entries, so re-enabling restores the old position.
+     */
+    suspend fun setToolEnabled(tool: ToolbarTool, enabled: Boolean) =
+        context.dataStore.edit { prefs ->
+            val disabled = decodeDisabledTools(prefs[DISABLED_TOOLS])
+            val next = if (enabled) disabled - tool else (disabled + tool).distinct()
+            prefs[DISABLED_TOOLS] = next.joinToString(",") { it.name }
+        }
+
+    suspend fun setToolboxHintDismissed(value: Boolean) =
+        context.dataStore.edit { it[TOOLBOX_HINT_DISMISSED] = value }
+
+    private fun decodeDisabledTools(csv: String?): List<ToolbarTool> =
+        csv?.split(',')?.mapNotNull { runCatching { ToolbarTool.valueOf(it) }.getOrNull() }
+            ?: emptyList()
+
+    suspend fun setFlashlightAutoOff(value: Boolean) =
+        context.dataStore.edit { it[FLASHLIGHT_AUTO_OFF] = value }
+
+    suspend fun setCompassShowDegrees(value: Boolean) =
+        context.dataStore.edit { it[COMPASS_SHOW_DEGREES] = value }
+
+    suspend fun setCompassShowQibla(value: Boolean) =
+        context.dataStore.edit { it[COMPASS_SHOW_QIBLA] = value }
+
+    suspend fun setKeySoundStyle(value: KeySoundStyle) =
+        context.dataStore.edit { it[KEY_SOUND_STYLE] = value.name }
+
+    suspend fun setKeySoundVolume(value: Float) =
+        context.dataStore.edit { it[KEY_SOUND_VOLUME] = value.coerceIn(0.05f, 1f) }
+
+    suspend fun setLevelShowAngles(value: Boolean) =
+        context.dataStore.edit { it[LEVEL_SHOW_ANGLES] = value }
+
+    suspend fun setRedoUsesCtrlY(value: Boolean) =
+        context.dataStore.edit { it[REDO_USES_CTRL_Y] = value }
+
+    suspend fun setMoonSouthernHemisphere(value: Boolean) =
+        context.dataStore.edit { it[MOON_SOUTHERN] = value }
+
+    suspend fun setWeatherFahrenheit(value: Boolean) =
+        context.dataStore.edit { it[WEATHER_FAHRENHEIT] = value }
+
+    /** Passing nulls clears the stored location. */
+    suspend fun setWeatherLocation(latitude: Float?, longitude: Float?, place: String) =
+        context.dataStore.edit { prefs ->
+            if (latitude == null || longitude == null) {
+                prefs.remove(WEATHER_LAT)
+                prefs.remove(WEATHER_LON)
+                prefs.remove(WEATHER_PLACE)
+            } else {
+                prefs[WEATHER_LAT] = latitude.coerceIn(-90f, 90f)
+                prefs[WEATHER_LON] = longitude.coerceIn(-180f, 180f)
+                prefs[WEATHER_PLACE] = place
+            }
+        }
+
+    suspend fun setCalendarShowBengali(value: Boolean) =
+        context.dataStore.edit { it[CALENDAR_SHOW_BENGALI] = value }
+
+    suspend fun setCalendarShowHijri(value: Boolean) =
+        context.dataStore.edit { it[CALENDAR_SHOW_HIJRI] = value }
+
+    suspend fun setHijriAdjustDays(value: Int) =
+        context.dataStore.edit { it[HIJRI_ADJUST_DAYS] = value.coerceIn(-2, 2) }
 
     suspend fun setToolbarTools(tools: List<ToolbarTool>) =
         context.dataStore.edit {
