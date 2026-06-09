@@ -759,6 +759,13 @@ private val DEFAULT_BAR_EMOJIS = listOf(
 )
 
 /**
+ * Height of the dedicated emoji row. The emoji panel absorbs it while
+ * open (the row hides there), so the keyboard's total height never
+ * changes when switching between keys and the emoji panel.
+ */
+private val EmojiBarHeight = 40.dp
+
+/**
  * The dedicated emoji row (Gboard style): favourites and/or most-used
  * emojis one tap from any screen, with a launcher into the full panel.
  * Used as its own row (ALWAYS) or swapped into the strip (BUTTON).
@@ -780,7 +787,7 @@ private fun EmojiBarStrip(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .height(40.dp),
+            .height(EmojiBarHeight),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         IconButton(onClick = onOpenPanel, modifier = Modifier.size(36.dp)) {
@@ -791,9 +798,13 @@ private fun EmojiBarStrip(
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+        // SpaceEvenly kicks in while the content is narrower than the row,
+        // so a handful of emojis spread across the full width instead of
+        // huddling left; once there are enough to overflow it scrolls.
         LazyRow(
             modifier = Modifier.weight(1f),
             verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceEvenly,
         ) {
             lazyRowItems(emojis) { emoji ->
                 Text(
@@ -2348,7 +2359,12 @@ private fun EmojiPanel(
     }
     val historyMode = state.settings.emojiTabMode
     val history = if (historyMode == EmojiTabMode.MOST_USED) state.emojiFrequents else state.emojiRecents
-    val height = if (state.emojiSearchActive) 120.dp else keyRowsHeight(state.settings)
+    // The always-on emoji row hides while this panel is open; absorbing its
+    // height here keeps the keyboard from resizing on panel switches.
+    val barCompensation =
+        if (state.settings.emojiBarMode == EmojiBarMode.ALWAYS) EmojiBarHeight else 0.dp
+    val height =
+        (if (state.emojiSearchActive) 120.dp else keyRowsHeight(state.settings)) + barCompensation
     Column(
         modifier = Modifier
             .fillMaxWidth()

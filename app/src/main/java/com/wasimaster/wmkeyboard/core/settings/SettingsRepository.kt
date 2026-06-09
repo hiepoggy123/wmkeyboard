@@ -79,6 +79,13 @@ enum class EmojiBarMode { OFF, BUTTON, ALWAYS }
 /** Which emojis the dedicated emoji row shows (favourites always lead). */
 enum class EmojiBarContent { MOST_USED, RECENTS, FAVOURITES }
 
+/**
+ * What tapping an emoji suggestion does to the word being typed:
+ * [REPLACE] swaps the word for the emoji (Gboard style), [APPEND] keeps
+ * the word and adds the emoji after it ("birthday 🎂").
+ */
+enum class EmojiInsertMode { REPLACE, APPEND }
+
 data class KeyboardSettings(
     val inputMode: InputMode = InputMode.ENGLISH,
     val enabledModes: List<InputMode> =
@@ -154,6 +161,8 @@ data class KeyboardSettings(
     val emojiPrediction: Boolean = true,
     val emojiBarMode: EmojiBarMode = EmojiBarMode.BUTTON,
     val emojiBarContent: EmojiBarContent = EmojiBarContent.MOST_USED,
+    /** Whether an emoji suggestion replaces the typed word or follows it. */
+    val emojiInsertMode: EmojiInsertMode = EmojiInsertMode.APPEND,
     /** Tools available anywhere on the keyboard; disabled tools are hidden. */
     val enabledTools: List<ToolbarTool> = ToolbarTool.entries.toList(),
     /** The toolbox drag hint was dismissed; after that it only rarely reappears. */
@@ -248,6 +257,7 @@ class SettingsRepository(private val context: Context) {
         private val EMOJI_PREDICTION = booleanPreferencesKey("emoji_prediction")
         private val EMOJI_BAR_MODE = stringPreferencesKey("emoji_bar_mode")
         private val EMOJI_BAR_CONTENT = stringPreferencesKey("emoji_bar_content")
+        private val EMOJI_INSERT_MODE = stringPreferencesKey("emoji_insert_mode")
         // Stored as the DISABLED set so tools added in future versions
         // default to enabled even for users who already toggled some off.
         private val DISABLED_TOOLS = stringPreferencesKey("disabled_tools")
@@ -365,6 +375,9 @@ class SettingsRepository(private val context: Context) {
             emojiBarContent = p[EMOJI_BAR_CONTENT]
                 ?.let { runCatching { EmojiBarContent.valueOf(it) }.getOrNull() }
                 ?: defaults.emojiBarContent,
+            emojiInsertMode = p[EMOJI_INSERT_MODE]
+                ?.let { runCatching { EmojiInsertMode.valueOf(it) }.getOrNull() }
+                ?: defaults.emojiInsertMode,
             enabledTools = ToolbarTool.entries - decodeDisabledTools(p[DISABLED_TOOLS]),
             toolboxHintDismissed = p[TOOLBOX_HINT_DISMISSED] ?: defaults.toolboxHintDismissed,
             flashlightAutoOff = p[FLASHLIGHT_AUTO_OFF] ?: defaults.flashlightAutoOff,
@@ -659,6 +672,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setEmojiBarContent(value: EmojiBarContent) =
         context.dataStore.edit { it[EMOJI_BAR_CONTENT] = value.name }
+
+    suspend fun setEmojiInsertMode(value: EmojiInsertMode) =
+        context.dataStore.edit { it[EMOJI_INSERT_MODE] = value.name }
 
     suspend fun setIncognito(value: Boolean) =
         context.dataStore.edit { it[INCOGNITO] = value }

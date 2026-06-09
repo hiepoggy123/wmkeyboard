@@ -28,6 +28,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.HelpOutline
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.outlined.Redo
 import androidx.compose.material.icons.automirrored.outlined.Undo
 import androidx.compose.material.icons.outlined.CalendarMonth
@@ -99,6 +100,7 @@ import android.os.Build
 import com.wasimaster.wmkeyboard.core.feedback.HapticPlayer
 import com.wasimaster.wmkeyboard.core.settings.EmojiBarContent
 import com.wasimaster.wmkeyboard.core.settings.EmojiBarMode
+import com.wasimaster.wmkeyboard.core.settings.EmojiInsertMode
 import com.wasimaster.wmkeyboard.core.settings.EmojiTabMode
 import com.wasimaster.wmkeyboard.core.settings.HapticStyle
 import com.wasimaster.wmkeyboard.core.settings.InputMode
@@ -227,9 +229,9 @@ private fun SettingsNavHost(repository: SettingsRepository, settings: KeyboardSe
                 LanguageSettings(repository, settings)
             }
         }
-        composable("clipboard") {
-            SettingsScreen("Clipboard & emoji", { navController.popBackStack() }) {
-                ClipboardEmojiSettings(repository, settings)
+        composable("emoji") {
+            SettingsScreen("Emoji", { navController.popBackStack() }) {
+                EmojiSettings(repository, settings)
             }
         }
         composable("tools") {
@@ -242,7 +244,9 @@ private fun SettingsNavHost(repository: SettingsRepository, settings: KeyboardSe
                 ?.let { runCatching { ToolbarTool.valueOf(it) }.getOrNull() }
             if (tool != null) {
                 SettingsScreen(toolTitle(tool), { navController.popBackStack() }) {
-                    ToolDetailSettings(repository, settings, tool)
+                    ToolDetailSettings(repository, settings, tool) {
+                        navController.navigate("emoji")
+                    }
                 }
             }
         }
@@ -280,7 +284,7 @@ private fun HomeScreen(settings: KeyboardSettings, onNavigate: (String) -> Unit)
             SectionItem("Typing", "Autocorrect, suggestions, key behavior") { onNavigate("typing") }
             SectionItem("Appearance & themes", "Material You, AMOLED, key size, split & resize") { onNavigate("appearance") }
             SectionItem("Languages", "English, বাংলা (Avro phonetic, প্রভাত)") { onNavigate("languages") }
-            SectionItem("Clipboard & emoji", "History, expiry, toolbar") { onNavigate("clipboard") }
+            SectionItem("Emoji", "Suggestions, history tab, emoji row, favourites") { onNavigate("emoji") }
             SectionItem("Tools", "Flashlight, compass, calendar & more — enable and configure") { onNavigate("tools") }
             SectionItem("Snippets", "Reusable text with {date}, {time}, {clip} variables") { onNavigate("snippets") }
             SectionItem("Privacy", "On-device learning, incognito") { onNavigate("privacy") }
@@ -1060,26 +1064,8 @@ private fun LanguageSettings(repository: SettingsRepository, settings: KeyboardS
 }
 
 @Composable
-private fun ClipboardEmojiSettings(repository: SettingsRepository, settings: KeyboardSettings) {
+private fun EmojiSettings(repository: SettingsRepository, settings: KeyboardSettings) {
     val scope = rememberCoroutineScope()
-    SectionHeader("Clipboard")
-    ToggleSetting(
-        "Clipboard history", "Save copied text for quick paste", settings.clipboardHistory,
-        info = "Everything you copy is kept in the keyboard's clipboard panel for quick " +
-            "pasting. Nothing is captured from password fields or while incognito mode " +
-            "is on, and history never leaves your device.",
-    ) { scope.launch { repository.setClipboardHistory(it) } }
-    SliderSetting(
-        "Clipboard expiry",
-        subtitle = "Remove unpinned items after this long",
-        value = settings.clipboardExpiryHours.toFloat(),
-        range = 0f..168f,
-        display = if (settings.clipboardExpiryHours == 0) "never" else "${settings.clipboardExpiryHours} h",
-        info = "Unpinned clipboard items are deleted automatically after this many " +
-            "hours. Pinned items never expire. Set to \"never\" (all the way left) to " +
-            "keep items until you delete them yourself.",
-    ) { scope.launch { repository.setClipboardExpiryHours(it.toInt()) } }
-    SectionHeader("Emoji")
     ToggleSetting(
         "Emoji button in toolbar", "One-tap emoji access from the top bar", settings.emojiToolbar,
         info = "Keeps the emoji button visible in the top bar even while suggestions " +
@@ -1091,9 +1077,22 @@ private fun ClipboardEmojiSettings(repository: SettingsRepository, settings: Key
         "Offer emojis while typing — birthday suggests 🎂 🎉 🥳",
         settings.emojiPrediction,
         info = "Matching emojis appear at the end of the suggestion strip while you " +
-            "type, in English or Bengali (জন্মদিন also suggests 🎂). Tapping one " +
-            "replaces the word being typed.",
+            "type, in English or Bengali (জন্মদিন also suggests 🎂).",
     ) { scope.launch { repository.setEmojiPrediction(it) } }
+    if (settings.emojiPrediction) {
+        ChoiceSetting(
+            title = "Emoji suggestion tap",
+            subtitle = "What happens to the word you typed",
+            info = "\"Replace word\" swaps the typed word for the emoji (typing " +
+                "birthday and tapping 🎂 leaves just 🎂, like Gboard). \"Keep word\" " +
+                "adds the emoji after it: birthday 🎂.",
+            options = listOf(
+                EmojiInsertMode.REPLACE to "Replace word",
+                EmojiInsertMode.APPEND to "Keep word",
+            ),
+            selected = settings.emojiInsertMode,
+        ) { scope.launch { repository.setEmojiInsertMode(it) } }
+    }
     ChoiceSetting(
         title = "History tab",
         subtitle = "What the first emoji-panel tab shows",
@@ -1253,6 +1252,7 @@ private fun ToolDetailSettings(
     repository: SettingsRepository,
     settings: KeyboardSettings,
     tool: ToolbarTool,
+    onOpenEmojiSettings: () -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     Text(
@@ -1267,11 +1267,29 @@ private fun ToolDetailSettings(
     ) { scope.launch { repository.setToolEnabled(tool, it) } }
     HorizontalDivider()
     when (tool) {
-        ToolbarTool.EMOJI -> ToggleSetting(
-            "Emoji button in toolbar",
-            "Keep the emoji button visible next to suggestions",
-            settings.emojiToolbar,
-        ) { scope.launch { repository.setEmojiToolbar(it) } }
+        ToolbarTool.EMOJI -> {
+            ToggleSetting(
+                "Emoji button in toolbar",
+                "Keep the emoji button visible next to suggestions",
+                settings.emojiToolbar,
+            ) { scope.launch { repository.setEmojiToolbar(it) } }
+            ListItem(
+                headlineContent = { Text("All emoji settings") },
+                supportingContent = {
+                    Text("Suggestions, history tab, emoji row, skin tones & favourites")
+                },
+                trailingContent = {
+                    Icon(
+                        Icons.AutoMirrored.Outlined.KeyboardArrowRight,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onOpenEmojiSettings),
+            )
+        }
         ToolbarTool.CLIPBOARD -> {
             ToggleSetting(
                 "Clipboard history", "Save copied text for quick paste",

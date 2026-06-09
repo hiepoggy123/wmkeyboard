@@ -39,6 +39,7 @@ import com.wasimaster.wmkeyboard.core.prediction.EnglishBengaliMap
 import com.wasimaster.wmkeyboard.core.prediction.SuggestionEngine
 import com.wasimaster.wmkeyboard.core.prediction.Trie
 import com.wasimaster.wmkeyboard.core.prediction.UserLexicon
+import com.wasimaster.wmkeyboard.core.settings.EmojiInsertMode
 import com.wasimaster.wmkeyboard.core.settings.HapticStyle
 import com.wasimaster.wmkeyboard.core.settings.InputMode
 import com.wasimaster.wmkeyboard.core.settings.isFixedBengali
@@ -1102,15 +1103,23 @@ class WMKeyboardService : InputMethodService() {
     }
 
     /**
-     * An emoji candidate from the suggestion strip replaces the word being
-     * typed (Gboard semantics): committing over the active composing region
-     * swaps the text, then usage is recorded like any palette tap.
+     * An emoji candidate from the suggestion strip. In [EmojiInsertMode.REPLACE]
+     * (Gboard semantics) committing over the active composing region swaps
+     * the typed word for the emoji; in [EmojiInsertMode.APPEND] the word is
+     * kept ("birthday 🎂") and learned like a normal commit.
      */
     fun onEmojiSuggestionTapped(emoji: String) {
         vibrate()
         val ic = currentInputConnection ?: return
         lastGestureWord = null
-        ic.commitText(emoji, 1)
+        val word = composing.toString()
+        if (_uiState.value.settings.emojiInsertMode == EmojiInsertMode.APPEND && word.isNotEmpty()) {
+            ic.finishComposingText()
+            ic.commitText(" $emoji", 1)
+            learn(word)
+        } else {
+            ic.commitText(emoji, 1)
+        }
         emojiUsage.record(emoji)
         composing = StringBuilder()
         _uiState.update {
