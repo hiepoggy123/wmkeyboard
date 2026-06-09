@@ -148,6 +148,16 @@ data class KeyboardSettings(
     val clipboardExpiryHours: Int = 24,
     val longPressDelayMs: Int = 300,
     val keyRepeatIntervalMs: Int = 50,
+    /** Small corner label on each key showing its first long-press character. */
+    val longPressHints: Boolean = true,
+    /** Long-pressing A selects all text in the field. */
+    val longPressASelectAll: Boolean = true,
+    /** Long-pressing C copies the selection (selects all first when nothing is selected). */
+    val longPressCCopy: Boolean = true,
+    /** Long-pressing V pastes the clipboard. */
+    val longPressVPaste: Boolean = true,
+    /** Long-pressing X cuts the selection (selects all first when nothing is selected). */
+    val longPressXCut: Boolean = true,
     val emojiToolbar: Boolean = true,
     val incognito: Boolean = false,
     val toolbarTools: List<ToolbarTool> =
@@ -247,6 +257,11 @@ class SettingsRepository(private val context: Context) {
         private val CLIPBOARD_EXPIRY_HOURS = intPreferencesKey("clipboard_expiry_hours")
         private val LONG_PRESS_DELAY = intPreferencesKey("long_press_delay")
         private val KEY_REPEAT_INTERVAL = intPreferencesKey("key_repeat_interval")
+        private val LONG_PRESS_HINTS = booleanPreferencesKey("long_press_hints")
+        private val LONG_PRESS_A_SELECT_ALL = booleanPreferencesKey("long_press_a_select_all")
+        private val LONG_PRESS_C_COPY = booleanPreferencesKey("long_press_c_copy")
+        private val LONG_PRESS_V_PASTE = booleanPreferencesKey("long_press_v_paste")
+        private val LONG_PRESS_X_CUT = booleanPreferencesKey("long_press_x_cut")
         private val EMOJI_TOOLBAR = booleanPreferencesKey("emoji_toolbar")
         private val INCOGNITO = booleanPreferencesKey("incognito")
         private val TOOLBAR_TOOLS = stringPreferencesKey("toolbar_tools")
@@ -354,6 +369,11 @@ class SettingsRepository(private val context: Context) {
             clipboardExpiryHours = p[CLIPBOARD_EXPIRY_HOURS] ?: defaults.clipboardExpiryHours,
             longPressDelayMs = p[LONG_PRESS_DELAY] ?: defaults.longPressDelayMs,
             keyRepeatIntervalMs = p[KEY_REPEAT_INTERVAL] ?: defaults.keyRepeatIntervalMs,
+            longPressHints = p[LONG_PRESS_HINTS] ?: defaults.longPressHints,
+            longPressASelectAll = p[LONG_PRESS_A_SELECT_ALL] ?: defaults.longPressASelectAll,
+            longPressCCopy = p[LONG_PRESS_C_COPY] ?: defaults.longPressCCopy,
+            longPressVPaste = p[LONG_PRESS_V_PASTE] ?: defaults.longPressVPaste,
+            longPressXCut = p[LONG_PRESS_X_CUT] ?: defaults.longPressXCut,
             emojiToolbar = p[EMOJI_TOOLBAR] ?: defaults.emojiToolbar,
             incognito = p[INCOGNITO] ?: defaults.incognito,
             // Empty stored string is a valid state (everything in the toolbox),
@@ -657,6 +677,21 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setKeyRepeatIntervalMs(value: Int) =
         context.dataStore.edit { it[KEY_REPEAT_INTERVAL] = value.coerceIn(20, 200) }
+
+    suspend fun setLongPressHints(value: Boolean) =
+        context.dataStore.edit { it[LONG_PRESS_HINTS] = value }
+
+    suspend fun setLongPressASelectAll(value: Boolean) =
+        context.dataStore.edit { it[LONG_PRESS_A_SELECT_ALL] = value }
+
+    suspend fun setLongPressCCopy(value: Boolean) =
+        context.dataStore.edit { it[LONG_PRESS_C_COPY] = value }
+
+    suspend fun setLongPressVPaste(value: Boolean) =
+        context.dataStore.edit { it[LONG_PRESS_V_PASTE] = value }
+
+    suspend fun setLongPressXCut(value: Boolean) =
+        context.dataStore.edit { it[LONG_PRESS_X_CUT] = value }
 
     suspend fun setEmojiToolbar(value: Boolean) =
         context.dataStore.edit { it[EMOJI_TOOLBAR] = value }

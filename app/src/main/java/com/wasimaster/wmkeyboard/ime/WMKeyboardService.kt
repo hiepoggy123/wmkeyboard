@@ -52,6 +52,7 @@ import com.wasimaster.wmkeyboard.core.tools.WeatherClient
 import com.wasimaster.wmkeyboard.core.transliteration.AvroPhonetic
 import com.wasimaster.wmkeyboard.core.transliteration.BengaliGraphemes
 import com.wasimaster.wmkeyboard.core.transliteration.BengaliPhoneticIndex
+import com.wasimaster.wmkeyboard.ime.layout.ClipboardKeyAction
 import com.wasimaster.wmkeyboard.ime.layout.Key
 import com.wasimaster.wmkeyboard.ime.layout.KeyAction
 import com.wasimaster.wmkeyboard.ime.ui.KeyboardScreen
@@ -257,6 +258,7 @@ class WMKeyboardService : InputMethodService() {
                 onGesturePreview = ::onGesturePreview,
                 onCursorMove = ::onCursorMove,
                 onLanguageSelect = ::onLanguageSelected,
+                onClipboardKey = ::onClipboardKey,
                 onSuggestion = ::onSuggestionTapped,
                 onEmoji = ::onEmojiTapped,
                 onEmojiVariant = ::onEmojiVariantPicked,
@@ -1034,6 +1036,35 @@ class WMKeyboardService : InputMethodService() {
             }
             TextEditAction.PASTE -> ic.performContextMenuAction(android.R.id.paste)
             TextEditAction.BACKSPACE -> sendDownUpKeyEvents(KeyEvent.KEYCODE_DEL)
+        }
+    }
+
+    /**
+     * Clipboard shortcuts fired by long-pressing A/C/V/X. Copy and cut act on
+     * the current selection when one exists; with nothing selected they select
+     * all first, so a bare long press copies or cuts the whole field.
+     */
+    fun onClipboardKey(action: ClipboardKeyAction) {
+        val ic = currentInputConnection ?: return
+        commitComposing(ic, autocorrect = false)
+        lastGestureWord = null
+        val hasSelection = ic.getSelectedText(0)?.isNotEmpty() == true
+        when (action) {
+            ClipboardKeyAction.SELECT_ALL -> {
+                ic.performContextMenuAction(android.R.id.selectAll)
+                _uiState.update { it.copy(textEditSelecting = true) }
+            }
+            ClipboardKeyAction.COPY -> {
+                if (!hasSelection) ic.performContextMenuAction(android.R.id.selectAll)
+                ic.performContextMenuAction(android.R.id.copy)
+                _uiState.update { it.copy(textEditSelecting = false) }
+            }
+            ClipboardKeyAction.CUT -> {
+                if (!hasSelection) ic.performContextMenuAction(android.R.id.selectAll)
+                ic.performContextMenuAction(android.R.id.cut)
+                _uiState.update { it.copy(textEditSelecting = false) }
+            }
+            ClipboardKeyAction.PASTE -> ic.performContextMenuAction(android.R.id.paste)
         }
     }
 

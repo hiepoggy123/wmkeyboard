@@ -15,7 +15,12 @@ data class Key(
     val action: KeyAction = KeyAction.Text,
     val width: Float = 1f,
     val longPress: List<String> = emptyList(),
+    /** Clipboard shortcut fired on long press instead of the alternates popup. */
+    val clipboardAction: ClipboardKeyAction? = null,
 )
+
+/** Clipboard shortcut a letter key can perform on long press (A/C/V/X). */
+enum class ClipboardKeyAction { SELECT_ALL, COPY, PASTE, CUT }
 
 enum class KeyAction { Text, Shift, Delete, Space, Enter, Symbols, Letters, LanguageSwitch, Emoji }
 
@@ -40,14 +45,22 @@ object Layouts {
                 Key("o", longPress = listOf("9", "ò", "ó", "ô", "ö")),
                 Key("p", longPress = listOf("0")),
             ),
+            // Every letter carries a symbol as its first alternate (the
+            // long-press hint), Samsung-style; accents follow the symbol.
             listOf(
-                Key("a", longPress = listOf("à", "á", "â", "ä", "å")), Key("s", longPress = listOf("ß", "ś")),
-                Key("d"), Key("f"), Key("g"), Key("h"), Key("j"), Key("k"), Key("l"),
+                Key("a", longPress = listOf("@", "à", "á", "â", "ä", "å")),
+                Key("s", longPress = listOf("#", "ß", "ś")),
+                Key("d", longPress = listOf("$")), Key("f", longPress = listOf("_")),
+                Key("g", longPress = listOf("&")), Key("h", longPress = listOf("-")),
+                Key("j", longPress = listOf("+")), Key("k", longPress = listOf("(")),
+                Key("l", longPress = listOf(")")),
             ),
             listOf(
                 Key("⇧", action = KeyAction.Shift, width = 1.5f),
-                Key("z", longPress = listOf("ż", "ź")), Key("x"), Key("c", longPress = listOf("ç", "ć")),
-                Key("v"), Key("b"), Key("n", longPress = listOf("ñ", "ń")), Key("m"),
+                Key("z", longPress = listOf("*", "ż", "ź")), Key("x", longPress = listOf("\"")),
+                Key("c", longPress = listOf("'", "ç", "ć")), Key("v", longPress = listOf(":")),
+                Key("b", longPress = listOf(";")), Key("n", longPress = listOf("!", "ñ", "ń")),
+                Key("m", longPress = listOf("?")),
                 Key("⌫", action = KeyAction.Delete, width = 1.5f),
             ),
             bottomRow(),

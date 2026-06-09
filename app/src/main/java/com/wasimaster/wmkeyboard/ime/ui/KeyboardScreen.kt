@@ -192,6 +192,7 @@ import com.wasimaster.wmkeyboard.ime.PanelMode
 import com.wasimaster.wmkeyboard.ime.SoundHapticAction
 import com.wasimaster.wmkeyboard.ime.TextEditAction
 import com.wasimaster.wmkeyboard.ime.ShiftState
+import com.wasimaster.wmkeyboard.ime.layout.ClipboardKeyAction
 import com.wasimaster.wmkeyboard.ime.layout.Key
 import com.wasimaster.wmkeyboard.ime.layout.KeyAction
 import com.wasimaster.wmkeyboard.ime.layout.KeyboardLayout
@@ -212,6 +213,12 @@ import kotlin.random.Random
  */
 internal val LocalKeyPressFeedback = staticCompositionLocalOf<() -> Unit> { {} }
 
+/**
+ * Sink for the A/C/V/X clipboard long-press shortcuts, provided once at the
+ * root so it does not have to thread through every key-grid layer.
+ */
+internal val LocalClipboardKeyAction = staticCompositionLocalOf<(ClipboardKeyAction) -> Unit> { {} }
+
 /** Root composable for the IME. Renders [KeyboardUiState] and forwards input. */
 @Composable
 fun KeyboardScreen(
@@ -223,6 +230,7 @@ fun KeyboardScreen(
     onGesturePreview: (List<GesturePoint>, List<KeyCenter>, Float) -> Unit = { _, _, _ -> },
     onCursorMove: (Int) -> Unit = {},
     onLanguageSelect: (InputMode) -> Unit = {},
+    onClipboardKey: (ClipboardKeyAction) -> Unit = {},
     onSuggestion: (String) -> Unit,
     onEmoji: (String) -> Unit,
     onEmojiVariant: (String, String) -> Unit = { _, v -> onEmoji(v) },
@@ -286,7 +294,10 @@ fun KeyboardScreen(
     }
 
     val body: @Composable ColumnScope.(KeyboardUiState) -> Unit = { bodyState ->
-        CompositionLocalProvider(LocalKeyPressFeedback provides onKeyPressed) {
+        CompositionLocalProvider(
+            LocalKeyPressFeedback provides onKeyPressed,
+            LocalClipboardKeyAction provides onClipboardKey,
+        ) {
             KeyboardBody(
                 state = bodyState,
                 onKey = onKey,
@@ -1652,22 +1663,47 @@ private fun currentLayout(state: KeyboardUiState): KeyboardLayout {
     val commaAsEmoji = state.settings.commaAsEmoji && state.layoutMode == LayoutMode.LETTERS
     // 🌐 → emoji key: language switching lives on spacebar swipes instead.
     val globeAsEmoji = state.settings.globeAsEmoji
-    if (!commaAsEmoji && !globeAsEmoji) return base
+    // With the dedicated number row on, the digits duplicated on the top-row
+    // letters' long press are redundant — drop them so those keys go straight
+    // to their accents (or lose their popup entirely).
+    val stripDigits = state.settings.numberRow && state.layoutMode == LayoutMode.LETTERS
+    // A/C/V/X clipboard shortcuts only make sense on Latin letter keys.
+    val clipboardKeys: Map<String, ClipboardKeyAction> =
+        if (state.layoutMode == LayoutMode.LETTERS && !state.inputMode.isFixedBengali) {
+            buildMap {
+                if (state.settings.longPressASelectAll) put("a", ClipboardKeyAction.SELECT_ALL)
+                if (state.settings.longPressCCopy) put("c", ClipboardKeyAction.COPY)
+                if (state.settings.longPressVPaste) put("v", ClipboardKeyAction.PASTE)
+                if (state.settings.longPressXCut) put("x", ClipboardKeyAction.CUT)
+            }
+        } else {
+            emptyMap()
+        }
+    if (!commaAsEmoji && !globeAsEmoji && !stripDigits && clipboardKeys.isEmpty()) return base
     return KeyboardLayout(
         base.name,
         base.rows.map { row ->
             row.map { key ->
-                when {
+                var mapped = when {
                     commaAsEmoji && key.action == KeyAction.Text && key.label == "," ->
                         Key(",", action = KeyAction.Emoji, longPress = listOf(",") + key.longPress)
                     globeAsEmoji && key.action == KeyAction.LanguageSwitch ->
                         key.copy(action = KeyAction.Emoji)
                     else -> key
                 }
+                if (stripDigits && mapped.longPress.any { it.isSingleDigit() }) {
+                    mapped = mapped.copy(longPress = mapped.longPress.filterNot { it.isSingleDigit() })
+                }
+                if (mapped.action == KeyAction.Text) {
+                    clipboardKeys[mapped.label]?.let { mapped = mapped.copy(clipboardAction = it) }
+                }
+                mapped
             }
         },
     )
 }
+
+private fun String.isSingleDigit(): Boolean = length == 1 && this[0].isDigit()
 
 /**
  * Places a popup centered above its anchor with a clear gap, so the
@@ -1755,6 +1791,7 @@ private fun KeyButton(
     val scope = rememberCoroutineScope()
     val settings = state.settings
     val onKeyPress = LocalKeyPressFeedback.current
+    val onClipboardKey = LocalClipboardKeyAction.current
 
     // The preview bubble outlives the physical press by up to the minimum
     // popup duration, so a fast tap still shows a readable bubble instead
@@ -1808,6 +1845,7 @@ private fun KeyButton(
                 hapticOnLongPressRelease = settings.hapticOnLongPressRelease,
                 openAlternates = { showAlternates = true },
                 onKey = onKey,
+                onClipboardKey = onClipboardKey,
                 onCursorMove = onCursorMove,
                 onLanguageSelect = onLanguageSelect,
                 setLanguagePreview = { languagePreview = it },
@@ -2002,16 +2040,33 @@ private fun KeyContent(key: Key, state: KeyboardUiState, contentColor: Color) {
                 color = contentColor.copy(alpha = 0.5f),
             )
         }
-        else -> {
+        else -> Box(modifier = Modifier.fillMaxSize()) {
             // Multi-character mode labels (?123, ABC, =\<) read as labels,
             // not characters — render them clearly smaller than letters.
             val isModeLabel = key.action != KeyAction.Text && key.label.length > 1
             Text(
                 text = displayLabel(key, state),
+                modifier = Modifier.align(Alignment.Center),
                 fontSize = ((if (isModeLabel) 15.6f else 23f) * fontScale).sp,
                 fontWeight = FontWeight.Medium,
                 color = contentColor,
             )
+            // Corner hint: the key's first long-press alternate. Keys whose
+            // long press runs a clipboard shortcut show no character hint —
+            // the popup never opens there.
+            val hint = key.longPress.firstOrNull()
+            if (state.settings.longPressHints && key.action == KeyAction.Text &&
+                key.clipboardAction == null && hint != null
+            ) {
+                Text(
+                    text = hint,
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(top = 1.dp, end = 4.dp),
+                    fontSize = (10 * fontScale).sp,
+                    color = contentColor.copy(alpha = 0.55f),
+                )
+            }
         }
     }
 }
@@ -2076,6 +2131,7 @@ private fun Modifier.pointerInputKey(
     hapticOnLongPressRelease: Boolean,
     openAlternates: () -> Unit,
     onKey: (Key) -> Unit,
+    onClipboardKey: (ClipboardKeyAction) -> Unit,
     onCursorMove: (Int) -> Unit,
     onLanguageSelect: (InputMode) -> Unit,
     setLanguagePreview: (InputMode?) -> Unit,
@@ -2233,6 +2289,11 @@ private fun Modifier.pointerInputKey(
                                             onKey(key)
                                             delay(repeatIntervalMs.toLong())
                                         }
+                                    } else if (key.clipboardAction != null) {
+                                        // Clipboard shortcut replaces the alternates popup
+                                        // on this key; the action fires immediately.
+                                        if (hapticOnLongPress) onKeyPress()
+                                        onClipboardKey(key.clipboardAction)
                                     } else if (key.longPress.isNotEmpty()) {
                                         // Tactile cue that the long press registered and the
                                         // finger can be released (alternates are open / the

@@ -628,7 +628,8 @@ private fun TypingSettings(repository: SettingsRepository, settings: KeyboardSet
     ToggleSetting(
         "Number row", "Show a dedicated digit row above the letters", settings.numberRow,
         info = "Adds a 1–0 row on top of the letter layout so you never long-press for " +
-            "digits. Costs one extra row of height.",
+            "digits. The digits normally on the top letter row's long press are dropped " +
+            "while this is on. Costs one extra row of height.",
     ) { scope.launch { repository.setNumberRow(it) } }
 
     SectionHeader("Feedback")
@@ -776,6 +777,40 @@ private fun TypingSettings(repository: SettingsRepository, settings: KeyboardSet
         info = "While delete (or space) is held it repeats at this interval. Lower " +
             "values delete faster.",
     ) { scope.launch { repository.setKeyRepeatIntervalMs(it.toInt()) } }
+
+    SectionHeader("Long press")
+    ToggleSetting(
+        "Long-press hints", "Show each key's long-press character in its corner",
+        settings.longPressHints,
+        info = "A small label in the top-right corner of each key previews its first " +
+            "long-press character — the digit, symbol or accent the popup leads with. " +
+            "Keys running a clipboard shortcut below show no hint.",
+    ) { scope.launch { repository.setLongPressHints(it) } }
+    ToggleSetting(
+        "Hold A to select all", "Long-pressing A selects all text",
+        settings.longPressASelectAll,
+        info = "Replaces the A key's accent popup with a select-all shortcut. Turn it " +
+            "off to get the accents (à á â ä å) back.",
+    ) { scope.launch { repository.setLongPressASelectAll(it) } }
+    ToggleSetting(
+        "Hold C to copy", "Copies the selection, or everything if nothing is selected",
+        settings.longPressCCopy,
+        info = "With text selected, a long press on C copies just that selection. With " +
+            "no selection it selects all first, so one hold copies the whole field. " +
+            "Replaces the C key's accent popup (ç ć) while enabled.",
+    ) { scope.launch { repository.setLongPressCCopy(it) } }
+    ToggleSetting(
+        "Hold X to cut", "Cuts the selection, or everything if nothing is selected",
+        settings.longPressXCut,
+        info = "With text selected, a long press on X cuts just that selection. With " +
+            "no selection it selects all first, so one hold cuts the whole field.",
+    ) { scope.launch { repository.setLongPressXCut(it) } }
+    ToggleSetting(
+        "Hold V to paste", "Long-pressing V pastes the clipboard",
+        settings.longPressVPaste,
+        info = "Pastes the current clipboard content at the cursor, replacing any " +
+            "selection — the classic Ctrl+V, one hold away.",
+    ) { scope.launch { repository.setLongPressVPaste(it) } }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
