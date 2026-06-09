@@ -7,12 +7,36 @@ import com.wasimaster.wmkeyboard.core.settings.InputMode
 import com.wasimaster.wmkeyboard.core.transliteration.BengaliGraphemes
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.snippets.Snippet
+import com.wasimaster.wmkeyboard.core.tools.WeatherInfo
 
 enum class ShiftState { OFF, ON, CAPS_LOCK }
 
 enum class LayoutMode { LETTERS, SYMBOLS, SYMBOLS_SHIFTED }
 
-enum class PanelMode { NONE, EMOJI, CLIPBOARD, SNIPPETS, TOOLBOX, TEXT_EDIT }
+enum class PanelMode {
+    NONE, EMOJI, CLIPBOARD, SNIPPETS, TOOLBOX, TEXT_EDIT,
+    COMPASS, LEVEL, MOON_PHASE, WEATHER, CALENDAR,
+    THEMES, SOUND_HAPTICS, NUMPAD,
+}
+
+/** One change made from the sound & haptics quick panel. */
+sealed interface SoundHapticAction {
+    data class Haptics(val on: Boolean) : SoundHapticAction
+    data class HapticStyleChange(val style: com.wasimaster.wmkeyboard.core.settings.HapticStyle) : SoundHapticAction
+    data class HapticAmplitude(val amplitude: Int) : SoundHapticAction
+    data class Sound(val on: Boolean) : SoundHapticAction
+    data class SoundStyleChange(val style: com.wasimaster.wmkeyboard.core.settings.KeySoundStyle) : SoundHapticAction
+    data class SoundVolume(val volume: Float) : SoundHapticAction
+}
+
+/** Weather panel state, owned by the service (it does the fetching). */
+sealed interface WeatherUi {
+    /** No location configured in the weather tool's settings. */
+    data object NoLocation : WeatherUi
+    data object Loading : WeatherUi
+    data object Error : WeatherUi
+    data class Ready(val info: WeatherInfo) : WeatherUi
+}
 
 /** One button on the text-editing panel (cursor control, selection, clipboard). */
 enum class TextEditAction {
@@ -54,6 +78,9 @@ data class KeyboardUiState(
     val snippets: List<Snippet> = emptyList(),
     val secureField: Boolean = false,
     val enterAction: EnterAction = EnterAction.DEFAULT,
+    /** Torch state, mirrored from CameraManager for the flashlight tool. */
+    val torchOn: Boolean = false,
+    val weather: WeatherUi = WeatherUi.NoLocation,
     /**
      * What the vowel keys should produce given the character before the
      * cursor: kar (া, ি …) after a consonant, the য়-glide (য়া, য়ে) after

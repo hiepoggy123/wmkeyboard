@@ -27,10 +27,31 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
-import androidx.compose.material.icons.outlined.CheckCircle
-import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.automirrored.outlined.HelpOutline
+import androidx.compose.material.icons.automirrored.outlined.Redo
+import androidx.compose.material.icons.automirrored.outlined.Undo
+import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.ContentPaste
+import androidx.compose.material.icons.outlined.DarkMode
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Dialpad
+import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.EditNote
+import androidx.compose.material.icons.outlined.EmojiEmotions
+import androidx.compose.material.icons.outlined.Explore
+import androidx.compose.material.icons.outlined.FlashlightOn
+import androidx.compose.material.icons.outlined.Palette
+import androidx.compose.material.icons.outlined.PictureInPictureAlt
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.Smartphone
+import androidx.compose.material.icons.outlined.Spellcheck
+import androidx.compose.material.icons.outlined.Straighten
+import androidx.compose.material.icons.outlined.TextSnippet
+import androidx.compose.material.icons.outlined.Vibration
+import androidx.compose.material.icons.outlined.VerticalSplit
+import androidx.compose.material.icons.outlined.VisibilityOff
+import androidx.compose.material.icons.outlined.WbSunny
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -75,17 +96,25 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import android.os.Build
+import com.wasimaster.wmkeyboard.core.feedback.HapticPlayer
 import com.wasimaster.wmkeyboard.core.settings.EmojiBarContent
 import com.wasimaster.wmkeyboard.core.settings.EmojiBarMode
 import com.wasimaster.wmkeyboard.core.settings.EmojiTabMode
 import com.wasimaster.wmkeyboard.core.settings.HapticStyle
 import com.wasimaster.wmkeyboard.core.settings.InputMode
+import com.wasimaster.wmkeyboard.core.settings.KeySoundStyle
+import com.wasimaster.wmkeyboard.core.tools.GeoPlace
+import com.wasimaster.wmkeyboard.core.tools.WeatherClient
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import com.wasimaster.wmkeyboard.core.settings.KeyboardAlignment
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.OneHandedMode
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import com.wasimaster.wmkeyboard.core.settings.SpaceSwipeAction
 import com.wasimaster.wmkeyboard.core.settings.ThemeMode
+import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
+import kotlin.math.roundToInt
 import com.wasimaster.wmkeyboard.core.snippets.Snippet
 import com.wasimaster.wmkeyboard.core.snippets.SnippetStore
 import kotlinx.coroutines.delay
@@ -203,6 +232,20 @@ private fun SettingsNavHost(repository: SettingsRepository, settings: KeyboardSe
                 ClipboardEmojiSettings(repository, settings)
             }
         }
+        composable("tools") {
+            SettingsScreen("Tools", { navController.popBackStack() }) {
+                ToolsSettings(settings) { tool -> navController.navigate("tool/${tool.name}") }
+            }
+        }
+        composable("tool/{toolName}") { backStackEntry ->
+            val tool = backStackEntry.arguments?.getString("toolName")
+                ?.let { runCatching { ToolbarTool.valueOf(it) }.getOrNull() }
+            if (tool != null) {
+                SettingsScreen(toolTitle(tool), { navController.popBackStack() }) {
+                    ToolDetailSettings(repository, settings, tool)
+                }
+            }
+        }
         composable("snippets") {
             SettingsScreen("Snippets", { navController.popBackStack() }) {
                 SnippetSettings()
@@ -238,6 +281,7 @@ private fun HomeScreen(settings: KeyboardSettings, onNavigate: (String) -> Unit)
             SectionItem("Appearance & themes", "Material You, AMOLED, key size, split & resize") { onNavigate("appearance") }
             SectionItem("Languages", "English, বাংলা (Avro phonetic, প্রভাত)") { onNavigate("languages") }
             SectionItem("Clipboard & emoji", "History, expiry, toolbar") { onNavigate("clipboard") }
+            SectionItem("Tools", "Flashlight, compass, calendar & more — enable and configure") { onNavigate("tools") }
             SectionItem("Snippets", "Reusable text with {date}, {time}, {clip} variables") { onNavigate("snippets") }
             SectionItem("Privacy", "On-device learning, incognito") { onNavigate("privacy") }
         }
@@ -521,6 +565,7 @@ private fun SpaceSwipeSetting(
 @Composable
 private fun TypingSettings(repository: SettingsRepository, settings: KeyboardSettings) {
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     SectionHeader("Corrections")
     ToggleSetting(
         "Autocorrect", "Fix typos automatically when you press space", settings.autocorrect,
@@ -587,7 +632,14 @@ private fun TypingSettings(repository: SettingsRepository, settings: KeyboardSet
         "Key press haptics", "Vibrate on every key press", settings.hapticFeedback,
         info = "A short vibration confirms each key press, including spacebar cursor " +
             "movement steps. Style and strength are adjustable below.",
-    ) { scope.launch { repository.setHapticFeedback(it) } }
+    ) {
+        scope.launch { repository.setHapticFeedback(it) }
+        if (it) {
+            HapticPlayer.preview(
+                context, settings.hapticStyle, settings.hapticAmplitude, settings.hapticStrengthMs,
+            )
+        }
+    }
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -613,7 +665,14 @@ private fun TypingSettings(repository: SettingsRepository, settings: KeyboardSet
         HapticStyle.entries.forEachIndexed { index, style ->
             SegmentedButton(
                 selected = settings.hapticStyle == style,
-                onClick = { scope.launch { repository.setHapticStyle(style) } },
+                onClick = {
+                    scope.launch { repository.setHapticStyle(style) }
+                    // Fire the motor with the freshly picked style so the
+                    // user feels the choice immediately.
+                    HapticPlayer.preview(
+                        context, style, settings.hapticAmplitude, settings.hapticStrengthMs,
+                    )
+                },
                 shape = SegmentedButtonDefaults.itemShape(index, HapticStyle.entries.size),
             ) {
                 Text(
@@ -637,7 +696,11 @@ private fun TypingSettings(repository: SettingsRepository, settings: KeyboardSet
             display = "${settings.hapticStrengthMs} ms",
             info = "Duration of the vibration pulse in milliseconds. Longer pulses feel " +
                 "stronger on most phones.",
-        ) { scope.launch { repository.setHapticStrengthMs(it.toInt()) } }
+        ) {
+            scope.launch { repository.setHapticStrengthMs(it.toInt()) }
+            // Debounced inside the player, so dragging previews smoothly.
+            HapticPlayer.preview(context, settings.hapticStyle, settings.hapticAmplitude, it.toInt())
+        }
     }
     if (settings.hapticStyle == HapticStyle.CUSTOM || settings.hapticStyle == HapticStyle.SHARP) {
         SliderSetting(
@@ -652,7 +715,10 @@ private fun TypingSettings(repository: SettingsRepository, settings: KeyboardSet
                 "supports amplitude control; on others only the duration above matters. " +
                 "The system-wide \"Touch feedback\" vibration setting still scales the " +
                 "final strength on top of this.",
-        ) { scope.launch { repository.setHapticAmplitude(it.toInt()) } }
+        ) {
+            scope.launch { repository.setHapticAmplitude(it.toInt()) }
+            HapticPlayer.preview(context, settings.hapticStyle, it.toInt(), settings.hapticStrengthMs)
+        }
     }
     ToggleSetting(
         "Long-press haptics", "Vibrate when a long press registers", settings.hapticOnLongPress,
@@ -1074,6 +1140,483 @@ private fun ClipboardEmojiSettings(repository: SettingsRepository, settings: Key
     )
 }
 
+// ---- tools ----
+
+private fun toolTitle(tool: ToolbarTool): String = when (tool) {
+    ToolbarTool.EMOJI -> "Emoji"
+    ToolbarTool.CLIPBOARD -> "Clipboard"
+    ToolbarTool.SNIPPETS -> "Snippets"
+    ToolbarTool.TEXT_EDIT -> "Text editing"
+    ToolbarTool.ONE_HANDED -> "One-handed mode"
+    ToolbarTool.SPLIT -> "Split keyboard"
+    ToolbarTool.FLOATING -> "Floating keyboard"
+    ToolbarTool.SETTINGS -> "Settings shortcut"
+    ToolbarTool.FLASHLIGHT -> "Flashlight"
+    ToolbarTool.COMPASS -> "Compass"
+    ToolbarTool.LEVEL -> "Bubble level"
+    ToolbarTool.UNDO -> "Undo"
+    ToolbarTool.REDO -> "Redo"
+    ToolbarTool.MOON_PHASE -> "Moon phase"
+    ToolbarTool.WEATHER -> "Weather"
+    ToolbarTool.CALENDAR -> "Calendar"
+    ToolbarTool.INCOGNITO -> "Incognito"
+    ToolbarTool.THEMES -> "Themes"
+    ToolbarTool.AUTOCORRECT -> "Autocorrect"
+    ToolbarTool.SOUND_HAPTICS -> "Sound & haptics"
+    ToolbarTool.NUMPAD -> "Numpad"
+}
+
+private fun toolDescription(tool: ToolbarTool): String = when (tool) {
+    ToolbarTool.EMOJI -> "Emoji panel with search and skin tones"
+    ToolbarTool.CLIPBOARD -> "Paste from clipboard history"
+    ToolbarTool.SNIPPETS -> "Insert saved text snippets"
+    ToolbarTool.TEXT_EDIT -> "Cursor, selection and clipboard controls"
+    ToolbarTool.ONE_HANDED -> "Shrink the keyboard toward one edge"
+    ToolbarTool.SPLIT -> "Split the keys into two halves"
+    ToolbarTool.FLOATING -> "Detach the keyboard into a movable panel"
+    ToolbarTool.SETTINGS -> "Open this settings app"
+    ToolbarTool.FLASHLIGHT -> "Toggle the torch from the keyboard"
+    ToolbarTool.COMPASS -> "Live compass with degree readout and optional qibla"
+    ToolbarTool.LEVEL -> "Bubble level using the accelerometer"
+    ToolbarTool.UNDO -> "One tap sends the editor's undo shortcut (Ctrl+Z)"
+    ToolbarTool.REDO -> "One tap sends the editor's redo shortcut"
+    ToolbarTool.MOON_PHASE -> "Current phase, illumination, next full/new moon"
+    ToolbarTool.WEATHER -> "Current conditions for a saved location"
+    ToolbarTool.CALENDAR -> "Month view with Bengali and Hijri dates"
+    ToolbarTool.INCOGNITO -> "One tap pauses learning and clipboard capture"
+    ToolbarTool.THEMES -> "Quick theme switcher on the keyboard"
+    ToolbarTool.AUTOCORRECT -> "One tap turns autocorrect on or off"
+    ToolbarTool.SOUND_HAPTICS -> "Adjust key sound and vibration from the keyboard"
+    ToolbarTool.NUMPAD -> "Dedicated number pad layout"
+}
+
+private fun toolIconFor(tool: ToolbarTool): androidx.compose.ui.graphics.vector.ImageVector = when (tool) {
+    ToolbarTool.EMOJI -> Icons.Outlined.EmojiEmotions
+    ToolbarTool.CLIPBOARD -> Icons.Outlined.ContentPaste
+    ToolbarTool.SNIPPETS -> Icons.Outlined.TextSnippet
+    ToolbarTool.TEXT_EDIT -> Icons.Outlined.EditNote
+    ToolbarTool.ONE_HANDED -> Icons.Outlined.Smartphone
+    ToolbarTool.SPLIT -> Icons.Outlined.VerticalSplit
+    ToolbarTool.FLOATING -> Icons.Outlined.PictureInPictureAlt
+    ToolbarTool.SETTINGS -> Icons.Outlined.Settings
+    ToolbarTool.FLASHLIGHT -> Icons.Outlined.FlashlightOn
+    ToolbarTool.COMPASS -> Icons.Outlined.Explore
+    ToolbarTool.LEVEL -> Icons.Outlined.Straighten
+    ToolbarTool.UNDO -> Icons.AutoMirrored.Outlined.Undo
+    ToolbarTool.REDO -> Icons.AutoMirrored.Outlined.Redo
+    ToolbarTool.MOON_PHASE -> Icons.Outlined.DarkMode
+    ToolbarTool.WEATHER -> Icons.Outlined.WbSunny
+    ToolbarTool.CALENDAR -> Icons.Outlined.CalendarMonth
+    ToolbarTool.INCOGNITO -> Icons.Outlined.VisibilityOff
+    ToolbarTool.THEMES -> Icons.Outlined.Palette
+    ToolbarTool.AUTOCORRECT -> Icons.Outlined.Spellcheck
+    ToolbarTool.SOUND_HAPTICS -> Icons.Outlined.Vibration
+    ToolbarTool.NUMPAD -> Icons.Outlined.Dialpad
+}
+
+/**
+ * The tool menu: just icon + name per tool. Everything else — the enable
+ * switch and the tool's own options — lives one level down.
+ */
+@Composable
+private fun ToolsSettings(settings: KeyboardSettings, onOpenTool: (ToolbarTool) -> Unit) {
+    Text(
+        "Tools live on the keyboard's toolbar and in the toolbox (grid button on " +
+            "the toolbar). Tap a tool to enable or disable it and change its settings.",
+        style = MaterialTheme.typography.bodyMedium,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+    )
+    for (tool in ToolbarTool.entries) {
+        ListItem(
+            leadingContent = {
+                Icon(
+                    toolIconFor(tool),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            },
+            headlineContent = { Text(toolTitle(tool)) },
+            trailingContent = if (tool !in settings.enabledTools) {
+                { Text("Off", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            } else null,
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { onOpenTool(tool) },
+        )
+        HorizontalDivider()
+    }
+}
+
+/** One tool's screen: the enable switch plus every setting the tool has. */
+@Composable
+private fun ToolDetailSettings(
+    repository: SettingsRepository,
+    settings: KeyboardSettings,
+    tool: ToolbarTool,
+) {
+    val scope = rememberCoroutineScope()
+    Text(
+        toolDescription(tool),
+        style = MaterialTheme.typography.bodyMedium,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+    )
+    ToggleSetting(
+        "Enabled",
+        "Show this tool on the toolbar and in the toolbox",
+        tool in settings.enabledTools,
+    ) { scope.launch { repository.setToolEnabled(tool, it) } }
+    HorizontalDivider()
+    when (tool) {
+        ToolbarTool.EMOJI -> ToggleSetting(
+            "Emoji button in toolbar",
+            "Keep the emoji button visible next to suggestions",
+            settings.emojiToolbar,
+        ) { scope.launch { repository.setEmojiToolbar(it) } }
+        ToolbarTool.CLIPBOARD -> {
+            ToggleSetting(
+                "Clipboard history", "Save copied text for quick paste",
+                settings.clipboardHistory,
+            ) { scope.launch { repository.setClipboardHistory(it) } }
+            SliderSetting(
+                "Clipboard expiry",
+                subtitle = "Remove unpinned items after this long",
+                value = settings.clipboardExpiryHours.toFloat(),
+                range = 0f..168f,
+                display = if (settings.clipboardExpiryHours == 0) "never"
+                    else "${settings.clipboardExpiryHours} h",
+            ) { scope.launch { repository.setClipboardExpiryHours(it.toInt()) } }
+        }
+        ToolbarTool.SPLIT -> SliderSetting(
+            "Split gap",
+            subtitle = "Width of the gap between the halves",
+            value = settings.splitGapPercent.toFloat(),
+            range = 5f..40f,
+            display = "${settings.splitGapPercent}%",
+        ) { scope.launch { repository.setSplitGapPercent(it.toInt()) } }
+        ToolbarTool.FLOATING -> SliderSetting(
+            "Floating keyboard width",
+            subtitle = "Also adjustable by dragging the panel's corner grip",
+            value = settings.floatingWidthDp.toFloat(),
+            range = 240f..500f,
+            display = "${settings.floatingWidthDp} dp",
+        ) { scope.launch { repository.setFloatingWidthDp(it.toInt()) } }
+        ToolbarTool.FLASHLIGHT -> ToggleSetting(
+            "Auto-off with keyboard",
+            "Turn the torch off when the keyboard is dismissed",
+            settings.flashlightAutoOff,
+            info = "On: closing the keyboard (or switching apps) switches the " +
+                "torch off with it, so it is never left burning in your " +
+                "pocket. Off: the torch stays on until toggled again — from " +
+                "the tool or from the system quick-settings tile.",
+        ) { scope.launch { repository.setFlashlightAutoOff(it) } }
+        ToolbarTool.COMPASS -> {
+            ToggleSetting(
+                "Degree readout",
+                "Show the numeric heading under the compass rose",
+                settings.compassShowDegrees,
+            ) { scope.launch { repository.setCompassShowDegrees(it) } }
+            ToggleSetting(
+                "Show qibla",
+                "Mark the direction of the Kaaba on the compass",
+                settings.compassShowQibla,
+                info = "The qibla bearing is computed from the location saved in the " +
+                    "weather tool's settings (the two tools share it). Everything is " +
+                    "calculated on-device; the compass never touches the network.",
+            ) { scope.launch { repository.setCompassShowQibla(it) } }
+            if (settings.compassShowQibla && settings.weatherLatitude == null) {
+                Text(
+                    "No location saved yet — set one under Tools → Weather.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                )
+            }
+        }
+        ToolbarTool.LEVEL -> ToggleSetting(
+            "Angle readout",
+            "Show pitch and roll in degrees under the bubble",
+            settings.levelShowAngles,
+        ) { scope.launch { repository.setLevelShowAngles(it) } }
+        ToolbarTool.REDO -> ToggleSetting(
+            "Redo sends Ctrl+Y",
+            "Instead of the default Ctrl+Shift+Z",
+            settings.redoUsesCtrlY,
+            info = "Both are standard redo shortcuts; which one works depends " +
+                "on the app you are typing in. If redo does nothing, try " +
+                "the other one.",
+        ) { scope.launch { repository.setRedoUsesCtrlY(it) } }
+        ToolbarTool.MOON_PHASE -> ToggleSetting(
+            "Southern hemisphere",
+            "Mirror the moon the way it appears south of the equator",
+            settings.moonSouthernHemisphere,
+        ) { scope.launch { repository.setMoonSouthernHemisphere(it) } }
+        ToolbarTool.WEATHER -> {
+            WeatherLocationSetting(repository, settings)
+            ToggleSetting(
+                "Fahrenheit", "Show temperatures in °F instead of °C",
+                settings.weatherFahrenheit,
+            ) { scope.launch { repository.setWeatherFahrenheit(it) } }
+            Text(
+                "Weather and place search both use Open-Meteo, only when you use " +
+                    "them — the keyboard makes no other network requests.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp),
+            )
+        }
+        ToolbarTool.CALENDAR -> {
+            ToggleSetting(
+                "Bengali calendar",
+                "বঙ্গাব্দ (revised Bangladeshi calendar) alongside dates",
+                settings.calendarShowBengali,
+            ) { scope.launch { repository.setCalendarShowBengali(it) } }
+            ToggleSetting(
+                "Hijri calendar",
+                "Islamic (tabular) calendar alongside dates",
+                settings.calendarShowHijri,
+            ) { scope.launch { repository.setCalendarShowHijri(it) } }
+            if (settings.calendarShowHijri) {
+                SliderSetting(
+                    "Hijri day adjustment",
+                    subtitle = "Shift the computed Hijri date to match local moon sighting",
+                    value = settings.hijriAdjustDays.toFloat(),
+                    range = -2f..2f,
+                    display = if (settings.hijriAdjustDays > 0) "+${settings.hijriAdjustDays} d"
+                        else "${settings.hijriAdjustDays} d",
+                    info = "The tool uses the arithmetic (tabular) Hijri calendar. " +
+                        "Real Islamic months begin at the sighting of the crescent, " +
+                        "which can differ from the tables by a day or two either " +
+                        "way — set the offset that matches your local authority.",
+                ) { scope.launch { repository.setHijriAdjustDays(it.roundToInt()) } }
+            }
+        }
+        ToolbarTool.INCOGNITO -> Text(
+            "Tapping the tool pauses on-device learning and clipboard capture; " +
+                "tapping again resumes them. Same switch as Settings → Privacy.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+        )
+        ToolbarTool.AUTOCORRECT -> ToggleSetting(
+            "Autocorrect",
+            "The tool flips this same switch (also under Typing)",
+            settings.autocorrect,
+        ) { scope.launch { repository.setAutocorrect(it) } }
+        ToolbarTool.SOUND_HAPTICS -> {
+            SectionHeader("Key press sound")
+            ToggleSetting(
+                "Key sound", "Play a sound on every key press", settings.keySound,
+            ) { scope.launch { repository.setKeySound(it) } }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 16.dp, end = 16.dp, top = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("Sound style", style = MaterialTheme.typography.bodyLarge)
+                InfoButton(
+                    "Sound style",
+                    "All five come from the device's system sound pack, so they match " +
+                        "the stock keyboard's palette: Click is the classic key tick, " +
+                        "Standard the softer AOSP key press, Pop the spacebar thump, " +
+                        "Thock the deeper delete sound, and Chime the return-key sound.",
+                )
+            }
+            SingleChoiceSegmentedButtonRow(modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp)) {
+                KeySoundStyle.entries.forEachIndexed { index, style ->
+                    SegmentedButton(
+                        selected = settings.keySoundStyle == style,
+                        onClick = { scope.launch { repository.setKeySoundStyle(style) } },
+                        shape = SegmentedButtonDefaults.itemShape(index, KeySoundStyle.entries.size),
+                    ) {
+                        Text(
+                            when (style) {
+                                KeySoundStyle.CLICK -> "Click"
+                                KeySoundStyle.STANDARD -> "Std"
+                                KeySoundStyle.POP -> "Pop"
+                                KeySoundStyle.THOCK -> "Thock"
+                                KeySoundStyle.CHIME -> "Chime"
+                            },
+                            maxLines = 1,
+                        )
+                    }
+                }
+            }
+            SliderSetting(
+                "Sound volume",
+                subtitle = "Relative to the system media volume",
+                value = settings.keySoundVolume,
+                range = 0.05f..1f,
+                display = "${(settings.keySoundVolume * 100).roundToInt()}%",
+            ) { scope.launch { repository.setKeySoundVolume(it) } }
+            SectionHeader("Haptics")
+            Text(
+                "Haptic style and strength live under Typing → Feedback; the tool's " +
+                    "panel changes the same settings from the keyboard.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+            )
+        }
+        else -> {}
+    }
+}
+
+/** Weather location: place label plus coordinates, edited in a dialog. */
+@Composable
+private fun WeatherLocationSetting(repository: SettingsRepository, settings: KeyboardSettings) {
+    val scope = rememberCoroutineScope()
+    var editing by remember { mutableStateOf(false) }
+    val summary = if (settings.weatherLatitude != null && settings.weatherLongitude != null) {
+        val place = settings.weatherPlaceName.ifBlank { "Unnamed location" }
+        "%s — %.3f, %.3f".format(place, settings.weatherLatitude, settings.weatherLongitude)
+    } else {
+        "Not set — tap to add coordinates"
+    }
+    ListItem(
+        headlineContent = { Text("Location") },
+        supportingContent = { Text(summary) },
+        trailingContent = { Icon(Icons.Outlined.Edit, contentDescription = "Edit location") },
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { editing = true },
+    )
+    if (!editing) return
+
+    var place by remember { mutableStateOf(settings.weatherPlaceName) }
+    var lat by remember { mutableStateOf(settings.weatherLatitude?.toString().orEmpty()) }
+    var lon by remember { mutableStateOf(settings.weatherLongitude?.toString().orEmpty()) }
+    var query by remember { mutableStateOf("") }
+    var results by remember { mutableStateOf<List<GeoPlace>>(emptyList()) }
+    var searching by remember { mutableStateOf(false) }
+    var searchFailed by remember { mutableStateOf(false) }
+    val parsedLat = lat.trim().toFloatOrNull()?.takeIf { it in -90f..90f }
+    val parsedLon = lon.trim().toFloatOrNull()?.takeIf { it in -180f..180f }
+
+    fun search() {
+        if (query.isBlank() || searching) return
+        searching = true
+        searchFailed = false
+        scope.launch {
+            val found = withContext(Dispatchers.IO) {
+                runCatching { WeatherClient.geocode(query) }.getOrNull()
+            }
+            searching = false
+            if (found == null) {
+                searchFailed = true
+            } else {
+                results = found
+                searchFailed = found.isEmpty()
+            }
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = { editing = false },
+        title = { Text("Weather location") },
+        text = {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedTextField(
+                        value = query,
+                        onValueChange = { query = it },
+                        label = { Text("Search city or place") },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Button(onClick = { search() }, enabled = query.isNotBlank() && !searching) {
+                        Text(if (searching) "…" else "Search")
+                    }
+                }
+                if (searchFailed) {
+                    Text(
+                        if (results.isEmpty() && !searching) "No matches — try another spelling."
+                        else "Search failed — check your connection.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(top = 4.dp),
+                    )
+                }
+                for (result in results) {
+                    ListItem(
+                        headlineContent = { Text(result.name) },
+                        supportingContent = {
+                            Text(
+                                "%s · %.3f, %.3f".format(
+                                    result.region.ifBlank { "—" },
+                                    result.latitude, result.longitude,
+                                )
+                            )
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                place = result.name
+                                lat = result.latitude.toString()
+                                lon = result.longitude.toString()
+                                results = emptyList()
+                            },
+                    )
+                }
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "Or enter coordinates yourself (decimal degrees; south and " +
+                        "west are negative).",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = place,
+                    onValueChange = { place = it },
+                    label = { Text("Name (shown on the panel)") },
+                    singleLine = true,
+                )
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = lat,
+                    onValueChange = { lat = it },
+                    label = { Text("Latitude, e.g. 23.81") },
+                    singleLine = true,
+                    isError = lat.isNotBlank() && parsedLat == null,
+                )
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = lon,
+                    onValueChange = { lon = it },
+                    label = { Text("Longitude, e.g. 90.41") },
+                    singleLine = true,
+                    isError = lon.isNotBlank() && parsedLon == null,
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = parsedLat != null && parsedLon != null,
+                onClick = {
+                    scope.launch {
+                        repository.setWeatherLocation(parsedLat, parsedLon, place.trim())
+                    }
+                    editing = false
+                },
+            ) { Text("Save") }
+        },
+        dismissButton = {
+            Row {
+                if (settings.weatherLatitude != null) {
+                    TextButton(onClick = {
+                        scope.launch { repository.setWeatherLocation(null, null, "") }
+                        editing = false
+                    }) { Text("Clear") }
+                }
+                TextButton(onClick = { editing = false }) { Text("Cancel") }
+            }
+        },
+    )
+}
+
 @Composable
 private fun PrivacySettings(repository: SettingsRepository, settings: KeyboardSettings) {
     val scope = rememberCoroutineScope()
@@ -1104,8 +1647,10 @@ private fun PrivacySettings(repository: SettingsRepository, settings: KeyboardSe
     ) { Text("Clear learned words") }
     Spacer(Modifier.height(4.dp))
     Text(
-        "WM Keyboard works fully offline: dictionaries, Bengali transliteration and " +
-            "emoji search are all bundled. There is no telemetry.",
+        "WM Keyboard works offline: dictionaries, Bengali transliteration and " +
+            "emoji search are all bundled, and there is no telemetry. The one " +
+            "exception is the optional weather tool, which fetches conditions from " +
+            "Open-Meteo only when you open it (and can be disabled under Tools).",
         style = MaterialTheme.typography.bodySmall,
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
     )
