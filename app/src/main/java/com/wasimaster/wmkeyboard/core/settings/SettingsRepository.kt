@@ -55,6 +55,19 @@ enum class HapticStyle { CUSTOM, CLICK, HEAVY_CLICK, SHARP }
  */
 enum class SpaceSwipeAction { NONE, LANGUAGE, CURSOR }
 
+/** What the history tab of the emoji panel shows. */
+enum class EmojiTabMode { RECENTS, MOST_USED }
+
+/**
+ * The dedicated emoji row (Gboard style): [ALWAYS] keeps it as its own row
+ * above the keys, [BUTTON] tucks it behind a toggle on the toolbar strip,
+ * [OFF] hides it entirely.
+ */
+enum class EmojiBarMode { OFF, BUTTON, ALWAYS }
+
+/** Which emojis the dedicated emoji row shows (favourites always lead). */
+enum class EmojiBarContent { MOST_USED, RECENTS, FAVOURITES }
+
 data class KeyboardSettings(
     val inputMode: InputMode = InputMode.ENGLISH,
     val enabledModes: List<InputMode> =
@@ -121,6 +134,12 @@ data class KeyboardSettings(
     val toolbarGreedy: Boolean = true,
     val toolCircleRadiusDp: Int = 20,
     val commaAsEmoji: Boolean = false,
+    /** History tab of the emoji panel: recently used vs most used. */
+    val emojiTabMode: EmojiTabMode = EmojiTabMode.RECENTS,
+    /** Emoji candidates in the suggestion strip while typing. */
+    val emojiPrediction: Boolean = true,
+    val emojiBarMode: EmojiBarMode = EmojiBarMode.BUTTON,
+    val emojiBarContent: EmojiBarContent = EmojiBarContent.MOST_USED,
 )
 
 /**
@@ -189,6 +208,10 @@ class SettingsRepository(private val context: Context) {
         private val TOOLBAR_GREEDY = booleanPreferencesKey("toolbar_greedy")
         private val TOOL_CIRCLE_RADIUS = intPreferencesKey("tool_circle_radius")
         private val COMMA_AS_EMOJI = booleanPreferencesKey("comma_as_emoji")
+        private val EMOJI_TAB_MODE = stringPreferencesKey("emoji_tab_mode")
+        private val EMOJI_PREDICTION = booleanPreferencesKey("emoji_prediction")
+        private val EMOJI_BAR_MODE = stringPreferencesKey("emoji_bar_mode")
+        private val EMOJI_BAR_CONTENT = stringPreferencesKey("emoji_bar_content")
     }
 
     val settings: Flow<KeyboardSettings> = context.dataStore.data.map { p ->
@@ -273,6 +296,16 @@ class SettingsRepository(private val context: Context) {
             toolbarGreedy = p[TOOLBAR_GREEDY] ?: defaults.toolbarGreedy,
             toolCircleRadiusDp = p[TOOL_CIRCLE_RADIUS] ?: defaults.toolCircleRadiusDp,
             commaAsEmoji = p[COMMA_AS_EMOJI] ?: defaults.commaAsEmoji,
+            emojiTabMode = p[EMOJI_TAB_MODE]
+                ?.let { runCatching { EmojiTabMode.valueOf(it) }.getOrNull() }
+                ?: defaults.emojiTabMode,
+            emojiPrediction = p[EMOJI_PREDICTION] ?: defaults.emojiPrediction,
+            emojiBarMode = p[EMOJI_BAR_MODE]
+                ?.let { runCatching { EmojiBarMode.valueOf(it) }.getOrNull() }
+                ?: defaults.emojiBarMode,
+            emojiBarContent = p[EMOJI_BAR_CONTENT]
+                ?.let { runCatching { EmojiBarContent.valueOf(it) }.getOrNull() }
+                ?: defaults.emojiBarContent,
         )
     }
 
@@ -471,6 +504,18 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setEmojiToolbar(value: Boolean) =
         context.dataStore.edit { it[EMOJI_TOOLBAR] = value }
+
+    suspend fun setEmojiTabMode(value: EmojiTabMode) =
+        context.dataStore.edit { it[EMOJI_TAB_MODE] = value.name }
+
+    suspend fun setEmojiPrediction(value: Boolean) =
+        context.dataStore.edit { it[EMOJI_PREDICTION] = value }
+
+    suspend fun setEmojiBarMode(value: EmojiBarMode) =
+        context.dataStore.edit { it[EMOJI_BAR_MODE] = value.name }
+
+    suspend fun setEmojiBarContent(value: EmojiBarContent) =
+        context.dataStore.edit { it[EMOJI_BAR_CONTENT] = value.name }
 
     suspend fun setIncognito(value: Boolean) =
         context.dataStore.edit { it[INCOGNITO] = value }

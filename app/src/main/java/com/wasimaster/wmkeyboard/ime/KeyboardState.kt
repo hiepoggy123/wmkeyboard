@@ -2,6 +2,7 @@ package com.wasimaster.wmkeyboard.ime
 
 import com.wasimaster.wmkeyboard.core.clipboard.ClipItem
 import com.wasimaster.wmkeyboard.core.emoji.EmojiEntry
+import com.wasimaster.wmkeyboard.core.emoji.EmojiVariantIndex
 import com.wasimaster.wmkeyboard.core.settings.InputMode
 import com.wasimaster.wmkeyboard.core.transliteration.BengaliGraphemes
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
@@ -40,7 +41,15 @@ data class KeyboardUiState(
     val emojiSearchActive: Boolean = false,
     val emojiResults: List<EmojiEntry> = emptyList(),
     val emojiRecents: List<String> = emptyList(),
+    val emojiFrequents: List<String> = emptyList(),
+    val emojiFavourites: List<String> = emptyList(),
+    /** Palette-grid base emoji → the skin-tone/gender variant it renders as. */
+    val emojiVariantPrefs: Map<String, String> = emptyMap(),
+    /** Emoji candidates for the suggestion strip (word being typed). */
+    val emojiSuggestions: List<String> = emptyList(),
     val emojiCatalog: List<EmojiEntry> = emptyList(),
+    /** RGI toned-sequence lookup; loaded once with the catalog. */
+    val emojiVariants: EmojiVariantIndex = EmojiVariantIndex.empty(),
     val clipboardItems: List<ClipItem> = emptyList(),
     val snippets: List<Snippet> = emptyList(),
     val secureField: Boolean = false,

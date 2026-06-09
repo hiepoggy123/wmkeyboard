@@ -25,7 +25,9 @@ import com.wasimaster.wmkeyboard.core.clipboard.ClipboardStore
 import com.wasimaster.wmkeyboard.core.emoji.EmojiCatalog
 import com.wasimaster.wmkeyboard.core.emoji.EmojiEntry
 import com.wasimaster.wmkeyboard.core.emoji.EmojiSearch
+import com.wasimaster.wmkeyboard.core.emoji.EmojiSuggester
 import com.wasimaster.wmkeyboard.core.emoji.EmojiUsage
+import com.wasimaster.wmkeyboard.core.emoji.EmojiVariantIndex
 import com.wasimaster.wmkeyboard.core.gesture.GestureDecoder
 import com.wasimaster.wmkeyboard.core.gesture.GesturePoint
 import com.wasimaster.wmkeyboard.core.gesture.KeyCenter
@@ -83,6 +85,7 @@ class WMKeyboardService : InputMethodService() {
     private lateinit var settingsRepository: SettingsRepository
     private var suggestionEngine: SuggestionEngine? = null
     private var emojiSearch: EmojiSearch? = null
+    private var emojiSuggester: EmojiSuggester? = null
     private var emojiEntries: List<EmojiEntry> = emptyList()
     private lateinit var userLexicon: UserLexicon
     private lateinit var emojiUsage: EmojiUsage
@@ -186,15 +189,29 @@ class WMKeyboardService : InputMethodService() {
                 Triple(englishEntries, bengaliEntries, catalog)
             }
             val (englishEntries, bengaliEntries, catalog) = loaded
-            val loanwords = withContext(Dispatchers.Default) {
-                assets.open("dictionaries/en_bn.tsv").use { EnglishBengaliMap.load(it) }
+            val (loanwords, variants) = withContext(Dispatchers.Default) {
+                val lw = assets.open("dictionaries/en_bn.tsv").use { EnglishBengaliMap.load(it) }
+                val v = runCatching {
+                    assets.open("emoji/variants.tsv").use { EmojiVariantIndex.load(it) }
+                }.getOrDefault(EmojiVariantIndex.empty())
+                lw to v
             }
             val english = Trie().apply { for ((word, freq) in englishEntries) insert(word, freq) }
             gestureLexicon = englishEntries
             suggestionEngine = SuggestionEngine(english, BengaliPhoneticIndex(bengaliEntries), userLexicon, loanwords)
             emojiEntries = catalog
             emojiSearch = EmojiSearch(catalog)
-            _uiState.update { it.copy(emojiRecents = emojiUsage.recents(), emojiCatalog = catalog) }
+            emojiSuggester = EmojiSuggester(catalog)
+            _uiState.update {
+                it.copy(
+                    emojiRecents = emojiUsage.recents(),
+                    emojiFrequents = emojiUsage.frequents(),
+                    emojiFavourites = emojiUsage.favourites(),
+                    emojiVariantPrefs = emojiUsage.variantPrefs(),
+                    emojiCatalog = catalog,
+                    emojiVariants = variants,
+                )
+            }
         }
 
         (getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager)
@@ -224,6 +241,9 @@ class WMKeyboardService : InputMethodService() {
                 onLanguageSelect = ::onLanguageSelected,
                 onSuggestion = ::onSuggestionTapped,
                 onEmoji = ::onEmojiTapped,
+                onEmojiVariant = ::onEmojiVariantPicked,
+                onEmojiFavourite = ::onEmojiFavouriteToggled,
+                onEmojiSuggestion = ::onEmojiSuggestionTapped,
                 onEmojiQueryTap = ::onEmojiSearchToggled,
                 onEmojiRecentsClear = ::onEmojiRecentsClear,
                 onTextEdit = ::onTextEdit,
@@ -309,6 +329,7 @@ class WMKeyboardService : InputMethodService() {
                 emojiQuery = "",
                 composingPreview = "",
                 suggestions = emptyList(),
+                emojiSuggestions = emptyList(),
                 secureField = secure,
                 shiftState = if (shouldAutoCapitalize()) ShiftState.ON else ShiftState.OFF,
                 clipboardItems = clipboardStore.items(),
@@ -336,7 +357,7 @@ class WMKeyboardService : InputMethodService() {
             composing = StringBuilder()
             currentInputConnection?.finishComposingText()
             suggestionJob?.cancel()
-            _uiState.update { it.copy(composingPreview = "", suggestions = emptyList()) }
+            _uiState.update { it.copy(composingPreview = "", suggestions = emptyList(), emojiSuggestions = emptyList()) }
         }
         refreshShiftForContext()
         refreshKarContext()
@@ -407,7 +428,7 @@ class WMKeyboardService : InputMethodService() {
             composing = StringBuilder()
             ic.commitText(text, 1)
             consumeShift()
-            _uiState.update { it.copy(composingPreview = "", suggestions = emptyList()) }
+            _uiState.update { it.copy(composingPreview = "", suggestions = emptyList(), emojiSuggestions = emptyList()) }
             if (text.length == 1 && text[0] in SENTENCE_ENDERS) maybeAutoCapitalize()
             return
         }
@@ -639,7 +660,7 @@ class WMKeyboardService : InputMethodService() {
         ic.commitText(output, 1)
         learn(output)
         composing = StringBuilder()
-        _uiState.update { it.copy(composingPreview = "", suggestions = emptyList()) }
+        _uiState.update { it.copy(composingPreview = "", suggestions = emptyList(), emojiSuggestions = emptyList()) }
         return true
     }
 
@@ -664,14 +685,20 @@ class WMKeyboardService : InputMethodService() {
         val typed = composing.toString()
         suggestionJob?.cancel()
         suggestionJob = serviceScope.launch {
-            val results = withContext(Dispatchers.Default) {
-                engine.suggest(
+            val (results, emojis) = withContext(Dispatchers.Default) {
+                val words = engine.suggest(
                     composing = typed,
                     previousWord = previousWord,
                     avroMode = state.inputMode == InputMode.AVRO,
                 )
+                val emojis = if (state.settings.emojiPrediction && typed.isNotEmpty()) {
+                    emojiSuggester?.suggest(typed).orEmpty()
+                } else {
+                    emptyList()
+                }
+                words to emojis
             }
-            _uiState.update { it.copy(suggestions = results) }
+            _uiState.update { it.copy(suggestions = results, emojiSuggestions = emojis) }
         }
     }
 
@@ -688,7 +715,7 @@ class WMKeyboardService : InputMethodService() {
         ic.commitText("$suggestion ", 1)
         learn(suggestion)
         composing = StringBuilder()
-        _uiState.update { it.copy(composingPreview = "", suggestions = emptyList()) }
+        _uiState.update { it.copy(composingPreview = "", suggestions = emptyList(), emojiSuggestions = emptyList()) }
         maybeAutoCapitalize()
     }
 
@@ -854,7 +881,56 @@ class WMKeyboardService : InputMethodService() {
         vibrate()
         currentInputConnection?.commitText(emoji, 1)
         emojiUsage.record(emoji)
-        _uiState.update { it.copy(emojiRecents = emojiUsage.recents()) }
+        _uiState.update {
+            it.copy(emojiRecents = emojiUsage.recents(), emojiFrequents = emojiUsage.frequents())
+        }
+    }
+
+    /**
+     * A variant picked from the long-press popup: commit it and remember it
+     * as the preferred face of [base] so the grid shows it from now on.
+     * Picking the plain base resets the preference.
+     */
+    fun onEmojiVariantPicked(base: String, variant: String) {
+        emojiUsage.setPreferredVariant(base, variant)
+        _uiState.update { it.copy(emojiVariantPrefs = emojiUsage.variantPrefs()) }
+        onEmojiTapped(variant)
+    }
+
+    fun onEmojiFavouriteToggled(emoji: String) {
+        vibrate()
+        emojiUsage.toggleFavourite(emoji)
+        emojiUsage.save()
+        _uiState.update {
+            it.copy(
+                emojiFavourites = emojiUsage.favourites(),
+                emojiRecents = emojiUsage.recents(),
+                emojiFrequents = emojiUsage.frequents(),
+            )
+        }
+    }
+
+    /**
+     * An emoji candidate from the suggestion strip replaces the word being
+     * typed (Gboard semantics): committing over the active composing region
+     * swaps the text, then usage is recorded like any palette tap.
+     */
+    fun onEmojiSuggestionTapped(emoji: String) {
+        vibrate()
+        val ic = currentInputConnection ?: return
+        lastGestureWord = null
+        ic.commitText(emoji, 1)
+        emojiUsage.record(emoji)
+        composing = StringBuilder()
+        _uiState.update {
+            it.copy(
+                composingPreview = "",
+                suggestions = emptyList(),
+                emojiSuggestions = emptyList(),
+                emojiRecents = emojiUsage.recents(),
+                emojiFrequents = emojiUsage.frequents(),
+            )
+        }
     }
 
     fun onEmojiSearchToggled() {
@@ -865,7 +941,7 @@ class WMKeyboardService : InputMethodService() {
         vibrate()
         emojiUsage.clearRecents()
         emojiUsage.save()
-        _uiState.update { it.copy(emojiRecents = emptyList()) }
+        _uiState.update { it.copy(emojiRecents = emojiUsage.recents()) }
     }
 
     private fun refreshEmojiResults() {

@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -32,9 +33,13 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.items as lazyRowItems
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -67,8 +72,12 @@ import androidx.compose.material.icons.outlined.OpenInFull
 import androidx.compose.material.icons.outlined.Pets
 import androidx.compose.material.icons.outlined.PictureInPictureAlt
 import androidx.compose.material.icons.outlined.PushPin
+import androidx.compose.material.icons.outlined.BarChart
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.Star
+import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Smartphone
 import androidx.compose.material.icons.outlined.SportsSoccer
@@ -146,9 +155,12 @@ import android.os.SystemClock
 import kotlinx.coroutines.delay
 import com.wasimaster.wmkeyboard.core.clipboard.ClipItem
 import com.wasimaster.wmkeyboard.core.clipboard.ClipKind
-import com.wasimaster.wmkeyboard.core.emoji.EmojiVariants
+import com.wasimaster.wmkeyboard.core.emoji.EmojiVariantIndex
 import com.wasimaster.wmkeyboard.core.gesture.GesturePoint
 import com.wasimaster.wmkeyboard.core.gesture.KeyCenter
+import com.wasimaster.wmkeyboard.core.settings.EmojiBarContent
+import com.wasimaster.wmkeyboard.core.settings.EmojiBarMode
+import com.wasimaster.wmkeyboard.core.settings.EmojiTabMode
 import com.wasimaster.wmkeyboard.core.settings.InputMode
 import com.wasimaster.wmkeyboard.core.settings.KeyboardAlignment
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
@@ -197,6 +209,9 @@ fun KeyboardScreen(
     onLanguageSelect: (InputMode) -> Unit = {},
     onSuggestion: (String) -> Unit,
     onEmoji: (String) -> Unit,
+    onEmojiVariant: (String, String) -> Unit = { _, v -> onEmoji(v) },
+    onEmojiFavourite: (String) -> Unit = {},
+    onEmojiSuggestion: (String) -> Unit = onEmoji,
     onEmojiQueryTap: () -> Unit,
     onEmojiRecentsClear: () -> Unit = {},
     onTextEdit: (TextEditAction) -> Unit = {},
@@ -245,6 +260,9 @@ fun KeyboardScreen(
                 onLanguageSelect = onLanguageSelect,
                 onSuggestion = onSuggestion,
                 onEmoji = onEmoji,
+                onEmojiVariant = onEmojiVariant,
+                onEmojiFavourite = onEmojiFavourite,
+                onEmojiSuggestion = onEmojiSuggestion,
                 onEmojiQueryTap = onEmojiQueryTap,
                 onEmojiRecentsClear = onEmojiRecentsClear,
                 onTextEdit = onTextEdit,
@@ -550,6 +568,8 @@ private fun OneHandedRail(
 private fun TopBar(
     state: KeyboardUiState,
     onSuggestion: (String) -> Unit,
+    onEmoji: (String) -> Unit,
+    onEmojiSuggestion: (String) -> Unit,
     onPanelChange: (PanelMode) -> Unit,
     onToolTap: (ToolbarTool) -> Unit,
     drag: ToolDragController,
@@ -557,8 +577,15 @@ private fun TopBar(
     // "Show the toolbar instead" while suggestions are up; resets once the
     // suggestions go away so the bar returns to candidates next time.
     var toolbarOverride by remember { mutableStateOf(false) }
-    val hasSuggestions = state.suggestions.isNotEmpty()
+    // Button-mode emoji row: a toolbar toggle swaps the strip for emojis.
+    var emojiBarOpen by remember { mutableStateOf(false) }
+    val hasSuggestions = state.suggestions.isNotEmpty() || state.emojiSuggestions.isNotEmpty()
     LaunchedEffect(hasSuggestions) { if (!hasSuggestions) toolbarOverride = false }
+    // The emoji panel is already all emojis — showing the row too would be
+    // redundant, so opening the panel folds the row away.
+    if (state.settings.emojiBarMode != EmojiBarMode.BUTTON || state.panel == PanelMode.EMOJI) {
+        emojiBarOpen = false
+    }
     val showToolbar = !hasSuggestions || toolbarOverride || state.panel == PanelMode.TOOLBOX
 
     Row(
@@ -568,6 +595,28 @@ private fun TopBar(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         val feedback = LocalKeyPressFeedback.current
+        if (emojiBarOpen && !hasSuggestions) {
+            EmojiBarStrip(
+                state = state,
+                onEmoji = onEmoji,
+                onOpenPanel = { onPanelChange(PanelMode.EMOJI) },
+                modifier = Modifier.weight(1f),
+            )
+            IconButton(
+                onClick = {
+                    feedback()
+                    emojiBarOpen = false
+                },
+                modifier = Modifier.size(36.dp),
+            ) {
+                Icon(
+                    Icons.Outlined.Close,
+                    contentDescription = "Close emoji row",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            return@Row
+        }
         if (hasSuggestions) {
             IconButton(
                 onClick = {
@@ -585,6 +634,21 @@ private fun TopBar(
         }
         if (showToolbar) {
             ToolbarRow(state, onPanelChange, onToolTap, drag)
+            if (state.settings.emojiBarMode == EmojiBarMode.BUTTON) {
+                IconButton(
+                    onClick = {
+                        feedback()
+                        emojiBarOpen = true
+                    },
+                    modifier = Modifier.size(36.dp),
+                ) {
+                    Icon(
+                        Icons.Outlined.EmojiEmotions,
+                        contentDescription = "Show emoji row",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
         } else {
             if (state.settings.emojiToolbar) {
                 ToolCircle(
@@ -628,6 +692,74 @@ private fun TopBar(
                         )
                     }
                 }
+            }
+            // Emoji candidates ride along after the words: typing "birthday"
+            // puts 🎂 🎉 🥳 🎁 one tap away.
+            for (emoji in state.emojiSuggestions.take(4)) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .clickable { onEmojiSuggestion(emoji) }
+                        .padding(horizontal = 5.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(text = emoji, fontSize = 22.sp)
+                }
+            }
+        }
+    }
+}
+
+/** Fallback content for the dedicated emoji row before any usage exists. */
+private val DEFAULT_BAR_EMOJIS = listOf(
+    "😂", "❤️", "😊", "👍", "🙏", "😭", "🎉", "🥰", "😅", "🔥", "🤔", "👏",
+)
+
+/**
+ * The dedicated emoji row (Gboard style): favourites and/or most-used
+ * emojis one tap from any screen, with a launcher into the full panel.
+ * Used as its own row (ALWAYS) or swapped into the strip (BUTTON).
+ */
+@Composable
+private fun EmojiBarStrip(
+    state: KeyboardUiState,
+    onEmoji: (String) -> Unit,
+    onOpenPanel: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    // Favourites already lead the recents/frequents lists (EmojiUsage pins
+    // them), so each content mode is a straight pick.
+    val emojis = when (state.settings.emojiBarContent) {
+        EmojiBarContent.MOST_USED -> state.emojiFrequents
+        EmojiBarContent.RECENTS -> state.emojiRecents
+        EmojiBarContent.FAVOURITES -> state.emojiFavourites
+    }.ifEmpty { DEFAULT_BAR_EMOJIS }
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(40.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        IconButton(onClick = onOpenPanel, modifier = Modifier.size(36.dp)) {
+            Icon(
+                Icons.Outlined.EmojiEmotions,
+                contentDescription = "Open emoji panel",
+                modifier = Modifier.size(20.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        LazyRow(
+            modifier = Modifier.weight(1f),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            lazyRowItems(emojis) { emoji ->
+                Text(
+                    text = emoji,
+                    modifier = Modifier
+                        .clickable { onEmoji(emoji) }
+                        .padding(horizontal = 7.dp, vertical = 6.dp),
+                    fontSize = 24.sp,
+                )
             }
         }
     }
@@ -987,6 +1119,9 @@ private fun KeyboardBody(
     onLanguageSelect: (InputMode) -> Unit,
     onSuggestion: (String) -> Unit,
     onEmoji: (String) -> Unit,
+    onEmojiVariant: (String, String) -> Unit,
+    onEmojiFavourite: (String) -> Unit,
+    onEmojiSuggestion: (String) -> Unit,
     onEmojiQueryTap: () -> Unit,
     onEmojiRecentsClear: () -> Unit,
     onTextEdit: (TextEditAction) -> Unit,
@@ -1010,9 +1145,21 @@ private fun KeyboardBody(
             .onGloballyPositioned { bodyOrigin = it.positionInRoot() },
     ) {
         Column {
-            TopBar(state, onSuggestion, onPanelChange, onToolTap, drag)
+            TopBar(state, onSuggestion, onEmoji, onEmojiSuggestion, onPanelChange, onToolTap, drag)
+            // The dedicated always-on emoji row (Gboard style) sits between
+            // the strip and the keys; the emoji panel already is emojis, so
+            // it yields there.
+            if (state.settings.emojiBarMode == EmojiBarMode.ALWAYS && state.panel != PanelMode.EMOJI) {
+                EmojiBarStrip(
+                    state = state,
+                    onEmoji = onEmoji,
+                    onOpenPanel = { onPanelChange(PanelMode.EMOJI) },
+                )
+            }
             when (state.panel) {
-                PanelMode.EMOJI -> EmojiPanel(state, onEmoji, onEmojiQueryTap, onEmojiRecentsClear)
+                PanelMode.EMOJI -> EmojiPanel(
+                    state, onEmoji, onEmojiVariant, onEmojiFavourite, onEmojiQueryTap, onEmojiRecentsClear,
+                )
                 PanelMode.CLIPBOARD -> ClipboardPanel(state, onClipboardItem, onClipboardPin, onClipboardDelete)
                 PanelMode.SNIPPETS -> SnippetsPanel(state, onSnippet)
                 PanelMode.TEXT_EDIT -> TextEditPanel(state, onTextEdit)
@@ -1944,7 +2091,7 @@ private fun Modifier.pointerInputKey(
 
 // ---- emoji panel ----
 
-/** Sentinel tab id for the recents tab; ★ avoids clashing with catalog categories. */
+/** Sentinel tab id for the history tab; ★ avoids clashing with catalog categories. */
 private const val RECENT_TAB = "★recent"
 
 /** Category → tab icon; falls back to the smiley for unknown categories. */
@@ -2006,9 +2153,18 @@ private fun RowScope.EmojiTab(
 private fun EmojiPanel(
     state: KeyboardUiState,
     onEmoji: (String) -> Unit,
+    onEmojiVariant: (String, String) -> Unit,
+    onEmojiFavourite: (String) -> Unit,
     onEmojiQueryTap: () -> Unit,
     onClearRecents: () -> Unit,
 ) {
+    // Gender/role variants (🏃‍♀️, 👨‍⚕️…) collapse under their base emoji;
+    // the popup offers them, the grid stays tidy.
+    val variantChildren = remember(state.emojiCatalog) {
+        state.emojiCatalog.filter { it.parent != null }.groupBy({ it.parent!! }, { it.emoji })
+    }
+    val historyMode = state.settings.emojiTabMode
+    val history = if (historyMode == EmojiTabMode.MOST_USED) state.emojiFrequents else state.emojiRecents
     val height = if (state.emojiSearchActive) 120.dp else keyRowsHeight(state.settings)
     Column(
         modifier = Modifier
@@ -2055,7 +2211,15 @@ private fun EmojiPanel(
                 contentPadding = PaddingValues(8.dp),
             ) {
                 items(state.emojiResults.map { it.emoji }) { emoji ->
-                    EmojiCell(emoji, onEmoji)
+                    EmojiCell(
+                        base = emoji,
+                        display = state.emojiVariantPrefs[emoji] ?: emoji,
+                        state = state,
+                        genderVariants = variantChildren[emoji].orEmpty(),
+                        onTap = onEmoji,
+                        onPick = { variant -> onEmojiVariant(emoji, variant) },
+                        onFavourite = onEmojiFavourite,
+                    )
                 }
             }
             return@Column
@@ -2066,10 +2230,10 @@ private fun EmojiPanel(
         val categories = remember(state.emojiCatalog) {
             state.emojiCatalog.map { it.category }.distinct()
         }
-        val hasRecents = state.emojiRecents.isNotEmpty()
-        val tabs = remember(categories, hasRecents) {
+        val hasHistory = history.isNotEmpty()
+        val tabs = remember(categories, hasHistory) {
             buildList {
-                if (hasRecents) add(RECENT_TAB)
+                if (hasHistory) add(RECENT_TAB)
                 addAll(categories)
             }
         }
@@ -2094,9 +2258,16 @@ private fun EmojiPanel(
                 )
                 for (tab in tabs) {
                     EmojiTab(
-                        icon = emojiTabIcon(tab),
-                        description = if (tab == RECENT_TAB) "Recent"
-                        else tab.replaceFirstChar { it.uppercase() },
+                        icon = if (tab == RECENT_TAB && historyMode == EmojiTabMode.MOST_USED) {
+                            Icons.Outlined.BarChart
+                        } else {
+                            emojiTabIcon(tab)
+                        },
+                        description = when {
+                            tab != RECENT_TAB -> tab.replaceFirstChar { it.uppercase() }
+                            historyMode == EmojiTabMode.MOST_USED -> "Most used"
+                            else -> "Recent"
+                        },
                         selected = tab == selectedTab,
                         onClick = { selectedTab = tab },
                     )
@@ -2104,7 +2275,7 @@ private fun EmojiPanel(
             }
         }
 
-        if (selectedTab == RECENT_TAB) {
+        if (selectedTab == RECENT_TAB && historyMode == EmojiTabMode.RECENTS) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -2124,77 +2295,268 @@ private fun EmojiPanel(
             }
         }
 
-        val emojis = if (selectedTab == RECENT_TAB) {
-            state.emojiRecents
-        } else {
-            remember(state.emojiCatalog, selectedTab) {
-                state.emojiCatalog.filter { it.category == selectedTab }.map { it.emoji }
+        if (selectedTab == RECENT_TAB) {
+            LazyVerticalGrid(
+                columns = GridCells.Adaptive(minSize = 44.dp),
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(8.dp),
+            ) {
+                items(history) { emoji ->
+                    // History cells are exact sequences: no variant pref to
+                    // remember, taps in the popup commit directly.
+                    EmojiCell(
+                        base = emoji,
+                        display = emoji,
+                        state = state,
+                        genderVariants = emptyList(),
+                        onTap = onEmoji,
+                        onPick = onEmoji,
+                        onFavourite = onEmojiFavourite,
+                    )
+                }
             }
-        }
-        LazyVerticalGrid(
-            columns = GridCells.Adaptive(minSize = 44.dp),
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(8.dp),
-        ) {
-            items(emojis) { emoji ->
-                EmojiCell(emoji, onEmoji)
+        } else {
+            val emojis = remember(state.emojiCatalog, selectedTab) {
+                state.emojiCatalog
+                    .filter { it.category == selectedTab && it.parent == null }
+                    .map { it.emoji }
+            }
+            LazyVerticalGrid(
+                columns = GridCells.Adaptive(minSize = 44.dp),
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(8.dp),
+            ) {
+                items(emojis) { emoji ->
+                    EmojiCell(
+                        base = emoji,
+                        display = state.emojiVariantPrefs[emoji] ?: emoji,
+                        state = state,
+                        genderVariants = variantChildren[emoji].orEmpty(),
+                        onTap = onEmoji,
+                        onPick = { variant -> onEmojiVariant(emoji, variant) },
+                        onFavourite = onEmojiFavourite,
+                    )
+                }
             }
         }
     }
 }
 
 /**
- * One emoji in the grid. Only emojis with skin-tone variants register a
- * long-press handler; everything else is a plain tap with no long-press
- * timeout involved.
+ * One emoji in the grid. Tap commits [display] (the user's preferred
+ * variant of [base]); long-press opens the variant popup with the
+ * favourite toggle, gender variants, skin tones, and — for two-person
+ * emojis like the handshake — a per-person tone selector.
  */
 @Composable
-private fun EmojiCell(emoji: String, onEmoji: (String) -> Unit) {
+private fun EmojiCell(
+    base: String,
+    display: String,
+    state: KeyboardUiState,
+    genderVariants: List<String>,
+    onTap: (String) -> Unit,
+    onPick: (String) -> Unit,
+    onFavourite: (String) -> Unit,
+) {
     var showVariants by remember { mutableStateOf(false) }
-    val variants = remember(emoji) { EmojiVariants.variants(emoji) }
-    val hasVariants = variants.size > 1
     Box {
         Text(
-            text = emoji,
+            text = display,
             modifier = Modifier
-                .pointerInput(emoji, hasVariants) {
-                    if (hasVariants) {
-                        detectTapGestures(
-                            onTap = { onEmoji(emoji) },
-                            onLongPress = { showVariants = true },
-                        )
-                    } else {
-                        detectTapGestures(onTap = { onEmoji(emoji) })
-                    }
+                .pointerInput(base, display) {
+                    detectTapGestures(
+                        onTap = { onTap(display) },
+                        onLongPress = { showVariants = true },
+                    )
                 }
                 .padding(6.dp),
             fontSize = 26.sp,
         )
         if (showVariants) {
-            val kb = LocalKbTheme.current
-            Popup(
-                popupPositionProvider = rememberAboveAnchorPopup(),
-                onDismissRequest = { showVariants = false },
-            ) {
-                Surface(
-                    shape = RoundedCornerShape(kb.popupRadiusDp.dp),
-                    color = kb.popup,
-                    shadowElevation = 8.dp,
+            EmojiVariantPopup(
+                base = base,
+                display = display,
+                index = state.emojiVariants,
+                genderVariants = genderVariants,
+                favourite = display in state.emojiFavourites,
+                onDismiss = { showVariants = false },
+                onPick = {
+                    showVariants = false
+                    onPick(it)
+                },
+                onFavourite = onFavourite,
+            )
+        }
+    }
+}
+
+/** Fitzpatrick swatches for the two-person tone selector: neutral + 🏻..🏿. */
+private val TONE_SWATCHES = listOf(
+    Color(0xFFFFCC4D), Color(0xFFF7DECE), Color(0xFFF3D2A2),
+    Color(0xFFD5AB88), Color(0xFFAF7E57), Color(0xFF7C533E),
+)
+
+@Composable
+private fun EmojiVariantPopup(
+    base: String,
+    display: String,
+    index: EmojiVariantIndex,
+    genderVariants: List<String>,
+    favourite: Boolean,
+    onDismiss: () -> Unit,
+    onPick: (String) -> Unit,
+    onFavourite: (String) -> Unit,
+) {
+    val kb = LocalKbTheme.current
+    Popup(
+        popupPositionProvider = rememberAboveAnchorPopup(),
+        onDismissRequest = onDismiss,
+    ) {
+        Surface(
+            shape = RoundedCornerShape(kb.popupRadiusDp.dp),
+            color = kb.popup,
+            shadowElevation = 8.dp,
+        ) {
+            Column(modifier = Modifier.padding(6.dp)) {
+                // Favourite pins this emoji to the top of the history tab
+                // and the favourites row.
+                var starred by remember(display) { mutableStateOf(favourite) }
+                Row(
+                    modifier = Modifier
+                        .clickable {
+                            starred = !starred
+                            onFavourite(display)
+                        }
+                        .padding(horizontal = 6.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Row(modifier = Modifier.padding(4.dp)) {
-                        for (variant in variants) {
-                            Text(
-                                text = variant,
-                                modifier = Modifier
-                                    .clickable {
-                                        showVariants = false
-                                        onEmoji(variant)
-                                    }
-                                    .padding(horizontal = 8.dp, vertical = 8.dp),
-                                fontSize = 24.sp,
-                            )
+                    Icon(
+                        if (starred) Icons.Outlined.Star else Icons.Outlined.StarBorder,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                    Box(modifier = Modifier.width(6.dp))
+                    Text(
+                        if (starred) "Favourited" else "Favourite",
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                }
+                val members = remember(base, genderVariants) { listOf(base) + genderVariants }
+                if (index.hasDualTones(base) || genderVariants.any { index.hasDualTones(it) }) {
+                    DualTonePicker(members = members, index = index, onPick = onPick)
+                } else {
+                    // One row per gender/role member, six cells when toned;
+                    // toneless combination groups (families) just flow.
+                    val cells = remember(members) { members.flatMap { index.popupVariants(it) } }
+                    Column(
+                        modifier = Modifier
+                            .heightIn(max = 216.dp)
+                            .verticalScroll(rememberScrollState()),
+                    ) {
+                        for (row in cells.chunked(6)) {
+                            Row {
+                                for (variant in row) {
+                                    Text(
+                                        text = variant,
+                                        modifier = Modifier
+                                            .clickable { onPick(variant) }
+                                            .padding(horizontal = 7.dp, vertical = 7.dp),
+                                        fontSize = 24.sp,
+                                    )
+                                }
+                            }
                         }
                     }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Gboard-style two-slot skin-tone selector for emojis where each person
+ * has an independent tone (🤝, couples, holding hands…). The top row picks
+ * the gender/role combination; the two swatch rows pick each person's
+ * tone; tapping the live preview commits the exact RGI sequence.
+ */
+@Composable
+private fun DualTonePicker(
+    members: List<String>,
+    index: EmojiVariantIndex,
+    onPick: (String) -> Unit,
+) {
+    var member by remember { mutableStateOf(members.first()) }
+    var first by remember { mutableStateOf(0) }
+    var second by remember { mutableStateOf(0) }
+    // Not every combination is RGI (a toned person can't shake a neutral
+    // hand), so a pick on one side seeds the other side too.
+    val preview = index.tonedPair(member, first, second) ?: member
+
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        if (members.size > 1) {
+            Row {
+                for (candidate in members) {
+                    Text(
+                        text = candidate,
+                        modifier = Modifier
+                            .background(
+                                if (candidate == member) {
+                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)
+                                } else {
+                                    Color.Transparent
+                                },
+                                RoundedCornerShape(8.dp),
+                            )
+                            .clickable { member = candidate }
+                            .padding(horizontal = 6.dp, vertical = 4.dp),
+                        fontSize = 22.sp,
+                    )
+                }
+            }
+        }
+        Text(
+            text = preview,
+            modifier = Modifier
+                .clickable { onPick(preview) }
+                .padding(6.dp),
+            fontSize = 34.sp,
+        )
+        for (slot in 0..1) {
+            Row(
+                modifier = Modifier.padding(vertical = 3.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                for (tone in 0..5) {
+                    val selected = tone == if (slot == 0) first else second
+                    Box(
+                        modifier = Modifier
+                            .padding(horizontal = 3.dp)
+                            .size(26.dp)
+                            .background(TONE_SWATCHES[tone], CircleShape)
+                            .then(
+                                if (selected) {
+                                    Modifier.border(
+                                        2.dp, MaterialTheme.colorScheme.primary, CircleShape,
+                                    )
+                                } else {
+                                    Modifier
+                                }
+                            )
+                            .clickable {
+                                if (tone == 0) {
+                                    first = 0
+                                    second = 0
+                                } else if (slot == 0) {
+                                    first = tone
+                                    if (second == 0) second = tone
+                                } else {
+                                    second = tone
+                                    if (first == 0) first = tone
+                                }
+                            },
+                    )
                 }
             }
         }

@@ -75,6 +75,9 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import android.os.Build
+import com.wasimaster.wmkeyboard.core.settings.EmojiBarContent
+import com.wasimaster.wmkeyboard.core.settings.EmojiBarMode
+import com.wasimaster.wmkeyboard.core.settings.EmojiTabMode
 import com.wasimaster.wmkeyboard.core.settings.HapticStyle
 import com.wasimaster.wmkeyboard.core.settings.InputMode
 import com.wasimaster.wmkeyboard.core.settings.KeyboardAlignment
@@ -430,6 +433,44 @@ private fun SliderSetting(
             )
         }
         Slider(value = value, onValueChange = onChange, valueRange = range)
+    }
+}
+
+/** A titled single-choice row of segmented buttons over [options]. */
+@Composable
+private fun <T> ChoiceSetting(
+    title: String,
+    subtitle: String? = null,
+    info: String? = null,
+    options: List<Pair<T, String>>,
+    selected: T,
+    onChange: (T) -> Unit,
+) {
+    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(title, style = MaterialTheme.typography.bodyLarge)
+            if (info != null) InfoButton(title, info)
+        }
+        if (subtitle != null) {
+            Text(
+                subtitle,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        SingleChoiceSegmentedButtonRow(modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 8.dp)) {
+            options.forEachIndexed { index, (option, label) ->
+                SegmentedButton(
+                    selected = selected == option,
+                    onClick = { onChange(option) },
+                    shape = SegmentedButtonDefaults.itemShape(index, options.size),
+                ) {
+                    Text(label, maxLines = 1)
+                }
+            }
+        }
     }
 }
 
@@ -979,6 +1020,58 @@ private fun ClipboardEmojiSettings(repository: SettingsRepository, settings: Key
             "are showing. The emoji panel itself has tabs per category, search in " +
             "English and Bengali, and skin-tone variants on long-press.",
     ) { scope.launch { repository.setEmojiToolbar(it) } }
+    ToggleSetting(
+        "Emoji suggestions",
+        "Offer emojis while typing — birthday suggests 🎂 🎉 🥳",
+        settings.emojiPrediction,
+        info = "Matching emojis appear at the end of the suggestion strip while you " +
+            "type, in English or Bengali (জন্মদিন also suggests 🎂). Tapping one " +
+            "replaces the word being typed.",
+    ) { scope.launch { repository.setEmojiPrediction(it) } }
+    ChoiceSetting(
+        title = "History tab",
+        subtitle = "What the first emoji-panel tab shows",
+        info = "\"Recent\" lists emojis in the order you last used them; \"Most used\" " +
+            "ranks them by how often you use them. Favourited emojis are always " +
+            "pinned to the front of either list.",
+        options = listOf(
+            EmojiTabMode.RECENTS to "Recent",
+            EmojiTabMode.MOST_USED to "Most used",
+        ),
+        selected = settings.emojiTabMode,
+    ) { scope.launch { repository.setEmojiTabMode(it) } }
+    ChoiceSetting(
+        title = "Emoji row",
+        subtitle = "A dedicated row of your emojis, like Gboard",
+        info = "\"Own row\" keeps a persistent emoji row between the toolbar and the " +
+            "keys. \"Button\" adds a toggle at the right edge of the toolbar that " +
+            "swaps the strip for the emoji row. \"Off\" hides both.",
+        options = listOf(
+            EmojiBarMode.OFF to "Off",
+            EmojiBarMode.BUTTON to "Button",
+            EmojiBarMode.ALWAYS to "Own row",
+        ),
+        selected = settings.emojiBarMode,
+    ) { scope.launch { repository.setEmojiBarMode(it) } }
+    if (settings.emojiBarMode != EmojiBarMode.OFF) {
+        ChoiceSetting(
+            title = "Emoji row content",
+            subtitle = "Favourites always come first",
+            options = listOf(
+                EmojiBarContent.MOST_USED to "Most used",
+                EmojiBarContent.RECENTS to "Recent",
+                EmojiBarContent.FAVOURITES to "Favourites",
+            ),
+            selected = settings.emojiBarContent,
+        ) { scope.launch { repository.setEmojiBarContent(it) } }
+    }
+    Text(
+        "Tip: long-press any emoji in the panel to favourite it or pick skin tones — " +
+            "two-person emojis like 🤝 let you set each person's tone separately.",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+    )
 }
 
 @Composable
