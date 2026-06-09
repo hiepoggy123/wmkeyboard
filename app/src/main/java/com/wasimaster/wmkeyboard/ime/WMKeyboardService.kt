@@ -34,6 +34,7 @@ import com.wasimaster.wmkeyboard.core.feedback.HapticPlayer
 import com.wasimaster.wmkeyboard.core.gesture.GestureDecoder
 import com.wasimaster.wmkeyboard.core.gesture.GesturePoint
 import com.wasimaster.wmkeyboard.core.gesture.KeyCenter
+import com.wasimaster.wmkeyboard.core.prediction.Apostrophes
 import com.wasimaster.wmkeyboard.core.prediction.DictionaryLoader
 import com.wasimaster.wmkeyboard.core.prediction.EnglishBengaliMap
 import com.wasimaster.wmkeyboard.core.prediction.SuggestionEngine
@@ -605,7 +606,11 @@ class WMKeyboardService : InputMethodService() {
             return
         }
 
-        val committed = commitComposing(ic, autocorrect = state.settings.autocorrect)
+        val committed = commitComposing(
+            ic,
+            autocorrect = state.settings.autocorrect,
+            fixApostrophes = state.settings.autoApostrophe,
+        )
 
         // Double-space inserts ". "
         if (!committed && state.settings.doubleSpacePeriod && now - lastSpaceTime < 400) {
@@ -683,13 +688,26 @@ class WMKeyboardService : InputMethodService() {
      * autocorrect may replace the typed word. Returns true if anything
      * was committed.
      */
-    private fun commitComposing(ic: InputConnection, autocorrect: Boolean): Boolean {
+    private fun commitComposing(
+        ic: InputConnection,
+        autocorrect: Boolean,
+        fixApostrophes: Boolean = false,
+    ): Boolean {
         if (composing.isEmpty()) return false
         val typed = composing.toString()
         val state = _uiState.value
+        // Apostrophe restoration outranks autocorrect: "dont" is a known
+        // contraction slip, not a typo for "font"/"done" to be guessed at.
+        val apostrophized =
+            if (fixApostrophes && !state.secureField && state.inputMode == InputMode.ENGLISH) {
+                Apostrophes.fix(typed)
+            } else {
+                null
+            }
         val output = when {
             state.inputMode == InputMode.AVRO ->
                 _uiState.value.suggestions.firstOrNull() ?: AvroPhonetic.transliterate(typed)
+            apostrophized != null -> apostrophized
             autocorrect && !state.secureField ->
                 suggestionEngine?.shouldAutocorrect(typed) ?: typed
             else -> typed

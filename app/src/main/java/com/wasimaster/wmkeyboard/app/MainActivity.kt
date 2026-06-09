@@ -7,6 +7,8 @@ import android.provider.Settings
 import android.view.inputmethod.InputMethodManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -32,6 +34,7 @@ import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.outlined.Redo
 import androidx.compose.material.icons.automirrored.outlined.Undo
 import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.ContentPaste
 import androidx.compose.material.icons.outlined.DarkMode
@@ -42,7 +45,10 @@ import androidx.compose.material.icons.outlined.EditNote
 import androidx.compose.material.icons.outlined.EmojiEmotions
 import androidx.compose.material.icons.outlined.Explore
 import androidx.compose.material.icons.outlined.FlashlightOn
+import androidx.compose.material.icons.outlined.Keyboard
+import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.Palette
+import androidx.compose.material.icons.outlined.Security
 import androidx.compose.material.icons.outlined.PictureInPictureAlt
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Smartphone
@@ -53,6 +59,7 @@ import androidx.compose.material.icons.outlined.Vibration
 import androidx.compose.material.icons.outlined.VerticalSplit
 import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material.icons.outlined.WbSunny
+import androidx.compose.material.icons.outlined.Widgets
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -92,6 +99,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import android.provider.OpenableColumns
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -100,6 +109,8 @@ import android.os.Build
 import com.wasimaster.wmkeyboard.core.feedback.HapticPlayer
 import com.wasimaster.wmkeyboard.core.settings.EmojiBarContent
 import com.wasimaster.wmkeyboard.core.settings.EmojiBarMode
+import com.wasimaster.wmkeyboard.core.settings.EmojiFontChoice
+import com.wasimaster.wmkeyboard.ime.ui.KeyboardFonts
 import com.wasimaster.wmkeyboard.core.settings.EmojiInsertMode
 import com.wasimaster.wmkeyboard.core.settings.EmojiTabMode
 import com.wasimaster.wmkeyboard.core.settings.HapticStyle
@@ -210,7 +221,16 @@ private fun SettingsNavHost(repository: SettingsRepository, settings: KeyboardSe
         }
         composable("appearance") {
             SettingsScreen("Appearance & themes", { navController.popBackStack() }) {
-                AppearanceSettings(repository, settings) { navController.navigate("themes") }
+                AppearanceSettings(
+                    repository, settings,
+                    onOpenThemes = { navController.navigate("themes") },
+                    onOpenFonts = { navController.navigate("fonts") },
+                )
+            }
+        }
+        composable("fonts") {
+            SettingsScreen("Keyboard font", { navController.popBackStack() }) {
+                FontSettings(repository, settings)
             }
         }
         composable("themes") {
@@ -250,11 +270,6 @@ private fun SettingsNavHost(repository: SettingsRepository, settings: KeyboardSe
                 }
             }
         }
-        composable("snippets") {
-            SettingsScreen("Snippets", { navController.popBackStack() }) {
-                SnippetSettings()
-            }
-        }
         composable("privacy") {
             SettingsScreen("Privacy", { navController.popBackStack() }) {
                 PrivacySettings(repository, settings)
@@ -281,13 +296,12 @@ private fun HomeScreen(settings: KeyboardSettings, onNavigate: (String) -> Unit)
         ) {
             SetupCard(context)
             Spacer(Modifier.height(16.dp))
-            SectionItem("Typing", "Autocorrect, suggestions, key behavior") { onNavigate("typing") }
-            SectionItem("Appearance & themes", "Material You, AMOLED, key size, split & resize") { onNavigate("appearance") }
-            SectionItem("Languages", "English, বাংলা (Avro phonetic, প্রভাত)") { onNavigate("languages") }
-            SectionItem("Emoji", "Suggestions, history tab, emoji row, favourites") { onNavigate("emoji") }
-            SectionItem("Tools", "Flashlight, compass, calendar & more — enable and configure") { onNavigate("tools") }
-            SectionItem("Snippets", "Reusable text with {date}, {time}, {clip} variables") { onNavigate("snippets") }
-            SectionItem("Privacy", "On-device learning, incognito") { onNavigate("privacy") }
+            SectionItem(Icons.Outlined.Keyboard, "Typing", "Autocorrect, suggestions, key behavior") { onNavigate("typing") }
+            SectionItem(Icons.Outlined.Palette, "Appearance & themes", "Material You, fonts, key size, split & resize") { onNavigate("appearance") }
+            SectionItem(Icons.Outlined.Language, "Languages", "English, বাংলা (Avro phonetic, প্রভাত)") { onNavigate("languages") }
+            SectionItem(Icons.Outlined.EmojiEmotions, "Emoji", "Suggestions, emoji font, emoji row, favourites") { onNavigate("emoji") }
+            SectionItem(Icons.Outlined.Widgets, "Tools", "Flashlight, compass, snippets, calendar & more") { onNavigate("tools") }
+            SectionItem(Icons.Outlined.Security, "Privacy", "On-device learning, incognito") { onNavigate("privacy") }
         }
     }
 }
@@ -360,8 +374,16 @@ internal fun SetupCard(context: Context) {
 }
 
 @Composable
-private fun SectionItem(title: String, subtitle: String, onClick: () -> Unit) {
+private fun SectionItem(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit,
+) {
     ListItem(
+        leadingContent = {
+            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+        },
         headlineContent = { Text(title) },
         supportingContent = { Text(subtitle) },
         modifier = Modifier
@@ -578,6 +600,15 @@ private fun TypingSettings(repository: SettingsRepository, settings: KeyboardSet
             "replaced. Words you have taught the keyboard are never \"corrected\" away, " +
             "and autocorrect stays off in password fields.",
     ) { scope.launch { repository.setAutocorrect(it) } }
+    ToggleSetting(
+        "Fix missing apostrophes", "arent → aren't, im → I'm, dont → don't",
+        settings.autoApostrophe,
+        info = "When you press space after a contraction typed without its " +
+            "apostrophe (arent, isnt, youre, oclock…), the apostrophe is put " +
+            "back — and a lone \"i\" becomes \"I\". Words that are also real " +
+            "English words without the apostrophe (its, well, ill, shell…) are " +
+            "deliberately left alone. Works independently of autocorrect.",
+    ) { scope.launch { repository.setAutoApostrophe(it) } }
     ToggleSetting(
         "Suggestions", "Show word predictions above the keyboard", settings.suggestions,
         info = "Shows up to three candidates above the keys while you type: completions, " +
@@ -819,6 +850,7 @@ private fun AppearanceSettings(
     repository: SettingsRepository,
     settings: KeyboardSettings,
     onOpenThemes: () -> Unit,
+    onOpenFonts: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
     SectionHeader("Theme")
@@ -836,6 +868,19 @@ private fun AppearanceSettings(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onOpenThemes),
+    )
+    HorizontalDivider()
+
+    SectionHeader("Font")
+    ListItem(
+        headlineContent = { Text("Keyboard font") },
+        supportingContent = { Text("Google Fonts, or import your own font file") },
+        trailingContent = {
+            Text(KeyboardFonts.displayName(settings.keyFontId, settings.customFontName))
+        },
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onOpenFonts),
     )
     HorizontalDivider()
 
@@ -1165,6 +1210,63 @@ private fun EmojiSettings(repository: SettingsRepository, settings: KeyboardSett
             selected = settings.emojiBarContent,
         ) { scope.launch { repository.setEmojiBarContent(it) } }
     }
+    SectionHeader("Emoji style")
+    val context = LocalContext.current
+    // Bumped after an import so the preview re-resolves the (same-named) file.
+    var fontRefresh by remember { mutableIntStateOf(0) }
+    ChoiceSetting(
+        title = "Emoji font",
+        subtitle = "How emojis look on the keyboard itself",
+        info = "\"System\" uses your phone's emoji pack — on Samsung phones " +
+            "that is Samsung's own set. \"Google\" fetches Noto Color Emoji " +
+            "(the stock-Android look) once through the system font provider " +
+            "and caches it on the device. \"Custom\" uses an emoji font file " +
+            "you import below, such as a Twemoji or OpenMoji build. Text you " +
+            "send is plain Unicode either way — other apps and other phones " +
+            "still draw it with their own emoji font.",
+        options = listOf(
+            EmojiFontChoice.SYSTEM to "System",
+            EmojiFontChoice.NOTO to "Google",
+            EmojiFontChoice.CUSTOM to "Custom",
+        ),
+        selected = settings.emojiFont,
+    ) { scope.launch { repository.setEmojiFont(it) } }
+    val previewFamily = remember(settings.emojiFont, fontRefresh) {
+        KeyboardFonts.emojiFamily(context, settings.emojiFont)
+    }
+    Text(
+        "😀 😂 🥰 😎 🤔 👍 ❤️ 🎉",
+        fontSize = 26.sp,
+        fontFamily = previewFamily,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+    )
+    if (settings.emojiFont == EmojiFontChoice.CUSTOM) {
+        val importEmojiFont = rememberLauncherForActivityResult(
+            ActivityResultContracts.OpenDocument(),
+        ) { uri ->
+            if (uri == null) return@rememberLauncherForActivityResult
+            scope.launch {
+                withContext(Dispatchers.IO) {
+                    importFontFile(context, uri, KeyboardFonts.customEmojiFontFile(context))
+                }
+                fontRefresh++
+            }
+        }
+        val imported = KeyboardFonts.customEmojiFontFile(context).exists()
+        if (!imported) {
+            Text(
+                "No emoji font imported yet — the system font is used until then.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+                modifier = Modifier.padding(horizontal = 16.dp),
+            )
+        }
+        Spacer(Modifier.height(8.dp))
+        OutlinedButton(
+            onClick = { importEmojiFont.launch(FONT_MIME_TYPES) },
+            modifier = Modifier.padding(horizontal = 16.dp),
+        ) { Text(if (imported) "Replace emoji font file" else "Import emoji font file") }
+    }
     Text(
         "Tip: long-press any emoji in the panel to favourite it or pick skin tones — " +
             "two-person emojis like 🤝 let you set each person's tone separately.",
@@ -1172,6 +1274,136 @@ private fun EmojiSettings(repository: SettingsRepository, settings: KeyboardSett
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
     )
+}
+
+// ---- fonts ----
+
+/** Mime types SAF offers when picking a font; octet-stream covers file managers that don't tag fonts. */
+private val FONT_MIME_TYPES = arrayOf(
+    "font/ttf", "font/otf", "font/*", "application/x-font-ttf", "application/octet-stream",
+)
+
+/**
+ * Font picker: system default, curated Google Fonts (each row rendered in
+ * its own face as a live preview — faces download on first view and are
+ * cached by the system provider), plus an imported custom font file.
+ */
+@Composable
+private fun FontSettings(repository: SettingsRepository, settings: KeyboardSettings) {
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    var fontRefresh by remember { mutableIntStateOf(0) }
+    Text(
+        "Applies to key labels, suggestions and the keyboard's panels. Google " +
+            "fonts are fetched once through the system font provider and cached " +
+            "on-device. Fonts without Bengali glyphs fall back to the system " +
+            "font for Bengali keys automatically.",
+        style = MaterialTheme.typography.bodyMedium,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+    )
+
+    SectionHeader("Custom font")
+    val importFont = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            val name = withContext(Dispatchers.IO) {
+                importFontFile(context, uri, KeyboardFonts.customFontFile(context))
+            }
+            if (name != null) {
+                repository.setCustomFont(name)
+                fontRefresh++
+            }
+        }
+    }
+    if (KeyboardFonts.customFontFile(context).exists()) {
+        FontChoiceRow(
+            label = settings.customFontName.ifBlank { "Imported font" },
+            family = remember(settings.customFontName, fontRefresh) {
+                KeyboardFonts.family(context, KeyboardFonts.CUSTOM_ID)
+            },
+            selected = settings.keyFontId == KeyboardFonts.CUSTOM_ID,
+        ) { scope.launch { repository.setKeyFontId(KeyboardFonts.CUSTOM_ID) } }
+    }
+    Spacer(Modifier.height(4.dp))
+    OutlinedButton(
+        onClick = { importFont.launch(FONT_MIME_TYPES) },
+        modifier = Modifier.padding(horizontal = 16.dp),
+    ) { Text("Import font file (.ttf / .otf)") }
+
+    SectionHeader("Fonts")
+    FontChoiceRow(
+        label = "System default",
+        family = null,
+        selected = settings.keyFontId == KeyboardFonts.DEFAULT_ID,
+    ) { scope.launch { repository.setKeyFontId(KeyboardFonts.DEFAULT_ID) } }
+    for (name in KeyboardFonts.googleFonts) {
+        val id = KeyboardFonts.googleId(name)
+        FontChoiceRow(
+            label = name,
+            family = remember(id) { KeyboardFonts.family(context, id) },
+            selected = settings.keyFontId == id,
+        ) { scope.launch { repository.setKeyFontId(id) } }
+    }
+}
+
+/** One selectable font row, its label and sample line drawn in the font itself. */
+@Composable
+private fun FontChoiceRow(
+    label: String,
+    family: FontFamily?,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    ListItem(
+        headlineContent = { Text(label, fontFamily = family, fontSize = 18.sp) },
+        supportingContent = {
+            Text(
+                "The quick brown fox · আমি ভালো আছি",
+                fontFamily = family,
+                maxLines = 1,
+            )
+        },
+        trailingContent = if (selected) {
+            {
+                Icon(
+                    Icons.Outlined.Check,
+                    contentDescription = "Selected",
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+            }
+        } else {
+            null
+        },
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+    )
+}
+
+/**
+ * Copies a picked font into private storage and returns its display name,
+ * or null when the stream can't be read or the platform can't parse the
+ * file (the bad copy is deleted so it never sticks as the "custom font").
+ */
+private fun importFontFile(context: Context, uri: android.net.Uri, dest: java.io.File): String? {
+    return runCatching {
+        dest.parentFile?.mkdirs()
+        val copied = context.contentResolver.openInputStream(uri)?.use { input ->
+            dest.outputStream().use { output -> input.copyTo(output) }
+        }
+        if (copied == null) return null
+        val parsed = runCatching { android.graphics.Typeface.createFromFile(dest) }.getOrNull()
+        if (parsed == null || parsed == android.graphics.Typeface.DEFAULT) {
+            dest.delete()
+            return null
+        }
+        context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+            val index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+            if (index >= 0 && cursor.moveToFirst()) cursor.getString(index) else null
+        } ?: dest.name
+    }.getOrNull()
 }
 
 // ---- tools ----
@@ -1325,6 +1557,7 @@ private fun ToolDetailSettings(
                     .clickable(onClick = onOpenEmojiSettings),
             )
         }
+        ToolbarTool.SNIPPETS -> SnippetSettings()
         ToolbarTool.CLIPBOARD -> {
             ToggleSetting(
                 "Clipboard history", "Save copied text for quick paste",

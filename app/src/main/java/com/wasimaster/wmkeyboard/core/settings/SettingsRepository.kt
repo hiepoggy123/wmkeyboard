@@ -80,6 +80,16 @@ enum class EmojiBarMode { OFF, BUTTON, ALWAYS }
 enum class EmojiBarContent { MOST_USED, RECENTS, FAVOURITES }
 
 /**
+ * Which font renders emojis on the keyboard itself (panel, emoji row,
+ * suggestions). [SYSTEM] uses the device's emoji font (Samsung's own pack
+ * on Samsung phones), [NOTO] downloads Google's Noto Color Emoji — the
+ * stock-Android look — via the Google Fonts provider, [CUSTOM] uses an
+ * emoji font file the user imported. Text committed to apps is plain
+ * Unicode either way; the receiving app draws it with its own font.
+ */
+enum class EmojiFontChoice { SYSTEM, NOTO, CUSTOM }
+
+/**
  * What tapping an emoji suggestion does to the word being typed:
  * [REPLACE] swaps the word for the emoji (Gboard style), [APPEND] keeps
  * the word and adds the emoji after it ("birthday 🎂").
@@ -113,6 +123,16 @@ data class KeyboardSettings(
     val keyboardAlignment: KeyboardAlignment = KeyboardAlignment.CENTER,
     val keyCornerRadiusDp: Int = 8,
     val fontScale: Float = 1.0f,
+    /**
+     * Font for the keyboard's own text: "default" (system), "google:<Name>"
+     * (a Google Fonts family, fetched via the GMS fonts provider and cached
+     * on-device), or "custom" (an imported font file).
+     */
+    val keyFontId: String = "default",
+    /** Display name of the imported custom font file, for the settings UI. */
+    val customFontName: String = "",
+    /** Emoji look on the keyboard: system pack, Noto (stock Android), or custom. */
+    val emojiFont: EmojiFontChoice = EmojiFontChoice.SYSTEM,
     val hapticFeedback: Boolean = true,
     val hapticStrengthMs: Int = 15,
     val hapticAmplitude: Int = 255,
@@ -130,6 +150,8 @@ data class KeyboardSettings(
     val keyPopupHeightDp: Int = 110,
     val numberRow: Boolean = false,
     val autocorrect: Boolean = true,
+    /** Fix missing apostrophes on commit: arent → aren't, im → I'm. */
+    val autoApostrophe: Boolean = true,
     val autoCapitalize: Boolean = true,
     val doubleSpacePeriod: Boolean = true,
     val suggestions: Boolean = true,
@@ -226,6 +248,10 @@ class SettingsRepository(private val context: Context) {
         private val KEYBOARD_ALIGNMENT = stringPreferencesKey("keyboard_alignment")
         private val KEY_CORNER_RADIUS = intPreferencesKey("key_corner_radius")
         private val FONT_SCALE = floatPreferencesKey("font_scale")
+        private val KEY_FONT_ID = stringPreferencesKey("key_font_id")
+        private val CUSTOM_FONT_NAME = stringPreferencesKey("custom_font_name")
+        private val EMOJI_FONT = stringPreferencesKey("emoji_font")
+        private val AUTO_APOSTROPHE = booleanPreferencesKey("auto_apostrophe")
         private val HAPTIC = booleanPreferencesKey("haptic")
         private val HAPTIC_STRENGTH = intPreferencesKey("haptic_strength")
         private val HAPTIC_AMPLITUDE = intPreferencesKey("haptic_amplitude")
@@ -326,6 +352,11 @@ class SettingsRepository(private val context: Context) {
                 ?: defaults.keyboardAlignment,
             keyCornerRadiusDp = p[KEY_CORNER_RADIUS] ?: defaults.keyCornerRadiusDp,
             fontScale = p[FONT_SCALE] ?: defaults.fontScale,
+            keyFontId = p[KEY_FONT_ID] ?: defaults.keyFontId,
+            customFontName = p[CUSTOM_FONT_NAME] ?: defaults.customFontName,
+            emojiFont = p[EMOJI_FONT]
+                ?.let { runCatching { EmojiFontChoice.valueOf(it) }.getOrNull() }
+                ?: defaults.emojiFont,
             hapticFeedback = p[HAPTIC] ?: defaults.hapticFeedback,
             hapticStrengthMs = p[HAPTIC_STRENGTH] ?: defaults.hapticStrengthMs,
             hapticAmplitude = p[HAPTIC_AMPLITUDE] ?: defaults.hapticAmplitude,
@@ -346,6 +377,7 @@ class SettingsRepository(private val context: Context) {
             keyPopupHeightDp = p[KEY_POPUP_HEIGHT] ?: defaults.keyPopupHeightDp,
             numberRow = p[NUMBER_ROW] ?: defaults.numberRow,
             autocorrect = p[AUTOCORRECT] ?: defaults.autocorrect,
+            autoApostrophe = p[AUTO_APOSTROPHE] ?: defaults.autoApostrophe,
             autoCapitalize = p[AUTO_CAPITALIZE] ?: defaults.autoCapitalize,
             doubleSpacePeriod = p[DOUBLE_SPACE_PERIOD] ?: defaults.doubleSpacePeriod,
             suggestions = p[SUGGESTIONS] ?: defaults.suggestions,
@@ -590,6 +622,22 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setFontScale(value: Float) =
         context.dataStore.edit { it[FONT_SCALE] = value.coerceIn(0.7f, 1.5f) }
+
+    suspend fun setKeyFontId(value: String) =
+        context.dataStore.edit { it[KEY_FONT_ID] = value }
+
+    /** Records both the imported file's display name and selects it. */
+    suspend fun setCustomFont(name: String) =
+        context.dataStore.edit {
+            it[CUSTOM_FONT_NAME] = name
+            it[KEY_FONT_ID] = "custom"
+        }
+
+    suspend fun setEmojiFont(value: EmojiFontChoice) =
+        context.dataStore.edit { it[EMOJI_FONT] = value.name }
+
+    suspend fun setAutoApostrophe(value: Boolean) =
+        context.dataStore.edit { it[AUTO_APOSTROPHE] = value }
 
     suspend fun setHapticFeedback(value: Boolean) =
         context.dataStore.edit { it[HAPTIC] = value }

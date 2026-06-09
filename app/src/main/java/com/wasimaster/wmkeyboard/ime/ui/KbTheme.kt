@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
@@ -17,6 +18,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -27,6 +29,7 @@ import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontFamily
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.ThemeMode
 import com.wasimaster.wmkeyboard.core.theme.BuiltInThemes
@@ -74,6 +77,36 @@ val LocalKbTheme = staticCompositionLocalOf<KbTheme> {
     error("LocalKbTheme not provided")
 }
 
+/**
+ * Emoji font for the keyboard's own emoji rendering (panel, row, strip);
+ * null uses the system emoji font. Kept separate from the text font — a
+ * display face has no emoji glyphs and vice versa.
+ */
+val LocalEmojiFontFamily = staticCompositionLocalOf<FontFamily?> { null }
+
+/** Every Material text style re-based onto [family]; null keeps the defaults. */
+private fun typographyWith(family: FontFamily?): Typography {
+    val base = Typography()
+    if (family == null) return base
+    return Typography(
+        displayLarge = base.displayLarge.copy(fontFamily = family),
+        displayMedium = base.displayMedium.copy(fontFamily = family),
+        displaySmall = base.displaySmall.copy(fontFamily = family),
+        headlineLarge = base.headlineLarge.copy(fontFamily = family),
+        headlineMedium = base.headlineMedium.copy(fontFamily = family),
+        headlineSmall = base.headlineSmall.copy(fontFamily = family),
+        titleLarge = base.titleLarge.copy(fontFamily = family),
+        titleMedium = base.titleMedium.copy(fontFamily = family),
+        titleSmall = base.titleSmall.copy(fontFamily = family),
+        bodyLarge = base.bodyLarge.copy(fontFamily = family),
+        bodyMedium = base.bodyMedium.copy(fontFamily = family),
+        bodySmall = base.bodySmall.copy(fontFamily = family),
+        labelLarge = base.labelLarge.copy(fontFamily = family),
+        labelMedium = base.labelMedium.copy(fontFamily = family),
+        labelSmall = base.labelSmall.copy(fontFamily = family),
+    )
+}
+
 private fun colorOf(argb: Long): Color = Color(argb.toInt())
 
 /** Blend of [top] at [alpha] flattened over [base] — guaranteed-contrast trick. */
@@ -103,6 +136,11 @@ private fun defaultKbTheme(
     val toolCircle = if (dark) blendOver(scheme.onSurface, board, 0.14f) else scheme.surfaceContainerHighest
     val popup = if (dark) blendOver(scheme.onSurface, board, 0.20f) else scheme.surfaceContainerHighest
     val chip = if (dark) blendOver(scheme.onSurface, board, 0.10f) else scheme.surfaceContainer
+    // Pressed keys darken/lighten neutrally instead of flashing the accent
+    // (primaryContainer) — a themed highlight on every keystroke reads as
+    // noise, a grayscale shift reads as depression.
+    val pressed = if (dark) blendOver(scheme.onSurface, board, 0.32f)
+        else blendOver(scheme.onSurface, key, 0.14f)
     return KbTheme(
         dark = dark,
         board = board,
@@ -114,7 +152,7 @@ private fun defaultKbTheme(
         modifierKeyText = scheme.onSurface,
         enterKey = scheme.primary,
         enterKeyText = scheme.onPrimary,
-        pressedKey = scheme.primaryContainer,
+        pressedKey = pressed,
         keyBorder = null,
         keyBorderWidthDp = 0f,
         accent = scheme.primary,
@@ -140,7 +178,10 @@ private fun specKbTheme(spec: ThemeSpec, settings: KeyboardSettings): KbTheme {
     val key = colorOf(spec.keyBackground)
     val keyText = colorOf(spec.keyText)
     val accent = colorOf(spec.accent)
-    val pressed = spec.pressedKeyBackground?.let(::colorOf) ?: lerp(key, accent, 0.40f)
+    // Derived pressed state shifts toward the text color (a neutral
+    // darken/lighten of the key), not the accent — same reasoning as the
+    // default theme. Themes that want a colored press set it explicitly.
+    val pressed = spec.pressedKeyBackground?.let(::colorOf) ?: lerp(key, keyText, 0.25f)
     val secondary = keyText.copy(alpha = 0.65f)
     return KbTheme(
         dark = spec.dark,
@@ -236,8 +277,25 @@ fun KeyboardThemeProvider(settings: KeyboardSettings, content: @Composable () ->
     } else {
         specKbTheme(spec, settings)
     }
-    MaterialTheme(colorScheme = schemeFor(kb)) {
-        CompositionLocalProvider(LocalKbTheme provides kb, content = content)
+    // The chosen font rides in through the Material typography, so every
+    // Text on the keyboard — key labels, suggestions, panels — follows it
+    // without per-call plumbing. Emojis get their own family via
+    // LocalEmojiFontFamily at the few places emojis are drawn.
+    val keyFontFamily = remember(settings.keyFontId, settings.customFontName) {
+        KeyboardFonts.family(context, settings.keyFontId)
+    }
+    val emojiFontFamily = remember(settings.emojiFont) {
+        KeyboardFonts.emojiFamily(context, settings.emojiFont)
+    }
+    MaterialTheme(
+        colorScheme = schemeFor(kb),
+        typography = remember(keyFontFamily) { typographyWith(keyFontFamily) },
+    ) {
+        CompositionLocalProvider(
+            LocalKbTheme provides kb,
+            LocalEmojiFontFamily provides emojiFontFamily,
+            content = content,
+        )
     }
 }
 

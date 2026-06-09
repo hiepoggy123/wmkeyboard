@@ -757,7 +757,7 @@ private fun TopBar(
                         .padding(horizontal = 5.dp),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text(text = emoji, fontSize = 22.sp)
+                    Text(text = emoji, fontSize = 22.sp, fontFamily = LocalEmojiFontFamily.current)
                 }
             }
         }
@@ -824,6 +824,7 @@ private fun EmojiBarStrip(
                         .clickable { onEmoji(emoji) }
                         .padding(horizontal = 7.dp, vertical = 6.dp),
                     fontSize = 24.sp,
+                    fontFamily = LocalEmojiFontFamily.current,
                 )
             }
         }
@@ -2142,6 +2143,7 @@ private fun Modifier.pointerInputKey(
     ) {
         Modifier.pointerInput(
             key, spaceShortSwipe, spaceLongSwipe, enabledModes, currentMode, longPressDelayMs,
+            hapticOnLongPress,
         ) {
             val slopPx = 12.dp.toPx()
             val cursorStepPx = 16.dp.toPx()
@@ -2159,6 +2161,25 @@ private fun Modifier.pointerInputKey(
                 var accumulated = 0f
                 var lastX = down.position.x
                 var langIndex = enabledModes.indexOf(currentMode).coerceAtLeast(0)
+                // With both swipe slots set to language switching there is
+                // no second action to disambiguate from, so a plain hold
+                // opens the switcher immediately — no initial swipe needed.
+                // Movement past the slop before the delay still resolves as
+                // a normal short swipe below.
+                val holdOpensSwitcher = spaceShortSwipe == SpaceSwipeAction.LANGUAGE &&
+                    spaceLongSwipe == SpaceSwipeAction.LANGUAGE
+                val holdJob = if (holdOpensSwitcher) {
+                    scope.launch {
+                        delay(longPressDelayMs.toLong())
+                        if (action == null) {
+                            action = SpaceSwipeAction.LANGUAGE
+                            setLanguagePreview(enabledModes[langIndex])
+                            if (hapticOnLongPress) onKeyPress()
+                        }
+                    }
+                } else {
+                    null
+                }
                 while (true) {
                     val event = awaitPointerEvent()
                     val change = event.changes.firstOrNull { it.id == down.id } ?: break
@@ -2241,6 +2262,7 @@ private fun Modifier.pointerInputKey(
                         else -> change.consume()
                     }
                 }
+                holdJob?.cancel()
                 setPressed(false)
                 setLanguagePreview(null)
                 when (action) {
@@ -2631,6 +2653,7 @@ private fun EmojiCell(
                 }
                 .padding(6.dp),
             fontSize = 26.sp,
+            fontFamily = LocalEmojiFontFamily.current,
         )
         if (showVariants) {
             EmojiVariantPopup(
@@ -2724,6 +2747,7 @@ private fun EmojiVariantPopup(
                                             .clickable { onPick(variant) }
                                             .padding(horizontal = 7.dp, vertical = 7.dp),
                                         fontSize = 24.sp,
+                                        fontFamily = LocalEmojiFontFamily.current,
                                     )
                                 }
                             }
@@ -2772,6 +2796,7 @@ private fun DualTonePicker(
                             .clickable { member = candidate }
                             .padding(horizontal = 6.dp, vertical = 4.dp),
                         fontSize = 22.sp,
+                        fontFamily = LocalEmojiFontFamily.current,
                     )
                 }
             }
@@ -2782,6 +2807,7 @@ private fun DualTonePicker(
                 .clickable { onPick(preview) }
                 .padding(6.dp),
             fontSize = 34.sp,
+            fontFamily = LocalEmojiFontFamily.current,
         )
         for (slot in 0..1) {
             Row(
@@ -2836,7 +2862,7 @@ private fun SnippetsPanel(state: KeyboardUiState, onSnippet: (Snippet) -> Unit) 
             contentAlignment = Alignment.Center,
         ) {
             Text(
-                "No snippets yet.\nAdd them in Settings → Snippets.\nVariables: {date} {time} {datetime} {clip}",
+                "No snippets yet.\nAdd them in Settings → Tools → Snippets.\nVariables: {date} {time} {datetime} {clip}",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
