@@ -16,8 +16,27 @@ enum class LayoutMode { LETTERS, SYMBOLS, SYMBOLS_SHIFTED }
 enum class PanelMode {
     NONE, EMOJI, CLIPBOARD, SNIPPETS, TOOLBOX, TEXT_EDIT,
     COMPASS, LEVEL, MOON_PHASE, WEATHER, CALENDAR,
-    THEMES, SOUND_HAPTICS, NUMPAD,
+    THEMES, SOUND_HAPTICS, NUMPAD, HANDWRITING,
 }
+
+/** Readiness of the handwriting panel's recognition model. */
+enum class HandwritingStatus { CHECKING, NEED_MODEL, DOWNLOADING, READY, ERROR }
+
+/**
+ * Handwriting panel state, owned by the service (it runs recognition).
+ * Completed strokes live here so the service can rebuild the ink and clear
+ * the canvas after a commit; the stroke being drawn stays local to the
+ * panel and is appended through the stroke-finished callback.
+ */
+data class HandwritingUi(
+    val status: HandwritingStatus = HandwritingStatus.CHECKING,
+    /** BCP-47 tag of the active recognition model (en-US, bn). */
+    val languageTag: String = "en-US",
+    val strokes: List<com.wasimaster.wmkeyboard.core.handwriting.HwStroke> = emptyList(),
+    /** Recognition in flight — strokes are frozen on screen until it lands. */
+    val recognizing: Boolean = false,
+    val errorMessage: String? = null,
+)
 
 /** One change made from the sound & haptics quick panel. */
 sealed interface SoundHapticAction {
@@ -89,4 +108,5 @@ data class KeyboardUiState(
      * displayed key labels.
      */
     val vowelForm: BengaliGraphemes.VowelKeyForm = BengaliGraphemes.VowelKeyForm.INDEPENDENT,
+    val handwriting: HandwritingUi = HandwritingUi(),
 )

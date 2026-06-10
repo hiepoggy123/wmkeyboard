@@ -15,6 +15,7 @@ import android.view.inputmethod.InputConnection
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.unit.IntRect
+import androidx.compose.ui.unit.IntSize
 import android.content.ClipDescription
 import android.widget.Toast
 import androidx.core.content.FileProvider
@@ -34,6 +35,9 @@ import com.wasimaster.wmkeyboard.core.feedback.HapticPlayer
 import com.wasimaster.wmkeyboard.core.gesture.GestureDecoder
 import com.wasimaster.wmkeyboard.core.gesture.GesturePoint
 import com.wasimaster.wmkeyboard.core.gesture.KeyCenter
+import com.wasimaster.wmkeyboard.core.handwriting.HandwritingModels
+import com.wasimaster.wmkeyboard.core.handwriting.HandwritingRecognizerCache
+import com.wasimaster.wmkeyboard.core.handwriting.HwStroke
 import com.wasimaster.wmkeyboard.core.prediction.Apostrophes
 import com.wasimaster.wmkeyboard.core.prediction.DictionaryLoader
 import com.wasimaster.wmkeyboard.core.prediction.EnglishBengaliMap
@@ -111,6 +115,13 @@ class WMKeyboardService : InputMethodService() {
     /** Last word committed by a swipe, so tapping an alternate replaces it. */
     private var lastGestureWord: String? = null
     private var previewJob: Job? = null
+
+    // ---- handwriting recognition state ----
+    private val hwRecognizer = HandwritingRecognizerCache()
+    private var hwJob: Job? = null
+    /** Bumped on every stroke/undo/clear so in-flight recognitions go stale. */
+    private var hwGeneration = 0
+    private var hwCanvasSize = IntSize.Zero
 
     private val clipboardListener = ClipboardManager.OnPrimaryClipChangedListener {
         val state = _uiState.value
@@ -298,6 +309,9 @@ class WMKeyboardService : InputMethodService() {
                 onAutocorrectToggle = ::onAutocorrectToggle,
                 onThemeSelect = ::onThemeSelect,
                 onSoundHaptic = ::onSoundHaptic,
+                onHandwritingStroke = ::onHandwritingStroke,
+                onHandwritingUndo = ::onHandwritingUndo,
+                onHandwritingDownload = ::onHandwritingDownload,
                 onOpenSettings = ::openSettings,
             )
         }
@@ -360,6 +374,8 @@ class WMKeyboardService : InputMethodService() {
         composing = StringBuilder()
         previousWord = null
         lastGestureWord = null
+        hwJob?.cancel()
+        hwGeneration++
         val secure = info.isSecureField()
         _uiState.update {
             it.copy(
@@ -373,6 +389,7 @@ class WMKeyboardService : InputMethodService() {
                 shiftState = if (shouldAutoCapitalize()) ShiftState.ON else ShiftState.OFF,
                 clipboardItems = clipboardStore.items(),
                 enterAction = info.enterAction(),
+                handwriting = it.handwriting.copy(strokes = emptyList(), recognizing = false),
             )
         }
         refreshKarContext()
@@ -422,6 +439,7 @@ class WMKeyboardService : InputMethodService() {
         userLexicon.save()
         emojiUsage.save()
         clipboardStore.save()
+        hwRecognizer.close()
         lifecycleOwner.onDestroy()
         serviceScope.cancel()
         super.onDestroy()
@@ -561,6 +579,17 @@ class WMKeyboardService : InputMethodService() {
 
     private fun onDelete() {
         val state = _uiState.value
+        // Backspace while handwritten ink is waiting for recognition throws
+        // the ink away instead of deleting committed text — the natural
+        // "no, not that" while writing.
+        if (state.panel == PanelMode.HANDWRITING && state.handwriting.strokes.isNotEmpty()) {
+            hwJob?.cancel()
+            hwGeneration++
+            _uiState.update {
+                it.copy(handwriting = it.handwriting.copy(strokes = emptyList(), recognizing = false))
+            }
+            return
+        }
         if (state.emojiSearchActive) {
             if (state.emojiQuery.isNotEmpty()) {
                 _uiState.update { it.copy(emojiQuery = it.emojiQuery.dropLast(1)) }
@@ -677,6 +706,9 @@ class WMKeyboardService : InputMethodService() {
         currentInputConnection?.let { commitComposing(it, autocorrect = false) }
         _uiState.update { it.copy(inputMode = mode, layoutMode = LayoutMode.LETTERS) }
         refreshKarContext()
+        // The handwriting model follows the input language; a switch while
+        // the panel is open re-checks the new model and drops pending ink.
+        if (_uiState.value.panel == PanelMode.HANDWRITING) refreshHandwritingStatus()
         serviceScope.launch { settingsRepository.setInputMode(mode) }
     }
 
@@ -915,6 +947,174 @@ class WMKeyboardService : InputMethodService() {
             )
         }
         if (_uiState.value.panel == PanelMode.WEATHER) refreshWeather()
+        if (_uiState.value.panel == PanelMode.HANDWRITING) {
+            // Flush any half-typed word so handwriting appends after it.
+            currentInputConnection?.let { commitComposing(it, autocorrect = false) }
+            refreshHandwritingStatus()
+        } else if (hwJob != null || _uiState.value.handwriting.strokes.isNotEmpty()) {
+            // Leaving the panel abandons pending ink and recognition.
+            hwJob?.cancel()
+            hwJob = null
+            hwGeneration++
+            _uiState.update {
+                it.copy(handwriting = it.handwriting.copy(strokes = emptyList(), recognizing = false))
+            }
+        }
+    }
+
+    // ---- handwriting ----
+
+    private fun hwLanguageTag(): String = HandwritingModels.tagForMode(_uiState.value.inputMode)
+
+    /**
+     * Re-checks whether the active language's recognition model is on the
+     * device, resetting the panel (ink, errors) in the process.
+     */
+    private fun refreshHandwritingStatus() {
+        hwJob?.cancel()
+        hwGeneration++
+        val tag = hwLanguageTag()
+        _uiState.update {
+            it.copy(handwriting = HandwritingUi(status = HandwritingStatus.CHECKING, languageTag = tag))
+        }
+        serviceScope.launch {
+            val downloaded = HandwritingModels.isDownloaded(tag)
+            _uiState.update {
+                if (it.handwriting.languageTag != tag) return@update it
+                it.copy(
+                    handwriting = it.handwriting.copy(
+                        status = if (downloaded) HandwritingStatus.READY else HandwritingStatus.NEED_MODEL,
+                    ),
+                )
+            }
+        }
+    }
+
+    /** Download button on the panel: fetch the active language's model. */
+    fun onHandwritingDownload() {
+        vibrate()
+        val tag = _uiState.value.handwriting.languageTag
+        _uiState.update {
+            it.copy(handwriting = it.handwriting.copy(status = HandwritingStatus.DOWNLOADING, errorMessage = null))
+        }
+        serviceScope.launch {
+            val result = runCatching { HandwritingModels.download(tag) }
+            _uiState.update {
+                if (it.handwriting.languageTag != tag) return@update it
+                it.copy(
+                    handwriting = if (result.isSuccess) {
+                        it.handwriting.copy(status = HandwritingStatus.READY)
+                    } else {
+                        it.handwriting.copy(
+                            status = HandwritingStatus.ERROR,
+                            errorMessage = "Download failed — check your connection and try again.",
+                        )
+                    },
+                )
+            }
+        }
+    }
+
+    /** A stroke was finished on the canvas; recognize after a short pause. */
+    fun onHandwritingStroke(stroke: HwStroke, canvasSize: IntSize) {
+        val state = _uiState.value
+        if (state.panel != PanelMode.HANDWRITING || state.handwriting.status != HandwritingStatus.READY) return
+        hwCanvasSize = canvasSize
+        _uiState.update {
+            it.copy(
+                handwriting = it.handwriting.copy(strokes = it.handwriting.strokes + stroke, recognizing = false),
+                // Stale candidates from the previous word must not be
+                // tappable while new ink is on the canvas.
+                suggestions = emptyList(),
+                emojiSuggestions = emptyList(),
+            )
+        }
+        scheduleHandwritingRecognition()
+    }
+
+    /** Undo button: drop the last stroke and re-recognize what remains. */
+    fun onHandwritingUndo() {
+        vibrate()
+        hwJob?.cancel()
+        hwGeneration++
+        _uiState.update {
+            it.copy(handwriting = it.handwriting.copy(strokes = it.handwriting.strokes.dropLast(1), recognizing = false))
+        }
+        if (_uiState.value.handwriting.strokes.isNotEmpty()) scheduleHandwritingRecognition()
+    }
+
+    private fun scheduleHandwritingRecognition() {
+        hwJob?.cancel()
+        val generation = ++hwGeneration
+        hwJob = serviceScope.launch {
+            delay(_uiState.value.settings.handwritingCommitDelayMs.toLong())
+            recognizeAndCommitHandwriting(generation)
+        }
+    }
+
+    /**
+     * Runs ML Kit recognition over the accumulated ink and commits the top
+     * candidate. Alternates go to the suggestion strip; tapping one
+     * replaces the committed word (same mechanics as gesture typing).
+     * A [generation] mismatch afterwards means new ink arrived or the
+     * panel closed while recognizing — the result is stale, drop it.
+     */
+    private suspend fun recognizeAndCommitHandwriting(generation: Int) {
+        val state = _uiState.value
+        val strokes = state.handwriting.strokes
+        if (strokes.isEmpty()) return
+        val tag = state.handwriting.languageTag
+        _uiState.update { it.copy(handwriting = it.handwriting.copy(recognizing = true)) }
+        val ic = currentInputConnection
+        val preContext = ic?.getTextBeforeCursor(20, 0)?.toString().orEmpty()
+        val result = runCatching {
+            hwRecognizer.recognize(
+                tag = tag,
+                strokes = strokes,
+                preContext = preContext,
+                writingAreaWidth = hwCanvasSize.width.toFloat(),
+                writingAreaHeight = hwCanvasSize.height.toFloat(),
+            )
+        }
+        if (generation != hwGeneration || _uiState.value.panel != PanelMode.HANDWRITING) return
+
+        val candidates = result.getOrNull()
+        if (candidates == null) {
+            // Model gone mid-session (deleted from settings) or ML Kit
+            // failure: re-check instead of silently eating ink forever.
+            refreshHandwritingStatus()
+            return
+        }
+        if (candidates.isEmpty()) {
+            _uiState.update {
+                it.copy(handwriting = it.handwriting.copy(strokes = emptyList(), recognizing = false))
+            }
+            return
+        }
+
+        var word = candidates.first()
+        val settings = state.settings
+        // Sentence-start capitalization, English only — Bengali has no case.
+        if (tag == "en-US" && settings.autoCapitalize && !state.secureField &&
+            word.firstOrNull()?.isLowerCase() == true && shouldAutoCapitalize()
+        ) {
+            word = word.replaceFirstChar { it.uppercase() }
+        }
+        // Space between consecutively written words, but never before
+        // punctuation ("," "." "?" …).
+        val needsSpace = settings.handwritingAutoSpace &&
+            word.firstOrNull()?.isLetterOrDigit() == true &&
+            preContext.isNotEmpty() && !preContext.last().isWhitespace()
+        val connection = currentInputConnection ?: return
+        connection.commitText(if (needsSpace) " $word" else word, 1)
+        learn(word)
+        lastGestureWord = word
+        _uiState.update {
+            it.copy(
+                handwriting = it.handwriting.copy(strokes = emptyList(), recognizing = false),
+                suggestions = if (state.secureField) emptyList() else candidates,
+            )
+        }
     }
 
     // ---- tools: flashlight, undo/redo, weather ----

@@ -1,0 +1,416 @@
+package com.wasimaster.wmkeyboard.ime.ui
+
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.Backspace
+import androidx.compose.material.icons.automirrored.outlined.KeyboardReturn
+import androidx.compose.material.icons.automirrored.outlined.Undo
+import androidx.compose.material.icons.outlined.FileDownload
+import androidx.compose.material.icons.outlined.Keyboard
+import androidx.compose.material.icons.outlined.SpaceBar
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.PointerType
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import com.wasimaster.wmkeyboard.core.handwriting.HandwritingModels
+import com.wasimaster.wmkeyboard.core.handwriting.HwPoint
+import com.wasimaster.wmkeyboard.core.handwriting.HwStroke
+import com.wasimaster.wmkeyboard.core.settings.InputMode
+import com.wasimaster.wmkeyboard.ime.HandwritingStatus
+import com.wasimaster.wmkeyboard.ime.KeyboardUiState
+import com.wasimaster.wmkeyboard.ime.layout.Key
+import com.wasimaster.wmkeyboard.ime.layout.KeyAction
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+
+/**
+ * Handwriting input panel (Gboard style): a full-width writing canvas with
+ * a narrow action rail on the right (backspace, space, enter, back to
+ * keys). Completed strokes come from the service via
+ * [KeyboardUiState.handwriting]; only the stroke currently under the
+ * finger/stylus is local, so the canvas stays smooth while recognition
+ * and clearing remain the service's call.
+ *
+ * S Pen / stylus support: stylus points are captured like finger points
+ * (Compose reports them as pointer events). Palm rejection: once a stylus
+ * has drawn recently, finger touches are ignored for a short window — and
+ * entirely, when the stylus-only setting is on.
+ */
+@Composable
+internal fun HandwritingPanel(
+    state: KeyboardUiState,
+    onStroke: (HwStroke, IntSize) -> Unit,
+    onUndoStroke: () -> Unit,
+    onDownloadModel: () -> Unit,
+    onKey: (Key) -> Unit,
+    onLanguageSelect: (InputMode) -> Unit,
+    onClose: () -> Unit,
+) {
+    val kb = LocalKbTheme.current
+    val height = keyRowsHeight(state.settings)
+    val hw = state.handwriting
+    val feedback = LocalKeyPressFeedback.current
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(height)
+            .padding(horizontal = 4.dp, vertical = 4.dp),
+    ) {
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxHeight()
+                .padding(2.dp),
+        ) {
+            when (hw.status) {
+                HandwritingStatus.READY -> WritingCanvas(state, onStroke)
+                HandwritingStatus.CHECKING -> StatusMessage("Checking handwriting model…")
+                HandwritingStatus.DOWNLOADING -> Column(
+                    modifier = Modifier.fillMaxSize(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
+                ) {
+                    CircularProgressIndicator(color = kb.accent)
+                    Text(
+                        "Downloading ${HandwritingModels.displayName(hw.languageTag)} model…",
+                        color = kb.secondaryText,
+                        fontSize = 13.sp,
+                        modifier = Modifier.padding(top = 12.dp),
+                    )
+                }
+                HandwritingStatus.NEED_MODEL, HandwritingStatus.ERROR -> Column(
+                    modifier = Modifier.fillMaxSize(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
+                ) {
+                    Text(
+                        hw.errorMessage
+                            ?: ("Handwriting for " +
+                                "${HandwritingModels.displayName(hw.languageTag)} " +
+                                "needs a one-time model download (about 20 MB)."),
+                        color = kb.secondaryText,
+                        fontSize = 13.sp,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(horizontal = 24.dp),
+                    )
+                    Row(
+                        modifier = Modifier
+                            .padding(top = 12.dp)
+                            .clip(RoundedCornerShape(kb.toolRadiusDp.dp))
+                            .background(kb.toolCircleActive)
+                            .clickable {
+                                feedback()
+                                onDownloadModel()
+                            }
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            Icons.Outlined.FileDownload,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp),
+                            tint = kb.toolCircleActiveIcon,
+                        )
+                        Text(
+                            if (hw.status == HandwritingStatus.ERROR) "Retry" else "Download",
+                            color = kb.toolCircleActiveIcon,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium,
+                            modifier = Modifier.padding(start = 6.dp),
+                        )
+                    }
+                }
+            }
+
+            // Language chip: shows the active model, tap switches between
+            // English and Bengali handwriting (the enabled modes decide
+            // what is available).
+            val modes = state.settings.enabledModes.ifEmpty { listOf(InputMode.ENGLISH) }
+            val distinctTags = modes.map { HandwritingModels.tagForMode(it) }.distinct()
+            if (distinctTags.size > 1) {
+                Text(
+                    text = if (hw.languageTag == "en-US") "EN" else "বাং",
+                    color = kb.secondaryText,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(4.dp)
+                        .clip(RoundedCornerShape(kb.toolRadiusDp.dp))
+                        .background(kb.chip)
+                        .clickable {
+                            feedback()
+                            val other = if (hw.languageTag == "en-US") {
+                                modes.first { it != InputMode.ENGLISH }
+                            } else {
+                                InputMode.ENGLISH
+                            }
+                            onLanguageSelect(other)
+                        }
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                )
+            }
+
+            // Undo the last stroke while ink is still on the canvas.
+            if (hw.strokes.isNotEmpty() && hw.status == HandwritingStatus.READY) {
+                Icon(
+                    Icons.AutoMirrored.Outlined.Undo,
+                    contentDescription = "Undo last stroke",
+                    tint = kb.toolbarIcon,
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .padding(4.dp)
+                        .clip(RoundedCornerShape(kb.toolRadiusDp.dp))
+                        .clickable {
+                            feedback()
+                            onUndoStroke()
+                        }
+                        .padding(8.dp)
+                        .size(20.dp),
+                )
+            }
+        }
+
+        // Action rail, sized like a key column.
+        Column(modifier = Modifier
+            .width(64.dp)
+            .fillMaxHeight()) {
+            HwRailKey(
+                description = "Delete",
+                icon = Icons.AutoMirrored.Outlined.Backspace,
+                repeatable = true,
+                modifier = Modifier.weight(1f),
+            ) {
+                feedback()
+                onKey(Key("⌫", action = KeyAction.Delete))
+            }
+            HwRailKey(
+                description = "Space",
+                icon = Icons.Outlined.SpaceBar,
+                modifier = Modifier.weight(1f),
+            ) {
+                feedback()
+                onKey(Key(" ", action = KeyAction.Space))
+            }
+            HwRailKey(
+                description = "Enter",
+                icon = Icons.AutoMirrored.Outlined.KeyboardReturn,
+                modifier = Modifier.weight(1f),
+            ) {
+                feedback()
+                onKey(Key("⏎", action = KeyAction.Enter))
+            }
+            HwRailKey(
+                description = "Back to keyboard",
+                icon = Icons.Outlined.Keyboard,
+                modifier = Modifier.weight(1f),
+            ) {
+                feedback()
+                onClose()
+            }
+        }
+    }
+}
+
+/**
+ * The ink canvas. Captures one stroke per gesture, following only the
+ * first pointer that went down (any extra pointers — a resting palm — are
+ * ignored). Stroke timestamps ride along for the recognizer's velocity
+ * features.
+ */
+@Composable
+private fun WritingCanvas(
+    state: KeyboardUiState,
+    onStroke: (HwStroke, IntSize) -> Unit,
+) {
+    val kb = LocalKbTheme.current
+    val hw = state.handwriting
+    val stylusOnly = state.settings.handwritingStylusOnly
+
+    var canvasSize by remember { mutableStateOf(IntSize.Zero) }
+    var activeStroke by remember { mutableStateOf<List<HwPoint>>(emptyList()) }
+    // Palm rejection: after stylus ink, finger touches are ignored briefly
+    // so a knuckle or palm resting on the screen never draws.
+    var lastStylusTime by remember { mutableLongStateOf(0L) }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .onSizeChanged { canvasSize = it }
+            .pointerInput(stylusOnly) {
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                    val isStylus = down.type == PointerType.Stylus
+                    if (isStylus) lastStylusTime = down.uptimeMillis
+                    val rejectFinger = !isStylus &&
+                        (stylusOnly || down.uptimeMillis - lastStylusTime < STYLUS_PRIORITY_MS)
+                    if (rejectFinger) return@awaitEachGesture
+                    down.consume()
+                    val points = ArrayList<HwPoint>()
+                    points.add(HwPoint(down.position.x, down.position.y, down.uptimeMillis))
+                    activeStroke = points.toList()
+                    while (true) {
+                        val event = awaitPointerEvent(PointerEventPass.Initial)
+                        val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                        if (isStylus) lastStylusTime = change.uptimeMillis
+                        if (!change.pressed) {
+                            change.consume()
+                            break
+                        }
+                        // Clamp to the canvas so a stroke sliding off the
+                        // edge doesn't feed wild coordinates to the model.
+                        val x = change.position.x.coerceIn(0f, size.width.toFloat())
+                        val y = change.position.y.coerceIn(0f, size.height.toFloat())
+                        points.add(HwPoint(x, y, change.uptimeMillis))
+                        activeStroke = points.toList()
+                        change.consume()
+                    }
+                    if (points.size == 1) {
+                        // A tap is still ink — a period, a dot on an i. Give
+                        // the recognizer a two-point stroke so it registers.
+                        points.add(points.first().copy(t = points.first().t + 1))
+                    }
+                    onStroke(HwStroke(points.toList()), canvasSize)
+                    activeStroke = emptyList()
+                }
+            },
+    ) {
+        if (hw.strokes.isEmpty() && activeStroke.isEmpty() && !hw.recognizing) {
+            Text(
+                "Write here",
+                color = kb.secondaryText.copy(alpha = 0.45f),
+                fontSize = 15.sp,
+                modifier = Modifier.align(Alignment.Center),
+            )
+        }
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val strokeStyle = Stroke(
+                width = 4.dp.toPx(),
+                cap = StrokeCap.Round,
+                join = StrokeJoin.Round,
+            )
+            val inkColor = if (hw.recognizing) kb.accent.copy(alpha = 0.45f) else kb.accent
+            for (stroke in hw.strokes) {
+                drawPath(pathOf(stroke.points), color = inkColor, style = strokeStyle)
+            }
+            if (activeStroke.size > 1) {
+                drawPath(pathOf(activeStroke), color = kb.accent, style = strokeStyle)
+            }
+        }
+    }
+}
+
+private fun pathOf(points: List<HwPoint>): Path {
+    val path = Path()
+    if (points.isEmpty()) return path
+    path.moveTo(points.first().x, points.first().y)
+    for (point in points.drop(1)) path.lineTo(point.x, point.y)
+    return path
+}
+
+/** Finger strokes are ignored for this long after the stylus last drew. */
+private const val STYLUS_PRIORITY_MS = 800L
+
+@Composable
+private fun StatusMessage(text: String) {
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Text(
+            text,
+            color = LocalKbTheme.current.secondaryText,
+            fontSize = 13.sp,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(horizontal = 24.dp),
+        )
+    }
+}
+
+/** One key on the panel's right-hand action rail (same look as the numpad keys). */
+@Composable
+private fun HwRailKey(
+    description: String,
+    icon: ImageVector,
+    modifier: Modifier = Modifier,
+    repeatable: Boolean = false,
+    onAction: () -> Unit,
+) {
+    val kb = LocalKbTheme.current
+    val scope = rememberCoroutineScope()
+    val shape = RoundedCornerShape(kb.keyRadiusDp.dp)
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(2.dp)
+            .clip(shape)
+            .background(kb.modifierKey, shape)
+            .pointerInput(repeatable) {
+                detectTapGestures(
+                    onPress = {
+                        onAction()
+                        var repeat: Job? = null
+                        if (repeatable) {
+                            repeat = scope.launch {
+                                delay(400)
+                                while (true) {
+                                    onAction()
+                                    delay(120)
+                                }
+                            }
+                        }
+                        tryAwaitRelease()
+                        repeat?.cancel()
+                    },
+                )
+            },
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            icon,
+            contentDescription = description,
+            modifier = Modifier.size(22.dp),
+            tint = kb.modifierKeyText,
+        )
+    }
+}

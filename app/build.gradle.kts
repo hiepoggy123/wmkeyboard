@@ -64,6 +64,7 @@ dependencies {
     implementation(libs.androidx.navigation.compose)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.mlkit.digital.ink)
 
     debugImplementation(libs.androidx.compose.ui.tooling)
 

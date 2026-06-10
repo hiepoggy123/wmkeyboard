@@ -64,6 +64,7 @@ import androidx.compose.material.icons.outlined.DarkMode
 import androidx.compose.material.icons.outlined.DeleteSweep
 import androidx.compose.material.icons.outlined.Dialpad
 import androidx.compose.material.icons.outlined.DirectionsCar
+import androidx.compose.material.icons.outlined.Draw
 import androidx.compose.material.icons.outlined.EditNote
 import androidx.compose.material.icons.outlined.Explore
 import androidx.compose.material.icons.outlined.FlashlightOn
@@ -172,6 +173,7 @@ import com.wasimaster.wmkeyboard.core.clipboard.ClipKind
 import com.wasimaster.wmkeyboard.core.emoji.EmojiVariantIndex
 import com.wasimaster.wmkeyboard.core.gesture.GesturePoint
 import com.wasimaster.wmkeyboard.core.gesture.KeyCenter
+import com.wasimaster.wmkeyboard.core.handwriting.HwStroke
 import com.wasimaster.wmkeyboard.core.settings.EmojiBarContent
 import com.wasimaster.wmkeyboard.core.settings.EmojiBarMode
 import com.wasimaster.wmkeyboard.core.settings.EmojiTabMode
@@ -259,6 +261,9 @@ fun KeyboardScreen(
     onAutocorrectToggle: () -> Unit = {},
     onThemeSelect: (String) -> Unit = {},
     onSoundHaptic: (SoundHapticAction) -> Unit = {},
+    onHandwritingStroke: (HwStroke, IntSize) -> Unit = { _, _ -> },
+    onHandwritingUndo: () -> Unit = {},
+    onHandwritingDownload: () -> Unit = {},
     onOpenSettings: () -> Unit,
 ) {
     val state by stateFlow.collectAsState()
@@ -290,6 +295,7 @@ fun KeyboardScreen(
             ToolbarTool.AUTOCORRECT -> onAutocorrectToggle()
             ToolbarTool.SOUND_HAPTICS -> onPanelChange(PanelMode.SOUND_HAPTICS)
             ToolbarTool.NUMPAD -> onPanelChange(PanelMode.NUMPAD)
+            ToolbarTool.HANDWRITING -> onPanelChange(PanelMode.HANDWRITING)
         }
     }
 
@@ -325,6 +331,9 @@ fun KeyboardScreen(
                 onWeatherRefresh = onWeatherRefresh,
                 onThemeSelect = onThemeSelect,
                 onSoundHaptic = onSoundHaptic,
+                onHandwritingStroke = onHandwritingStroke,
+                onHandwritingUndo = onHandwritingUndo,
+                onHandwritingDownload = onHandwritingDownload,
             )
         }
     }
@@ -855,6 +864,7 @@ private fun toolIcon(tool: ToolbarTool): ImageVector = when (tool) {
     ToolbarTool.AUTOCORRECT -> Icons.Outlined.Spellcheck
     ToolbarTool.SOUND_HAPTICS -> Icons.Outlined.Vibration
     ToolbarTool.NUMPAD -> Icons.Outlined.Dialpad
+    ToolbarTool.HANDWRITING -> Icons.Outlined.Draw
 }
 
 private fun toolLabel(tool: ToolbarTool): String = when (tool) {
@@ -879,6 +889,7 @@ private fun toolLabel(tool: ToolbarTool): String = when (tool) {
     ToolbarTool.AUTOCORRECT -> "Autocorrect"
     ToolbarTool.SOUND_HAPTICS -> "Sound & haptics"
     ToolbarTool.NUMPAD -> "Numpad"
+    ToolbarTool.HANDWRITING -> "Handwriting"
 }
 
 private fun toolActive(tool: ToolbarTool, state: KeyboardUiState): Boolean = when (tool) {
@@ -903,6 +914,7 @@ private fun toolActive(tool: ToolbarTool, state: KeyboardUiState): Boolean = whe
     ToolbarTool.AUTOCORRECT -> state.settings.autocorrect
     ToolbarTool.SOUND_HAPTICS -> state.panel == PanelMode.SOUND_HAPTICS
     ToolbarTool.NUMPAD -> state.panel == PanelMode.NUMPAD
+    ToolbarTool.HANDWRITING -> state.panel == PanelMode.HANDWRITING
 }
 
 /**
@@ -1326,6 +1338,9 @@ private fun KeyboardBody(
     onWeatherRefresh: () -> Unit,
     onThemeSelect: (String) -> Unit,
     onSoundHaptic: (SoundHapticAction) -> Unit,
+    onHandwritingStroke: (HwStroke, IntSize) -> Unit,
+    onHandwritingUndo: () -> Unit,
+    onHandwritingDownload: () -> Unit,
 ) {
     val drag = remember { ToolDragController() }
     drag.currentTools = state.settings.toolbarTools
@@ -1370,6 +1385,15 @@ private fun KeyboardBody(
                 PanelMode.THEMES -> ThemesPanel(state, onThemeSelect)
                 PanelMode.SOUND_HAPTICS -> SoundHapticsPanel(state, onSoundHaptic)
                 PanelMode.NUMPAD -> NumpadPanel(state, onText, onKey)
+                PanelMode.HANDWRITING -> HandwritingPanel(
+                    state = state,
+                    onStroke = onHandwritingStroke,
+                    onUndoStroke = onHandwritingUndo,
+                    onDownloadModel = onHandwritingDownload,
+                    onKey = onKey,
+                    onLanguageSelect = onLanguageSelect,
+                    onClose = { onPanelChange(PanelMode.HANDWRITING) },
+                )
                 PanelMode.NONE -> KeyRows(state, onKey, onText, onGesture, onGesturePreview, onCursorMove, onLanguageSelect)
             }
             // In emoji search mode the letters stay visible for typing the query.

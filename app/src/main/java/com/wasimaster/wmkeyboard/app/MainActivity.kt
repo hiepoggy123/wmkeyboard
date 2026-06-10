@@ -40,6 +40,7 @@ import androidx.compose.material.icons.outlined.ContentPaste
 import androidx.compose.material.icons.outlined.DarkMode
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Dialpad
+import androidx.compose.material.icons.outlined.Draw
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.EditNote
 import androidx.compose.material.icons.outlined.EmojiEmotions
@@ -65,6 +66,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
@@ -89,6 +91,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -107,6 +110,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import android.os.Build
 import com.wasimaster.wmkeyboard.core.feedback.HapticPlayer
+import com.wasimaster.wmkeyboard.core.handwriting.HandwritingModels
 import com.wasimaster.wmkeyboard.core.settings.EmojiBarContent
 import com.wasimaster.wmkeyboard.core.settings.EmojiBarMode
 import com.wasimaster.wmkeyboard.core.settings.EmojiFontChoice
@@ -1593,6 +1597,7 @@ private fun toolTitle(tool: ToolbarTool): String = when (tool) {
     ToolbarTool.AUTOCORRECT -> "Autocorrect"
     ToolbarTool.SOUND_HAPTICS -> "Sound & haptics"
     ToolbarTool.NUMPAD -> "Numpad"
+    ToolbarTool.HANDWRITING -> "Handwriting"
 }
 
 private fun toolDescription(tool: ToolbarTool): String = when (tool) {
@@ -1617,6 +1622,7 @@ private fun toolDescription(tool: ToolbarTool): String = when (tool) {
     ToolbarTool.AUTOCORRECT -> "One tap turns autocorrect on or off"
     ToolbarTool.SOUND_HAPTICS -> "Adjust key sound and vibration from the keyboard"
     ToolbarTool.NUMPAD -> "Dedicated number pad layout"
+    ToolbarTool.HANDWRITING -> "Write words by hand — finger or S Pen — with on-device recognition"
 }
 
 private fun toolIconFor(tool: ToolbarTool): androidx.compose.ui.graphics.vector.ImageVector = when (tool) {
@@ -1641,6 +1647,7 @@ private fun toolIconFor(tool: ToolbarTool): androidx.compose.ui.graphics.vector.
     ToolbarTool.AUTOCORRECT -> Icons.Outlined.Spellcheck
     ToolbarTool.SOUND_HAPTICS -> Icons.Outlined.Vibration
     ToolbarTool.NUMPAD -> Icons.Outlined.Dialpad
+    ToolbarTool.HANDWRITING -> Icons.Outlined.Draw
 }
 
 /**
@@ -1909,7 +1916,104 @@ private fun ToolDetailSettings(
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
             )
         }
+        ToolbarTool.HANDWRITING -> {
+            ToggleSetting(
+                "Stylus only",
+                "Only an S Pen or other stylus draws; finger touches are ignored",
+                settings.handwritingStylusOnly,
+                info = "Useful for palm rejection while writing with a stylus. Even " +
+                    "with this off, finger touches are briefly ignored right after " +
+                    "stylus strokes, so a resting palm doesn't scribble.",
+            ) { scope.launch { repository.setHandwritingStylusOnly(it) } }
+            ToggleSetting(
+                "Auto space",
+                "Insert a space between consecutively written words",
+                settings.handwritingAutoSpace,
+            ) { scope.launch { repository.setHandwritingAutoSpace(it) } }
+            SliderSetting(
+                "Recognition pause",
+                subtitle = "How long after the last stroke before the word is recognized",
+                value = settings.handwritingCommitDelayMs.toFloat(),
+                range = 300f..2000f,
+                display = "${settings.handwritingCommitDelayMs} ms",
+                info = "Shorter feels snappier but can cut multi-stroke letters and " +
+                    "Bengali conjuncts in half; longer gives you more time between " +
+                    "strokes. Gboard uses roughly half a second.",
+            ) { scope.launch { repository.setHandwritingCommitDelayMs(it.roundToInt()) } }
+            SectionHeader("Recognition models")
+            Text(
+                "Recognition runs fully on-device with Google ML Kit. Each language " +
+                    "needs a one-time model download (about 20 MB); after that, " +
+                    "handwriting works offline.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+            )
+            HandwritingModelManager()
+        }
         else -> {}
+    }
+}
+
+/**
+ * Download/delete state for each supported handwriting model. Status is
+ * re-read from ML Kit's model manager after every action.
+ */
+@Composable
+private fun HandwritingModelManager() {
+    val scope = rememberCoroutineScope()
+    // tag -> "checking" | "missing" | "downloaded" | "downloading" | "error"
+    val statuses = remember { mutableStateMapOf<String, String>() }
+    LaunchedEffect(Unit) {
+        for (language in HandwritingModels.supported) {
+            statuses[language.tag] =
+                if (HandwritingModels.isDownloaded(language.tag)) "downloaded" else "missing"
+        }
+    }
+    for (language in HandwritingModels.supported) {
+        val status = statuses[language.tag] ?: "checking"
+        ListItem(
+            headlineContent = { Text(language.displayName) },
+            supportingContent = {
+                Text(
+                    when (status) {
+                        "checking" -> "Checking…"
+                        "downloaded" -> "Downloaded — works offline"
+                        "downloading" -> "Downloading…"
+                        "error" -> "Download failed — check your connection"
+                        else -> "Not downloaded"
+                    },
+                )
+            },
+            trailingContent = {
+                when (status) {
+                    "downloading", "checking" -> CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        strokeWidth = 2.dp,
+                    )
+                    "downloaded" -> IconButton(onClick = {
+                        scope.launch {
+                            HandwritingModels.delete(language.tag)
+                            statuses[language.tag] =
+                                if (HandwritingModels.isDownloaded(language.tag)) "downloaded" else "missing"
+                        }
+                    }) {
+                        Icon(
+                            Icons.Outlined.Delete,
+                            contentDescription = "Delete ${language.displayName} model",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    else -> TextButton(onClick = {
+                        statuses[language.tag] = "downloading"
+                        scope.launch {
+                            val ok = runCatching { HandwritingModels.download(language.tag) }.isSuccess
+                            statuses[language.tag] = if (ok) "downloaded" else "error"
+                        }
+                    }) { Text("Download") }
+                }
+            },
+        )
     }
 }
 

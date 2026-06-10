@@ -42,7 +42,7 @@ enum class KeyboardAlignment { LEFT, CENTER, RIGHT }
 enum class ToolbarTool {
     EMOJI, CLIPBOARD, SNIPPETS, TEXT_EDIT, ONE_HANDED, SPLIT, FLOATING, SETTINGS,
     FLASHLIGHT, COMPASS, LEVEL, UNDO, REDO, MOON_PHASE, WEATHER, CALENDAR,
-    INCOGNITO, THEMES, AUTOCORRECT, SOUND_HAPTICS, NUMPAD,
+    INCOGNITO, THEMES, AUTOCORRECT, SOUND_HAPTICS, NUMPAD, HANDWRITING,
 }
 
 /**
@@ -226,6 +226,12 @@ data class KeyboardSettings(
     val calendarShowHijri: Boolean = true,
     /** Day offset applied to the tabular Hijri date (moon-sighting drift). */
     val hijriAdjustDays: Int = 0,
+    /** Handwriting canvas ignores finger touches; only a stylus draws. */
+    val handwritingStylusOnly: Boolean = false,
+    /** Pause after the last stroke before recognizing and committing. */
+    val handwritingCommitDelayMs: Int = 700,
+    /** Insert a space between consecutively handwritten words. */
+    val handwritingAutoSpace: Boolean = true,
 )
 
 /**
@@ -330,6 +336,9 @@ class SettingsRepository(private val context: Context) {
         private val CALENDAR_SHOW_BENGALI = booleanPreferencesKey("calendar_show_bengali")
         private val CALENDAR_SHOW_HIJRI = booleanPreferencesKey("calendar_show_hijri")
         private val HIJRI_ADJUST_DAYS = intPreferencesKey("hijri_adjust_days")
+        private val HANDWRITING_STYLUS_ONLY = booleanPreferencesKey("handwriting_stylus_only")
+        private val HANDWRITING_COMMIT_DELAY = intPreferencesKey("handwriting_commit_delay")
+        private val HANDWRITING_AUTO_SPACE = booleanPreferencesKey("handwriting_auto_space")
     }
 
     val settings: Flow<KeyboardSettings> = context.dataStore.data.map { p ->
@@ -461,6 +470,10 @@ class SettingsRepository(private val context: Context) {
             calendarShowBengali = p[CALENDAR_SHOW_BENGALI] ?: defaults.calendarShowBengali,
             calendarShowHijri = p[CALENDAR_SHOW_HIJRI] ?: defaults.calendarShowHijri,
             hijriAdjustDays = p[HIJRI_ADJUST_DAYS] ?: defaults.hijriAdjustDays,
+            handwritingStylusOnly = p[HANDWRITING_STYLUS_ONLY] ?: defaults.handwritingStylusOnly,
+            handwritingCommitDelayMs = p[HANDWRITING_COMMIT_DELAY]
+                ?: defaults.handwritingCommitDelayMs,
+            handwritingAutoSpace = p[HANDWRITING_AUTO_SPACE] ?: defaults.handwritingAutoSpace,
         )
     }
 
@@ -532,6 +545,15 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setHijriAdjustDays(value: Int) =
         context.dataStore.edit { it[HIJRI_ADJUST_DAYS] = value.coerceIn(-2, 2) }
+
+    suspend fun setHandwritingStylusOnly(value: Boolean) =
+        context.dataStore.edit { it[HANDWRITING_STYLUS_ONLY] = value }
+
+    suspend fun setHandwritingCommitDelayMs(value: Int) =
+        context.dataStore.edit { it[HANDWRITING_COMMIT_DELAY] = value.coerceIn(300, 2000) }
+
+    suspend fun setHandwritingAutoSpace(value: Boolean) =
+        context.dataStore.edit { it[HANDWRITING_AUTO_SPACE] = value }
 
     suspend fun setToolbarTools(tools: List<ToolbarTool>) =
         context.dataStore.edit {
