@@ -2791,6 +2791,95 @@ private fun EmojiPanel(
                 }
             }
         }
+        }
+        // In search mode the key rows sit right below the panel, so the
+        // control bar would be redundant chrome.
+        if (!state.emojiSearchActive) {
+            EmojiBottomBar(onKey = onKey, onClose = onClose)
+        }
+    }
+}
+
+/**
+ * Bottom control row of the emoji panel (Gboard style): back to the keys
+ * on the left, a spacebar in the middle, and a repeating backspace on the
+ * right — a quick emoji run never needs a detour through the letter keys.
+ */
+@Composable
+private fun EmojiBottomBar(onKey: (Key) -> Unit, onClose: () -> Unit) {
+    val kb = LocalKbTheme.current
+    val feedback = LocalKeyPressFeedback.current
+    val scope = rememberCoroutineScope()
+    val shape = RoundedCornerShape(kb.keyRadiusDp.dp)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(46.dp)
+            .padding(horizontal = 4.dp, vertical = 3.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxHeight()
+                .width(58.dp)
+                .clip(shape)
+                .background(kb.modifierKey, shape)
+                .clickable {
+                    feedback()
+                    onClose()
+                },
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                "abc",
+                color = kb.modifierKeyText,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium,
+            )
+        }
+        Box(
+            modifier = Modifier
+                .fillMaxHeight()
+                .weight(1f)
+                .clip(shape)
+                .background(kb.key, shape)
+                .clickable {
+                    feedback()
+                    onKey(Key(" ", action = KeyAction.Space))
+                },
+        )
+        Box(
+            modifier = Modifier
+                .fillMaxHeight()
+                .width(58.dp)
+                .clip(shape)
+                .background(kb.modifierKey, shape)
+                .pointerInput(Unit) {
+                    detectTapGestures(
+                        onPress = {
+                            feedback()
+                            onKey(Key("⌫", action = KeyAction.Delete))
+                            val repeat = scope.launch {
+                                delay(400)
+                                while (true) {
+                                    onKey(Key("⌫", action = KeyAction.Delete))
+                                    delay(120)
+                                }
+                            }
+                            tryAwaitRelease()
+                            repeat.cancel()
+                        },
+                    )
+                },
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                Icons.AutoMirrored.Outlined.Backspace,
+                contentDescription = "Backspace",
+                modifier = Modifier.size(20.dp),
+                tint = kb.modifierKeyText,
+            )
+        }
     }
 }
 
@@ -3178,18 +3267,25 @@ private fun ClipThumbnail(item: ClipItem) {
         }
     }
     val shape = RoundedCornerShape(8.dp)
-    val modifier = Modifier
-        .fillMaxWidth()
-        .height(64.dp)
-        .background(MaterialTheme.colorScheme.surfaceContainerHigh, shape)
     bitmap?.let {
+        // Fit, not crop: tall screenshots show whole, letterboxed against
+        // the card color, instead of a 64dp slice off the top.
         Image(
             bitmap = it,
             contentDescription = "Copied image",
-            modifier = modifier.clip(shape),
-            contentScale = ContentScale.Crop,
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 48.dp, max = 160.dp)
+                .background(MaterialTheme.colorScheme.surfaceContainerHigh, shape)
+                .clip(shape),
+            contentScale = ContentScale.Fit,
         )
-    } ?: Box(modifier)
+    } ?: Box(
+        Modifier
+            .fillMaxWidth()
+            .height(64.dp)
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh, shape)
+    )
 }
 
 private const val THUMBNAIL_TARGET_PX = 256

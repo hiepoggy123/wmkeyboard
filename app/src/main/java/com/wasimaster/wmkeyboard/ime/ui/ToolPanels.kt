@@ -48,12 +48,14 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -96,6 +98,7 @@ import java.util.Locale
 import kotlin.math.atan2
 import kotlin.math.abs
 import kotlin.math.cos
+import kotlin.math.exp
 import kotlin.math.min
 import kotlin.math.roundToInt
 import kotlin.math.sin
@@ -187,6 +190,8 @@ internal fun CompassPanel(state: KeyboardUiState) {
         context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
     }
     val sensor = remember { sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR) }
+    // Raw sensor heading; the displayed azimuth chases it per frame below.
+    var target by remember { mutableFloatStateOf(0f) }
     var azimuth by remember { mutableFloatStateOf(0f) }
     var hasReading by remember { mutableStateOf(false) }
 
@@ -198,16 +203,34 @@ internal fun CompassPanel(state: KeyboardUiState) {
             override fun onSensorChanged(event: SensorEvent) {
                 SensorManager.getRotationMatrixFromVector(rotation, event.values)
                 SensorManager.getOrientation(rotation, orientation)
-                val target = (Math.toDegrees(orientation[0].toDouble()).toFloat() + 360f) % 360f
-                // Exponential smoothing with wraparound so 359°→1° doesn't spin.
-                val diff = ((target - azimuth + 540f) % 360f) - 180f
-                azimuth = (azimuth + diff * 0.2f + 360f) % 360f
+                target = (Math.toDegrees(orientation[0].toDouble()).toFloat() + 360f) % 360f
                 hasReading = true
             }
             override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
         }
-        sensorManager.registerListener(listener, sensor, SensorManager.SENSOR_DELAY_UI)
+        sensorManager.registerListener(listener, sensor, SensorManager.SENSOR_DELAY_GAME)
         onDispose { sensorManager.unregisterListener(listener) }
+    }
+
+    // Sensor events land at irregular ~20-60ms steps, which reads as jitter
+    // when the rose snaps to each one. Instead the display chases the latest
+    // reading with a time-based exponential pull evaluated every frame, so
+    // the rotation glides at the display's refresh rate. Wraparound-aware
+    // (359°→1° takes the short way).
+    LaunchedEffect(sensor, hasReading) {
+        if (sensor == null || !hasReading) return@LaunchedEffect
+        azimuth = target
+        var last = 0L
+        while (true) {
+            withFrameNanos { now ->
+                if (last != 0L) {
+                    val dt = ((now - last) / 1_000_000_000f).coerceAtMost(0.1f)
+                    val diff = ((target - azimuth + 540f) % 360f) - 180f
+                    azimuth = (azimuth + diff * (1f - exp(-dt * 10f)) + 360f) % 360f
+                }
+                last = now
+            }
+        }
     }
 
     if (sensor == null) {
@@ -350,6 +373,10 @@ internal fun LevelPanel(state: KeyboardUiState) {
         sensorManager.getDefaultSensor(Sensor.TYPE_GRAVITY)
             ?: sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
     }
+    // Raw sensor gravity; the displayed values chase it per frame below.
+    var rawX by remember { mutableFloatStateOf(0f) }
+    var rawY by remember { mutableFloatStateOf(0f) }
+    var rawZ by remember { mutableFloatStateOf(9.81f) }
     var gx by remember { mutableFloatStateOf(0f) }
     var gy by remember { mutableFloatStateOf(0f) }
     var gz by remember { mutableFloatStateOf(9.81f) }
@@ -358,15 +385,34 @@ internal fun LevelPanel(state: KeyboardUiState) {
         if (sensor == null) return@DisposableEffect onDispose {}
         val listener = object : SensorEventListener {
             override fun onSensorChanged(event: SensorEvent) {
-                // Light smoothing keeps the bubble steady without lagging.
-                gx = gx * 0.8f + event.values[0] * 0.2f
-                gy = gy * 0.8f + event.values[1] * 0.2f
-                gz = gz * 0.8f + event.values[2] * 0.2f
+                rawX = event.values[0]
+                rawY = event.values[1]
+                rawZ = event.values[2]
             }
             override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
         }
-        sensorManager.registerListener(listener, sensor, SensorManager.SENSOR_DELAY_UI)
+        sensorManager.registerListener(listener, sensor, SensorManager.SENSOR_DELAY_GAME)
         onDispose { sensorManager.unregisterListener(listener) }
+    }
+
+    // Same trick as the compass: a per-frame, time-based low-pass instead of
+    // per-event smoothing, so the bubble drifts smoothly at the display's
+    // refresh rate rather than twitching on every sensor sample.
+    LaunchedEffect(sensor) {
+        if (sensor == null) return@LaunchedEffect
+        var last = 0L
+        while (true) {
+            withFrameNanos { now ->
+                if (last != 0L) {
+                    val dt = ((now - last) / 1_000_000_000f).coerceAtMost(0.1f)
+                    val k = 1f - exp(-dt * 8f)
+                    gx += (rawX - gx) * k
+                    gy += (rawY - gy) * k
+                    gz += (rawZ - gz) * k
+                }
+                last = now
+            }
+        }
     }
 
     if (sensor == null) {
@@ -507,20 +553,32 @@ internal fun MoonPhasePanel(state: KeyboardUiState) {
 
 // ---- weather ----
 
-/** One statistic in the weather detail strip: small icon, value, caption. */
+/** One statistic in the weather detail grid: small icon, value, caption. */
 @Composable
-private fun WeatherStat(icon: ImageVector, value: String, caption: String) {
+private fun WeatherStat(
+    icon: ImageVector,
+    value: String,
+    caption: String,
+    modifier: Modifier = Modifier,
+) {
     val kb = LocalKbTheme.current
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier
+        modifier = modifier
             .clip(RoundedCornerShape(10.dp))
             .background(kb.chip)
-            .padding(horizontal = 10.dp, vertical = 6.dp),
+            .padding(horizontal = 6.dp, vertical = 6.dp),
     ) {
         Icon(icon, contentDescription = null, modifier = Modifier.size(16.dp), tint = kb.toolbarIcon)
-        Text(value, color = kb.modifierKeyText, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-        Text(caption, color = kb.toolbarIcon, fontSize = 9.sp)
+        Text(
+            value,
+            color = kb.modifierKeyText,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Text(caption, color = kb.toolbarIcon, fontSize = 9.sp, maxLines = 1)
     }
 }
 
@@ -622,41 +680,56 @@ internal fun WeatherPanel(
                         }
                     }
                     Spacer(Modifier.height(6.dp))
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    ) {
-                        WeatherStat(
-                            Icons.Outlined.Thermostat,
-                            "${WeatherClient.toDisplay(info.feelsLikeC, fahrenheit)}$unit",
-                            "feels like",
+                    // All stats visible at once in a wrapping grid — the
+                    // panel has spare height, so use it instead of making
+                    // the user scroll sideways through a strip.
+                    val stats = buildList {
+                        add(
+                            Triple(
+                                Icons.Outlined.Thermostat,
+                                "${WeatherClient.toDisplay(info.feelsLikeC, fahrenheit)}$unit",
+                                "feels like",
+                            )
                         )
-                        WeatherStat(Icons.Outlined.WaterDrop, "${info.humidityPercent}%", "humidity")
-                        WeatherStat(
-                            Icons.Outlined.Air,
-                            "${info.windKmh.roundToInt()} km/h " +
-                                WeatherClient.windCardinal(info.windDirectionDeg),
-                            "wind",
+                        add(Triple(Icons.Outlined.WaterDrop, "${info.humidityPercent}%", "humidity"))
+                        add(
+                            Triple(
+                                Icons.Outlined.Air,
+                                "${info.windKmh.roundToInt()} km/h " +
+                                    WeatherClient.windCardinal(info.windDirectionDeg),
+                                "wind",
+                            )
                         )
                         if (info.precipProbabilityPercent >= 0) {
-                            WeatherStat(Icons.Outlined.Umbrella, "${info.precipProbabilityPercent}%", "rain chance")
+                            add(Triple(Icons.Outlined.Umbrella, "${info.precipProbabilityPercent}%", "rain chance"))
                         }
                         if (info.cloudCoverPercent >= 0) {
-                            WeatherStat(Icons.Outlined.Cloud, "${info.cloudCoverPercent}%", "clouds")
+                            add(Triple(Icons.Outlined.Cloud, "${info.cloudCoverPercent}%", "clouds"))
                         }
                         if (info.pressureHpa >= 0) {
-                            WeatherStat(Icons.Outlined.Compress, "${info.pressureHpa.roundToInt()}", "hPa")
+                            add(Triple(Icons.Outlined.Compress, "${info.pressureHpa.roundToInt()}", "hPa"))
                         }
                         if (info.uvIndexMax >= 0) {
-                            WeatherStat(Icons.Outlined.WbSunny, "%.1f".format(info.uvIndexMax), "UV max")
+                            add(Triple(Icons.Outlined.WbSunny, "%.1f".format(info.uvIndexMax), "UV max"))
                         }
                         if (info.sunrise.isNotEmpty()) {
-                            WeatherStat(Icons.Outlined.WbTwilight, info.sunrise, "sunrise")
+                            add(Triple(Icons.Outlined.WbTwilight, info.sunrise, "sunrise"))
                         }
                         if (info.sunset.isNotEmpty()) {
-                            WeatherStat(Icons.Outlined.WbTwilight, info.sunset, "sunset")
+                            add(Triple(Icons.Outlined.WbTwilight, info.sunset, "sunset"))
+                        }
+                    }
+                    for (row in stats.chunked(3)) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 6.dp),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            for ((icon, value, caption) in row) {
+                                WeatherStat(icon, value, caption, modifier = Modifier.weight(1f))
+                            }
+                            repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
                         }
                     }
                 }
