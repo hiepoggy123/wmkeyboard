@@ -42,7 +42,7 @@ enum class KeyboardAlignment { LEFT, CENTER, RIGHT }
 enum class ToolbarTool {
     EMOJI, CLIPBOARD, SNIPPETS, TEXT_EDIT, ONE_HANDED, SPLIT, FLOATING, SETTINGS,
     FLASHLIGHT, COMPASS, LEVEL, UNDO, REDO, MOON_PHASE, WEATHER, CALENDAR,
-    INCOGNITO, THEMES, AUTOCORRECT, SOUND_HAPTICS, NUMPAD,
+    INCOGNITO, THEMES, AUTOCORRECT, SOUND_HAPTICS, NUMPAD, CAMERA, DICTIONARY,
 }
 
 /**
@@ -226,6 +226,12 @@ data class KeyboardSettings(
     val calendarShowHijri: Boolean = true,
     /** Day offset applied to the tabular Hijri date (moon-sighting drift). */
     val hijriAdjustDays: Int = 0,
+    /** Camera tool opens on the selfie camera. */
+    val cameraPreferFront: Boolean = false,
+    /** Mirror selfie captures so the photo matches the preview. */
+    val cameraMirrorFront: Boolean = true,
+    /** Dictionary tool looks up the word at the cursor when it opens. */
+    val dictionaryAutoLookup: Boolean = true,
 )
 
 /**
@@ -330,6 +336,9 @@ class SettingsRepository(private val context: Context) {
         private val CALENDAR_SHOW_BENGALI = booleanPreferencesKey("calendar_show_bengali")
         private val CALENDAR_SHOW_HIJRI = booleanPreferencesKey("calendar_show_hijri")
         private val HIJRI_ADJUST_DAYS = intPreferencesKey("hijri_adjust_days")
+        private val CAMERA_PREFER_FRONT = booleanPreferencesKey("camera_prefer_front")
+        private val CAMERA_MIRROR_FRONT = booleanPreferencesKey("camera_mirror_front")
+        private val DICTIONARY_AUTO_LOOKUP = booleanPreferencesKey("dictionary_auto_lookup")
     }
 
     val settings: Flow<KeyboardSettings> = context.dataStore.data.map { p ->
@@ -461,6 +470,9 @@ class SettingsRepository(private val context: Context) {
             calendarShowBengali = p[CALENDAR_SHOW_BENGALI] ?: defaults.calendarShowBengali,
             calendarShowHijri = p[CALENDAR_SHOW_HIJRI] ?: defaults.calendarShowHijri,
             hijriAdjustDays = p[HIJRI_ADJUST_DAYS] ?: defaults.hijriAdjustDays,
+            cameraPreferFront = p[CAMERA_PREFER_FRONT] ?: defaults.cameraPreferFront,
+            cameraMirrorFront = p[CAMERA_MIRROR_FRONT] ?: defaults.cameraMirrorFront,
+            dictionaryAutoLookup = p[DICTIONARY_AUTO_LOOKUP] ?: defaults.dictionaryAutoLookup,
         )
     }
 
@@ -532,6 +544,15 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setHijriAdjustDays(value: Int) =
         context.dataStore.edit { it[HIJRI_ADJUST_DAYS] = value.coerceIn(-2, 2) }
+
+    suspend fun setCameraPreferFront(value: Boolean) =
+        context.dataStore.edit { it[CAMERA_PREFER_FRONT] = value }
+
+    suspend fun setCameraMirrorFront(value: Boolean) =
+        context.dataStore.edit { it[CAMERA_MIRROR_FRONT] = value }
+
+    suspend fun setDictionaryAutoLookup(value: Boolean) =
+        context.dataStore.edit { it[DICTIONARY_AUTO_LOOKUP] = value }
 
     suspend fun setToolbarTools(tools: List<ToolbarTool>) =
         context.dataStore.edit {

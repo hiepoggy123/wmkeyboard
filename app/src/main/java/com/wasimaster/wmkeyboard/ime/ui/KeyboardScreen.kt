@@ -79,6 +79,8 @@ import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.OpenInFull
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Pets
+import androidx.compose.material.icons.outlined.PhotoCamera
+import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.outlined.PictureInPictureAlt
 import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material.icons.outlined.BarChart
@@ -255,6 +257,11 @@ fun KeyboardScreen(
     onFlashlightToggle: () -> Unit = {},
     onUndoRedo: (Boolean) -> Unit = {},
     onWeatherRefresh: () -> Unit = {},
+    onCameraSend: (java.io.File) -> Unit = {},
+    onCameraPermissionRequest: () -> Unit = {},
+    onDictionaryLookup: (String) -> Unit = {},
+    onDictionarySearchToggle: () -> Unit = {},
+    onDictionaryInsert: (String) -> Unit = {},
     onIncognitoToggle: () -> Unit = {},
     onAutocorrectToggle: () -> Unit = {},
     onThemeSelect: (String) -> Unit = {},
@@ -290,6 +297,8 @@ fun KeyboardScreen(
             ToolbarTool.AUTOCORRECT -> onAutocorrectToggle()
             ToolbarTool.SOUND_HAPTICS -> onPanelChange(PanelMode.SOUND_HAPTICS)
             ToolbarTool.NUMPAD -> onPanelChange(PanelMode.NUMPAD)
+            ToolbarTool.CAMERA -> onPanelChange(PanelMode.CAMERA)
+            ToolbarTool.DICTIONARY -> onPanelChange(PanelMode.DICTIONARY)
         }
     }
 
@@ -323,6 +332,11 @@ fun KeyboardScreen(
                 onToolbarToolsChange = onToolbarToolsChange,
                 onToolboxHintDismiss = onToolboxHintDismiss,
                 onWeatherRefresh = onWeatherRefresh,
+                onCameraSend = onCameraSend,
+                onCameraPermissionRequest = onCameraPermissionRequest,
+                onDictionaryLookup = onDictionaryLookup,
+                onDictionarySearchToggle = onDictionarySearchToggle,
+                onDictionaryInsert = onDictionaryInsert,
                 onThemeSelect = onThemeSelect,
                 onSoundHaptic = onSoundHaptic,
             )
@@ -855,6 +869,8 @@ private fun toolIcon(tool: ToolbarTool): ImageVector = when (tool) {
     ToolbarTool.AUTOCORRECT -> Icons.Outlined.Spellcheck
     ToolbarTool.SOUND_HAPTICS -> Icons.Outlined.Vibration
     ToolbarTool.NUMPAD -> Icons.Outlined.Dialpad
+    ToolbarTool.CAMERA -> Icons.Outlined.PhotoCamera
+    ToolbarTool.DICTIONARY -> Icons.AutoMirrored.Outlined.MenuBook
 }
 
 private fun toolLabel(tool: ToolbarTool): String = when (tool) {
@@ -879,6 +895,8 @@ private fun toolLabel(tool: ToolbarTool): String = when (tool) {
     ToolbarTool.AUTOCORRECT -> "Autocorrect"
     ToolbarTool.SOUND_HAPTICS -> "Sound & haptics"
     ToolbarTool.NUMPAD -> "Numpad"
+    ToolbarTool.CAMERA -> "Camera"
+    ToolbarTool.DICTIONARY -> "Dictionary"
 }
 
 private fun toolActive(tool: ToolbarTool, state: KeyboardUiState): Boolean = when (tool) {
@@ -903,6 +921,8 @@ private fun toolActive(tool: ToolbarTool, state: KeyboardUiState): Boolean = whe
     ToolbarTool.AUTOCORRECT -> state.settings.autocorrect
     ToolbarTool.SOUND_HAPTICS -> state.panel == PanelMode.SOUND_HAPTICS
     ToolbarTool.NUMPAD -> state.panel == PanelMode.NUMPAD
+    ToolbarTool.CAMERA -> state.panel == PanelMode.CAMERA
+    ToolbarTool.DICTIONARY -> state.panel == PanelMode.DICTIONARY
 }
 
 /**
@@ -1324,6 +1344,11 @@ private fun KeyboardBody(
     onToolbarToolsChange: (List<ToolbarTool>) -> Unit,
     onToolboxHintDismiss: () -> Unit,
     onWeatherRefresh: () -> Unit,
+    onCameraSend: (java.io.File) -> Unit,
+    onCameraPermissionRequest: () -> Unit,
+    onDictionaryLookup: (String) -> Unit,
+    onDictionarySearchToggle: () -> Unit,
+    onDictionaryInsert: (String) -> Unit,
     onThemeSelect: (String) -> Unit,
     onSoundHaptic: (SoundHapticAction) -> Unit,
 ) {
@@ -1370,10 +1395,27 @@ private fun KeyboardBody(
                 PanelMode.THEMES -> ThemesPanel(state, onThemeSelect)
                 PanelMode.SOUND_HAPTICS -> SoundHapticsPanel(state, onSoundHaptic)
                 PanelMode.NUMPAD -> NumpadPanel(state, onText, onKey)
+                PanelMode.CAMERA -> CameraPanel(
+                    state = state,
+                    onSend = onCameraSend,
+                    onRequestPermission = onCameraPermissionRequest,
+                    // Toggling the open panel closes it.
+                    onClose = { onPanelChange(PanelMode.CAMERA) },
+                )
+                PanelMode.DICTIONARY -> DictionaryPanel(
+                    state = state,
+                    onSearchToggle = onDictionarySearchToggle,
+                    onLookup = onDictionaryLookup,
+                    onInsert = onDictionaryInsert,
+                )
                 PanelMode.NONE -> KeyRows(state, onKey, onText, onGesture, onGesturePreview, onCursorMove, onLanguageSelect)
             }
             // In emoji search mode the letters stay visible for typing the query.
             if (state.panel == PanelMode.EMOJI && state.emojiSearchActive) {
+                KeyRows(state, onKey, onText, onGesture, onGesturePreview, onCursorMove, onLanguageSelect)
+            }
+            // Same for a dictionary search: the query types on the key rows.
+            if (state.panel == PanelMode.DICTIONARY && state.dictionarySearchActive) {
                 KeyRows(state, onKey, onText, onGesture, onGesturePreview, onCursorMove, onLanguageSelect)
             }
         }

@@ -16,7 +16,7 @@ enum class LayoutMode { LETTERS, SYMBOLS, SYMBOLS_SHIFTED }
 enum class PanelMode {
     NONE, EMOJI, CLIPBOARD, SNIPPETS, TOOLBOX, TEXT_EDIT,
     COMPASS, LEVEL, MOON_PHASE, WEATHER, CALENDAR,
-    THEMES, SOUND_HAPTICS, NUMPAD,
+    THEMES, SOUND_HAPTICS, NUMPAD, CAMERA, DICTIONARY,
 }
 
 /** One change made from the sound & haptics quick panel. */
@@ -36,6 +36,17 @@ sealed interface WeatherUi {
     data object Loading : WeatherUi
     data object Error : WeatherUi
     data class Ready(val info: WeatherInfo) : WeatherUi
+}
+
+/** Dictionary panel state, owned by the service (it does the fetching). */
+sealed interface DictionaryUi {
+    /** Nothing looked up yet (no word at the cursor, or auto-lookup off). */
+    data object Idle : DictionaryUi
+    data class Loading(val word: String) : DictionaryUi
+    data class Error(val word: String) : DictionaryUi
+    /** The API knows no entry for this word. */
+    data class NotFound(val word: String) : DictionaryUi
+    data class Ready(val entries: List<com.wasimaster.wmkeyboard.core.tools.DictEntry>) : DictionaryUi
 }
 
 /** One button on the text-editing panel (cursor control, selection, clipboard). */
@@ -81,6 +92,11 @@ data class KeyboardUiState(
     /** Torch state, mirrored from CameraManager for the flashlight tool. */
     val torchOn: Boolean = false,
     val weather: WeatherUi = WeatherUi.NoLocation,
+    val dictionary: DictionaryUi = DictionaryUi.Idle,
+    /** Word in the dictionary panel's search field. */
+    val dictionaryQuery: String = "",
+    /** Typing edits [dictionaryQuery] (letters show under the panel). */
+    val dictionarySearchActive: Boolean = false,
     /**
      * What the vowel keys should produce given the character before the
      * cursor: kar (া, ি …) after a consonant, the য়-glide (য়া, য়ে) after

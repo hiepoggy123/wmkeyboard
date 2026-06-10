@@ -47,7 +47,9 @@ import androidx.compose.material.icons.outlined.Explore
 import androidx.compose.material.icons.outlined.FlashlightOn
 import androidx.compose.material.icons.outlined.Keyboard
 import androidx.compose.material.icons.outlined.Language
+import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.outlined.Palette
+import androidx.compose.material.icons.outlined.PhotoCamera
 import androidx.compose.material.icons.outlined.Security
 import androidx.compose.material.icons.outlined.PictureInPictureAlt
 import androidx.compose.material.icons.outlined.Settings
@@ -1593,6 +1595,8 @@ private fun toolTitle(tool: ToolbarTool): String = when (tool) {
     ToolbarTool.AUTOCORRECT -> "Autocorrect"
     ToolbarTool.SOUND_HAPTICS -> "Sound & haptics"
     ToolbarTool.NUMPAD -> "Numpad"
+    ToolbarTool.CAMERA -> "Camera"
+    ToolbarTool.DICTIONARY -> "Dictionary"
 }
 
 private fun toolDescription(tool: ToolbarTool): String = when (tool) {
@@ -1617,6 +1621,8 @@ private fun toolDescription(tool: ToolbarTool): String = when (tool) {
     ToolbarTool.AUTOCORRECT -> "One tap turns autocorrect on or off"
     ToolbarTool.SOUND_HAPTICS -> "Adjust key sound and vibration from the keyboard"
     ToolbarTool.NUMPAD -> "Dedicated number pad layout"
+    ToolbarTool.CAMERA -> "Take a photo and send it without leaving the keyboard"
+    ToolbarTool.DICTIONARY -> "English definitions, pronunciation and synonyms"
 }
 
 private fun toolIconFor(tool: ToolbarTool): androidx.compose.ui.graphics.vector.ImageVector = when (tool) {
@@ -1641,6 +1647,8 @@ private fun toolIconFor(tool: ToolbarTool): androidx.compose.ui.graphics.vector.
     ToolbarTool.AUTOCORRECT -> Icons.Outlined.Spellcheck
     ToolbarTool.SOUND_HAPTICS -> Icons.Outlined.Vibration
     ToolbarTool.NUMPAD -> Icons.Outlined.Dialpad
+    ToolbarTool.CAMERA -> Icons.Outlined.PhotoCamera
+    ToolbarTool.DICTIONARY -> Icons.AutoMirrored.Outlined.MenuBook
 }
 
 /**
@@ -1838,6 +1846,46 @@ private fun ToolDetailSettings(
                         "way — set the offset that matches your local authority.",
                 ) { scope.launch { repository.setHijriAdjustDays(it.roundToInt()) } }
             }
+        }
+        ToolbarTool.CAMERA -> {
+            ToggleSetting(
+                "Start with the selfie camera",
+                "Open the tool on the front camera instead of the back one",
+                settings.cameraPreferFront,
+            ) { scope.launch { repository.setCameraPreferFront(it) } }
+            ToggleSetting(
+                "Mirror selfies",
+                "Save front-camera photos the way the preview shows them",
+                settings.cameraMirrorFront,
+                info = "Camera sensors record selfies un-mirrored (text reads " +
+                    "correctly, but the photo looks flipped compared to the " +
+                    "preview). On: the saved photo matches what you saw while " +
+                    "framing. Off: keep the sensor's true orientation.",
+            ) { scope.launch { repository.setCameraMirrorFront(it) } }
+            Text(
+                "Photos keep the camera's full frame, are saved in the app's " +
+                    "private storage and sent straight into the chat. Nothing is " +
+                    "added to your gallery, and the camera runs only while the " +
+                    "tool is open.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp),
+            )
+        }
+        ToolbarTool.DICTIONARY -> {
+            ToggleSetting(
+                "Look up the word at the cursor",
+                "Opening the tool searches the selected or current word",
+                settings.dictionaryAutoLookup,
+            ) { scope.launch { repository.setDictionaryAutoLookup(it) } }
+            Text(
+                "Definitions come from the Free Dictionary API " +
+                    "(dictionaryapi.dev). The word you look up is sent to that " +
+                    "service — only when you use the tool.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp),
+            )
         }
         ToolbarTool.INCOGNITO -> Text(
             "Tapping the tool pauses on-device learning and clipboard capture; " +

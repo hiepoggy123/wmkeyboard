@@ -1,0 +1,114 @@
+package com.wasimaster.wmkeyboard.core.tools
+
+import java.net.HttpURLConnection
+import java.net.URL
+import java.net.URLEncoder
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+
+/** One sense of a word: the definition, an optional usage example, synonyms. */
+data class DictDefinition(
+    val text: String,
+    val example: String?,
+    val synonyms: List<String>,
+)
+
+/** Definitions grouped under one part of speech (noun, verb, …). */
+data class DictMeaning(
+    val partOfSpeech: String,
+    val definitions: List<DictDefinition>,
+    val synonyms: List<String>,
+    val antonyms: List<String>,
+)
+
+/** One dictionary entry (a word can have several, e.g. homographs). */
+data class DictEntry(
+    val word: String,
+    /** IPA transcription like "/kwɪkˈsɒtɪk/", empty when absent. */
+    val phonetic: String,
+    /** URL of a pronunciation recording, or null when the API has none. */
+    val audioUrl: String?,
+    val meanings: List<DictMeaning>,
+)
+
+/**
+ * Minimal client for the Free Dictionary API (dictionaryapi.dev — no key,
+ * no account). Only called from the dictionary tool when the user looks a
+ * word up.
+ */
+object DictionaryClient {
+
+    /** The word exists in no entry — the API answered 404. */
+    class NotFoundException(val word: String) : Exception("no entry for $word")
+
+    /** Blocking lookup; call on an IO dispatcher. Throws on any failure. */
+    fun lookup(word: String): List<DictEntry> {
+        val cleaned = word.trim()
+        require(cleaned.isNotEmpty()) { "empty word" }
+        val url = "https://api.dictionaryapi.dev/api/v2/entries/en/" +
+            URLEncoder.encode(cleaned, "UTF-8").replace("+", "%20")
+        val connection = URL(url).openConnection() as HttpURLConnection
+        try {
+            connection.connectTimeout = 8000
+            connection.readTimeout = 8000
+            if (connection.responseCode == 404) throw NotFoundException(cleaned)
+            val body = connection.inputStream.bufferedReader().use { it.readText() }
+            return parse(body)
+        } finally {
+            connection.disconnect()
+        }
+    }
+
+    /** Tolerant parse: every field except the word itself may be missing. */
+    internal fun parse(body: String): List<DictEntry> {
+        val root = Json.parseToJsonElement(body)
+        if (root !is kotlinx.serialization.json.JsonArray) return emptyList()
+        return root.mapNotNull { element ->
+            val entry = element as? JsonObject ?: return@mapNotNull null
+            val word = entry.optString("word") ?: return@mapNotNull null
+            val phonetics = entry.optArray("phonetics").mapNotNull { it as? JsonObject }
+            DictEntry(
+                word = word,
+                phonetic = entry.optString("phonetic")
+                    ?: phonetics.firstNotNullOfOrNull { it.optString("text") }.orEmpty(),
+                // Prefer a phonetics item that carries both audio and text.
+                audioUrl = (phonetics.firstOrNull { it.optString("audio") != null && it.optString("text") != null }
+                    ?: phonetics.firstOrNull { it.optString("audio") != null })
+                    ?.optString("audio")
+                    ?.takeIf { it.startsWith("http") },
+                meanings = entry.optArray("meanings").mapNotNull { meaningElement ->
+                    val meaning = meaningElement as? JsonObject ?: return@mapNotNull null
+                    DictMeaning(
+                        partOfSpeech = meaning.optString("partOfSpeech").orEmpty(),
+                        definitions = meaning.optArray("definitions").mapNotNull { defElement ->
+                            val def = defElement as? JsonObject ?: return@mapNotNull null
+                            val text = def.optString("definition") ?: return@mapNotNull null
+                            DictDefinition(
+                                text = text,
+                                example = def.optString("example"),
+                                synonyms = def.optStringList("synonyms"),
+                            )
+                        },
+                        synonyms = meaning.optStringList("synonyms"),
+                        antonyms = meaning.optStringList("antonyms"),
+                    )
+                }.filter { it.definitions.isNotEmpty() },
+            )
+        }.filter { it.meanings.isNotEmpty() }
+    }
+
+    private fun JsonObject.optString(key: String): String? =
+        this[key]?.takeIf { it !is JsonNull }?.jsonPrimitive?.content?.takeIf { it.isNotBlank() }
+
+    private fun JsonObject.optArray(key: String) =
+        this[key]?.takeIf { it !is JsonNull }?.jsonArray ?: kotlinx.serialization.json.JsonArray(emptyList())
+
+    private fun JsonObject.optStringList(key: String): List<String> =
+        optArray(key).mapNotNull { item ->
+            runCatching { item.jsonPrimitive.content }.getOrNull()?.takeIf { it.isNotBlank() }
+        }
+}

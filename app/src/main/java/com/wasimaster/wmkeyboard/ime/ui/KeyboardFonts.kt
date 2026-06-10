@@ -94,7 +94,8 @@ object KeyboardFonts {
         EmojiFontChoice.CUSTOM -> fileFamily(customEmojiFontFile(context))
     }
 
-    private fun googleFamily(name: String): FontFamily = cache.getOrPut("google:$name") {
+    /** Family for any Google Fonts name (also used directly by tool panels). */
+    fun googleFamily(name: String): FontFamily = cache.getOrPut("google:$name") {
         val font = GoogleFont(name)
         FontFamily(
             DownloadableFont(googleFont = font, fontProvider = provider, weight = FontWeight.Normal),

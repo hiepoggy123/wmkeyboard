@@ -3,9 +3,13 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.VIBRATE" />
-    <!-- Only used by the optional weather tool (Open-Meteo fetch on open). -->
+    <!-- Only used by the optional weather and dictionary tools. -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Only used by the optional camera tool (photo into the chat). -->
+    <uses-permission android:name="android.permission.CAMERA" />
 
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-feature android:name="android.hardware.camera.front" android:required="false" />
     <uses-feature android:name="android.hardware.camera.flash" android:required="false" />
     <uses-feature android:name="android.hardware.sensor.accelerometer" android:required="false" />
     <uses-feature android:name="android.hardware.sensor.compass" android:required="false" />
@@ -28,6 +32,16 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Invisible one-shot activity: the IME cannot show the runtime
+             permission dialog itself, so the camera tool bounces through
+             this to request android.permission.CAMERA. -->
+        <activity
+            android:name="com.wasimaster.wmkeyboard.app.CameraPermissionActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:noHistory="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
         <!-- Serves copied clipboard images to target apps via commitContent. -->
         <provider
