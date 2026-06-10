@@ -2,6 +2,18 @@ package com.wasimaster.wmkeyboard.ime.ui
 
 import android.graphics.BitmapFactory
 import android.view.WindowManager
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.AnimationVector2D
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.VectorConverter
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -80,6 +92,8 @@ import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.OpenInFull
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Pets
+import androidx.compose.material.icons.outlined.PhotoCamera
+import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.outlined.PictureInPictureAlt
 import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material.icons.outlined.BarChart
@@ -115,6 +129,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -127,6 +142,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.composed
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
@@ -137,6 +153,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -148,6 +165,8 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.onPlaced
+import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalContext
@@ -161,6 +180,7 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.round
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
@@ -257,6 +277,11 @@ fun KeyboardScreen(
     onFlashlightToggle: () -> Unit = {},
     onUndoRedo: (Boolean) -> Unit = {},
     onWeatherRefresh: () -> Unit = {},
+    onCameraSend: (java.io.File) -> Unit = {},
+    onCameraPermissionRequest: () -> Unit = {},
+    onDictionaryLookup: (String) -> Unit = {},
+    onDictionarySearchToggle: () -> Unit = {},
+    onDictionaryInsert: (String) -> Unit = {},
     onIncognitoToggle: () -> Unit = {},
     onAutocorrectToggle: () -> Unit = {},
     onThemeSelect: (String) -> Unit = {},
@@ -296,6 +321,8 @@ fun KeyboardScreen(
             ToolbarTool.SOUND_HAPTICS -> onPanelChange(PanelMode.SOUND_HAPTICS)
             ToolbarTool.NUMPAD -> onPanelChange(PanelMode.NUMPAD)
             ToolbarTool.HANDWRITING -> onPanelChange(PanelMode.HANDWRITING)
+            ToolbarTool.CAMERA -> onPanelChange(PanelMode.CAMERA)
+            ToolbarTool.DICTIONARY -> onPanelChange(PanelMode.DICTIONARY)
         }
     }
 
@@ -329,6 +356,11 @@ fun KeyboardScreen(
                 onToolbarToolsChange = onToolbarToolsChange,
                 onToolboxHintDismiss = onToolboxHintDismiss,
                 onWeatherRefresh = onWeatherRefresh,
+                onCameraSend = onCameraSend,
+                onCameraPermissionRequest = onCameraPermissionRequest,
+                onDictionaryLookup = onDictionaryLookup,
+                onDictionarySearchToggle = onDictionarySearchToggle,
+                onDictionaryInsert = onDictionaryInsert,
                 onThemeSelect = onThemeSelect,
                 onSoundHaptic = onSoundHaptic,
                 onHandwritingStroke = onHandwritingStroke,
@@ -680,7 +712,10 @@ private fun TopBar(
             }
             return@Row
         }
-        if (hasSuggestions) {
+        // While the toolbox is open the toolbar is forced on and shows its
+        // own back chevron, so the suggestions-toggle chevron would sit next
+        // to it doing nothing — hide it for that panel.
+        if (hasSuggestions && state.panel != PanelMode.TOOLBOX) {
             IconButton(
                 onClick = {
                     feedback()
@@ -865,6 +900,8 @@ private fun toolIcon(tool: ToolbarTool): ImageVector = when (tool) {
     ToolbarTool.SOUND_HAPTICS -> Icons.Outlined.Vibration
     ToolbarTool.NUMPAD -> Icons.Outlined.Dialpad
     ToolbarTool.HANDWRITING -> Icons.Outlined.Draw
+    ToolbarTool.CAMERA -> Icons.Outlined.PhotoCamera
+    ToolbarTool.DICTIONARY -> Icons.AutoMirrored.Outlined.MenuBook
 }
 
 private fun toolLabel(tool: ToolbarTool): String = when (tool) {
@@ -890,6 +927,8 @@ private fun toolLabel(tool: ToolbarTool): String = when (tool) {
     ToolbarTool.SOUND_HAPTICS -> "Sound & haptics"
     ToolbarTool.NUMPAD -> "Numpad"
     ToolbarTool.HANDWRITING -> "Handwriting"
+    ToolbarTool.CAMERA -> "Camera"
+    ToolbarTool.DICTIONARY -> "Dictionary"
 }
 
 private fun toolActive(tool: ToolbarTool, state: KeyboardUiState): Boolean = when (tool) {
@@ -915,6 +954,8 @@ private fun toolActive(tool: ToolbarTool, state: KeyboardUiState): Boolean = whe
     ToolbarTool.SOUND_HAPTICS -> state.panel == PanelMode.SOUND_HAPTICS
     ToolbarTool.NUMPAD -> state.panel == PanelMode.NUMPAD
     ToolbarTool.HANDWRITING -> state.panel == PanelMode.HANDWRITING
+    ToolbarTool.CAMERA -> state.panel == PanelMode.CAMERA
+    ToolbarTool.DICTIONARY -> state.panel == PanelMode.DICTIONARY
 }
 
 /**
@@ -1019,6 +1060,52 @@ private fun DraggableTool(
 }
 
 /**
+ * Slides this element to its new position within its parent when siblings
+ * appear, disappear or reorder — pinned tools shuffle smoothly instead of
+ * jumping when the toolbox chevron shows up or a tool is (un)pinned.
+ * Fast, no-bounce spring: quick but not sudden.
+ */
+private fun Modifier.animatePlacement(): Modifier = composed {
+    val scope = rememberCoroutineScope()
+    var targetOffset by remember { mutableStateOf(IntOffset.Zero) }
+    var animatable by remember { mutableStateOf<Animatable<IntOffset, AnimationVector2D>?>(null) }
+    this
+        .onPlaced { targetOffset = it.positionInParent().round() }
+        .offset {
+            val anim = animatable ?: Animatable(targetOffset, IntOffset.VectorConverter)
+                .also { animatable = it }
+            if (anim.targetValue != targetOffset) {
+                scope.launch {
+                    anim.animateTo(
+                        targetOffset,
+                        spring(
+                            stiffness = Spring.StiffnessMediumLow,
+                            visibilityThreshold = IntOffset(1, 1),
+                        ),
+                    )
+                }
+            }
+            anim.value - targetOffset
+        }
+}
+
+/**
+ * Quick scale+fade entrance for a button whose slot appears instantly
+ * (greedy-mode toolbar cells are weighted, so their widths can't animate).
+ */
+@Composable
+private fun PopIn(content: @Composable () -> Unit) {
+    var appeared by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { appeared = true }
+    val progress by animateFloatAsState(
+        targetValue = if (appeared) 1f else 0f,
+        animationSpec = tween(140),
+        label = "toolPopIn",
+    )
+    Box(modifier = Modifier.scale(0.6f + 0.4f * progress).alpha(progress)) { content() }
+}
+
+/**
  * One round tool button; the circle radius comes from the theme (0 = bare
  * icon). With [longPressLabel] set, holding the button pops the tool's name
  * above it — the toolbar shows bare icons, so this is how a user finds out
@@ -1117,17 +1204,31 @@ private fun RowScope.ToolbarRow(
     // of fixed buttons on the left with the tools spread over the leftover.
     val leading: @Composable (Modifier) -> Unit = { cell ->
         // With any tool panel open, one tap on the chevron returns to the keys.
-        if (panelOpen) {
-            Box(cell, contentAlignment = Alignment.Center) {
-                ToolCircle(
-                    icon = Icons.Outlined.ChevronLeft,
-                    description = "Back to keyboard",
-                    active = false,
-                    longPressLabel = "Back to keyboard",
-                ) { onPanelChange(state.panel) }
+        val backChevron: @Composable () -> Unit = {
+            ToolCircle(
+                icon = Icons.Outlined.ChevronLeft,
+                description = "Back to keyboard",
+                active = false,
+                longPressLabel = "Back to keyboard",
+            ) { onPanelChange(state.panel) }
+        }
+        if (greedy) {
+            // Weighted cells reflow instantly; the pop-in keeps the
+            // chevron's arrival from feeling sudden while animatePlacement
+            // slides the rest of the bar over.
+            if (panelOpen) {
+                Box(cell, contentAlignment = Alignment.Center) { PopIn { backChevron() } }
+            }
+        } else {
+            AnimatedVisibility(
+                visible = panelOpen,
+                enter = expandHorizontally(tween(140)) + fadeIn(tween(140)),
+                exit = shrinkHorizontally(tween(140)) + fadeOut(tween(140)),
+            ) {
+                Box(cell, contentAlignment = Alignment.Center) { backChevron() }
             }
         }
-        Box(cell, contentAlignment = Alignment.Center) {
+        Box(cell.animatePlacement(), contentAlignment = Alignment.Center) {
             ToolCircle(
                 icon = Icons.Outlined.GridView,
                 description = "Toolbox",
@@ -1138,23 +1239,25 @@ private fun RowScope.ToolbarRow(
     }
     val toolCells: @Composable RowScope.() -> Unit = {
         for (tool in tools) {
-            val cell = if (greedy) {
-                Modifier
-                    .weight(1f)
-                    .fillMaxHeight()
-            } else {
-                Modifier.padding(horizontal = 3.dp)
-            }
-            Box(cell, contentAlignment = Alignment.Center) {
-                DraggableTool(tool, fromToolbar = true, enabled = customizing, drag = drag) { dragModifier ->
-                    ToolCircle(
-                        icon = toolIcon(tool),
-                        description = toolLabel(tool),
-                        active = toolActive(tool, state),
-                        modifier = dragModifier,
-                        // While customizing, long-press belongs to the drag.
-                        longPressLabel = if (customizing) null else toolLabel(tool),
-                    ) { onToolTap(tool) }
+            key(tool) {
+                val cell = if (greedy) {
+                    Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                } else {
+                    Modifier.padding(horizontal = 3.dp)
+                }
+                Box(cell.animatePlacement(), contentAlignment = Alignment.Center) {
+                    DraggableTool(tool, fromToolbar = true, enabled = customizing, drag = drag) { dragModifier ->
+                        ToolCircle(
+                            icon = toolIcon(tool),
+                            description = toolLabel(tool),
+                            active = toolActive(tool, state),
+                            modifier = dragModifier,
+                            // While customizing, long-press belongs to the drag.
+                            longPressLabel = if (customizing) null else toolLabel(tool),
+                        ) { onToolTap(tool) }
+                    }
                 }
             }
         }
@@ -1278,23 +1381,28 @@ private fun ToolboxPanel(
             for (rowTools in available.chunked(4)) {
                 Row(modifier = Modifier.fillMaxWidth()) {
                     for (tool in rowTools) {
-                        Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                            DraggableTool(tool, fromToolbar = false, enabled = true, drag = drag) { dragModifier ->
-                                Column(
-                                    modifier = dragModifier.padding(vertical = 10.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                ) {
-                                    ToolCircle(
-                                        icon = toolIcon(tool),
-                                        description = toolLabel(tool),
-                                        active = toolActive(tool, state),
-                                    ) { onToolTap(tool) }
-                                    Text(
-                                        toolLabel(tool),
-                                        fontSize = 11.sp,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.padding(top = 4.dp),
-                                    )
+                        key(tool) {
+                            Box(
+                                modifier = Modifier.weight(1f).animatePlacement(),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                DraggableTool(tool, fromToolbar = false, enabled = true, drag = drag) { dragModifier ->
+                                    Column(
+                                        modifier = dragModifier.padding(vertical = 10.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                    ) {
+                                        ToolCircle(
+                                            icon = toolIcon(tool),
+                                            description = toolLabel(tool),
+                                            active = toolActive(tool, state),
+                                        ) { onToolTap(tool) }
+                                        Text(
+                                            toolLabel(tool),
+                                            fontSize = 11.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.padding(top = 4.dp),
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -1336,6 +1444,11 @@ private fun KeyboardBody(
     onToolbarToolsChange: (List<ToolbarTool>) -> Unit,
     onToolboxHintDismiss: () -> Unit,
     onWeatherRefresh: () -> Unit,
+    onCameraSend: (java.io.File) -> Unit,
+    onCameraPermissionRequest: () -> Unit,
+    onDictionaryLookup: (String) -> Unit,
+    onDictionarySearchToggle: () -> Unit,
+    onDictionaryInsert: (String) -> Unit,
     onThemeSelect: (String) -> Unit,
     onSoundHaptic: (SoundHapticAction) -> Unit,
     onHandwritingStroke: (HwStroke, IntSize) -> Unit,
@@ -1368,6 +1481,9 @@ private fun KeyboardBody(
             when (state.panel) {
                 PanelMode.EMOJI -> EmojiPanel(
                     state, onEmoji, onEmojiVariant, onEmojiFavourite, onEmojiQueryTap, onEmojiRecentsClear,
+                    onKey = onKey,
+                    // Toggling the open panel closes it — back to the keys.
+                    onClose = { onPanelChange(PanelMode.EMOJI) },
                 )
                 PanelMode.CLIPBOARD -> ClipboardPanel(state, onClipboardItem, onClipboardPin, onClipboardDelete)
                 PanelMode.SNIPPETS -> SnippetsPanel(state, onSnippet)
@@ -1394,10 +1510,27 @@ private fun KeyboardBody(
                     onLanguageSelect = onLanguageSelect,
                     onClose = { onPanelChange(PanelMode.HANDWRITING) },
                 )
+                PanelMode.CAMERA -> CameraPanel(
+                    state = state,
+                    onSend = onCameraSend,
+                    onRequestPermission = onCameraPermissionRequest,
+                    // Toggling the open panel closes it.
+                    onClose = { onPanelChange(PanelMode.CAMERA) },
+                )
+                PanelMode.DICTIONARY -> DictionaryPanel(
+                    state = state,
+                    onSearchToggle = onDictionarySearchToggle,
+                    onLookup = onDictionaryLookup,
+                    onInsert = onDictionaryInsert,
+                )
                 PanelMode.NONE -> KeyRows(state, onKey, onText, onGesture, onGesturePreview, onCursorMove, onLanguageSelect)
             }
             // In emoji search mode the letters stay visible for typing the query.
             if (state.panel == PanelMode.EMOJI && state.emojiSearchActive) {
+                KeyRows(state, onKey, onText, onGesture, onGesturePreview, onCursorMove, onLanguageSelect)
+            }
+            // Same for a dictionary search: the query types on the key rows.
+            if (state.panel == PanelMode.DICTIONARY && state.dictionarySearchActive) {
                 KeyRows(state, onKey, onText, onGesture, onGesturePreview, onCursorMove, onLanguageSelect)
             }
         }
@@ -2467,6 +2600,8 @@ private fun EmojiPanel(
     onEmojiFavourite: (String) -> Unit,
     onEmojiQueryTap: () -> Unit,
     onClearRecents: () -> Unit,
+    onKey: (Key) -> Unit,
+    onClose: () -> Unit,
 ) {
     // Gender/role variants (🏃‍♀️, 👨‍⚕️…) collapse under their base emoji;
     // the popup offers them, the grid stays tidy.
@@ -2486,6 +2621,8 @@ private fun EmojiPanel(
             .fillMaxWidth()
             .height(height),
     ) {
+        // The grids fill whatever the bottom control bar leaves over.
+        Column(modifier = Modifier.weight(1f)) {
         // The search field only shows while a search is underway; idle, the
         // entry point is the first icon of the tab strip below, so the panel
         // doesn't spend a whole bar of vertical space on it.

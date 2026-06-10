@@ -42,7 +42,8 @@ enum class KeyboardAlignment { LEFT, CENTER, RIGHT }
 enum class ToolbarTool {
     EMOJI, CLIPBOARD, SNIPPETS, TEXT_EDIT, ONE_HANDED, SPLIT, FLOATING, SETTINGS,
     FLASHLIGHT, COMPASS, LEVEL, UNDO, REDO, MOON_PHASE, WEATHER, CALENDAR,
-    INCOGNITO, THEMES, AUTOCORRECT, SOUND_HAPTICS, NUMPAD, HANDWRITING,
+    INCOGNITO, THEMES, AUTOCORRECT, SOUND_HAPTICS, NUMPAD, HANDWRITING, CAMERA,
+    DICTIONARY,
 }
 
 /**
@@ -232,6 +233,12 @@ data class KeyboardSettings(
     val handwritingCommitDelayMs: Int = 700,
     /** Insert a space between consecutively handwritten words. */
     val handwritingAutoSpace: Boolean = true,
+    /** Camera tool opens on the selfie camera. */
+    val cameraPreferFront: Boolean = false,
+    /** Mirror selfie captures so the photo matches the preview. */
+    val cameraMirrorFront: Boolean = true,
+    /** Dictionary tool looks up the word at the cursor when it opens. */
+    val dictionaryAutoLookup: Boolean = true,
 )
 
 /**
@@ -339,6 +346,9 @@ class SettingsRepository(private val context: Context) {
         private val HANDWRITING_STYLUS_ONLY = booleanPreferencesKey("handwriting_stylus_only")
         private val HANDWRITING_COMMIT_DELAY = intPreferencesKey("handwriting_commit_delay")
         private val HANDWRITING_AUTO_SPACE = booleanPreferencesKey("handwriting_auto_space")
+        private val CAMERA_PREFER_FRONT = booleanPreferencesKey("camera_prefer_front")
+        private val CAMERA_MIRROR_FRONT = booleanPreferencesKey("camera_mirror_front")
+        private val DICTIONARY_AUTO_LOOKUP = booleanPreferencesKey("dictionary_auto_lookup")
     }
 
     val settings: Flow<KeyboardSettings> = context.dataStore.data.map { p ->
@@ -474,6 +484,9 @@ class SettingsRepository(private val context: Context) {
             handwritingCommitDelayMs = p[HANDWRITING_COMMIT_DELAY]
                 ?: defaults.handwritingCommitDelayMs,
             handwritingAutoSpace = p[HANDWRITING_AUTO_SPACE] ?: defaults.handwritingAutoSpace,
+            cameraPreferFront = p[CAMERA_PREFER_FRONT] ?: defaults.cameraPreferFront,
+            cameraMirrorFront = p[CAMERA_MIRROR_FRONT] ?: defaults.cameraMirrorFront,
+            dictionaryAutoLookup = p[DICTIONARY_AUTO_LOOKUP] ?: defaults.dictionaryAutoLookup,
         )
     }
 
@@ -554,6 +567,14 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setHandwritingAutoSpace(value: Boolean) =
         context.dataStore.edit { it[HANDWRITING_AUTO_SPACE] = value }
+    suspend fun setCameraPreferFront(value: Boolean) =
+        context.dataStore.edit { it[CAMERA_PREFER_FRONT] = value }
+
+    suspend fun setCameraMirrorFront(value: Boolean) =
+        context.dataStore.edit { it[CAMERA_MIRROR_FRONT] = value }
+
+    suspend fun setDictionaryAutoLookup(value: Boolean) =
+        context.dataStore.edit { it[DICTIONARY_AUTO_LOOKUP] = value }
 
     suspend fun setToolbarTools(tools: List<ToolbarTool>) =
         context.dataStore.edit {

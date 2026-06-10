@@ -22,6 +22,7 @@ import androidx.core.content.FileProvider
 import androidx.core.view.inputmethod.EditorInfoCompat
 import androidx.core.view.inputmethod.InputConnectionCompat
 import androidx.core.view.inputmethod.InputContentInfoCompat
+import com.wasimaster.wmkeyboard.app.CameraPermissionActivity
 import com.wasimaster.wmkeyboard.app.MainActivity
 import com.wasimaster.wmkeyboard.core.clipboard.ClipKind
 import com.wasimaster.wmkeyboard.core.clipboard.ClipboardStore
@@ -53,6 +54,7 @@ import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
 import com.wasimaster.wmkeyboard.core.snippets.Snippet
 import com.wasimaster.wmkeyboard.core.snippets.SnippetStore
+import com.wasimaster.wmkeyboard.core.tools.DictionaryClient
 import com.wasimaster.wmkeyboard.core.tools.WeatherClient
 import com.wasimaster.wmkeyboard.core.transliteration.AvroPhonetic
 import com.wasimaster.wmkeyboard.core.transliteration.BengaliGraphemes
@@ -305,6 +307,11 @@ class WMKeyboardService : InputMethodService() {
                 onFlashlightToggle = ::onFlashlightToggle,
                 onUndoRedo = ::onUndoRedo,
                 onWeatherRefresh = { refreshWeather(force = true) },
+                onCameraSend = ::onCameraSend,
+                onCameraPermissionRequest = ::onCameraPermissionRequest,
+                onDictionaryLookup = ::onDictionaryLookup,
+                onDictionarySearchToggle = ::onDictionarySearchToggle,
+                onDictionaryInsert = ::onDictionaryInsert,
                 onIncognitoToggle = ::onIncognitoToggle,
                 onAutocorrectToggle = ::onAutocorrectToggle,
                 onThemeSelect = ::onThemeSelect,
@@ -382,6 +389,7 @@ class WMKeyboardService : InputMethodService() {
                 panel = PanelMode.NONE,
                 emojiSearchActive = false,
                 emojiQuery = "",
+                dictionarySearchActive = false,
                 composingPreview = "",
                 suggestions = emptyList(),
                 emojiSuggestions = emptyList(),
@@ -479,6 +487,12 @@ class WMKeyboardService : InputMethodService() {
             _uiState.update { it.copy(emojiQuery = it.emojiQuery + text) }
             refreshKarContext()
             refreshEmojiResults()
+            return
+        }
+
+        if (state.dictionarySearchActive) {
+            _uiState.update { it.copy(dictionaryQuery = it.dictionaryQuery + text) }
+            consumeShift()
             return
         }
 
@@ -598,6 +612,12 @@ class WMKeyboardService : InputMethodService() {
             }
             return
         }
+        if (state.dictionarySearchActive) {
+            if (state.dictionaryQuery.isNotEmpty()) {
+                _uiState.update { it.copy(dictionaryQuery = it.dictionaryQuery.dropLast(1)) }
+            }
+            return
+        }
         val ic = currentInputConnection ?: return
         // Deleting with an active selection removes the selected text only.
         if (hasSelection(ic)) {
@@ -635,6 +655,12 @@ class WMKeyboardService : InputMethodService() {
             return
         }
 
+        // Multi-word dictionary entries ("give up") are legitimate lookups.
+        if (state.dictionarySearchActive) {
+            _uiState.update { it.copy(dictionaryQuery = it.dictionaryQuery + " ") }
+            return
+        }
+
         // Space over a selection replaces it; skip autocorrect/double-space.
         if (hasSelection(ic)) {
             ic.commitText(" ", 1)
@@ -669,6 +695,10 @@ class WMKeyboardService : InputMethodService() {
     }
 
     private fun onEnter() {
+        if (_uiState.value.dictionarySearchActive) {
+            onDictionaryLookup(_uiState.value.dictionaryQuery)
+            return
+        }
         val ic = currentInputConnection ?: return
         commitComposing(ic, autocorrect = false)
         val info = currentInputEditorInfo
@@ -944,9 +974,11 @@ class WMKeyboardService : InputMethodService() {
                 emojiRecents = emojiUsage.recents(),
                 clipboardItems = clipboardStore.items(),
                 snippets = snippetStore.items(),
+                dictionarySearchActive = false,
             )
         }
         if (_uiState.value.panel == PanelMode.WEATHER) refreshWeather()
+        if (_uiState.value.panel == PanelMode.DICTIONARY) openDictionary()
         if (_uiState.value.panel == PanelMode.HANDWRITING) {
             // Flush any half-typed word so handwriting appends after it.
             currentInputConnection?.let { commitComposing(it, autocorrect = false) }
@@ -1264,6 +1296,107 @@ class WMKeyboardService : InputMethodService() {
         }
     }
 
+    // ---- tools: dictionary & camera ----
+
+    private var dictionaryJob: Job? = null
+
+    /**
+     * Dictionary panel just opened: look up the selected word (or the word
+     * around the cursor) per the auto-lookup setting; with nothing to look
+     * up, drop straight into the search field so typing starts a query.
+     */
+    private fun openDictionary() {
+        val word = if (_uiState.value.settings.dictionaryAutoLookup) currentWordForLookup() else null
+        if (word != null) {
+            onDictionaryLookup(word)
+        } else if (_uiState.value.dictionary is DictionaryUi.Ready) {
+            // No word at the cursor but a previous lookup is still on
+            // screen — keep it; the search chip is one tap away.
+        } else {
+            _uiState.update { it.copy(dictionarySearchActive = true, dictionaryQuery = "") }
+        }
+    }
+
+    /** Selection first; else the run of word characters around the cursor. */
+    private fun currentWordForLookup(): String? {
+        val ic = currentInputConnection ?: return null
+        fun sanitize(raw: String): String? {
+            val word = raw.trim().trim('\'', '-', '“', '”', '"')
+            return word.takeIf {
+                it.isNotEmpty() && it.length <= 40 &&
+                    it.any(Char::isLetter) &&
+                    // The API is English-only; skip Bengali (or any
+                    // non-Latin) words instead of showing "not found".
+                    it.all { ch -> ch.code < 0x250 || ch == '’' }
+            }
+        }
+        ic.getSelectedText(0)?.toString()?.let { return sanitize(it) }
+        val before = ic.getTextBeforeCursor(48, 0)?.toString().orEmpty()
+        val after = ic.getTextAfterCursor(48, 0)?.toString().orEmpty()
+        fun isWordChar(c: Char) = c.isLetter() || c == '\'' || c == '’' || c == '-'
+        return sanitize(before.takeLastWhile(::isWordChar) + after.takeWhile(::isWordChar))
+    }
+
+    fun onDictionaryLookup(rawWord: String) {
+        val word = rawWord.trim()
+        if (word.isEmpty()) {
+            _uiState.update { it.copy(dictionarySearchActive = false) }
+            return
+        }
+        dictionaryJob?.cancel()
+        _uiState.update {
+            it.copy(
+                dictionaryQuery = word,
+                dictionarySearchActive = false,
+                dictionary = DictionaryUi.Loading(word),
+            )
+        }
+        dictionaryJob = serviceScope.launch {
+            val ui = try {
+                val entries = withContext(Dispatchers.IO) { DictionaryClient.lookup(word) }
+                if (entries.isEmpty()) DictionaryUi.NotFound(word) else DictionaryUi.Ready(entries)
+            } catch (e: DictionaryClient.NotFoundException) {
+                DictionaryUi.NotFound(word)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                DictionaryUi.Error(word)
+            }
+            _uiState.update { it.copy(dictionary = ui) }
+        }
+    }
+
+    fun onDictionarySearchToggle() {
+        vibrate()
+        _uiState.update { it.copy(dictionarySearchActive = !it.dictionarySearchActive) }
+    }
+
+    /** Insert chip on a dictionary entry: type the word into the editor. */
+    fun onDictionaryInsert(word: String) {
+        vibrate()
+        val ic = currentInputConnection ?: return
+        commitComposing(ic, autocorrect = false)
+        ic.commitText(word, 1)
+    }
+
+    /** Camera tool captured a photo: send it into the editor as an image. */
+    fun onCameraSend(file: File) {
+        vibrate()
+        commitImageFile(file, "image/jpeg")
+        // The photo is on its way (or on the clipboard) — the tool's job is
+        // done, give the keys back.
+        _uiState.update { it.copy(panel = PanelMode.NONE) }
+    }
+
+    /** IMEs cannot show permission dialogs; bounce through the trampoline. */
+    fun onCameraPermissionRequest() {
+        startActivity(
+            Intent(this, CameraPermissionActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+        )
+    }
+
     /**
      * Text-editing panel buttons. Cursor moves go through the editor as key
      * events so apps handle them natively; while selection mode is on (or
@@ -1467,6 +1600,11 @@ class WMKeyboardService : InputMethodService() {
             _uiState.update { it.copy(clipboardItems = clipboardStore.items()) }
             return
         }
+        commitImageFile(file, item.mimeType)
+    }
+
+    /** Shared by clipboard images and camera captures. */
+    private fun commitImageFile(file: File, mimeType: String) {
         val contentUri = runCatching {
             FileProvider.getUriForFile(this, clipboardFileProviderAuthority, file)
         }.getOrNull() ?: return
@@ -1475,12 +1613,12 @@ class WMKeyboardService : InputMethodService() {
         val editorInfo = currentInputEditorInfo
         val supported = editorInfo != null &&
             EditorInfoCompat.getContentMimeTypes(editorInfo)
-                .any { ClipDescription.compareMimeTypes(item.mimeType, it) }
+                .any { ClipDescription.compareMimeTypes(mimeType, it) }
 
         if (ic != null && editorInfo != null && supported) {
             val info = InputContentInfoCompat(
                 contentUri,
-                ClipDescription("image", arrayOf(item.mimeType)),
+                ClipDescription("image", arrayOf(mimeType)),
                 null,
             )
             val committed = InputConnectionCompat.commitContent(

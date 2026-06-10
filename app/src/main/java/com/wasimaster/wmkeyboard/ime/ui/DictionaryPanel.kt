@@ -1,0 +1,337 @@
+package com.wasimaster.wmkeyboard.ime.ui
+
+import android.media.AudioAttributes
+import android.media.MediaPlayer
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ArrowForward
+import androidx.compose.material.icons.automirrored.outlined.VolumeUp
+import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.wasimaster.wmkeyboard.core.tools.DictEntry
+import com.wasimaster.wmkeyboard.core.tools.DictMeaning
+import com.wasimaster.wmkeyboard.ime.DictionaryUi
+import com.wasimaster.wmkeyboard.ime.KeyboardUiState
+
+/**
+ * English dictionary lookup in the tool viewbox. Opening the tool
+ * auto-fills the word at the cursor (per setting); the search chip routes
+ * the key rows into the query, like emoji search. Entries render with a
+ * serif display face for the headword — dictionary typography, not
+ * keyboard typography.
+ */
+@Composable
+internal fun DictionaryPanel(
+    state: KeyboardUiState,
+    onSearchToggle: () -> Unit,
+    onLookup: (String) -> Unit,
+    onInsert: (String) -> Unit,
+) {
+    val kb = LocalKbTheme.current
+    // While searching the panel shrinks so the key rows fit underneath.
+    val height = if (state.dictionarySearchActive) 56.dp else keyRowsHeight(state.settings)
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(height),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 4.dp)
+                .clip(RoundedCornerShape(20.dp))
+                .background(kb.chip)
+                .clickable { onSearchToggle() }
+                .padding(start = 12.dp, end = 4.dp, top = 2.dp, bottom = 2.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                Icons.Outlined.Search,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp),
+                tint = kb.toolbarIcon,
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(
+                text = when {
+                    state.dictionaryQuery.isNotEmpty() -> state.dictionaryQuery
+                    state.dictionarySearchActive -> "Type a word…"
+                    else -> "Look up a word…"
+                },
+                color = if (state.dictionaryQuery.isEmpty()) kb.toolbarIcon else kb.modifierKeyText,
+                fontSize = 14.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+            if (state.dictionarySearchActive) {
+                IconButton(
+                    onClick = { onLookup(state.dictionaryQuery) },
+                    modifier = Modifier.size(36.dp),
+                ) {
+                    Icon(
+                        Icons.AutoMirrored.Outlined.ArrowForward,
+                        contentDescription = "Look up",
+                        modifier = Modifier.size(18.dp),
+                        tint = kb.accent,
+                    )
+                }
+            }
+        }
+        if (state.dictionarySearchActive) return@Column
+
+        when (val dict = state.dictionary) {
+            DictionaryUi.Idle -> DictionaryMessage(
+                "Look up any English word — tap the search bar and type, " +
+                    "or place the cursor on a word before opening the tool.",
+            )
+            is DictionaryUi.Loading -> DictionaryMessage("Looking up “${dict.word}”…")
+            is DictionaryUi.Error -> DictionaryMessage(
+                "Couldn't reach the dictionary. Check your connection and try again.",
+            )
+            is DictionaryUi.NotFound -> DictionaryMessage(
+                "No entry found for “${dict.word}”. Check the spelling, or try the base form of the word.",
+            )
+            is DictionaryUi.Ready -> DictionaryEntries(dict.entries, onLookup, onInsert)
+        }
+    }
+}
+
+@Composable
+private fun DictionaryMessage(text: String) {
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Text(
+            text,
+            color = LocalKbTheme.current.toolbarIcon,
+            fontSize = 13.sp,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(horizontal = 24.dp),
+        )
+    }
+}
+
+@Composable
+private fun DictionaryEntries(
+    entries: List<DictEntry>,
+    onLookup: (String) -> Unit,
+    onInsert: (String) -> Unit,
+) {
+    val kb = LocalKbTheme.current
+    val context = LocalContext.current
+    // Serif display face for headwords; falls back to the system serif
+    // until the downloadable font arrives (or forever, offline).
+    val serif = remember { KeyboardFonts.googleFamily("Lora") }
+    // One shared player; releasing on dispose stops any playback with the panel.
+    val player = remember { MediaPlayer() }
+    DisposableEffect(Unit) { onDispose { player.release() } }
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(
+            start = 14.dp, end = 14.dp, bottom = 10.dp,
+        ),
+    ) {
+        entries.forEachIndexed { entryIndex, entry ->
+            item(key = "head$entryIndex") {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = if (entryIndex == 0) 2.dp else 14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        entry.word,
+                        color = kb.modifierKeyText,
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = serif,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    if (entry.phonetic.isNotEmpty()) {
+                        Spacer(Modifier.width(10.dp))
+                        Text(
+                            entry.phonetic,
+                            color = kb.toolbarIcon,
+                            fontSize = 13.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false),
+                        )
+                    }
+                    Spacer(Modifier.weight(1f))
+                    val audioUrl = entry.audioUrl
+                    if (audioUrl != null) {
+                        IconButton(
+                            onClick = { playPronunciation(player, audioUrl) },
+                            modifier = Modifier.size(32.dp),
+                        ) {
+                            Icon(
+                                Icons.AutoMirrored.Outlined.VolumeUp,
+                                contentDescription = "Play pronunciation",
+                                modifier = Modifier.size(18.dp),
+                                tint = kb.accent,
+                            )
+                        }
+                    }
+                    DictionaryChip(label = "Insert", filled = true) { onInsert(entry.word) }
+                }
+            }
+            entry.meanings.forEachIndexed { meaningIndex, meaning ->
+                item(key = "meaning$entryIndex-$meaningIndex") {
+                    DictionaryMeaning(meaning, serif, onLookup)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DictionaryMeaning(
+    meaning: DictMeaning,
+    serif: FontFamily,
+    onLookup: (String) -> Unit,
+) {
+    val kb = LocalKbTheme.current
+    Column(modifier = Modifier.padding(top = 6.dp)) {
+        if (meaning.partOfSpeech.isNotEmpty()) {
+            Text(
+                meaning.partOfSpeech,
+                color = kb.accent,
+                fontSize = 14.sp,
+                fontStyle = FontStyle.Italic,
+                fontFamily = serif,
+                fontWeight = FontWeight.SemiBold,
+            )
+        }
+        meaning.definitions.forEachIndexed { index, definition ->
+            Row(modifier = Modifier.padding(top = 3.dp)) {
+                Text(
+                    "${index + 1}.",
+                    color = kb.toolbarIcon,
+                    fontSize = 13.sp,
+                    modifier = Modifier.width(20.dp),
+                )
+                Column {
+                    Text(
+                        definition.text,
+                        color = kb.modifierKeyText,
+                        fontSize = 13.sp,
+                        lineHeight = 17.sp,
+                    )
+                    if (definition.example != null) {
+                        Text(
+                            "“${definition.example}”",
+                            color = kb.toolbarIcon,
+                            fontSize = 12.sp,
+                            lineHeight = 16.sp,
+                            fontStyle = FontStyle.Italic,
+                            fontFamily = serif,
+                            modifier = Modifier.padding(top = 1.dp),
+                        )
+                    }
+                }
+            }
+        }
+        val synonyms = (meaning.synonyms + meaning.definitions.flatMap { it.synonyms }).distinct()
+        if (synonyms.isNotEmpty()) {
+            WordChipRow("Synonyms", synonyms, onLookup)
+        }
+        if (meaning.antonyms.isNotEmpty()) {
+            WordChipRow("Antonyms", meaning.antonyms, onLookup)
+        }
+    }
+}
+
+/** Label plus a scrolling row of tappable related words (tap = look up). */
+@Composable
+private fun WordChipRow(label: String, words: List<String>, onLookup: (String) -> Unit) {
+    val kb = LocalKbTheme.current
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 5.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(label, color = kb.toolbarIcon, fontSize = 11.sp, modifier = Modifier.width(66.dp))
+        Row(
+            modifier = Modifier
+                .weight(1f)
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(5.dp),
+        ) {
+            for (word in words.take(12)) {
+                DictionaryChip(label = word, filled = false) { onLookup(word) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DictionaryChip(label: String, filled: Boolean, onClick: () -> Unit) {
+    val kb = LocalKbTheme.current
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(12.dp))
+            .background(if (filled) kb.toolCircleActive else kb.chip)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 10.dp, vertical = 5.dp),
+    ) {
+        Text(
+            label,
+            color = if (filled) kb.toolCircleActiveIcon else kb.modifierKeyText,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Medium,
+            maxLines = 1,
+        )
+    }
+}
+
+/** Streams the pronunciation recording; errors just leave silence. */
+private fun playPronunciation(player: MediaPlayer, url: String) {
+    runCatching {
+        player.reset()
+        player.setAudioAttributes(
+            AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_MEDIA)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                .build()
+        )
+        player.setDataSource(url)
+        player.setOnPreparedListener { it.start() }
+        player.prepareAsync()
+    }
+}
