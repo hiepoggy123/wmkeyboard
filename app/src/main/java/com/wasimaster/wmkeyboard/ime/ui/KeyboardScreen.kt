@@ -1496,13 +1496,22 @@ private fun KeyRows(
             val gridWeight = layout.rows.first().map { it.width }.sum()
             val split = state.settings.splitKeyboard
             val splitGapPercent = state.settings.splitGapPercent
-            // The number row stays on every layer (letters and symbols alike),
-            // matching Gboard, so switching layers never changes the height.
+            // The extra row stays on every layer so switching layers never
+            // changes the height — but the symbol layers already lead with
+            // their own digit row, so there it carries brackets and other
+            // symbols the layers lack instead of duplicating the digits.
             if (state.settings.numberRow) {
-                val digits = remember { "1234567890".map { Key(it.toString()) } }
+                val letters = state.layoutMode == LayoutMode.LETTERS
+                val extraRow = remember(letters) {
+                    if (letters) {
+                        "1234567890".map { Key(it.toString()) }
+                    } else {
+                        listOf("!", "\\", "<", ">", "[", "]", "{", "}", "|", "~").map { Key(it) }
+                    }
+                }
                 KeyRow(
-                    keys = digits,
-                    gridWeight = digits.size.toFloat(),
+                    keys = extraRow,
+                    gridWeight = extraRow.size.toFloat(),
                     split = split,
                     splitGapPercent = splitGapPercent,
                     keyHeightDp = state.settings.numberRowHeightDp,

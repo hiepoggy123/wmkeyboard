@@ -27,12 +27,12 @@ object KeyboardFonts {
 
     const val DEFAULT_ID = "default"
     const val CUSTOM_ID = "custom"
+    const val CUSTOM_BENGALI_ID = "custom_bn"
     private const val GOOGLE_PREFIX = "google:"
 
     /**
-     * Curated Google Fonts choices: workhorse sans faces, a few serifs,
-     * monos and display faces, plus Bengali-script families (Hind
-     * Siliguri, Baloo Da 2) that cover both scripts this keyboard types.
+     * Curated Google Fonts choices for the English font: workhorse sans
+     * faces, a few serifs, monos and display faces.
      */
     val googleFonts: List<String> = listOf(
         "Roboto", "Inter", "Open Sans", "Lato", "Montserrat", "Poppins",
@@ -40,19 +40,31 @@ object KeyboardFonts {
         "Merriweather", "Lora", "Playfair Display", "Roboto Slab",
         "Roboto Mono", "JetBrains Mono",
         "Comfortaa", "Pacifico", "Caveat", "Orbitron",
-        "Hind Siliguri", "Baloo Da 2",
+    )
+
+    /**
+     * Bengali-script Google Fonts families, used while a Bengali input
+     * mode is active. All of these also carry Latin glyphs, so mixed
+     * strings (suggestion strip in Avro mode) stay in one face.
+     */
+    val bengaliGoogleFonts: List<String> = listOf(
+        "Hind Siliguri", "Noto Sans Bengali", "Noto Serif Bengali",
+        "Anek Bangla", "Baloo Da 2", "Tiro Bangla", "Atma", "Mina", "Galada",
     )
 
     fun googleId(name: String): String = GOOGLE_PREFIX + name
 
     fun displayName(id: String, customName: String = ""): String = when {
-        id == CUSTOM_ID -> customName.ifBlank { "Custom font" }
+        id == CUSTOM_ID || id == CUSTOM_BENGALI_ID -> customName.ifBlank { "Custom font" }
         id.startsWith(GOOGLE_PREFIX) -> id.removePrefix(GOOGLE_PREFIX)
         else -> "System default"
     }
 
     fun customFontFile(context: Context): File =
         File(context.filesDir, "fonts/custom_font.ttf")
+
+    fun customBengaliFontFile(context: Context): File =
+        File(context.filesDir, "fonts/custom_font_bn.ttf")
 
     fun customEmojiFontFile(context: Context): File =
         File(context.filesDir, "fonts/custom_emoji.ttf")
@@ -70,6 +82,7 @@ object KeyboardFonts {
     /** The family for a stored font id, or null for the system default. */
     fun family(context: Context, id: String): FontFamily? = when {
         id == CUSTOM_ID -> fileFamily(customFontFile(context))
+        id == CUSTOM_BENGALI_ID -> fileFamily(customBengaliFontFile(context))
         id.startsWith(GOOGLE_PREFIX) -> googleFamily(id.removePrefix(GOOGLE_PREFIX))
         else -> null
     }

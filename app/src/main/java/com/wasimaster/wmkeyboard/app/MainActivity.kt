@@ -128,6 +128,7 @@ import com.wasimaster.wmkeyboard.core.settings.SpaceSwipeAction
 import com.wasimaster.wmkeyboard.core.settings.ThemeMode
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
 import kotlin.math.roundToInt
+import com.wasimaster.wmkeyboard.core.prediction.UserLexicon
 import com.wasimaster.wmkeyboard.core.snippets.Snippet
 import com.wasimaster.wmkeyboard.core.snippets.SnippetStore
 import kotlinx.coroutines.delay
@@ -216,7 +217,12 @@ private fun SettingsNavHost(repository: SettingsRepository, settings: KeyboardSe
         }
         composable("typing") {
             SettingsScreen("Typing", { navController.popBackStack() }) {
-                TypingSettings(repository, settings)
+                TypingSettings(repository, settings) { navController.navigate("dictionary") }
+            }
+        }
+        composable("dictionary") {
+            SettingsScreen("Personal dictionary", { navController.popBackStack() }) {
+                DictionarySettings(repository)
             }
         }
         composable("appearance") {
@@ -589,7 +595,11 @@ private fun SpaceSwipeSetting(
 // ---- sections ----
 
 @Composable
-private fun TypingSettings(repository: SettingsRepository, settings: KeyboardSettings) {
+private fun TypingSettings(
+    repository: SettingsRepository,
+    settings: KeyboardSettings,
+    onOpenDictionary: () -> Unit,
+) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     SectionHeader("Corrections")
@@ -609,6 +619,20 @@ private fun TypingSettings(repository: SettingsRepository, settings: KeyboardSet
             "English words without the apostrophe (its, well, ill, shell…) are " +
             "deliberately left alone. Works independently of autocorrect.",
     ) { scope.launch { repository.setAutoApostrophe(it) } }
+    ListItem(
+        headlineContent = { Text("Personal dictionary") },
+        supportingContent = { Text("Words the keyboard has learned — review, remove, add your own") },
+        trailingContent = {
+            Icon(
+                Icons.AutoMirrored.Outlined.KeyboardArrowRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        },
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onOpenDictionary),
+    )
     ToggleSetting(
         "Suggestions", "Show word predictions above the keyboard", settings.suggestions,
         info = "Shows up to three candidates above the keys while you type: completions, " +
@@ -1234,12 +1258,19 @@ private fun EmojiSettings(repository: SettingsRepository, settings: KeyboardSett
     val previewFamily = remember(settings.emojiFont, fontRefresh) {
         KeyboardFonts.emojiFamily(context, settings.emojiFont)
     }
-    Text(
-        "😀 😂 🥰 😎 🤔 👍 ❤️ 🎉",
-        fontSize = 26.sp,
-        fontFamily = previewFamily,
-        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-    )
+    // One Text per emoji: emoji fonts often have no space glyph, so drawing
+    // them as a single spaced string makes the glyphs overlap.
+    Row(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+        for (emoji in listOf("😀", "😂", "🥰", "😎", "🤔", "👍", "❤️", "🎉")) {
+            Text(
+                emoji,
+                fontSize = 24.sp,
+                fontFamily = previewFamily,
+                maxLines = 1,
+                modifier = Modifier.padding(end = 6.dp),
+            )
+        }
+    }
     if (settings.emojiFont == EmojiFontChoice.CUSTOM) {
         val importEmojiFont = rememberLauncherForActivityResult(
             ActivityResultContracts.OpenDocument(),
@@ -1276,6 +1307,96 @@ private fun EmojiSettings(repository: SettingsRepository, settings: KeyboardSett
     )
 }
 
+// ---- personal dictionary ----
+
+/**
+ * The learned-words file, edited directly from the settings app. Every
+ * change bumps the DataStore lexicon version so the IME (which holds its
+ * own in-memory copy) reloads from disk instead of clobbering the edit.
+ */
+@Composable
+private fun DictionarySettings(repository: SettingsRepository) {
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val lexicon = remember {
+        UserLexicon(java.io.File(context.filesDir, "learning/user_lexicon.json"))
+    }
+    var words by remember { mutableStateOf(lexicon.allWords().sortedByDescending { it.second }) }
+    var showAdd by remember { mutableStateOf(false) }
+
+    fun persist() {
+        lexicon.save()
+        words = lexicon.allWords().sortedByDescending { it.second }
+        scope.launch { repository.bumpLexiconVersion() }
+    }
+
+    Text(
+        "Words the keyboard has learned from your typing, plus any you add " +
+            "yourself. They are suggested while typing and never autocorrected " +
+            "away. Everything stays on this device.",
+        style = MaterialTheme.typography.bodyMedium,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+    )
+    Button(
+        onClick = { showAdd = true },
+        modifier = Modifier.padding(horizontal = 16.dp),
+    ) { Text("Add word") }
+    Spacer(Modifier.height(8.dp))
+    if (words.isEmpty()) {
+        Text(
+            "Nothing here yet — words appear as you type (with \"Learn from " +
+                "typing\" on under Privacy), or add one above.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 16.dp),
+        )
+    }
+    for ((word, count) in words) {
+        ListItem(
+            headlineContent = { Text(word) },
+            supportingContent = {
+                Text(if (count >= 200) "Added by you" else "Seen $count×")
+            },
+            trailingContent = {
+                IconButton(onClick = {
+                    lexicon.forget(word)
+                    persist()
+                }) {
+                    Icon(Icons.Outlined.Delete, contentDescription = "Remove $word")
+                }
+            },
+        )
+        HorizontalDivider()
+    }
+
+    if (showAdd) {
+        var input by remember { mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = { showAdd = false },
+            title = { Text("Add word") },
+            text = {
+                OutlinedTextField(
+                    value = input,
+                    onValueChange = { input = it },
+                    label = { Text("Word") },
+                    singleLine = true,
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = input.isNotBlank(),
+                    onClick = {
+                        lexicon.addWord(input.trim())
+                        persist()
+                        showAdd = false
+                    },
+                ) { Text("Add") }
+            },
+            dismissButton = { TextButton(onClick = { showAdd = false }) { Text("Cancel") } },
+        )
+    }
+}
+
 // ---- fonts ----
 
 /** Mime types SAF offers when picking a font; octet-stream covers file managers that don't tag fonts. */
@@ -1284,68 +1405,109 @@ private val FONT_MIME_TYPES = arrayOf(
 )
 
 /**
- * Font picker: system default, curated Google Fonts (each row rendered in
- * its own face as a live preview — faces download on first view and are
- * cached by the system provider), plus an imported custom font file.
+ * Font picker: separate English and Bengali choices, each offering the
+ * system default, curated Google Fonts (every row rendered in its own face
+ * as a live preview — faces download on first view and are cached by the
+ * system provider), plus an imported custom font file per script.
  */
 @Composable
 private fun FontSettings(repository: SettingsRepository, settings: KeyboardSettings) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
-    var fontRefresh by remember { mutableIntStateOf(0) }
     Text(
-        "Applies to key labels, suggestions and the keyboard's panels. Google " +
-            "fonts are fetched once through the system font provider and cached " +
-            "on-device. Fonts without Bengali glyphs fall back to the system " +
-            "font for Bengali keys automatically.",
+        "Applies to key labels, suggestions and the keyboard's panels. The " +
+            "English font is used in English mode, the Bengali font in Avro, " +
+            "প্রভাত and জাতীয় modes. Google fonts are fetched once through the " +
+            "system font provider and cached on-device; missing glyphs fall " +
+            "back to the system font automatically.",
         style = MaterialTheme.typography.bodyMedium,
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
     )
+    FontPickerSection(
+        header = "English font",
+        sample = "The quick brown fox jumps over the lazy dog",
+        selectedId = settings.keyFontId,
+        googleNames = KeyboardFonts.googleFonts,
+        customId = KeyboardFonts.CUSTOM_ID,
+        customFile = KeyboardFonts.customFontFile(context),
+        customName = settings.customFontName,
+        onSelect = { id -> scope.launch { repository.setKeyFontId(id) } },
+        onImport = { uri ->
+            scope.launch {
+                val name = withContext(Dispatchers.IO) {
+                    importFontFile(context, uri, KeyboardFonts.customFontFile(context))
+                }
+                if (name != null) repository.setCustomFont(name)
+            }
+        },
+    )
+    FontPickerSection(
+        header = "Bengali font",
+        sample = "আমি ভালো আছি · কখগঘঙ চছজঝঞ",
+        selectedId = settings.bengaliFontId,
+        googleNames = KeyboardFonts.bengaliGoogleFonts,
+        customId = KeyboardFonts.CUSTOM_BENGALI_ID,
+        customFile = KeyboardFonts.customBengaliFontFile(context),
+        customName = settings.customBengaliFontName,
+        onSelect = { id -> scope.launch { repository.setBengaliFontId(id) } },
+        onImport = { uri ->
+            scope.launch {
+                val name = withContext(Dispatchers.IO) {
+                    importFontFile(context, uri, KeyboardFonts.customBengaliFontFile(context))
+                }
+                if (name != null) repository.setCustomBengaliFont(name)
+            }
+        },
+    )
+    Spacer(Modifier.height(16.dp))
+}
 
-    SectionHeader("Custom font")
+/** One script's font list: default, Google faces, the imported file, import button. */
+@Composable
+private fun FontPickerSection(
+    header: String,
+    sample: String,
+    selectedId: String,
+    googleNames: List<String>,
+    customId: String,
+    customFile: java.io.File,
+    customName: String,
+    onSelect: (String) -> Unit,
+    onImport: (android.net.Uri) -> Unit,
+) {
+    val context = LocalContext.current
+    SectionHeader(header)
     val importFont = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument(),
-    ) { uri ->
-        if (uri == null) return@rememberLauncherForActivityResult
-        scope.launch {
-            val name = withContext(Dispatchers.IO) {
-                importFontFile(context, uri, KeyboardFonts.customFontFile(context))
-            }
-            if (name != null) {
-                repository.setCustomFont(name)
-                fontRefresh++
-            }
-        }
-    }
-    if (KeyboardFonts.customFontFile(context).exists()) {
+    ) { uri -> if (uri != null) onImport(uri) }
+    FontChoiceRow(
+        label = "System default",
+        family = null,
+        sample = sample,
+        selected = selectedId == KeyboardFonts.DEFAULT_ID,
+    ) { onSelect(KeyboardFonts.DEFAULT_ID) }
+    for (name in googleNames) {
+        val id = KeyboardFonts.googleId(name)
         FontChoiceRow(
-            label = settings.customFontName.ifBlank { "Imported font" },
-            family = remember(settings.customFontName, fontRefresh) {
-                KeyboardFonts.family(context, KeyboardFonts.CUSTOM_ID)
-            },
-            selected = settings.keyFontId == KeyboardFonts.CUSTOM_ID,
-        ) { scope.launch { repository.setKeyFontId(KeyboardFonts.CUSTOM_ID) } }
+            label = name,
+            family = remember(id) { KeyboardFonts.family(context, id) },
+            sample = sample,
+            selected = selectedId == id,
+        ) { onSelect(id) }
+    }
+    if (customFile.exists()) {
+        FontChoiceRow(
+            label = customName.ifBlank { "Imported font" },
+            family = remember(customName) { KeyboardFonts.family(context, customId) },
+            sample = sample,
+            selected = selectedId == customId,
+        ) { onSelect(customId) }
     }
     Spacer(Modifier.height(4.dp))
     OutlinedButton(
         onClick = { importFont.launch(FONT_MIME_TYPES) },
         modifier = Modifier.padding(horizontal = 16.dp),
     ) { Text("Import font file (.ttf / .otf)") }
-
-    SectionHeader("Fonts")
-    FontChoiceRow(
-        label = "System default",
-        family = null,
-        selected = settings.keyFontId == KeyboardFonts.DEFAULT_ID,
-    ) { scope.launch { repository.setKeyFontId(KeyboardFonts.DEFAULT_ID) } }
-    for (name in KeyboardFonts.googleFonts) {
-        val id = KeyboardFonts.googleId(name)
-        FontChoiceRow(
-            label = name,
-            family = remember(id) { KeyboardFonts.family(context, id) },
-            selected = settings.keyFontId == id,
-        ) { scope.launch { repository.setKeyFontId(id) } }
-    }
 }
 
 /** One selectable font row, its label and sample line drawn in the font itself. */
@@ -1353,6 +1515,7 @@ private fun FontSettings(repository: SettingsRepository, settings: KeyboardSetti
 private fun FontChoiceRow(
     label: String,
     family: FontFamily?,
+    sample: String,
     selected: Boolean,
     onClick: () -> Unit,
 ) {
@@ -1360,7 +1523,7 @@ private fun FontChoiceRow(
         headlineContent = { Text(label, fontFamily = family, fontSize = 18.sp) },
         supportingContent = {
             Text(
-                "The quick brown fox · আমি ভালো আছি",
+                sample,
                 fontFamily = family,
                 maxLines = 1,
             )

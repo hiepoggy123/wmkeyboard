@@ -30,6 +30,7 @@ import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
+import com.wasimaster.wmkeyboard.core.settings.InputMode
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.ThemeMode
 import com.wasimaster.wmkeyboard.core.theme.BuiltInThemes
@@ -281,8 +282,16 @@ fun KeyboardThemeProvider(settings: KeyboardSettings, content: @Composable () ->
     // Text on the keyboard — key labels, suggestions, panels — follows it
     // without per-call plumbing. Emojis get their own family via
     // LocalEmojiFontFamily at the few places emojis are drawn.
-    val keyFontFamily = remember(settings.keyFontId, settings.customFontName) {
-        KeyboardFonts.family(context, settings.keyFontId)
+    // English and Bengali modes each have their own font choice. The
+    // Bengali faces all carry Latin glyphs too, so Avro's romanized keys
+    // and mixed suggestion strips stay in one face while Bengali is active.
+    val fontId = if (settings.inputMode == InputMode.ENGLISH) {
+        settings.keyFontId
+    } else {
+        settings.bengaliFontId
+    }
+    val keyFontFamily = remember(fontId, settings.customFontName, settings.customBengaliFontName) {
+        KeyboardFonts.family(context, fontId)
     }
     val emojiFontFamily = remember(settings.emojiFont) {
         KeyboardFonts.emojiFamily(context, settings.emojiFont)

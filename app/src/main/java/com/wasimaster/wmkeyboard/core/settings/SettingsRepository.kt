@@ -131,6 +131,15 @@ data class KeyboardSettings(
     val keyFontId: String = "default",
     /** Display name of the imported custom font file, for the settings UI. */
     val customFontName: String = "",
+    /** Font used while a Bengali input mode is active (same id scheme). */
+    val bengaliFontId: String = "default",
+    /** Display name of the imported custom Bengali font file. */
+    val customBengaliFontName: String = "",
+    /**
+     * Bumped by the settings app whenever it edits the learned-words file
+     * directly, so the IME (which keeps the lexicon in memory) reloads it.
+     */
+    val lexiconVersion: Int = 0,
     /** Emoji look on the keyboard: system pack, Noto (stock Android), or custom. */
     val emojiFont: EmojiFontChoice = EmojiFontChoice.SYSTEM,
     val hapticFeedback: Boolean = true,
@@ -250,6 +259,9 @@ class SettingsRepository(private val context: Context) {
         private val FONT_SCALE = floatPreferencesKey("font_scale")
         private val KEY_FONT_ID = stringPreferencesKey("key_font_id")
         private val CUSTOM_FONT_NAME = stringPreferencesKey("custom_font_name")
+        private val BENGALI_FONT_ID = stringPreferencesKey("bengali_font_id")
+        private val CUSTOM_BENGALI_FONT_NAME = stringPreferencesKey("custom_bengali_font_name")
+        private val LEXICON_VERSION = intPreferencesKey("lexicon_version")
         private val EMOJI_FONT = stringPreferencesKey("emoji_font")
         private val AUTO_APOSTROPHE = booleanPreferencesKey("auto_apostrophe")
         private val HAPTIC = booleanPreferencesKey("haptic")
@@ -354,6 +366,10 @@ class SettingsRepository(private val context: Context) {
             fontScale = p[FONT_SCALE] ?: defaults.fontScale,
             keyFontId = p[KEY_FONT_ID] ?: defaults.keyFontId,
             customFontName = p[CUSTOM_FONT_NAME] ?: defaults.customFontName,
+            bengaliFontId = p[BENGALI_FONT_ID] ?: defaults.bengaliFontId,
+            customBengaliFontName = p[CUSTOM_BENGALI_FONT_NAME]
+                ?: defaults.customBengaliFontName,
+            lexiconVersion = p[LEXICON_VERSION] ?: defaults.lexiconVersion,
             emojiFont = p[EMOJI_FONT]
                 ?.let { runCatching { EmojiFontChoice.valueOf(it) }.getOrNull() }
                 ?: defaults.emojiFont,
@@ -632,6 +648,20 @@ class SettingsRepository(private val context: Context) {
             it[CUSTOM_FONT_NAME] = name
             it[KEY_FONT_ID] = "custom"
         }
+
+    suspend fun setBengaliFontId(value: String) =
+        context.dataStore.edit { it[BENGALI_FONT_ID] = value }
+
+    /** Records the imported Bengali font's display name and selects it. */
+    suspend fun setCustomBengaliFont(name: String) =
+        context.dataStore.edit {
+            it[CUSTOM_BENGALI_FONT_NAME] = name
+            it[BENGALI_FONT_ID] = "custom_bn"
+        }
+
+    /** Signals the IME that the learned-words file changed on disk. */
+    suspend fun bumpLexiconVersion() =
+        context.dataStore.edit { it[LEXICON_VERSION] = (it[LEXICON_VERSION] ?: 0) + 1 }
 
     suspend fun setEmojiFont(value: EmojiFontChoice) =
         context.dataStore.edit { it[EMOJI_FONT] = value.name }

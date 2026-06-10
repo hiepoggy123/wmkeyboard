@@ -179,9 +179,17 @@ class WMKeyboardService : InputMethodService() {
         snippetStore = SnippetStore(File(filesDir, "snippets/snippets.json"))
 
         serviceScope.launch {
+            var lexiconVersion = -1
             settingsRepository.settings.collect { settings ->
                 clipboardStore.expiryMillis = settings.clipboardExpiryHours * 60L * 60 * 1000
                 if (!settings.floatingKeyboard) floatingPanelBounds = null
+                // The settings app edited the learned-words file (personal
+                // dictionary): drop the in-memory copy for the disk state,
+                // otherwise the next save here would clobber those edits.
+                if (lexiconVersion != -1 && settings.lexiconVersion != lexiconVersion) {
+                    withContext(Dispatchers.Default) { userLexicon.reload() }
+                }
+                lexiconVersion = settings.lexiconVersion
                 _uiState.update { it.copy(settings = settings, inputMode = settings.inputMode) }
             }
         }
@@ -626,6 +634,9 @@ class WMKeyboardService : InputMethodService() {
         ic.commitText(" ", 1)
         lastSpaceTime = now
         maybeAutoCapitalize()
+        // Next-word predictions (learned bigrams, including word → emoji)
+        // appear once the word is committed.
+        refreshSuggestions()
     }
 
     private fun onEnter() {
@@ -733,6 +744,26 @@ class WMKeyboardService : InputMethodService() {
         previousWord = cleaned.ifEmpty { null }
     }
 
+    /**
+     * A committed emoji learns the word→emoji bigram ("you" → ❤️ after
+     * "I love you ❤️"), so next-word prediction can offer the emoji the
+     * next time the phrase is typed. The emoji then becomes the previous
+     * "word" so emoji→word habits are learned too.
+     */
+    private fun learnEmoji(emoji: String) {
+        val state = _uiState.value
+        if (!state.settings.learnFromTyping || state.settings.incognito || state.secureField) {
+            previousWord = emoji
+            return
+        }
+        previousWord?.let { userLexicon.learnBigram(it, emoji) }
+        previousWord = emoji
+    }
+
+    /** Heuristic: a learned bigram successor that is an emoji, not a word. */
+    private fun isEmojiCandidate(text: String): Boolean =
+        text.isNotBlank() && text.none { it.isLetterOrDigit() } && text.any { it.code > 0x2000 }
+
     private fun refreshSuggestions() {
         val engine = suggestionEngine ?: return
         val state = _uiState.value
@@ -746,12 +777,20 @@ class WMKeyboardService : InputMethodService() {
                     previousWord = previousWord,
                     avroMode = state.inputMode == InputMode.AVRO,
                 )
-                val emojis = if (state.settings.emojiPrediction && typed.isNotEmpty()) {
-                    emojiSuggester?.suggest(typed).orEmpty()
+                if (typed.isNotEmpty()) {
+                    val emojis = if (state.settings.emojiPrediction) {
+                        emojiSuggester?.suggest(typed).orEmpty()
+                    } else {
+                        emptyList()
+                    }
+                    words to emojis
                 } else {
-                    emptyList()
+                    // Next-word prediction: learned bigrams can end in an
+                    // emoji ("you" → ❤️). Those belong in the emoji slot of
+                    // the strip, not among the word chips.
+                    val (emojiNext, wordNext) = words.partition { isEmojiCandidate(it) }
+                    wordNext to if (state.settings.emojiPrediction) emojiNext else emptyList()
                 }
-                words to emojis
             }
             _uiState.update { it.copy(suggestions = results, emojiSuggestions = emojis) }
         }
@@ -772,6 +811,7 @@ class WMKeyboardService : InputMethodService() {
         composing = StringBuilder()
         _uiState.update { it.copy(composingPreview = "", suggestions = emptyList(), emojiSuggestions = emptyList()) }
         maybeAutoCapitalize()
+        refreshSuggestions()
     }
 
     /** Spacebar drag: move the cursor one position left (-1) or right (+1). */
@@ -1121,6 +1161,7 @@ class WMKeyboardService : InputMethodService() {
     fun onEmojiTapped(emoji: String) {
         vibrate()
         currentInputConnection?.commitText(emoji, 1)
+        learnEmoji(emoji)
         emojiUsage.record(emoji)
         _uiState.update {
             it.copy(emojiRecents = emojiUsage.recents(), emojiFrequents = emojiUsage.frequents())
@@ -1169,6 +1210,7 @@ class WMKeyboardService : InputMethodService() {
         } else {
             ic.commitText(emoji, 1)
         }
+        learnEmoji(emoji)
         emojiUsage.record(emoji)
         composing = StringBuilder()
         _uiState.update {
@@ -1180,6 +1222,7 @@ class WMKeyboardService : InputMethodService() {
                 emojiFrequents = emojiUsage.frequents(),
             )
         }
+        refreshSuggestions()
     }
 
     fun onEmojiSearchToggled() {

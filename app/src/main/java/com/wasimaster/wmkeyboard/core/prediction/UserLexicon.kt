@@ -37,6 +37,32 @@ class UserLexicon(private val storageFile: File?) {
         trie.reinforce(key)
     }
 
+    /**
+     * User-added dictionary entry: weighted like a word typed [boost]
+     * times so it competes with genuinely frequent words immediately and
+     * is never "corrected" away.
+     */
+    @Synchronized
+    fun addWord(word: String, boost: Int = 200) {
+        val key = word.trim().lowercase()
+        if (key.isEmpty()) return
+        words.merge(key, boost, Int::plus)
+        trie.reinforce(key, boost)
+    }
+
+    /**
+     * Re-reads the storage file. The settings app edits the file directly
+     * (personal dictionary screen); the IME calls this when signalled so
+     * its in-memory copy doesn't clobber those edits on the next save.
+     */
+    @Synchronized
+    fun reload() {
+        words.clear()
+        bigrams.clear()
+        rebuildTrie()
+        load()
+    }
+
     @Synchronized
     fun learnBigram(previous: String, next: String) {
         val prev = previous.lowercase()
