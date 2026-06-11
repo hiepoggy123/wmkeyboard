@@ -27,12 +27,13 @@ internal object ToolHttp {
         "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) " +
             "Chrome/124.0 Mobile Safari/537.36"
 
-    fun get(url: String, timeoutMs: Int = 10_000): String {
+    fun get(url: String, timeoutMs: Int = 10_000, headers: Map<String, String> = emptyMap()): String {
         val connection = URL(url).openConnection() as HttpURLConnection
         try {
             connection.connectTimeout = timeoutMs
             connection.readTimeout = timeoutMs
             connection.setRequestProperty("User-Agent", USER_AGENT)
+            for ((name, value) in headers) connection.setRequestProperty(name, value)
             val status = connection.responseCode
             if (status !in 200..299) {
                 val body = connection.errorStream?.bufferedReader()?.use { it.readText() }

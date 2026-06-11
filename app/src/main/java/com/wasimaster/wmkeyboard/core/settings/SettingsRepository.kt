@@ -57,6 +57,14 @@ enum class GifContentFilter { OFF, LOW, MEDIUM, HIGH }
 enum class GifSourceMode { TABS, MIX }
 
 /**
+ * Backend for the web and image search tools. Brave searches the whole
+ * web on a monthly free credit; Google Programmable Search still works
+ * for engines that already had "search the entire web" (until
+ * 2027-01-01) or new engines scoped to up to 50 chosen sites.
+ */
+enum class WebSearchProvider { BRAVE, GOOGLE }
+
+/**
  * Key-press sound: which of the system's UI sound effects plays. All come
  * from the device's sound pack, so they match the stock keyboard's palette.
  */
@@ -252,6 +260,7 @@ data class KeyboardSettings(
     val translateApiKey: String = "",
     val klipyApiKey: String = "",
     val giphyApiKey: String = "",
+    val braveApiKey: String = "",
     val googleSearchApiKey: String = "",
     /** Programmable Search engine id (cx) that goes with [googleSearchApiKey]. */
     val googleSearchCx: String = "",
@@ -262,6 +271,8 @@ data class KeyboardSettings(
     val gifUseGoogle: Boolean = true,
     /** SafeSearch for the web and image search tools. */
     val searchSafe: Boolean = true,
+    /** Preferred web/image search backend (falls back to whichever has a key). */
+    val searchProvider: WebSearchProvider = WebSearchProvider.BRAVE,
     /** Results per web/image search (the API caps a page at 10). */
     val searchResultCount: Int = 8,
 )
@@ -374,6 +385,8 @@ class SettingsRepository(private val context: Context) {
         private val TRANSLATE_TARGET_LANG = stringPreferencesKey("translate_target_lang")
         private val TRANSLATE_API_KEY = stringPreferencesKey("translate_api_key")
         private val KLIPY_API_KEY = stringPreferencesKey("klipy_api_key")
+        private val BRAVE_API_KEY = stringPreferencesKey("brave_api_key")
+        private val SEARCH_PROVIDER = stringPreferencesKey("search_provider")
         private val GIPHY_API_KEY = stringPreferencesKey("giphy_api_key")
         private val GIF_SOURCE_MODE = stringPreferencesKey("gif_source_mode")
         private val GIF_USE_GOOGLE = booleanPreferencesKey("gif_use_google")
@@ -520,6 +533,10 @@ class SettingsRepository(private val context: Context) {
             translateTargetLang = p[TRANSLATE_TARGET_LANG] ?: defaults.translateTargetLang,
             translateApiKey = p[TRANSLATE_API_KEY] ?: defaults.translateApiKey,
             klipyApiKey = p[KLIPY_API_KEY] ?: defaults.klipyApiKey,
+            braveApiKey = p[BRAVE_API_KEY] ?: defaults.braveApiKey,
+            searchProvider = p[SEARCH_PROVIDER]
+                ?.let { runCatching { WebSearchProvider.valueOf(it) }.getOrNull() }
+                ?: defaults.searchProvider,
             giphyApiKey = p[GIPHY_API_KEY] ?: defaults.giphyApiKey,
             gifSourceMode = p[GIF_SOURCE_MODE]
                 ?.let { runCatching { GifSourceMode.valueOf(it) }.getOrNull() }
@@ -880,6 +897,12 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setKlipyApiKey(value: String) =
         context.dataStore.edit { it[KLIPY_API_KEY] = value.trim() }
+
+    suspend fun setBraveApiKey(value: String) =
+        context.dataStore.edit { it[BRAVE_API_KEY] = value.trim() }
+
+    suspend fun setSearchProvider(value: WebSearchProvider) =
+        context.dataStore.edit { it[SEARCH_PROVIDER] = value.name }
 
     suspend fun setGiphyApiKey(value: String) =
         context.dataStore.edit { it[GIPHY_API_KEY] = value.trim() }

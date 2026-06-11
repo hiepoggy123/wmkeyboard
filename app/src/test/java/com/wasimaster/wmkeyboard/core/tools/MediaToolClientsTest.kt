@@ -190,6 +190,61 @@ class GoogleSearchClientTest {
     }
 }
 
+class BraveSearchClientTest {
+
+    @Test
+    fun `web results parse title, cleaned snippet and display url`() {
+        val body = """
+            {"web":{"results":[
+                {"title":"Kotlin","url":"https://kotlinlang.org/",
+                 "description":"A <strong>modern</strong> language.",
+                 "meta_url":{"netloc":"kotlinlang.org"}},
+                {"description":"missing title and url"}
+            ]}}
+        """.trimIndent()
+        val results = BraveSearchClient.parseWeb(body)
+        assertEquals(1, results.size)
+        assertEquals("Kotlin", results[0].title)
+        assertEquals("A modern language.", results[0].snippet)
+        assertEquals("kotlinlang.org", results[0].displayUrl)
+    }
+
+    @Test
+    fun `display url falls back to the url host`() {
+        val body = """{"web":{"results":[{"title":"T","url":"https://example.com/page"}]}}"""
+        assertEquals("example.com", BraveSearchClient.parseWeb(body)[0].displayUrl)
+    }
+
+    @Test
+    fun `image results parse thumb, full url and inferred mime`() {
+        val body = """
+            {"results":[
+                {"title":"A cat","url":"https://site/page",
+                 "thumbnail":{"src":"https://imgs/thumb.jpg"},
+                 "properties":{"url":"https://site/cat.PNG"}}
+            ]}
+        """.trimIndent()
+        val results = BraveSearchClient.parseImages(body)
+        assertEquals(1, results.size)
+        assertEquals("https://imgs/thumb.jpg", results[0].thumbUrl)
+        assertEquals("https://site/cat.PNG", results[0].imageUrl)
+        assertEquals("image/png", results[0].mime)
+        assertEquals("https://site/page", results[0].contextUrl)
+    }
+
+    @Test
+    fun `mime inference handles query strings and defaults to jpeg`() {
+        assertEquals("image/gif", BraveSearchClient.mimeFromUrl("https://x/a.gif?width=200"))
+        assertEquals("image/jpeg", BraveSearchClient.mimeFromUrl("https://x/no-extension"))
+    }
+
+    @Test
+    fun `empty responses parse to empty lists`() {
+        assertTrue(BraveSearchClient.parseWeb("{}").isEmpty())
+        assertTrue(BraveSearchClient.parseImages("{}").isEmpty())
+    }
+}
+
 class ToolHttpTest {
 
     @Test

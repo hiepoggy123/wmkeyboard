@@ -2,6 +2,7 @@ package com.wasimaster.wmkeyboard.core.tools
 
 import com.wasimaster.wmkeyboard.BuildConfig
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
+import com.wasimaster.wmkeyboard.core.settings.WebSearchProvider
 
 /**
  * Resolves the effective API key for each network tool: a key the user
@@ -35,8 +36,32 @@ object ToolApiKeys {
         }
     }
 
+    fun brave(settings: KeyboardSettings): String =
+        settings.braveApiKey.ifBlank { BuildConfig.BRAVE_API_KEY }
+
     fun googleSearch(settings: KeyboardSettings): String =
         settings.googleSearchApiKey.ifBlank { BuildConfig.GOOGLE_SEARCH_API_KEY }
+
+    private fun hasBrave(settings: KeyboardSettings) = brave(settings).isNotBlank()
+
+    private fun hasGoogleSearch(settings: KeyboardSettings) =
+        googleSearch(settings).isNotBlank() && googleSearchCx(settings).isNotBlank()
+
+    /**
+     * Which backend the web/image search tools should actually use: the
+     * preferred provider when its key is set, otherwise the other one if
+     * it has a key, otherwise null ("needs an API key" panel).
+     */
+    fun activeSearchProvider(settings: KeyboardSettings): WebSearchProvider? {
+        val braveReady = hasBrave(settings)
+        val googleReady = hasGoogleSearch(settings)
+        return when (settings.searchProvider) {
+            WebSearchProvider.BRAVE -> if (braveReady) WebSearchProvider.BRAVE
+                else WebSearchProvider.GOOGLE.takeIf { googleReady }
+            WebSearchProvider.GOOGLE -> if (googleReady) WebSearchProvider.GOOGLE
+                else WebSearchProvider.BRAVE.takeIf { braveReady }
+        }
+    }
 
     fun googleSearchCx(settings: KeyboardSettings): String =
         settings.googleSearchCx.ifBlank { BuildConfig.GOOGLE_SEARCH_CX }
@@ -47,6 +72,7 @@ object ToolApiKeys {
     /** For the settings screens: whether the build ships its own key. */
     val builtInKlipy: Boolean get() = BuildConfig.KLIPY_API_KEY.isNotBlank()
     val builtInGiphy: Boolean get() = BuildConfig.GIPHY_API_KEY.isNotBlank()
+    val builtInBrave: Boolean get() = BuildConfig.BRAVE_API_KEY.isNotBlank()
     val builtInGoogleSearch: Boolean
         get() = BuildConfig.GOOGLE_SEARCH_API_KEY.isNotBlank() && BuildConfig.GOOGLE_SEARCH_CX.isNotBlank()
     val builtInTranslate: Boolean get() = BuildConfig.TRANSLATE_API_KEY.isNotBlank()

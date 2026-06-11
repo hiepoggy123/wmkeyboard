@@ -59,6 +59,7 @@ import coil3.gif.AnimatedImageDecoder
 import coil3.gif.GifDecoder
 import com.wasimaster.wmkeyboard.core.settings.GifSourceMode
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
+import com.wasimaster.wmkeyboard.core.settings.WebSearchProvider
 import com.wasimaster.wmkeyboard.core.tools.GifItem
 import com.wasimaster.wmkeyboard.core.tools.GifSource
 import com.wasimaster.wmkeyboard.core.tools.GifSources
@@ -148,6 +149,11 @@ private fun MediaSearchBar(
             )
         }
     }
+}
+
+private fun searchProviderName(provider: WebSearchProvider): String = when (provider) {
+    WebSearchProvider.BRAVE -> "Brave"
+    WebSearchProvider.GOOGLE -> "Google"
 }
 
 /** Centered message with an optional action chip, in panel theme colors. */
@@ -369,15 +375,22 @@ internal fun WebSearchPanel(
 ) {
     val kb = LocalKbTheme.current
     val height = if (state.mediaSearchActive) MediaSearchHeight else keyRowsHeight(state.settings)
+    val provider = ToolApiKeys.activeSearchProvider(state.settings)
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .height(height),
     ) {
-        MediaSearchBar(state = state, placeholder = "Search Google", onQueryTap = onQueryTap)
+        MediaSearchBar(
+            state = state,
+            placeholder = "Search the web",
+            onQueryTap = onQueryTap,
+            attribution = provider?.let { "via " + searchProviderName(it) },
+        )
         when (val ui = state.webSearch) {
             WebSearchUi.NeedKey -> PanelNotice(
-                "Web search needs a Google API key and search engine id. Add them in the tool's settings.",
+                "Web search needs an API key — Brave Search, or Google Programmable " +
+                    "Search. Add one in the tool's settings.",
                 actionLabel = "Open settings",
                 onAction = { onOpenToolSettings(ToolbarTool.WEB_SEARCH) },
             )
@@ -456,15 +469,22 @@ internal fun ImageSearchPanel(
     onOpenToolSettings: (ToolbarTool) -> Unit,
 ) {
     val height = if (state.mediaSearchActive) MediaSearchHeight else keyRowsHeight(state.settings)
+    val provider = ToolApiKeys.activeSearchProvider(state.settings)
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .height(height),
     ) {
-        MediaSearchBar(state = state, placeholder = "Search images", onQueryTap = onQueryTap)
+        MediaSearchBar(
+            state = state,
+            placeholder = "Search images",
+            onQueryTap = onQueryTap,
+            attribution = provider?.let { "via " + searchProviderName(it) },
+        )
         when (val ui = state.imageSearch) {
             ImageSearchUi.NeedKey -> PanelNotice(
-                "Image search needs a Google API key and search engine id. Add them in the tool's settings.",
+                "Image search needs an API key — Brave Search, or Google Programmable " +
+                    "Search. Add one in the tool's settings.",
                 actionLabel = "Open settings",
                 onAction = { onOpenToolSettings(ToolbarTool.IMAGE_SEARCH) },
             )

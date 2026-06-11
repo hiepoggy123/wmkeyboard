@@ -129,6 +129,7 @@ import com.wasimaster.wmkeyboard.core.settings.InputMode
 import com.wasimaster.wmkeyboard.core.settings.KeySoundStyle
 import com.wasimaster.wmkeyboard.core.settings.GifContentFilter
 import com.wasimaster.wmkeyboard.core.settings.GifSourceMode
+import com.wasimaster.wmkeyboard.core.settings.WebSearchProvider
 import com.wasimaster.wmkeyboard.core.tools.GeoPlace
 import com.wasimaster.wmkeyboard.core.tools.ToolApiKeys
 import com.wasimaster.wmkeyboard.core.tools.TranslateClient
@@ -1664,8 +1665,8 @@ private fun toolDescription(tool: ToolbarTool): String = when (tool) {
     ToolbarTool.TRANSLATE -> "Translate what you type, live, into any language"
     ToolbarTool.GIF -> "Search GIFs (Klipy, GIPHY, Google) and send them without leaving the keyboard"
     ToolbarTool.STICKER -> "Search stickers — transparent, chat-ready"
-    ToolbarTool.WEB_SEARCH -> "Google a query and insert a result's link"
-    ToolbarTool.IMAGE_SEARCH -> "Google Images from the keyboard; tap to send an image"
+    ToolbarTool.WEB_SEARCH -> "Search the web (Brave or Google) and insert a result's link"
+    ToolbarTool.IMAGE_SEARCH -> "Image search from the keyboard; tap to send an image"
 }
 
 private fun toolIconFor(tool: ToolbarTool): androidx.compose.ui.graphics.vector.ImageVector = when (tool) {
@@ -2036,11 +2037,12 @@ private fun ToolDetailSettings(
                 "Animated GIFs (transparent PNGs for stickers) via web/image search's keys",
                 settings.gifUseGoogle,
                 info = "Needs the Google Programmable Search key and engine id from " +
-                    "the web search tool's settings. Google only searches when you " +
-                    "press enter (or pick its chip) — never per keystroke — because " +
-                    "its free tier is 100 requests a day, shared with the web and " +
-                    "image search tools. Google previews are static; the inserted " +
-                    "GIF still animates.",
+                    "the web search tool's settings (whole-web only on engines " +
+                    "created before Jan 2026; newer engines search up to 50 chosen " +
+                    "sites). Google only searches when you press enter (or pick its " +
+                    "chip) — never per keystroke — because its free tier is 100 " +
+                    "requests a day, shared with the web and image search tools. " +
+                    "Google previews are static; the inserted GIF still animates.",
             ) { scope.launch { repository.setGifUseGoogle(it) } }
             Text(
                 "The GIF and sticker tools share all of this, including the content " +
@@ -2113,6 +2115,50 @@ private fun ToolDetailSettings(
             )
         }
         ToolbarTool.WEB_SEARCH, ToolbarTool.IMAGE_SEARCH -> {
+            SectionHeader("Search provider")
+            SingleChoiceSegmentedButtonRow(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+            ) {
+                WebSearchProvider.entries.forEachIndexed { index, provider ->
+                    SegmentedButton(
+                        selected = settings.searchProvider == provider,
+                        onClick = { scope.launch { repository.setSearchProvider(provider) } },
+                        shape = SegmentedButtonDefaults.itemShape(index, WebSearchProvider.entries.size),
+                    ) {
+                        Text(
+                            when (provider) {
+                                WebSearchProvider.BRAVE -> "Brave"
+                                WebSearchProvider.GOOGLE -> "Google"
+                            },
+                            maxLines = 1,
+                        )
+                    }
+                }
+            }
+            Text(
+                "Web and image search share everything here. If the chosen provider " +
+                    "has no key, the other one is used automatically.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+            )
+            SectionHeader("Brave Search")
+            ApiKeyField(
+                label = "Brave API key",
+                value = settings.braveApiKey,
+                builtInAvailable = ToolApiKeys.builtInBrave,
+                emptyHint = "From api-dashboard.search.brave.com — monthly free credit",
+            ) { repository.setBraveApiKey(it) }
+            Text(
+                "Searches the whole web. Brave's plan includes a monthly free " +
+                    "credit (roughly a thousand searches) and asks for attribution — " +
+                    "the panel shows “via Brave”.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+            )
             SectionHeader("Google Programmable Search")
             ApiKeyField(
                 label = "API key",
@@ -2127,9 +2173,11 @@ private fun ToolDetailSettings(
                 emptyHint = "From programmablesearchengine.google.com",
             ) { repository.setGoogleSearchCx(it) }
             Text(
-                "Web and image search share these. Create an engine at " +
-                    "programmablesearchengine.google.com with “Search the entire web” " +
-                    "and image search turned on; the free tier allows 100 searches a day.",
+                "Note: since Jan 2026, new Programmable Search engines can no longer " +
+                    "“search the entire web” — they search up to 50 sites you pick. " +
+                    "Engines that already had whole-web search keep it until " +
+                    "Jan 1, 2027. Free tier: 100 searches a day (also feeds the GIF " +
+                    "tool's Google source).",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),

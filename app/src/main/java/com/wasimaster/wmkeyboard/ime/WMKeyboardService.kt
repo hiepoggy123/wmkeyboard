@@ -56,6 +56,8 @@ import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
 import com.wasimaster.wmkeyboard.core.snippets.Snippet
 import com.wasimaster.wmkeyboard.core.snippets.SnippetStore
 import com.wasimaster.wmkeyboard.core.settings.GifSourceMode
+import com.wasimaster.wmkeyboard.core.settings.WebSearchProvider
+import com.wasimaster.wmkeyboard.core.tools.BraveSearchClient
 import com.wasimaster.wmkeyboard.core.tools.GifItem
 import com.wasimaster.wmkeyboard.core.tools.GifSource
 import com.wasimaster.wmkeyboard.core.tools.GifSources
@@ -1361,11 +1363,9 @@ class WMKeyboardService : InputMethodService() {
 
     // ---- translate / gif / sticker / web & image search tools ----
 
-    private fun hasSearchKey(): Boolean {
-        val settings = _uiState.value.settings
-        return ToolApiKeys.googleSearch(settings).isNotBlank() &&
-            ToolApiKeys.googleSearchCx(settings).isNotBlank()
-    }
+    /** Whether any web/image search backend (Brave or Google) is keyed. */
+    private fun hasSearchKey(): Boolean =
+        ToolApiKeys.activeSearchProvider(_uiState.value.settings) != null
 
     /** Search-bar tap on a media panel: toggle typing-into-the-query mode. */
     fun onMediaQueryTap() {
@@ -1514,7 +1514,8 @@ class WMKeyboardService : InputMethodService() {
     private fun runWebSearch(query: String) {
         if (query.isBlank()) return
         val settings = _uiState.value.settings
-        if (!hasSearchKey()) {
+        val provider = ToolApiKeys.activeSearchProvider(settings)
+        if (provider == null) {
             _uiState.update { it.copy(webSearch = WebSearchUi.NeedKey) }
             return
         }
@@ -1523,13 +1524,21 @@ class WMKeyboardService : InputMethodService() {
         webSearchJob = serviceScope.launch {
             val result = withContext(Dispatchers.IO) {
                 runCatching {
-                    GoogleSearchClient.webSearch(
-                        query,
-                        ToolApiKeys.googleSearch(settings),
-                        ToolApiKeys.googleSearchCx(settings),
-                        settings.searchResultCount,
-                        settings.searchSafe,
-                    )
+                    when (provider) {
+                        WebSearchProvider.BRAVE -> BraveSearchClient.webSearch(
+                            query,
+                            ToolApiKeys.brave(settings),
+                            settings.searchResultCount,
+                            settings.searchSafe,
+                        )
+                        WebSearchProvider.GOOGLE -> GoogleSearchClient.webSearch(
+                            query,
+                            ToolApiKeys.googleSearch(settings),
+                            ToolApiKeys.googleSearchCx(settings),
+                            settings.searchResultCount,
+                            settings.searchSafe,
+                        )
+                    }
                 }
             }
             _uiState.update {
@@ -1546,7 +1555,8 @@ class WMKeyboardService : InputMethodService() {
     private fun runImageSearch(query: String) {
         if (query.isBlank()) return
         val settings = _uiState.value.settings
-        if (!hasSearchKey()) {
+        val provider = ToolApiKeys.activeSearchProvider(settings)
+        if (provider == null) {
             _uiState.update { it.copy(imageSearch = ImageSearchUi.NeedKey) }
             return
         }
@@ -1555,13 +1565,21 @@ class WMKeyboardService : InputMethodService() {
         imageSearchJob = serviceScope.launch {
             val result = withContext(Dispatchers.IO) {
                 runCatching {
-                    GoogleSearchClient.imageSearch(
-                        query,
-                        ToolApiKeys.googleSearch(settings),
-                        ToolApiKeys.googleSearchCx(settings),
-                        settings.searchResultCount,
-                        settings.searchSafe,
-                    )
+                    when (provider) {
+                        WebSearchProvider.BRAVE -> BraveSearchClient.imageSearch(
+                            query,
+                            ToolApiKeys.brave(settings),
+                            settings.searchResultCount,
+                            settings.searchSafe,
+                        )
+                        WebSearchProvider.GOOGLE -> GoogleSearchClient.imageSearch(
+                            query,
+                            ToolApiKeys.googleSearch(settings),
+                            ToolApiKeys.googleSearchCx(settings),
+                            settings.searchResultCount,
+                            settings.searchSafe,
+                        )
+                    }
                 }
             }
             _uiState.update {
