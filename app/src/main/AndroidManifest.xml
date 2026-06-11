@@ -3,7 +3,8 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.VIBRATE" />
-    <!-- Only used by the optional weather tool (Open-Meteo fetch on open). -->
+    <!-- Only used by the optional network tools: weather (Open-Meteo),
+         translate, GIF/stickers (Tenor), web/image search (Google). -->
     <uses-permission android:name="android.permission.INTERNET" />
 
     <uses-feature android:name="android.hardware.camera.flash" android:required="false" />

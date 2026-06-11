@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths>
     <files-path name="clipboard_images" path="clipboard/images/" />
+    <!-- Downloaded GIFs/stickers/search images, committed via commitContent. -->
+    <cache-path name="media_cache" path="media/" />
 </paths>

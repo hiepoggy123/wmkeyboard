@@ -15,6 +15,8 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -59,6 +61,11 @@ import androidx.compose.material.icons.outlined.TextSnippet
 import androidx.compose.material.icons.outlined.Vibration
 import androidx.compose.material.icons.outlined.VerticalSplit
 import androidx.compose.material.icons.outlined.VisibilityOff
+import androidx.compose.material.icons.outlined.AutoAwesome
+import androidx.compose.material.icons.outlined.GifBox
+import androidx.compose.material.icons.outlined.ImageSearch
+import androidx.compose.material.icons.outlined.Translate
+import androidx.compose.material.icons.outlined.TravelExplore
 import androidx.compose.material.icons.outlined.WbSunny
 import androidx.compose.material.icons.outlined.Widgets
 import androidx.compose.material3.AlertDialog
@@ -120,7 +127,10 @@ import com.wasimaster.wmkeyboard.core.settings.EmojiTabMode
 import com.wasimaster.wmkeyboard.core.settings.HapticStyle
 import com.wasimaster.wmkeyboard.core.settings.InputMode
 import com.wasimaster.wmkeyboard.core.settings.KeySoundStyle
+import com.wasimaster.wmkeyboard.core.settings.GifContentFilter
 import com.wasimaster.wmkeyboard.core.tools.GeoPlace
+import com.wasimaster.wmkeyboard.core.tools.ToolApiKeys
+import com.wasimaster.wmkeyboard.core.tools.TranslateClient
 import com.wasimaster.wmkeyboard.core.tools.WeatherClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -144,11 +154,21 @@ import kotlinx.coroutines.launch
  */
 class MainActivity : ComponentActivity() {
 
+    companion object {
+        /**
+         * Intent extra with a [ToolbarTool] name: the keyboard's "needs an
+         * API key" panels use it to jump straight to that tool's settings.
+         */
+        const val EXTRA_OPEN_TOOL = "open_tool"
+    }
+
     private lateinit var repository: SettingsRepository
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         repository = SettingsRepository(applicationContext)
+        val openTool = intent?.getStringExtra(EXTRA_OPEN_TOOL)
+            ?.let { runCatching { ToolbarTool.valueOf(it) }.getOrNull() }
         setContent {
             // Null until DataStore's first emission: rendering nothing for a
             // frame beats flashing onboarding at users who finished it.
@@ -156,7 +176,7 @@ class MainActivity : ComponentActivity() {
                 .collectAsStateWithLifecycle(null as KeyboardSettings?)
             settings?.let { loaded ->
                 AppTheme(loaded) {
-                    SettingsNavHost(repository, loaded)
+                    SettingsNavHost(repository, loaded, openTool)
                 }
             }
         }
@@ -186,8 +206,20 @@ private fun AppTheme(settings: KeyboardSettings, content: @Composable () -> Unit
 }
 
 @Composable
-private fun SettingsNavHost(repository: SettingsRepository, settings: KeyboardSettings) {
+private fun SettingsNavHost(
+    repository: SettingsRepository,
+    settings: KeyboardSettings,
+    openTool: ToolbarTool? = null,
+) {
     val navController = rememberNavController()
+    // Launched from a keyboard panel's "Open settings": go straight to the
+    // tool's page (with Tools beneath it so back behaves normally).
+    LaunchedEffect(openTool) {
+        if (openTool != null && settings.onboardingDone) {
+            navController.navigate("tools")
+            navController.navigate("tool/${openTool.name}")
+        }
+    }
     // Quick shared-axis slide instead of the sluggish default cross-fade.
     val spec = tween<androidx.compose.ui.unit.IntOffset>(220)
     val fadeSpec = tween<Float>(220)
@@ -1598,6 +1630,11 @@ private fun toolTitle(tool: ToolbarTool): String = when (tool) {
     ToolbarTool.SOUND_HAPTICS -> "Sound & haptics"
     ToolbarTool.NUMPAD -> "Numpad"
     ToolbarTool.HANDWRITING -> "Handwriting"
+    ToolbarTool.TRANSLATE -> "Translate"
+    ToolbarTool.GIF -> "GIFs"
+    ToolbarTool.STICKER -> "Stickers"
+    ToolbarTool.WEB_SEARCH -> "Web search"
+    ToolbarTool.IMAGE_SEARCH -> "Image search"
 }
 
 private fun toolDescription(tool: ToolbarTool): String = when (tool) {
@@ -1623,6 +1660,11 @@ private fun toolDescription(tool: ToolbarTool): String = when (tool) {
     ToolbarTool.SOUND_HAPTICS -> "Adjust key sound and vibration from the keyboard"
     ToolbarTool.NUMPAD -> "Dedicated number pad layout"
     ToolbarTool.HANDWRITING -> "Write words by hand — finger or S Pen — with on-device recognition"
+    ToolbarTool.TRANSLATE -> "Translate what you type, live, into any language"
+    ToolbarTool.GIF -> "Search Tenor GIFs and send them without leaving the keyboard"
+    ToolbarTool.STICKER -> "Search Tenor stickers — transparent, chat-ready"
+    ToolbarTool.WEB_SEARCH -> "Google a query and insert a result's link"
+    ToolbarTool.IMAGE_SEARCH -> "Google Images from the keyboard; tap to send an image"
 }
 
 private fun toolIconFor(tool: ToolbarTool): androidx.compose.ui.graphics.vector.ImageVector = when (tool) {
@@ -1648,6 +1690,11 @@ private fun toolIconFor(tool: ToolbarTool): androidx.compose.ui.graphics.vector.
     ToolbarTool.SOUND_HAPTICS -> Icons.Outlined.Vibration
     ToolbarTool.NUMPAD -> Icons.Outlined.Dialpad
     ToolbarTool.HANDWRITING -> Icons.Outlined.Draw
+    ToolbarTool.TRANSLATE -> Icons.Outlined.Translate
+    ToolbarTool.GIF -> Icons.Outlined.GifBox
+    ToolbarTool.STICKER -> Icons.Outlined.AutoAwesome
+    ToolbarTool.WEB_SEARCH -> Icons.Outlined.TravelExplore
+    ToolbarTool.IMAGE_SEARCH -> Icons.Outlined.ImageSearch
 }
 
 /**
@@ -1951,7 +1998,200 @@ private fun ToolDetailSettings(
             )
             HandwritingModelManager()
         }
+        ToolbarTool.TRANSLATE -> {
+            TranslateLanguageSetting(repository, settings)
+            SectionHeader("API key")
+            ApiKeyField(
+                label = "Cloud Translation API key (optional)",
+                value = settings.translateApiKey,
+                builtInAvailable = ToolApiKeys.builtInTranslate,
+                emptyHint = "Without a key, translation uses Google's free public endpoint",
+            ) { repository.setTranslateApiKey(it) }
+            Text(
+                "Text you translate is sent to Google either way — only while the " +
+                    "translate panel is open. The free endpoint is unofficial and " +
+                    "rate-limited; a Cloud Translation key makes it official and reliable.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+            )
+        }
+        ToolbarTool.GIF, ToolbarTool.STICKER -> {
+            SectionHeader("Tenor API key")
+            ApiKeyField(
+                label = "Tenor API key",
+                value = settings.tenorApiKey,
+                builtInAvailable = ToolApiKeys.builtInTenor,
+                emptyHint = "Free from Google — developers.google.com/tenor",
+            ) { repository.setTenorApiKey(it) }
+            Text(
+                "The GIF and sticker tools share this key and the content filter " +
+                    "below. Get a free key by creating a Google Cloud project and " +
+                    "enabling the Tenor API.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+            )
+            SectionHeader("Content filter")
+            SingleChoiceSegmentedButtonRow(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+            ) {
+                GifContentFilter.entries.forEachIndexed { index, filter ->
+                    SegmentedButton(
+                        selected = settings.gifContentFilter == filter,
+                        onClick = { scope.launch { repository.setGifContentFilter(filter) } },
+                        shape = SegmentedButtonDefaults.itemShape(index, GifContentFilter.entries.size),
+                    ) {
+                        Text(
+                            when (filter) {
+                                GifContentFilter.OFF -> "Off"
+                                GifContentFilter.LOW -> "Low"
+                                GifContentFilter.MEDIUM -> "Med"
+                                GifContentFilter.HIGH -> "High"
+                            },
+                            maxLines = 1,
+                        )
+                    }
+                }
+            }
+            Text(
+                "High hides the most; Off hides nothing. This is Tenor's own " +
+                    "safety filter.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+            )
+        }
+        ToolbarTool.WEB_SEARCH, ToolbarTool.IMAGE_SEARCH -> {
+            SectionHeader("Google Programmable Search")
+            ApiKeyField(
+                label = "API key",
+                value = settings.googleSearchApiKey,
+                builtInAvailable = ToolApiKeys.builtInGoogleSearch,
+                emptyHint = "From Google Cloud — enable the Custom Search API",
+            ) { repository.setGoogleSearchApiKey(it) }
+            ApiKeyField(
+                label = "Search engine ID (cx)",
+                value = settings.googleSearchCx,
+                builtInAvailable = ToolApiKeys.builtInGoogleSearch,
+                emptyHint = "From programmablesearchengine.google.com",
+            ) { repository.setGoogleSearchCx(it) }
+            Text(
+                "Web and image search share these. Create an engine at " +
+                    "programmablesearchengine.google.com with “Search the entire web” " +
+                    "and image search turned on; the free tier allows 100 searches a day.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+            )
+            SectionHeader("Results")
+            ToggleSetting(
+                "SafeSearch", "Filter explicit results",
+                settings.searchSafe,
+            ) { scope.launch { repository.setSearchSafe(it) } }
+            SliderSetting(
+                "Results per search",
+                subtitle = "Each search uses one API request either way",
+                value = settings.searchResultCount.toFloat(),
+                range = 1f..10f,
+                display = "${settings.searchResultCount}",
+            ) { scope.launch { repository.setSearchResultCount(it.roundToInt()) } }
+        }
         else -> {}
+    }
+}
+
+/**
+ * One API-key input. Saves as you type (it's a paste, in practice). The
+ * user's key always beats any key baked into the build via
+ * local.properties — leaving the field blank falls back to the built-in
+ * key when the build has one.
+ */
+@Composable
+private fun ApiKeyField(
+    label: String,
+    value: String,
+    builtInAvailable: Boolean,
+    emptyHint: String,
+    onSave: suspend (String) -> Unit,
+) {
+    val scope = rememberCoroutineScope()
+    var text by remember(label) { mutableStateOf(value) }
+    OutlinedTextField(
+        value = text,
+        onValueChange = {
+            text = it
+            scope.launch { onSave(it) }
+        },
+        label = { Text(label) },
+        singleLine = true,
+        supportingText = {
+            Text(
+                when {
+                    text.isNotBlank() -> "Using your key"
+                    builtInAvailable -> "Blank — using the key built into this app"
+                    else -> emptyHint
+                },
+            )
+        },
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp),
+    )
+}
+
+/** "Translate into" row with a full-language-list dialog. */
+@Composable
+private fun TranslateLanguageSetting(repository: SettingsRepository, settings: KeyboardSettings) {
+    val scope = rememberCoroutineScope()
+    var dialogOpen by remember { mutableStateOf(false) }
+    ListItem(
+        headlineContent = { Text("Translate into") },
+        supportingContent = { Text(TranslateClient.languageName(settings.translateTargetLang)) },
+        trailingContent = {
+            Icon(
+                Icons.AutoMirrored.Outlined.KeyboardArrowRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        },
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { dialogOpen = true },
+    )
+    Text(
+        "The source language is always auto-detected; this is also changeable " +
+            "from the panel itself.",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(horizontal = 16.dp),
+    )
+    if (dialogOpen) {
+        AlertDialog(
+            onDismissRequest = { dialogOpen = false },
+            title = { Text("Translate into") },
+            text = {
+                LazyColumn {
+                    items(TranslateClient.languages) { (code, name) ->
+                        ListItem(
+                            headlineContent = { Text(name) },
+                            trailingContent = if (code == settings.translateTargetLang) {
+                                { Icon(Icons.Outlined.Check, contentDescription = "Selected") }
+                            } else null,
+                            modifier = Modifier.clickable {
+                                dialogOpen = false
+                                scope.launch { repository.setTranslateTargetLang(code) }
+                            },
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { dialogOpen = false }) { Text("Close") }
+            },
+        )
     }
 }
 

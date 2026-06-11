@@ -43,7 +43,11 @@ enum class ToolbarTool {
     EMOJI, CLIPBOARD, SNIPPETS, TEXT_EDIT, ONE_HANDED, SPLIT, FLOATING, SETTINGS,
     FLASHLIGHT, COMPASS, LEVEL, UNDO, REDO, MOON_PHASE, WEATHER, CALENDAR,
     INCOGNITO, THEMES, AUTOCORRECT, SOUND_HAPTICS, NUMPAD, HANDWRITING,
+    TRANSLATE, GIF, STICKER, WEB_SEARCH, IMAGE_SEARCH,
 }
+
+/** Tenor's content filter for the GIF and sticker tools. */
+enum class GifContentFilter { OFF, LOW, MEDIUM, HIGH }
 
 /**
  * Key-press sound: which of the system's UI sound effects plays. All come
@@ -232,6 +236,22 @@ data class KeyboardSettings(
     val handwritingCommitDelayMs: Int = 700,
     /** Insert a space between consecutively handwritten words. */
     val handwritingAutoSpace: Boolean = true,
+    /** ISO 639-1 code the translate tool translates into (source is auto-detected). */
+    val translateTargetLang: String = "en",
+    /**
+     * User-supplied API keys, overriding any key baked into the build.
+     * Blank means "use the built-in key" (which may itself be blank).
+     */
+    val translateApiKey: String = "",
+    val tenorApiKey: String = "",
+    val googleSearchApiKey: String = "",
+    /** Programmable Search engine id (cx) that goes with [googleSearchApiKey]. */
+    val googleSearchCx: String = "",
+    val gifContentFilter: GifContentFilter = GifContentFilter.MEDIUM,
+    /** SafeSearch for the web and image search tools. */
+    val searchSafe: Boolean = true,
+    /** Results per web/image search (the API caps a page at 10). */
+    val searchResultCount: Int = 8,
 )
 
 /**
@@ -339,6 +359,14 @@ class SettingsRepository(private val context: Context) {
         private val HANDWRITING_STYLUS_ONLY = booleanPreferencesKey("handwriting_stylus_only")
         private val HANDWRITING_COMMIT_DELAY = intPreferencesKey("handwriting_commit_delay")
         private val HANDWRITING_AUTO_SPACE = booleanPreferencesKey("handwriting_auto_space")
+        private val TRANSLATE_TARGET_LANG = stringPreferencesKey("translate_target_lang")
+        private val TRANSLATE_API_KEY = stringPreferencesKey("translate_api_key")
+        private val TENOR_API_KEY = stringPreferencesKey("tenor_api_key")
+        private val GOOGLE_SEARCH_API_KEY = stringPreferencesKey("google_search_api_key")
+        private val GOOGLE_SEARCH_CX = stringPreferencesKey("google_search_cx")
+        private val GIF_CONTENT_FILTER = stringPreferencesKey("gif_content_filter")
+        private val SEARCH_SAFE = booleanPreferencesKey("search_safe")
+        private val SEARCH_RESULT_COUNT = intPreferencesKey("search_result_count")
     }
 
     val settings: Flow<KeyboardSettings> = context.dataStore.data.map { p ->
@@ -474,6 +502,16 @@ class SettingsRepository(private val context: Context) {
             handwritingCommitDelayMs = p[HANDWRITING_COMMIT_DELAY]
                 ?: defaults.handwritingCommitDelayMs,
             handwritingAutoSpace = p[HANDWRITING_AUTO_SPACE] ?: defaults.handwritingAutoSpace,
+            translateTargetLang = p[TRANSLATE_TARGET_LANG] ?: defaults.translateTargetLang,
+            translateApiKey = p[TRANSLATE_API_KEY] ?: defaults.translateApiKey,
+            tenorApiKey = p[TENOR_API_KEY] ?: defaults.tenorApiKey,
+            googleSearchApiKey = p[GOOGLE_SEARCH_API_KEY] ?: defaults.googleSearchApiKey,
+            googleSearchCx = p[GOOGLE_SEARCH_CX] ?: defaults.googleSearchCx,
+            gifContentFilter = p[GIF_CONTENT_FILTER]
+                ?.let { runCatching { GifContentFilter.valueOf(it) }.getOrNull() }
+                ?: defaults.gifContentFilter,
+            searchSafe = p[SEARCH_SAFE] ?: defaults.searchSafe,
+            searchResultCount = p[SEARCH_RESULT_COUNT] ?: defaults.searchResultCount,
         )
     }
 
@@ -813,4 +851,28 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setIncognito(value: Boolean) =
         context.dataStore.edit { it[INCOGNITO] = value }
+
+    suspend fun setTranslateTargetLang(value: String) =
+        context.dataStore.edit { it[TRANSLATE_TARGET_LANG] = value }
+
+    suspend fun setTranslateApiKey(value: String) =
+        context.dataStore.edit { it[TRANSLATE_API_KEY] = value.trim() }
+
+    suspend fun setTenorApiKey(value: String) =
+        context.dataStore.edit { it[TENOR_API_KEY] = value.trim() }
+
+    suspend fun setGoogleSearchApiKey(value: String) =
+        context.dataStore.edit { it[GOOGLE_SEARCH_API_KEY] = value.trim() }
+
+    suspend fun setGoogleSearchCx(value: String) =
+        context.dataStore.edit { it[GOOGLE_SEARCH_CX] = value.trim() }
+
+    suspend fun setGifContentFilter(value: GifContentFilter) =
+        context.dataStore.edit { it[GIF_CONTENT_FILTER] = value.name }
+
+    suspend fun setSearchSafe(value: Boolean) =
+        context.dataStore.edit { it[SEARCH_SAFE] = value }
+
+    suspend fun setSearchResultCount(value: Int) =
+        context.dataStore.edit { it[SEARCH_RESULT_COUNT] = value.coerceIn(1, 10) }
 }

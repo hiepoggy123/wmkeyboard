@@ -10,7 +10,9 @@ import android.os.SystemClock
 import android.text.InputType
 import android.view.KeyEvent
 import android.view.View
+import android.net.Uri
 import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.ExtractedTextRequest
 import android.view.inputmethod.InputConnection
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
@@ -53,7 +55,15 @@ import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
 import com.wasimaster.wmkeyboard.core.snippets.Snippet
 import com.wasimaster.wmkeyboard.core.snippets.SnippetStore
+import com.wasimaster.wmkeyboard.core.tools.GifItem
+import com.wasimaster.wmkeyboard.core.tools.GoogleSearchClient
+import com.wasimaster.wmkeyboard.core.tools.ImageResult
+import com.wasimaster.wmkeyboard.core.tools.TenorClient
+import com.wasimaster.wmkeyboard.core.tools.ToolApiKeys
+import com.wasimaster.wmkeyboard.core.tools.ToolHttp
+import com.wasimaster.wmkeyboard.core.tools.TranslateClient
 import com.wasimaster.wmkeyboard.core.tools.WeatherClient
+import com.wasimaster.wmkeyboard.core.tools.WebResult
 import com.wasimaster.wmkeyboard.core.transliteration.AvroPhonetic
 import com.wasimaster.wmkeyboard.core.transliteration.BengaliGraphemes
 import com.wasimaster.wmkeyboard.core.transliteration.BengaliPhoneticIndex
@@ -115,6 +125,14 @@ class WMKeyboardService : InputMethodService() {
     /** Last word committed by a swipe, so tapping an alternate replaces it. */
     private var lastGestureWord: String? = null
     private var previewJob: Job? = null
+
+    // ---- network tool state (translate, gif/sticker, web/image search) ----
+    private var translateJob: Job? = null
+    private var mediaFetchJob: Job? = null
+    private var mediaLiveSearchJob: Job? = null
+    private var mediaInsertJob: Job? = null
+    private var webSearchJob: Job? = null
+    private var imageSearchJob: Job? = null
 
     // ---- handwriting recognition state ----
     private val hwRecognizer = HandwritingRecognizerCache()
@@ -312,6 +330,17 @@ class WMKeyboardService : InputMethodService() {
                 onHandwritingStroke = ::onHandwritingStroke,
                 onHandwritingUndo = ::onHandwritingUndo,
                 onHandwritingDownload = ::onHandwritingDownload,
+                onMediaQueryTap = ::onMediaQueryTap,
+                onMediaRetry = ::onMediaRetry,
+                onGifSelect = ::onGifSelect,
+                onWebResult = ::onWebResultSelect,
+                onWebResultOpen = ::onWebResultOpen,
+                onImageResult = ::onImageResultSelect,
+                onImageResultLink = ::onImageResultLink,
+                onTranslateTarget = ::onTranslateTargetChange,
+                onTranslateReplace = ::onTranslateReplace,
+                onTranslateInsert = ::onTranslateInsert,
+                onOpenToolSettings = ::openToolSettings,
                 onOpenSettings = ::openSettings,
             )
         }
@@ -382,6 +411,10 @@ class WMKeyboardService : InputMethodService() {
                 panel = PanelMode.NONE,
                 emojiSearchActive = false,
                 emojiQuery = "",
+                mediaSearchActive = false,
+                mediaQuery = "",
+                mediaDownloadingId = null,
+                translate = TranslateUi(),
                 composingPreview = "",
                 suggestions = emptyList(),
                 emojiSuggestions = emptyList(),
@@ -417,6 +450,9 @@ class WMKeyboardService : InputMethodService() {
         }
         refreshShiftForContext()
         refreshKarContext()
+        // The translate strip follows the field: any text or cursor change
+        // while it is open re-extracts and re-translates (debounced).
+        if (_uiState.value.panel == PanelMode.TRANSLATE) scheduleTranslate()
     }
 
     override fun onFinishInputView(finishingInput: Boolean) {
@@ -479,6 +515,13 @@ class WMKeyboardService : InputMethodService() {
             _uiState.update { it.copy(emojiQuery = it.emojiQuery + text) }
             refreshKarContext()
             refreshEmojiResults()
+            return
+        }
+        if (state.mediaSearchActive && state.panel.hasMediaSearch) {
+            text = fixedLayoutContextualVowel(text, state.mediaQuery.lastOrNull())
+            _uiState.update { it.copy(mediaQuery = it.mediaQuery + text) }
+            refreshKarContext()
+            scheduleMediaLiveSearch()
             return
         }
 
@@ -598,6 +641,14 @@ class WMKeyboardService : InputMethodService() {
             }
             return
         }
+        if (state.mediaSearchActive && state.panel.hasMediaSearch) {
+            if (state.mediaQuery.isNotEmpty()) {
+                _uiState.update { it.copy(mediaQuery = it.mediaQuery.dropLast(1)) }
+                refreshKarContext()
+                scheduleMediaLiveSearch()
+            }
+            return
+        }
         val ic = currentInputConnection ?: return
         // Deleting with an active selection removes the selected text only.
         if (hasSelection(ic)) {
@@ -632,6 +683,11 @@ class WMKeyboardService : InputMethodService() {
         if (state.emojiSearchActive) {
             _uiState.update { it.copy(emojiQuery = it.emojiQuery + " ") }
             refreshEmojiResults()
+            return
+        }
+        if (state.mediaSearchActive && state.panel.hasMediaSearch) {
+            _uiState.update { it.copy(mediaQuery = it.mediaQuery + " ") }
+            scheduleMediaLiveSearch()
             return
         }
 
@@ -669,6 +725,13 @@ class WMKeyboardService : InputMethodService() {
     }
 
     private fun onEnter() {
+        val state = _uiState.value
+        // Enter in a media search box runs the search instead of typing a
+        // newline into the app behind the keyboard.
+        if (state.mediaSearchActive && state.panel.hasMediaSearch) {
+            runMediaSearch()
+            return
+        }
         val ic = currentInputConnection ?: return
         commitComposing(ic, autocorrect = false)
         val info = currentInputEditorInfo
@@ -935,8 +998,9 @@ class WMKeyboardService : InputMethodService() {
         if (panel == PanelMode.SNIPPETS) snippetStore.reload()
         _uiState.update {
             val closing = it.panel == panel
+            val next = if (closing) PanelMode.NONE else panel
             it.copy(
-                panel = if (closing) PanelMode.NONE else panel,
+                panel = next,
                 textEditSelecting = false,
                 emojiSearchActive = false,
                 emojiQuery = "",
@@ -944,9 +1008,33 @@ class WMKeyboardService : InputMethodService() {
                 emojiRecents = emojiUsage.recents(),
                 clipboardItems = clipboardStore.items(),
                 snippets = snippetStore.items(),
+                mediaQuery = "",
+                // Web/image search open straight into the search box (there
+                // is nothing to show yet); gif/sticker open on trending.
+                mediaSearchActive = next == PanelMode.WEB_SEARCH || next == PanelMode.IMAGE_SEARCH,
+                mediaDownloadingId = null,
+                translate = TranslateUi(),
             )
         }
-        if (_uiState.value.panel == PanelMode.WEATHER) refreshWeather()
+        translateJob?.cancel()
+        mediaFetchJob?.cancel()
+        mediaLiveSearchJob?.cancel()
+        when (_uiState.value.panel) {
+            PanelMode.WEATHER -> refreshWeather()
+            PanelMode.GIF, PanelMode.STICKER -> refreshMedia(query = "")
+            PanelMode.WEB_SEARCH -> _uiState.update {
+                it.copy(webSearch = if (hasSearchKey()) WebSearchUi.Idle else WebSearchUi.NeedKey)
+            }
+            PanelMode.IMAGE_SEARCH -> _uiState.update {
+                it.copy(imageSearch = if (hasSearchKey()) ImageSearchUi.Idle else ImageSearchUi.NeedKey)
+            }
+            PanelMode.TRANSLATE -> {
+                // Flush any half-typed word so the strip sees the whole field.
+                currentInputConnection?.let { commitComposing(it, autocorrect = false) }
+                scheduleTranslate(immediate = true)
+            }
+            else -> {}
+        }
         if (_uiState.value.panel == PanelMode.HANDWRITING) {
             // Flush any half-typed word so handwriting appends after it.
             currentInputConnection?.let { commitComposing(it, autocorrect = false) }
@@ -1264,6 +1352,348 @@ class WMKeyboardService : InputMethodService() {
         }
     }
 
+    // ---- translate / gif / sticker / web & image search tools ----
+
+    private fun hasSearchKey(): Boolean {
+        val settings = _uiState.value.settings
+        return ToolApiKeys.googleSearch(settings).isNotBlank() &&
+            ToolApiKeys.googleSearchCx(settings).isNotBlank()
+    }
+
+    /** Search-bar tap on a media panel: toggle typing-into-the-query mode. */
+    fun onMediaQueryTap() {
+        vibrate()
+        _uiState.update { it.copy(mediaSearchActive = !it.mediaSearchActive) }
+    }
+
+    /**
+     * GIF/sticker searches are cheap and Tenor is built for per-keystroke
+     * search, so results follow the query live. Web/image search waits for
+     * enter — the free Programmable Search tier is 100 queries a day.
+     */
+    private fun scheduleMediaLiveSearch() {
+        val state = _uiState.value
+        if (state.panel != PanelMode.GIF && state.panel != PanelMode.STICKER) return
+        mediaLiveSearchJob?.cancel()
+        val query = state.mediaQuery.trim()
+        mediaLiveSearchJob = serviceScope.launch {
+            delay(450)
+            refreshMedia(query)
+        }
+    }
+
+    /** Enter (or the search action) in a media panel's search box. */
+    private fun runMediaSearch() {
+        val state = _uiState.value
+        val query = state.mediaQuery.trim()
+        _uiState.update { it.copy(mediaSearchActive = false) }
+        when (state.panel) {
+            PanelMode.GIF, PanelMode.STICKER -> {
+                mediaLiveSearchJob?.cancel()
+                refreshMedia(query)
+            }
+            PanelMode.WEB_SEARCH -> runWebSearch(query)
+            PanelMode.IMAGE_SEARCH -> runImageSearch(query)
+            else -> {}
+        }
+    }
+
+    /** Retry button on media/search panels: re-run whatever failed. */
+    fun onMediaRetry() {
+        vibrate()
+        when (_uiState.value.panel) {
+            PanelMode.GIF, PanelMode.STICKER -> refreshMedia(_uiState.value.mediaQuery.trim())
+            PanelMode.WEB_SEARCH -> runWebSearch(_uiState.value.mediaQuery.trim())
+            PanelMode.IMAGE_SEARCH -> runImageSearch(_uiState.value.mediaQuery.trim())
+            else -> {}
+        }
+    }
+
+    /** Fetches GIFs or stickers for [query]; blank query loads trending. */
+    private fun refreshMedia(query: String) {
+        val state = _uiState.value
+        val sticker = state.panel == PanelMode.STICKER
+        if (!sticker && state.panel != PanelMode.GIF) return
+        val setUi: (MediaUi) -> Unit = { ui ->
+            _uiState.update { if (sticker) it.copy(sticker = ui) else it.copy(gif = ui) }
+        }
+        val key = ToolApiKeys.tenor(state.settings)
+        if (key.isBlank()) {
+            setUi(MediaUi.NeedKey)
+            return
+        }
+        mediaFetchJob?.cancel()
+        setUi(MediaUi.Loading)
+        val filter = state.settings.gifContentFilter
+        val panel = state.panel
+        mediaFetchJob = serviceScope.launch {
+            val result = withContext(Dispatchers.IO) {
+                runCatching { TenorClient.search(query, key, sticker, filter) }
+            }
+            if (_uiState.value.panel != panel) return@launch
+            setUi(
+                result.fold(
+                    onSuccess = { MediaUi.Ready(it, query) },
+                    onFailure = { MediaUi.Error(it.message ?: "Couldn't reach Tenor") },
+                ),
+            )
+        }
+    }
+
+    private fun runWebSearch(query: String) {
+        if (query.isBlank()) return
+        val settings = _uiState.value.settings
+        if (!hasSearchKey()) {
+            _uiState.update { it.copy(webSearch = WebSearchUi.NeedKey) }
+            return
+        }
+        webSearchJob?.cancel()
+        _uiState.update { it.copy(webSearch = WebSearchUi.Loading) }
+        webSearchJob = serviceScope.launch {
+            val result = withContext(Dispatchers.IO) {
+                runCatching {
+                    GoogleSearchClient.webSearch(
+                        query,
+                        ToolApiKeys.googleSearch(settings),
+                        ToolApiKeys.googleSearchCx(settings),
+                        settings.searchResultCount,
+                        settings.searchSafe,
+                    )
+                }
+            }
+            _uiState.update {
+                it.copy(
+                    webSearch = result.fold(
+                        onSuccess = { r -> WebSearchUi.Ready(r, query) },
+                        onFailure = { e -> WebSearchUi.Error(e.message ?: "Search failed") },
+                    ),
+                )
+            }
+        }
+    }
+
+    private fun runImageSearch(query: String) {
+        if (query.isBlank()) return
+        val settings = _uiState.value.settings
+        if (!hasSearchKey()) {
+            _uiState.update { it.copy(imageSearch = ImageSearchUi.NeedKey) }
+            return
+        }
+        imageSearchJob?.cancel()
+        _uiState.update { it.copy(imageSearch = ImageSearchUi.Loading) }
+        imageSearchJob = serviceScope.launch {
+            val result = withContext(Dispatchers.IO) {
+                runCatching {
+                    GoogleSearchClient.imageSearch(
+                        query,
+                        ToolApiKeys.googleSearch(settings),
+                        ToolApiKeys.googleSearchCx(settings),
+                        settings.searchResultCount,
+                        settings.searchSafe,
+                    )
+                }
+            }
+            _uiState.update {
+                it.copy(
+                    imageSearch = result.fold(
+                        onSuccess = { r -> ImageSearchUi.Ready(r, query) },
+                        onFailure = { e -> ImageSearchUi.Error(e.message ?: "Search failed") },
+                    ),
+                )
+            }
+        }
+    }
+
+    /** Tapped a GIF/sticker cell: download the full file and commit it. */
+    fun onGifSelect(item: GifItem) {
+        insertDownloadedImage(item.id, item.fullUrl, item.mime)
+    }
+
+    /** Tapped an image-search cell: download the full image and commit it. */
+    fun onImageResultSelect(result: ImageResult) {
+        val mime = when (result.mime) {
+            "image/gif", "image/png", "image/webp", "image/jpeg" -> result.mime
+            else -> "image/jpeg"
+        }
+        insertDownloadedImage(result.imageUrl, result.imageUrl, mime)
+    }
+
+    /** Long-pressed an image-search cell: insert the image's URL as text. */
+    fun onImageResultLink(result: ImageResult) {
+        vibrate()
+        currentInputConnection?.commitText(result.imageUrl, 1)
+    }
+
+    /** Tapped a web result: insert its URL at the cursor. */
+    fun onWebResultSelect(result: WebResult) {
+        vibrate()
+        currentInputConnection?.commitText(result.url, 1)
+    }
+
+    /** Open a web result in the browser (leaves the keyboard). */
+    fun onWebResultOpen(result: WebResult) {
+        vibrate()
+        runCatching {
+            startActivity(
+                Intent(Intent.ACTION_VIEW, Uri.parse(result.url)).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                },
+            )
+        }
+    }
+
+    /**
+     * Downloads a remote image into the media cache and commits it through
+     * the same commitContent path as clipboard images. One insert at a
+     * time; the panel shows a spinner over the tapped cell meanwhile.
+     */
+    private fun insertDownloadedImage(id: String, url: String, mime: String) {
+        if (_uiState.value.mediaDownloadingId != null) return
+        vibrate()
+        _uiState.update { it.copy(mediaDownloadingId = id) }
+        mediaInsertJob = serviceScope.launch {
+            val file = withContext(Dispatchers.IO) {
+                runCatching {
+                    val extension = when (mime) {
+                        "image/gif" -> "gif"
+                        "image/webp" -> "webp"
+                        "image/png" -> "png"
+                        else -> "jpg"
+                    }
+                    val dir = File(cacheDir, "media").apply { mkdirs() }
+                    pruneMediaCache(dir)
+                    // Name is stable per item so re-inserting the same GIF
+                    // reuses the already-downloaded file.
+                    val target = File(dir, "media_${url.hashCode().toUInt()}.$extension")
+                    if (!target.exists() || target.length() == 0L) ToolHttp.download(url, target)
+                    target
+                }.getOrNull()
+            }
+            _uiState.update { it.copy(mediaDownloadingId = null) }
+            if (file == null) {
+                Toast.makeText(
+                    this@WMKeyboardService,
+                    "Download failed — check your connection",
+                    Toast.LENGTH_SHORT,
+                ).show()
+                return@launch
+            }
+            commitImageFile(file, mime)
+        }
+    }
+
+    /** Keeps the media cache bounded (newest ~30 files). */
+    private fun pruneMediaCache(dir: File) {
+        val files = dir.listFiles()?.sortedByDescending { it.lastModified() } ?: return
+        files.drop(30).forEach { it.delete() }
+    }
+
+    // ---- translate tool ----
+
+    /** Everything in the focused field, for the translate strip. */
+    private fun extractFieldText(): String {
+        val ic = currentInputConnection ?: return ""
+        val extracted = runCatching {
+            ic.getExtractedText(ExtractedTextRequest(), 0)?.text?.toString()
+        }.getOrNull()
+        if (extracted != null) return extracted
+        // Some editors don't implement extraction; stitch around the cursor.
+        val before = ic.getTextBeforeCursor(TranslateClient.MAX_CHARS, 0)?.toString().orEmpty()
+        val after = ic.getTextAfterCursor(TranslateClient.MAX_CHARS, 0)?.toString().orEmpty()
+        return before + after
+    }
+
+    /**
+     * Re-extracts the field and translates it after a short debounce, so the
+     * strip follows the user's typing without a request per keystroke.
+     */
+    private fun scheduleTranslate(immediate: Boolean = false, targetOverride: String? = null) {
+        translateJob?.cancel()
+        translateJob = serviceScope.launch {
+            if (!immediate) delay(400)
+            val state = _uiState.value
+            if (state.panel != PanelMode.TRANSLATE) return@launch
+            val source = extractFieldText().trim()
+            if (source.isEmpty()) {
+                _uiState.update { it.copy(translate = TranslateUi()) }
+                return@launch
+            }
+            if (source == state.translate.sourceText &&
+                state.translate.translated.isNotEmpty() && state.translate.error == null
+            ) {
+                return@launch
+            }
+            _uiState.update {
+                it.copy(translate = it.translate.copy(sourceText = source, translating = true, error = null))
+            }
+            val target = targetOverride ?: state.settings.translateTargetLang
+            val key = ToolApiKeys.translate(state.settings)
+            val result = withContext(Dispatchers.IO) {
+                runCatching { TranslateClient.translate(source, target, key) }
+            }
+            if (_uiState.value.panel != PanelMode.TRANSLATE) return@launch
+            _uiState.update {
+                it.copy(
+                    translate = result.fold(
+                        onSuccess = { t ->
+                            TranslateUi(sourceText = source, translated = t.text, detectedSource = t.detectedSource)
+                        },
+                        onFailure = { e ->
+                            it.translate.copy(translating = false, error = e.message ?: "Translation failed")
+                        },
+                    ),
+                )
+            }
+        }
+    }
+
+    fun onTranslateTargetChange(code: String) {
+        vibrate()
+        serviceScope.launch { settingsRepository.setTranslateTargetLang(code) }
+        _uiState.update { it.copy(translate = TranslateUi()) }
+        // The settings flow updates asynchronously; pass the new target
+        // directly so this retranslate can't race it.
+        scheduleTranslate(immediate = true, targetOverride = code)
+    }
+
+    /** Replaces the whole field with the translation. */
+    fun onTranslateReplace() {
+        val translated = _uiState.value.translate.translated
+        if (translated.isEmpty()) return
+        vibrate()
+        val ic = currentInputConnection ?: return
+        composing = StringBuilder()
+        ic.beginBatchEdit()
+        val length = runCatching {
+            ic.getExtractedText(ExtractedTextRequest(), 0)?.text?.length
+        }.getOrNull()
+        if (length != null) {
+            ic.setSelection(0, length)
+        } else {
+            ic.performContextMenuAction(android.R.id.selectAll)
+        }
+        ic.commitText(translated, 1)
+        ic.endBatchEdit()
+    }
+
+    /** Inserts the translation at the cursor, keeping the original text. */
+    fun onTranslateInsert() {
+        val translated = _uiState.value.translate.translated
+        if (translated.isEmpty()) return
+        vibrate()
+        currentInputConnection?.commitText(translated, 1)
+    }
+
+    /** Jumps straight to one tool's settings page (for "needs API key" panels). */
+    fun openToolSettings(tool: ToolbarTool) {
+        startActivity(
+            Intent(this, MainActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                putExtra(MainActivity.EXTRA_OPEN_TOOL, tool.name)
+            },
+        )
+    }
+
     /**
      * Text-editing panel buttons. Cursor moves go through the editor as key
      * events so apps handle them natively; while selection mode is on (or
@@ -1467,6 +1897,15 @@ class WMKeyboardService : InputMethodService() {
             _uiState.update { it.copy(clipboardItems = clipboardStore.items()) }
             return
         }
+        commitImageFile(file, item.mimeType)
+    }
+
+    /**
+     * Commits any image file (clipboard clip, downloaded GIF/sticker/search
+     * result) via commitContent, falling back to the system clipboard when
+     * the editor doesn't accept that MIME type.
+     */
+    private fun commitImageFile(file: File, mimeType: String) {
         val contentUri = runCatching {
             FileProvider.getUriForFile(this, clipboardFileProviderAuthority, file)
         }.getOrNull() ?: return
@@ -1475,12 +1914,12 @@ class WMKeyboardService : InputMethodService() {
         val editorInfo = currentInputEditorInfo
         val supported = editorInfo != null &&
             EditorInfoCompat.getContentMimeTypes(editorInfo)
-                .any { ClipDescription.compareMimeTypes(item.mimeType, it) }
+                .any { ClipDescription.compareMimeTypes(mimeType, it) }
 
         if (ic != null && editorInfo != null && supported) {
             val info = InputContentInfoCompat(
                 contentUri,
-                ClipDescription("image", arrayOf(item.mimeType)),
+                ClipDescription("image", arrayOf(mimeType)),
                 null,
             )
             val committed = InputConnectionCompat.commitContent(
