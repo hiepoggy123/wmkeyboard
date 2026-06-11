@@ -39,6 +39,7 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         buildConfigField("String", "TENOR_API_KEY", "\"${apiKey("wmkb.tenorApiKey", "WMKB_TENOR_API_KEY")}\"")
+        buildConfigField("String", "GIPHY_API_KEY", "\"${apiKey("wmkb.giphyApiKey", "WMKB_GIPHY_API_KEY")}\"")
         buildConfigField("String", "GOOGLE_SEARCH_API_KEY", "\"${apiKey("wmkb.googleSearchApiKey", "WMKB_GOOGLE_SEARCH_API_KEY")}\"")
         buildConfigField("String", "GOOGLE_SEARCH_CX", "\"${apiKey("wmkb.googleSearchCx", "WMKB_GOOGLE_SEARCH_CX")}\"")
         buildConfigField("String", "TRANSLATE_API_KEY", "\"${apiKey("wmkb.translateApiKey", "WMKB_TRANSLATE_API_KEY")}\"")

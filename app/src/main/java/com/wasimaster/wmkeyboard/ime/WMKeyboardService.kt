@@ -55,7 +55,11 @@ import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
 import com.wasimaster.wmkeyboard.core.snippets.Snippet
 import com.wasimaster.wmkeyboard.core.snippets.SnippetStore
+import com.wasimaster.wmkeyboard.core.settings.GifSourceMode
 import com.wasimaster.wmkeyboard.core.tools.GifItem
+import com.wasimaster.wmkeyboard.core.tools.GifSource
+import com.wasimaster.wmkeyboard.core.tools.GifSources
+import com.wasimaster.wmkeyboard.core.tools.GiphyClient
 import com.wasimaster.wmkeyboard.core.tools.GoogleSearchClient
 import com.wasimaster.wmkeyboard.core.tools.ImageResult
 import com.wasimaster.wmkeyboard.core.tools.TenorClient
@@ -75,6 +79,8 @@ import android.inputmethodservice.InputMethodService
 import java.io.File
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
@@ -333,6 +339,7 @@ class WMKeyboardService : InputMethodService() {
                 onMediaQueryTap = ::onMediaQueryTap,
                 onMediaRetry = ::onMediaRetry,
                 onGifSelect = ::onGifSelect,
+                onGifSourceSelect = ::onGifSourceSelect,
                 onWebResult = ::onWebResultSelect,
                 onWebResultOpen = ::onWebResultOpen,
                 onImageResult = ::onImageResultSelect,
@@ -1378,7 +1385,7 @@ class WMKeyboardService : InputMethodService() {
         val query = state.mediaQuery.trim()
         mediaLiveSearchJob = serviceScope.launch {
             delay(450)
-            refreshMedia(query)
+            refreshMedia(query, live = true)
         }
     }
 
@@ -1409,35 +1416,99 @@ class WMKeyboardService : InputMethodService() {
         }
     }
 
-    /** Fetches GIFs or stickers for [query]; blank query loads trending. */
-    private fun refreshMedia(query: String) {
+    /**
+     * Google GIF results per query, so re-selecting the Google chip or
+     * re-running a search never re-spends the tiny daily search quota.
+     */
+    private val googleGifCache = object : LinkedHashMap<String, List<GifItem>>(16, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, List<GifItem>>) =
+            size > 20
+    }
+
+    /**
+     * Fetches GIFs or stickers for [query] from every active provider
+     * (blank query = trending; Google has no trending and sits out).
+     * [live] marks a per-keystroke search — those skip Google entirely so
+     * typing can't drain the 100-requests/day Programmable Search quota;
+     * Google joins on enter, retry, or its chip being selected.
+     */
+    private fun refreshMedia(query: String, live: Boolean = false) {
         val state = _uiState.value
         val sticker = state.panel == PanelMode.STICKER
         if (!sticker && state.panel != PanelMode.GIF) return
         val setUi: (MediaUi) -> Unit = { ui ->
             _uiState.update { if (sticker) it.copy(sticker = ui) else it.copy(gif = ui) }
         }
-        val key = ToolApiKeys.tenor(state.settings)
-        if (key.isBlank()) {
+        val settings = state.settings
+        val sources = ToolApiKeys.gifSources(settings)
+        if (sources.isEmpty()) {
             setUi(MediaUi.NeedKey)
             return
         }
+        val targets = if (settings.gifSourceMode == GifSourceMode.TABS) {
+            val selected = state.mediaSource.takeIf { it in sources } ?: sources.first()
+            if (selected != state.mediaSource) _uiState.update { it.copy(mediaSource = selected) }
+            listOf(selected)
+        } else {
+            sources
+        }
+        val effective = if (live) targets - GifSource.GOOGLE else targets
+        // Google-only view while typing: keep what's shown, search on enter.
+        if (effective.isEmpty()) return
         mediaFetchJob?.cancel()
         setUi(MediaUi.Loading)
-        val filter = state.settings.gifContentFilter
         val panel = state.panel
         mediaFetchJob = serviceScope.launch {
-            val result = withContext(Dispatchers.IO) {
-                runCatching { TenorClient.search(query, key, sticker, filter) }
+            val results = withContext(Dispatchers.IO) {
+                effective.map { source ->
+                    async { runCatching { fetchGifs(source, query, sticker, settings) } }
+                }.awaitAll()
             }
             if (_uiState.value.panel != panel) return@launch
+            val successes = results.mapNotNull { it.getOrNull() }
             setUi(
-                result.fold(
-                    onSuccess = { MediaUi.Ready(it, query) },
-                    onFailure = { MediaUi.Error(it.message ?: "Couldn't reach Tenor") },
-                ),
+                if (successes.isEmpty()) {
+                    MediaUi.Error(
+                        results.firstNotNullOfOrNull { it.exceptionOrNull()?.message }
+                            ?: "Couldn't fetch results",
+                    )
+                } else {
+                    MediaUi.Ready(GifSources.interleave(successes), query)
+                },
             )
         }
+    }
+
+    /** Blocking provider dispatch; call on an IO dispatcher. */
+    private fun fetchGifs(
+        source: GifSource,
+        query: String,
+        sticker: Boolean,
+        settings: com.wasimaster.wmkeyboard.core.settings.KeyboardSettings,
+    ): List<GifItem> = when (source) {
+        GifSource.TENOR ->
+            TenorClient.search(query, ToolApiKeys.tenor(settings), sticker, settings.gifContentFilter)
+        GifSource.GIPHY ->
+            GiphyClient.search(query, ToolApiKeys.giphy(settings), sticker, settings.gifContentFilter)
+        GifSource.GOOGLE -> {
+            val cacheKey = "$sticker|${query.lowercase()}"
+            synchronized(googleGifCache) { googleGifCache[cacheKey] }
+                ?: GoogleSearchClient.gifSearch(
+                    query,
+                    ToolApiKeys.googleSearch(settings),
+                    ToolApiKeys.googleSearchCx(settings),
+                    settings.searchSafe,
+                    sticker,
+                ).also { synchronized(googleGifCache) { googleGifCache[cacheKey] = it } }
+        }
+    }
+
+    /** Provider chip on the GIF/sticker panel (tabs mode). */
+    fun onGifSourceSelect(source: GifSource) {
+        vibrate()
+        if (_uiState.value.mediaSource == source) return
+        _uiState.update { it.copy(mediaSource = source) }
+        refreshMedia(_uiState.value.mediaQuery.trim())
     }
 
     private fun runWebSearch(query: String) {

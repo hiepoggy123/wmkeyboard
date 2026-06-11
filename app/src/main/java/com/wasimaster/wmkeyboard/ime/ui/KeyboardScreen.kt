@@ -193,6 +193,7 @@ import com.wasimaster.wmkeyboard.core.settings.ThemeMode
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
 import com.wasimaster.wmkeyboard.core.snippets.Snippet
 import com.wasimaster.wmkeyboard.core.tools.GifItem
+import com.wasimaster.wmkeyboard.core.tools.GifSource
 import com.wasimaster.wmkeyboard.core.tools.ImageResult
 import com.wasimaster.wmkeyboard.core.tools.WebResult
 import com.wasimaster.wmkeyboard.ime.EnterAction
@@ -276,6 +277,7 @@ fun KeyboardScreen(
     onMediaQueryTap: () -> Unit = {},
     onMediaRetry: () -> Unit = {},
     onGifSelect: (GifItem) -> Unit = {},
+    onGifSourceSelect: (GifSource) -> Unit = {},
     onWebResult: (WebResult) -> Unit = {},
     onWebResultOpen: (WebResult) -> Unit = {},
     onImageResult: (ImageResult) -> Unit = {},
@@ -362,6 +364,7 @@ fun KeyboardScreen(
                 onMediaQueryTap = onMediaQueryTap,
                 onMediaRetry = onMediaRetry,
                 onGifSelect = onGifSelect,
+                onGifSourceSelect = onGifSourceSelect,
                 onWebResult = onWebResult,
                 onWebResultOpen = onWebResultOpen,
                 onImageResult = onImageResult,
@@ -1395,6 +1398,7 @@ private fun KeyboardBody(
     onMediaQueryTap: () -> Unit,
     onMediaRetry: () -> Unit,
     onGifSelect: (GifItem) -> Unit,
+    onGifSourceSelect: (GifSource) -> Unit,
     onWebResult: (WebResult) -> Unit,
     onWebResultOpen: (WebResult) -> Unit,
     onImageResult: (ImageResult) -> Unit,
@@ -1468,6 +1472,7 @@ private fun KeyboardBody(
                     onQueryTap = onMediaQueryTap,
                     onRetry = onMediaRetry,
                     onSelect = onGifSelect,
+                    onSourceSelect = onGifSourceSelect,
                     onOpenToolSettings = onOpenToolSettings,
                 )
                 PanelMode.WEB_SEARCH -> WebSearchPanel(

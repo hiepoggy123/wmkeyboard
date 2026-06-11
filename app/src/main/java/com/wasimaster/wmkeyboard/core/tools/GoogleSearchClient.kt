@@ -43,6 +43,34 @@ object GoogleSearchClient {
     fun imageSearch(query: String, apiKey: String, cx: String, count: Int, safe: Boolean): List<ImageResult> =
         parseImages(ToolHttp.get(searchUrl(query, apiKey, cx, count, safe, image = true)))
 
+    /**
+     * Google as a GIF/sticker provider: an image search restricted to
+     * animated GIFs (or, for stickers, transparent PNGs). Thumbnails are
+     * static — Google doesn't serve animated previews — but the inserted
+     * full file animates. Blank queries return nothing (no trending here).
+     */
+    fun gifSearch(
+        query: String,
+        apiKey: String,
+        cx: String,
+        safe: Boolean,
+        stickers: Boolean,
+    ): List<GifItem> {
+        if (query.isBlank()) return emptyList()
+        val url = searchUrl(query, apiKey, cx, count = 10, safe = safe, image = true) +
+            if (stickers) "&fileType=png&imgColorType=trans" else "&fileType=gif&imgType=animated"
+        return parseImages(ToolHttp.get(url)).map { result ->
+            GifItem(
+                id = "google_" + result.imageUrl,
+                previewUrl = result.thumbUrl,
+                fullUrl = result.imageUrl,
+                mime = if (stickers) "image/png" else "image/gif",
+                aspectRatio = 1f,
+                source = GifSource.GOOGLE,
+            )
+        }
+    }
+
     private fun searchUrl(
         query: String,
         apiKey: String,

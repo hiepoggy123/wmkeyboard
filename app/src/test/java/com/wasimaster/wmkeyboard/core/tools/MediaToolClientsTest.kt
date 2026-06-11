@@ -80,6 +80,70 @@ class TenorClientTest {
     fun `missing results key parses to empty list`() {
         assertTrue(TenorClient.parse("{}", stickers = false).isEmpty())
     }
+
+    @Test
+    fun `tenor results are tagged with their source`() {
+        assertEquals(GifSource.TENOR, TenorClient.parse(gifBody, stickers = false)[0].source)
+    }
+}
+
+class GiphyClientTest {
+
+    @Test
+    fun `results parse preview, original and aspect ratio`() {
+        val body = """
+            {"data":[
+                {"id":"abc","images":{
+                    "fixed_width_small":{"url":"https://g/small.gif","width":"200","height":"100"},
+                    "original":{"url":"https://g/full.gif","width":"400","height":"200"}
+                }},
+                {"id":"noimages"}
+            ]}
+        """.trimIndent()
+        val items = GiphyClient.parse(body)
+        assertEquals(1, items.size)
+        val item = items[0]
+        assertEquals("giphy_abc", item.id)
+        assertEquals("https://g/small.gif", item.previewUrl)
+        assertEquals("https://g/full.gif", item.fullUrl)
+        assertEquals("image/gif", item.mime)
+        assertEquals(2f, item.aspectRatio)
+        assertEquals(GifSource.GIPHY, item.source)
+    }
+
+    @Test
+    fun `falls back to original when small renditions missing`() {
+        val body = """
+            {"data":[{"id":"x","images":{"original":{"url":"https://g/only.gif"}}}]}
+        """.trimIndent()
+        val items = GiphyClient.parse(body)
+        assertEquals("https://g/only.gif", items[0].previewUrl)
+        assertEquals("https://g/only.gif", items[0].fullUrl)
+    }
+
+    @Test
+    fun `missing data parses to empty list`() {
+        assertTrue(GiphyClient.parse("{}").isEmpty())
+    }
+}
+
+class GifSourcesTest {
+
+    private fun item(id: String, source: GifSource) =
+        GifItem(id, "p", "f", "image/gif", 1f, source)
+
+    @Test
+    fun `interleave alternates sources evenly`() {
+        val tenor = listOf(item("t1", GifSource.TENOR), item("t2", GifSource.TENOR), item("t3", GifSource.TENOR))
+        val giphy = listOf(item("g1", GifSource.GIPHY))
+        val merged = GifSources.interleave(listOf(tenor, giphy))
+        assertEquals(listOf("t1", "g1", "t2", "t3"), merged.map { it.id })
+    }
+
+    @Test
+    fun `interleave of empty lists is empty`() {
+        assertTrue(GifSources.interleave(listOf(emptyList(), emptyList())).isEmpty())
+    }
 }
 
 class GoogleSearchClientTest {

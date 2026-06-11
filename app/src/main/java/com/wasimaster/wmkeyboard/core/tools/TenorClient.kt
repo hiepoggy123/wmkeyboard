@@ -9,19 +9,21 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
 /**
- * One GIF or sticker from Tenor: a small animated preview for the panel
- * grid and the full-size file that actually gets committed to the editor.
+ * One GIF or sticker result: a small preview for the panel grid and the
+ * full-size file that actually gets committed to the editor. Produced by
+ * [TenorClient], [GiphyClient] and [GoogleSearchClient.gifSearch].
  */
 data class GifItem(
     val id: String,
-    /** Compact animated format (tinygif) shown in the picker grid. */
+    /** Compact preview shown in the picker grid (animated for Tenor/GIPHY). */
     val previewUrl: String,
     /** Full-size file downloaded and inserted on tap. */
     val fullUrl: String,
-    /** MIME of [fullUrl] — image/gif, or image/webp for some stickers. */
+    /** MIME of [fullUrl] — image/gif, image/webp or image/png. */
     val mime: String,
     /** width/height of the preview, for grid cell sizing. */
     val aspectRatio: Float,
+    val source: GifSource,
 )
 
 /**
@@ -80,6 +82,7 @@ object TenorClient {
                 fullUrl = full.first.url,
                 mime = full.second,
                 aspectRatio = preview.aspectRatio,
+                source = GifSource.TENOR,
             )
         }
     }

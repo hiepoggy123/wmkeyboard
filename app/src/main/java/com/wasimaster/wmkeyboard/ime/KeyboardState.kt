@@ -177,6 +177,9 @@ data class KeyboardUiState(
     val mediaSearchActive: Boolean = false,
     /** Id of the GIF/sticker/image currently downloading for insert, for a cell spinner. */
     val mediaDownloadingId: String? = null,
+    /** Selected provider chip on the GIF/sticker panel (tabs mode). */
+    val mediaSource: com.wasimaster.wmkeyboard.core.tools.GifSource =
+        com.wasimaster.wmkeyboard.core.tools.GifSource.TENOR,
     val gif: MediaUi = MediaUi.Loading,
     val sticker: MediaUi = MediaUi.Loading,
     val webSearch: WebSearchUi = WebSearchUi.Idle,

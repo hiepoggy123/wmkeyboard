@@ -18,11 +18,21 @@ import kotlinx.serialization.json.jsonPrimitive
  */
 internal object ToolHttp {
 
+    /**
+     * Browser-ish UA for every request: arbitrary image hosts surfaced by
+     * Google image/GIF search often 403 the default Java agent, and the
+     * APIs don't mind either way.
+     */
+    private const val USER_AGENT =
+        "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) " +
+            "Chrome/124.0 Mobile Safari/537.36"
+
     fun get(url: String, timeoutMs: Int = 10_000): String {
         val connection = URL(url).openConnection() as HttpURLConnection
         try {
             connection.connectTimeout = timeoutMs
             connection.readTimeout = timeoutMs
+            connection.setRequestProperty("User-Agent", USER_AGENT)
             val status = connection.responseCode
             if (status !in 200..299) {
                 val body = connection.errorStream?.bufferedReader()?.use { it.readText() }
@@ -39,6 +49,7 @@ internal object ToolHttp {
         try {
             connection.connectTimeout = timeoutMs
             connection.readTimeout = timeoutMs
+            connection.setRequestProperty("User-Agent", USER_AGENT)
             connection.requestMethod = "POST"
             connection.doOutput = true
             connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8")
@@ -64,6 +75,8 @@ internal object ToolHttp {
         try {
             connection.connectTimeout = timeoutMs
             connection.readTimeout = timeoutMs
+            connection.setRequestProperty("User-Agent", USER_AGENT)
+            connection.instanceFollowRedirects = true
             val status = connection.responseCode
             if (status !in 200..299) throw IOException(apiErrorMessage(status, null))
             connection.inputStream.use { input ->

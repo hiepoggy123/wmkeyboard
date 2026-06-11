@@ -128,6 +128,7 @@ import com.wasimaster.wmkeyboard.core.settings.HapticStyle
 import com.wasimaster.wmkeyboard.core.settings.InputMode
 import com.wasimaster.wmkeyboard.core.settings.KeySoundStyle
 import com.wasimaster.wmkeyboard.core.settings.GifContentFilter
+import com.wasimaster.wmkeyboard.core.settings.GifSourceMode
 import com.wasimaster.wmkeyboard.core.tools.GeoPlace
 import com.wasimaster.wmkeyboard.core.tools.ToolApiKeys
 import com.wasimaster.wmkeyboard.core.tools.TranslateClient
@@ -2017,17 +2018,63 @@ private fun ToolDetailSettings(
             )
         }
         ToolbarTool.GIF, ToolbarTool.STICKER -> {
-            SectionHeader("Tenor API key")
+            SectionHeader("Sources & API keys")
             ApiKeyField(
                 label = "Tenor API key",
                 value = settings.tenorApiKey,
                 builtInAvailable = ToolApiKeys.builtInTenor,
                 emptyHint = "Free from Google — developers.google.com/tenor",
             ) { repository.setTenorApiKey(it) }
+            ApiKeyField(
+                label = "GIPHY API key",
+                value = settings.giphyApiKey,
+                builtInAvailable = ToolApiKeys.builtInGiphy,
+                emptyHint = "Free from developers.giphy.com",
+            ) { repository.setGiphyApiKey(it) }
+            ToggleSetting(
+                "Google Images as a source",
+                "Animated GIFs (transparent PNGs for stickers) via web/image search's keys",
+                settings.gifUseGoogle,
+                info = "Needs the Google Programmable Search key and engine id from " +
+                    "the web search tool's settings. Google only searches when you " +
+                    "press enter (or pick its chip) — never per keystroke — because " +
+                    "its free tier is 100 requests a day, shared with the web and " +
+                    "image search tools. Google previews are static; the inserted " +
+                    "GIF still animates.",
+            ) { scope.launch { repository.setGifUseGoogle(it) } }
             Text(
-                "The GIF and sticker tools share this key and the content filter " +
-                    "below. Get a free key by creating a Google Cloud project and " +
-                    "enabling the Tenor API.",
+                "The GIF and sticker tools share all of this, including the content " +
+                    "filter below. Any one key is enough; every configured source " +
+                    "shows up in the panel.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+            )
+            SectionHeader("Multiple sources")
+            SingleChoiceSegmentedButtonRow(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+            ) {
+                GifSourceMode.entries.forEachIndexed { index, mode ->
+                    SegmentedButton(
+                        selected = settings.gifSourceMode == mode,
+                        onClick = { scope.launch { repository.setGifSourceMode(mode) } },
+                        shape = SegmentedButtonDefaults.itemShape(index, GifSourceMode.entries.size),
+                    ) {
+                        Text(
+                            when (mode) {
+                                GifSourceMode.TABS -> "Tabs"
+                                GifSourceMode.MIX -> "Mixed"
+                            },
+                            maxLines = 1,
+                        )
+                    }
+                }
+            }
+            Text(
+                "Tabs: a chip per source on the panel. Mixed: one grid with results " +
+                    "from every source interleaved evenly.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
@@ -2057,8 +2104,9 @@ private fun ToolDetailSettings(
                 }
             }
             Text(
-                "High hides the most; Off hides nothing. This is Tenor's own " +
-                    "safety filter.",
+                "High hides the most; Off hides nothing. Applies as Tenor's " +
+                    "content filter, GIPHY's rating (High = G … Off = R) and, for " +
+                    "Google, SafeSearch follows the web search tool's setting.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),

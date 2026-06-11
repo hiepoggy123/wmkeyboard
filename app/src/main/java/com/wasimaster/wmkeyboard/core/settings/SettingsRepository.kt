@@ -50,6 +50,13 @@ enum class ToolbarTool {
 enum class GifContentFilter { OFF, LOW, MEDIUM, HIGH }
 
 /**
+ * How the GIF/sticker panel presents multiple providers (Tenor, GIPHY,
+ * Google): a chip per source, or every source's results interleaved
+ * evenly into one grid.
+ */
+enum class GifSourceMode { TABS, MIX }
+
+/**
  * Key-press sound: which of the system's UI sound effects plays. All come
  * from the device's sound pack, so they match the stock keyboard's palette.
  */
@@ -244,10 +251,15 @@ data class KeyboardSettings(
      */
     val translateApiKey: String = "",
     val tenorApiKey: String = "",
+    val giphyApiKey: String = "",
     val googleSearchApiKey: String = "",
     /** Programmable Search engine id (cx) that goes with [googleSearchApiKey]. */
     val googleSearchCx: String = "",
     val gifContentFilter: GifContentFilter = GifContentFilter.MEDIUM,
+    /** Tabs per provider vs one evenly-mixed grid, when several have keys. */
+    val gifSourceMode: GifSourceMode = GifSourceMode.TABS,
+    /** Offer Google Images (animated GIFs / transparent PNGs) as a source. */
+    val gifUseGoogle: Boolean = true,
     /** SafeSearch for the web and image search tools. */
     val searchSafe: Boolean = true,
     /** Results per web/image search (the API caps a page at 10). */
@@ -362,6 +374,9 @@ class SettingsRepository(private val context: Context) {
         private val TRANSLATE_TARGET_LANG = stringPreferencesKey("translate_target_lang")
         private val TRANSLATE_API_KEY = stringPreferencesKey("translate_api_key")
         private val TENOR_API_KEY = stringPreferencesKey("tenor_api_key")
+        private val GIPHY_API_KEY = stringPreferencesKey("giphy_api_key")
+        private val GIF_SOURCE_MODE = stringPreferencesKey("gif_source_mode")
+        private val GIF_USE_GOOGLE = booleanPreferencesKey("gif_use_google")
         private val GOOGLE_SEARCH_API_KEY = stringPreferencesKey("google_search_api_key")
         private val GOOGLE_SEARCH_CX = stringPreferencesKey("google_search_cx")
         private val GIF_CONTENT_FILTER = stringPreferencesKey("gif_content_filter")
@@ -505,6 +520,11 @@ class SettingsRepository(private val context: Context) {
             translateTargetLang = p[TRANSLATE_TARGET_LANG] ?: defaults.translateTargetLang,
             translateApiKey = p[TRANSLATE_API_KEY] ?: defaults.translateApiKey,
             tenorApiKey = p[TENOR_API_KEY] ?: defaults.tenorApiKey,
+            giphyApiKey = p[GIPHY_API_KEY] ?: defaults.giphyApiKey,
+            gifSourceMode = p[GIF_SOURCE_MODE]
+                ?.let { runCatching { GifSourceMode.valueOf(it) }.getOrNull() }
+                ?: defaults.gifSourceMode,
+            gifUseGoogle = p[GIF_USE_GOOGLE] ?: defaults.gifUseGoogle,
             googleSearchApiKey = p[GOOGLE_SEARCH_API_KEY] ?: defaults.googleSearchApiKey,
             googleSearchCx = p[GOOGLE_SEARCH_CX] ?: defaults.googleSearchCx,
             gifContentFilter = p[GIF_CONTENT_FILTER]
@@ -860,6 +880,15 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setTenorApiKey(value: String) =
         context.dataStore.edit { it[TENOR_API_KEY] = value.trim() }
+
+    suspend fun setGiphyApiKey(value: String) =
+        context.dataStore.edit { it[GIPHY_API_KEY] = value.trim() }
+
+    suspend fun setGifSourceMode(value: GifSourceMode) =
+        context.dataStore.edit { it[GIF_SOURCE_MODE] = value.name }
+
+    suspend fun setGifUseGoogle(value: Boolean) =
+        context.dataStore.edit { it[GIF_USE_GOOGLE] = value }
 
     suspend fun setGoogleSearchApiKey(value: String) =
         context.dataStore.edit { it[GOOGLE_SEARCH_API_KEY] = value.trim() }
