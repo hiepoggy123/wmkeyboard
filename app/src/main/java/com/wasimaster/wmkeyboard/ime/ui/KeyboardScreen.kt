@@ -1070,14 +1070,19 @@ private fun Modifier.animatePlacement(): Modifier = composed {
     var targetOffset by remember { mutableStateOf(IntOffset.Zero) }
     var animatable by remember { mutableStateOf<Animatable<IntOffset, AnimationVector2D>?>(null) }
     this
-        .onPlaced { targetOffset = it.positionInParent().round() }
-        .offset {
-            val anim = animatable ?: Animatable(targetOffset, IntOffset.VectorConverter)
-                .also { animatable = it }
-            if (anim.targetValue != targetOffset) {
+        .onPlaced { coords ->
+            val target = coords.positionInParent().round()
+            targetOffset = target
+            val anim = animatable
+            if (anim == null) {
+                // First placement: settle in place immediately. Creating the
+                // animatable at zero instead would make every fresh icon
+                // "arrive" from the parent's origin.
+                animatable = Animatable(target, IntOffset.VectorConverter)
+            } else if (anim.targetValue != target) {
                 scope.launch {
                     anim.animateTo(
-                        targetOffset,
+                        target,
                         spring(
                             stiffness = Spring.StiffnessMediumLow,
                             visibilityThreshold = IntOffset(1, 1),
@@ -1085,7 +1090,9 @@ private fun Modifier.animatePlacement(): Modifier = composed {
                     )
                 }
             }
-            anim.value - targetOffset
+        }
+        .offset {
+            animatable?.let { it.value - targetOffset } ?: IntOffset.Zero
         }
 }
 
@@ -1277,10 +1284,14 @@ private fun RowScope.ToolbarRow(
             // The tools sub-row carries a weight equal to its cell count, so
             // its cells end up exactly as wide as the leading buttons' cells.
             // It still exists (zero tools aside) as the drag-drop target.
+            // The chevron pushes the whole sub-row over, so the sub-row is
+            // what animates that shift — the cells only micro-adjust for
+            // their new widths inside it.
             Row(
                 modifier = Modifier
                     .weight(tools.size.coerceAtLeast(1).toFloat())
                     .fillMaxHeight()
+                    .animatePlacement()
                     .onGloballyPositioned { drag.toolbarBounds = it.boundsInRoot() },
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -2795,7 +2806,7 @@ private fun EmojiPanel(
         // In search mode the key rows sit right below the panel, so the
         // control bar would be redundant chrome.
         if (!state.emojiSearchActive) {
-            EmojiBottomBar(onKey = onKey, onClose = onClose)
+            EmojiBottomBar(state = state, onKey = onKey, onClose = onClose)
         }
     }
 }
@@ -2804,81 +2815,109 @@ private fun EmojiPanel(
  * Bottom control row of the emoji panel (Gboard style): back to the keys
  * on the left, a spacebar in the middle, and a repeating backspace on the
  * right — a quick emoji run never needs a detour through the letter keys.
+ * Sized to the real bottom key row: same 10-unit grid (abc and ⌫ at the
+ * ?123 key's 1.5 width), same key height and gaps.
  */
 @Composable
-private fun EmojiBottomBar(onKey: (Key) -> Unit, onClose: () -> Unit) {
+private fun EmojiBottomBar(
+    state: KeyboardUiState,
+    onKey: (Key) -> Unit,
+    onClose: () -> Unit,
+) {
     val kb = LocalKbTheme.current
     val feedback = LocalKeyPressFeedback.current
     val scope = rememberCoroutineScope()
+    val settings = state.settings
     val shape = RoundedCornerShape(kb.keyRadiusDp.dp)
+    // Cell = touch target spanning the gap, like KeyButton: the input
+    // modifier sits outside the padding so presses between keys still land.
+    val cell: @Composable RowScope.(Float, Modifier, @Composable () -> Unit) -> Unit =
+        { weight, input, content ->
+            Box(
+                modifier = Modifier
+                    .weight(weight)
+                    .fillMaxHeight()
+                    .then(input)
+                    .padding(horizontal = KeyGapHorizontal, vertical = KeyGapVertical),
+                contentAlignment = Alignment.Center,
+            ) { content() }
+        }
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(46.dp)
-            .padding(horizontal = 4.dp, vertical = 3.dp),
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
+            .height(settings.keyHeightDp.dp + KeyGapVertical * 2)
+            .padding(horizontal = 1.5.dp),
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxHeight()
-                .width(58.dp)
-                .clip(shape)
-                .background(kb.modifierKey, shape)
-                .clickable {
-                    feedback()
-                    onClose()
-                },
-            contentAlignment = Alignment.Center,
+        cell(
+            1.5f,
+            Modifier.clickable {
+                feedback()
+                onClose()
+            },
         ) {
-            Text(
-                "abc",
-                color = kb.modifierKeyText,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Medium,
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(kb.modifierKey, shape),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    "abc",
+                    color = kb.modifierKeyText,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Medium,
+                )
+            }
+        }
+        cell(
+            7f,
+            Modifier.clickable {
+                feedback()
+                onKey(Key(" ", action = KeyAction.Space))
+            },
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(kb.key, shape),
             )
         }
-        Box(
-            modifier = Modifier
-                .fillMaxHeight()
-                .weight(1f)
-                .clip(shape)
-                .background(kb.key, shape)
-                .clickable {
-                    feedback()
-                    onKey(Key(" ", action = KeyAction.Space))
-                },
-        )
-        Box(
-            modifier = Modifier
-                .fillMaxHeight()
-                .width(58.dp)
-                .clip(shape)
-                .background(kb.modifierKey, shape)
-                .pointerInput(Unit) {
-                    detectTapGestures(
-                        onPress = {
-                            feedback()
-                            onKey(Key("⌫", action = KeyAction.Delete))
-                            val repeat = scope.launch {
-                                delay(400)
-                                while (true) {
-                                    onKey(Key("⌫", action = KeyAction.Delete))
-                                    delay(120)
-                                }
+        cell(
+            1.5f,
+            Modifier.pointerInput(settings.longPressDelayMs, settings.keyRepeatIntervalMs) {
+                detectTapGestures(
+                    onPress = {
+                        feedback()
+                        onKey(Key("⌫", action = KeyAction.Delete))
+                        // Same hold-to-repeat cadence as the real backspace,
+                        // buzzing on every repeat.
+                        val repeat = scope.launch {
+                            delay(settings.longPressDelayMs.toLong())
+                            while (true) {
+                                feedback()
+                                onKey(Key("⌫", action = KeyAction.Delete))
+                                delay(settings.keyRepeatIntervalMs.toLong())
                             }
-                            tryAwaitRelease()
-                            repeat.cancel()
-                        },
-                    )
-                },
-            contentAlignment = Alignment.Center,
+                        }
+                        tryAwaitRelease()
+                        repeat.cancel()
+                    },
+                )
+            },
         ) {
-            Icon(
-                Icons.AutoMirrored.Outlined.Backspace,
-                contentDescription = "Backspace",
-                modifier = Modifier.size(20.dp),
-                tint = kb.modifierKeyText,
-            )
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(kb.modifierKey, shape),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    Icons.AutoMirrored.Outlined.Backspace,
+                    contentDescription = "Backspace",
+                    modifier = Modifier.size(20.dp),
+                    tint = kb.modifierKeyText,
+                )
+            }
         }
     }
 }
