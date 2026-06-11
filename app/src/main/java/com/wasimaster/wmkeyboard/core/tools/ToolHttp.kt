@@ -11,7 +11,7 @@ import kotlinx.serialization.json.jsonPrimitive
 
 /**
  * Tiny blocking HTTP helper shared by the network tool clients (translate,
- * Tenor, Google search). Same HttpURLConnection approach as [WeatherClient];
+ * KLIPY/GIPHY, Google search). Same HttpURLConnection approach as [WeatherClient];
  * always call on an IO dispatcher. On an HTTP error it tries to surface the
  * API's own error message (Google APIs return `{"error": {"message": …}}`)
  * so the panels can show something actionable instead of a bare failure.

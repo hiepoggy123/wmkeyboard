@@ -33,57 +33,61 @@ class TranslateClientTest {
     }
 }
 
-class TenorClientTest {
+class KlipyClientTest {
 
     private val gifBody = """
-        {"results":[
-            {"id":"111","media_formats":{
-                "tinygif":{"url":"https://t/tiny1.gif","dims":[220,110]},
-                "gif":{"url":"https://t/full1.gif","dims":[440,220]}
+        {"result":true,"data":{"data":[
+            {"id":111,"title":"cat","file":{
+                "sm":{"gif":{"url":"https://k/sm1.gif","width":200,"height":100}},
+                "hd":{"gif":{"url":"https://k/hd1.gif","width":400,"height":200}}
             }},
-            {"id":"222","media_formats":{
-                "gif":{"url":"https://t/full2.gif","dims":[300,300]}
-            }}
-        ],"next":"abc"}
+            {"id":222,"title":"no file"}
+        ],"current_page":1,"has_next":true}}
     """.trimIndent()
 
     @Test
-    fun `gif results parse preview, full url and aspect ratio`() {
-        val items = TenorClient.parse(gifBody, stickers = false)
-        // The second result lacks a tinygif preview and is skipped.
+    fun `gif results parse preview, full url, aspect ratio and source`() {
+        val items = KlipyClient.parse(gifBody)
+        // The second result has no file object and is skipped.
         assertEquals(1, items.size)
         val item = items[0]
-        assertEquals("111", item.id)
-        assertEquals("https://t/tiny1.gif", item.previewUrl)
-        assertEquals("https://t/full1.gif", item.fullUrl)
+        assertEquals("klipy_111", item.id)
+        assertEquals("https://k/sm1.gif", item.previewUrl)
+        assertEquals("https://k/hd1.gif", item.fullUrl)
         assertEquals("image/gif", item.mime)
         assertEquals(2f, item.aspectRatio)
+        assertEquals(GifSource.KLIPY, item.source)
     }
 
     @Test
-    fun `sticker results fall back from gif_transparent to webp_transparent`() {
+    fun `falls back through sizes when sm and hd missing`() {
         val body = """
-            {"results":[
-                {"id":"s1","media_formats":{
-                    "tinygif_transparent":{"url":"https://t/s1_tiny.gif","dims":[100,100]},
-                    "webp_transparent":{"url":"https://t/s1.webp","dims":[200,200]}
+            {"result":true,"data":{"data":[
+                {"id":"x","file":{
+                    "xs":{"gif":{"url":"https://k/xs.gif"}},
+                    "md":{"gif":{"url":"https://k/md.gif"}}
                 }}
+            ]}}
+        """.trimIndent()
+        val item = KlipyClient.parse(body)[0]
+        assertEquals("https://k/xs.gif", item.previewUrl)
+        assertEquals("https://k/md.gif", item.fullUrl)
+    }
+
+    @Test
+    fun `data as a bare array also parses`() {
+        val body = """
+            {"result":true,"data":[
+                {"id":"y","file":{"sm":{"gif":{"url":"https://k/s.gif"}},"hd":{"gif":{"url":"https://k/h.gif"}}}}
             ]}
         """.trimIndent()
-        val items = TenorClient.parse(body, stickers = true)
-        assertEquals(1, items.size)
-        assertEquals("image/webp", items[0].mime)
-        assertEquals("https://t/s1.webp", items[0].fullUrl)
+        assertEquals(1, KlipyClient.parse(body).size)
     }
 
     @Test
-    fun `missing results key parses to empty list`() {
-        assertTrue(TenorClient.parse("{}", stickers = false).isEmpty())
-    }
-
-    @Test
-    fun `tenor results are tagged with their source`() {
-        assertEquals(GifSource.TENOR, TenorClient.parse(gifBody, stickers = false)[0].source)
+    fun `missing data parses to empty list`() {
+        assertTrue(KlipyClient.parse("{}").isEmpty())
+        assertTrue(KlipyClient.parse("""{"result":true,"data":{}}""").isEmpty())
     }
 }
 
@@ -134,10 +138,10 @@ class GifSourcesTest {
 
     @Test
     fun `interleave alternates sources evenly`() {
-        val tenor = listOf(item("t1", GifSource.TENOR), item("t2", GifSource.TENOR), item("t3", GifSource.TENOR))
+        val klipy = listOf(item("k1", GifSource.KLIPY), item("k2", GifSource.KLIPY), item("k3", GifSource.KLIPY))
         val giphy = listOf(item("g1", GifSource.GIPHY))
-        val merged = GifSources.interleave(listOf(tenor, giphy))
-        assertEquals(listOf("t1", "g1", "t2", "t3"), merged.map { it.id })
+        val merged = GifSources.interleave(listOf(klipy, giphy))
+        assertEquals(listOf("k1", "g1", "k2", "k3"), merged.map { it.id })
     }
 
     @Test

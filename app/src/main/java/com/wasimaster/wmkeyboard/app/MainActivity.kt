@@ -1662,8 +1662,8 @@ private fun toolDescription(tool: ToolbarTool): String = when (tool) {
     ToolbarTool.NUMPAD -> "Dedicated number pad layout"
     ToolbarTool.HANDWRITING -> "Write words by hand — finger or S Pen — with on-device recognition"
     ToolbarTool.TRANSLATE -> "Translate what you type, live, into any language"
-    ToolbarTool.GIF -> "Search Tenor GIFs and send them without leaving the keyboard"
-    ToolbarTool.STICKER -> "Search Tenor stickers — transparent, chat-ready"
+    ToolbarTool.GIF -> "Search GIFs (Klipy, GIPHY, Google) and send them without leaving the keyboard"
+    ToolbarTool.STICKER -> "Search stickers — transparent, chat-ready"
     ToolbarTool.WEB_SEARCH -> "Google a query and insert a result's link"
     ToolbarTool.IMAGE_SEARCH -> "Google Images from the keyboard; tap to send an image"
 }
@@ -2020,11 +2020,11 @@ private fun ToolDetailSettings(
         ToolbarTool.GIF, ToolbarTool.STICKER -> {
             SectionHeader("Sources & API keys")
             ApiKeyField(
-                label = "Tenor API key",
-                value = settings.tenorApiKey,
-                builtInAvailable = ToolApiKeys.builtInTenor,
-                emptyHint = "Free from Google — developers.google.com/tenor",
-            ) { repository.setTenorApiKey(it) }
+                label = "Klipy API key",
+                value = settings.klipyApiKey,
+                builtInAvailable = ToolApiKeys.builtInKlipy,
+                emptyHint = "Free from partner.klipy.com (Tenor's API was retired mid-2026)",
+            ) { repository.setKlipyApiKey(it) }
             ApiKeyField(
                 label = "GIPHY API key",
                 value = settings.giphyApiKey,
@@ -2104,9 +2104,9 @@ private fun ToolDetailSettings(
                 }
             }
             Text(
-                "High hides the most; Off hides nothing. Applies as Tenor's " +
-                    "content filter, GIPHY's rating (High = G … Off = R) and, for " +
-                    "Google, SafeSearch follows the web search tool's setting.",
+                "High hides the most; Off hides nothing. Maps to Klipy's and " +
+                    "GIPHY's rating (High = G … Off = R); for Google, SafeSearch " +
+                    "follows the web search tool's setting.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),

@@ -13,20 +13,20 @@ import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
  */
 object ToolApiKeys {
 
-    fun tenor(settings: KeyboardSettings): String =
-        settings.tenorApiKey.ifBlank { BuildConfig.TENOR_API_KEY }
+    fun klipy(settings: KeyboardSettings): String =
+        settings.klipyApiKey.ifBlank { BuildConfig.KLIPY_API_KEY }
 
     fun giphy(settings: KeyboardSettings): String =
         settings.giphyApiKey.ifBlank { BuildConfig.GIPHY_API_KEY }
 
     /**
-     * Which GIF/sticker providers can actually serve requests: Tenor and
+     * Which GIF/sticker providers can actually serve requests: KLIPY and
      * GIPHY need their keys, Google needs the Programmable Search pair and
      * the tool's own opt-in (its 100-requests/day quota is shared with the
      * web/image search tools).
      */
     fun gifSources(settings: KeyboardSettings): List<GifSource> = buildList {
-        if (tenor(settings).isNotBlank()) add(GifSource.TENOR)
+        if (klipy(settings).isNotBlank()) add(GifSource.KLIPY)
         if (giphy(settings).isNotBlank()) add(GifSource.GIPHY)
         if (settings.gifUseGoogle &&
             googleSearch(settings).isNotBlank() && googleSearchCx(settings).isNotBlank()
@@ -45,7 +45,7 @@ object ToolApiKeys {
         settings.translateApiKey.ifBlank { BuildConfig.TRANSLATE_API_KEY }
 
     /** For the settings screens: whether the build ships its own key. */
-    val builtInTenor: Boolean get() = BuildConfig.TENOR_API_KEY.isNotBlank()
+    val builtInKlipy: Boolean get() = BuildConfig.KLIPY_API_KEY.isNotBlank()
     val builtInGiphy: Boolean get() = BuildConfig.GIPHY_API_KEY.isNotBlank()
     val builtInGoogleSearch: Boolean
         get() = BuildConfig.GOOGLE_SEARCH_API_KEY.isNotBlank() && BuildConfig.GOOGLE_SEARCH_CX.isNotBlank()

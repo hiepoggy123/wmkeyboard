@@ -1,13 +1,31 @@
 package com.wasimaster.wmkeyboard.core.tools
 
 /** Where a GIF/sticker result came from. */
-enum class GifSource { TENOR, GIPHY, GOOGLE }
+enum class GifSource { KLIPY, GIPHY, GOOGLE }
+
+/**
+ * One GIF or sticker result: a small preview for the panel grid and the
+ * full-size file that actually gets committed to the editor. Produced by
+ * [KlipyClient], [GiphyClient] and [GoogleSearchClient.gifSearch].
+ */
+data class GifItem(
+    val id: String,
+    /** Compact preview shown in the picker grid (animated for KLIPY/GIPHY). */
+    val previewUrl: String,
+    /** Full-size file downloaded and inserted on tap. */
+    val fullUrl: String,
+    /** MIME of [fullUrl] — image/gif, image/webp or image/png. */
+    val mime: String,
+    /** width/height of the preview, for grid cell sizing. */
+    val aspectRatio: Float,
+    val source: GifSource,
+)
 
 /** Helpers shared by the multi-provider GIF/sticker pipeline. */
 object GifSources {
 
     fun displayName(source: GifSource): String = when (source) {
-        GifSource.TENOR -> "Tenor"
+        GifSource.KLIPY -> "Klipy"
         GifSource.GIPHY -> "GIPHY"
         GifSource.GOOGLE -> "Google"
     }

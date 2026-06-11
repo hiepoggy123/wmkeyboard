@@ -6,7 +6,7 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
 }
 
-// API keys for the network tools (GIF/sticker via Tenor, web/image search via
+// API keys for the network tools (GIF/sticker via KLIPY/GIPHY, web/image search via
 // Google Programmable Search, optional official Cloud Translation). Read from
 // local.properties (never committed) or, failing that, environment variables —
 // all optional: without a key the affected tool shows a "needs API key" panel
@@ -38,7 +38,7 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        buildConfigField("String", "TENOR_API_KEY", "\"${apiKey("wmkb.tenorApiKey", "WMKB_TENOR_API_KEY")}\"")
+        buildConfigField("String", "KLIPY_API_KEY", "\"${apiKey("wmkb.klipyApiKey", "WMKB_KLIPY_API_KEY")}\"")
         buildConfigField("String", "GIPHY_API_KEY", "\"${apiKey("wmkb.giphyApiKey", "WMKB_GIPHY_API_KEY")}\"")
         buildConfigField("String", "GOOGLE_SEARCH_API_KEY", "\"${apiKey("wmkb.googleSearchApiKey", "WMKB_GOOGLE_SEARCH_API_KEY")}\"")
         buildConfigField("String", "GOOGLE_SEARCH_CX", "\"${apiKey("wmkb.googleSearchCx", "WMKB_GOOGLE_SEARCH_CX")}\"")

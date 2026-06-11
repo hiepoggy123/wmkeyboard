@@ -201,7 +201,7 @@ private fun PanelSpinner() {
 
 /**
  * GIF/sticker picker: trending on open, live search from the search bar
- * (Tenor/GIPHY; Google joins on enter to spare its daily quota), animated
+ * (KLIPY/GIPHY; Google joins on enter to spare its daily quota), animated
  * previews, tap to download & commit into the editor. With several
  * providers configured, either a chip per source or one evenly-mixed
  * grid, per the tool's settings.
@@ -252,7 +252,7 @@ internal fun GifPanel(
             else sources == listOf(GifSource.GOOGLE)
         when (ui) {
             MediaUi.NeedKey -> PanelNotice(
-                "The $noun tool needs an API key — Tenor or GIPHY (both free), " +
+                "The $noun tool needs an API key — Klipy or GIPHY (both free), " +
                     "or Google Programmable Search. Add one in the tool's settings.",
                 actionLabel = "Open settings",
                 onAction = { onOpenToolSettings(tool) },
@@ -277,7 +277,7 @@ internal fun GifPanel(
     }
 }
 
-/** Provider chips (tabs mode): Tenor / GIPHY / Google. */
+/** Provider chips (tabs mode): Klipy / GIPHY / Google. */
 @Composable
 private fun GifSourceChips(
     sources: List<GifSource>,

@@ -46,11 +46,11 @@ enum class ToolbarTool {
     TRANSLATE, GIF, STICKER, WEB_SEARCH, IMAGE_SEARCH,
 }
 
-/** Tenor's content filter for the GIF and sticker tools. */
+/** Content filter for the GIF and sticker tools (provider rating levels). */
 enum class GifContentFilter { OFF, LOW, MEDIUM, HIGH }
 
 /**
- * How the GIF/sticker panel presents multiple providers (Tenor, GIPHY,
+ * How the GIF/sticker panel presents multiple providers (KLIPY, GIPHY,
  * Google): a chip per source, or every source's results interleaved
  * evenly into one grid.
  */
@@ -250,7 +250,7 @@ data class KeyboardSettings(
      * Blank means "use the built-in key" (which may itself be blank).
      */
     val translateApiKey: String = "",
-    val tenorApiKey: String = "",
+    val klipyApiKey: String = "",
     val giphyApiKey: String = "",
     val googleSearchApiKey: String = "",
     /** Programmable Search engine id (cx) that goes with [googleSearchApiKey]. */
@@ -373,7 +373,7 @@ class SettingsRepository(private val context: Context) {
         private val HANDWRITING_AUTO_SPACE = booleanPreferencesKey("handwriting_auto_space")
         private val TRANSLATE_TARGET_LANG = stringPreferencesKey("translate_target_lang")
         private val TRANSLATE_API_KEY = stringPreferencesKey("translate_api_key")
-        private val TENOR_API_KEY = stringPreferencesKey("tenor_api_key")
+        private val KLIPY_API_KEY = stringPreferencesKey("klipy_api_key")
         private val GIPHY_API_KEY = stringPreferencesKey("giphy_api_key")
         private val GIF_SOURCE_MODE = stringPreferencesKey("gif_source_mode")
         private val GIF_USE_GOOGLE = booleanPreferencesKey("gif_use_google")
@@ -519,7 +519,7 @@ class SettingsRepository(private val context: Context) {
             handwritingAutoSpace = p[HANDWRITING_AUTO_SPACE] ?: defaults.handwritingAutoSpace,
             translateTargetLang = p[TRANSLATE_TARGET_LANG] ?: defaults.translateTargetLang,
             translateApiKey = p[TRANSLATE_API_KEY] ?: defaults.translateApiKey,
-            tenorApiKey = p[TENOR_API_KEY] ?: defaults.tenorApiKey,
+            klipyApiKey = p[KLIPY_API_KEY] ?: defaults.klipyApiKey,
             giphyApiKey = p[GIPHY_API_KEY] ?: defaults.giphyApiKey,
             gifSourceMode = p[GIF_SOURCE_MODE]
                 ?.let { runCatching { GifSourceMode.valueOf(it) }.getOrNull() }
@@ -878,8 +878,8 @@ class SettingsRepository(private val context: Context) {
     suspend fun setTranslateApiKey(value: String) =
         context.dataStore.edit { it[TRANSLATE_API_KEY] = value.trim() }
 
-    suspend fun setTenorApiKey(value: String) =
-        context.dataStore.edit { it[TENOR_API_KEY] = value.trim() }
+    suspend fun setKlipyApiKey(value: String) =
+        context.dataStore.edit { it[KLIPY_API_KEY] = value.trim() }
 
     suspend fun setGiphyApiKey(value: String) =
         context.dataStore.edit { it[GIPHY_API_KEY] = value.trim() }

@@ -59,7 +59,7 @@ sealed interface SoundHapticAction {
 
 /** GIF / sticker panel state, owned by the service (it does the fetching). */
 sealed interface MediaUi {
-    /** No Tenor key in the build and none pasted into settings. */
+    /** No GIF-provider key in the build and none pasted into settings. */
     data object NeedKey : MediaUi
     data object Loading : MediaUi
     data class Error(val message: String) : MediaUi
@@ -179,7 +179,7 @@ data class KeyboardUiState(
     val mediaDownloadingId: String? = null,
     /** Selected provider chip on the GIF/sticker panel (tabs mode). */
     val mediaSource: com.wasimaster.wmkeyboard.core.tools.GifSource =
-        com.wasimaster.wmkeyboard.core.tools.GifSource.TENOR,
+        com.wasimaster.wmkeyboard.core.tools.GifSource.KLIPY,
     val gif: MediaUi = MediaUi.Loading,
     val sticker: MediaUi = MediaUi.Loading,
     val webSearch: WebSearchUi = WebSearchUi.Idle,

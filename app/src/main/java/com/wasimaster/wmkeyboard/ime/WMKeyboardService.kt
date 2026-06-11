@@ -62,7 +62,7 @@ import com.wasimaster.wmkeyboard.core.tools.GifSources
 import com.wasimaster.wmkeyboard.core.tools.GiphyClient
 import com.wasimaster.wmkeyboard.core.tools.GoogleSearchClient
 import com.wasimaster.wmkeyboard.core.tools.ImageResult
-import com.wasimaster.wmkeyboard.core.tools.TenorClient
+import com.wasimaster.wmkeyboard.core.tools.KlipyClient
 import com.wasimaster.wmkeyboard.core.tools.ToolApiKeys
 import com.wasimaster.wmkeyboard.core.tools.ToolHttp
 import com.wasimaster.wmkeyboard.core.tools.TranslateClient
@@ -1374,9 +1374,9 @@ class WMKeyboardService : InputMethodService() {
     }
 
     /**
-     * GIF/sticker searches are cheap and Tenor is built for per-keystroke
-     * search, so results follow the query live. Web/image search waits for
-     * enter — the free Programmable Search tier is 100 queries a day.
+     * GIF/sticker searches are cheap on KLIPY/GIPHY, so results follow the
+     * query live. Web/image search waits for enter — the free Programmable
+     * Search tier is 100 queries a day.
      */
     private fun scheduleMediaLiveSearch() {
         val state = _uiState.value
@@ -1486,8 +1486,8 @@ class WMKeyboardService : InputMethodService() {
         sticker: Boolean,
         settings: com.wasimaster.wmkeyboard.core.settings.KeyboardSettings,
     ): List<GifItem> = when (source) {
-        GifSource.TENOR ->
-            TenorClient.search(query, ToolApiKeys.tenor(settings), sticker, settings.gifContentFilter)
+        GifSource.KLIPY ->
+            KlipyClient.search(query, ToolApiKeys.klipy(settings), sticker, settings.gifContentFilter)
         GifSource.GIPHY ->
             GiphyClient.search(query, ToolApiKeys.giphy(settings), sticker, settings.gifContentFilter)
         GifSource.GOOGLE -> {

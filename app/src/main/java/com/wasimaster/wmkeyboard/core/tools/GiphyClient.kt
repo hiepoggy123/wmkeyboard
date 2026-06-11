@@ -10,7 +10,7 @@ import kotlinx.serialization.json.jsonPrimitive
 
 /**
  * Minimal GIPHY v1 client — the second GIF/sticker provider next to
- * [TenorClient]. Same shape: blank query returns trending, stickers are a
+ * [KlipyClient]. Same shape: blank query returns trending, stickers are a
  * separate endpoint with transparent results. Requires a (free) GIPHY API
  * key. The shared [GifContentFilter] maps onto GIPHY's MPAA-style rating.
  */
