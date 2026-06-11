@@ -153,11 +153,18 @@ import kotlinx.coroutines.launch
  */
 class MainActivity : ComponentActivity() {
 
+    companion object {
+        /** Extra: [ToolbarTool] name whose settings page to open directly. */
+        const val EXTRA_OPEN_TOOL = "open_tool"
+    }
+
     private lateinit var repository: SettingsRepository
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         repository = SettingsRepository(applicationContext)
+        val openTool = intent?.getStringExtra(EXTRA_OPEN_TOOL)
+            ?.let { name -> ToolbarTool.entries.find { it.name == name } }
         setContent {
             // Null until DataStore's first emission: rendering nothing for a
             // frame beats flashing onboarding at users who finished it.
@@ -165,7 +172,7 @@ class MainActivity : ComponentActivity() {
                 .collectAsStateWithLifecycle(null as KeyboardSettings?)
             settings?.let { loaded ->
                 AppTheme(loaded) {
-                    SettingsNavHost(repository, loaded)
+                    SettingsNavHost(repository, loaded, openTool)
                 }
             }
         }
@@ -195,8 +202,20 @@ private fun AppTheme(settings: KeyboardSettings, content: @Composable () -> Unit
 }
 
 @Composable
-private fun SettingsNavHost(repository: SettingsRepository, settings: KeyboardSettings) {
+private fun SettingsNavHost(
+    repository: SettingsRepository,
+    settings: KeyboardSettings,
+    openTool: ToolbarTool? = null,
+) {
     val navController = rememberNavController()
+    // Deep link from the keyboard (long-press on a tool): land on the
+    // tool's page with the tools list underneath for a sane back stack.
+    LaunchedEffect(openTool) {
+        if (openTool != null && settings.onboardingDone) {
+            navController.navigate("tools")
+            navController.navigate("tool/${openTool.name}")
+        }
+    }
     // Quick shared-axis slide instead of the sluggish default cross-fade.
     val spec = tween<androidx.compose.ui.unit.IntOffset>(220)
     val fadeSpec = tween<Float>(220)
@@ -293,8 +312,8 @@ private fun SettingsNavHost(repository: SettingsRepository, settings: KeyboardSe
                 ?.let { runCatching { ToolbarTool.valueOf(it) }.getOrNull() }
             if (tool != null) {
                 SettingsScreen(toolTitle(tool), { navController.popBackStack() }) {
-                    ToolDetailSettings(repository, settings, tool) {
-                        navController.navigate("emoji")
+                    ToolDetailSettings(repository, settings, tool) { route ->
+                        navController.navigate(route)
                     }
                 }
             }
@@ -1197,6 +1216,18 @@ private fun AppearanceSettings(
                     "entirely, leaving bare icons.",
             ) { scope.launch { repository.setToolCircleRadiusDp(it.toInt()) } }
         }
+        item {
+            SliderSetting(
+                "Toolbox grid size",
+                subtitle = "Tools per row in the toolbox grid",
+                value = settings.toolboxColumns.toFloat(),
+                range = 3f..6f,
+                display = "${settings.toolboxColumns} per row",
+                info = "The toolbox is the grid behind the toolbar's grid button. " +
+                    "Fewer per row makes each tool bigger and easier to hit; more " +
+                    "per row fits more tools without scrolling.",
+            ) { scope.launch { repository.setToolboxColumns(it.roundToInt()) } }
+        }
     }
 }
 
@@ -1507,6 +1538,15 @@ private fun EmojiSettings(repository: SettingsRepository, settings: KeyboardSett
                     ),
                     selected = settings.emojiBarContent,
                 ) { scope.launch { repository.setEmojiBarContent(it) } }
+            }
+        }
+        if (settings.emojiBarMode == EmojiBarMode.ALWAYS) {
+            item {
+                ToggleSetting(
+                    "Emoji row above the toolbar",
+                    "Show the dedicated row on top instead of between toolbar and keys",
+                    settings.emojiRowAboveToolbar,
+                ) { scope.launch { repository.setEmojiRowAboveToolbar(it) } }
             }
         }
     }
@@ -2002,7 +2042,7 @@ private fun ToolDetailSettings(
     repository: SettingsRepository,
     settings: KeyboardSettings,
     tool: ToolbarTool,
-    onOpenEmojiSettings: () -> Unit = {},
+    onNavigate: (String) -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     CaptionText(toolDescription(tool))
@@ -2028,7 +2068,7 @@ private fun ToolDetailSettings(
                 NavRow(
                     "All emoji settings",
                     "Suggestions, history tab, emoji row, skin tones & favourites",
-                    onClick = onOpenEmojiSettings,
+                    onClick = { onNavigate("emoji") },
                 )
             }
         }
@@ -2061,6 +2101,13 @@ private fun ToolDetailSettings(
                     display = "${settings.splitGapPercent}%",
                 ) { scope.launch { repository.setSplitGapPercent(it.toInt()) } }
             }
+            item {
+                NavRow(
+                    "All layout & size settings",
+                    "Keyboard height, width, alignment and split",
+                    onClick = { onNavigate("layout") },
+                )
+            }
         }
         ToolbarTool.FLOATING -> SettingsGroup("Options") {
             item {
@@ -2071,6 +2118,13 @@ private fun ToolDetailSettings(
                     range = 240f..500f,
                     display = "${settings.floatingWidthDp} dp",
                 ) { scope.launch { repository.setFloatingWidthDp(it.toInt()) } }
+            }
+            item {
+                NavRow(
+                    "All layout & size settings",
+                    "Keyboard height, width, alignment and floating mode",
+                    onClick = { onNavigate("layout") },
+                )
             }
         }
         ToolbarTool.FLASHLIGHT -> SettingsGroup("Options") {
@@ -2265,6 +2319,13 @@ private fun ToolDetailSettings(
                     settings.autocorrect,
                 ) { scope.launch { repository.setAutocorrect(it) } }
             }
+            item {
+                NavRow(
+                    "All typing settings",
+                    "Suggestions, autocorrect, capitalization and more",
+                    onClick = { onNavigate("typing") },
+                )
+            }
         }
         ToolbarTool.SOUND_HAPTICS -> {
             SettingsGroup("Key press sound") {
@@ -2321,6 +2382,13 @@ private fun ToolDetailSettings(
                         display = "${(settings.keySoundVolume * 100).roundToInt()}%",
                     ) { scope.launch { repository.setKeySoundVolume(it) } }
                 }
+                item {
+                    NavRow(
+                        "All key press settings",
+                        "Haptic style and strength, key preview, long-press",
+                        onClick = { onNavigate("keypress") },
+                    )
+                }
             }
             CaptionText(
                 "Haptic style and strength live under Key press → Haptic feedback; " +
@@ -2366,6 +2434,24 @@ private fun ToolDetailSettings(
                     "handwriting works offline.",
             )
             HandwritingModelManager()
+        }
+        ToolbarTool.THEMES -> SettingsGroup("Options") {
+            item {
+                NavRow(
+                    "All theme settings",
+                    "Create, edit, import and export keyboard themes",
+                    onClick = { onNavigate("themes") },
+                )
+            }
+        }
+        ToolbarTool.ONE_HANDED -> SettingsGroup("Options") {
+            item {
+                NavRow(
+                    "All layout & size settings",
+                    "Keyboard height, width, alignment and one-handed mode",
+                    onClick = { onNavigate("layout") },
+                )
+            }
         }
         else -> {}
     }

@@ -5,14 +5,16 @@ import android.view.WindowManager
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.AnimationVector2D
+import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.VectorConverter
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
@@ -153,7 +155,6 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -182,6 +183,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.round
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.toOffset
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
@@ -273,6 +275,7 @@ fun KeyboardScreen(
     onFloatingBounds: (IntRect) -> Unit = {},
     onToggleSplit: () -> Unit = {},
     onToolbarToolsChange: (List<ToolbarTool>) -> Unit = {},
+    onToolSettings: (ToolbarTool) -> Unit = {},
     onToolboxHintDismiss: () -> Unit = {},
     onFlashlightToggle: () -> Unit = {},
     onUndoRedo: (Boolean) -> Unit = {},
@@ -354,6 +357,7 @@ fun KeyboardScreen(
                 onSnippet = onSnippet,
                 onToolTap = onToolTap,
                 onToolbarToolsChange = onToolbarToolsChange,
+                onToolSettings = onToolSettings,
                 onToolboxHintDismiss = onToolboxHintDismiss,
                 onWeatherRefresh = onWeatherRefresh,
                 onCameraSend = onCameraSend,
@@ -971,10 +975,14 @@ private class ToolDragController {
         private set
     private var fromToolbar = false
     var toolbarBounds: Rect? = null
+    /** Keyboard-body coordinates; the anchor for tool placement animations. */
+    var bodyCoords: LayoutCoordinates? = null
     var currentTools: List<ToolbarTool> = emptyList()
     var onCommit: (List<ToolbarTool>) -> Unit = {}
     /** Haptic tick when the drop target changes: slot to slot, or on/off the bar. */
     var onSnap: () -> Unit = {}
+    /** Hold without dragging past the slop: open the tool's settings page. */
+    var onOpenSettings: (ToolbarTool) -> Unit = {}
     private var lastSlot: Int? = null
 
     fun start(tool: ToolbarTool, fromBar: Boolean, at: Offset) {
@@ -1025,7 +1033,11 @@ private class ToolDragController {
     }
 }
 
-/** Wires long-press-drag onto a tool while customization (toolbox) is open. */
+/**
+ * Wires long-press-drag onto a tool while customization (toolbox) is open.
+ * A hold that never travels past the slop is a distinct gesture: releasing
+ * it opens the tool's settings page instead of dropping the tool in place.
+ */
 @Composable
 private fun DraggableTool(
     tool: ToolbarTool,
@@ -1041,18 +1053,35 @@ private fun DraggableTool(
             .onGloballyPositioned { origin = it.positionInRoot() }
             .pointerInput(enabled, tool) {
                 if (!enabled) return@pointerInput
+                val slop = 18.dp.toPx()
+                // Travel is summed from the drag deltas (finger motion), not
+                // from node positions — the icon animates under a held
+                // finger, and node-relative math read that as a drag.
+                var travel = Offset.Zero
+                var dragged = false
                 detectDragGesturesAfterLongPress(
                     onDragStart = { at ->
                         // The pick-up is invisible until the first move; the
                         // buzz tells the user the long-press registered.
                         feedback()
+                        travel = Offset.Zero
+                        dragged = false
                         drag.start(tool, fromToolbar, origin + at)
                     },
-                    onDrag = { change, _ ->
+                    onDrag = { change, delta ->
                         change.consume()
+                        travel += delta
+                        if (travel.getDistance() > slop) dragged = true
                         drag.move(origin + change.position)
                     },
-                    onDragEnd = { drag.end() },
+                    onDragEnd = {
+                        if (dragged) {
+                            drag.end()
+                        } else {
+                            drag.cancel()
+                            drag.onOpenSettings(tool)
+                        }
+                    },
                     onDragCancel = { drag.cancel() },
                 )
             }
@@ -1060,57 +1089,61 @@ private fun DraggableTool(
 }
 
 /**
- * Slides this element to its new position within its parent when siblings
- * appear, disappear or reorder — pinned tools shuffle smoothly instead of
- * jumping when the toolbox chevron shows up or a tool is (un)pinned.
- * Fast, no-bounce spring: quick but not sudden.
+ * Slides this element to its new position when layout around it changes —
+ * pinned tools shuffle smoothly instead of jumping when the toolbox chevron
+ * shows up or a tool is (un)pinned. Fast, no-bounce spring: quick but not
+ * sudden.
+ *
+ * The position is measured against [anchor] (the keyboard body) rather than
+ * the immediate parent: the toolbar nests rows inside rows and its weighted
+ * cells resize, so an icon's parent-relative position barely moves while
+ * its on-screen position shifts a lot. Anchoring at the body captures the
+ * whole motion in one spring, so nothing snaps at animation start. Falls
+ * back to parent-relative when no anchor is available.
  */
-private fun Modifier.animatePlacement(): Modifier = composed {
-    val scope = rememberCoroutineScope()
-    var targetOffset by remember { mutableStateOf(IntOffset.Zero) }
-    var animatable by remember { mutableStateOf<Animatable<IntOffset, AnimationVector2D>?>(null) }
-    this
-        .onPlaced { coords ->
-            val target = coords.positionInParent().round()
-            targetOffset = target
-            val anim = animatable
-            if (anim == null) {
-                // First placement: settle in place immediately. Creating the
-                // animatable at zero instead would make every fresh icon
-                // "arrive" from the parent's origin.
-                animatable = Animatable(target, IntOffset.VectorConverter)
-            } else if (anim.targetValue != target) {
-                scope.launch {
-                    anim.animateTo(
-                        target,
-                        spring(
-                            stiffness = Spring.StiffnessMediumLow,
-                            visibilityThreshold = IntOffset(1, 1),
-                        ),
-                    )
+private fun Modifier.animatePlacement(anchor: () -> LayoutCoordinates? = { null }): Modifier =
+    composed {
+        val scope = rememberCoroutineScope()
+        var targetOffset by remember { mutableStateOf(IntOffset.Zero) }
+        var animatable by remember { mutableStateOf<Animatable<IntOffset, AnimationVector2D>?>(null) }
+        this
+            .onPlaced { coords ->
+                val anchorCoords = anchor()?.takeIf { it.isAttached }
+                val target = (
+                    anchorCoords?.localPositionOf(coords, Offset.Zero)
+                        ?: coords.positionInParent()
+                    ).round()
+                targetOffset = target
+                val anim = animatable
+                if (anim == null) {
+                    // First placement: settle in place immediately. Creating
+                    // the animatable at zero instead would make every fresh
+                    // icon "arrive" from the anchor's origin.
+                    animatable = Animatable(target, IntOffset.VectorConverter)
+                } else if (anim.targetValue != target) {
+                    // Reorders travel an icon-or-two; anything bigger is a
+                    // layout jump (scroll, panel resize) and animating it
+                    // reads as lag, so snap instead.
+                    val jump = (target - anim.targetValue).toOffset().getDistance()
+                    scope.launch {
+                        if (jump > 160f) {
+                            anim.snapTo(target)
+                        } else {
+                            anim.animateTo(
+                                target,
+                                spring(
+                                    stiffness = Spring.StiffnessMediumLow,
+                                    visibilityThreshold = IntOffset(1, 1),
+                                ),
+                            )
+                        }
+                    }
                 }
             }
-        }
-        .offset {
-            animatable?.let { it.value - targetOffset } ?: IntOffset.Zero
-        }
-}
-
-/**
- * Quick scale+fade entrance for a button whose slot appears instantly
- * (greedy-mode toolbar cells are weighted, so their widths can't animate).
- */
-@Composable
-private fun PopIn(content: @Composable () -> Unit) {
-    var appeared by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) { appeared = true }
-    val progress by animateFloatAsState(
-        targetValue = if (appeared) 1f else 0f,
-        animationSpec = tween(140),
-        label = "toolPopIn",
-    )
-    Box(modifier = Modifier.scale(0.6f + 0.4f * progress).alpha(progress)) { content() }
-}
+            .offset {
+                animatable?.let { it.value - targetOffset } ?: IntOffset.Zero
+            }
+    }
 
 /**
  * One round tool button; the circle radius comes from the theme (0 = bare
@@ -1125,6 +1158,7 @@ private fun ToolCircle(
     active: Boolean,
     modifier: Modifier = Modifier,
     longPressLabel: String? = null,
+    onLongPress: (() -> Unit)? = null,
     onClick: () -> Unit,
 ) {
     val kb = LocalKbTheme.current
@@ -1136,15 +1170,15 @@ private fun ToolCircle(
     }
     var showLabel by remember { mutableStateOf(false) }
     val feedback = LocalKeyPressFeedback.current
-    val click = if (longPressLabel == null) {
+    val click = if (longPressLabel == null && onLongPress == null) {
         Modifier.clickable(onClick = onClick)
     } else {
-        Modifier.pointerInput(longPressLabel) {
+        Modifier.pointerInput(longPressLabel, onLongPress != null) {
             detectTapGestures(
                 onTap = { onClick() },
                 onLongPress = {
                     feedback()
-                    showLabel = true
+                    if (onLongPress != null) onLongPress() else showLabel = true
                 },
             )
         }
@@ -1211,35 +1245,47 @@ private fun RowScope.ToolbarRow(
     // of fixed buttons on the left with the tools spread over the leftover.
     val leading: @Composable (Modifier) -> Unit = { cell ->
         // With any tool panel open, one tap on the chevron returns to the keys.
-        val backChevron: @Composable () -> Unit = {
-            ToolCircle(
-                icon = Icons.Outlined.ChevronLeft,
-                description = "Back to keyboard",
-                active = false,
-                longPressLabel = "Back to keyboard",
-            ) { onPanelChange(state.panel) }
-        }
-        if (greedy) {
-            // Weighted cells reflow instantly; the pop-in keeps the
-            // chevron's arrival from feeling sudden while animatePlacement
-            // slides the rest of the bar over.
-            if (panelOpen) {
-                Box(cell, contentAlignment = Alignment.Center) { PopIn { backChevron() } }
-            }
-        } else {
+        // The transition state keeps the cell composed until the exit
+        // animation finishes, then drops it entirely so a weighted cell
+        // doesn't linger as an invisible gap.
+        val chevronVisible = remember { MutableTransitionState(false) }
+        chevronVisible.targetState = panelOpen
+        if (chevronVisible.currentState || chevronVisible.targetState) {
             AnimatedVisibility(
-                visible = panelOpen,
-                enter = expandHorizontally(tween(140)) + fadeIn(tween(140)),
-                exit = shrinkHorizontally(tween(140)) + fadeOut(tween(140)),
+                visibleState = chevronVisible,
+                modifier = if (greedy) cell else Modifier,
+                enter = if (greedy) {
+                    // The weighted slot can't grow, so the chevron itself
+                    // scales and fades into it.
+                    scaleIn(tween(140)) + fadeIn(tween(140))
+                } else {
+                    expandHorizontally(tween(140)) + fadeIn(tween(140))
+                },
+                exit = if (greedy) {
+                    scaleOut(tween(120)) + fadeOut(tween(120))
+                } else {
+                    shrinkHorizontally(tween(140)) + fadeOut(tween(140))
+                },
             ) {
-                Box(cell, contentAlignment = Alignment.Center) { backChevron() }
+                Box(
+                    if (greedy) Modifier.fillMaxSize() else cell,
+                    contentAlignment = Alignment.Center,
+                ) {
+                    ToolCircle(
+                        icon = Icons.Outlined.ChevronLeft,
+                        description = "Back to keyboard",
+                        active = false,
+                        longPressLabel = "Back to keyboard",
+                    ) { onPanelChange(state.panel) }
+                }
             }
         }
-        Box(cell.animatePlacement(), contentAlignment = Alignment.Center) {
+        Box(cell, contentAlignment = Alignment.Center) {
             ToolCircle(
                 icon = Icons.Outlined.GridView,
                 description = "Toolbox",
                 active = customizing,
+                modifier = Modifier.animatePlacement { drag.bodyCoords },
                 longPressLabel = "Toolbox",
             ) { onPanelChange(PanelMode.TOOLBOX) }
         }
@@ -1254,15 +1300,24 @@ private fun RowScope.ToolbarRow(
                 } else {
                     Modifier.padding(horizontal = 3.dp)
                 }
-                Box(cell.animatePlacement(), contentAlignment = Alignment.Center) {
+                Box(cell, contentAlignment = Alignment.Center) {
                     DraggableTool(tool, fromToolbar = true, enabled = customizing, drag = drag) { dragModifier ->
                         ToolCircle(
                             icon = toolIcon(tool),
                             description = toolLabel(tool),
                             active = toolActive(tool, state),
-                            modifier = dragModifier,
-                            // While customizing, long-press belongs to the drag.
-                            longPressLabel = if (customizing) null else toolLabel(tool),
+                            // The icon itself animates, anchored at the
+                            // keyboard body: cells are weighted so their
+                            // widths snap, and only body-relative tracking
+                            // sees the true on-screen motion.
+                            modifier = dragModifier.animatePlacement { drag.bodyCoords },
+                            // While customizing, long-press belongs to the
+                            // drag (hold-without-drag opens settings there);
+                            // otherwise long-press goes straight to the
+                            // tool's settings page.
+                            onLongPress = if (customizing) null else {
+                                { drag.onOpenSettings(tool) }
+                            },
                         ) { onToolTap(tool) }
                     }
                 }
@@ -1284,14 +1339,10 @@ private fun RowScope.ToolbarRow(
             // The tools sub-row carries a weight equal to its cell count, so
             // its cells end up exactly as wide as the leading buttons' cells.
             // It still exists (zero tools aside) as the drag-drop target.
-            // The chevron pushes the whole sub-row over, so the sub-row is
-            // what animates that shift — the cells only micro-adjust for
-            // their new widths inside it.
             Row(
                 modifier = Modifier
                     .weight(tools.size.coerceAtLeast(1).toFloat())
                     .fillMaxHeight()
-                    .animatePlacement()
                     .onGloballyPositioned { drag.toolbarBounds = it.boundsInRoot() },
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -1312,11 +1363,13 @@ private fun RowScope.ToolbarRow(
         }
     }
     if (state.settings.incognito) {
-        Text(
-            "🕶",
-            fontSize = 12.sp,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(end = 6.dp),
+        Icon(
+            KeyboardIcons.Incognito,
+            contentDescription = "Incognito is on",
+            modifier = Modifier
+                .padding(end = 6.dp)
+                .size(16.dp),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }
@@ -1389,17 +1442,24 @@ private fun ToolboxPanel(
         }
         // More tools than fit the panel height now — the grid scrolls.
         Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-            for (rowTools in available.chunked(4)) {
+            val columns = state.settings.toolboxColumns.coerceAtLeast(1)
+            for (rowTools in available.chunked(columns)) {
                 Row(modifier = Modifier.fillMaxWidth()) {
                     for (tool in rowTools) {
                         key(tool) {
                             Box(
-                                modifier = Modifier.weight(1f).animatePlacement(),
+                                modifier = Modifier.weight(1f),
                                 contentAlignment = Alignment.Center,
                             ) {
                                 DraggableTool(tool, fromToolbar = false, enabled = true, drag = drag) { dragModifier ->
                                     Column(
-                                        modifier = dragModifier.padding(vertical = 10.dp),
+                                        // Parent-anchored, unlike the toolbar:
+                                        // this grid scrolls, and a body anchor
+                                        // made every icon spring-chase each
+                                        // scroll frame — visible lag.
+                                        modifier = dragModifier
+                                            .animatePlacement()
+                                            .padding(vertical = 10.dp),
                                         horizontalAlignment = Alignment.CenterHorizontally,
                                     ) {
                                         ToolCircle(
@@ -1418,7 +1478,7 @@ private fun ToolboxPanel(
                             }
                         }
                     }
-                    repeat(4 - rowTools.size) { Spacer(modifier = Modifier.weight(1f)) }
+                    repeat(columns - rowTools.size) { Spacer(modifier = Modifier.weight(1f)) }
                 }
             }
         }
@@ -1453,6 +1513,7 @@ private fun KeyboardBody(
     onSnippet: (Snippet) -> Unit,
     onToolTap: (ToolbarTool) -> Unit,
     onToolbarToolsChange: (List<ToolbarTool>) -> Unit,
+    onToolSettings: (ToolbarTool) -> Unit,
     onToolboxHintDismiss: () -> Unit,
     onWeatherRefresh: () -> Unit,
     onCameraSend: (java.io.File) -> Unit,
@@ -1470,19 +1531,32 @@ private fun KeyboardBody(
     drag.currentTools = state.settings.toolbarTools
     drag.onCommit = onToolbarToolsChange
     drag.onSnap = LocalKeyPressFeedback.current
+    drag.onOpenSettings = onToolSettings
     var bodyOrigin by remember { mutableStateOf(Offset.Zero) }
 
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .onGloballyPositioned { bodyOrigin = it.positionInRoot() },
+            .onGloballyPositioned {
+                bodyOrigin = it.positionInRoot()
+                drag.bodyCoords = it
+            },
     ) {
         Column {
-            TopBar(state, onSuggestion, onEmoji, onEmojiSuggestion, onPanelChange, onToolTap, drag)
             // The dedicated always-on emoji row (Gboard style) sits between
-            // the strip and the keys; the emoji panel already is emojis, so
-            // it yields there.
-            if (state.settings.emojiBarMode == EmojiBarMode.ALWAYS && state.panel != PanelMode.EMOJI) {
+            // the strip and the keys — or on top of everything, per setting;
+            // the emoji panel already is emojis, so it yields there.
+            val emojiRowVisible =
+                state.settings.emojiBarMode == EmojiBarMode.ALWAYS && state.panel != PanelMode.EMOJI
+            if (emojiRowVisible && state.settings.emojiRowAboveToolbar) {
+                EmojiBarStrip(
+                    state = state,
+                    onEmoji = onEmoji,
+                    onOpenPanel = { onPanelChange(PanelMode.EMOJI) },
+                )
+            }
+            TopBar(state, onSuggestion, onEmoji, onEmojiSuggestion, onPanelChange, onToolTap, drag)
+            if (emojiRowVisible && !state.settings.emojiRowAboveToolbar) {
                 EmojiBarStrip(
                     state = state,
                     onEmoji = onEmoji,

@@ -26,6 +26,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Backspace
@@ -67,6 +71,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.scale
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -81,7 +86,6 @@ import com.wasimaster.wmkeyboard.core.settings.HapticStyle
 import com.wasimaster.wmkeyboard.core.settings.KeySoundStyle
 import com.wasimaster.wmkeyboard.core.theme.BuiltInThemes
 import com.wasimaster.wmkeyboard.core.theme.DEFAULT_THEME_ID
-import com.wasimaster.wmkeyboard.core.theme.ThemeSpec
 import com.wasimaster.wmkeyboard.core.tools.CalendarSystems
 import com.wasimaster.wmkeyboard.core.tools.MoonPhase
 import com.wasimaster.wmkeyboard.core.tools.Qibla
@@ -1015,8 +1019,10 @@ private fun InsertChip(label: String, onClick: () -> Unit) {
 // ---- themes ----
 
 /**
- * Quick theme switcher: swatches for the default (dynamic) theme, every
- * built-in and every custom theme. Tap to apply immediately.
+ * Quick theme switcher: a two-column scrolling grid of swatches — the
+ * default (dynamic) theme, every built-in and every custom theme. Tap to
+ * apply immediately. The Auto swatch previews what the default id would
+ * resolve to (device dynamic colors), not the currently active theme.
  */
 @Composable
 internal fun ThemesPanel(
@@ -1026,11 +1032,13 @@ internal fun ThemesPanel(
     val height = keyRowsHeight(state.settings)
     val kb = LocalKbTheme.current
     val selectedId = state.settings.keyboardThemeId
+    val auto = autoKbTheme(state.settings)
+    val themes = BuiltInThemes + state.settings.customThemes
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .height(height)
-            .padding(vertical = 8.dp),
+            .padding(top = 6.dp),
     ) {
         Text(
             "Tap a theme to apply it. Create and edit themes in Settings → Appearance.",
@@ -1041,25 +1049,30 @@ internal fun ThemesPanel(
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp),
         )
-        Spacer(Modifier.height(8.dp))
-        Row(
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(2),
             modifier = Modifier
                 .fillMaxWidth()
-                .weight(1f)
-                .horizontalScroll(rememberScrollState())
-                .padding(horizontal = 12.dp),
+                .weight(1f),
+            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
-            verticalAlignment = Alignment.CenterVertically,
+            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            ThemeSwatch(
-                name = "Auto",
-                spec = null,
-                selected = selectedId == DEFAULT_THEME_ID,
-            ) { onThemeSelect(DEFAULT_THEME_ID) }
-            for (theme in BuiltInThemes + state.settings.customThemes) {
+            item(key = DEFAULT_THEME_ID) {
+                ThemeSwatch(
+                    name = "Auto",
+                    board = auto.board,
+                    key = auto.key,
+                    accent = auto.accent,
+                    selected = selectedId == DEFAULT_THEME_ID,
+                ) { onThemeSelect(DEFAULT_THEME_ID) }
+            }
+            items(themes, key = { it.id }) { theme ->
                 ThemeSwatch(
                     name = theme.name,
-                    spec = theme,
+                    board = Color(theme.boardBackground.toInt()),
+                    key = Color(theme.keyBackground.toInt()),
+                    accent = Color(theme.accent.toInt()),
                     selected = selectedId == theme.id,
                 ) { onThemeSelect(theme.id) }
             }
@@ -1071,41 +1084,46 @@ internal fun ThemesPanel(
 @Composable
 private fun ThemeSwatch(
     name: String,
-    spec: ThemeSpec?,
+    board: Color,
+    key: Color,
+    accent: Color,
     selected: Boolean,
     onClick: () -> Unit,
 ) {
     val kb = LocalKbTheme.current
-    val board = spec?.let { Color(it.boardBackground.toInt()) } ?: kb.board
-    val key = spec?.let { Color(it.keyBackground.toInt()) } ?: kb.key
-    val accent = spec?.let { Color(it.accent.toInt()) } ?: kb.accent
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(
-            modifier = Modifier
-                .size(width = 72.dp, height = 48.dp)
-                .clip(RoundedCornerShape(10.dp))
-                .background(board)
-                .then(
-                    if (selected) Modifier.border(2.dp, kb.accent, RoundedCornerShape(10.dp))
-                    else Modifier.border(1.dp, kb.divider, RoundedCornerShape(10.dp))
-                )
-                .clickable(onClick = onClick),
-            contentAlignment = Alignment.Center,
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(58.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(board)
+            .then(
+                if (selected) Modifier.border(2.dp, kb.accent, RoundedCornerShape(12.dp))
+                else Modifier.border(1.dp, kb.divider, RoundedCornerShape(12.dp))
+            )
+            .clickable(onClick = onClick),
+    ) {
+        Row(
+            modifier = Modifier.align(Alignment.Center),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                Box(Modifier.size(width = 18.dp, height = 12.dp).clip(RoundedCornerShape(3.dp)).background(key))
-                Box(Modifier.size(width = 18.dp, height = 12.dp).clip(RoundedCornerShape(3.dp)).background(key))
-                Box(Modifier.size(12.dp).clip(CircleShape).background(accent))
-            }
+            Box(Modifier.size(width = 20.dp, height = 13.dp).clip(RoundedCornerShape(3.dp)).background(key))
+            Box(Modifier.size(width = 20.dp, height = 13.dp).clip(RoundedCornerShape(3.dp)).background(key))
+            Box(Modifier.size(13.dp).clip(CircleShape).background(accent))
         }
+        // Name on the swatch itself, tinted for its board — labels under
+        // the cards read as clutter in a dense grid.
         Text(
             name,
-            color = kb.modifierKeyText,
+            color = if (board.luminance() < 0.5f) Color.White.copy(alpha = 0.85f)
+                else Color.Black.copy(alpha = 0.75f),
             fontSize = 10.sp,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(top = 3.dp).width(76.dp),
-            textAlign = TextAlign.Center,
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .padding(start = 8.dp, bottom = 4.dp),
         )
     }
 }

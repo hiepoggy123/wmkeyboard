@@ -301,6 +301,7 @@ class WMKeyboardService : InputMethodService() {
                 onFloatingBounds = ::onFloatingBounds,
                 onToggleSplit = ::onToggleSplit,
                 onToolbarToolsChange = ::onToolbarToolsChange,
+                onToolSettings = ::openToolSettings,
                 onToolboxHintDismiss = {
                     serviceScope.launch { settingsRepository.setToolboxHintDismissed(true) }
                 },
@@ -1719,6 +1720,17 @@ class WMKeyboardService : InputMethodService() {
         startActivity(
             Intent(this, MainActivity::class.java).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+        )
+    }
+
+    /** Long-press on a tool during customization: its settings page. */
+    fun openToolSettings(tool: ToolbarTool) {
+        vibrate()
+        startActivity(
+            Intent(this, MainActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                putExtra(MainActivity.EXTRA_OPEN_TOOL, tool.name)
             }
         )
     }

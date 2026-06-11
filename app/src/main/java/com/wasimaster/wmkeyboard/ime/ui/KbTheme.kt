@@ -309,6 +309,31 @@ fun KeyboardThemeProvider(settings: KeyboardSettings, content: @Composable () ->
 }
 
 /**
+ * The theme the default ("Auto") id resolves to right now — dynamic device
+ * colors in the current light/dark mode. The themes panel uses this for the
+ * Auto swatch, so it previews the device palette instead of parroting
+ * whatever theme happens to be active.
+ */
+@Composable
+fun autoKbTheme(settings: KeyboardSettings): KbTheme {
+    val context = LocalContext.current
+    val systemDark = isSystemInDarkTheme()
+    val dark = when (settings.themeMode) {
+        ThemeMode.SYSTEM -> systemDark
+        ThemeMode.LIGHT -> false
+        ThemeMode.DARK, ThemeMode.AMOLED -> true
+    }
+    val supportsDynamic = settings.dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+    val scheme = when {
+        supportsDynamic && dark -> dynamicDarkColorScheme(context)
+        supportsDynamic -> dynamicLightColorScheme(context)
+        dark -> darkColorScheme()
+        else -> lightColorScheme()
+    }
+    return defaultKbTheme(scheme, dark, amoled = settings.themeMode == ThemeMode.AMOLED, settings)
+}
+
+/**
  * Board background: optional image (center-cropped, with its own opacity)
  * under the board color. A translucent board color acts as a scrim over
  * the image; with no image it lets the app behind shine through.

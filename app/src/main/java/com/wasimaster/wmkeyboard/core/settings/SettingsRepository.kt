@@ -243,6 +243,10 @@ data class KeyboardSettings(
     val cameraHaptics: Boolean = true,
     /** Dictionary tool looks up the word at the cursor when it opens. */
     val dictionaryAutoLookup: Boolean = true,
+    /** Tools per row in the toolbox grid. */
+    val toolboxColumns: Int = 4,
+    /** Dedicated emoji row sits above the toolbar instead of below it. */
+    val emojiRowAboveToolbar: Boolean = false,
 )
 
 /**
@@ -355,6 +359,8 @@ class SettingsRepository(private val context: Context) {
         private val CAMERA_SHUTTER_SOUND = booleanPreferencesKey("camera_shutter_sound")
         private val CAMERA_HAPTICS = booleanPreferencesKey("camera_haptics")
         private val DICTIONARY_AUTO_LOOKUP = booleanPreferencesKey("dictionary_auto_lookup")
+        private val TOOLBOX_COLUMNS = intPreferencesKey("toolbox_columns")
+        private val EMOJI_ROW_ABOVE_TOOLBAR = booleanPreferencesKey("emoji_row_above_toolbar")
     }
 
     val settings: Flow<KeyboardSettings> = context.dataStore.data.map { p ->
@@ -495,6 +501,8 @@ class SettingsRepository(private val context: Context) {
             cameraShutterSound = p[CAMERA_SHUTTER_SOUND] ?: defaults.cameraShutterSound,
             cameraHaptics = p[CAMERA_HAPTICS] ?: defaults.cameraHaptics,
             dictionaryAutoLookup = p[DICTIONARY_AUTO_LOOKUP] ?: defaults.dictionaryAutoLookup,
+            toolboxColumns = p[TOOLBOX_COLUMNS] ?: defaults.toolboxColumns,
+            emojiRowAboveToolbar = p[EMOJI_ROW_ABOVE_TOOLBAR] ?: defaults.emojiRowAboveToolbar,
         )
     }
 
@@ -590,6 +598,12 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setDictionaryAutoLookup(value: Boolean) =
         context.dataStore.edit { it[DICTIONARY_AUTO_LOOKUP] = value }
+
+    suspend fun setToolboxColumns(value: Int) =
+        context.dataStore.edit { it[TOOLBOX_COLUMNS] = value.coerceIn(3, 6) }
+
+    suspend fun setEmojiRowAboveToolbar(value: Boolean) =
+        context.dataStore.edit { it[EMOJI_ROW_ABOVE_TOOLBAR] = value }
 
     suspend fun setToolbarTools(tools: List<ToolbarTool>) =
         context.dataStore.edit {

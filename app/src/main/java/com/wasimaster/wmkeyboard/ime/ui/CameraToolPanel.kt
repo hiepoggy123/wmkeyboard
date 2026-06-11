@@ -5,13 +5,17 @@ import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Matrix
 import android.media.MediaActionSound
+import android.util.Rational
 import android.util.Size
+import android.view.Surface
 import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.ImageProxy
 import androidx.camera.core.Preview
+import androidx.camera.core.UseCaseGroup
+import androidx.camera.core.ViewPort
 import androidx.camera.core.resolutionselector.ResolutionSelector
 import androidx.camera.core.resolutionselector.ResolutionStrategy
 import androidx.camera.lifecycle.ProcessCameraProvider
@@ -84,7 +88,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlin.coroutines.resume
-import kotlin.math.roundToInt
 
 /** A photo sitting in the confirm step: the file on disk plus its preview. */
 private class PendingCapture(val file: File, val bitmap: Bitmap)
@@ -213,7 +216,14 @@ private fun CameraContent(
     DisposableEffect(Unit) { onDispose { shutterSound.release() } }
 
     val previewView = remember {
-        PreviewView(context).apply { scaleType = PreviewView.ScaleType.FILL_CENTER }
+        PreviewView(context).apply {
+            scaleType = PreviewView.ScaleType.FILL_CENTER
+            // The default SurfaceView mode ignores Compose bounds inside the
+            // IME window — the viewfinder painted over the whole keyboard
+            // (toolbar included) and looked bigger than the actual capture
+            // box. TextureView composits like a normal view.
+            implementationMode = PreviewView.ImplementationMode.COMPATIBLE
+        }
     }
     val imageCapture = remember {
         ImageCapture.Builder()
@@ -244,18 +254,32 @@ private fun CameraContent(
     }
     val usingFront = selector == CameraSelector.DEFAULT_FRONT_CAMERA
 
-    // (Re)bind on open and on lens switch; release the camera as soon as
-    // the panel closes so other apps can use it. No binding while the
-    // confirm step is up — the frozen photo is the whole UI.
-    DisposableEffect(provider, selector, pending == null) {
+    // (Re)bind on open, lens switch and once the viewbox is measured;
+    // release the camera as soon as the panel closes so other apps can use
+    // it. No binding while the confirm step is up — the frozen photo is the
+    // whole UI. The shared ViewPort is what makes capture WYSIWYG: CameraX
+    // computes the same crop for the preview stream and the capture stream,
+    // even when the two run at different aspect ratios.
+    DisposableEffect(provider, selector, pending == null, viewSize) {
         val cameraProvider = provider
-        if (cameraProvider != null && selector != null && pending == null) {
+        if (cameraProvider != null && selector != null && pending == null &&
+            viewSize != IntSize.Zero
+        ) {
             val preview = Preview.Builder().build().also {
                 it.surfaceProvider = previewView.surfaceProvider
             }
+            val viewPort = ViewPort.Builder(
+                Rational(viewSize.width, viewSize.height),
+                previewView.display?.rotation ?: Surface.ROTATION_0,
+            ).build()
+            val group = UseCaseGroup.Builder()
+                .setViewPort(viewPort)
+                .addUseCase(preview)
+                .addUseCase(imageCapture)
+                .build()
             camera = runCatching {
                 cameraProvider.unbindAll()
-                cameraProvider.bindToLifecycle(lifecycleOwner, selector, preview, imageCapture)
+                cameraProvider.bindToLifecycle(lifecycleOwner, selector, group)
             }.getOrNull()
         }
         onDispose {
@@ -280,7 +304,6 @@ private fun CameraContent(
             if (state.settings.cameraShutterSound) {
                 shutterSound.play(MediaActionSound.SHUTTER_CLICK)
             }
-            val aspect = viewSize.width.toFloat() / viewSize.height.toFloat()
             val mirror = usingFront && state.settings.cameraMirrorFront
             val capture = withContext(Dispatchers.IO) {
                 runCatching {
@@ -288,7 +311,7 @@ private fun CameraContent(
                     // Rotate + mirror + viewfinder crop in a single pass —
                     // three separate createBitmap calls were the bulk of
                     // the shutter-to-preview latency.
-                    val bitmap = proxy.use { it.toFramedBitmap(aspect, mirror) }
+                    val bitmap = proxy.use { it.toFramedBitmap(mirror) }
                     val file = File(captureDir(context), "IMG_${System.currentTimeMillis()}.jpg")
                     file.outputStream().use { out ->
                         bitmap.compress(Bitmap.CompressFormat.JPEG, 92, out)
@@ -556,35 +579,29 @@ private suspend fun ImageCapture.awaitCapture(context: Context): ImageProxy =
     }
 
 /**
- * Decodes, rotates upright, optionally mirrors and centre-crops to the
- * viewfinder [aspect] — all through one createBitmap call, since each
- * separate pass copies the whole image.
+ * Decodes, crops to the ViewPort's crop rect (the viewfinder frame, as
+ * CameraX computed it for this stream), rotates upright and optionally
+ * mirrors — all through one createBitmap call, since each separate pass
+ * copies the whole image.
  */
-private fun ImageProxy.toFramedBitmap(aspect: Float, mirror: Boolean): Bitmap {
+private fun ImageProxy.toFramedBitmap(mirror: Boolean): Bitmap {
     val source = toBitmap()
-    val rotation = imageInfo.rotationDegrees
-    // The crop rect lives in the un-rotated source space; when the sensor
-    // image is sideways the target aspect applies transposed.
-    val sourceAspect = if (rotation == 90 || rotation == 270) 1f / aspect else aspect
-    var x = 0
-    var y = 0
-    var width = source.width
-    var height = source.height
-    if (sourceAspect > 0f) {
-        val current = width.toFloat() / height.toFloat()
-        if (current > sourceAspect) {
-            width = (height * sourceAspect).roundToInt().coerceIn(1, source.width)
-            x = (source.width - width) / 2
-        } else if (current < sourceAspect) {
-            height = (width / sourceAspect).roundToInt().coerceIn(1, source.height)
-            y = (source.height - height) / 2
-        }
+    // cropRect is in buffer coordinates (pre-rotation). Fall back to the
+    // full frame if it is degenerate or stale for this buffer.
+    val rect = android.graphics.Rect(cropRect)
+    if (rect.isEmpty || rect.left < 0 || rect.top < 0 ||
+        rect.right > source.width || rect.bottom > source.height
+    ) {
+        rect.set(0, 0, source.width, source.height)
     }
+    val rotation = imageInfo.rotationDegrees
     val matrix = Matrix().apply {
         if (rotation != 0) postRotate(rotation.toFloat())
         if (mirror) postScale(-1f, 1f)
     }
-    val framed = Bitmap.createBitmap(source, x, y, width, height, matrix, true)
+    val framed = Bitmap.createBitmap(
+        source, rect.left, rect.top, rect.width(), rect.height(), matrix, true,
+    )
     if (framed != source) source.recycle()
     return framed
 }
