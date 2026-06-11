@@ -237,6 +237,10 @@ data class KeyboardSettings(
     val cameraPreferFront: Boolean = false,
     /** Mirror selfie captures so the photo matches the preview. */
     val cameraMirrorFront: Boolean = true,
+    /** Play a shutter click when the camera tool takes a photo. */
+    val cameraShutterSound: Boolean = true,
+    /** Vibrate on camera controls, countdown ticks and the shutter. */
+    val cameraHaptics: Boolean = true,
     /** Dictionary tool looks up the word at the cursor when it opens. */
     val dictionaryAutoLookup: Boolean = true,
 )
@@ -348,6 +352,8 @@ class SettingsRepository(private val context: Context) {
         private val HANDWRITING_AUTO_SPACE = booleanPreferencesKey("handwriting_auto_space")
         private val CAMERA_PREFER_FRONT = booleanPreferencesKey("camera_prefer_front")
         private val CAMERA_MIRROR_FRONT = booleanPreferencesKey("camera_mirror_front")
+        private val CAMERA_SHUTTER_SOUND = booleanPreferencesKey("camera_shutter_sound")
+        private val CAMERA_HAPTICS = booleanPreferencesKey("camera_haptics")
         private val DICTIONARY_AUTO_LOOKUP = booleanPreferencesKey("dictionary_auto_lookup")
     }
 
@@ -486,6 +492,8 @@ class SettingsRepository(private val context: Context) {
             handwritingAutoSpace = p[HANDWRITING_AUTO_SPACE] ?: defaults.handwritingAutoSpace,
             cameraPreferFront = p[CAMERA_PREFER_FRONT] ?: defaults.cameraPreferFront,
             cameraMirrorFront = p[CAMERA_MIRROR_FRONT] ?: defaults.cameraMirrorFront,
+            cameraShutterSound = p[CAMERA_SHUTTER_SOUND] ?: defaults.cameraShutterSound,
+            cameraHaptics = p[CAMERA_HAPTICS] ?: defaults.cameraHaptics,
             dictionaryAutoLookup = p[DICTIONARY_AUTO_LOOKUP] ?: defaults.dictionaryAutoLookup,
         )
     }
@@ -567,11 +575,18 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setHandwritingAutoSpace(value: Boolean) =
         context.dataStore.edit { it[HANDWRITING_AUTO_SPACE] = value }
+
     suspend fun setCameraPreferFront(value: Boolean) =
         context.dataStore.edit { it[CAMERA_PREFER_FRONT] = value }
 
     suspend fun setCameraMirrorFront(value: Boolean) =
         context.dataStore.edit { it[CAMERA_MIRROR_FRONT] = value }
+
+    suspend fun setCameraShutterSound(value: Boolean) =
+        context.dataStore.edit { it[CAMERA_SHUTTER_SOUND] = value }
+
+    suspend fun setCameraHaptics(value: Boolean) =
+        context.dataStore.edit { it[CAMERA_HAPTICS] = value }
 
     suspend fun setDictionaryAutoLookup(value: Boolean) =
         context.dataStore.edit { it[DICTIONARY_AUTO_LOOKUP] = value }

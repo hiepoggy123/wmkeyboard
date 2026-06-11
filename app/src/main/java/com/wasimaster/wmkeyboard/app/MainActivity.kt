@@ -2211,11 +2211,30 @@ private fun ToolDetailSettings(
                     ) { scope.launch { repository.setCameraMirrorFront(it) } }
                 }
             }
+            SettingsGroup("Feedback") {
+                item {
+                    ToggleSetting(
+                        "Shutter sound",
+                        "Play the camera click when a photo is taken",
+                        settings.cameraShutterSound,
+                    ) { scope.launch { repository.setCameraShutterSound(it) } }
+                }
+                item {
+                    ToggleSetting(
+                        "Haptics",
+                        "Vibrate on the shutter, controls and timer countdown",
+                        settings.cameraHaptics,
+                        info = "Uses the keyboard's haptic style and strength " +
+                            "(Typing → Feedback). If keyboard haptics are off " +
+                            "entirely, the camera tool stays silent too.",
+                    ) { scope.launch { repository.setCameraHaptics(it) } }
+                }
+            }
             CaptionText(
-                "Photos keep the camera's full frame, are saved in the app's " +
-                    "private storage and sent straight into the chat. Nothing is " +
-                    "added to your gallery, and the camera runs only while the " +
-                    "tool is open.",
+                "Photos are cropped to what the viewfinder shows, saved in the " +
+                    "app's private storage and sent straight into the chat. " +
+                    "Nothing is added to your gallery, and the camera runs only " +
+                    "while the tool is open.",
             )
         }
         ToolbarTool.DICTIONARY -> {

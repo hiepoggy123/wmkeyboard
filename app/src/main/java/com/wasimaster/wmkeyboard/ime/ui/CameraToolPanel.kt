@@ -4,12 +4,16 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Matrix
+import android.media.MediaActionSound
+import android.util.Size
 import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.ImageProxy
 import androidx.camera.core.Preview
+import androidx.camera.core.resolutionselector.ResolutionSelector
+import androidx.camera.core.resolutionselector.ResolutionStrategy
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.Image
@@ -59,11 +63,13 @@ import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -78,16 +84,18 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlin.coroutines.resume
+import kotlin.math.roundToInt
 
 /** A photo sitting in the confirm step: the file on disk plus its preview. */
 private class PendingCapture(val file: File, val bitmap: Bitmap)
 
 /**
- * In-keyboard camera. The live preview fills the tool viewbox
- * (centre-cropped, like a viewfinder) but the captured photo keeps the
- * camera's full frame — nothing is cut off the sent image. Controls:
- * shutter, front/back switch, flash mode, self-timer; after a capture,
- * retake or send (via commitContent, like clipboard images).
+ * In-keyboard camera. The live preview fills the tool viewbox and the
+ * captured photo is centre-cropped to that exact aspect ratio — what the
+ * viewfinder frames is what gets sent. Controls: shutter, front/back
+ * switch, flash mode, self-timer; after a capture, retake or send (via
+ * commitContent, like clipboard images). Shutter sound and haptics are
+ * per-tool settings.
  */
 @Composable
 internal fun CameraPanel(
@@ -158,12 +166,16 @@ internal fun CameraPanel(
             }
         }
         // Back to the keys, styled like the viewfinder controls.
+        val keyFeedback = LocalKeyPressFeedback.current
         Box(modifier = Modifier.align(Alignment.TopStart).padding(8.dp)) {
             CameraChipButton(
                 icon = Icons.AutoMirrored.Outlined.ArrowBack,
                 description = "Close camera",
                 active = false,
-            ) { onClose() }
+            ) {
+                if (state.settings.cameraHaptics) keyFeedback()
+                onClose()
+            }
         }
     }
 }
@@ -188,6 +200,17 @@ private fun CameraContent(
     var capturing by remember { mutableStateOf(false) }
     var pending by remember { mutableStateOf<PendingCapture?>(null) }
     var camera by remember { mutableStateOf<Camera?>(null) }
+    // The viewbox's pixel size defines the crop aspect for captures.
+    var viewSize by remember { mutableStateOf(IntSize.Zero) }
+
+    // Haptics on controls, ticks and shutter — the tool setting gates it;
+    // the global haptic settings still shape the actual vibration.
+    val keyFeedback = LocalKeyPressFeedback.current
+    val feedback = { if (state.settings.cameraHaptics) keyFeedback() }
+    val shutterSound = remember {
+        MediaActionSound().apply { load(MediaActionSound.SHUTTER_CLICK) }
+    }
+    DisposableEffect(Unit) { onDispose { shutterSound.release() } }
 
     val previewView = remember {
         PreviewView(context).apply { scaleType = PreviewView.ScaleType.FILL_CENTER }
@@ -195,6 +218,18 @@ private fun CameraContent(
     val imageCapture = remember {
         ImageCapture.Builder()
             .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
+            // Chat photos don't need the sensor's full 12+ MP — a bounded
+            // resolution captures and processes noticeably faster.
+            .setResolutionSelector(
+                ResolutionSelector.Builder()
+                    .setResolutionStrategy(
+                        ResolutionStrategy(
+                            Size(1600, 1600),
+                            ResolutionStrategy.FALLBACK_RULE_CLOSEST_LOWER_THEN_HIGHER,
+                        )
+                    )
+                    .build()
+            )
             .build()
     }
     imageCapture.flashMode = flashMode
@@ -230,24 +265,30 @@ private fun CameraContent(
     }
 
     fun takePhoto() {
-        if (capturing) return
+        if (capturing || viewSize == IntSize.Zero) return
+        feedback()
         capturing = true
         scope.launch {
             if (timerSeconds > 0) {
                 for (second in timerSeconds downTo 1) {
                     countdown = second
+                    feedback()
                     delay(1000)
                 }
                 countdown = 0
             }
+            if (state.settings.cameraShutterSound) {
+                shutterSound.play(MediaActionSound.SHUTTER_CLICK)
+            }
+            val aspect = viewSize.width.toFloat() / viewSize.height.toFloat()
             val mirror = usingFront && state.settings.cameraMirrorFront
             val capture = withContext(Dispatchers.IO) {
                 runCatching {
                     val proxy = imageCapture.awaitCapture(context)
-                    // Full sensor frame — the viewfinder is a centre crop,
-                    // but the photo itself keeps everything.
-                    val bitmap = proxy.use { it.toUprightBitmap() }
-                        .let { if (mirror) it.mirrored() else it }
+                    // Rotate + mirror + viewfinder crop in a single pass —
+                    // three separate createBitmap calls were the bulk of
+                    // the shutter-to-preview latency.
+                    val bitmap = proxy.use { it.toFramedBitmap(aspect, mirror) }
                     val file = File(captureDir(context), "IMG_${System.currentTimeMillis()}.jpg")
                     file.outputStream().use { out ->
                         bitmap.compress(Bitmap.CompressFormat.JPEG, 92, out)
@@ -260,21 +301,20 @@ private fun CameraContent(
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .onSizeChanged { viewSize = it },
+    ) {
         val captured = pending
         if (captured != null) {
-            // Fit, not crop: the confirm step shows exactly what will be
-            // sent, letterboxed on black like a photo viewer.
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.Black),
-            )
+            // Same aspect as the viewfinder, so this fills the box with
+            // exactly the framed shot.
             Image(
                 bitmap = captured.bitmap.asImageBitmap(),
                 contentDescription = "Captured photo",
                 modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Fit,
+                contentScale = ContentScale.Crop,
             )
             Row(
                 modifier = Modifier
@@ -288,6 +328,7 @@ private fun CameraContent(
                     label = "Retake",
                     accent = false,
                 ) {
+                    feedback()
                     scope.launch(Dispatchers.IO) { captured.file.delete() }
                     pending = null
                 }
@@ -296,6 +337,7 @@ private fun CameraContent(
                     label = "Send",
                     accent = true,
                 ) {
+                    // Send's vibration comes from the service handler.
                     pending = null
                     onSend(captured.file)
                 }
@@ -362,6 +404,7 @@ private fun CameraContent(
                         description = "Flash mode",
                         active = flashMode != ImageCapture.FLASH_MODE_OFF,
                     ) {
+                        feedback()
                         flashMode = when (flashMode) {
                             ImageCapture.FLASH_MODE_OFF -> ImageCapture.FLASH_MODE_AUTO
                             ImageCapture.FLASH_MODE_AUTO -> ImageCapture.FLASH_MODE_ON
@@ -376,6 +419,7 @@ private fun CameraContent(
                     active = timerSeconds > 0,
                     label = if (timerSeconds > 0) "${timerSeconds}s" else null,
                 ) {
+                    feedback()
                     timerSeconds = when (timerSeconds) {
                         0 -> 3
                         3 -> 10
@@ -404,7 +448,10 @@ private fun CameraContent(
                         icon = Icons.Outlined.Cameraswitch,
                         description = "Switch camera",
                         active = usingFront,
-                    ) { frontFacing = !usingFront }
+                    ) {
+                        feedback()
+                        frontFacing = !usingFront
+                    }
                 }
             }
         }
@@ -508,16 +555,36 @@ private suspend fun ImageCapture.awaitCapture(context: Context): ImageProxy =
         )
     }
 
-/** Decodes and rotates so the bitmap is upright regardless of sensor mount. */
-private fun ImageProxy.toUprightBitmap(): Bitmap {
-    val bitmap = toBitmap()
+/**
+ * Decodes, rotates upright, optionally mirrors and centre-crops to the
+ * viewfinder [aspect] — all through one createBitmap call, since each
+ * separate pass copies the whole image.
+ */
+private fun ImageProxy.toFramedBitmap(aspect: Float, mirror: Boolean): Bitmap {
+    val source = toBitmap()
     val rotation = imageInfo.rotationDegrees
-    if (rotation == 0) return bitmap
-    val matrix = Matrix().apply { postRotate(rotation.toFloat()) }
-    return Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
-}
-
-private fun Bitmap.mirrored(): Bitmap {
-    val matrix = Matrix().apply { preScale(-1f, 1f) }
-    return Bitmap.createBitmap(this, 0, 0, width, height, matrix, true)
+    // The crop rect lives in the un-rotated source space; when the sensor
+    // image is sideways the target aspect applies transposed.
+    val sourceAspect = if (rotation == 90 || rotation == 270) 1f / aspect else aspect
+    var x = 0
+    var y = 0
+    var width = source.width
+    var height = source.height
+    if (sourceAspect > 0f) {
+        val current = width.toFloat() / height.toFloat()
+        if (current > sourceAspect) {
+            width = (height * sourceAspect).roundToInt().coerceIn(1, source.width)
+            x = (source.width - width) / 2
+        } else if (current < sourceAspect) {
+            height = (width / sourceAspect).roundToInt().coerceIn(1, source.height)
+            y = (source.height - height) / 2
+        }
+    }
+    val matrix = Matrix().apply {
+        if (rotation != 0) postRotate(rotation.toFloat())
+        if (mirror) postScale(-1f, 1f)
+    }
+    val framed = Bitmap.createBitmap(source, x, y, width, height, matrix, true)
+    if (framed != source) source.recycle()
+    return framed
 }
