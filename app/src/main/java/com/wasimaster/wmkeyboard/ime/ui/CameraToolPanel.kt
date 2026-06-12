@@ -5,17 +5,13 @@ import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Matrix
 import android.media.MediaActionSound
-import android.util.Rational
 import android.util.Size
-import android.view.Surface
 import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.ImageProxy
 import androidx.camera.core.Preview
-import androidx.camera.core.UseCaseGroup
-import androidx.camera.core.ViewPort
 import androidx.camera.core.resolutionselector.ResolutionSelector
 import androidx.camera.core.resolutionselector.ResolutionStrategy
 import androidx.camera.lifecycle.ProcessCameraProvider
@@ -30,7 +26,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -67,13 +65,14 @@ import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -88,9 +87,31 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlin.coroutines.resume
+import kotlin.math.max
+import kotlin.math.min
+import kotlin.math.roundToInt
 
-/** A photo sitting in the confirm step: the file on disk plus its preview. */
-private class PendingCapture(val file: File, val bitmap: Bitmap)
+/**
+ * A photo sitting in the confirm step: the file on disk, its preview, and
+ * where the visible region sat in panel coordinates so the confirm step
+ * can draw it exactly where the viewfinder showed it.
+ */
+private class PendingCapture(
+    val file: File,
+    val bitmap: Bitmap,
+    val visibleOffsetY: Int,
+    val visibleHeight: Int,
+)
+
+/**
+ * Size of the panel box. The width-filling FILL_CENTER preview overflows
+ * the box vertically but is clipped to it, so the capture crop and the
+ * overlay positions are computed in box-local coordinates.
+ */
+private class PanelGeometry(
+    val width: Int,
+    val height: Int,
+)
 
 /**
  * In-keyboard camera. The live preview fills the tool viewbox and the
@@ -140,7 +161,7 @@ internal fun CameraPanel(
             .height(height),
     ) {
         if (hasPermission) {
-            CameraContent(state = state, onSend = onSend)
+            CameraContent(state = state, onSend = onSend, onClose = onClose)
         } else {
             Column(
                 modifier = Modifier.fillMaxSize(),
@@ -168,16 +189,19 @@ internal fun CameraPanel(
                 }
             }
         }
-        // Back to the keys, styled like the viewfinder controls.
-        val keyFeedback = LocalKeyPressFeedback.current
-        Box(modifier = Modifier.align(Alignment.TopStart).padding(8.dp)) {
-            CameraChipButton(
-                icon = Icons.AutoMirrored.Outlined.ArrowBack,
-                description = "Close camera",
-                active = false,
-            ) {
-                if (state.settings.cameraHaptics) keyFeedback()
-                onClose()
+        // Back chip for the permission screen; with the camera running,
+        // CameraContent draws its own at the top of the visible viewfinder.
+        if (!hasPermission) {
+            val keyFeedback = LocalKeyPressFeedback.current
+            Box(modifier = Modifier.align(Alignment.TopStart).padding(8.dp)) {
+                CameraChipButton(
+                    icon = Icons.AutoMirrored.Outlined.ArrowBack,
+                    description = "Close camera",
+                    active = false,
+                ) {
+                    if (state.settings.cameraHaptics) keyFeedback()
+                    onClose()
+                }
             }
         }
     }
@@ -187,6 +211,7 @@ internal fun CameraPanel(
 private fun CameraContent(
     state: KeyboardUiState,
     onSend: (File) -> Unit,
+    onClose: () -> Unit,
 ) {
     val kb = LocalKbTheme.current
     val context = LocalContext.current
@@ -203,8 +228,7 @@ private fun CameraContent(
     var capturing by remember { mutableStateOf(false) }
     var pending by remember { mutableStateOf<PendingCapture?>(null) }
     var camera by remember { mutableStateOf<Camera?>(null) }
-    // The viewbox's pixel size defines the crop aspect for captures.
-    var viewSize by remember { mutableStateOf(IntSize.Zero) }
+    var geometry by remember { mutableStateOf<PanelGeometry?>(null) }
 
     // Haptics on controls, ticks and shutter — the tool setting gates it;
     // the global haptic settings still shape the actual vibration.
@@ -254,32 +278,18 @@ private fun CameraContent(
     }
     val usingFront = selector == CameraSelector.DEFAULT_FRONT_CAMERA
 
-    // (Re)bind on open, lens switch and once the viewbox is measured;
-    // release the camera as soon as the panel closes so other apps can use
-    // it. No binding while the confirm step is up — the frozen photo is the
-    // whole UI. The shared ViewPort is what makes capture WYSIWYG: CameraX
-    // computes the same crop for the preview stream and the capture stream,
-    // even when the two run at different aspect ratios.
-    DisposableEffect(provider, selector, pending == null, viewSize) {
+    // (Re)bind on open and on lens switch; release the camera as soon as
+    // the panel closes so other apps can use it. No binding while the
+    // confirm step is up — the frozen photo is the whole UI.
+    DisposableEffect(provider, selector, pending == null) {
         val cameraProvider = provider
-        if (cameraProvider != null && selector != null && pending == null &&
-            viewSize != IntSize.Zero
-        ) {
+        if (cameraProvider != null && selector != null && pending == null) {
             val preview = Preview.Builder().build().also {
                 it.surfaceProvider = previewView.surfaceProvider
             }
-            val viewPort = ViewPort.Builder(
-                Rational(viewSize.width, viewSize.height),
-                previewView.display?.rotation ?: Surface.ROTATION_0,
-            ).build()
-            val group = UseCaseGroup.Builder()
-                .setViewPort(viewPort)
-                .addUseCase(preview)
-                .addUseCase(imageCapture)
-                .build()
             camera = runCatching {
                 cameraProvider.unbindAll()
-                cameraProvider.bindToLifecycle(lifecycleOwner, selector, group)
+                cameraProvider.bindToLifecycle(lifecycleOwner, selector, preview, imageCapture)
             }.getOrNull()
         }
         onDispose {
@@ -289,7 +299,7 @@ private fun CameraContent(
     }
 
     fun takePhoto() {
-        if (capturing || viewSize == IntSize.Zero) return
+        if (capturing) return
         feedback()
         capturing = true
         scope.launch {
@@ -305,18 +315,20 @@ private fun CameraContent(
                 shutterSound.play(MediaActionSound.SHUTTER_CLICK)
             }
             val mirror = usingFront && state.settings.cameraMirrorFront
+            val geo = geometry
             val capture = withContext(Dispatchers.IO) {
                 runCatching {
                     val proxy = imageCapture.awaitCapture(context)
-                    // Rotate + mirror + viewfinder crop in a single pass —
-                    // three separate createBitmap calls were the bulk of
-                    // the shutter-to-preview latency.
-                    val bitmap = proxy.use { it.toFramedBitmap(mirror) }
+                    val upright = proxy.use { it.toFramedBitmap(mirror) }
+                    // Crop to the part of the width-filling viewfinder that
+                    // was actually on screen — what you saw is what you get.
+                    val (bitmap, visibleTop, visibleHeight) =
+                        upright.cropToVisible(geo)
                     val file = File(captureDir(context), "IMG_${System.currentTimeMillis()}.jpg")
                     file.outputStream().use { out ->
                         bitmap.compress(Bitmap.CompressFormat.JPEG, 92, out)
                     }
-                    PendingCapture(file, bitmap)
+                    PendingCapture(file, bitmap, visibleTop, visibleHeight)
                 }.getOrNull()
             }
             if (capture != null) pending = capture
@@ -324,21 +336,41 @@ private fun CameraContent(
         }
     }
 
+    // Top of the visible viewfinder in panel-local px. The preview is
+    // clipped to the panel box, so the picture's top edge is the content
+    // top when the frame is shorter than the box, else the box top itself.
+    val density = LocalDensity.current
+    val viewfinderTop = geometry?.let { g ->
+        val contentTop = g.height / 2f - (g.width * 4f / 3f) / 2f
+        max(contentTop, 0f).roundToInt()
+    } ?: 0
+
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .onSizeChanged { viewSize = it },
+            .onGloballyPositioned { coords ->
+                geometry = PanelGeometry(
+                    width = coords.size.width,
+                    height = coords.size.height,
+                )
+            },
+        contentAlignment = Alignment.Center,
     ) {
         val captured = pending
         if (captured != null) {
-            // Same aspect as the viewfinder, so this fills the box with
-            // exactly the framed shot.
+            // Drawn exactly where the viewfinder showed this region, so the
+            // confirm step is indistinguishable from the live preview.
             Image(
                 bitmap = captured.bitmap.asImageBitmap(),
                 contentDescription = "Captured photo",
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .offset { IntOffset(0, captured.visibleOffsetY) }
+                    .fillMaxWidth()
+                    .height(with(density) { captured.visibleHeight.toDp() }),
+                contentScale = ContentScale.FillBounds,
             )
+            BackChip(offsetY = viewfinderTop, feedback = feedback, onClose = onClose)
             Row(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
@@ -389,6 +421,8 @@ private fun CameraContent(
                     }
                 },
         )
+
+        BackChip(offsetY = viewfinderTop, feedback = feedback, onClose = onClose)
 
         if (countdown > 0) {
             Text(
@@ -477,6 +511,26 @@ private fun CameraContent(
                     }
                 }
             }
+        }
+    }
+}
+
+/** Back-to-keys chip pinned to the top-left of the visible viewfinder. */
+@Composable
+private fun BoxScope.BackChip(offsetY: Int, feedback: () -> Unit, onClose: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .align(Alignment.TopStart)
+            .offset { IntOffset(0, offsetY) }
+            .padding(8.dp),
+    ) {
+        CameraChipButton(
+            icon = Icons.AutoMirrored.Outlined.ArrowBack,
+            description = "Close camera",
+            active = false,
+        ) {
+            feedback()
+            onClose()
         }
     }
 }
@@ -579,10 +633,43 @@ private suspend fun ImageCapture.awaitCapture(context: Context): ImageProxy =
     }
 
 /**
- * Decodes, crops to the ViewPort's crop rect (the viewfinder frame, as
- * CameraX computed it for this stream), rotates upright and optionally
- * mirrors — all through one createBitmap call, since each separate pass
- * copies the whole image.
+ * Crops an upright capture to the part of the viewfinder that was on
+ * screen. The preview fills the panel width, overflowing vertically, and
+ * is clipped to the panel box; the visible slice is the frame's
+ * intersection with the box. Returns the cropped bitmap plus the slice's
+ * position and height in panel-local px, for the confirm overlay. Without
+ * geometry (never laid out — shouldn't happen) the full frame passes
+ * through, centred.
+ */
+private fun Bitmap.cropToVisible(geo: PanelGeometry?): Triple<Bitmap, Int, Int> {
+    if (geo == null || width == 0 || geo.width == 0) {
+        return Triple(this, 0, height)
+    }
+    val scale = geo.width.toFloat() / width
+    val contentHeight = height * scale
+    val contentTop = geo.height / 2f - contentHeight / 2f
+    val visibleTop = max(contentTop, 0f)
+    val visibleBottom = min(contentTop + contentHeight, geo.height.toFloat())
+    if (visibleBottom <= visibleTop) return Triple(this, 0, height)
+    val sourceTop = ((visibleTop - contentTop) / scale).roundToInt().coerceIn(0, height - 1)
+    val sourceHeight = ((visibleBottom - visibleTop) / scale).roundToInt()
+        .coerceIn(1, height - sourceTop)
+    val cropped = if (sourceTop == 0 && sourceHeight == height) this else {
+        Bitmap.createBitmap(this, 0, sourceTop, width, sourceHeight).also {
+            if (it != this) recycle()
+        }
+    }
+    return Triple(
+        cropped,
+        visibleTop.roundToInt(),
+        (visibleBottom - visibleTop).roundToInt(),
+    )
+}
+
+/**
+ * Decodes, rotates upright and optionally mirrors in one createBitmap
+ * call. The crop rect is normally the full frame — the tool sends what the
+ * sensor saw, matching the width-filling viewfinder.
  */
 private fun ImageProxy.toFramedBitmap(mirror: Boolean): Bitmap {
     val source = toBitmap()
