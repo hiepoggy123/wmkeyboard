@@ -65,13 +65,17 @@ import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -104,13 +108,16 @@ private class PendingCapture(
 )
 
 /**
- * Size of the panel box. The width-filling FILL_CENTER preview overflows
- * the box vertically but is clipped to it, so the capture crop and the
- * overlay positions are computed in box-local coordinates.
+ * Where the panel box sits on screen. The viewfinder overflows the box
+ * (width-filling FILL_CENTER spill), so both the capture crop and the
+ * overlay positions are computed against the window, not the box.
  */
 private class PanelGeometry(
+    val boxTopWindow: Float,
+    val boxTopRoot: Float,
     val width: Int,
     val height: Int,
+    val windowHeight: Int,
 )
 
 /**
@@ -229,6 +236,7 @@ private fun CameraContent(
     var pending by remember { mutableStateOf<PendingCapture?>(null) }
     var camera by remember { mutableStateOf<Camera?>(null) }
     var geometry by remember { mutableStateOf<PanelGeometry?>(null) }
+    val windowHeight = LocalView.current.rootView.height
 
     // Haptics on controls, ticks and shutter — the tool setting gates it;
     // the global haptic settings still shape the actual vibration.
@@ -336,13 +344,13 @@ private fun CameraContent(
         }
     }
 
-    // Top of the visible viewfinder in panel-local px. The preview is
-    // clipped to the panel box, so the picture's top edge is the content
-    // top when the frame is shorter than the box, else the box top itself.
-    val density = LocalDensity.current
+    // Top of the visible viewfinder in panel-local px: the preview spills
+    // above the panel box, so overlays anchored here sit on the picture's
+    // real top edge (clamped to the compose root — touches above it die).
     val viewfinderTop = geometry?.let { g ->
-        val contentTop = g.height / 2f - (g.width * 4f / 3f) / 2f
-        max(contentTop, 0f).roundToInt()
+        val contentTop = g.boxTopWindow + g.height / 2f - (g.width * 4f / 3f) / 2f
+        val rootTop = g.boxTopWindow - g.boxTopRoot
+        (max(max(contentTop, rootTop), 0f) - g.boxTopWindow).roundToInt()
     } ?: 0
 
     Box(
@@ -350,8 +358,11 @@ private fun CameraContent(
             .fillMaxSize()
             .onGloballyPositioned { coords ->
                 geometry = PanelGeometry(
+                    boxTopWindow = coords.positionInWindow().y,
+                    boxTopRoot = coords.positionInRoot().y,
                     width = coords.size.width,
                     height = coords.size.height,
+                    windowHeight = windowHeight,
                 )
             },
         contentAlignment = Alignment.Center,
@@ -359,15 +370,24 @@ private fun CameraContent(
         val captured = pending
         if (captured != null) {
             // Drawn exactly where the viewfinder showed this region, so the
-            // confirm step is indistinguishable from the live preview.
+            // confirm step is indistinguishable from the live preview. The
+            // slice is taller than the panel box (the preview spills over
+            // it), so measure at its real size via a layout lambda — a
+            // plain height() would be coerced to the box constraints and
+            // FillBounds would squish the picture into the box.
             Image(
                 bitmap = captured.bitmap.asImageBitmap(),
                 contentDescription = "Captured photo",
                 modifier = Modifier
                     .align(Alignment.TopStart)
-                    .offset { IntOffset(0, captured.visibleOffsetY) }
-                    .fillMaxWidth()
-                    .height(with(density) { captured.visibleHeight.toDp() }),
+                    .layout { measurable, constraints ->
+                        val placeable = measurable.measure(
+                            Constraints.fixed(constraints.maxWidth, captured.visibleHeight)
+                        )
+                        layout(constraints.maxWidth, constraints.maxHeight) {
+                            placeable.place(0, captured.visibleOffsetY)
+                        }
+                    },
                 contentScale = ContentScale.FillBounds,
             )
             BackChip(offsetY = viewfinderTop, feedback = feedback, onClose = onClose)
@@ -634,9 +654,9 @@ private suspend fun ImageCapture.awaitCapture(context: Context): ImageProxy =
 
 /**
  * Crops an upright capture to the part of the viewfinder that was on
- * screen. The preview fills the panel width, overflowing vertically, and
- * is clipped to the panel box; the visible slice is the frame's
- * intersection with the box. Returns the cropped bitmap plus the slice's
+ * screen. The preview fills the panel width, overflowing vertically; the
+ * visible slice runs from the window top (or the picture's own top) down
+ * to the window bottom. Returns the cropped bitmap plus the slice's
  * position and height in panel-local px, for the confirm overlay. Without
  * geometry (never laid out — shouldn't happen) the full frame passes
  * through, centred.
@@ -647,9 +667,9 @@ private fun Bitmap.cropToVisible(geo: PanelGeometry?): Triple<Bitmap, Int, Int> 
     }
     val scale = geo.width.toFloat() / width
     val contentHeight = height * scale
-    val contentTop = geo.height / 2f - contentHeight / 2f
+    val contentTop = geo.boxTopWindow + geo.height / 2f - contentHeight / 2f
     val visibleTop = max(contentTop, 0f)
-    val visibleBottom = min(contentTop + contentHeight, geo.height.toFloat())
+    val visibleBottom = min(contentTop + contentHeight, geo.windowHeight.toFloat())
     if (visibleBottom <= visibleTop) return Triple(this, 0, height)
     val sourceTop = ((visibleTop - contentTop) / scale).roundToInt().coerceIn(0, height - 1)
     val sourceHeight = ((visibleBottom - visibleTop) / scale).roundToInt()
@@ -661,7 +681,7 @@ private fun Bitmap.cropToVisible(geo: PanelGeometry?): Triple<Bitmap, Int, Int> 
     }
     return Triple(
         cropped,
-        visibleTop.roundToInt(),
+        (visibleTop - geo.boxTopWindow).roundToInt(),
         (visibleBottom - visibleTop).roundToInt(),
     )
 }
