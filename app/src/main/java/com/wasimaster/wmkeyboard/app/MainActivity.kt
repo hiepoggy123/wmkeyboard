@@ -15,6 +15,8 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -65,6 +67,11 @@ import androidx.compose.material.icons.outlined.TouchApp
 import androidx.compose.material.icons.outlined.Vibration
 import androidx.compose.material.icons.outlined.VerticalSplit
 import androidx.compose.material.icons.outlined.VisibilityOff
+import androidx.compose.material.icons.outlined.AutoAwesome
+import androidx.compose.material.icons.outlined.GifBox
+import androidx.compose.material.icons.outlined.ImageSearch
+import androidx.compose.material.icons.outlined.Translate
+import androidx.compose.material.icons.outlined.TravelExplore
 import androidx.compose.material.icons.outlined.WbSunny
 import androidx.compose.material.icons.outlined.Widgets
 import androidx.compose.material3.AlertDialog
@@ -129,7 +136,12 @@ import com.wasimaster.wmkeyboard.core.settings.EmojiTabMode
 import com.wasimaster.wmkeyboard.core.settings.HapticStyle
 import com.wasimaster.wmkeyboard.core.settings.InputMode
 import com.wasimaster.wmkeyboard.core.settings.KeySoundStyle
+import com.wasimaster.wmkeyboard.core.settings.GifContentFilter
+import com.wasimaster.wmkeyboard.core.settings.GifSourceMode
+import com.wasimaster.wmkeyboard.core.settings.WebSearchProvider
 import com.wasimaster.wmkeyboard.core.tools.GeoPlace
+import com.wasimaster.wmkeyboard.core.tools.ToolApiKeys
+import com.wasimaster.wmkeyboard.core.tools.TranslateClient
 import com.wasimaster.wmkeyboard.core.tools.WeatherClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -154,7 +166,11 @@ import kotlinx.coroutines.launch
 class MainActivity : ComponentActivity() {
 
     companion object {
-        /** Extra: [ToolbarTool] name whose settings page to open directly. */
+        /**
+         * Intent extra with a [ToolbarTool] name: the keyboard uses it
+         * (tool long-press, "needs an API key" panels) to jump straight
+         * to that tool's settings page.
+         */
         const val EXTRA_OPEN_TOOL = "open_tool"
     }
 
@@ -208,8 +224,9 @@ private fun SettingsNavHost(
     openTool: ToolbarTool? = null,
 ) {
     val navController = rememberNavController()
-    // Deep link from the keyboard (long-press on a tool): land on the
-    // tool's page with the tools list underneath for a sane back stack.
+    // Deep link from the keyboard (tool long-press, or a panel's "Open
+    // settings"): land on the tool's page with the tools list underneath
+    // for a sane back stack.
     LaunchedEffect(openTool) {
         if (openTool != null && settings.onboardingDone) {
             navController.navigate("tools")
@@ -1923,6 +1940,11 @@ private fun toolTitle(tool: ToolbarTool): String = when (tool) {
     ToolbarTool.HANDWRITING -> "Handwriting"
     ToolbarTool.CAMERA -> "Camera"
     ToolbarTool.DICTIONARY -> "Dictionary"
+    ToolbarTool.TRANSLATE -> "Translate"
+    ToolbarTool.GIF -> "GIFs"
+    ToolbarTool.STICKER -> "Stickers"
+    ToolbarTool.WEB_SEARCH -> "Web search"
+    ToolbarTool.IMAGE_SEARCH -> "Image search"
 }
 
 private fun toolDescription(tool: ToolbarTool): String = when (tool) {
@@ -1950,6 +1972,11 @@ private fun toolDescription(tool: ToolbarTool): String = when (tool) {
     ToolbarTool.HANDWRITING -> "Write words by hand — finger or S Pen — with on-device recognition"
     ToolbarTool.CAMERA -> "Take a photo and send it without leaving the keyboard"
     ToolbarTool.DICTIONARY -> "English definitions, pronunciation and synonyms"
+    ToolbarTool.TRANSLATE -> "Translate what you type, live, into any language"
+    ToolbarTool.GIF -> "Search GIFs (Klipy, GIPHY, Google) and send them without leaving the keyboard"
+    ToolbarTool.STICKER -> "Search stickers — transparent, chat-ready"
+    ToolbarTool.WEB_SEARCH -> "Search the web (Brave or Google) and insert a result's link"
+    ToolbarTool.IMAGE_SEARCH -> "Image search from the keyboard; tap to send an image"
 }
 
 private fun toolIconFor(tool: ToolbarTool): androidx.compose.ui.graphics.vector.ImageVector = when (tool) {
@@ -1977,6 +2004,11 @@ private fun toolIconFor(tool: ToolbarTool): androidx.compose.ui.graphics.vector.
     ToolbarTool.HANDWRITING -> Icons.Outlined.Draw
     ToolbarTool.CAMERA -> Icons.Outlined.PhotoCamera
     ToolbarTool.DICTIONARY -> Icons.AutoMirrored.Outlined.MenuBook
+    ToolbarTool.TRANSLATE -> Icons.Outlined.Translate
+    ToolbarTool.GIF -> Icons.Outlined.GifBox
+    ToolbarTool.STICKER -> Icons.Outlined.AutoAwesome
+    ToolbarTool.WEB_SEARCH -> Icons.Outlined.TravelExplore
+    ToolbarTool.IMAGE_SEARCH -> Icons.Outlined.ImageSearch
 }
 
 /**
@@ -2453,7 +2485,283 @@ private fun ToolDetailSettings(
                 )
             }
         }
+        ToolbarTool.TRANSLATE -> {
+            SettingsGroup("Options") {
+                item { TranslateLanguageSetting(repository, settings) }
+            }
+            SettingsGroup("API key") {
+                item {
+                    ApiKeyField(
+                        label = "Cloud Translation API key (optional)",
+                        value = settings.translateApiKey,
+                        builtInAvailable = ToolApiKeys.builtInTranslate,
+                        emptyHint = "Without a key, translation uses Google's free public endpoint",
+                    ) { repository.setTranslateApiKey(it) }
+                }
+            }
+            CaptionText(
+                "Text you translate is sent to Google either way — only while the " +
+                    "translate panel is open. The free endpoint is unofficial and " +
+                    "rate-limited; a Cloud Translation key makes it official and reliable.",
+            )
+        }
+        ToolbarTool.GIF, ToolbarTool.STICKER -> {
+            SettingsGroup("Sources & API keys") {
+                item {
+                    ApiKeyField(
+                        label = "Klipy API key",
+                        value = settings.klipyApiKey,
+                        builtInAvailable = ToolApiKeys.builtInKlipy,
+                        emptyHint = "Free from partner.klipy.com (Tenor's API was retired mid-2026)",
+                    ) { repository.setKlipyApiKey(it) }
+                }
+                item {
+                    ApiKeyField(
+                        label = "GIPHY API key",
+                        value = settings.giphyApiKey,
+                        builtInAvailable = ToolApiKeys.builtInGiphy,
+                        emptyHint = "Free from developers.giphy.com",
+                    ) { repository.setGiphyApiKey(it) }
+                }
+                item {
+                    ToggleSetting(
+                        "Google Images as a source",
+                        "Animated GIFs (transparent PNGs for stickers) via web/image search's keys",
+                        settings.gifUseGoogle,
+                        info = "Needs the Google Programmable Search key and engine id from " +
+                            "the web search tool's settings (whole-web only on engines " +
+                            "created before Jan 2026; newer engines search up to 50 chosen " +
+                            "sites). Google only searches when you press enter (or pick its " +
+                            "chip) — never per keystroke — because its free tier is 100 " +
+                            "requests a day, shared with the web and image search tools. " +
+                            "Google previews are static; the inserted GIF still animates.",
+                    ) { scope.launch { repository.setGifUseGoogle(it) } }
+                }
+            }
+            CaptionText(
+                "The GIF and sticker tools share all of this, including the content " +
+                    "filter below. Any one key is enough; every configured source " +
+                    "shows up in the panel.",
+            )
+            SectionHeader("Multiple sources")
+            SingleChoiceSegmentedButtonRow(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+            ) {
+                GifSourceMode.entries.forEachIndexed { index, mode ->
+                    SegmentedButton(
+                        selected = settings.gifSourceMode == mode,
+                        onClick = { scope.launch { repository.setGifSourceMode(mode) } },
+                        shape = SegmentedButtonDefaults.itemShape(index, GifSourceMode.entries.size),
+                    ) {
+                        Text(
+                            when (mode) {
+                                GifSourceMode.TABS -> "Tabs"
+                                GifSourceMode.MIX -> "Mixed"
+                            },
+                            maxLines = 1,
+                        )
+                    }
+                }
+            }
+            CaptionText(
+                "Tabs: a chip per source on the panel. Mixed: one grid with results " +
+                    "from every source interleaved evenly.",
+            )
+            SectionHeader("Content filter")
+            SingleChoiceSegmentedButtonRow(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+            ) {
+                GifContentFilter.entries.forEachIndexed { index, filter ->
+                    SegmentedButton(
+                        selected = settings.gifContentFilter == filter,
+                        onClick = { scope.launch { repository.setGifContentFilter(filter) } },
+                        shape = SegmentedButtonDefaults.itemShape(index, GifContentFilter.entries.size),
+                    ) {
+                        Text(
+                            when (filter) {
+                                GifContentFilter.OFF -> "Off"
+                                GifContentFilter.LOW -> "Low"
+                                GifContentFilter.MEDIUM -> "Med"
+                                GifContentFilter.HIGH -> "High"
+                            },
+                            maxLines = 1,
+                        )
+                    }
+                }
+            }
+            CaptionText(
+                "High hides the most; Off hides nothing. Maps to Klipy's and " +
+                    "GIPHY's rating (High = G … Off = R); for Google, SafeSearch " +
+                    "follows the web search tool's setting.",
+            )
+        }
+        ToolbarTool.WEB_SEARCH, ToolbarTool.IMAGE_SEARCH -> {
+            SectionHeader("Search provider")
+            SingleChoiceSegmentedButtonRow(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+            ) {
+                WebSearchProvider.entries.forEachIndexed { index, provider ->
+                    SegmentedButton(
+                        selected = settings.searchProvider == provider,
+                        onClick = { scope.launch { repository.setSearchProvider(provider) } },
+                        shape = SegmentedButtonDefaults.itemShape(index, WebSearchProvider.entries.size),
+                    ) {
+                        Text(
+                            when (provider) {
+                                WebSearchProvider.BRAVE -> "Brave"
+                                WebSearchProvider.GOOGLE -> "Google"
+                            },
+                            maxLines = 1,
+                        )
+                    }
+                }
+            }
+            CaptionText(
+                "Web and image search share everything here. If the chosen provider " +
+                    "has no key, the other one is used automatically.",
+            )
+            SettingsGroup("Brave Search") {
+                item {
+                    ApiKeyField(
+                        label = "Brave API key",
+                        value = settings.braveApiKey,
+                        builtInAvailable = ToolApiKeys.builtInBrave,
+                        emptyHint = "From api-dashboard.search.brave.com — monthly free credit",
+                    ) { repository.setBraveApiKey(it) }
+                }
+            }
+            CaptionText(
+                "Searches the whole web. Brave's plan includes a monthly free " +
+                    "credit (roughly a thousand searches) and asks for attribution — " +
+                    "the panel shows “via Brave”.",
+            )
+            SettingsGroup("Google Programmable Search") {
+                item {
+                    ApiKeyField(
+                        label = "API key",
+                        value = settings.googleSearchApiKey,
+                        builtInAvailable = ToolApiKeys.builtInGoogleSearch,
+                        emptyHint = "From Google Cloud — enable the Custom Search API",
+                    ) { repository.setGoogleSearchApiKey(it) }
+                }
+                item {
+                    ApiKeyField(
+                        label = "Search engine ID (cx)",
+                        value = settings.googleSearchCx,
+                        builtInAvailable = ToolApiKeys.builtInGoogleSearch,
+                        emptyHint = "From programmablesearchengine.google.com",
+                    ) { repository.setGoogleSearchCx(it) }
+                }
+            }
+            CaptionText(
+                "Note: since Jan 2026, new Programmable Search engines can no longer " +
+                    "“search the entire web” — they search up to 50 sites you pick. " +
+                    "Engines that already had whole-web search keep it until " +
+                    "Jan 1, 2027. Free tier: 100 searches a day (also feeds the GIF " +
+                    "tool's Google source).",
+            )
+            SettingsGroup("Results") {
+                item {
+                    ToggleSetting(
+                        "SafeSearch", "Filter explicit results",
+                        settings.searchSafe,
+                    ) { scope.launch { repository.setSearchSafe(it) } }
+                }
+                item {
+                    SliderSetting(
+                        "Results per search",
+                        subtitle = "Each search uses one API request either way",
+                        value = settings.searchResultCount.toFloat(),
+                        range = 1f..10f,
+                        display = "${settings.searchResultCount}",
+                    ) { scope.launch { repository.setSearchResultCount(it.roundToInt()) } }
+                }
+            }
+        }
         else -> {}
+    }
+}
+
+/**
+ * One API-key input. Saves as you type (it's a paste, in practice). The
+ * user's key always beats any key baked into the build via
+ * local.properties — leaving the field blank falls back to the built-in
+ * key when the build has one.
+ */
+@Composable
+private fun ApiKeyField(
+    label: String,
+    value: String,
+    builtInAvailable: Boolean,
+    emptyHint: String,
+    onSave: suspend (String) -> Unit,
+) {
+    val scope = rememberCoroutineScope()
+    var text by remember(label) { mutableStateOf(value) }
+    OutlinedTextField(
+        value = text,
+        onValueChange = {
+            text = it
+            scope.launch { onSave(it) }
+        },
+        label = { Text(label) },
+        singleLine = true,
+        supportingText = {
+            Text(
+                when {
+                    text.isNotBlank() -> "Using your key"
+                    builtInAvailable -> "Blank — using the key built into this app"
+                    else -> emptyHint
+                },
+            )
+        },
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp),
+    )
+}
+
+/** "Translate into" row with a full-language-list dialog. */
+@Composable
+private fun TranslateLanguageSetting(repository: SettingsRepository, settings: KeyboardSettings) {
+    val scope = rememberCoroutineScope()
+    var dialogOpen by remember { mutableStateOf(false) }
+    NavRow(
+        "Translate into",
+        subtitle = "Source language is auto-detected; also changeable from the panel",
+        value = TranslateClient.languageName(settings.translateTargetLang),
+        onClick = { dialogOpen = true },
+    )
+    if (dialogOpen) {
+        AlertDialog(
+            onDismissRequest = { dialogOpen = false },
+            title = { Text("Translate into") },
+            text = {
+                LazyColumn {
+                    items(TranslateClient.languages) { (code, name) ->
+                        ListItem(
+                            headlineContent = { Text(name) },
+                            trailingContent = if (code == settings.translateTargetLang) {
+                                { Icon(Icons.Outlined.Check, contentDescription = "Selected") }
+                            } else null,
+                            modifier = Modifier.clickable {
+                                dialogOpen = false
+                                scope.launch { repository.setTranslateTargetLang(code) }
+                            },
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { dialogOpen = false }) { Text("Close") }
+            },
+        )
     }
 }
 

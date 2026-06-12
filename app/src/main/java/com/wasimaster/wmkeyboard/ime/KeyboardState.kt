@@ -17,7 +17,16 @@ enum class PanelMode {
     NONE, EMOJI, CLIPBOARD, SNIPPETS, TOOLBOX, TEXT_EDIT,
     COMPASS, LEVEL, MOON_PHASE, WEATHER, CALENDAR,
     THEMES, SOUND_HAPTICS, NUMPAD, HANDWRITING, CAMERA, DICTIONARY,
+    TRANSLATE, GIF, STICKER, WEB_SEARCH, IMAGE_SEARCH,
 }
+
+/**
+ * Panels whose search box types into [KeyboardUiState.mediaQuery] (the same
+ * key-rerouting trick as emoji search) instead of the editor.
+ */
+val PanelMode.hasMediaSearch: Boolean
+    get() = this == PanelMode.GIF || this == PanelMode.STICKER ||
+        this == PanelMode.WEB_SEARCH || this == PanelMode.IMAGE_SEARCH
 
 /** Readiness of the handwriting panel's recognition model. */
 enum class HandwritingStatus { CHECKING, NEED_MODEL, DOWNLOADING, READY, ERROR }
@@ -47,6 +56,59 @@ sealed interface SoundHapticAction {
     data class SoundStyleChange(val style: com.wasimaster.wmkeyboard.core.settings.KeySoundStyle) : SoundHapticAction
     data class SoundVolume(val volume: Float) : SoundHapticAction
 }
+
+/** GIF / sticker panel state, owned by the service (it does the fetching). */
+sealed interface MediaUi {
+    /** No GIF-provider key in the build and none pasted into settings. */
+    data object NeedKey : MediaUi
+    data object Loading : MediaUi
+    data class Error(val message: String) : MediaUi
+    /** [query] is what produced [items]; blank means featured/trending. */
+    data class Ready(
+        val items: List<com.wasimaster.wmkeyboard.core.tools.GifItem>,
+        val query: String,
+    ) : MediaUi
+}
+
+/** Web search panel state. */
+sealed interface WebSearchUi {
+    data object NeedKey : WebSearchUi
+    /** Key present, nothing searched yet. */
+    data object Idle : WebSearchUi
+    data object Loading : WebSearchUi
+    data class Error(val message: String) : WebSearchUi
+    data class Ready(
+        val results: List<com.wasimaster.wmkeyboard.core.tools.WebResult>,
+        val query: String,
+    ) : WebSearchUi
+}
+
+/** Image search panel state. */
+sealed interface ImageSearchUi {
+    data object NeedKey : ImageSearchUi
+    data object Idle : ImageSearchUi
+    data object Loading : ImageSearchUi
+    data class Error(val message: String) : ImageSearchUi
+    data class Ready(
+        val results: List<com.wasimaster.wmkeyboard.core.tools.ImageResult>,
+        val query: String,
+    ) : ImageSearchUi
+}
+
+/**
+ * Translate strip state. The strip follows the focused field: the service
+ * re-extracts the field text on every selection change while the panel is
+ * open and translates it after a short debounce.
+ */
+data class TranslateUi(
+    /** Field text the current [translated] corresponds to. */
+    val sourceText: String = "",
+    val translated: String = "",
+    /** ISO code of the auto-detected source language, "" while unknown. */
+    val detectedSource: String = "",
+    val translating: Boolean = false,
+    val error: String? = null,
+)
 
 /** Weather panel state, owned by the service (it does the fetching). */
 sealed interface WeatherUi {
@@ -125,4 +187,18 @@ data class KeyboardUiState(
      */
     val vowelForm: BengaliGraphemes.VowelKeyForm = BengaliGraphemes.VowelKeyForm.INDEPENDENT,
     val handwriting: HandwritingUi = HandwritingUi(),
+    /** Query buffer for the GIF/sticker/web/image search panels. */
+    val mediaQuery: String = "",
+    /** While true, key presses type into [mediaQuery] and the key rows stay visible. */
+    val mediaSearchActive: Boolean = false,
+    /** Id of the GIF/sticker/image currently downloading for insert, for a cell spinner. */
+    val mediaDownloadingId: String? = null,
+    /** Selected provider chip on the GIF/sticker panel (tabs mode). */
+    val mediaSource: com.wasimaster.wmkeyboard.core.tools.GifSource =
+        com.wasimaster.wmkeyboard.core.tools.GifSource.KLIPY,
+    val gif: MediaUi = MediaUi.Loading,
+    val sticker: MediaUi = MediaUi.Loading,
+    val webSearch: WebSearchUi = WebSearchUi.Idle,
+    val imageSearch: ImageSearchUi = ImageSearchUi.Idle,
+    val translate: TranslateUi = TranslateUi(),
 )

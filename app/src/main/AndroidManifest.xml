@@ -3,7 +3,9 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.VIBRATE" />
-    <!-- Only used by the optional weather and dictionary tools. -->
+    <!-- Only used by the optional network tools: weather (Open-Meteo),
+         dictionary, translate, GIF/stickers (KLIPY/GIPHY), web/image
+         search (Brave/Google). -->
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Only used by the optional camera tool (photo into the chat). -->
     <uses-permission android:name="android.permission.CAMERA" />

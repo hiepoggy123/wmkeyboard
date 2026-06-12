@@ -115,6 +115,11 @@ import androidx.compose.material.icons.outlined.WbSunny
 import androidx.compose.material.icons.outlined.VerticalSplit
 import androidx.compose.material.icons.outlined.TextSnippet
 import androidx.compose.material.icons.outlined.EmojiFlags
+import androidx.compose.material.icons.outlined.AutoAwesome
+import androidx.compose.material.icons.outlined.GifBox
+import androidx.compose.material.icons.outlined.ImageSearch
+import androidx.compose.material.icons.outlined.Translate
+import androidx.compose.material.icons.outlined.TravelExplore
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -209,7 +214,12 @@ import com.wasimaster.wmkeyboard.core.settings.SpaceSwipeAction
 import com.wasimaster.wmkeyboard.core.settings.ThemeMode
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
 import com.wasimaster.wmkeyboard.core.snippets.Snippet
+import com.wasimaster.wmkeyboard.core.tools.GifItem
+import com.wasimaster.wmkeyboard.core.tools.GifSource
+import com.wasimaster.wmkeyboard.core.tools.ImageResult
+import com.wasimaster.wmkeyboard.core.tools.WebResult
 import com.wasimaster.wmkeyboard.ime.EnterAction
+import com.wasimaster.wmkeyboard.ime.hasMediaSearch
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
 import com.wasimaster.wmkeyboard.ime.LayoutMode
 import com.wasimaster.wmkeyboard.ime.PanelMode
@@ -292,6 +302,18 @@ fun KeyboardScreen(
     onHandwritingStroke: (HwStroke, IntSize) -> Unit = { _, _ -> },
     onHandwritingUndo: () -> Unit = {},
     onHandwritingDownload: () -> Unit = {},
+    onMediaQueryTap: () -> Unit = {},
+    onMediaRetry: () -> Unit = {},
+    onGifSelect: (GifItem) -> Unit = {},
+    onGifSourceSelect: (GifSource) -> Unit = {},
+    onWebResult: (WebResult) -> Unit = {},
+    onWebResultOpen: (WebResult) -> Unit = {},
+    onImageResult: (ImageResult) -> Unit = {},
+    onImageResultLink: (ImageResult) -> Unit = {},
+    onTranslateTarget: (String) -> Unit = {},
+    onTranslateReplace: () -> Unit = {},
+    onTranslateInsert: () -> Unit = {},
+    onOpenToolSettings: (ToolbarTool) -> Unit = {},
     onOpenSettings: () -> Unit,
 ) {
     val state by stateFlow.collectAsState()
@@ -326,6 +348,11 @@ fun KeyboardScreen(
             ToolbarTool.HANDWRITING -> onPanelChange(PanelMode.HANDWRITING)
             ToolbarTool.CAMERA -> onPanelChange(PanelMode.CAMERA)
             ToolbarTool.DICTIONARY -> onPanelChange(PanelMode.DICTIONARY)
+            ToolbarTool.TRANSLATE -> onPanelChange(PanelMode.TRANSLATE)
+            ToolbarTool.GIF -> onPanelChange(PanelMode.GIF)
+            ToolbarTool.STICKER -> onPanelChange(PanelMode.STICKER)
+            ToolbarTool.WEB_SEARCH -> onPanelChange(PanelMode.WEB_SEARCH)
+            ToolbarTool.IMAGE_SEARCH -> onPanelChange(PanelMode.IMAGE_SEARCH)
         }
     }
 
@@ -370,6 +397,18 @@ fun KeyboardScreen(
                 onHandwritingStroke = onHandwritingStroke,
                 onHandwritingUndo = onHandwritingUndo,
                 onHandwritingDownload = onHandwritingDownload,
+                onMediaQueryTap = onMediaQueryTap,
+                onMediaRetry = onMediaRetry,
+                onGifSelect = onGifSelect,
+                onGifSourceSelect = onGifSourceSelect,
+                onWebResult = onWebResult,
+                onWebResultOpen = onWebResultOpen,
+                onImageResult = onImageResult,
+                onImageResultLink = onImageResultLink,
+                onTranslateTarget = onTranslateTarget,
+                onTranslateReplace = onTranslateReplace,
+                onTranslateInsert = onTranslateInsert,
+                onOpenToolSettings = onOpenToolSettings,
             )
         }
     }
@@ -906,6 +945,11 @@ private fun toolIcon(tool: ToolbarTool): ImageVector = when (tool) {
     ToolbarTool.HANDWRITING -> Icons.Outlined.Draw
     ToolbarTool.CAMERA -> Icons.Outlined.PhotoCamera
     ToolbarTool.DICTIONARY -> Icons.AutoMirrored.Outlined.MenuBook
+    ToolbarTool.TRANSLATE -> Icons.Outlined.Translate
+    ToolbarTool.GIF -> Icons.Outlined.GifBox
+    ToolbarTool.STICKER -> Icons.Outlined.AutoAwesome
+    ToolbarTool.WEB_SEARCH -> Icons.Outlined.TravelExplore
+    ToolbarTool.IMAGE_SEARCH -> Icons.Outlined.ImageSearch
 }
 
 private fun toolLabel(tool: ToolbarTool): String = when (tool) {
@@ -933,6 +977,11 @@ private fun toolLabel(tool: ToolbarTool): String = when (tool) {
     ToolbarTool.HANDWRITING -> "Handwriting"
     ToolbarTool.CAMERA -> "Camera"
     ToolbarTool.DICTIONARY -> "Dictionary"
+    ToolbarTool.TRANSLATE -> "Translate"
+    ToolbarTool.GIF -> "GIFs"
+    ToolbarTool.STICKER -> "Stickers"
+    ToolbarTool.WEB_SEARCH -> "Search"
+    ToolbarTool.IMAGE_SEARCH -> "Images"
 }
 
 private fun toolActive(tool: ToolbarTool, state: KeyboardUiState): Boolean = when (tool) {
@@ -960,6 +1009,11 @@ private fun toolActive(tool: ToolbarTool, state: KeyboardUiState): Boolean = whe
     ToolbarTool.HANDWRITING -> state.panel == PanelMode.HANDWRITING
     ToolbarTool.CAMERA -> state.panel == PanelMode.CAMERA
     ToolbarTool.DICTIONARY -> state.panel == PanelMode.DICTIONARY
+    ToolbarTool.TRANSLATE -> state.panel == PanelMode.TRANSLATE
+    ToolbarTool.GIF -> state.panel == PanelMode.GIF
+    ToolbarTool.STICKER -> state.panel == PanelMode.STICKER
+    ToolbarTool.WEB_SEARCH -> state.panel == PanelMode.WEB_SEARCH
+    ToolbarTool.IMAGE_SEARCH -> state.panel == PanelMode.IMAGE_SEARCH
 }
 
 /**
@@ -1526,6 +1580,18 @@ private fun KeyboardBody(
     onHandwritingStroke: (HwStroke, IntSize) -> Unit,
     onHandwritingUndo: () -> Unit,
     onHandwritingDownload: () -> Unit,
+    onMediaQueryTap: () -> Unit,
+    onMediaRetry: () -> Unit,
+    onGifSelect: (GifItem) -> Unit,
+    onGifSourceSelect: (GifSource) -> Unit,
+    onWebResult: (WebResult) -> Unit,
+    onWebResultOpen: (WebResult) -> Unit,
+    onImageResult: (ImageResult) -> Unit,
+    onImageResultLink: (ImageResult) -> Unit,
+    onTranslateTarget: (String) -> Unit,
+    onTranslateReplace: () -> Unit,
+    onTranslateInsert: () -> Unit,
+    onOpenToolSettings: (ToolbarTool) -> Unit,
 ) {
     val drag = remember { ToolDragController() }
     drag.currentTools = state.settings.toolbarTools
@@ -1608,6 +1674,37 @@ private fun KeyboardBody(
                     onLookup = onDictionaryLookup,
                     onInsert = onDictionaryInsert,
                 )
+                PanelMode.TRANSLATE -> TranslatePanel(
+                    state = state,
+                    onTarget = onTranslateTarget,
+                    onReplace = onTranslateReplace,
+                    onInsert = onTranslateInsert,
+                )
+                PanelMode.GIF, PanelMode.STICKER -> GifPanel(
+                    state = state,
+                    stickers = state.panel == PanelMode.STICKER,
+                    onQueryTap = onMediaQueryTap,
+                    onRetry = onMediaRetry,
+                    onSelect = onGifSelect,
+                    onSourceSelect = onGifSourceSelect,
+                    onOpenToolSettings = onOpenToolSettings,
+                )
+                PanelMode.WEB_SEARCH -> WebSearchPanel(
+                    state = state,
+                    onQueryTap = onMediaQueryTap,
+                    onRetry = onMediaRetry,
+                    onResult = onWebResult,
+                    onOpen = onWebResultOpen,
+                    onOpenToolSettings = onOpenToolSettings,
+                )
+                PanelMode.IMAGE_SEARCH -> ImageSearchPanel(
+                    state = state,
+                    onQueryTap = onMediaQueryTap,
+                    onRetry = onMediaRetry,
+                    onResult = onImageResult,
+                    onResultLink = onImageResultLink,
+                    onOpenToolSettings = onOpenToolSettings,
+                )
                 PanelMode.NONE -> KeyRows(state, onKey, onText, onGesture, onGesturePreview, onCursorMove, onLanguageSelect)
             }
             // In emoji search mode the letters stay visible for typing the query.
@@ -1616,6 +1713,13 @@ private fun KeyboardBody(
             }
             // Same for a dictionary search: the query types on the key rows.
             if (state.panel == PanelMode.DICTIONARY && state.dictionarySearchActive) {
+                KeyRows(state, onKey, onText, onGesture, onGesturePreview, onCursorMove, onLanguageSelect)
+            }
+            // Same for a media panel's search box, and always under the
+            // translate strip (it translates what you type live).
+            if ((state.panel.hasMediaSearch && state.mediaSearchActive) ||
+                state.panel == PanelMode.TRANSLATE
+            ) {
                 KeyRows(state, onKey, onText, onGesture, onGesturePreview, onCursorMove, onLanguageSelect)
             }
         }
