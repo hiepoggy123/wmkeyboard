@@ -29,12 +29,17 @@ class UserLexicon(private val storageFile: File?) {
         load()
     }
 
+    /**
+     * [count] grades the strength of the signal: a suggestion the user
+     * deliberately tapped teaches harder than a word that merely got
+     * committed in passing.
+     */
     @Synchronized
-    fun learnWord(word: String) {
+    fun learnWord(word: String, count: Int = 1) {
         val key = word.lowercase()
-        if (key.length < 2) return
-        words.merge(key, 1, Int::plus)
-        trie.reinforce(key)
+        if (key.length < 2 || count <= 0) return
+        words.merge(key, count, Int::plus)
+        trie.reinforce(key, count)
     }
 
     /**

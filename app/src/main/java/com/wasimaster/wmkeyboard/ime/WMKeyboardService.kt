@@ -41,9 +41,14 @@ import com.wasimaster.wmkeyboard.core.gesture.KeyCenter
 import com.wasimaster.wmkeyboard.core.handwriting.HandwritingModels
 import com.wasimaster.wmkeyboard.core.handwriting.HandwritingRecognizerCache
 import com.wasimaster.wmkeyboard.core.handwriting.HwStroke
+import android.Manifest
+import android.content.pm.PackageManager
+import android.provider.ContactsContract
 import com.wasimaster.wmkeyboard.core.prediction.Apostrophes
+import com.wasimaster.wmkeyboard.core.prediction.ContactNames
 import com.wasimaster.wmkeyboard.core.prediction.DictionaryLoader
 import com.wasimaster.wmkeyboard.core.prediction.EnglishBengaliMap
+import com.wasimaster.wmkeyboard.core.prediction.SeedBigrams
 import com.wasimaster.wmkeyboard.core.prediction.SuggestionEngine
 import com.wasimaster.wmkeyboard.core.prediction.Trie
 import com.wasimaster.wmkeyboard.core.prediction.UserLexicon
@@ -128,6 +133,18 @@ class WMKeyboardService : InputMethodService() {
     private var lastSpaceTime = 0L
     private var lastShiftTapTime = 0L
     private var suggestionJob: Job? = null
+
+    /** Rolling average of one suggestion computation, drives the debounce. */
+    private var suggestionCostMs = 0L
+
+    /**
+     * The last commit autocorrect changed, as typed-to-committed, so an
+     * immediate backspace can undo the correction. Any other input clears it.
+     */
+    private var lastAutocorrect: Pair<String, String>? = null
+
+    /** Contact-name words for suggestions, when the setting + permission allow. */
+    private var contactNames: ContactNames = ContactNames.EMPTY
 
     /** English word list used by the gesture decoder (bundled dictionary). */
     private var gestureLexicon: List<Pair<String, Int>> = emptyList()
@@ -219,9 +236,19 @@ class WMKeyboardService : InputMethodService() {
 
         serviceScope.launch {
             var lexiconVersion = -1
+            var contactsEnabled: Boolean? = null
             settingsRepository.settings.collect { settings ->
                 clipboardStore.expiryMillis = settings.clipboardExpiryHours * 60L * 60 * 1000
                 if (!settings.floatingKeyboard) floatingPanelBounds = null
+                if (settings.contactSuggestions != contactsEnabled) {
+                    contactsEnabled = settings.contactSuggestions
+                    if (settings.contactSuggestions) {
+                        loadContactNames()
+                    } else {
+                        contactNames = ContactNames.EMPTY
+                        suggestionEngine?.contacts = ContactNames.EMPTY
+                    }
+                }
                 // The settings app edited the learned-words file (personal
                 // dictionary): drop the in-memory copy for the disk state,
                 // otherwise the next save here would clobber those edits.
@@ -243,16 +270,25 @@ class WMKeyboardService : InputMethodService() {
                 Triple(englishEntries, bengaliEntries, catalog)
             }
             val (englishEntries, bengaliEntries, catalog) = loaded
-            val (loanwords, variants) = withContext(Dispatchers.Default) {
+            val (loanwords, variants, seedBigrams) = withContext(Dispatchers.Default) {
                 val lw = assets.open("dictionaries/en_bn.tsv").use { EnglishBengaliMap.load(it) }
                 val v = runCatching {
                     assets.open("emoji/variants.tsv").use { EmojiVariantIndex.load(it) }
                 }.getOrDefault(EmojiVariantIndex.empty())
-                lw to v
+                val seeds = runCatching {
+                    assets.open("dictionaries/en_bigrams.txt").use { SeedBigrams.load(it) }
+                }.getOrDefault(SeedBigrams.EMPTY)
+                Triple(lw, v, seeds)
             }
             val english = Trie().apply { for ((word, freq) in englishEntries) insert(word, freq) }
             gestureLexicon = englishEntries
-            suggestionEngine = SuggestionEngine(english, BengaliPhoneticIndex(bengaliEntries), userLexicon, loanwords)
+            suggestionEngine = SuggestionEngine(
+                english,
+                BengaliPhoneticIndex(bengaliEntries),
+                userLexicon,
+                loanwords,
+                seedBigrams,
+            ).apply { contacts = contactNames }
             emojiEntries = catalog
             emojiSearch = EmojiSearch(catalog)
             emojiSuggester = EmojiSuggester(catalog)
@@ -420,6 +456,11 @@ class WMKeyboardService : InputMethodService() {
         composing = StringBuilder()
         previousWord = null
         lastGestureWord = null
+        lastAutocorrect = null
+        // Covers the permission being granted after the setting was on.
+        if (_uiState.value.settings.contactSuggestions && contactNames.isEmpty) {
+            loadContactNames()
+        }
         hwJob?.cancel()
         hwGeneration++
         val secure = info.isSecureField()
@@ -527,6 +568,9 @@ class WMKeyboardService : InputMethodService() {
     private fun onTextKey(key: Key) {
         val state = _uiState.value
         var text = keyOutput(key, state)
+        // Any new input ends the window in which backspace reverts the
+        // previous autocorrect.
+        lastAutocorrect = null
 
         if (state.emojiSearchActive) {
             text = fixedLayoutContextualVowel(text, state.emojiQuery.lastOrNull())
@@ -684,6 +728,28 @@ class WMKeyboardService : InputMethodService() {
         if (hasSelection(ic)) {
             ic.commitText("", 1)
             return
+        }
+        // Backspace straight after an autocorrect undoes it: the corrected
+        // word (and the space that triggered it) become the typed original,
+        // which joins the personal dictionary so it is never auto-"fixed"
+        // again — deleting the fix is the strongest "I meant what I typed".
+        lastAutocorrect?.let { (typed, corrected) ->
+            lastAutocorrect = null
+            if (composing.isEmpty()) {
+                val expected = "$corrected "
+                val before = ic.getTextBeforeCursor(expected.length, 0)?.toString()
+                if (before == expected) {
+                    ic.deleteSurroundingText(expected.length, 0)
+                    ic.commitText("$typed ", 1)
+                    if (state.settings.learnFromTyping && !state.settings.incognito &&
+                        !state.secureField
+                    ) {
+                        userLexicon.addWord(typed, boost = 5)
+                    }
+                    previousWord = typed.lowercase().trim { !it.isLetter() }.ifEmpty { null }
+                    return
+                }
+            }
         }
         if (composing.isNotEmpty()) {
             composing.deleteCharAt(composing.length - 1)
@@ -850,33 +916,56 @@ class WMKeyboardService : InputMethodService() {
             } else {
                 null
             }
+        var corrected: String? = null
         val output = when {
+            // Computed fresh rather than read from the strip: the async
+            // suggestion job may not have caught up with the last keystroke
+            // (especially within the debounce window), and a commit must
+            // never use stale results.
             state.inputMode == InputMode.AVRO ->
-                _uiState.value.suggestions.firstOrNull() ?: AvroPhonetic.transliterate(typed)
+                suggestionEngine?.suggest(typed, previousWord = null, avroMode = true)
+                    ?.firstOrNull() ?: AvroPhonetic.transliterate(typed)
             apostrophized != null -> apostrophized
-            autocorrect && !state.secureField ->
-                suggestionEngine?.shouldAutocorrect(typed) ?: typed
+            autocorrect && !state.secureField -> {
+                corrected = suggestionEngine?.shouldAutocorrect(typed)?.takeIf { it != typed }
+                corrected ?: typed
+            }
             else -> typed
         }
+        lastAutocorrect = corrected?.let { typed to it }
         ic.commitText(output, 1)
-        learn(output)
+        // An autocorrected word was the engine's choice, not the user's —
+        // it earns no personal-dictionary reinforcement, only the bigram.
+        learn(output, reinforcement = if (corrected != null) 0 else 1)
         composing = StringBuilder()
         _uiState.update { it.copy(composingPreview = "", suggestions = emptyList(), emojiSuggestions = emptyList()) }
         return true
     }
 
-    private fun learn(word: String) {
+    /**
+     * [reinforcement] grades how deliberate the commit was: 2 for a tapped
+     * suggestion, 1 for a plainly typed word, 0 for an autocorrect (the
+     * word still anchors bigrams but doesn't join the personal lexicon).
+     * Multi-word commits ("of the" from a split suggestion) learn each
+     * word and the bigrams linking them.
+     */
+    private fun learn(word: String, reinforcement: Int = 1) {
         val state = _uiState.value
         if (!state.settings.learnFromTyping || state.settings.incognito || state.secureField) {
             previousWord = word
             return
         }
-        val cleaned = word.trim().trim { !it.isLetter() }
-        if (cleaned.isNotEmpty()) {
-            userLexicon.learnWord(cleaned)
-            previousWord?.let { userLexicon.learnBigram(it, cleaned) }
+        var previous = previousWord
+        var lastLearned: String? = null
+        for (part in word.split(' ')) {
+            val cleaned = part.trim { !it.isLetter() }
+            if (cleaned.isEmpty()) continue
+            userLexicon.learnWord(cleaned, reinforcement)
+            previous?.let { userLexicon.learnBigram(it, cleaned) }
+            previous = cleaned
+            lastLearned = cleaned
         }
-        previousWord = cleaned.ifEmpty { null }
+        previousWord = lastLearned
     }
 
     /**
@@ -895,6 +984,43 @@ class WMKeyboardService : InputMethodService() {
         previousWord = emoji
     }
 
+    /**
+     * Reads contact display names into [contactNames] (memory only, never
+     * persisted). No-op without the permission — the settings app requests
+     * it, and [onStartInputView] retries once it has been granted.
+     */
+    private fun loadContactNames() {
+        if (checkSelfPermission(Manifest.permission.READ_CONTACTS) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            return
+        }
+        serviceScope.launch {
+            val loaded = withContext(Dispatchers.IO) {
+                runCatching {
+                    val names = ArrayList<String>()
+                    contentResolver.query(
+                        ContactsContract.Contacts.CONTENT_URI,
+                        arrayOf(ContactsContract.Contacts.DISPLAY_NAME_PRIMARY),
+                        null,
+                        null,
+                        null,
+                    )?.use { cursor ->
+                        val nameColumn = cursor.getColumnIndexOrThrow(
+                            ContactsContract.Contacts.DISPLAY_NAME_PRIMARY
+                        )
+                        while (cursor.moveToNext()) {
+                            cursor.getString(nameColumn)?.let { names.add(it) }
+                        }
+                    }
+                    ContactNames.fromNames(names)
+                }.getOrDefault(ContactNames.EMPTY)
+            }
+            contactNames = loaded
+            suggestionEngine?.contacts = loaded
+        }
+    }
+
     /** Heuristic: a learned bigram successor that is an emoji, not a word. */
     private fun isEmojiCandidate(text: String): Boolean =
         text.isNotBlank() && text.none { it.isLetterOrDigit() } && text.any { it.code > 0x2000 }
@@ -906,6 +1032,12 @@ class WMKeyboardService : InputMethodService() {
         val typed = composing.toString()
         suggestionJob?.cancel()
         suggestionJob = serviceScope.launch {
+            // Short adaptive debounce: fast bursts of keystrokes cancel the
+            // job while it still sleeps here, so only the final state is
+            // computed. The window tracks half the average compute cost,
+            // clamped so it never becomes perceptible.
+            delay((suggestionCostMs / 2).coerceIn(16L, 40L))
+            val started = SystemClock.uptimeMillis()
             val (results, emojis) = withContext(Dispatchers.Default) {
                 val words = engine.suggest(
                     composing = typed,
@@ -927,6 +1059,7 @@ class WMKeyboardService : InputMethodService() {
                     wordNext to if (state.settings.emojiPrediction) emojiNext else emptyList()
                 }
             }
+            suggestionCostMs = (suggestionCostMs + (SystemClock.uptimeMillis() - started)) / 2
             _uiState.update { it.copy(suggestions = results, emojiSuggestions = emojis) }
         }
     }
@@ -941,8 +1074,11 @@ class WMKeyboardService : InputMethodService() {
             if (before == gestureWord) ic.deleteSurroundingText(gestureWord.length, 0)
         }
         lastGestureWord = null
+        lastAutocorrect = null
         ic.commitText("$suggestion ", 1)
-        learn(suggestion)
+        // Deliberately picked from the strip — a stronger signal than a
+        // word that merely got committed.
+        learn(suggestion, reinforcement = 2)
         composing = StringBuilder()
         _uiState.update { it.copy(composingPreview = "", suggestions = emptyList(), emojiSuggestions = emptyList()) }
         maybeAutoCapitalize()

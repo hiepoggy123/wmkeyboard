@@ -44,10 +44,46 @@ class SuggestionEngineTest {
         assertTrue("hello" in suggestions || "help" in suggestions)
     }
 
-    @Test fun autocorrectSuggestsDictionaryWord() {
-        assertEquals("hello", engine().shouldAutocorrect("helo"))
+    @Test fun autocorrectFiresOnlyWhenConfident() {
+        // "wprld" has exactly one plausible fix.
+        assertEquals("world", engine().shouldAutocorrect("wprld"))
         assertNull(engine().shouldAutocorrect("hello")) // already correct
         assertNull(engine().shouldAutocorrect("xy")) // too short
+        // "helo" is ambiguous between "hello" and "help": suggest, don't force.
+        assertNull(engine().shouldAutocorrect("helo"))
+    }
+
+    @Test fun autocorrectPrefersAdjacentKeySlip() {
+        // Equal frequencies: "cst" fixes to "cat" because s sits next to a,
+        // while u is across the keyboard.
+        val dictionary = Trie().apply {
+            insert("cat", 100)
+            insert("cut", 100)
+        }
+        val e = SuggestionEngine(dictionary, BengaliPhoneticIndex(emptyList()), UserLexicon(null))
+        assertEquals("cat", e.shouldAutocorrect("cst"))
+    }
+
+    @Test fun autocorrectStaysQuietBetweenCloseCandidates() {
+        // Both candidates are one adjacent-key slip away at similar
+        // frequency — no winner is confident enough to force.
+        val dictionary = Trie().apply {
+            insert("test", 100)
+            insert("tear", 95)
+        }
+        val e = SuggestionEngine(dictionary, BengaliPhoneticIndex(emptyList()), UserLexicon(null))
+        assertNull(e.shouldAutocorrect("tesr"))
+    }
+
+    @Test fun autocorrectConsensusBetweenDictionaryAndLexicon() {
+        val dictionary = Trie().apply {
+            insert("cat", 100)
+            insert("car", 90)
+        }
+        val lexicon = UserLexicon(null)
+        lexicon.learnWord("cat")
+        val e = SuggestionEngine(dictionary, BengaliPhoneticIndex(emptyList()), lexicon)
+        assertEquals("cat", e.shouldAutocorrect("caz"))
     }
 
     @Test fun avroPhoneticSiblingWins() {
@@ -93,5 +129,56 @@ class SuggestionEngineTest {
         val e = SuggestionEngine(Trie(), BengaliPhoneticIndex(emptyList()), lexicon)
         val suggestions = e.suggest("", previousWord = "good")
         assertEquals(listOf("morning", "night"), suggestions.take(2))
+    }
+
+    @Test fun splitWordSuggestion() {
+        val dictionary = Trie().apply {
+            insert("of", 9000)
+            insert("the", 10000)
+            insert("a", 9500)
+            insert("lot", 800)
+        }
+        val e = SuggestionEngine(dictionary, BengaliPhoneticIndex(emptyList()), UserLexicon(null))
+        assertEquals("of the", e.suggest("ofthe", previousWord = null).first())
+        assertTrue("a lot" in e.suggest("alot", previousWord = null))
+        // Capitalization pattern carries over the whole phrase.
+        assertEquals("Of the", e.suggest("Ofthe", previousWord = null).first())
+    }
+
+    @Test fun contactNamesCompleteAndChain() {
+        val contacts = ContactNames.fromNames(
+            listOf("Wasi Mollik", "Wasim Akram", "Wasi Uddin")
+        )
+        val e = SuggestionEngine(Trie(), BengaliPhoneticIndex(emptyList()), UserLexicon(null))
+        e.contacts = contacts
+        val completions = e.suggest("was", previousWord = null)
+        assertEquals("Wasi", completions.first()) // two contacts share it
+        assertTrue("Wasim" in completions)
+        // Next-word chaining through the name.
+        val next = e.suggest("", previousWord = "Wasi")
+        assertTrue("Mollik" in next && "Uddin" in next)
+        // A known name is never autocorrected away.
+        assertNull(e.shouldAutocorrect("wasim"))
+    }
+
+    @Test fun seedBigramsCoverColdStart() {
+        val seeds = SeedBigrams.load(
+            "good morning 100\ngood night 90\nthank you 100\n".byteInputStream()
+        )
+        val e = SuggestionEngine(
+            Trie(), BengaliPhoneticIndex(emptyList()), UserLexicon(null), seedBigrams = seeds,
+        )
+        assertEquals(listOf("morning", "night"), e.suggest("", previousWord = "good"))
+        assertEquals(listOf("you"), e.suggest("", previousWord = "Thank"))
+    }
+
+    @Test fun learnedBigramsOutrankSeeds() {
+        val seeds = SeedBigrams.load("good morning 100\ngood night 90\n".byteInputStream())
+        val lexicon = UserLexicon(null)
+        lexicon.learnBigram("good", "game")
+        val e = SuggestionEngine(
+            Trie(), BengaliPhoneticIndex(emptyList()), lexicon, seedBigrams = seeds,
+        )
+        assertEquals(listOf("game", "morning", "night"), e.suggest("", previousWord = "good"))
     }
 }

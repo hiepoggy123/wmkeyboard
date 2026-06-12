@@ -183,6 +183,10 @@ data class KeyboardSettings(
     val autoCapitalize: Boolean = true,
     val doubleSpacePeriod: Boolean = true,
     val suggestions: Boolean = true,
+    /** Keep the suggestion strip as the default top bar even with nothing typed. */
+    val suggestionsFirst: Boolean = false,
+    /** Suggest names from the phone's contacts (needs the Contacts permission). */
+    val contactSuggestions: Boolean = false,
     val gestureTyping: Boolean = true,
     /** Swipe that starts moving before the long-press delay elapses. */
     val spaceShortSwipe: SpaceSwipeAction = SpaceSwipeAction.LANGUAGE,
@@ -344,6 +348,8 @@ class SettingsRepository(private val context: Context) {
         private val AUTO_CAPITALIZE = booleanPreferencesKey("auto_capitalize")
         private val DOUBLE_SPACE_PERIOD = booleanPreferencesKey("double_space_period")
         private val SUGGESTIONS = booleanPreferencesKey("suggestions")
+        private val SUGGESTIONS_FIRST = booleanPreferencesKey("suggestions_first")
+        private val CONTACT_SUGGESTIONS = booleanPreferencesKey("contact_suggestions")
         private val GESTURE_TYPING = booleanPreferencesKey("gesture_typing")
         // Legacy boolean, read only to migrate into SPACE_LONG_SWIPE.
         private val SPACEBAR_CURSOR = booleanPreferencesKey("spacebar_cursor")
@@ -483,6 +489,8 @@ class SettingsRepository(private val context: Context) {
             autoCapitalize = p[AUTO_CAPITALIZE] ?: defaults.autoCapitalize,
             doubleSpacePeriod = p[DOUBLE_SPACE_PERIOD] ?: defaults.doubleSpacePeriod,
             suggestions = p[SUGGESTIONS] ?: defaults.suggestions,
+            suggestionsFirst = p[SUGGESTIONS_FIRST] ?: defaults.suggestionsFirst,
+            contactSuggestions = p[CONTACT_SUGGESTIONS] ?: defaults.contactSuggestions,
             gestureTyping = p[GESTURE_TYPING] ?: defaults.gestureTyping,
             spaceShortSwipe = p[SPACE_SHORT_SWIPE]
                 ?.let { runCatching { SpaceSwipeAction.valueOf(it) }.getOrNull() }
@@ -865,6 +873,12 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setSuggestions(value: Boolean) =
         context.dataStore.edit { it[SUGGESTIONS] = value }
+
+    suspend fun setSuggestionsFirst(value: Boolean) =
+        context.dataStore.edit { it[SUGGESTIONS_FIRST] = value }
+
+    suspend fun setContactSuggestions(value: Boolean) =
+        context.dataStore.edit { it[CONTACT_SUGGESTIONS] = value }
 
     suspend fun setGestureTyping(value: Boolean) =
         context.dataStore.edit { it[GESTURE_TYPING] = value }

@@ -718,13 +718,24 @@ private fun TopBar(
     // Button-mode emoji row: a toolbar toggle swaps the strip for emojis.
     var emojiBarOpen by remember { mutableStateOf(false) }
     val hasSuggestions = state.suggestions.isNotEmpty() || state.emojiSuggestions.isNotEmpty()
-    LaunchedEffect(hasSuggestions) { if (!hasSuggestions) toolbarOverride = false }
+    // Suggestions-first mode keeps the strip as the resting state (an empty
+    // strip plus the chevron into the toolbar); the override then survives
+    // idle gaps and instead resets when fresh candidates arrive.
+    val suggestionsFirst = state.settings.suggestionsFirst && state.settings.suggestions
+    LaunchedEffect(hasSuggestions) {
+        if (suggestionsFirst) {
+            if (hasSuggestions) toolbarOverride = false
+        } else {
+            if (!hasSuggestions) toolbarOverride = false
+        }
+    }
     // The emoji panel is already all emojis — showing the row too would be
     // redundant, so opening the panel folds the row away.
     if (state.settings.emojiBarMode != EmojiBarMode.BUTTON || state.panel == PanelMode.EMOJI) {
         emojiBarOpen = false
     }
-    val showToolbar = !hasSuggestions || toolbarOverride || state.panel == PanelMode.TOOLBOX
+    val showToolbar = state.panel == PanelMode.TOOLBOX || toolbarOverride ||
+        (!hasSuggestions && !suggestionsFirst)
 
     Row(
         modifier = Modifier
@@ -758,7 +769,7 @@ private fun TopBar(
         // While the toolbox is open the toolbar is forced on and shows its
         // own back chevron, so the suggestions-toggle chevron would sit next
         // to it doing nothing — hide it for that panel.
-        if (hasSuggestions && state.panel != PanelMode.TOOLBOX) {
+        if ((hasSuggestions || suggestionsFirst) && state.panel != PanelMode.TOOLBOX) {
             IconButton(
                 onClick = {
                     feedback()
@@ -1506,14 +1517,12 @@ private fun ToolboxPanel(
                                 contentAlignment = Alignment.Center,
                             ) {
                                 DraggableTool(tool, fromToolbar = false, enabled = true, drag = drag) { dragModifier ->
+                                    // No placement animation here, unlike the
+                                    // toolbar: this grid scrolls, and animated
+                                    // offsets made every icon spring-chase the
+                                    // scroll — laggy frames for zero benefit.
                                     Column(
-                                        // Parent-anchored, unlike the toolbar:
-                                        // this grid scrolls, and a body anchor
-                                        // made every icon spring-chase each
-                                        // scroll frame — visible lag.
-                                        modifier = dragModifier
-                                            .animatePlacement()
-                                            .padding(vertical = 10.dp),
+                                        modifier = dragModifier.padding(vertical = 10.dp),
                                         horizontalAlignment = Alignment.CenterHorizontally,
                                     ) {
                                         ToolCircle(
@@ -1525,7 +1534,10 @@ private fun ToolboxPanel(
                                             toolLabel(tool),
                                             fontSize = 11.sp,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            modifier = Modifier.padding(top = 4.dp),
+                                            textAlign = TextAlign.Center,
+                                            modifier = Modifier
+                                                .padding(top = 4.dp, start = 2.dp, end = 2.dp)
+                                                .fillMaxWidth(),
                                         )
                                     }
                                 }

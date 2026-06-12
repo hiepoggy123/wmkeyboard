@@ -1,6 +1,8 @@
 package com.wasimaster.wmkeyboard.app
 
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
 import android.content.Intent
 import android.os.Bundle
 import android.provider.Settings
@@ -851,6 +853,43 @@ private fun TypingSettings(
                     "corrections, and next-word predictions learned from your typing. Tap one to " +
                     "insert it followed by a space.",
             ) { scope.launch { repository.setSuggestions(it) } }
+        }
+        item {
+            ToggleSetting(
+                "Suggestions bar always visible",
+                "Keep the suggestion strip up even before you type",
+                settings.suggestionsFirst,
+                info = "Normally the top bar rests on the toolbar and only switches to " +
+                    "suggestions while candidates exist. With this on, the suggestion strip is " +
+                    "the resting state instead — next-word predictions are always one glance " +
+                    "away — and the chevron on its left opens the toolbar when you need a tool.",
+            ) { scope.launch { repository.setSuggestionsFirst(it) } }
+        }
+        item {
+            val context = LocalContext.current
+            val contactsPermission = rememberLauncherForActivityResult(
+                ActivityResultContracts.RequestPermission()
+            ) { granted ->
+                if (granted) scope.launch { repository.setContactSuggestions(true) }
+            }
+            ToggleSetting(
+                "Suggest contact names",
+                "Complete names from your contacts as you type",
+                settings.contactSuggestions,
+                info = "Words from your contacts' names complete like dictionary words " +
+                    "(\"was\" → Wasi) and chain onto each other (after Wasi, the surname is " +
+                    "offered next). Names are read into memory only — nothing is stored or " +
+                    "sent anywhere, and autocorrect will never \"fix\" a name it knows. " +
+                    "Needs the Contacts permission.",
+            ) { enabled ->
+                when {
+                    !enabled -> scope.launch { repository.setContactSuggestions(false) }
+                    context.checkSelfPermission(Manifest.permission.READ_CONTACTS) ==
+                        PackageManager.PERMISSION_GRANTED ->
+                        scope.launch { repository.setContactSuggestions(true) }
+                    else -> contactsPermission.launch(Manifest.permission.READ_CONTACTS)
+                }
+            }
         }
         item {
             NavRow(
