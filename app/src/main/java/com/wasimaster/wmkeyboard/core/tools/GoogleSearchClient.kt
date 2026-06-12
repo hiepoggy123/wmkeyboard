@@ -28,10 +28,11 @@ data class ImageResult(
 
 /**
  * Google Programmable Search (Custom Search JSON API) client, shared by the
- * web search and image search tools. Needs an API key plus an engine id
- * (cx) configured to search the whole web. The free tier is 100 queries a
- * day, which is why searches only fire on the enter key, never per
- * keystroke.
+ * web, image, GIF and sticker search tools. Needs an API key plus an engine
+ * id (cx); callers pass the engine for their tool (ToolApiKeys resolves the
+ * per-tool cx, falling back to the web-search one). The free tier is 100
+ * queries a day, which is why searches only fire on the enter key, never
+ * per keystroke.
  */
 object GoogleSearchClient {
 

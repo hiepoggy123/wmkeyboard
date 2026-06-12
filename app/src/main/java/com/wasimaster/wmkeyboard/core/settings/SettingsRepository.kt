@@ -280,8 +280,16 @@ data class KeyboardSettings(
     val giphyApiKey: String = "",
     val braveApiKey: String = "",
     val googleSearchApiKey: String = "",
-    /** Programmable Search engine id (cx) that goes with [googleSearchApiKey]. */
+    /** Programmable Search engine id (cx) that goes with [googleSearchApiKey], used for web search. */
     val googleSearchCx: String = "",
+    /**
+     * Optional dedicated engine ids per tool. Blank falls back to
+     * [googleSearchCx], so one engine can still serve everything. A
+     * GIF-only engine set here is never used by the other tools.
+     */
+    val googleSearchCxImages: String = "",
+    val googleSearchCxGifs: String = "",
+    val googleSearchCxStickers: String = "",
     val gifContentFilter: GifContentFilter = GifContentFilter.MEDIUM,
     /** Tabs per provider vs one evenly-mixed grid, when several have keys. */
     val gifSourceMode: GifSourceMode = GifSourceMode.TABS,
@@ -419,6 +427,9 @@ class SettingsRepository(private val context: Context) {
         private val GIF_USE_GOOGLE = booleanPreferencesKey("gif_use_google")
         private val GOOGLE_SEARCH_API_KEY = stringPreferencesKey("google_search_api_key")
         private val GOOGLE_SEARCH_CX = stringPreferencesKey("google_search_cx")
+        private val GOOGLE_SEARCH_CX_IMAGES = stringPreferencesKey("google_search_cx_images")
+        private val GOOGLE_SEARCH_CX_GIFS = stringPreferencesKey("google_search_cx_gifs")
+        private val GOOGLE_SEARCH_CX_STICKERS = stringPreferencesKey("google_search_cx_stickers")
         private val GIF_CONTENT_FILTER = stringPreferencesKey("gif_content_filter")
         private val SEARCH_SAFE = booleanPreferencesKey("search_safe")
         private val SEARCH_RESULT_COUNT = intPreferencesKey("search_result_count")
@@ -580,6 +591,9 @@ class SettingsRepository(private val context: Context) {
             gifUseGoogle = p[GIF_USE_GOOGLE] ?: defaults.gifUseGoogle,
             googleSearchApiKey = p[GOOGLE_SEARCH_API_KEY] ?: defaults.googleSearchApiKey,
             googleSearchCx = p[GOOGLE_SEARCH_CX] ?: defaults.googleSearchCx,
+            googleSearchCxImages = p[GOOGLE_SEARCH_CX_IMAGES] ?: defaults.googleSearchCxImages,
+            googleSearchCxGifs = p[GOOGLE_SEARCH_CX_GIFS] ?: defaults.googleSearchCxGifs,
+            googleSearchCxStickers = p[GOOGLE_SEARCH_CX_STICKERS] ?: defaults.googleSearchCxStickers,
             gifContentFilter = p[GIF_CONTENT_FILTER]
                 ?.let { runCatching { GifContentFilter.valueOf(it) }.getOrNull() }
                 ?: defaults.gifContentFilter,
@@ -981,6 +995,15 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setGoogleSearchCx(value: String) =
         context.dataStore.edit { it[GOOGLE_SEARCH_CX] = value.trim() }
+
+    suspend fun setGoogleSearchCxImages(value: String) =
+        context.dataStore.edit { it[GOOGLE_SEARCH_CX_IMAGES] = value.trim() }
+
+    suspend fun setGoogleSearchCxGifs(value: String) =
+        context.dataStore.edit { it[GOOGLE_SEARCH_CX_GIFS] = value.trim() }
+
+    suspend fun setGoogleSearchCxStickers(value: String) =
+        context.dataStore.edit { it[GOOGLE_SEARCH_CX_STICKERS] = value.trim() }
 
     suspend fun setGifContentFilter(value: GifContentFilter) =
         context.dataStore.edit { it[GIF_CONTENT_FILTER] = value.name }

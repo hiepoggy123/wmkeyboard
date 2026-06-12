@@ -43,6 +43,9 @@ android {
         buildConfigField("String", "BRAVE_API_KEY", "\"${apiKey("wmkb.braveApiKey", "WMKB_BRAVE_API_KEY")}\"")
         buildConfigField("String", "GOOGLE_SEARCH_API_KEY", "\"${apiKey("wmkb.googleSearchApiKey", "WMKB_GOOGLE_SEARCH_API_KEY")}\"")
         buildConfigField("String", "GOOGLE_SEARCH_CX", "\"${apiKey("wmkb.googleSearchCx", "WMKB_GOOGLE_SEARCH_CX")}\"")
+        buildConfigField("String", "GOOGLE_SEARCH_CX_IMAGES", "\"${apiKey("wmkb.googleSearchCxImages", "WMKB_GOOGLE_SEARCH_CX_IMAGES")}\"")
+        buildConfigField("String", "GOOGLE_SEARCH_CX_GIFS", "\"${apiKey("wmkb.googleSearchCxGifs", "WMKB_GOOGLE_SEARCH_CX_GIFS")}\"")
+        buildConfigField("String", "GOOGLE_SEARCH_CX_STICKERS", "\"${apiKey("wmkb.googleSearchCxStickers", "WMKB_GOOGLE_SEARCH_CX_STICKERS")}\"")
         buildConfigField("String", "TRANSLATE_API_KEY", "\"${apiKey("wmkb.translateApiKey", "WMKB_TRANSLATE_API_KEY")}\"")
     }
 

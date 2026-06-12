@@ -226,7 +226,7 @@ internal fun GifPanel(
     val ui = if (stickers) state.sticker else state.gif
     val tool = if (stickers) ToolbarTool.STICKER else ToolbarTool.GIF
     val noun = if (stickers) "stickers" else "GIFs"
-    val sources = ToolApiKeys.gifSources(state.settings)
+    val sources = ToolApiKeys.gifSources(state.settings, stickers)
     val tabsMode = state.settings.gifSourceMode == GifSourceMode.TABS
     val attribution = when {
         sources.isEmpty() -> null

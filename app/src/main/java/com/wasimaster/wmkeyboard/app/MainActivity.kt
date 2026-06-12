@@ -2567,14 +2567,31 @@ private fun ToolDetailSettings(
                         "Google Images as a source",
                         "Animated GIFs (transparent PNGs for stickers) via web/image search's keys",
                         settings.gifUseGoogle,
-                        info = "Needs the Google Programmable Search key and engine id from " +
-                            "the web search tool's settings (whole-web only on engines " +
-                            "created before Jan 2026; newer engines search up to 50 chosen " +
-                            "sites). Google only searches when you press enter (or pick its " +
-                            "chip) — never per keystroke — because its free tier is 100 " +
-                            "requests a day, shared with the web and image search tools. " +
-                            "Google previews are static; the inserted GIF still animates.",
+                        info = "Needs the Google Programmable Search key from the web " +
+                            "search tool's settings, plus an engine id — either the " +
+                            "dedicated ones below or, if blank, the web search tool's " +
+                            "engine. Google only searches when you press enter (or pick " +
+                            "its chip) — never per keystroke — because its free tier is " +
+                            "100 requests a day, shared with the web and image search " +
+                            "tools. Google previews are static; the inserted GIF still " +
+                            "animates.",
                     ) { scope.launch { repository.setGifUseGoogle(it) } }
+                }
+                item {
+                    ApiKeyField(
+                        label = "Engine ID (cx) — GIFs",
+                        value = settings.googleSearchCxGifs,
+                        builtInAvailable = ToolApiKeys.builtInGoogleCxGifs,
+                        emptyHint = "Dedicated GIF-site engine; blank = web search's engine",
+                    ) { repository.setGoogleSearchCxGifs(it) }
+                }
+                item {
+                    ApiKeyField(
+                        label = "Engine ID (cx) — stickers",
+                        value = settings.googleSearchCxStickers,
+                        builtInAvailable = ToolApiKeys.builtInGoogleCxStickers,
+                        emptyHint = "Dedicated sticker-site engine; blank = web search's engine",
+                    ) { repository.setGoogleSearchCxStickers(it) }
                 }
             }
             CaptionText(
@@ -2691,11 +2708,19 @@ private fun ToolDetailSettings(
                 }
                 item {
                     ApiKeyField(
-                        label = "Search engine ID (cx)",
+                        label = "Engine ID (cx) — web search",
                         value = settings.googleSearchCx,
                         builtInAvailable = ToolApiKeys.builtInGoogleSearch,
                         emptyHint = "From programmablesearchengine.google.com",
                     ) { repository.setGoogleSearchCx(it) }
+                }
+                item {
+                    ApiKeyField(
+                        label = "Engine ID (cx) — image search",
+                        value = settings.googleSearchCxImages,
+                        builtInAvailable = ToolApiKeys.builtInGoogleCxImages,
+                        emptyHint = "Blank = same engine as web search",
+                    ) { repository.setGoogleSearchCxImages(it) }
                 }
             }
             CaptionText(

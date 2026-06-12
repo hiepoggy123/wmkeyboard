@@ -22,16 +22,16 @@ object ToolApiKeys {
 
     /**
      * Which GIF/sticker providers can actually serve requests: KLIPY and
-     * GIPHY need their keys, Google needs the Programmable Search pair and
-     * the tool's own opt-in (its 100-requests/day quota is shared with the
-     * web/image search tools).
+     * GIPHY need their keys, Google needs the Programmable Search key, an
+     * engine id resolving for this mode ([stickers] picks which dedicated
+     * cx applies) and the tool's own opt-in (its 100-requests/day quota is
+     * shared with the web/image search tools).
      */
-    fun gifSources(settings: KeyboardSettings): List<GifSource> = buildList {
+    fun gifSources(settings: KeyboardSettings, stickers: Boolean): List<GifSource> = buildList {
         if (klipy(settings).isNotBlank()) add(GifSource.KLIPY)
         if (giphy(settings).isNotBlank()) add(GifSource.GIPHY)
-        if (settings.gifUseGoogle &&
-            googleSearch(settings).isNotBlank() && googleSearchCx(settings).isNotBlank()
-        ) {
+        val cx = if (stickers) googleSearchCxStickers(settings) else googleSearchCxGifs(settings)
+        if (settings.gifUseGoogle && googleSearch(settings).isNotBlank() && cx.isNotBlank()) {
             add(GifSource.GOOGLE)
         }
     }
@@ -63,8 +63,28 @@ object ToolApiKeys {
         }
     }
 
+    /** Engine id for web search — also the fallback for every other tool. */
     fun googleSearchCx(settings: KeyboardSettings): String =
         settings.googleSearchCx.ifBlank { BuildConfig.GOOGLE_SEARCH_CX }
+
+    /**
+     * Per-tool engine ids. Each resolves user setting → built-in → the
+     * general web-search cx, so a single engine still serves everything
+     * when no dedicated ones are configured — but a dedicated engine (say
+     * a 50-GIF-site one in the GIFs slot) is only ever used by its own
+     * tool, never by web/image/sticker search.
+     */
+    fun googleSearchCxImages(settings: KeyboardSettings): String =
+        settings.googleSearchCxImages.ifBlank { BuildConfig.GOOGLE_SEARCH_CX_IMAGES }
+            .ifBlank { googleSearchCx(settings) }
+
+    fun googleSearchCxGifs(settings: KeyboardSettings): String =
+        settings.googleSearchCxGifs.ifBlank { BuildConfig.GOOGLE_SEARCH_CX_GIFS }
+            .ifBlank { googleSearchCx(settings) }
+
+    fun googleSearchCxStickers(settings: KeyboardSettings): String =
+        settings.googleSearchCxStickers.ifBlank { BuildConfig.GOOGLE_SEARCH_CX_STICKERS }
+            .ifBlank { googleSearchCx(settings) }
 
     fun translate(settings: KeyboardSettings): String =
         settings.translateApiKey.ifBlank { BuildConfig.TRANSLATE_API_KEY }
@@ -75,5 +95,8 @@ object ToolApiKeys {
     val builtInBrave: Boolean get() = BuildConfig.BRAVE_API_KEY.isNotBlank()
     val builtInGoogleSearch: Boolean
         get() = BuildConfig.GOOGLE_SEARCH_API_KEY.isNotBlank() && BuildConfig.GOOGLE_SEARCH_CX.isNotBlank()
+    val builtInGoogleCxImages: Boolean get() = BuildConfig.GOOGLE_SEARCH_CX_IMAGES.isNotBlank()
+    val builtInGoogleCxGifs: Boolean get() = BuildConfig.GOOGLE_SEARCH_CX_GIFS.isNotBlank()
+    val builtInGoogleCxStickers: Boolean get() = BuildConfig.GOOGLE_SEARCH_CX_STICKERS.isNotBlank()
     val builtInTranslate: Boolean get() = BuildConfig.TRANSLATE_API_KEY.isNotBlank()
 }
