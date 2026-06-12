@@ -67,9 +67,26 @@ class GestureDecoder(
         val end = path.last()
         val anchorLimit = ANCHOR_RADIUS * keyWidth
 
+        // Keys close enough to the gesture's endpoints to anchor a word.
+        // Checking a word's first/last letter against these sets is a much
+        // cheaper reject than building its ideal path, and equivalent to
+        // the anchor-distance pruning below (key centres are per-letter).
+        val startChars = HashSet<Char>()
+        val endChars = HashSet<Char>()
+        for ((char, key) in centers) {
+            if (distance(start.x, start.y, key.x, key.y) <= anchorLimit) startChars.add(char)
+            if (distance(end.x, end.y, key.x, key.y) <= anchorLimit) endChars.add(char)
+        }
+        if (startChars.isEmpty() || endChars.isEmpty()) return emptyList()
+
         val scored = ArrayList<Suggestion>()
         for ((word, frequency) in lexicon) {
             if (word.length < 2) continue
+            if (word.first().lowercaseChar() !in startChars ||
+                word.last().lowercaseChar() !in endChars
+            ) {
+                continue
+            }
             val ideal = idealPath(word) ?: continue
 
             val first = ideal.first()

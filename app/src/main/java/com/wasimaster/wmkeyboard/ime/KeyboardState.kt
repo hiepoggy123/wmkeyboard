@@ -150,6 +150,8 @@ data class KeyboardUiState(
     val shiftState: ShiftState = ShiftState.OFF,
     val panel: PanelMode = PanelMode.NONE,
     val suggestions: List<String> = emptyList(),
+    /** Best gesture-typing candidate mid-swipe, shown floating above the finger. */
+    val glideWord: String? = null,
     val composingPreview: String = "",
     /** Text-edit panel: arrows extend the selection instead of moving the cursor. */
     val textEditSelecting: Boolean = false,

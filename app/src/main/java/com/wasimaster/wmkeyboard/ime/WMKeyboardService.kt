@@ -545,7 +545,11 @@ class WMKeyboardService : InputMethodService() {
     // No vibrate() here: press-time haptics fire from the UI's pointer-down
     // callback (onKeyPressed) so feedback lands on touch, not on release.
     fun onKey(key: Key) {
-        if (key.action != KeyAction.Shift) lastGestureWord = null
+        // Shift keeps the gesture word so alternates can be re-cased;
+        // Delete keeps it so one backspace can undo the whole swipe.
+        if (key.action != KeyAction.Shift && key.action != KeyAction.Delete) {
+            lastGestureWord = null
+        }
         when (key.action) {
             KeyAction.Text -> onTextKey(key)
             KeyAction.Shift -> onShift()
@@ -728,6 +732,19 @@ class WMKeyboardService : InputMethodService() {
         if (hasSelection(ic)) {
             ic.commitText("", 1)
             return
+        }
+        // Backspace straight after a glide removes the whole swiped word —
+        // a wrong swipe shouldn't cost a letter-by-letter cleanup.
+        lastGestureWord?.let { word ->
+            lastGestureWord = null
+            if (composing.isEmpty()) {
+                val before = ic.getTextBeforeCursor(word.length, 0)?.toString()
+                if (before == word) {
+                    ic.deleteSurroundingText(word.length, 0)
+                    _uiState.update { it.copy(suggestions = emptyList()) }
+                    return
+                }
+            }
         }
         // Backspace straight after an autocorrect undoes it: the corrected
         // word (and the space that triggered it) become the typed original,
@@ -1108,10 +1125,18 @@ class WMKeyboardService : InputMethodService() {
         previewJob?.cancel()
         previewJob = serviceScope.launch {
             val candidates = withContext(Dispatchers.Default) {
-                GestureDecoder(keys, keyWidthPx).decode(points, lexicon)
+                // Same lexicon as the final decode, so the previewed word
+                // never differs from the one that commits on finger-up.
+                val personal = userLexicon.allWords().map { (word, count) -> word to count * 500 }
+                GestureDecoder(keys, keyWidthPx).decode(points, lexicon + personal)
             }
             if (candidates.isNotEmpty()) {
-                _uiState.update { it.copy(suggestions = candidates.map { candidate -> candidate.word }) }
+                _uiState.update {
+                    it.copy(
+                        suggestions = candidates.map { candidate -> candidate.word },
+                        glideWord = candidates.first().word,
+                    )
+                }
             }
         }
     }
@@ -1130,6 +1155,7 @@ class WMKeyboardService : InputMethodService() {
         val shiftAtGesture = state.shiftState
         previewJob?.cancel()
         suggestionJob?.cancel()
+        _uiState.update { it.copy(glideWord = null) }
         suggestionJob = serviceScope.launch {
             val candidates = withContext(Dispatchers.Default) {
                 val personal = userLexicon.allWords().map { (word, count) -> word to count * 500 }
@@ -1710,7 +1736,7 @@ class WMKeyboardService : InputMethodService() {
             _uiState.update { if (sticker) it.copy(sticker = ui) else it.copy(gif = ui) }
         }
         val settings = state.settings
-        val sources = ToolApiKeys.gifSources(settings)
+        val sources = ToolApiKeys.gifSources(settings, sticker)
         if (sources.isEmpty()) {
             setUi(MediaUi.NeedKey)
             return
@@ -1766,7 +1792,8 @@ class WMKeyboardService : InputMethodService() {
                 ?: GoogleSearchClient.gifSearch(
                     query,
                     ToolApiKeys.googleSearch(settings),
-                    ToolApiKeys.googleSearchCx(settings),
+                    if (sticker) ToolApiKeys.googleSearchCxStickers(settings)
+                    else ToolApiKeys.googleSearchCxGifs(settings),
                     settings.searchSafe,
                     sticker,
                 ).also { synchronized(googleGifCache) { googleGifCache[cacheKey] = it } }
@@ -1845,7 +1872,7 @@ class WMKeyboardService : InputMethodService() {
                         WebSearchProvider.GOOGLE -> GoogleSearchClient.imageSearch(
                             query,
                             ToolApiKeys.googleSearch(settings),
-                            ToolApiKeys.googleSearchCx(settings),
+                            ToolApiKeys.googleSearchCxImages(settings),
                             settings.searchResultCount,
                             settings.searchSafe,
                         )

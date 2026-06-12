@@ -146,6 +146,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameMillis
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -1758,6 +1759,12 @@ private fun KeyboardBody(
 
 // ---- key grid ----
 
+/** One sampled point of the glide trail, timestamped for age-based fading. */
+private data class TrailPoint(val position: Offset, val timeMs: Long)
+
+/** How long a trail point stays visible; also the release fade-out time. */
+private const val GLIDE_TRAIL_MS = 350L
+
 @Composable
 private fun KeyRows(
     state: KeyboardUiState,
@@ -1778,13 +1785,33 @@ private fun KeyRows(
     val keyCenters = remember { mutableStateMapOf<Char, Offset>() }
     var keyWidthPx by remember { mutableStateOf(0f) }
     var boxOrigin by remember { mutableStateOf(Offset.Zero) }
-    var trail by remember { mutableStateOf<List<Offset>>(emptyList()) }
+    var boxSize by remember { mutableStateOf(IntSize.Zero) }
+    var trail by remember { mutableStateOf<List<TrailPoint>>(emptyList()) }
+    var trailReleased by remember { mutableStateOf(false) }
+    // Frame clock driving the fade; points older than GLIDE_TRAIL_MS vanish.
+    var trailNow by remember { mutableLongStateOf(0L) }
     val trailColor = LocalKbTheme.current.accent
+
+    LaunchedEffect(trail.isNotEmpty()) {
+        while (trail.isNotEmpty()) {
+            withFrameMillis { now ->
+                trailNow = now
+                // After finger-up the trail is left in place to fade out on
+                // its own; drop it once every point has expired.
+                if (trailReleased && trail.all { now - it.timeMs > GLIDE_TRAIL_MS }) {
+                    trail = emptyList()
+                }
+            }
+        }
+    }
 
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .onGloballyPositioned { boxOrigin = it.positionInRoot() }
+            .onGloballyPositioned {
+                boxOrigin = it.positionInRoot()
+                boxSize = it.size
+            }
             .pointerInput(gestureEnabled) {
                 if (!gestureEnabled) return@pointerInput
                 awaitEachGesture {
@@ -1792,6 +1819,7 @@ private fun KeyRows(
                     val slop = viewConfiguration.touchSlop
                     var isGesture = false
                     val points = ArrayList<Offset>()
+                    val trailPoints = ArrayList<TrailPoint>()
                     points.add(down.position)
                     while (true) {
                         val event = awaitPointerEvent(PointerEventPass.Initial)
@@ -1806,10 +1834,19 @@ private fun KeyRows(
                             nearLetterKey(down.position, keyCenters, keyWidthPx)
                         ) {
                             isGesture = true
+                            trailReleased = false
                         }
                         if (isGesture) {
                             change.consume()
-                            trail = points.toList()
+                            trailPoints.add(TrailPoint(change.position, change.uptimeMillis))
+                            // Long swipes keep only the still-visible tail.
+                            while (trailPoints.size > 1 &&
+                                change.uptimeMillis - trailPoints.first().timeMs > GLIDE_TRAIL_MS
+                            ) {
+                                trailPoints.removeAt(0)
+                            }
+                            trailNow = change.uptimeMillis
+                            trail = trailPoints.toList()
                             // Live preview: decode every few samples.
                             if (points.size % 6 == 0) {
                                 onGesturePreview(
@@ -1827,7 +1864,7 @@ private fun KeyRows(
                             keyWidthPx,
                         )
                     }
-                    trail = emptyList()
+                    trailReleased = true
                 }
             },
     ) {
@@ -1900,13 +1937,60 @@ private fun KeyRows(
 
         if (trail.size > 1) {
             Canvas(modifier = Modifier.matchParentSize()) {
-                val path = Path()
-                path.moveTo(trail.first().x, trail.first().y)
-                for (point in trail.drop(1)) path.lineTo(point.x, point.y)
-                drawPath(
-                    path = path,
-                    color = trailColor.copy(alpha = 0.55f),
-                    style = Stroke(width = 9.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round),
+                // Comet-style trail: each segment fades and thins with age,
+                // so the tail dissolves behind the finger instead of leaving
+                // the whole path on screen.
+                val headWidth = 10.dp.toPx()
+                val tailWidth = 3.dp.toPx()
+                for (i in 1 until trail.size) {
+                    val point = trail[i]
+                    val life =
+                        (1f - (trailNow - point.timeMs) / GLIDE_TRAIL_MS.toFloat()).coerceIn(0f, 1f)
+                    if (life == 0f) continue
+                    drawLine(
+                        color = trailColor.copy(alpha = 0.55f * life),
+                        start = trail[i - 1].position,
+                        end = point.position,
+                        strokeWidth = tailWidth + (headWidth - tailWidth) * life,
+                        cap = StrokeCap.Round,
+                    )
+                }
+            }
+        }
+
+        // Floating preview of the word the swipe currently decodes to,
+        // hovering above the finger like a key popup.
+        val glideWord = state.glideWord
+        if (glideWord != null && trail.isNotEmpty() && !trailReleased) {
+            val theme = LocalKbTheme.current
+            val display = when (state.shiftState) {
+                ShiftState.CAPS_LOCK -> glideWord.uppercase()
+                ShiftState.ON -> glideWord.replaceFirstChar { it.uppercase() }
+                ShiftState.OFF -> glideWord
+            }
+            var pillSize by remember { mutableStateOf(IntSize.Zero) }
+            val head = trail.last().position
+            val gapPx = with(LocalDensity.current) { 56.dp.roundToPx() }
+            Surface(
+                modifier = Modifier
+                    .offset {
+                        val x = (head.x - pillSize.width / 2f).toInt()
+                            .coerceIn(0, (boxSize.width - pillSize.width).coerceAtLeast(0))
+                        val y = (head.y - gapPx - pillSize.height).toInt().coerceAtLeast(0)
+                        IntOffset(x, y)
+                    }
+                    .onGloballyPositioned { pillSize = it.size },
+                color = theme.popup,
+                contentColor = theme.popupText,
+                shape = RoundedCornerShape(theme.popupRadiusDp.dp),
+                shadowElevation = 4.dp,
+            ) {
+                Text(
+                    text = display,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1,
                 )
             }
         }
