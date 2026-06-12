@@ -1507,7 +1507,17 @@ private fun ToolboxPanel(
             return@Column
         }
         // More tools than fit the panel height now — the grid scrolls.
-        Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+        // The placement anchor is this scrolling content column, NOT the
+        // keyboard body: relative to the body every icon "moves" on every
+        // scroll frame, which made each one restart its placement spring
+        // per frame (a coroutine-and-relayout storm that tanked scroll fps).
+        // Relative to the content, scrolling is a no-op for the animation.
+        var gridCoords by remember { mutableStateOf<LayoutCoordinates?>(null) }
+        Column(
+            modifier = Modifier
+                .verticalScroll(rememberScrollState())
+                .onGloballyPositioned { gridCoords = it },
+        ) {
             val columns = state.settings.toolboxColumns.coerceAtLeast(1)
             for (rowTools in available.chunked(columns)) {
                 Row(modifier = Modifier.fillMaxWidth()) {
@@ -1518,12 +1528,17 @@ private fun ToolboxPanel(
                                 contentAlignment = Alignment.Center,
                             ) {
                                 DraggableTool(tool, fromToolbar = false, enabled = true, drag = drag) { dragModifier ->
-                                    // No placement animation here, unlike the
-                                    // toolbar: this grid scrolls, and animated
-                                    // offsets made every icon spring-chase the
-                                    // scroll — laggy frames for zero benefit.
+                                    // Anchored at the scrolling content (see
+                                    // gridCoords above), NOT the keyboard body:
+                                    // body-relative, every scroll frame moved
+                                    // every icon and restarted its spring — a
+                                    // per-frame coroutine storm that tanked
+                                    // scroll fps. Content-relative, scrolling
+                                    // is a no-op; (un)pin reorders still slide.
                                     Column(
-                                        modifier = dragModifier.padding(vertical = 10.dp),
+                                        modifier = dragModifier
+                                            .animatePlacement { gridCoords }
+                                            .padding(vertical = 10.dp),
                                         horizontalAlignment = Alignment.CenterHorizontally,
                                     ) {
                                         ToolCircle(
