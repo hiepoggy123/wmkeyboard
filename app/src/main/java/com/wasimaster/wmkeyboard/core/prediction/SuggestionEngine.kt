@@ -32,6 +32,14 @@ class SuggestionEngine(
     @Volatile
     var contacts: ContactNames = ContactNames.EMPTY
 
+    /**
+     * Adjacency map for typo weighting, following the active Latin layout
+     * (set by the IME on input-mode changes; AZERTY/Dvorak fat-fingers land
+     * on different neighbours than QWERTY's).
+     */
+    @Volatile
+    var proximity: KeyProximity = KeyProximity.QWERTY
+
     companion object {
         private const val ALPHABET = "abcdefghijklmnopqrstuvwxyz"
         /** Learned words get a large boost so personalization wins quickly. */
@@ -237,7 +245,7 @@ class SuggestionEngine(
                 )
             }
             for (c in ALPHABET) {
-                val weight = if (KeyProximity.areAdjacent(word[i], c)) {
+                val weight = if (proximity.areAdjacent(word[i], c)) {
                     WEIGHT_SUB_ADJACENT
                 } else {
                     WEIGHT_SUB_FAR
@@ -250,8 +258,8 @@ class SuggestionEngine(
                 // An accidental extra press usually lands next to one of the
                 // characters it slipped in between.
                 val nearNeighbour =
-                    (i > 0 && KeyProximity.areAdjacent(word[i - 1], c)) ||
-                        (i < word.length && KeyProximity.areAdjacent(word[i], c))
+                    (i > 0 && proximity.areAdjacent(word[i - 1], c)) ||
+                        (i < word.length && proximity.areAdjacent(word[i], c))
                 val weight = if (nearNeighbour) WEIGHT_INSERT_ADJACENT else WEIGHT_INSERT_FAR
                 add(word.substring(0, i) + c + word.substring(i), weight)
             }

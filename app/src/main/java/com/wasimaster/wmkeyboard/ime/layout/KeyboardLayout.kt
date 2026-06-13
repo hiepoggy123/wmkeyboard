@@ -68,6 +68,87 @@ object Layouts {
     )
 
     /**
+     * AZERTY: the French/Belgian Latin layout. Letter positions follow the
+     * standard AZERTY keymap (A/Q and Z/W swapped, M on the home row); the
+     * apostrophe gets its own key where QWERTY's M sits. Long-press keeps
+     * the Samsung-style symbol-first alternates, with French accents
+     * (é è ç à …) on their base vowels.
+     */
+    val AZERTY = KeyboardLayout(
+        name = "azerty",
+        rows = listOf(
+            listOf(
+                Key("a", longPress = listOf("1", "à", "â", "æ", "á", "ä")),
+                Key("z", longPress = listOf("2")),
+                Key("e", longPress = listOf("3", "é", "è", "ê", "ë", "€")),
+                Key("r", longPress = listOf("4")), Key("t", longPress = listOf("5")),
+                Key("y", longPress = listOf("6", "ÿ")),
+                Key("u", longPress = listOf("7", "ù", "û", "ü", "ú")),
+                Key("i", longPress = listOf("8", "î", "ï", "í", "ì")),
+                Key("o", longPress = listOf("9", "ô", "ö", "œ", "ó", "ò")),
+                Key("p", longPress = listOf("0")),
+            ),
+            listOf(
+                Key("q", longPress = listOf("@")), Key("s", longPress = listOf("#", "ß")),
+                Key("d", longPress = listOf("$")), Key("f", longPress = listOf("_")),
+                Key("g", longPress = listOf("&")), Key("h", longPress = listOf("-")),
+                Key("j", longPress = listOf("+")), Key("k", longPress = listOf("(")),
+                Key("l", longPress = listOf(")")), Key("m", longPress = listOf("?")),
+            ),
+            listOf(
+                Key("⇧", action = KeyAction.Shift, width = 1.5f),
+                Key("w", longPress = listOf("*")), Key("x", longPress = listOf("\"")),
+                Key("c", longPress = listOf(";", "ç", "ć")), Key("v", longPress = listOf(":")),
+                Key("b", longPress = listOf("!")), Key("n", longPress = listOf("?", "ñ")),
+                Key("'", shiftLabel = "\"", longPress = listOf("‘", "’", "„")),
+                Key("⌫", action = KeyAction.Delete, width = 1.5f),
+            ),
+            bottomRow(),
+        ),
+    )
+
+    /**
+     * Dvorak: the simplified layout with vowels on the left home row.
+     * Follows the standard Dvorak keymap adapted to the 10-column phone
+     * grid: ' , . start the top row (with " < > on shift, ANSI style) and
+     * the desktop ; key's spot is dropped — ; lives on long-press instead.
+     */
+    val DVORAK = KeyboardLayout(
+        name = "dvorak",
+        rows = listOf(
+            listOf(
+                Key("'", shiftLabel = "\"", longPress = listOf("1", "‘", "’")),
+                Key(",", shiftLabel = "<", longPress = listOf("2")),
+                Key(".", shiftLabel = ">", longPress = listOf("3", "…")),
+                Key("p", longPress = listOf("4")), Key("y", longPress = listOf("5")),
+                Key("f", longPress = listOf("6")), Key("g", longPress = listOf("7")),
+                Key("c", longPress = listOf("8", "ç", "ć")),
+                Key("r", longPress = listOf("9")), Key("l", longPress = listOf("0")),
+            ),
+            listOf(
+                Key("a", longPress = listOf("@", "à", "á", "â", "ä", "å")),
+                Key("o", longPress = listOf("#", "ò", "ó", "ô", "ö")),
+                Key("e", longPress = listOf("$", "è", "é", "ê", "ë")),
+                Key("u", longPress = listOf("_", "ù", "ú", "û", "ü")),
+                Key("i", longPress = listOf("&", "ì", "í", "î", "ï")),
+                Key("d", longPress = listOf("-")), Key("h", longPress = listOf("+")),
+                Key("t", longPress = listOf("(")), Key("n", longPress = listOf(")", "ñ", "ń")),
+                Key("s", longPress = listOf("/", "ß", "ś")),
+            ),
+            listOf(
+                Key("⇧", action = KeyAction.Shift),
+                Key("q", longPress = listOf("*")), Key("j", longPress = listOf("\"")),
+                Key("k", longPress = listOf("'")), Key("x", longPress = listOf(":")),
+                Key("b", longPress = listOf(";")), Key("m", longPress = listOf("!")),
+                Key("w", longPress = listOf("?")), Key("v", longPress = listOf("=")),
+                Key("z", longPress = listOf("%", "ż", "ź")),
+                Key("⌫", action = KeyAction.Delete),
+            ),
+            bottomRow(),
+        ),
+    )
+
+    /**
      * Probhat: the fixed Bengali layout popular on Linux, following the
      * standard keymap (as shipped by Avro/OpenBangla). Letter keys q–m match
      * the desktop layout exactly; characters that live on desktop punctuation

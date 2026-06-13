@@ -46,7 +46,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.wasimaster.wmkeyboard.core.settings.HapticStyle
-import com.wasimaster.wmkeyboard.core.settings.InputMode
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import com.wasimaster.wmkeyboard.core.settings.SpaceSwipeAction
@@ -184,32 +183,34 @@ private fun LanguagesPage(repository: SettingsRepository, settings: KeyboardSett
         "Pick the input modes you type in. You'll switch between them with a " +
             "quick swipe on the spacebar (or the 🌐 key if you keep it).",
     )
-    val labels = mapOf(
-        InputMode.ENGLISH to ("English" to "QWERTY with suggestions and gesture typing"),
-        InputMode.AVRO to ("বাংলা — Avro phonetic" to "Type \"ami valo achi\", get আমি ভালো আছি"),
-        InputMode.PROBHAT to ("বাংলা — প্রভাত (Probhat)" to "Fixed Bengali layout, Linux style"),
-        InputMode.JATIYA to ("বাংলা — জাতীয় (National)" to "Bangladesh standard fixed layout"),
-    )
-    for (mode in InputMode.entries) {
-        val (title, subtitle) = labels.getValue(mode)
-        ListItem(
-            headlineContent = { Text(title) },
-            supportingContent = { Text(subtitle) },
-            trailingContent = {
-                Switch(
-                    checked = mode in settings.enabledModes,
-                    onCheckedChange = { enable ->
-                        scope.launch {
-                            val next =
-                                if (enable) settings.enabledModes + mode
-                                else settings.enabledModes - mode
-                            if (next.isNotEmpty()) repository.setEnabledModes(next.distinct())
-                        }
-                    },
-                )
-            },
+    for (language in LanguageCatalog) {
+        Text(
+            language.name,
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 4.dp),
         )
-        HorizontalDivider()
+        for (option in language.layouts) {
+            val mode = option.mode
+            ListItem(
+                headlineContent = { Text(option.title) },
+                supportingContent = { Text(option.subtitle) },
+                trailingContent = {
+                    Switch(
+                        checked = mode in settings.enabledModes,
+                        onCheckedChange = { enable ->
+                            scope.launch {
+                                val next =
+                                    if (enable) settings.enabledModes + mode
+                                    else settings.enabledModes - mode
+                                if (next.isNotEmpty()) repository.setEnabledModes(next.distinct())
+                            }
+                        },
+                    )
+                },
+            )
+            HorizontalDivider()
+        }
     }
 }
 

@@ -12,6 +12,7 @@ import com.google.mlkit.vision.digitalink.recognition.Ink
 import com.google.mlkit.vision.digitalink.recognition.RecognitionContext
 import com.google.mlkit.vision.digitalink.recognition.WritingArea
 import com.wasimaster.wmkeyboard.core.settings.InputMode
+import com.wasimaster.wmkeyboard.core.settings.isEnglish
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -44,7 +45,7 @@ object HandwritingModels {
 
     /** The recognition model tag for an input mode (all Bengali modes share bn). */
     fun tagForMode(mode: InputMode): String =
-        if (mode == InputMode.ENGLISH) "en-US" else "bn"
+        if (mode.isEnglish) "en-US" else "bn"
 
     fun displayName(tag: String): String =
         supported.firstOrNull { it.tag == tag }?.displayName ?: tag

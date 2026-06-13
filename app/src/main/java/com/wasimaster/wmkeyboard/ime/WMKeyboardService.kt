@@ -48,6 +48,7 @@ import com.wasimaster.wmkeyboard.core.prediction.Apostrophes
 import com.wasimaster.wmkeyboard.core.prediction.ContactNames
 import com.wasimaster.wmkeyboard.core.prediction.DictionaryLoader
 import com.wasimaster.wmkeyboard.core.prediction.EnglishBengaliMap
+import com.wasimaster.wmkeyboard.core.prediction.KeyProximity
 import com.wasimaster.wmkeyboard.core.prediction.SeedBigrams
 import com.wasimaster.wmkeyboard.core.prediction.SuggestionEngine
 import com.wasimaster.wmkeyboard.core.prediction.Trie
@@ -55,6 +56,7 @@ import com.wasimaster.wmkeyboard.core.prediction.UserLexicon
 import com.wasimaster.wmkeyboard.core.settings.EmojiInsertMode
 import com.wasimaster.wmkeyboard.core.settings.HapticStyle
 import com.wasimaster.wmkeyboard.core.settings.InputMode
+import com.wasimaster.wmkeyboard.core.settings.isEnglish
 import com.wasimaster.wmkeyboard.core.settings.isFixedBengali
 import com.wasimaster.wmkeyboard.core.settings.OneHandedMode
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
@@ -257,6 +259,8 @@ class WMKeyboardService : InputMethodService() {
                 }
                 lexiconVersion = settings.lexiconVersion
                 _uiState.update { it.copy(settings = settings, inputMode = settings.inputMode) }
+                // Typo weighting follows the active Latin layout's key grid.
+                suggestionEngine?.proximity = KeyProximity.forMode(settings.inputMode)
             }
         }
 
@@ -288,7 +292,10 @@ class WMKeyboardService : InputMethodService() {
                 userLexicon,
                 loanwords,
                 seedBigrams,
-            ).apply { contacts = contactNames }
+            ).apply {
+                contacts = contactNames
+                proximity = KeyProximity.forMode(_uiState.value.inputMode)
+            }
             emojiEntries = catalog
             emojiSearch = EmojiSearch(catalog)
             emojiSuggester = EmojiSuggester(catalog)
@@ -928,7 +935,7 @@ class WMKeyboardService : InputMethodService() {
         // Apostrophe restoration outranks autocorrect: "dont" is a known
         // contraction slip, not a typo for "font"/"done" to be guessed at.
         val apostrophized =
-            if (fixApostrophes && !state.secureField && state.inputMode == InputMode.ENGLISH) {
+            if (fixApostrophes && !state.secureField && state.inputMode.isEnglish) {
                 Apostrophes.fix(typed)
             } else {
                 null
@@ -1119,7 +1126,7 @@ class WMKeyboardService : InputMethodService() {
     fun onGesturePreview(points: List<GesturePoint>, keys: List<KeyCenter>, keyWidthPx: Float) {
         val state = _uiState.value
         if (!state.settings.gestureTyping || state.secureField) return
-        if (state.inputMode != InputMode.ENGLISH) return
+        if (!state.inputMode.isEnglish) return
         val lexicon = gestureLexicon
         if (lexicon.isEmpty() || keys.isEmpty()) return
         previewJob?.cancel()
@@ -1148,7 +1155,7 @@ class WMKeyboardService : InputMethodService() {
     fun onGesture(points: List<GesturePoint>, keys: List<KeyCenter>, keyWidthPx: Float) {
         val state = _uiState.value
         if (!state.settings.gestureTyping || state.secureField) return
-        if (state.inputMode != InputMode.ENGLISH) return
+        if (!state.inputMode.isEnglish) return
         val lexicon = gestureLexicon
         if (lexicon.isEmpty() || keys.isEmpty()) return
 
@@ -2437,7 +2444,7 @@ class WMKeyboardService : InputMethodService() {
     private fun shouldAutoCapitalize(): Boolean {
         val state = _uiState.value
         if (!state.settings.autoCapitalize) return false
-        if (state.inputMode != InputMode.ENGLISH) return false
+        if (!state.inputMode.isEnglish) return false
         val ic = currentInputConnection ?: return false
         val info = currentInputEditorInfo ?: return false
         if (info.inputType and InputType.TYPE_MASK_CLASS != InputType.TYPE_CLASS_TEXT) return false

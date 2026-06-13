@@ -136,7 +136,6 @@ import com.wasimaster.wmkeyboard.ime.ui.KeyboardFonts
 import com.wasimaster.wmkeyboard.core.settings.EmojiInsertMode
 import com.wasimaster.wmkeyboard.core.settings.EmojiTabMode
 import com.wasimaster.wmkeyboard.core.settings.HapticStyle
-import com.wasimaster.wmkeyboard.core.settings.InputMode
 import com.wasimaster.wmkeyboard.core.settings.KeySoundStyle
 import com.wasimaster.wmkeyboard.core.settings.GifContentFilter
 import com.wasimaster.wmkeyboard.core.settings.GifSourceMode
@@ -1456,37 +1455,26 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
 @Composable
 private fun LanguageSettings(repository: SettingsRepository, settings: KeyboardSettings) {
     val scope = rememberCoroutineScope()
-    CaptionText("Cycle between enabled input modes with the 🌐 key or a spacebar swipe.")
-    SettingsGroup("Input modes") {
-        val labels = mapOf(
-            InputMode.ENGLISH to Triple(
-                "English", "QWERTY with suggestions",
-                "Standard QWERTY layout with autocorrect, predictions and gesture typing.",
-            ),
-            InputMode.AVRO to Triple(
-                "বাংলা — Avro phonetic", "Type \"ami valo achi\", get আমি ভালো আছি",
-                "Type Bengali phonetically with Latin letters; the transliteration happens " +
-                    "live as you type, and the suggestion bar offers dictionary spellings.",
-            ),
-            InputMode.PROBHAT to Triple(
-                "বাংলা — প্রভাত (Probhat)", "Fixed Bengali layout",
-                "The fixed Probhat layout familiar from Linux: vowel signs on the home row, " +
-                    "consonants by frequency, aspirates on shift.",
-            ),
-            InputMode.JATIYA to Triple(
-                "বাংলা — জাতীয় (National)", "Bangladesh standard fixed layout",
-                "The National (Jatiya) fixed layout standardized in Bangladesh; the same " +
-                    "arrangement used by Bijoy-style keyboards, with aspirates on shift and " +
-                    "independent vowels on long-press.",
-            ),
-        )
-        for (mode in InputMode.entries) {
-            val (title, subtitle, info) = labels.getValue(mode)
-            item {
-                ToggleSetting(title, subtitle, mode in settings.enabledModes, info = info) { enable ->
-                    scope.launch {
-                        val next = if (enable) settings.enabledModes + mode else settings.enabledModes - mode
-                        if (next.isNotEmpty()) repository.setEnabledModes(next.distinct())
+    CaptionText(
+        "Every enabled layout is its own input mode; cycle between them with " +
+            "the 🌐 key or a spacebar swipe.",
+    )
+    for (language in LanguageCatalog) {
+        SettingsGroup(language.name) {
+            for (option in language.layouts) {
+                item {
+                    ToggleSetting(
+                        option.title, option.subtitle,
+                        option.mode in settings.enabledModes,
+                        info = option.info,
+                    ) { enable ->
+                        scope.launch {
+                            val next =
+                                if (enable) settings.enabledModes + option.mode
+                                else settings.enabledModes - option.mode
+                            // At least one mode must stay enabled.
+                            if (next.isNotEmpty()) repository.setEnabledModes(next.distinct())
+                        }
                     }
                 }
             }

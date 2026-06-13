@@ -57,6 +57,7 @@ import com.wasimaster.wmkeyboard.core.handwriting.HandwritingModels
 import com.wasimaster.wmkeyboard.core.handwriting.HwPoint
 import com.wasimaster.wmkeyboard.core.handwriting.HwStroke
 import com.wasimaster.wmkeyboard.core.settings.InputMode
+import com.wasimaster.wmkeyboard.core.settings.isEnglish
 import com.wasimaster.wmkeyboard.ime.HandwritingStatus
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
 import com.wasimaster.wmkeyboard.ime.layout.Key
@@ -184,9 +185,9 @@ internal fun HandwritingPanel(
                         .clickable {
                             feedback()
                             val other = if (hw.languageTag == "en-US") {
-                                modes.first { it != InputMode.ENGLISH }
+                                modes.first { !it.isEnglish }
                             } else {
-                                InputMode.ENGLISH
+                                modes.firstOrNull { it.isEnglish } ?: InputMode.ENGLISH
                             }
                             onLanguageSelect(other)
                         }

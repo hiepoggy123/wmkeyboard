@@ -14,8 +14,30 @@ import com.wasimaster.wmkeyboard.core.theme.ThemeSpec
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
-/** Which script/input method the keyboard is currently in. */
-enum class InputMode { ENGLISH, AVRO, PROBHAT, JATIYA }
+/**
+ * Which script/input method the keyboard is currently in. Each mode is one
+ * language+layout pair; [ENGLISH] is the original English QWERTY mode and
+ * keeps its stored name for settings compatibility.
+ */
+enum class InputMode { ENGLISH, AZERTY, DVORAK, AVRO, PROBHAT, JATIYA }
+
+/**
+ * The language a mode types. Modes group under a language in the settings
+ * screens and share language-level behavior (dictionaries, autocorrect,
+ * handwriting model, fonts); adding a language means adding a value here
+ * and tagging its modes below.
+ */
+enum class KeyboardLanguage { ENGLISH, BANGLA }
+
+val InputMode.language: KeyboardLanguage
+    get() = when (this) {
+        InputMode.ENGLISH, InputMode.AZERTY, InputMode.DVORAK -> KeyboardLanguage.ENGLISH
+        InputMode.AVRO, InputMode.PROBHAT, InputMode.JATIYA -> KeyboardLanguage.BANGLA
+    }
+
+/** English-language modes: Latin layouts with English suggestions/autocorrect. */
+val InputMode.isEnglish: Boolean
+    get() = language == KeyboardLanguage.ENGLISH
 
 /**
  * Fixed Bengali layouts type Bengali characters directly (no roman
