@@ -25,6 +25,7 @@ import androidx.core.view.inputmethod.EditorInfoCompat
 import androidx.core.view.inputmethod.InputConnectionCompat
 import androidx.core.view.inputmethod.InputContentInfoCompat
 import com.wasimaster.wmkeyboard.app.CameraPermissionActivity
+import com.wasimaster.wmkeyboard.app.DocScanActivity
 import com.wasimaster.wmkeyboard.app.MainActivity
 import com.wasimaster.wmkeyboard.core.clipboard.ClipKind
 import com.wasimaster.wmkeyboard.core.clipboard.ClipboardStore
@@ -379,6 +380,8 @@ class WMKeyboardService : InputMethodService() {
                 onWeatherRefresh = { refreshWeather(force = true) },
                 onCameraSend = ::onCameraSend,
                 onCameraPermissionRequest = ::onCameraPermissionRequest,
+                onScannedInsert = ::onScannedTextInsert,
+                onDocScan = ::onDocScanStart,
                 onDictionaryLookup = ::onDictionaryLookup,
                 onDictionarySearchToggle = ::onDictionarySearchToggle,
                 onDictionaryInsert = ::onDictionaryInsert,
@@ -492,6 +495,12 @@ class WMKeyboardService : InputMethodService() {
             )
         }
         refreshKarContext()
+        // Pages from a just-finished document scan: the scanner activity
+        // ran while the keyboard was down, so they can only insert now,
+        // as the target field regains the input connection.
+        for (page in DocScanActivity.consumePendingPages()) {
+            commitImageFile(page, "image/jpeg")
+        }
     }
 
     override fun onUpdateSelection(
@@ -1662,6 +1671,30 @@ class WMKeyboardService : InputMethodService() {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
         )
+    }
+
+    /**
+     * Doc-scan tool: hand off to ML Kit's full-screen scanner activity
+     * (edge detection, crop, filters — all Google's UI). The scanned pages
+     * come back through [DocScanActivity.consumePendingPages] in
+     * [onStartInputView], once the target app has focus again.
+     */
+    fun onDocScanStart() {
+        vibrate()
+        _uiState.update { it.copy(panel = PanelMode.NONE) }
+        startActivity(
+            Intent(this, DocScanActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+        )
+    }
+
+    /** OCR/QR tools: insert recognized text like a (long) key press. */
+    fun onScannedTextInsert(text: String) {
+        vibrate()
+        val ic = currentInputConnection ?: return
+        commitComposing(ic, autocorrect = false)
+        ic.commitText(text, 1)
     }
 
     // ---- translate / gif / sticker / web & image search tools ----

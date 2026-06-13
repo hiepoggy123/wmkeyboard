@@ -557,7 +557,7 @@ private fun BoxScope.BackChip(offsetY: Int, feedback: () -> Unit, onClose: () ->
 
 /** Round translucent control over the viewfinder (flash, timer, lens). */
 @Composable
-private fun CameraChipButton(
+internal fun CameraChipButton(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     description: String,
     active: Boolean,
@@ -589,7 +589,7 @@ private fun CameraChipButton(
 
 /** Retake/Send pill under the frozen capture. */
 @Composable
-private fun CaptureActionButton(
+internal fun CaptureActionButton(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     label: String,
     accent: Boolean,
@@ -611,7 +611,7 @@ private fun CaptureActionButton(
 }
 
 @Composable
-private fun PanelCenteredMessage(text: String) {
+internal fun PanelCenteredMessage(text: String) {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Text(
             text,
@@ -623,18 +623,18 @@ private fun PanelCenteredMessage(text: String) {
     }
 }
 
-private fun hasCameraPermission(context: Context): Boolean =
+internal fun hasCameraPermission(context: Context): Boolean =
     ContextCompat.checkSelfPermission(context, android.Manifest.permission.CAMERA) ==
         PackageManager.PERMISSION_GRANTED
 
 private fun captureDir(context: Context): File =
     File(context.filesDir, "camera").apply { mkdirs() }
 
-private fun ProcessCameraProvider.hasCameraSafe(selector: CameraSelector): Boolean =
+internal fun ProcessCameraProvider.hasCameraSafe(selector: CameraSelector): Boolean =
     runCatching { hasCamera(selector) }.getOrDefault(false)
 
 /** Suspends over ImageCapture's callback API. */
-private suspend fun ImageCapture.awaitCapture(context: Context): ImageProxy =
+internal suspend fun ImageCapture.awaitCapture(context: Context): ImageProxy =
     suspendCancellableCoroutine { continuation ->
         takePicture(
             ContextCompat.getMainExecutor(context),
@@ -691,7 +691,7 @@ private fun Bitmap.cropToVisible(geo: PanelGeometry?): Triple<Bitmap, Int, Int> 
  * call. The crop rect is normally the full frame — the tool sends what the
  * sensor saw, matching the width-filling viewfinder.
  */
-private fun ImageProxy.toFramedBitmap(mirror: Boolean): Bitmap {
+internal fun ImageProxy.toFramedBitmap(mirror: Boolean): Bitmap {
     val source = toBitmap()
     // cropRect is in buffer coordinates (pre-rotation). Fall back to the
     // full frame if it is degenerate or stale for this buffer.
