@@ -49,6 +49,45 @@ class AvroPhoneticTest {
         assertEquals("লক্ষ", t("lokkh"))
     }
 
+    @Test fun rephViaDoubleR() {
+        // "rr" is reph: single র conjuncting with the next consonant.
+        assertEquals("বর্ন", t("borrno"))
+        assertEquals("মর্ম", t("morrmo"))
+        assertEquals("ধর্ম", t("dhorrmo"))
+        assertEquals("আদর্শ", t("adorrsho"))
+        assertEquals("নির্ভর", t("nirrvor"))
+        assertEquals("কার্য", t("karryo"))
+        // Plain single-r conjuncts still produce the same words.
+        assertEquals("ধর্ম", t("dhormo"))
+        assertEquals("নির্ভর", t("nirvor"))
+        // "rri" keeps ঋ, and "rr" with no consonant after stays literal.
+        assertEquals("ঋণ", t("rriN"))
+        assertEquals("কৃপা", t("krripa"))
+        assertEquals("বর্র", t("borr"))
+    }
+
+    @Test fun aAfterKarGlidesWithAntastyaYo() {
+        // "a" right after a kar glides with য় instead of independent আ.
+        assertEquals("কিয়ামত", t("kiamot"))
+        assertEquals("পিয়ানো", t("piano"))
+        assertEquals("দেয়া", t("dea"))
+        assertEquals("মায়া", t("maa"))
+        // After an inherent (silent) vowel the independent আ survives.
+        assertEquals("কুরআন", t("kuroan"))
+        // Capital "A" stays an explicit আ, and word-initial "a" is untouched.
+        assertEquals("কিআমত", t("kiAmot"))
+        assertEquals("আমি", t("ami"))
+    }
+
+    @Test fun wordFinalOAfterConjunctStaysSilent() {
+        assertEquals("স্বপ্ন", t("sbopno"))
+        assertEquals("কষ্ট", t("koShTo"))
+        assertEquals("সত্য", t("sotyo"))
+        // ...but after a plain consonant the final "o" still takes o-kar.
+        assertEquals("ভালো", t("valo"))
+        assertEquals("কালো", t("kalo"))
+    }
+
     @Test fun clusterBreaksOnlyWithInherentVowel() {
         // Documented invariant: an explicit medial "o" breaks the cluster.
         assertEquals("কলকাতা", t("kolokata"))

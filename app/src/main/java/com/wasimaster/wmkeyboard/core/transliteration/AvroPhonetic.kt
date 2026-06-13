@@ -15,7 +15,15 @@ package com.wasimaster.wmkeyboard.core.transliteration
  *     (whereas "kolkata", with no vowel between l and k, does conjunct).
  *  3. "o" is inherent (silent) between consonants, অ at a word start and
  *     ো at a word end — matching how Avro users expect "valo" → ভালো
- *     while "kori" → করি.
+ *     while "kori" → করি. After a conjunct, a final "o" stays silent
+ *     ("dhorrmo" → ধর্ম, "shopno" → স্বপ্ন), since ো-final words like
+ *     ভালো always end in a plain consonant.
+ *  4. "rr" spells reph: it renders as a single র that conjuncts with the
+ *     following consonant ("dhorrmo" → ধর্ম), except in "rri" (ঋ) or when
+ *     no consonant follows.
+ *  5. An "a" right after a kar glides with য় ("kiamot" → কিয়ামত, "piano"
+ *     → পিয়ানো). After an inherent (silent) vowel the independent আ
+ *     survives ("kuroan" → কুরআন), and capital "A" is always explicit আ.
  *
  * Dictionary-level corrections (e.g. "asi" → আছি rather than আসি) are the
  * suggestion engine's job, not this transliterator's.
@@ -118,24 +126,43 @@ object AvroPhonetic {
     fun transliterate(input: String): String {
         val out = StringBuilder()
         var prev = Kind.OTHER
+        // Whether the last vowel rendered as a kar (vowel sign). An "a" right
+        // after a kar glides with য় instead of standing as independent আ.
+        var prevKar = false
         var i = 0
         while (i < input.length) {
             // Inherent vowel: silent between consonants, অ at word start, ো at word end.
             if (input[i] == 'o' && !input.startsWith("oo", i)) {
                 val atWordEnd = i == input.length - 1 || !input[i + 1].isLetter()
+                val afterConjunct = out.length >= 2 && out[out.length - 2] == HASANT
                 when {
-                    prev == Kind.CONSONANT && atWordEnd -> out.append('ো')
+                    prev == Kind.CONSONANT && atWordEnd && !afterConjunct -> out.append('ো')
                     prev == Kind.CONSONANT -> Unit // inherent vowel, no glyph
                     else -> out.append('অ')
                 }
                 prev = Kind.VOWEL
+                prevKar = false
                 i++
                 continue
             }
             if (input.startsWith("oo", i)) {
-                out.append(if (prev == Kind.CONSONANT) "ু" else "উ")
+                val asKar = prev == Kind.CONSONANT
+                out.append(if (asKar) "ু" else "উ")
                 prev = Kind.VOWEL
+                prevKar = asKar
                 i += 2
+                continue
+            }
+
+            // "a" right after a kar glides with য় — "kiamot" → কিয়ামত,
+            // "piano" → পিয়ানো, "dea" → দেয়া — matching pronunciation.
+            // After an inherent (silent) vowel the independent আ survives
+            // ("kuroan" → কুরআন), and a capital "A" always stays explicit আ.
+            if (input[i] == 'a' && prev == Kind.VOWEL && prevKar) {
+                out.append("য়া") // U+09DF (precomposed) + U+09BE
+                prev = Kind.VOWEL
+                prevKar = true
+                i++
                 continue
             }
 
@@ -150,24 +177,52 @@ object AvroPhonetic {
                     out.append('য়')
                 }
                 prev = Kind.CONSONANT
+                prevKar = false
                 i++
                 continue
+            }
+
+            // "rr" is reph: a single র that conjuncts with the following
+            // consonant ("borrno" → বর্ন), not a doubled র্র. "rri" (ঋ) has
+            // already priority, and with no consonant following, "rr" falls
+            // through to the plain r-rule.
+            if (input.startsWith("rr", i) && !input.startsWith("rri", i)) {
+                val next = rules.firstOrNull { input.startsWith(it.match, i + 2) }
+                val joinsConsonant = next?.kind == Kind.CONSONANT ||
+                    (i + 2 < input.length && input[i + 2] == 'y')
+                if (joinsConsonant) {
+                    if (prev == Kind.CONSONANT) out.append(HASANT)
+                    out.append('র')
+                    prev = Kind.CONSONANT
+                    prevKar = false
+                    i += 2
+                    continue
+                }
             }
 
             val rule = rules.firstOrNull { input.startsWith(it.match, i) }
             if (rule == null) {
                 out.append(input[i])
                 prev = Kind.OTHER
+                prevKar = false
                 i++
                 continue
             }
             when (rule.kind) {
-                Kind.VOWEL -> out.append(if (prev == Kind.CONSONANT) rule.kar else rule.full)
+                Kind.VOWEL -> {
+                    val asKar = prev == Kind.CONSONANT
+                    out.append(if (asKar) rule.kar else rule.full)
+                    prevKar = asKar
+                }
                 Kind.CONSONANT -> {
                     if (prev == Kind.CONSONANT) out.append(HASANT)
                     out.append(rule.full)
+                    prevKar = false
                 }
-                Kind.OTHER -> out.append(rule.full)
+                Kind.OTHER -> {
+                    out.append(rule.full)
+                    prevKar = false
+                }
             }
             prev = rule.kind
             i += rule.match.length
