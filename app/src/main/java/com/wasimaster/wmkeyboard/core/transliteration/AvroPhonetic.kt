@@ -21,9 +21,10 @@ package com.wasimaster.wmkeyboard.core.transliteration
  *  4. "rr" spells reph: it renders as a single র that conjuncts with the
  *     following consonant ("dhorrmo" → ধর্ম), except in "rri" (ঋ) or when
  *     no consonant follows.
- *  5. An "a" right after a kar glides with য় ("kiamot" → কিয়ামত, "piano"
- *     → পিয়ানো). After an inherent (silent) vowel the independent আ
- *     survives ("kuroan" → কুরআন), and capital "A" is always explicit আ.
+ *  5. An "a" right after a rendered vowel glides with য় ("kiamot" →
+ *     কিয়ামত, "Oasi"/"wasi" → ওয়াসি). Only after the silent
+ *     inherent vowel does the independent আ survive ("kuroan" → কুরআন),
+ *     and capital "A" is always explicit আ.
  *
  * Dictionary-level corrections (e.g. "asi" → আছি rather than আসি) are the
  * suggestion engine's job, not this transliterator's.
@@ -126,9 +127,10 @@ object AvroPhonetic {
     fun transliterate(input: String): String {
         val out = StringBuilder()
         var prev = Kind.OTHER
-        // Whether the last vowel rendered as a kar (vowel sign). An "a" right
-        // after a kar glides with য় instead of standing as independent আ.
-        var prevKar = false
+        // Whether the last vowel rendered a visible glyph (kar or independent
+        // letter). An "a" right after such a vowel glides with য়; only the
+        // silent inherent "o" leaves আ independent ("kuroan" → কুরআন).
+        var prevVowelGlyph = false
         var i = 0
         while (i < input.length) {
             // Inherent vowel: silent between consonants, অ at word start, ো at word end.
@@ -140,28 +142,27 @@ object AvroPhonetic {
                     prev == Kind.CONSONANT -> Unit // inherent vowel, no glyph
                     else -> out.append('অ')
                 }
+                prevVowelGlyph = prev != Kind.CONSONANT || (atWordEnd && !afterConjunct)
                 prev = Kind.VOWEL
-                prevKar = false
                 i++
                 continue
             }
             if (input.startsWith("oo", i)) {
-                val asKar = prev == Kind.CONSONANT
-                out.append(if (asKar) "ু" else "উ")
+                out.append(if (prev == Kind.CONSONANT) "ু" else "উ")
                 prev = Kind.VOWEL
-                prevKar = asKar
+                prevVowelGlyph = true
                 i += 2
                 continue
             }
 
-            // "a" right after a kar glides with য় — "kiamot" → কিয়ামত,
+            // "a" right after a rendered vowel glides with য় — "kiamot" → কিয়ামত,
             // "piano" → পিয়ানো, "dea" → দেয়া — matching pronunciation.
             // After an inherent (silent) vowel the independent আ survives
             // ("kuroan" → কুরআন), and a capital "A" always stays explicit আ.
-            if (input[i] == 'a' && prev == Kind.VOWEL && prevKar) {
+            if (input[i] == 'a' && prev == Kind.VOWEL && prevVowelGlyph) {
                 out.append("য়া") // U+09DF (precomposed) + U+09BE
                 prev = Kind.VOWEL
-                prevKar = true
+                prevVowelGlyph = true
                 i++
                 continue
             }
@@ -177,7 +178,7 @@ object AvroPhonetic {
                     out.append('য়')
                 }
                 prev = Kind.CONSONANT
-                prevKar = false
+                prevVowelGlyph = false
                 i++
                 continue
             }
@@ -194,7 +195,7 @@ object AvroPhonetic {
                     if (prev == Kind.CONSONANT) out.append(HASANT)
                     out.append('র')
                     prev = Kind.CONSONANT
-                    prevKar = false
+                    prevVowelGlyph = false
                     i += 2
                     continue
                 }
@@ -204,24 +205,23 @@ object AvroPhonetic {
             if (rule == null) {
                 out.append(input[i])
                 prev = Kind.OTHER
-                prevKar = false
+                prevVowelGlyph = false
                 i++
                 continue
             }
             when (rule.kind) {
                 Kind.VOWEL -> {
-                    val asKar = prev == Kind.CONSONANT
-                    out.append(if (asKar) rule.kar else rule.full)
-                    prevKar = asKar
+                    out.append(if (prev == Kind.CONSONANT) rule.kar else rule.full)
+                    prevVowelGlyph = true
                 }
                 Kind.CONSONANT -> {
                     if (prev == Kind.CONSONANT) out.append(HASANT)
                     out.append(rule.full)
-                    prevKar = false
+                    prevVowelGlyph = false
                 }
                 Kind.OTHER -> {
                     out.append(rule.full)
-                    prevKar = false
+                    prevVowelGlyph = false
                 }
             }
             prev = rule.kind

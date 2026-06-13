@@ -72,6 +72,10 @@ class AvroPhoneticTest {
         assertEquals("পিয়ানো", t("piano"))
         assertEquals("দেয়া", t("dea"))
         assertEquals("মায়া", t("maa"))
+        // ...and after any rendered vowel, not just kar.
+        assertEquals("ওয়াসি", t("Oasi"))
+        assertEquals("ওয়াসি", t("wasi"))
+        assertEquals("খাওয়া", t("khaOa"))
         // After an inherent (silent) vowel the independent আ survives.
         assertEquals("কুরআন", t("kuroan"))
         // Capital "A" stays an explicit আ, and word-initial "a" is untouched.
