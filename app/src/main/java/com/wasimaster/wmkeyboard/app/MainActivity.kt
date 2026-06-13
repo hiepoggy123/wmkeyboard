@@ -131,6 +131,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import android.os.Build
 import com.wasimaster.wmkeyboard.core.feedback.HapticPlayer
+import com.wasimaster.wmkeyboard.core.feedback.KeySoundPlayer
 import com.wasimaster.wmkeyboard.core.handwriting.HandwritingModels
 import com.wasimaster.wmkeyboard.core.settings.EmojiBarContent
 import com.wasimaster.wmkeyboard.core.settings.EmojiBarMode
@@ -938,6 +939,92 @@ private fun TypingSettings(
 
 // ---- key press ----
 
+/**
+ * Key-press sound controls, shared by the Key press settings screen and the
+ * sound & haptics tool's detail page. Changes preview immediately through
+ * [KeySoundPlayer]. [trailing] appends extra rows to the same card group.
+ */
+@Composable
+private fun KeySoundGroup(
+    repository: SettingsRepository,
+    settings: KeyboardSettings,
+    trailing: (SettingsGroupScope.() -> Unit)? = null,
+) {
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    SettingsGroup("Key press sound") {
+        item {
+            ToggleSetting(
+                "Key sound", "Play a sound on every key press", settings.keySound,
+            ) {
+                scope.launch { repository.setKeySound(it) }
+                if (it) {
+                    KeySoundPlayer.preview(context, settings.keySoundStyle, settings.keySoundVolume)
+                }
+            }
+        }
+        item {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 16.dp, end = 16.dp, top = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("Sound style", style = MaterialTheme.typography.bodyLarge)
+                InfoButton(
+                    "Sound style",
+                    "Click and Standard come from the device's system sound pack, so " +
+                        "they match the stock keyboard: Click is the classic key tick, " +
+                        "Standard the softer AOSP key press. Pop, Thock and Chime are " +
+                        "WMKeyboard's own sounds — a soft bubble pop, a deep mechanical " +
+                        "bottom-out, and a small bell — identical on every device.",
+                )
+            }
+            SingleChoiceSegmentedButtonRow(modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp)) {
+                KeySoundStyle.entries.forEachIndexed { index, style ->
+                    SegmentedButton(
+                        selected = settings.keySoundStyle == style,
+                        onClick = {
+                            scope.launch { repository.setKeySoundStyle(style) }
+                            // Sound the freshly picked style so the user
+                            // hears the choice immediately.
+                            KeySoundPlayer.preview(context, style, settings.keySoundVolume)
+                        },
+                        shape = SegmentedButtonDefaults.itemShape(index, KeySoundStyle.entries.size),
+                    ) {
+                        Text(
+                            when (style) {
+                                KeySoundStyle.CLICK -> "Click"
+                                KeySoundStyle.STANDARD -> "Std"
+                                KeySoundStyle.POP -> "Pop"
+                                KeySoundStyle.THOCK -> "Thock"
+                                KeySoundStyle.CHIME -> "Chime"
+                            },
+                            maxLines = 1,
+                        )
+                    }
+                }
+            }
+        }
+        item {
+            SliderSetting(
+                "Sound volume",
+                subtitle = "Relative to the system media volume",
+                value = settings.keySoundVolume,
+                range = 0.05f..1f,
+                display = "${(settings.keySoundVolume * 100).roundToInt()}%",
+            ) {
+                scope.launch { repository.setKeySoundVolume(it) }
+                // Debounced inside the player, so dragging previews smoothly.
+                KeySoundPlayer.preview(context, settings.keySoundStyle, it)
+            }
+        }
+        trailing?.invoke(this)
+    }
+}
+
 @Composable
 private fun KeyPressSettings(repository: SettingsRepository, settings: KeyboardSettings) {
     val scope = rememberCoroutineScope()
@@ -1062,6 +1149,8 @@ private fun KeyPressSettings(repository: SettingsRepository, settings: KeyboardS
             ) { scope.launch { repository.setHapticOnLongPressRelease(it) } }
         }
     }
+
+    KeySoundGroup(repository, settings)
 
     SettingsGroup("Key popup") {
         item {
@@ -2411,60 +2500,7 @@ private fun ToolDetailSettings(
             }
         }
         ToolbarTool.SOUND_HAPTICS -> {
-            SettingsGroup("Key press sound") {
-                item {
-                    ToggleSetting(
-                        "Key sound", "Play a sound on every key press", settings.keySound,
-                    ) { scope.launch { repository.setKeySound(it) } }
-                }
-                item {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(start = 16.dp, end = 16.dp, top = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text("Sound style", style = MaterialTheme.typography.bodyLarge)
-                        InfoButton(
-                            "Sound style",
-                            "All five come from the device's system sound pack, so they match " +
-                                "the stock keyboard's palette: Click is the classic key tick, " +
-                                "Standard the softer AOSP key press, Pop the spacebar thump, " +
-                                "Thock the deeper delete sound, and Chime the return-key sound.",
-                        )
-                    }
-                    SingleChoiceSegmentedButtonRow(modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp)) {
-                        KeySoundStyle.entries.forEachIndexed { index, style ->
-                            SegmentedButton(
-                                selected = settings.keySoundStyle == style,
-                                onClick = { scope.launch { repository.setKeySoundStyle(style) } },
-                                shape = SegmentedButtonDefaults.itemShape(index, KeySoundStyle.entries.size),
-                            ) {
-                                Text(
-                                    when (style) {
-                                        KeySoundStyle.CLICK -> "Click"
-                                        KeySoundStyle.STANDARD -> "Std"
-                                        KeySoundStyle.POP -> "Pop"
-                                        KeySoundStyle.THOCK -> "Thock"
-                                        KeySoundStyle.CHIME -> "Chime"
-                                    },
-                                    maxLines = 1,
-                                )
-                            }
-                        }
-                    }
-                }
-                item {
-                    SliderSetting(
-                        "Sound volume",
-                        subtitle = "Relative to the system media volume",
-                        value = settings.keySoundVolume,
-                        range = 0.05f..1f,
-                        display = "${(settings.keySoundVolume * 100).roundToInt()}%",
-                    ) { scope.launch { repository.setKeySoundVolume(it) } }
-                }
+            KeySoundGroup(repository, settings) {
                 item {
                     NavRow(
                         "All key press settings",

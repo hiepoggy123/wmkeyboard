@@ -36,6 +36,7 @@ import com.wasimaster.wmkeyboard.core.emoji.EmojiSuggester
 import com.wasimaster.wmkeyboard.core.emoji.EmojiUsage
 import com.wasimaster.wmkeyboard.core.emoji.EmojiVariantIndex
 import com.wasimaster.wmkeyboard.core.feedback.HapticPlayer
+import com.wasimaster.wmkeyboard.core.feedback.KeySoundPlayer
 import com.wasimaster.wmkeyboard.core.gesture.GestureDecoder
 import com.wasimaster.wmkeyboard.core.gesture.GesturePoint
 import com.wasimaster.wmkeyboard.core.gesture.KeyCenter
@@ -229,6 +230,8 @@ class WMKeyboardService : InputMethodService() {
         lifecycleOwner.onCreate()
 
         settingsRepository = SettingsRepository(this)
+        // Decode the synthesized key sounds up front so the first press plays.
+        KeySoundPlayer.warmUp(this)
         userLexicon = UserLexicon(File(filesDir, "learning/user_lexicon.json"))
         emojiUsage = EmojiUsage(File(filesDir, "learning/emoji_usage.json"))
         clipboardStore = ClipboardStore(
@@ -2521,9 +2524,9 @@ class WMKeyboardService : InputMethodService() {
     }
 
     /**
-     * Plays the key-press sound through the system UI sound effects.
-     * [force] previews even while the setting is off (the quick panel's
-     * toggle fires before the DataStore write lands).
+     * Plays the key-press sound via [KeySoundPlayer]. [force] previews even
+     * while the setting is off (the quick panel's toggle fires before the
+     * DataStore write lands).
      */
     private fun playKeySound(
         style: com.wasimaster.wmkeyboard.core.settings.KeySoundStyle? = null,
@@ -2532,20 +2535,7 @@ class WMKeyboardService : InputMethodService() {
     ) {
         val settings = _uiState.value.settings
         if (!force && !settings.keySound) return
-        val audio = getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager
-        val effect = when (style ?: settings.keySoundStyle) {
-            com.wasimaster.wmkeyboard.core.settings.KeySoundStyle.CLICK ->
-                android.media.AudioManager.FX_KEY_CLICK
-            com.wasimaster.wmkeyboard.core.settings.KeySoundStyle.STANDARD ->
-                android.media.AudioManager.FX_KEYPRESS_STANDARD
-            com.wasimaster.wmkeyboard.core.settings.KeySoundStyle.POP ->
-                android.media.AudioManager.FX_KEYPRESS_SPACEBAR
-            com.wasimaster.wmkeyboard.core.settings.KeySoundStyle.THOCK ->
-                android.media.AudioManager.FX_KEYPRESS_DELETE
-            com.wasimaster.wmkeyboard.core.settings.KeySoundStyle.CHIME ->
-                android.media.AudioManager.FX_KEYPRESS_RETURN
-        }
-        audio.playSoundEffect(effect, (volume ?: settings.keySoundVolume).coerceIn(0.05f, 1f))
+        KeySoundPlayer.play(this, style ?: settings.keySoundStyle, volume ?: settings.keySoundVolume)
     }
 
     private fun doVibrate() {
