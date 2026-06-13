@@ -45,6 +45,15 @@
             android:noHistory="true"
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
+        <!-- Invisible trampoline that runs ML Kit's full-screen document
+             scanner for the doc-scan tool; the IME commits the scanned
+             pages once the target app gets focus back. -->
+        <activity
+            android:name="com.wasimaster.wmkeyboard.app.DocScanActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
         <!-- Serves copied clipboard images to target apps via commitContent. -->
         <provider
             android:name="androidx.core.content.FileProvider"

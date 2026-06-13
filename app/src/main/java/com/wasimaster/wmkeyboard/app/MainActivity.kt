@@ -68,8 +68,11 @@ import androidx.compose.material.icons.outlined.Vibration
 import androidx.compose.material.icons.outlined.VerticalSplit
 import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material.icons.outlined.AutoAwesome
+import androidx.compose.material.icons.outlined.DocumentScanner
 import androidx.compose.material.icons.outlined.GifBox
 import androidx.compose.material.icons.outlined.ImageSearch
+import androidx.compose.material.icons.outlined.QrCodeScanner
+import androidx.compose.material.icons.outlined.TextFields
 import androidx.compose.material.icons.outlined.Translate
 import androidx.compose.material.icons.outlined.TravelExplore
 import androidx.compose.material.icons.outlined.WbSunny
@@ -1945,6 +1948,9 @@ private fun toolTitle(tool: ToolbarTool): String = when (tool) {
     ToolbarTool.STICKER -> "Stickers"
     ToolbarTool.WEB_SEARCH -> "Web search"
     ToolbarTool.IMAGE_SEARCH -> "Image search"
+    ToolbarTool.OCR -> "Text scan (OCR)"
+    ToolbarTool.QR_SCAN -> "QR & barcode scanner"
+    ToolbarTool.DOC_SCAN -> "Document scanner"
 }
 
 private fun toolDescription(tool: ToolbarTool): String = when (tool) {
@@ -1977,6 +1983,9 @@ private fun toolDescription(tool: ToolbarTool): String = when (tool) {
     ToolbarTool.STICKER -> "Search stickers — transparent, chat-ready"
     ToolbarTool.WEB_SEARCH -> "Search the web (Brave or Google) and insert a result's link"
     ToolbarTool.IMAGE_SEARCH -> "Image search from the keyboard; tap to send an image"
+    ToolbarTool.OCR -> "Point the camera at printed text and type it — pick just the words you need"
+    ToolbarTool.QR_SCAN -> "Scan a QR code or barcode and insert its text"
+    ToolbarTool.DOC_SCAN -> "Scan a document with Google's scanner and send it as an image"
 }
 
 private fun toolIconFor(tool: ToolbarTool): androidx.compose.ui.graphics.vector.ImageVector = when (tool) {
@@ -2009,6 +2018,9 @@ private fun toolIconFor(tool: ToolbarTool): androidx.compose.ui.graphics.vector.
     ToolbarTool.STICKER -> Icons.Outlined.AutoAwesome
     ToolbarTool.WEB_SEARCH -> Icons.Outlined.TravelExplore
     ToolbarTool.IMAGE_SEARCH -> Icons.Outlined.ImageSearch
+    ToolbarTool.OCR -> Icons.Outlined.TextFields
+    ToolbarTool.QR_SCAN -> Icons.Outlined.QrCodeScanner
+    ToolbarTool.DOC_SCAN -> Icons.Outlined.DocumentScanner
 }
 
 /**
@@ -2027,6 +2039,13 @@ private fun ToolsSettings(settings: KeyboardSettings, onOpenTool: (ToolbarTool) 
             ToolbarTool.TEXT_EDIT, ToolbarTool.NUMPAD, ToolbarTool.HANDWRITING,
             ToolbarTool.CAMERA, ToolbarTool.DICTIONARY,
         ),
+        "Scanners" to listOf(
+            ToolbarTool.OCR, ToolbarTool.QR_SCAN, ToolbarTool.DOC_SCAN,
+        ),
+        "Online tools" to listOf(
+            ToolbarTool.TRANSLATE, ToolbarTool.GIF, ToolbarTool.STICKER,
+            ToolbarTool.WEB_SEARCH, ToolbarTool.IMAGE_SEARCH,
+        ),
         "Keyboard modes" to listOf(
             ToolbarTool.ONE_HANDED, ToolbarTool.SPLIT, ToolbarTool.FLOATING,
         ),
@@ -2040,7 +2059,12 @@ private fun ToolsSettings(settings: KeyboardSettings, onOpenTool: (ToolbarTool) 
             ToolbarTool.CALENDAR, ToolbarTool.WEATHER, ToolbarTool.MOON_PHASE,
         ),
     )
-    for ((groupTitle, tools) in groups) {
+    // Safety net: a tool added to the enum but forgotten here still gets a
+    // settings entry (this menu is the only path to a tool's options).
+    val grouped = groups.flatMap { it.second }.toSet()
+    val ungrouped = ToolbarTool.entries.filterNot { it in grouped }
+    val allGroups = if (ungrouped.isEmpty()) groups else groups + ("Other" to ungrouped)
+    for ((groupTitle, tools) in allGroups) {
         SettingsGroup(groupTitle) {
             for (tool in tools) {
                 item {
@@ -2684,6 +2708,26 @@ private fun ToolDetailSettings(
                 }
             }
         }
+        ToolbarTool.OCR -> CaptionText(
+            "Recognition runs on this device with ML Kit — no photo or text " +
+                "leaves the phone, and it works offline. Reads Latin-script " +
+                "text (English etc.); Bengali isn't supported by ML Kit's " +
+                "text recognizer yet. After a capture, tap words to choose " +
+                "exactly what gets inserted or copied.",
+        )
+        ToolbarTool.QR_SCAN -> CaptionText(
+            "Decoding runs on this device with ML Kit — offline, nothing is " +
+                "uploaded. Reads QR codes plus the common product barcode " +
+                "formats (EAN, UPC, Code 128 …). Insert types the code's " +
+                "text at the cursor.",
+        )
+        ToolbarTool.DOC_SCAN -> CaptionText(
+            "Opens Google's document scanner (part of Google Play services) " +
+                "with edge detection, crop and shadow cleanup. Scanned pages " +
+                "come back as images and are inserted into the chat like a " +
+                "camera photo, once the keyboard reopens. Processing is " +
+                "on-device.",
+        )
         else -> {}
     }
 }

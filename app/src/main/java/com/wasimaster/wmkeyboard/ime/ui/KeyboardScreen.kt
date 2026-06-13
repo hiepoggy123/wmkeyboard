@@ -94,7 +94,10 @@ import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.OpenInFull
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Pets
+import androidx.compose.material.icons.outlined.DocumentScanner
 import androidx.compose.material.icons.outlined.PhotoCamera
+import androidx.compose.material.icons.outlined.QrCodeScanner
+import androidx.compose.material.icons.outlined.TextFields
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.outlined.PictureInPictureAlt
 import androidx.compose.material.icons.outlined.PushPin
@@ -292,6 +295,8 @@ fun KeyboardScreen(
     onWeatherRefresh: () -> Unit = {},
     onCameraSend: (java.io.File) -> Unit = {},
     onCameraPermissionRequest: () -> Unit = {},
+    onScannedInsert: (String) -> Unit = {},
+    onDocScan: () -> Unit = {},
     onDictionaryLookup: (String) -> Unit = {},
     onDictionarySearchToggle: () -> Unit = {},
     onDictionaryInsert: (String) -> Unit = {},
@@ -353,6 +358,10 @@ fun KeyboardScreen(
             ToolbarTool.STICKER -> onPanelChange(PanelMode.STICKER)
             ToolbarTool.WEB_SEARCH -> onPanelChange(PanelMode.WEB_SEARCH)
             ToolbarTool.IMAGE_SEARCH -> onPanelChange(PanelMode.IMAGE_SEARCH)
+            ToolbarTool.OCR -> onPanelChange(PanelMode.OCR)
+            ToolbarTool.QR_SCAN -> onPanelChange(PanelMode.QR_SCAN)
+            // Not a panel: the scanner is a full-screen Google activity.
+            ToolbarTool.DOC_SCAN -> onDocScan()
         }
     }
 
@@ -389,6 +398,7 @@ fun KeyboardScreen(
                 onWeatherRefresh = onWeatherRefresh,
                 onCameraSend = onCameraSend,
                 onCameraPermissionRequest = onCameraPermissionRequest,
+                onScannedInsert = onScannedInsert,
                 onDictionaryLookup = onDictionaryLookup,
                 onDictionarySearchToggle = onDictionarySearchToggle,
                 onDictionaryInsert = onDictionaryInsert,
@@ -729,7 +739,7 @@ private fun TopBar(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(44.dp),
+            .height(TopBarHeight),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         val feedback = LocalKeyPressFeedback.current
@@ -950,6 +960,9 @@ private fun toolIcon(tool: ToolbarTool): ImageVector = when (tool) {
     ToolbarTool.STICKER -> Icons.Outlined.AutoAwesome
     ToolbarTool.WEB_SEARCH -> Icons.Outlined.TravelExplore
     ToolbarTool.IMAGE_SEARCH -> Icons.Outlined.ImageSearch
+    ToolbarTool.OCR -> Icons.Outlined.TextFields
+    ToolbarTool.QR_SCAN -> Icons.Outlined.QrCodeScanner
+    ToolbarTool.DOC_SCAN -> Icons.Outlined.DocumentScanner
 }
 
 private fun toolLabel(tool: ToolbarTool): String = when (tool) {
@@ -982,6 +995,9 @@ private fun toolLabel(tool: ToolbarTool): String = when (tool) {
     ToolbarTool.STICKER -> "Stickers"
     ToolbarTool.WEB_SEARCH -> "Search"
     ToolbarTool.IMAGE_SEARCH -> "Images"
+    ToolbarTool.OCR -> "Scan text"
+    ToolbarTool.QR_SCAN -> "QR scan"
+    ToolbarTool.DOC_SCAN -> "Doc scan"
 }
 
 private fun toolActive(tool: ToolbarTool, state: KeyboardUiState): Boolean = when (tool) {
@@ -1014,6 +1030,9 @@ private fun toolActive(tool: ToolbarTool, state: KeyboardUiState): Boolean = whe
     ToolbarTool.STICKER -> state.panel == PanelMode.STICKER
     ToolbarTool.WEB_SEARCH -> state.panel == PanelMode.WEB_SEARCH
     ToolbarTool.IMAGE_SEARCH -> state.panel == PanelMode.IMAGE_SEARCH
+    ToolbarTool.OCR -> state.panel == PanelMode.OCR
+    ToolbarTool.QR_SCAN -> state.panel == PanelMode.QR_SCAN
+    ToolbarTool.DOC_SCAN -> false
 }
 
 /**
@@ -1572,6 +1591,7 @@ private fun KeyboardBody(
     onWeatherRefresh: () -> Unit,
     onCameraSend: (java.io.File) -> Unit,
     onCameraPermissionRequest: () -> Unit,
+    onScannedInsert: (String) -> Unit,
     onDictionaryLookup: (String) -> Unit,
     onDictionarySearchToggle: () -> Unit,
     onDictionaryInsert: (String) -> Unit,
@@ -1612,7 +1632,11 @@ private fun KeyboardBody(
             // The dedicated always-on emoji row (Gboard style) sits between
             // the strip and the keys — or on top of everything, per setting;
             // the emoji panel already is emojis, so it yields there.
-            val emojiRowVisible =
+            // The OCR panel is the one full-bleed tool: it swallows the
+            // toolbar row too (its own height grows by [TopBarHeight]), so
+            // a captured page gets every pixel the keyboard owns.
+            val fullBleed = state.panel == PanelMode.OCR
+            val emojiRowVisible = !fullBleed &&
                 state.settings.emojiBarMode == EmojiBarMode.ALWAYS && state.panel != PanelMode.EMOJI
             if (emojiRowVisible && state.settings.emojiRowAboveToolbar) {
                 EmojiBarStrip(
@@ -1621,7 +1645,9 @@ private fun KeyboardBody(
                     onOpenPanel = { onPanelChange(PanelMode.EMOJI) },
                 )
             }
-            TopBar(state, onSuggestion, onEmoji, onEmojiSuggestion, onPanelChange, onToolTap, drag)
+            if (!fullBleed) {
+                TopBar(state, onSuggestion, onEmoji, onEmojiSuggestion, onPanelChange, onToolTap, drag)
+            }
             if (emojiRowVisible && !state.settings.emojiRowAboveToolbar) {
                 EmojiBarStrip(
                     state = state,
@@ -1667,6 +1693,18 @@ private fun KeyboardBody(
                     onRequestPermission = onCameraPermissionRequest,
                     // Toggling the open panel closes it.
                     onClose = { onPanelChange(PanelMode.CAMERA) },
+                )
+                PanelMode.OCR -> OcrPanel(
+                    state = state,
+                    onInsert = onScannedInsert,
+                    onRequestPermission = onCameraPermissionRequest,
+                    onClose = { onPanelChange(PanelMode.OCR) },
+                )
+                PanelMode.QR_SCAN -> QrScanPanel(
+                    state = state,
+                    onInsert = onScannedInsert,
+                    onRequestPermission = onCameraPermissionRequest,
+                    onClose = { onPanelChange(PanelMode.QR_SCAN) },
                 )
                 PanelMode.DICTIONARY -> DictionaryPanel(
                     state = state,
@@ -2113,6 +2151,12 @@ private val KeyGapVertical = 4.dp
 
 /** Vertical padding of the [KeyRows] column, mirrored into [keyRowsHeight]. */
 private val KeyRowsPadVertical = 2.dp
+
+/**
+ * Height of [TopBar] (suggestions/toolbar row). The OCR panel adds this to
+ * [keyRowsHeight] because it replaces the toolbar as well as the keys.
+ */
+internal val TopBarHeight = 44.dp
 
 /**
  * Exact height of [KeyRows]: four key rows (each key height plus its
