@@ -208,6 +208,7 @@ import com.wasimaster.wmkeyboard.core.settings.EmojiTabMode
 import com.wasimaster.wmkeyboard.core.settings.InputMode
 import com.wasimaster.wmkeyboard.core.settings.KeyboardAlignment
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
+import com.wasimaster.wmkeyboard.core.settings.isEnglish
 import com.wasimaster.wmkeyboard.core.settings.isFixedBengali
 import com.wasimaster.wmkeyboard.core.transliteration.BengaliGraphemes
 import com.wasimaster.wmkeyboard.core.settings.OneHandedMode
@@ -1793,7 +1794,7 @@ private fun KeyRows(
     val layout = currentLayout(state)
     val gestureEnabled = state.settings.gestureTyping &&
         state.layoutMode == LayoutMode.LETTERS &&
-        state.inputMode == InputMode.ENGLISH &&
+        state.inputMode.isEnglish &&
         state.panel == PanelMode.NONE
 
     // Letter-key centres and width, captured from layout in this Box's space.
@@ -2120,6 +2121,8 @@ private fun currentLayout(state: KeyboardUiState): KeyboardLayout {
         LayoutMode.SYMBOLS -> Layouts.SYMBOLS
         LayoutMode.SYMBOLS_SHIFTED -> Layouts.SYMBOLS_SHIFTED
         LayoutMode.LETTERS -> when (state.inputMode) {
+            InputMode.AZERTY -> Layouts.AZERTY
+            InputMode.DVORAK -> Layouts.DVORAK
             InputMode.PROBHAT -> Layouts.PROBHAT
             InputMode.JATIYA -> Layouts.JATIYA
             else -> Layouts.QWERTY
@@ -2439,6 +2442,8 @@ private fun KeyButton(
 
 private fun languageDisplayName(mode: InputMode): String = when (mode) {
     InputMode.ENGLISH -> "English"
+    InputMode.AZERTY -> "AZERTY"
+    InputMode.DVORAK -> "Dvorak"
     InputMode.AVRO -> "বাংলা · Avro"
     InputMode.PROBHAT -> "প্রভাত"
     InputMode.JATIYA -> "জাতীয়"
@@ -2499,6 +2504,8 @@ private fun KeyContent(key: Key, state: KeyboardUiState, contentColor: Color) {
             if (key.label.isNotEmpty()) Text(
                 text = when (state.inputMode) {
                     InputMode.ENGLISH -> "English"
+                    InputMode.AZERTY -> "English · AZERTY"
+                    InputMode.DVORAK -> "English · Dvorak"
                     InputMode.AVRO -> "বাংলা · Avro"
                     InputMode.PROBHAT -> "বাংলা · প্রভাত"
                     InputMode.JATIYA -> "বাংলা · জাতীয়"
@@ -2627,6 +2634,16 @@ private fun Modifier.pointerInputKey(
                 var accumulated = 0f
                 var lastX = down.position.x
                 var langIndex = enabledModes.indexOf(currentMode).coerceAtLeast(0)
+                // With exactly two languages a swipe direction means "the
+                // other language", so a single run of travel toggles at most
+                // once: runDir is the direction of the current run and
+                // runSwitched whether it already toggled. Continued travel in
+                // the same direction must never cycle back to the language the
+                // user deliberately swiped away from; only reversing direction
+                // switches back.
+                val twoModes = enabledModes.size == 2
+                var runDir = 0
+                var runSwitched = false
                 // With both swipe slots set to language switching there is
                 // no second action to disambiguate from, so a plain hold
                 // opens the switcher immediately — no initial swipe needed.
@@ -2665,13 +2682,20 @@ private fun Modifier.pointerInputKey(
                                 // counts: a quick flick switches one language.
                                 // At a list end the flick parks on the boundary
                                 // — wrapping needs a continued drag past the
-                                // langWrapPx detent below.
-                                val flicked = (langIndex + if (totalDx > 0) 1 else -1)
-                                    .coerceIn(0, enabledModes.size - 1)
+                                // langWrapPx detent below. With two languages
+                                // either direction simply toggles to the other.
+                                val dir = if (totalDx > 0) 1 else -1
+                                val flicked = if (twoModes) {
+                                    1 - langIndex
+                                } else {
+                                    (langIndex + dir).coerceIn(0, enabledModes.size - 1)
+                                }
                                 if (flicked != langIndex) {
                                     langIndex = flicked
                                     onKeyPress()
                                 }
+                                runDir = dir
+                                runSwitched = true
                                 setLanguagePreview(enabledModes[langIndex])
                             }
                             change.consume()
@@ -2692,6 +2716,35 @@ private fun Modifier.pointerInputKey(
                             if (moved) change.consume()
                         }
                         SpaceSwipeAction.LANGUAGE -> {
+                            if (twoModes) {
+                                // One toggle per run of travel: piling on more
+                                // distance in the same direction never wraps
+                                // back to the starting language — the user
+                                // swiped away from it on purpose. Reversing
+                                // direction starts a new run and toggles back.
+                                val dir = when {
+                                    accumulated > langStepPx -> 1
+                                    accumulated < -langStepPx -> -1
+                                    else -> 0
+                                }
+                                if (dir != 0) {
+                                    if (dir != runDir) {
+                                        runDir = dir
+                                        runSwitched = false
+                                    }
+                                    if (!runSwitched) {
+                                        langIndex = 1 - langIndex
+                                        runSwitched = true
+                                        setLanguagePreview(enabledModes[langIndex])
+                                        onKeyPress()
+                                    }
+                                    // Drain the overshoot so a reversal only
+                                    // needs one step of travel to respond.
+                                    accumulated = 0f
+                                }
+                                change.consume()
+                                continue
+                            }
                             // The list ends put up resistance instead of
                             // wrapping immediately: a wrap costs langWrapPx of
                             // travel (vs langStepPx per normal step), so the
