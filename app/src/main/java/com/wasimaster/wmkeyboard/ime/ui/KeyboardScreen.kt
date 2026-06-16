@@ -1053,7 +1053,7 @@ private fun toolIcon(tool: ToolbarTool): ImageVector = when (tool) {
     ToolbarTool.DICTIONARY -> Icons.AutoMirrored.Outlined.MenuBook
     ToolbarTool.TRANSLATE -> Icons.Outlined.Translate
     ToolbarTool.GIF -> Icons.Outlined.GifBox
-    ToolbarTool.STICKER -> Icons.Outlined.AutoAwesome
+    ToolbarTool.STICKER -> Icons.Outlined.EmojiObjects
     ToolbarTool.WEB_SEARCH -> Icons.Outlined.TravelExplore
     ToolbarTool.IMAGE_SEARCH -> Icons.Outlined.ImageSearch
     ToolbarTool.OCR -> Icons.Outlined.TextFields
@@ -1068,7 +1068,7 @@ private fun toolIcon(tool: ToolbarTool): ImageVector = when (tool) {
     ToolbarTool.CURRENCY -> Icons.Outlined.CurrencyExchange
     ToolbarTool.QR_GEN -> Icons.Outlined.QrCode2
     ToolbarTool.PASSWORD_GEN -> Icons.Outlined.Password
-    ToolbarTool.AI -> Icons.Outlined.Psychology
+    ToolbarTool.AI -> Icons.Outlined.AutoAwesome
 }
 
 private fun toolLabel(tool: ToolbarTool): String = when (tool) {
@@ -3319,7 +3319,9 @@ private fun EmojiPanel(
             }
         }
 
-        if (selectedTab == RECENT_TAB && historyMode == EmojiTabMode.RECENTS) {
+        if (state.settings.emojiClearRecentsButton &&
+            selectedTab == RECENT_TAB && historyMode == EmojiTabMode.RECENTS
+        ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
