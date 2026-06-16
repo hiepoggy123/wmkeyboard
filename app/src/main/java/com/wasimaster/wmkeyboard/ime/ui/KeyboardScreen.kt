@@ -47,6 +47,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -133,6 +134,10 @@ import androidx.compose.material.icons.outlined.GifBox
 import androidx.compose.material.icons.outlined.ImageSearch
 import androidx.compose.material.icons.outlined.Translate
 import androidx.compose.material.icons.outlined.TravelExplore
+import androidx.compose.material.icons.outlined.ArrowDropDown
+import androidx.compose.material.icons.outlined.Tune
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -217,8 +222,10 @@ import com.wasimaster.wmkeyboard.core.grammar.GrammarFix
 import com.wasimaster.wmkeyboard.core.grammar.GrammarLint
 import com.wasimaster.wmkeyboard.core.gesture.KeyCenter
 import com.wasimaster.wmkeyboard.core.handwriting.HwStroke
+import com.wasimaster.wmkeyboard.core.settings.BarRow
 import com.wasimaster.wmkeyboard.core.settings.EmojiBarContent
 import com.wasimaster.wmkeyboard.core.settings.GrammarDialect
+import com.wasimaster.wmkeyboard.core.settings.KeyboardMode
 import com.wasimaster.wmkeyboard.core.settings.EmojiBarMode
 import com.wasimaster.wmkeyboard.core.settings.EmojiTabMode
 import com.wasimaster.wmkeyboard.core.settings.InputMode
@@ -232,8 +239,10 @@ import com.wasimaster.wmkeyboard.core.settings.SpaceSwipeAction
 import com.wasimaster.wmkeyboard.core.settings.ThemeMode
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
 import com.wasimaster.wmkeyboard.core.snippets.Snippet
+import com.wasimaster.wmkeyboard.core.tools.BuiltInSymbolSets
 import com.wasimaster.wmkeyboard.core.tools.GifItem
 import com.wasimaster.wmkeyboard.core.tools.GifSource
+import com.wasimaster.wmkeyboard.core.tools.symbolChipLabel
 import com.wasimaster.wmkeyboard.core.tools.ImageResult
 import com.wasimaster.wmkeyboard.core.tools.WebResult
 import com.wasimaster.wmkeyboard.ime.EnterAction
@@ -346,6 +355,8 @@ fun KeyboardScreen(
     onWikiLoadLinks: () -> Unit = {},
     onWikiLoadFull: () -> Unit = {},
     onSymbolInsert: (String) -> Unit = {},
+    onSymbolSetSelect: (String) -> Unit = {},
+    onModeSelect: (String?) -> Unit = {},
     onToolInsert: (String) -> Unit = {},
     onCurrencyPairChange: (String, String) -> Unit = { _, _ -> },
     onCurrencyRefresh: () -> Unit = {},
@@ -409,6 +420,7 @@ fun KeyboardScreen(
             ToolbarTool.QR_GEN -> onPanelChange(PanelMode.QR_GEN)
             ToolbarTool.PASSWORD_GEN -> onPanelChange(PanelMode.PASSWORD_GEN)
             ToolbarTool.AI -> onPanelChange(PanelMode.AI)
+            ToolbarTool.MODES -> onPanelChange(PanelMode.MODES)
         }
     }
 
@@ -477,6 +489,8 @@ fun KeyboardScreen(
                 onWikiLoadLinks = onWikiLoadLinks,
                 onWikiLoadFull = onWikiLoadFull,
                 onSymbolInsert = onSymbolInsert,
+                onSymbolSetSelect = onSymbolSetSelect,
+                onModeSelect = onModeSelect,
                 onToolInsert = onToolInsert,
                 onCurrencyPairChange = onCurrencyPairChange,
                 onCurrencyRefresh = onCurrencyRefresh,
@@ -1069,6 +1083,7 @@ private fun toolIcon(tool: ToolbarTool): ImageVector = when (tool) {
     ToolbarTool.QR_GEN -> Icons.Outlined.QrCode2
     ToolbarTool.PASSWORD_GEN -> Icons.Outlined.Password
     ToolbarTool.AI -> Icons.Outlined.AutoAwesome
+    ToolbarTool.MODES -> Icons.Outlined.Tune
 }
 
 private fun toolLabel(tool: ToolbarTool): String = when (tool) {
@@ -1114,6 +1129,7 @@ private fun toolLabel(tool: ToolbarTool): String = when (tool) {
     ToolbarTool.QR_GEN -> "QR code"
     ToolbarTool.PASSWORD_GEN -> "Password"
     ToolbarTool.AI -> "AI"
+    ToolbarTool.MODES -> "Modes"
 }
 
 private fun toolActive(tool: ToolbarTool, state: KeyboardUiState): Boolean = when (tool) {
@@ -1159,6 +1175,7 @@ private fun toolActive(tool: ToolbarTool, state: KeyboardUiState): Boolean = whe
     ToolbarTool.QR_GEN -> state.panel == PanelMode.QR_GEN
     ToolbarTool.PASSWORD_GEN -> state.panel == PanelMode.PASSWORD_GEN
     ToolbarTool.AI -> state.panel == PanelMode.AI
+    ToolbarTool.MODES -> state.panel == PanelMode.MODES || state.activeModeId != null
 }
 
 /**
@@ -1765,6 +1782,8 @@ private fun KeyboardBody(
     onWikiLoadLinks: () -> Unit,
     onWikiLoadFull: () -> Unit,
     onSymbolInsert: (String) -> Unit,
+    onSymbolSetSelect: (String) -> Unit,
+    onModeSelect: (String?) -> Unit,
     onToolInsert: (String) -> Unit,
     onCurrencyPairChange: (String, String) -> Unit,
     onCurrencyRefresh: () -> Unit,

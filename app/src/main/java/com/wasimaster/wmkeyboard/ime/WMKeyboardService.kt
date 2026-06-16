@@ -62,9 +62,13 @@ import com.wasimaster.wmkeyboard.core.settings.InputMode
 import com.wasimaster.wmkeyboard.core.settings.isEnglish
 import com.wasimaster.wmkeyboard.core.settings.isFixedBengali
 import com.wasimaster.wmkeyboard.core.settings.isLatinScript
+import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
+import com.wasimaster.wmkeyboard.core.settings.ModeField
 import com.wasimaster.wmkeyboard.core.settings.OneHandedMode
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
+import com.wasimaster.wmkeyboard.core.settings.applyMode
+import com.wasimaster.wmkeyboard.core.settings.resolveKeyboardMode
 import com.wasimaster.wmkeyboard.core.snippets.Snippet
 import com.wasimaster.wmkeyboard.core.snippets.SnippetStore
 import com.wasimaster.wmkeyboard.core.settings.GifSourceMode
@@ -145,6 +149,15 @@ class WMKeyboardService : InputMethodService() {
     private lateinit var emojiUsage: EmojiUsage
     private lateinit var clipboardStore: ClipboardStore
     private lateinit var snippetStore: SnippetStore
+
+    /** Latest settings straight from DataStore, before mode overrides. */
+    private var baseSettings: KeyboardSettings? = null
+    /** Manual pick from the Modes tool; wins until the user switches app. */
+    private var manualModeId: String? = null
+    /** Package name of the app the focused field belongs to. */
+    private var currentPackage: String? = null
+    /** Mode-binding kinds of the focused field (password, email, url…). */
+    private var currentModeFields: Set<ModeField> = emptySet()
 
     private var composing = StringBuilder()
     private var previousWord: String? = null
@@ -291,7 +304,17 @@ class WMKeyboardService : InputMethodService() {
                     withContext(Dispatchers.Default) { userLexicon.reload() }
                 }
                 lexiconVersion = settings.lexiconVersion
-                _uiState.update { it.copy(settings = settings, inputMode = settings.inputMode) }
+                baseSettings = settings
+                val mode = resolveKeyboardMode(
+                    settings.keyboardModes, currentPackage, currentModeFields, manualModeId,
+                )
+                _uiState.update {
+                    it.copy(
+                        settings = settings.applyMode(mode),
+                        inputMode = settings.inputMode,
+                        activeModeId = mode?.id,
+                    )
+                }
                 // Typo weighting follows the active Latin layout's key grid.
                 suggestionEngine?.proximity = KeyProximity.forMode(settings.inputMode)
                 // Latin languages without a bundled dictionary (French, German,
@@ -454,6 +477,10 @@ class WMKeyboardService : InputMethodService() {
                 onWikiLoadLinks = ::onWikiLoadLinks,
                 onWikiLoadFull = ::onWikiLoadFull,
                 onSymbolInsert = ::onSymbolInsert,
+                // onSymbolSetSelect and onModeSelect are wired in parallel session;
+                // stubs provided locally for now.
+                // onSymbolSetSelect = ::onSymbolSetSelect,
+                // onModeSelect = ::onModeSelect,
                 onToolInsert = ::onToolTextInsert,
                 onCurrencyPairChange = ::onCurrencyPairChange,
                 onCurrencyRefresh = { refreshCurrencyRates(force = true) },
@@ -534,9 +561,38 @@ class WMKeyboardService : InputMethodService() {
         hwJob?.cancel()
         hwGeneration++
         val secure = info.isSecureField()
+        val fieldKind = info.fieldKind()
+        val fieldNoSuggestions = info.suppressesSuggestions()
+        // Keyboard-mode resolution: a manual pick from the Modes tool lives
+        // as long as the user stays in the same app.
+        val pkg = info?.packageName
+        if (pkg != null && pkg != currentPackage) manualModeId = null
+        if (pkg != null) currentPackage = pkg
+        currentModeFields = buildSet {
+            if (secure) add(ModeField.PASSWORD)
+            when (fieldKind) {
+                FieldKind.EMAIL -> add(ModeField.EMAIL)
+                FieldKind.URI -> add(ModeField.URL)
+                FieldKind.NUMBER -> add(ModeField.NUMBER)
+                FieldKind.PHONE -> add(ModeField.PHONE)
+                else -> {}
+            }
+        }
+        val base = baseSettings
+        val activeMode = base?.let {
+            resolveKeyboardMode(it.keyboardModes, currentPackage, currentModeFields, manualModeId)
+        }
         _uiState.update {
             it.copy(
+                settings = base?.applyMode(activeMode) ?: it.settings,
+                activeModeId = activeMode?.id,
+                activeSymbolSetId = null,
                 panel = PanelMode.NONE,
+                // A fresh field starts on the letter layer; a restart of the
+                // same field keeps whatever layer the user was on.
+                layoutMode = if (restarting) it.layoutMode else LayoutMode.LETTERS,
+                fieldKind = fieldKind,
+                fieldNoSuggestions = fieldNoSuggestions,
                 emojiSearchActive = false,
                 emojiQuery = "",
                 dictionarySearchActive = false,
@@ -715,7 +771,8 @@ class WMKeyboardService : InputMethodService() {
         }
 
         val isWordChar = text.length == 1 && (text[0].isLetter() || text[0] == '\'')
-        val composingMode = !state.inputMode.isFixedBengali && !state.secureField && state.settings.suggestions
+        val composingMode = !state.inputMode.isFixedBengali && !state.secureField &&
+            !state.fieldNoSuggestions && state.settings.suggestions
 
         if (isWordChar && composingMode) {
             composing.append(text)
@@ -927,7 +984,11 @@ class WMKeyboardService : InputMethodService() {
         )
 
         // Double-space inserts ". "
-        if (!committed && state.settings.doubleSpacePeriod && now - lastSpaceTime < 400) {
+        // Only in plain text fields: a double space in an email, URI or
+        // number box must stay two spaces, not become ". ".
+        if (!committed && state.settings.doubleSpacePeriod &&
+            state.fieldKind == FieldKind.TEXT && now - lastSpaceTime < 400
+        ) {
             val before = ic.getTextBeforeCursor(2, 0)?.toString().orEmpty()
             if (before.endsWith(" ") && before.length == 2 && !before[0].isWhitespace()) {
                 ic.deleteSurroundingText(1, 0)
@@ -1032,7 +1093,9 @@ class WMKeyboardService : InputMethodService() {
         // Apostrophe restoration outranks autocorrect: "dont" is a known
         // contraction slip, not a typo for "font"/"done" to be guessed at.
         val apostrophized =
-            if (fixApostrophes && !state.secureField && state.inputMode.isEnglish) {
+            if (fixApostrophes && !state.secureField && !state.fieldNoSuggestions &&
+                state.inputMode.isEnglish
+            ) {
                 Apostrophes.fix(typed)
             } else {
                 null
@@ -1047,7 +1110,7 @@ class WMKeyboardService : InputMethodService() {
                 suggestionEngine?.suggest(typed, previousWord = null, avroMode = true)
                     ?.firstOrNull() ?: AvroPhonetic.transliterate(typed)
             apostrophized != null -> apostrophized
-            autocorrect && !state.secureField -> {
+            autocorrect && !state.secureField && !state.fieldNoSuggestions -> {
                 corrected = suggestionEngine?.shouldAutocorrect(typed)?.takeIf { it != typed }
                 corrected ?: typed
             }
@@ -1072,7 +1135,9 @@ class WMKeyboardService : InputMethodService() {
      */
     private fun learn(word: String, reinforcement: Int = 1) {
         val state = _uiState.value
-        if (!state.settings.learnFromTyping || state.settings.incognito || state.secureField) {
+        if (!state.settings.learnFromTyping || state.settings.incognito ||
+            state.secureField || state.fieldNoSuggestions
+        ) {
             previousWord = word
             return
         }
@@ -1097,7 +1162,9 @@ class WMKeyboardService : InputMethodService() {
      */
     private fun learnEmoji(emoji: String) {
         val state = _uiState.value
-        if (!state.settings.learnFromTyping || state.settings.incognito || state.secureField) {
+        if (!state.settings.learnFromTyping || state.settings.incognito ||
+            state.secureField || state.fieldNoSuggestions
+        ) {
             previousWord = emoji
             return
         }
@@ -1149,7 +1216,7 @@ class WMKeyboardService : InputMethodService() {
     private fun refreshSuggestions() {
         val engine = suggestionEngine ?: return
         val state = _uiState.value
-        if (!state.settings.suggestions || state.secureField) return
+        if (!state.settings.suggestions || state.secureField || state.fieldNoSuggestions) return
         val typed = composing.toString()
         suggestionJob?.cancel()
         suggestionJob = serviceScope.launch {
@@ -1223,7 +1290,7 @@ class WMKeyboardService : InputMethodService() {
     /** Mid-swipe: show the current best candidates without committing. */
     fun onGesturePreview(points: List<GesturePoint>, keys: List<KeyCenter>, keyWidthPx: Float) {
         val state = _uiState.value
-        if (!state.settings.gestureTyping || state.secureField) return
+        if (!state.settings.gestureTyping || state.secureField || state.fieldNoSuggestions) return
         if (!state.inputMode.isEnglish) return
         val lexicon = gestureLexicon
         if (lexicon.isEmpty() || keys.isEmpty()) return
@@ -1253,7 +1320,7 @@ class WMKeyboardService : InputMethodService() {
     fun onGesture(points: List<GesturePoint>, keys: List<KeyCenter>, keyWidthPx: Float) {
         stopVoiceForManualInput()
         val state = _uiState.value
-        if (!state.settings.gestureTyping || state.secureField) return
+        if (!state.settings.gestureTyping || state.secureField || state.fieldNoSuggestions) return
         if (!state.inputMode.isEnglish) return
         val lexicon = gestureLexicon
         if (lexicon.isEmpty() || keys.isEmpty()) return
@@ -2195,6 +2262,34 @@ class WMKeyboardService : InputMethodService() {
 
     // ---- symbols / calculator / converter inserts ----
 
+    /**
+     * Modes panel: apply a mode manually (null = back to automatic). The
+     * pick sticks for the current app and resets on the next app switch.
+     */
+    fun onModeSelect(id: String?) {
+        vibrate()
+        manualModeId = id
+        val base = baseSettings ?: return
+        val mode = resolveKeyboardMode(
+            base.keyboardModes, currentPackage, currentModeFields, manualModeId,
+        )
+        _uiState.update {
+            it.copy(
+                settings = base.applyMode(mode),
+                activeModeId = mode?.id,
+                // The mode brings its own default set; drop the session pick.
+                activeSymbolSetId = null,
+            )
+        }
+    }
+
+    /** Symbol row's picker chip: switch the visible set. */
+    fun onSymbolSetSelect(id: String) {
+        vibrate()
+        _uiState.update { it.copy(activeSymbolSetId = id) }
+        serviceScope.launch { settingsRepository.setSymbolRowActiveSet(id) }
+    }
+
     /** Symbol cell tapped: type it and remember it under Recents. */
     fun onSymbolInsert(symbol: String) {
         vibrate()
@@ -3100,6 +3195,13 @@ class WMKeyboardService : InputMethodService() {
         }
     }
 
+    fun onEmojiRecentsClear() {
+        vibrate()
+        emojiUsage.clearRecents()
+        emojiUsage.save()
+        _uiState.update { it.copy(emojiRecents = emojiUsage.recents()) }
+    }
+
     /**
      * An emoji candidate from the suggestion strip. In [EmojiInsertMode.REPLACE]
      * (Gboard semantics) committing over the active composing region swaps
@@ -3135,13 +3237,6 @@ class WMKeyboardService : InputMethodService() {
 
     fun onEmojiSearchToggled() {
         _uiState.update { it.copy(emojiSearchActive = !it.emojiSearchActive) }
-    }
-
-    fun onEmojiRecentsClear() {
-        vibrate()
-        emojiUsage.clearRecents()
-        emojiUsage.save()
-        _uiState.update { it.copy(emojiRecents = emojiUsage.recents()) }
     }
 
     private fun refreshEmojiResults() {
@@ -3434,6 +3529,51 @@ class WMKeyboardService : InputMethodService() {
                 EditorInfo.IME_ACTION_PREVIOUS -> EnterAction.PREVIOUS
                 EditorInfo.IME_ACTION_DONE -> EnterAction.DONE
                 else -> EnterAction.DEFAULT
+            }
+        }
+
+        private fun EditorInfo?.fieldKind(): FieldKind {
+            val inputType = this?.inputType ?: return FieldKind.TEXT
+            return when (inputType and InputType.TYPE_MASK_CLASS) {
+                InputType.TYPE_CLASS_NUMBER -> FieldKind.NUMBER
+                InputType.TYPE_CLASS_PHONE -> FieldKind.PHONE
+                InputType.TYPE_CLASS_DATETIME ->
+                    when (inputType and InputType.TYPE_MASK_VARIATION) {
+                        InputType.TYPE_DATETIME_VARIATION_DATE -> FieldKind.DATE
+                        InputType.TYPE_DATETIME_VARIATION_TIME -> FieldKind.TIME
+                        else -> FieldKind.DATETIME
+                    }
+                else -> when (inputType and InputType.TYPE_MASK_VARIATION) {
+                    InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS,
+                    InputType.TYPE_TEXT_VARIATION_WEB_EMAIL_ADDRESS,
+                    -> FieldKind.EMAIL
+                    InputType.TYPE_TEXT_VARIATION_URI -> FieldKind.URI
+                    else -> FieldKind.TEXT
+                }
+            }
+        }
+
+        /**
+         * The field wants raw input: no suggestion strip, no autocorrect,
+         * no gesture typing, no lexicon learning. True for every non-text
+         * class (they get keypads anyway), the explicit NO_SUGGESTIONS
+         * flag, and the variations where corrections only get in the way —
+         * emails, URIs, filter boxes and every password style.
+         */
+        private fun EditorInfo?.suppressesSuggestions(): Boolean {
+            val inputType = this?.inputType ?: return false
+            if (inputType and InputType.TYPE_MASK_CLASS != InputType.TYPE_CLASS_TEXT) return true
+            if (inputType and InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS != 0) return true
+            return when (inputType and InputType.TYPE_MASK_VARIATION) {
+                InputType.TYPE_TEXT_VARIATION_URI,
+                InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS,
+                InputType.TYPE_TEXT_VARIATION_WEB_EMAIL_ADDRESS,
+                InputType.TYPE_TEXT_VARIATION_FILTER,
+                InputType.TYPE_TEXT_VARIATION_PASSWORD,
+                InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD,
+                InputType.TYPE_TEXT_VARIATION_WEB_PASSWORD,
+                -> true
+                else -> false
             }
         }
 

@@ -13,6 +13,18 @@ enum class ShiftState { OFF, ON, CAPS_LOCK }
 
 enum class LayoutMode { LETTERS, SYMBOLS, SYMBOLS_SHIFTED }
 
+/**
+ * What kind of field is focused, from EditorInfo.inputType. The numeric
+ * kinds lock the keyboard to a purpose-built keypad; EMAIL/URI keep the
+ * letter layouts but adapt the bottom row (@ or / key, .com long-press).
+ */
+enum class FieldKind { TEXT, EMAIL, URI, NUMBER, PHONE, DATE, TIME, DATETIME }
+
+/** Kinds rendered as a 4-column keypad instead of the letter layouts. */
+val FieldKind.isNumericPad: Boolean
+    get() = this == FieldKind.NUMBER || this == FieldKind.PHONE ||
+        this == FieldKind.DATE || this == FieldKind.TIME || this == FieldKind.DATETIME
+
 enum class PanelMode {
     NONE, EMOJI, CLIPBOARD, SNIPPETS, TOOLBOX, TEXT_EDIT,
     COMPASS, LEVEL, MOON_PHASE, WEATHER, CALENDAR,
@@ -20,6 +32,7 @@ enum class PanelMode {
     TRANSLATE, GIF, STICKER, WEB_SEARCH, IMAGE_SEARCH,
     OCR, QR_SCAN, VOICE, GRAMMAR,
     WIKIPEDIA, SYMBOLS, CALCULATOR, UNIT_CONVERT, CURRENCY, QR_GEN, PASSWORD_GEN, AI,
+    MODES,
 }
 
 /**
@@ -289,6 +302,25 @@ data class KeyboardUiState(
     val clipboardItems: List<ClipItem> = emptyList(),
     val snippets: List<Snippet> = emptyList(),
     val secureField: Boolean = false,
+    /** Field class/variation of the focused editor, from EditorInfo. */
+    val fieldKind: FieldKind = FieldKind.TEXT,
+    /**
+     * The field asked for no IME intelligence (TYPE_TEXT_FLAG_NO_SUGGESTIONS,
+     * or an email/URI/filter/password variation): suggestions, autocorrect,
+     * gesture typing and lexicon learning all stay off.
+     */
+    val fieldNoSuggestions: Boolean = false,
+    /**
+     * Id of the keyboard mode currently applied to [settings] (per-app /
+     * per-field overrides), null when no mode matched. The Modes panel
+     * highlights it; the toolbar's mode tool lights up while set.
+     */
+    val activeModeId: String? = null,
+    /**
+     * Symbol set picked from the row's chip this session, overriding the
+     * (possibly mode-supplied) persisted choice; cleared on field switch.
+     */
+    val activeSymbolSetId: String? = null,
     val enterAction: EnterAction = EnterAction.DEFAULT,
     /** Torch state, mirrored from CameraManager for the flashlight tool. */
     val torchOn: Boolean = false,

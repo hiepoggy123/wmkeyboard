@@ -350,6 +350,82 @@ object Layouts {
         ),
     )
 
+    /**
+     * 4-column keypad grid shared by the numeric field kinds: digits on the
+     * left 3 columns (0 under 8, phone-pad style), delete/enter anchoring
+     * the right column, and the field-specific characters filling the rest.
+     */
+    private fun numpad(
+        name: String,
+        rightMid: Key,
+        rightLow: Key,
+        bottomLeft: Key,
+        bottomRight: Key,
+        zero: Key = Key("0"),
+    ) = KeyboardLayout(
+        name = name,
+        rows = listOf(
+            listOf(Key("1"), Key("2"), Key("3"), Key("⌫", action = KeyAction.Delete)),
+            listOf(Key("4"), Key("5"), Key("6"), rightMid),
+            listOf(Key("7"), Key("8"), Key("9"), rightLow),
+            listOf(bottomLeft, zero, bottomRight, Key("⏎", action = KeyAction.Enter)),
+        ),
+    )
+
+    /** A keypad space key: blank label so no language name is drawn on it. */
+    private fun padSpace() = Key("", action = KeyAction.Space)
+
+    /**
+     * TYPE_CLASS_NUMBER. The minus and decimal keys are always present —
+     * fields that lack the signed/decimal flags filter them out themselves,
+     * and showing them keeps the pad stable across the many apps that
+     * forget to set the flags.
+     */
+    val NUMBER = numpad(
+        name = "number",
+        rightMid = Key("-", longPress = listOf("+", "%", "*", "/")),
+        rightLow = padSpace(),
+        bottomLeft = Key(".", longPress = listOf(":")),
+        bottomRight = Key(","),
+    )
+
+    /** TYPE_CLASS_PHONE: dial pad with pause (,) and wait (;) on long press. */
+    val PHONE = numpad(
+        name = "phone",
+        rightMid = Key("-", longPress = listOf("(", ")", "/", ".")),
+        rightLow = padSpace(),
+        bottomLeft = Key("*", longPress = listOf(",")),
+        bottomRight = Key("#", longPress = listOf(";")),
+        zero = Key("0", longPress = listOf("+")),
+    )
+
+    /** TYPE_DATETIME_VARIATION_DATE: separators for 20/07/2026, 2026-07-20, 20.7.26. */
+    val DATE = numpad(
+        name = "date",
+        rightMid = Key("/", longPress = listOf(":")),
+        rightLow = Key("-"),
+        bottomLeft = Key("."),
+        bottomRight = Key(","),
+    )
+
+    /** TYPE_DATETIME_VARIATION_TIME: colon-led (17:45), space for AM/PM-ish suffixes. */
+    val TIME = numpad(
+        name = "time",
+        rightMid = Key(":", longPress = listOf(".")),
+        rightLow = padSpace(),
+        bottomLeft = Key("."),
+        bottomRight = Key("-"),
+    )
+
+    /** TYPE_DATETIME_VARIATION_NORMAL: date and time separators together. */
+    val DATETIME = numpad(
+        name = "datetime",
+        rightMid = Key("/", longPress = listOf(".")),
+        rightLow = Key(":"),
+        bottomLeft = Key("-"),
+        bottomRight = padSpace(),
+    )
+
     private fun bottomRow(symbols: Boolean = false) = listOf(
         Key(
             if (symbols) "ABC" else "?123",
