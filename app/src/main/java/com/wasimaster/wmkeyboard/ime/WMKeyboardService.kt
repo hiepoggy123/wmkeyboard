@@ -60,6 +60,7 @@ import com.wasimaster.wmkeyboard.core.settings.HapticStyle
 import com.wasimaster.wmkeyboard.core.settings.InputMode
 import com.wasimaster.wmkeyboard.core.settings.isEnglish
 import com.wasimaster.wmkeyboard.core.settings.isFixedBengali
+import com.wasimaster.wmkeyboard.core.settings.isLatinScript
 import com.wasimaster.wmkeyboard.core.settings.OneHandedMode
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
@@ -265,6 +266,11 @@ class WMKeyboardService : InputMethodService() {
                 _uiState.update { it.copy(settings = settings, inputMode = settings.inputMode) }
                 // Typo weighting follows the active Latin layout's key grid.
                 suggestionEngine?.proximity = KeyProximity.forMode(settings.inputMode)
+                // Latin languages without a bundled dictionary (French, German,
+                // Spanish) drop the English word list so autocorrect and
+                // completions never offer English for their words.
+                suggestionEngine?.englishSources = !settings.inputMode.isLatinScript ||
+                    settings.inputMode.isEnglish
             }
         }
 
@@ -299,6 +305,8 @@ class WMKeyboardService : InputMethodService() {
             ).apply {
                 contacts = contactNames
                 proximity = KeyProximity.forMode(_uiState.value.inputMode)
+                val mode = _uiState.value.inputMode
+                englishSources = !mode.isLatinScript || mode.isEnglish
             }
             emojiEntries = catalog
             emojiSearch = EmojiSearch(catalog)
@@ -2480,7 +2488,9 @@ class WMKeyboardService : InputMethodService() {
     private fun shouldAutoCapitalize(): Boolean {
         val state = _uiState.value
         if (!state.settings.autoCapitalize) return false
-        if (!state.inputMode.isEnglish) return false
+        // Sentence capitalization applies to every Latin-script language;
+        // Bengali has no letter case.
+        if (!state.inputMode.isLatinScript) return false
         val ic = currentInputConnection ?: return false
         val info = currentInputEditorInfo ?: return false
         if (info.inputType and InputType.TYPE_MASK_CLASS != InputType.TYPE_CLASS_TEXT) return false

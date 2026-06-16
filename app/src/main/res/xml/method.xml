@@ -11,4 +11,19 @@
         android:label="@string/subtype_bengali"
         android:imeSubtypeLocale="bn_BD"
         android:imeSubtypeMode="keyboard" />
+    <subtype
+        android:label="@string/subtype_french"
+        android:imeSubtypeLocale="fr_FR"
+        android:imeSubtypeMode="keyboard"
+        android:isAsciiCapable="true" />
+    <subtype
+        android:label="@string/subtype_german"
+        android:imeSubtypeLocale="de_DE"
+        android:imeSubtypeMode="keyboard"
+        android:isAsciiCapable="true" />
+    <subtype
+        android:label="@string/subtype_spanish"
+        android:imeSubtypeLocale="es_ES"
+        android:imeSubtypeMode="keyboard"
+        android:isAsciiCapable="true" />
 </input-method>

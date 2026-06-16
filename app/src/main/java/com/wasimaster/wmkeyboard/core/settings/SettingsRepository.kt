@@ -19,7 +19,7 @@ import kotlinx.coroutines.flow.map
  * language+layout pair; [ENGLISH] is the original English QWERTY mode and
  * keeps its stored name for settings compatibility.
  */
-enum class InputMode { ENGLISH, AZERTY, DVORAK, AVRO, PROBHAT, JATIYA }
+enum class InputMode { ENGLISH, AZERTY, DVORAK, AVRO, PROBHAT, JATIYA, FRENCH, GERMAN, SPANISH }
 
 /**
  * The language a mode types. Modes group under a language in the settings
@@ -27,17 +27,28 @@ enum class InputMode { ENGLISH, AZERTY, DVORAK, AVRO, PROBHAT, JATIYA }
  * handwriting model, fonts); adding a language means adding a value here
  * and tagging its modes below.
  */
-enum class KeyboardLanguage { ENGLISH, BANGLA }
+enum class KeyboardLanguage { ENGLISH, BANGLA, FRENCH, GERMAN, SPANISH }
 
 val InputMode.language: KeyboardLanguage
     get() = when (this) {
         InputMode.ENGLISH, InputMode.AZERTY, InputMode.DVORAK -> KeyboardLanguage.ENGLISH
         InputMode.AVRO, InputMode.PROBHAT, InputMode.JATIYA -> KeyboardLanguage.BANGLA
+        InputMode.FRENCH -> KeyboardLanguage.FRENCH
+        InputMode.GERMAN -> KeyboardLanguage.GERMAN
+        InputMode.SPANISH -> KeyboardLanguage.SPANISH
     }
 
 /** English-language modes: Latin layouts with English suggestions/autocorrect. */
 val InputMode.isEnglish: Boolean
     get() = language == KeyboardLanguage.ENGLISH
+
+/**
+ * Modes typing a Latin-script language (English, French, German, Spanish):
+ * these share the Latin font choice, auto-capitalization rules and roman
+ * composing, regardless of which dictionary (if any) backs them.
+ */
+val InputMode.isLatinScript: Boolean
+    get() = language != KeyboardLanguage.BANGLA
 
 /**
  * Fixed Bengali layouts type Bengali characters directly (no roman

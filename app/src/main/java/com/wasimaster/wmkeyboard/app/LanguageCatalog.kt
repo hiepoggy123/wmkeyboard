@@ -69,4 +69,38 @@ val LanguageCatalog: List<LanguageEntry> = listOf(
             ),
         ),
     ),
+    LanguageEntry(
+        name = "Français · French",
+        layouts = listOf(
+            LayoutOption(
+                InputMode.FRENCH, "AZERTY", "French layout with accents",
+                "The standard French AZERTY arrangement with é è ç à and other accents " +
+                    "on long-press. No French dictionary is bundled yet, so the keyboard " +
+                    "learns your words as you type instead of offering English corrections.",
+            ),
+        ),
+    ),
+    LanguageEntry(
+        name = "Deutsch · German",
+        layouts = listOf(
+            LayoutOption(
+                InputMode.GERMAN, "QWERTZ", "German layout with umlauts",
+                "The standard German QWERTZ arrangement (Y and Z swapped) with ä ö ü ß " +
+                    "on long-press. No German dictionary is bundled yet, so the keyboard " +
+                    "learns your words as you type instead of offering English corrections.",
+            ),
+        ),
+    ),
+    LanguageEntry(
+        name = "Español · Spanish",
+        layouts = listOf(
+            LayoutOption(
+                InputMode.SPANISH, "QWERTY + Ñ", "Spanish layout with Ñ key",
+                "QWERTY with the Ñ key on the home row, acute accents on long-press and " +
+                    "¿ ¡ behind the ? and ! alternates. No Spanish dictionary is bundled " +
+                    "yet, so the keyboard learns your words as you type instead of " +
+                    "offering English corrections.",
+            ),
+        ),
+    ),
 )

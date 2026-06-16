@@ -12,7 +12,8 @@ import com.google.mlkit.vision.digitalink.recognition.Ink
 import com.google.mlkit.vision.digitalink.recognition.RecognitionContext
 import com.google.mlkit.vision.digitalink.recognition.WritingArea
 import com.wasimaster.wmkeyboard.core.settings.InputMode
-import com.wasimaster.wmkeyboard.core.settings.isEnglish
+import com.wasimaster.wmkeyboard.core.settings.KeyboardLanguage
+import com.wasimaster.wmkeyboard.core.settings.language
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -41,11 +42,29 @@ object HandwritingModels {
     val supported: List<HandwritingLanguage> = listOf(
         HandwritingLanguage("en-US", "English"),
         HandwritingLanguage("bn", "বাংলা (Bengali)"),
+        HandwritingLanguage("fr", "Français (French)"),
+        HandwritingLanguage("de", "Deutsch (German)"),
+        HandwritingLanguage("es", "Español (Spanish)"),
     )
 
     /** The recognition model tag for an input mode (all Bengali modes share bn). */
-    fun tagForMode(mode: InputMode): String =
-        if (mode.isEnglish) "en-US" else "bn"
+    fun tagForMode(mode: InputMode): String = when (mode.language) {
+        KeyboardLanguage.ENGLISH -> "en-US"
+        KeyboardLanguage.BANGLA -> "bn"
+        KeyboardLanguage.FRENCH -> "fr"
+        KeyboardLanguage.GERMAN -> "de"
+        KeyboardLanguage.SPANISH -> "es"
+    }
+
+    /** Compact badge label for the in-panel language toggle. */
+    fun shortLabel(tag: String): String = when (tag) {
+        "en-US" -> "EN"
+        "bn" -> "বাং"
+        "fr" -> "FR"
+        "de" -> "DE"
+        "es" -> "ES"
+        else -> tag.uppercase()
+    }
 
     fun displayName(tag: String): String =
         supported.firstOrNull { it.tag == tag }?.displayName ?: tag

@@ -37,11 +37,15 @@ class KeyProximity private constructor(rows: List<String>) {
         val QWERTY = KeyProximity(listOf("qwertyuiop", "asdfghjkl", "zxcvbnm"))
         val AZERTY = KeyProximity(listOf("azertyuiop", "qsdfghjklm", "wxcvbn'"))
         val DVORAK = KeyProximity(listOf("',.pyfgcrl", "aoeuidhtns", "qjkxbmwvz"))
+        val QWERTZ = KeyProximity(listOf("qwertzuiop", "asdfghjkl", "yxcvbnm"))
+        val SPANISH = KeyProximity(listOf("qwertyuiop", "asdfghjklñ", "zxcvbnm"))
 
         /** The proximity map matching the layout a mode renders. */
         fun forMode(mode: InputMode): KeyProximity = when (mode) {
-            InputMode.AZERTY -> AZERTY
+            InputMode.AZERTY, InputMode.FRENCH -> AZERTY
             InputMode.DVORAK -> DVORAK
+            InputMode.GERMAN -> QWERTZ
+            InputMode.SPANISH -> SPANISH
             else -> QWERTY
         }
     }

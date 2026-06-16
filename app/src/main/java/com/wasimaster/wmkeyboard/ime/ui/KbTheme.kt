@@ -32,7 +32,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.ThemeMode
-import com.wasimaster.wmkeyboard.core.settings.isEnglish
+import com.wasimaster.wmkeyboard.core.settings.isLatinScript
 import com.wasimaster.wmkeyboard.core.theme.BuiltInThemes
 import com.wasimaster.wmkeyboard.core.theme.DEFAULT_THEME_ID
 import com.wasimaster.wmkeyboard.core.theme.ThemeSpec
@@ -282,10 +282,10 @@ fun KeyboardThemeProvider(settings: KeyboardSettings, content: @Composable () ->
     // Text on the keyboard — key labels, suggestions, panels — follows it
     // without per-call plumbing. Emojis get their own family via
     // LocalEmojiFontFamily at the few places emojis are drawn.
-    // English and Bengali modes each have their own font choice. The
+    // Latin-script and Bengali modes each have their own font choice. The
     // Bengali faces all carry Latin glyphs too, so Avro's romanized keys
     // and mixed suggestion strips stay in one face while Bengali is active.
-    val fontId = if (settings.inputMode.isEnglish) {
+    val fontId = if (settings.inputMode.isLatinScript) {
         settings.keyFontId
     } else {
         settings.bengaliFontId

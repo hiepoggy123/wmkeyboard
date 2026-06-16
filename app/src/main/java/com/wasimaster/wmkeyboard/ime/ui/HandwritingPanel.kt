@@ -57,7 +57,6 @@ import com.wasimaster.wmkeyboard.core.handwriting.HandwritingModels
 import com.wasimaster.wmkeyboard.core.handwriting.HwPoint
 import com.wasimaster.wmkeyboard.core.handwriting.HwStroke
 import com.wasimaster.wmkeyboard.core.settings.InputMode
-import com.wasimaster.wmkeyboard.core.settings.isEnglish
 import com.wasimaster.wmkeyboard.ime.HandwritingStatus
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
 import com.wasimaster.wmkeyboard.ime.layout.Key
@@ -166,14 +165,13 @@ internal fun HandwritingPanel(
                 }
             }
 
-            // Language chip: shows the active model, tap switches between
-            // English and Bengali handwriting (the enabled modes decide
-            // what is available).
+            // Language chip: shows the active model, tap cycles through the
+            // handwriting languages of the enabled modes.
             val modes = state.settings.enabledModes.ifEmpty { listOf(InputMode.ENGLISH) }
             val distinctTags = modes.map { HandwritingModels.tagForMode(it) }.distinct()
             if (distinctTags.size > 1) {
                 Text(
-                    text = if (hw.languageTag == "en-US") "EN" else "বাং",
+                    text = HandwritingModels.shortLabel(hw.languageTag),
                     color = kb.secondaryText,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
@@ -184,12 +182,12 @@ internal fun HandwritingPanel(
                         .background(kb.chip)
                         .clickable {
                             feedback()
-                            val other = if (hw.languageTag == "en-US") {
-                                modes.first { !it.isEnglish }
-                            } else {
-                                modes.firstOrNull { it.isEnglish } ?: InputMode.ENGLISH
-                            }
-                            onLanguageSelect(other)
+                            val next = distinctTags[
+                                (distinctTags.indexOf(hw.languageTag) + 1).mod(distinctTags.size),
+                            ]
+                            onLanguageSelect(
+                                modes.first { HandwritingModels.tagForMode(it) == next },
+                            )
                         }
                         .padding(horizontal = 12.dp, vertical = 6.dp),
                 )

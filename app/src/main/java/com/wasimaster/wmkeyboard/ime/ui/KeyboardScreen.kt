@@ -2159,8 +2159,12 @@ private fun currentLayout(state: KeyboardUiState): KeyboardLayout {
         LayoutMode.SYMBOLS -> Layouts.SYMBOLS
         LayoutMode.SYMBOLS_SHIFTED -> Layouts.SYMBOLS_SHIFTED
         LayoutMode.LETTERS -> when (state.inputMode) {
-            InputMode.AZERTY -> Layouts.AZERTY
+            // French shares the AZERTY key grid with the English AZERTY
+            // mode; the modes differ in language behavior, not key layout.
+            InputMode.AZERTY, InputMode.FRENCH -> Layouts.AZERTY
             InputMode.DVORAK -> Layouts.DVORAK
+            InputMode.GERMAN -> Layouts.QWERTZ
+            InputMode.SPANISH -> Layouts.SPANISH_QWERTY
             InputMode.PROBHAT -> Layouts.PROBHAT
             InputMode.JATIYA -> Layouts.JATIYA
             else -> Layouts.QWERTY
@@ -2491,6 +2495,9 @@ private fun languageDisplayName(mode: InputMode): String = when (mode) {
     InputMode.AVRO -> "বাংলা · Avro"
     InputMode.PROBHAT -> "প্রভাত"
     InputMode.JATIYA -> "জাতীয়"
+    InputMode.FRENCH -> "Français"
+    InputMode.GERMAN -> "Deutsch"
+    InputMode.SPANISH -> "Español"
 }
 
 @Composable
@@ -2553,6 +2560,9 @@ private fun KeyContent(key: Key, state: KeyboardUiState, contentColor: Color) {
                     InputMode.AVRO -> "বাংলা · Avro"
                     InputMode.PROBHAT -> "বাংলা · প্রভাত"
                     InputMode.JATIYA -> "বাংলা · জাতীয়"
+                    InputMode.FRENCH -> "Français"
+                    InputMode.GERMAN -> "Deutsch"
+                    InputMode.SPANISH -> "Español"
                 },
                 fontSize = (11 * fontScale).sp,
                 color = contentColor.copy(alpha = 0.5f),

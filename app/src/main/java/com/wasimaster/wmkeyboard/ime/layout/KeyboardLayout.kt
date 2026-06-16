@@ -108,6 +108,83 @@ object Layouts {
     )
 
     /**
+     * QWERTZ: the German Latin layout — QWERTY with Y and Z swapped. The
+     * umlauts and ß don't get dedicated keys on the 10-column phone grid
+     * (desktop QWERTZ puts them on ö/ä/ü/ß keys that don't exist here);
+     * they lead the long-press alternates on their base letters instead,
+     * Samsung-style behind the symbol hint.
+     */
+    val QWERTZ = KeyboardLayout(
+        name = "qwertz",
+        rows = listOf(
+            listOf(
+                Key("q", longPress = listOf("1")), Key("w", longPress = listOf("2")),
+                Key("e", longPress = listOf("3", "é", "è", "ê", "ë")), Key("r", longPress = listOf("4")),
+                Key("t", longPress = listOf("5")), Key("z", longPress = listOf("6", "ż", "ź")),
+                Key("u", longPress = listOf("7", "ü", "ù", "ú", "û")),
+                Key("i", longPress = listOf("8", "ì", "í", "î", "ï")),
+                Key("o", longPress = listOf("9", "ö", "ò", "ó", "ô")),
+                Key("p", longPress = listOf("0")),
+            ),
+            listOf(
+                Key("a", longPress = listOf("@", "ä", "à", "á", "â")),
+                Key("s", longPress = listOf("#", "ß", "ś")),
+                Key("d", longPress = listOf("$")), Key("f", longPress = listOf("_")),
+                Key("g", longPress = listOf("&")), Key("h", longPress = listOf("-")),
+                Key("j", longPress = listOf("+")), Key("k", longPress = listOf("(")),
+                Key("l", longPress = listOf(")")),
+            ),
+            listOf(
+                Key("⇧", action = KeyAction.Shift, width = 1.5f),
+                Key("y", longPress = listOf("*", "ÿ")), Key("x", longPress = listOf("\"")),
+                Key("c", longPress = listOf("'", "ç", "ć")), Key("v", longPress = listOf(":")),
+                Key("b", longPress = listOf(";")), Key("n", longPress = listOf("!", "ñ", "ń")),
+                Key("m", longPress = listOf("?")),
+                Key("⌫", action = KeyAction.Delete, width = 1.5f),
+            ),
+            bottomRow(),
+        ),
+    )
+
+    /**
+     * Spanish: QWERTY with the Ñ key appended to the home row, as on
+     * Spanish desktop keyboards and every Spanish phone layout. Acute
+     * accents (á é í ó ú) and ü lead their vowels' long-press alternates;
+     * inverted punctuation (¿ ¡) rides on the ? and ! alternates.
+     */
+    val SPANISH_QWERTY = KeyboardLayout(
+        name = "spanish",
+        rows = listOf(
+            listOf(
+                Key("q", longPress = listOf("1")), Key("w", longPress = listOf("2")),
+                Key("e", longPress = listOf("3", "é", "è", "ê", "ë")), Key("r", longPress = listOf("4")),
+                Key("t", longPress = listOf("5")), Key("y", longPress = listOf("6")),
+                Key("u", longPress = listOf("7", "ú", "ü", "ù", "û")),
+                Key("i", longPress = listOf("8", "í", "ì", "î", "ï")),
+                Key("o", longPress = listOf("9", "ó", "ò", "ô", "ö")),
+                Key("p", longPress = listOf("0")),
+            ),
+            listOf(
+                Key("a", longPress = listOf("@", "á", "à", "â", "ä")),
+                Key("s", longPress = listOf("#", "ß", "ś")),
+                Key("d", longPress = listOf("$")), Key("f", longPress = listOf("_")),
+                Key("g", longPress = listOf("&")), Key("h", longPress = listOf("-")),
+                Key("j", longPress = listOf("+")), Key("k", longPress = listOf("(")),
+                Key("l", longPress = listOf(")")), Key("ñ"),
+            ),
+            listOf(
+                Key("⇧", action = KeyAction.Shift, width = 1.5f),
+                Key("z", longPress = listOf("*", "ż", "ź")), Key("x", longPress = listOf("\"")),
+                Key("c", longPress = listOf("'", "ç", "ć")), Key("v", longPress = listOf(":")),
+                Key("b", longPress = listOf(";")), Key("n", longPress = listOf("!", "¡")),
+                Key("m", longPress = listOf("?", "¿")),
+                Key("⌫", action = KeyAction.Delete, width = 1.5f),
+            ),
+            bottomRow(),
+        ),
+    )
+
+    /**
      * Dvorak: the simplified layout with vowels on the left home row.
      * Follows the standard Dvorak keymap adapted to the 10-column phone
      * grid: ' , . start the top row (with " < > on shift, ANSI style) and

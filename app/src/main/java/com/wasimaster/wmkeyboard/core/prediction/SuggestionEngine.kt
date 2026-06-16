@@ -40,6 +40,22 @@ class SuggestionEngine(
     @Volatile
     var proximity: KeyProximity = KeyProximity.QWERTY
 
+    /**
+     * Whether the bundled English word list and seed bigrams participate.
+     * Off for Latin languages without a bundled dictionary (French, German,
+     * Spanish): completions and corrections then come only from the user's
+     * learned lexicon and contacts, and English autocorrect never mangles
+     * their words.
+     */
+    @Volatile
+    var englishSources: Boolean = true
+
+    private val emptyTrie = Trie()
+
+    /** The bundled dictionary, or an empty one when [englishSources] is off. */
+    private val activeDictionary: Trie
+        get() = if (englishSources) dictionary else emptyTrie
+
     companion object {
         private const val ALPHABET = "abcdefghijklmnopqrstuvwxyz"
         /** Learned words get a large boost so personalization wins quickly. */
@@ -90,7 +106,7 @@ class SuggestionEngine(
         val lower = composing.lowercase()
         val merged = LinkedHashMap<String, Int>()
 
-        for (s in dictionary.complete(lower, limit * 2)) {
+        for (s in activeDictionary.complete(lower, limit * 2)) {
             merged.merge(s.word, s.frequency, ::maxOf)
         }
         for (s in userLexicon.complete(lower, limit)) {
@@ -99,10 +115,10 @@ class SuggestionEngine(
         for (s in contacts.complete(lower, limit)) {
             merged.merge(s.word, s.frequency * CONTACT_WEIGHT, ::maxOf)
         }
-        if (!dictionary.contains(lower) && !userLexicon.contains(lower)) {
+        if (!activeDictionary.contains(lower) && !userLexicon.contains(lower)) {
             for ((candidate, weight) in edits1Weighted(lower)) {
                 val freq = maxOf(
-                    dictionary.frequencyOf(candidate),
+                    activeDictionary.frequencyOf(candidate),
                     userLexicon.frequencyOf(candidate) * USER_WORD_WEIGHT,
                 )
                 if (freq > 0) merged.merge(candidate, (freq * weight).toInt(), ::maxOf)
@@ -137,11 +153,11 @@ class SuggestionEngine(
             val left = word.substring(0, i)
             val right = word.substring(i)
             val leftFreq = maxOf(
-                dictionary.frequencyOf(left),
+                activeDictionary.frequencyOf(left),
                 userLexicon.frequencyOf(left) * USER_WORD_WEIGHT,
             )
             val rightFreq = maxOf(
-                dictionary.frequencyOf(right),
+                activeDictionary.frequencyOf(right),
                 userLexicon.frequencyOf(right) * USER_WORD_WEIGHT,
             )
             if (leftFreq > 0 && rightFreq > 0) {
@@ -174,7 +190,8 @@ class SuggestionEngine(
         ordered.addAll(userLexicon.nextWords(prev, limit))
         // A contact's name chains through the strip: "Wasi" offers "Mollik".
         ordered.addAll(contacts.nextWords(prev))
-        ordered.addAll(seedBigrams.nextWords(prev))
+        // Seed bigrams are English pairs; they only cold-start English modes.
+        if (englishSources) ordered.addAll(seedBigrams.nextWords(prev))
         return ordered.take(limit).toList()
     }
 
@@ -191,7 +208,7 @@ class SuggestionEngine(
     fun shouldAutocorrect(word: String): String? {
         val lower = word.lowercase()
         if (lower.length < 3) return null
-        if (dictionary.contains(lower) || userLexicon.contains(lower)) return null
+        if (activeDictionary.contains(lower) || userLexicon.contains(lower)) return null
         // Contact names are known words too — never "corrected" away.
         if (contacts.contains(lower)) return null
 
@@ -201,7 +218,7 @@ class SuggestionEngine(
         var bestUserScore = 0.0
         val combined = HashMap<String, Double>()
         for ((candidate, weight) in edits1Weighted(lower)) {
-            val dictScore = dictionary.frequencyOf(candidate) * weight
+            val dictScore = activeDictionary.frequencyOf(candidate) * weight
             val userScore = userLexicon.frequencyOf(candidate) * USER_WORD_WEIGHT * weight
             if (dictScore <= 0 && userScore <= 0) continue
             if (dictScore > bestDictScore) {
