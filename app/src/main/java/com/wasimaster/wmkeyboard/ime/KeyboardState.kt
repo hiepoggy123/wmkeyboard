@@ -18,7 +18,7 @@ enum class PanelMode {
     COMPASS, LEVEL, MOON_PHASE, WEATHER, CALENDAR,
     THEMES, SOUND_HAPTICS, NUMPAD, HANDWRITING, CAMERA, DICTIONARY,
     TRANSLATE, GIF, STICKER, WEB_SEARCH, IMAGE_SEARCH,
-    OCR, QR_SCAN,
+    OCR, QR_SCAN, VOICE,
 }
 
 /**
@@ -46,6 +46,39 @@ data class HandwritingUi(
     /** Recognition in flight — strokes are frozen on screen until it lands. */
     val recognizing: Boolean = false,
     val errorMessage: String? = null,
+)
+
+/** Where the voice input panel is in a dictation session. */
+enum class VoiceStatus { IDLE, LISTENING, FINISHING, NEED_PERMISSION, UNAVAILABLE, ERROR }
+
+/**
+ * On-device recognition model availability for the active language
+ * (API 33+). UNKNOWN doubles as "not applicable" — older Android, no
+ * on-device recognizer, or the language isn't supported on-device at all.
+ */
+enum class VoiceModelState { UNKNOWN, INSTALLED, DOWNLOADABLE, DOWNLOADING }
+
+/**
+ * Voice input state, owned by the service (it runs the recognizer). The
+ * utterance in progress lives in the editor as composing text; [partial]
+ * mirrors it for the panel's status line.
+ */
+data class VoiceUi(
+    val status: VoiceStatus = VoiceStatus.IDLE,
+    val partial: String = "",
+    /** Mic level 0..1, quantized by the service; drives the pulse ring. */
+    val level: Float = 0f,
+    /** BCP-47 tag sent to the recognizer (en-US, bn-BD). */
+    val languageTag: String = "en-US",
+    val errorMessage: String? = null,
+    /** Dictation runs in the compact bar over the keys instead of the panel. */
+    val strip: Boolean = false,
+    /** A just-dictated utterance is still at the cursor; the undo chip shows. */
+    val canUndo: Boolean = false,
+    /** Offline-model chip on the panel (download for offline dictation). */
+    val modelState: VoiceModelState = VoiceModelState.UNKNOWN,
+    /** Download percent while [modelState] is DOWNLOADING, -1 when unknown. */
+    val modelProgress: Int = -1,
 )
 
 /** One change made from the sound & haptics quick panel. */
@@ -190,6 +223,7 @@ data class KeyboardUiState(
      */
     val vowelForm: BengaliGraphemes.VowelKeyForm = BengaliGraphemes.VowelKeyForm.INDEPENDENT,
     val handwriting: HandwritingUi = HandwritingUi(),
+    val voice: VoiceUi = VoiceUi(),
     /** Query buffer for the GIF/sticker/web/image search panels. */
     val mediaQuery: String = "",
     /** While true, key presses type into [mediaQuery] and the key rows stay visible. */

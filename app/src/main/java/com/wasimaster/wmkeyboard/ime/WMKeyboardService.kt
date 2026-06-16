@@ -27,6 +27,7 @@ import androidx.core.view.inputmethod.InputContentInfoCompat
 import com.wasimaster.wmkeyboard.app.CameraPermissionActivity
 import com.wasimaster.wmkeyboard.app.DocScanActivity
 import com.wasimaster.wmkeyboard.app.MainActivity
+import com.wasimaster.wmkeyboard.app.MicPermissionActivity
 import com.wasimaster.wmkeyboard.core.clipboard.ClipKind
 import com.wasimaster.wmkeyboard.core.clipboard.ClipboardStore
 import com.wasimaster.wmkeyboard.core.emoji.EmojiCatalog
@@ -82,6 +83,8 @@ import com.wasimaster.wmkeyboard.core.tools.ToolHttp
 import com.wasimaster.wmkeyboard.core.tools.TranslateClient
 import com.wasimaster.wmkeyboard.core.tools.WeatherClient
 import com.wasimaster.wmkeyboard.core.tools.WebResult
+import com.wasimaster.wmkeyboard.core.voice.VoiceInputEngine
+import com.wasimaster.wmkeyboard.core.voice.VoicePunctuation
 import com.wasimaster.wmkeyboard.core.transliteration.AvroPhonetic
 import com.wasimaster.wmkeyboard.core.transliteration.BengaliGraphemes
 import com.wasimaster.wmkeyboard.core.transliteration.BengaliPhoneticIndex
@@ -165,6 +168,19 @@ class WMKeyboardService : InputMethodService() {
     private var mediaInsertJob: Job? = null
     private var webSearchJob: Job? = null
     private var imageSearchJob: Job? = null
+
+    // ---- voice input state ----
+    private val voiceEngine = VoiceInputEngine(this)
+    /** Bumped when a session ends/aborts so late recognizer callbacks drop. */
+    private var voiceGeneration = 0
+    /** The text at the cursor needed a separating space when dictation began. */
+    private var voiceNeedsSpace = false
+    /** User tapped stop: the pending final must not chain another utterance. */
+    private var voiceStopRequested = false
+    /** Consecutive empty utterances in continuous mode; give up after a few. */
+    private var voiceSilentRetries = 0
+    /** Last dictated commit, so the undo chip can take it back whole. */
+    private var lastVoiceCommit: String? = null
 
     // ---- handwriting recognition state ----
     private val hwRecognizer = HandwritingRecognizerCache()
@@ -328,7 +344,7 @@ class WMKeyboardService : InputMethodService() {
 
         serviceScope.launch {
             uiState
-                .map { it.panel != PanelMode.NONE }
+                .map { it.panel != PanelMode.NONE || it.voice.strip }
                 .distinctUntilChanged()
                 .collect { updatePanelBackCallback(it) }
         }
@@ -393,6 +409,10 @@ class WMKeyboardService : InputMethodService() {
                 onCameraPermissionRequest = ::onCameraPermissionRequest,
                 onScannedInsert = ::onScannedTextInsert,
                 onDocScan = ::onDocScanStart,
+                onVoiceToggle = ::onVoiceToggle,
+                onVoicePermissionRequest = ::onVoicePermissionRequest,
+                onVoiceUndo = ::onVoiceUndo,
+                onVoiceModelDownload = ::onVoiceModelDownload,
                 onDictionaryLookup = ::onDictionaryLookup,
                 onDictionarySearchToggle = ::onDictionarySearchToggle,
                 onDictionaryInsert = ::onDictionaryInsert,
@@ -503,6 +523,10 @@ class WMKeyboardService : InputMethodService() {
                 clipboardItems = clipboardStore.items(),
                 enterAction = info.enterAction(),
                 handwriting = it.handwriting.copy(strokes = emptyList(), recognizing = false),
+                voice = it.voice.copy(
+                    status = VoiceStatus.IDLE, partial = "", level = 0f,
+                    strip = false, canUndo = false,
+                ),
             )
         }
         refreshKarContext()
@@ -534,6 +558,16 @@ class WMKeyboardService : InputMethodService() {
             suggestionJob?.cancel()
             _uiState.update { it.copy(composingPreview = "", suggestions = emptyList(), emojiSuggestions = emptyList()) }
         }
+        // Partial dictation results are cumulative per utterance, so they
+        // can't follow a cursor jump without duplicating what's already
+        // committed — end the session instead, keeping the partial.
+        val voiceStatus = _uiState.value.voice.status
+        if ((voiceStatus == VoiceStatus.LISTENING || voiceStatus == VoiceStatus.FINISHING) &&
+            _uiState.value.voice.partial.isNotEmpty() &&
+            (newSelStart != candidatesEnd || newSelEnd != candidatesEnd)
+        ) {
+            cancelVoice()
+        }
         refreshShiftForContext()
         refreshKarContext()
         // The translate strip follows the field: any text or cursor change
@@ -544,6 +578,10 @@ class WMKeyboardService : InputMethodService() {
     override fun onFinishInputView(finishingInput: Boolean) {
         super.onFinishInputView(finishingInput)
         lifecycleOwner.onPause()
+        // The keyboard is going away mid-dictation: release the mic (the
+        // privacy indicator must never outlive the keyboard) and keep the
+        // partial that was already on screen.
+        cancelVoice()
         userLexicon.save()
         emojiUsage.save()
         if (_uiState.value.settings.flashlightAutoOff && _uiState.value.torchOn) {
@@ -561,6 +599,7 @@ class WMKeyboardService : InputMethodService() {
         userLexicon.save()
         emojiUsage.save()
         clipboardStore.save()
+        voiceEngine.cancel()
         hwRecognizer.close()
         lifecycleOwner.onDestroy()
         serviceScope.cancel()
@@ -572,6 +611,7 @@ class WMKeyboardService : InputMethodService() {
     // No vibrate() here: press-time haptics fire from the UI's pointer-down
     // callback (onKeyPressed) so feedback lands on touch, not on release.
     fun onKey(key: Key) {
+        stopVoiceForManualInput()
         // Shift keeps the gesture word so alternates can be re-cased;
         // Delete keeps it so one backspace can undo the whole swipe.
         if (key.action != KeyAction.Shift && key.action != KeyAction.Delete) {
@@ -592,6 +632,7 @@ class WMKeyboardService : InputMethodService() {
 
     /** Called from the popup with an alternate character. */
     fun onText(text: String) {
+        stopVoiceForManualInput()
         vibrate()
         onTextKey(Key(label = text))
     }
@@ -922,6 +963,8 @@ class WMKeyboardService : InputMethodService() {
         // The handwriting model follows the input language; a switch while
         // the panel is open re-checks the new model and drops pending ink.
         if (_uiState.value.panel == PanelMode.HANDWRITING) refreshHandwritingStatus()
+        // Same for dictation: restart the session in the new language.
+        if (_uiState.value.panel == PanelMode.VOICE) startVoice()
         serviceScope.launch { settingsRepository.setInputMode(mode) }
     }
 
@@ -1109,6 +1152,7 @@ class WMKeyboardService : InputMethodService() {
     }
 
     fun onSuggestionTapped(suggestion: String) {
+        stopVoiceForManualInput()
         vibrate()
         val ic = currentInputConnection ?: return
         // After a swipe, the alternates replace the committed gesture word.
@@ -1173,6 +1217,7 @@ class WMKeyboardService : InputMethodService() {
      * Alternates go to the suggestion bar; tapping one replaces the word.
      */
     fun onGesture(points: List<GesturePoint>, keys: List<KeyCenter>, keyWidthPx: Float) {
+        stopVoiceForManualInput()
         val state = _uiState.value
         if (!state.settings.gestureTyping || state.secureField) return
         if (!state.inputMode.isEnglish) return
@@ -1222,6 +1267,17 @@ class WMKeyboardService : InputMethodService() {
     // ---- panels ----
 
     fun onPanelChange(panel: PanelMode) {
+        // Strip mode reroutes the voice tool: no panel, just the compact
+        // bar over the keys. A voice panel already open (setting flipped
+        // mid-session) still closes normally below.
+        if (panel == PanelMode.VOICE && _uiState.value.settings.voiceStripMode &&
+            _uiState.value.panel != PanelMode.VOICE
+        ) {
+            toggleVoiceStrip()
+            return
+        }
+        // Opening anything else dismisses the dictation strip.
+        if (_uiState.value.voice.strip) closeVoiceStrip()
         vibrate()
         // The settings app edits snippets in the same file; re-read on open.
         if (panel == PanelMode.SNIPPETS) snippetStore.reload()
@@ -1279,6 +1335,331 @@ class WMKeyboardService : InputMethodService() {
                 it.copy(handwriting = it.handwriting.copy(strokes = emptyList(), recognizing = false))
             }
         }
+        if (_uiState.value.panel == PanelMode.VOICE) {
+            // Opening the tool is the intent to speak: listen right away.
+            startVoice()
+        } else {
+            cancelVoice()
+        }
+    }
+
+    // ---- voice input ----
+
+    /** Recognition language follows the input mode, like handwriting. */
+    private fun voiceLanguageTag(): String =
+        if (_uiState.value.inputMode.isEnglish) "en-US" else "bn-BD"
+
+    /** Mic button on the voice panel/strip: start, or finish the session. */
+    fun onVoiceToggle() {
+        vibrate()
+        when (_uiState.value.voice.status) {
+            VoiceStatus.LISTENING -> {
+                voiceStopRequested = true
+                _uiState.update { it.copy(voice = it.voice.copy(status = VoiceStatus.FINISHING)) }
+                voiceEngine.finish()
+            }
+            VoiceStatus.FINISHING -> {}
+            else -> {
+                voiceSilentRetries = 0
+                startVoice()
+            }
+        }
+    }
+
+    /** IMEs cannot show permission dialogs; bounce through the trampoline. */
+    fun onVoicePermissionRequest() {
+        startActivity(
+            Intent(this, MicPermissionActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+        )
+    }
+
+    /**
+     * Starts one dictation session. Partial results stream into the editor
+     * as composing text; the final result commits and is learned like a
+     * typed word. Dictated text arrives in final script, so the Avro
+     * transliteration pipeline is bypassed entirely.
+     */
+    /** Whether a dictation surface is still up to receive the next utterance. */
+    private fun voiceSessionAlive(): Boolean =
+        _uiState.value.panel == PanelMode.VOICE || _uiState.value.voice.strip
+
+    private fun startVoice() {
+        cancelVoice()
+        voiceStopRequested = false
+        val tag = voiceLanguageTag()
+        fun fail(status: VoiceStatus, message: String? = null) {
+            _uiState.update {
+                it.copy(
+                    voice = it.voice.copy(
+                        status = status, languageTag = tag, errorMessage = message,
+                        partial = "", level = 0f,
+                    ),
+                )
+            }
+        }
+        if (_uiState.value.secureField) {
+            // The panel shows its own notice; never open the mic here.
+            fail(VoiceStatus.IDLE)
+            return
+        }
+        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            fail(VoiceStatus.NEED_PERMISSION)
+            return
+        }
+        if (!voiceEngine.isAvailable()) {
+            fail(VoiceStatus.UNAVAILABLE)
+            return
+        }
+        val ic = currentInputConnection ?: return
+        // Flush the half-typed word so dictation appends after it.
+        commitComposing(ic, autocorrect = false)
+        val before = ic.getTextBeforeCursor(1, 0)?.toString().orEmpty()
+        voiceNeedsSpace = before.isNotEmpty() && !before.last().isWhitespace()
+        val generation = ++voiceGeneration
+        // Offline-model chip: check once per language, not per utterance
+        // (continuous mode restarts sessions constantly).
+        val modelKnown = _uiState.value.voice.modelState != VoiceModelState.UNKNOWN &&
+            _uiState.value.voice.languageTag == tag
+        _uiState.update {
+            it.copy(
+                voice = it.voice.copy(
+                    status = VoiceStatus.LISTENING, languageTag = tag,
+                    partial = "", level = 0f, errorMessage = null,
+                ),
+            )
+        }
+        if (!modelKnown) refreshVoiceModelState(tag)
+        voiceEngine.start(
+            tag,
+            object : VoiceInputEngine.Listener {
+                override fun onListening() {}
+
+                override fun onLevel(level: Float) {
+                    if (generation != voiceGeneration) return
+                    // Quantized so the pulse ring doesn't force a state
+                    // update (and recomposition) per rms callback.
+                    val quantized = (level * 8).toInt() / 8f
+                    _uiState.update {
+                        if (it.voice.level == quantized) it
+                        else it.copy(voice = it.voice.copy(level = quantized))
+                    }
+                }
+
+                override fun onPartial(text: String) {
+                    if (generation != voiceGeneration) return
+                    currentInputConnection?.setComposingText(spacedVoiceText(text), 1)
+                    _uiState.update { it.copy(voice = it.voice.copy(partial = text)) }
+                }
+
+                override fun onFinal(text: String) {
+                    if (generation != voiceGeneration) return
+                    voiceGeneration++
+                    val settings = _uiState.value.settings
+                    val processed = if (settings.voiceSpokenPunctuation) {
+                        VoicePunctuation.apply(text, tag)
+                    } else {
+                        text
+                    }
+                    val spaced = spacedVoiceText(processed)
+                    currentInputConnection?.let { connection ->
+                        connection.commitText(spaced, 1)
+                        learn(processed)
+                        lastVoiceCommit = spaced
+                    }
+                    voiceSilentRetries = 0
+                    if (settings.voiceContinuous && !voiceStopRequested && voiceSessionAlive()) {
+                        // Continuous dictation: chain straight into the next
+                        // utterance until the user stops or leaves.
+                        _uiState.update { it.copy(voice = it.voice.copy(partial = "", level = 0f, canUndo = true)) }
+                        startVoice()
+                    } else {
+                        _uiState.update {
+                            it.copy(
+                                voice = it.voice.copy(
+                                    status = VoiceStatus.IDLE, partial = "", level = 0f, canUndo = true,
+                                ),
+                            )
+                        }
+                    }
+                }
+
+                override fun onError(kind: VoiceInputEngine.ErrorKind) {
+                    if (generation != voiceGeneration) return
+                    voiceGeneration++
+                    // A network drop mid-utterance keeps whatever was heard.
+                    currentInputConnection?.finishComposingText()
+                    // Silence in continuous mode restarts quietly — but not
+                    // forever, so an abandoned open mic winds down.
+                    if (kind == VoiceInputEngine.ErrorKind.NO_SPEECH &&
+                        _uiState.value.settings.voiceContinuous &&
+                        !voiceStopRequested && voiceSessionAlive() &&
+                        voiceSilentRetries < 2
+                    ) {
+                        voiceSilentRetries++
+                        startVoice()
+                        return
+                    }
+                    val (status, message) = when (kind) {
+                        VoiceInputEngine.ErrorKind.NO_SPEECH -> VoiceStatus.IDLE to null
+                        VoiceInputEngine.ErrorKind.PERMISSION -> VoiceStatus.NEED_PERMISSION to null
+                        VoiceInputEngine.ErrorKind.NETWORK ->
+                            VoiceStatus.ERROR to "Network problem — check your connection and try again."
+                        VoiceInputEngine.ErrorKind.BUSY ->
+                            VoiceStatus.ERROR to "The microphone is busy — close other apps using it and try again."
+                        VoiceInputEngine.ErrorKind.LANGUAGE ->
+                            VoiceStatus.ERROR to "Speech recognition doesn't support this language on this device."
+                        VoiceInputEngine.ErrorKind.OTHER ->
+                            VoiceStatus.ERROR to "Speech recognition failed — try again."
+                    }
+                    _uiState.update {
+                        it.copy(
+                            voice = it.voice.copy(
+                                status = status, languageTag = tag, errorMessage = message,
+                                partial = "", level = 0f,
+                            ),
+                        )
+                    }
+                }
+            },
+        )
+    }
+
+    /** Leading space when dictation starts mid-text, so words never glue on. */
+    private fun spacedVoiceText(text: String): String =
+        if (voiceNeedsSpace && text.firstOrNull()?.isLetterOrDigit() == true) " $text" else text
+
+    /**
+     * Abandons any running dictation: the mic is released and the partial
+     * already on screen stays as committed text (the user said it — losing
+     * it on a panel switch would be worse than keeping it).
+     */
+    private fun cancelVoice() {
+        val status = _uiState.value.voice.status
+        voiceGeneration++
+        if (status != VoiceStatus.LISTENING && status != VoiceStatus.FINISHING) return
+        voiceEngine.cancel()
+        currentInputConnection?.finishComposingText()
+        _uiState.update {
+            it.copy(voice = it.voice.copy(status = VoiceStatus.IDLE, partial = "", level = 0f))
+        }
+    }
+
+    /**
+     * Manual input (keys, swipes, suggestion taps) during dictation ends the
+     * utterance: partial results are cumulative, so keystrokes woven into
+     * the composing region would corrupt it. The partial is kept; the
+     * panel/strip stays open to resume with a mic tap.
+     */
+    private fun stopVoiceForManualInput() {
+        val status = _uiState.value.voice.status
+        if (status == VoiceStatus.LISTENING || status == VoiceStatus.FINISHING) {
+            voiceStopRequested = true
+            cancelVoice()
+        }
+    }
+
+    /** Voice tool tap in strip mode: dictate over the keys, no panel. */
+    private fun toggleVoiceStrip() {
+        if (_uiState.value.voice.strip) {
+            closeVoiceStrip()
+            return
+        }
+        vibrate()
+        if (_uiState.value.secureField) {
+            Toast.makeText(this, "Voice typing is unavailable in password fields", Toast.LENGTH_SHORT).show()
+            return
+        }
+        _uiState.update { it.copy(voice = it.voice.copy(strip = true)) }
+        voiceSilentRetries = 0
+        startVoice()
+    }
+
+    private fun closeVoiceStrip() {
+        if (!_uiState.value.voice.strip) return
+        vibrate()
+        cancelVoice()
+        _uiState.update { it.copy(voice = it.voice.copy(strip = false, canUndo = false)) }
+    }
+
+    /**
+     * Asks the on-device recognizer where [tag]'s model stands, for the
+     * panel's offline-model chip. UNKNOWN (chip hidden) below API 33 or
+     * when the language can't run on-device at all.
+     */
+    private fun refreshVoiceModelState(tag: String) {
+        voiceEngine.checkOnDeviceModel(tag) { result ->
+            val state = when (result) {
+                VoiceInputEngine.ModelCheckResult.INSTALLED -> VoiceModelState.INSTALLED
+                VoiceInputEngine.ModelCheckResult.DOWNLOADABLE -> VoiceModelState.DOWNLOADABLE
+                VoiceInputEngine.ModelCheckResult.PENDING -> VoiceModelState.DOWNLOADING
+                VoiceInputEngine.ModelCheckResult.UNSUPPORTED -> VoiceModelState.UNKNOWN
+            }
+            _uiState.update {
+                if (it.voice.languageTag != tag) it
+                else it.copy(voice = it.voice.copy(modelState = state, modelProgress = -1))
+            }
+        }
+    }
+
+    /** Offline-model chip on the voice panel: download the active language. */
+    fun onVoiceModelDownload() {
+        vibrate()
+        val tag = _uiState.value.voice.languageTag
+        _uiState.update {
+            it.copy(voice = it.voice.copy(modelState = VoiceModelState.DOWNLOADING, modelProgress = -1))
+        }
+        voiceEngine.downloadModel(
+            tag,
+            object : VoiceInputEngine.ModelDownloadCallback {
+                override fun onProgress(percent: Int) {
+                    _uiState.update {
+                        if (it.voice.languageTag != tag) it
+                        else it.copy(voice = it.voice.copy(modelProgress = percent))
+                    }
+                }
+
+                override fun onSuccess() {
+                    _uiState.update {
+                        if (it.voice.languageTag != tag) it
+                        else it.copy(voice = it.voice.copy(modelState = VoiceModelState.INSTALLED, modelProgress = -1))
+                    }
+                }
+
+                override fun onScheduled() {
+                    // Queued by the system (Wi-Fi / idle) or fire-and-forget
+                    // on API 33. Stays "downloading"; reopening the panel
+                    // re-checks and settles the state.
+                }
+
+                override fun onError() {
+                    Toast.makeText(
+                        this@WMKeyboardService,
+                        "Offline model download failed — try again later",
+                        Toast.LENGTH_SHORT,
+                    ).show()
+                    _uiState.update {
+                        if (it.voice.languageTag != tag) it
+                        else it.copy(voice = it.voice.copy(modelState = VoiceModelState.DOWNLOADABLE, modelProgress = -1))
+                    }
+                }
+            },
+        )
+    }
+
+    /** Undo chip: removes the last dictated utterance if still at the cursor. */
+    fun onVoiceUndo() {
+        vibrate()
+        val last = lastVoiceCommit
+        lastVoiceCommit = null
+        _uiState.update { it.copy(voice = it.voice.copy(canUndo = false)) }
+        if (last == null) return
+        val ic = currentInputConnection ?: return
+        val before = ic.getTextBeforeCursor(last.length, 0)?.toString()
+        if (before == last) ic.deleteSurroundingText(last.length, 0)
     }
 
     // ---- handwriting ----
@@ -2405,8 +2786,12 @@ class WMKeyboardService : InputMethodService() {
         val dispatcher = window?.window?.onBackInvokedDispatcher ?: return
         if (panelOpen && panelBackCallback == null) {
             val callback = android.window.OnBackInvokedCallback {
-                val panel = _uiState.value.panel
-                if (panel != PanelMode.NONE) onPanelChange(panel)
+                if (_uiState.value.voice.strip) {
+                    closeVoiceStrip()
+                } else {
+                    val panel = _uiState.value.panel
+                    if (panel != PanelMode.NONE) onPanelChange(panel)
+                }
             }
             dispatcher.registerOnBackInvokedCallback(
                 android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT,
@@ -2427,7 +2812,7 @@ class WMKeyboardService : InputMethodService() {
      */
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
         if (keyCode == KeyEvent.KEYCODE_BACK && isInputViewShown &&
-            _uiState.value.panel != PanelMode.NONE
+            (_uiState.value.panel != PanelMode.NONE || _uiState.value.voice.strip)
         ) {
             return true
         }
@@ -2436,8 +2821,10 @@ class WMKeyboardService : InputMethodService() {
 
     override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean {
         val panel = _uiState.value.panel
-        if (keyCode == KeyEvent.KEYCODE_BACK && isInputViewShown && panel != PanelMode.NONE) {
-            onPanelChange(panel)
+        if (keyCode == KeyEvent.KEYCODE_BACK && isInputViewShown &&
+            (panel != PanelMode.NONE || _uiState.value.voice.strip)
+        ) {
+            if (_uiState.value.voice.strip) closeVoiceStrip() else onPanelChange(panel)
             return true
         }
         return super.onKeyUp(keyCode, event)

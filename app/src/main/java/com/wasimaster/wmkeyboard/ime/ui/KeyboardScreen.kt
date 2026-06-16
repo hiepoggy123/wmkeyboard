@@ -99,6 +99,7 @@ import androidx.compose.material.icons.outlined.PhotoCamera
 import androidx.compose.material.icons.outlined.QrCodeScanner
 import androidx.compose.material.icons.outlined.TextFields
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
+import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material.icons.outlined.PictureInPictureAlt
 import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material.icons.outlined.BarChart
@@ -299,6 +300,10 @@ fun KeyboardScreen(
     onCameraPermissionRequest: () -> Unit = {},
     onScannedInsert: (String) -> Unit = {},
     onDocScan: () -> Unit = {},
+    onVoiceToggle: () -> Unit = {},
+    onVoicePermissionRequest: () -> Unit = {},
+    onVoiceUndo: () -> Unit = {},
+    onVoiceModelDownload: () -> Unit = {},
     onDictionaryLookup: (String) -> Unit = {},
     onDictionarySearchToggle: () -> Unit = {},
     onDictionaryInsert: (String) -> Unit = {},
@@ -364,6 +369,7 @@ fun KeyboardScreen(
             ToolbarTool.QR_SCAN -> onPanelChange(PanelMode.QR_SCAN)
             // Not a panel: the scanner is a full-screen Google activity.
             ToolbarTool.DOC_SCAN -> onDocScan()
+            ToolbarTool.VOICE -> onPanelChange(PanelMode.VOICE)
         }
     }
 
@@ -401,6 +407,10 @@ fun KeyboardScreen(
                 onCameraSend = onCameraSend,
                 onCameraPermissionRequest = onCameraPermissionRequest,
                 onScannedInsert = onScannedInsert,
+                onVoiceToggle = onVoiceToggle,
+                onVoicePermissionRequest = onVoicePermissionRequest,
+                onVoiceUndo = onVoiceUndo,
+                onVoiceModelDownload = onVoiceModelDownload,
                 onDictionaryLookup = onDictionaryLookup,
                 onDictionarySearchToggle = onDictionarySearchToggle,
                 onDictionaryInsert = onDictionaryInsert,
@@ -723,6 +733,9 @@ private fun TopBar(
     onPanelChange: (PanelMode) -> Unit,
     onToolTap: (ToolbarTool) -> Unit,
     drag: ToolDragController,
+    onVoiceToggle: () -> Unit = {},
+    onVoiceUndo: () -> Unit = {},
+    onVoicePermissionRequest: () -> Unit = {},
 ) {
     // "Show the toolbar instead" while suggestions are up; resets once the
     // suggestions go away so the bar returns to candidates next time.
@@ -756,6 +769,20 @@ private fun TopBar(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         val feedback = LocalKeyPressFeedback.current
+        // Compact dictation bar takes over the whole strip while active;
+        // the keys below stay usable for fixing recognition errors.
+        if (state.voice.strip) {
+            VoiceStripBar(
+                state = state,
+                onToggle = onVoiceToggle,
+                onUndo = onVoiceUndo,
+                onRequestPermission = onVoicePermissionRequest,
+                // The tool tap toggles the strip, so it also closes it.
+                onClose = { onToolTap(ToolbarTool.VOICE) },
+                modifier = Modifier.weight(1f),
+            )
+            return@Row
+        }
         if (emojiBarOpen && !hasSuggestions) {
             EmojiBarStrip(
                 state = state,
@@ -976,6 +1003,7 @@ private fun toolIcon(tool: ToolbarTool): ImageVector = when (tool) {
     ToolbarTool.OCR -> Icons.Outlined.TextFields
     ToolbarTool.QR_SCAN -> Icons.Outlined.QrCodeScanner
     ToolbarTool.DOC_SCAN -> Icons.Outlined.DocumentScanner
+    ToolbarTool.VOICE -> Icons.Outlined.Mic
 }
 
 private fun toolLabel(tool: ToolbarTool): String = when (tool) {
@@ -1011,6 +1039,7 @@ private fun toolLabel(tool: ToolbarTool): String = when (tool) {
     ToolbarTool.OCR -> "Scan text"
     ToolbarTool.QR_SCAN -> "QR scan"
     ToolbarTool.DOC_SCAN -> "Doc scan"
+    ToolbarTool.VOICE -> "Voice"
 }
 
 private fun toolActive(tool: ToolbarTool, state: KeyboardUiState): Boolean = when (tool) {
@@ -1046,6 +1075,7 @@ private fun toolActive(tool: ToolbarTool, state: KeyboardUiState): Boolean = whe
     ToolbarTool.OCR -> state.panel == PanelMode.OCR
     ToolbarTool.QR_SCAN -> state.panel == PanelMode.QR_SCAN
     ToolbarTool.DOC_SCAN -> false
+    ToolbarTool.VOICE -> state.panel == PanelMode.VOICE || state.voice.strip
 }
 
 /**
@@ -1621,6 +1651,10 @@ private fun KeyboardBody(
     onCameraSend: (java.io.File) -> Unit,
     onCameraPermissionRequest: () -> Unit,
     onScannedInsert: (String) -> Unit,
+    onVoiceToggle: () -> Unit,
+    onVoicePermissionRequest: () -> Unit,
+    onVoiceUndo: () -> Unit,
+    onVoiceModelDownload: () -> Unit,
     onDictionaryLookup: (String) -> Unit,
     onDictionarySearchToggle: () -> Unit,
     onDictionaryInsert: (String) -> Unit,
@@ -1675,7 +1709,12 @@ private fun KeyboardBody(
                 )
             }
             if (!fullBleed) {
-                TopBar(state, onSuggestion, onEmoji, onEmojiSuggestion, onPanelChange, onToolTap, drag)
+                TopBar(
+                    state, onSuggestion, onEmoji, onEmojiSuggestion, onPanelChange, onToolTap, drag,
+                    onVoiceToggle = onVoiceToggle,
+                    onVoiceUndo = onVoiceUndo,
+                    onVoicePermissionRequest = onVoicePermissionRequest,
+                )
             }
             if (emojiRowVisible && !state.settings.emojiRowAboveToolbar) {
                 EmojiBarStrip(
@@ -1734,6 +1773,16 @@ private fun KeyboardBody(
                     onInsert = onScannedInsert,
                     onRequestPermission = onCameraPermissionRequest,
                     onClose = { onPanelChange(PanelMode.QR_SCAN) },
+                )
+                PanelMode.VOICE -> VoicePanel(
+                    state = state,
+                    onToggle = onVoiceToggle,
+                    onUndo = onVoiceUndo,
+                    onRequestPermission = onVoicePermissionRequest,
+                    onDownloadModel = onVoiceModelDownload,
+                    onKey = onKey,
+                    onLanguageSelect = onLanguageSelect,
+                    onClose = { onPanelChange(PanelMode.VOICE) },
                 )
                 PanelMode.DICTIONARY -> DictionaryPanel(
                     state = state,

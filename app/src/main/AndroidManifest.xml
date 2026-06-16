@@ -9,6 +9,9 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Only used by the optional camera tool (photo into the chat). -->
     <uses-permission android:name="android.permission.CAMERA" />
+    <!-- Only used by the optional voice input tool; audio goes to the
+         device's speech recognizer while dictating, never stored. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <!-- Only used by the optional contact-name suggestions setting; names
          are read into memory for the suggestion strip, never stored. -->
     <uses-permission android:name="android.permission.READ_CONTACTS" />
@@ -18,6 +21,7 @@
     <uses-feature android:name="android.hardware.camera.flash" android:required="false" />
     <uses-feature android:name="android.hardware.sensor.accelerometer" android:required="false" />
     <uses-feature android:name="android.hardware.sensor.compass" android:required="false" />
+    <uses-feature android:name="android.hardware.microphone" android:required="false" />
 
     <application
         android:allowBackup="true"
@@ -43,6 +47,15 @@
              this to request android.permission.CAMERA. -->
         <activity
             android:name="com.wasimaster.wmkeyboard.app.CameraPermissionActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:noHistory="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
+        <!-- Same trampoline pattern for the voice input tool's
+             android.permission.RECORD_AUDIO. -->
+        <activity
+            android:name="com.wasimaster.wmkeyboard.app.MicPermissionActivity"
             android:excludeFromRecents="true"
             android:exported="false"
             android:noHistory="true"

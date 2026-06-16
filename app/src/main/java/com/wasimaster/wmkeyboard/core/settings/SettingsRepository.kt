@@ -77,7 +77,7 @@ enum class ToolbarTool {
     FLASHLIGHT, COMPASS, LEVEL, UNDO, REDO, MOON_PHASE, WEATHER, CALENDAR,
     INCOGNITO, THEMES, AUTOCORRECT, SOUND_HAPTICS, NUMPAD, HANDWRITING, CAMERA,
     DICTIONARY, TRANSLATE, GIF, STICKER, WEB_SEARCH, IMAGE_SEARCH,
-    OCR, QR_SCAN, DOC_SCAN,
+    OCR, QR_SCAN, DOC_SCAN, VOICE,
 }
 
 /** Content filter for the GIF and sticker tools (provider rating levels). */
@@ -289,6 +289,12 @@ data class KeyboardSettings(
     val handwritingCommitDelayMs: Int = 700,
     /** Insert a space between consecutively handwritten words. */
     val handwritingAutoSpace: Boolean = true,
+    /** Voice tool dictates into a compact bar over the keys, not a panel. */
+    val voiceStripMode: Boolean = false,
+    /** Keep listening after each dictated sentence. */
+    val voiceContinuous: Boolean = true,
+    /** Saying "comma" / "দাঁড়ি" types the mark instead of the word. */
+    val voiceSpokenPunctuation: Boolean = true,
     /** Camera tool opens on the selfie camera. */
     val cameraPreferFront: Boolean = false,
     /** Mirror selfie captures so the photo matches the preview. */
@@ -444,6 +450,9 @@ class SettingsRepository(private val context: Context) {
         private val HANDWRITING_STYLUS_ONLY = booleanPreferencesKey("handwriting_stylus_only")
         private val HANDWRITING_COMMIT_DELAY = intPreferencesKey("handwriting_commit_delay")
         private val HANDWRITING_AUTO_SPACE = booleanPreferencesKey("handwriting_auto_space")
+        private val VOICE_STRIP_MODE = booleanPreferencesKey("voice_strip_mode")
+        private val VOICE_CONTINUOUS = booleanPreferencesKey("voice_continuous")
+        private val VOICE_SPOKEN_PUNCTUATION = booleanPreferencesKey("voice_spoken_punctuation")
         private val CAMERA_PREFER_FRONT = booleanPreferencesKey("camera_prefer_front")
         private val CAMERA_MIRROR_FRONT = booleanPreferencesKey("camera_mirror_front")
         private val CAMERA_SHUTTER_SOUND = booleanPreferencesKey("camera_shutter_sound")
@@ -604,6 +613,10 @@ class SettingsRepository(private val context: Context) {
             handwritingCommitDelayMs = p[HANDWRITING_COMMIT_DELAY]
                 ?: defaults.handwritingCommitDelayMs,
             handwritingAutoSpace = p[HANDWRITING_AUTO_SPACE] ?: defaults.handwritingAutoSpace,
+            voiceStripMode = p[VOICE_STRIP_MODE] ?: defaults.voiceStripMode,
+            voiceContinuous = p[VOICE_CONTINUOUS] ?: defaults.voiceContinuous,
+            voiceSpokenPunctuation = p[VOICE_SPOKEN_PUNCTUATION]
+                ?: defaults.voiceSpokenPunctuation,
             cameraPreferFront = p[CAMERA_PREFER_FRONT] ?: defaults.cameraPreferFront,
             cameraMirrorFront = p[CAMERA_MIRROR_FRONT] ?: defaults.cameraMirrorFront,
             cameraShutterSound = p[CAMERA_SHUTTER_SOUND] ?: defaults.cameraShutterSound,
@@ -713,6 +726,15 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setHandwritingAutoSpace(value: Boolean) =
         context.dataStore.edit { it[HANDWRITING_AUTO_SPACE] = value }
+
+    suspend fun setVoiceStripMode(value: Boolean) =
+        context.dataStore.edit { it[VOICE_STRIP_MODE] = value }
+
+    suspend fun setVoiceContinuous(value: Boolean) =
+        context.dataStore.edit { it[VOICE_CONTINUOUS] = value }
+
+    suspend fun setVoiceSpokenPunctuation(value: Boolean) =
+        context.dataStore.edit { it[VOICE_SPOKEN_PUNCTUATION] = value }
 
     suspend fun setCameraPreferFront(value: Boolean) =
         context.dataStore.edit { it[CAMERA_PREFER_FRONT] = value }

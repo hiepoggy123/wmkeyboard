@@ -57,6 +57,7 @@ import androidx.compose.material.icons.outlined.FlashlightOn
 import androidx.compose.material.icons.outlined.Keyboard
 import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.Palette
+import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material.icons.outlined.PhotoCamera
 import androidx.compose.material.icons.outlined.Security
 import androidx.compose.material.icons.outlined.PictureInPictureAlt
@@ -2067,6 +2068,7 @@ private fun toolTitle(tool: ToolbarTool): String = when (tool) {
     ToolbarTool.OCR -> "Text scan (OCR)"
     ToolbarTool.QR_SCAN -> "QR & barcode scanner"
     ToolbarTool.DOC_SCAN -> "Document scanner"
+    ToolbarTool.VOICE -> "Voice typing"
 }
 
 private fun toolDescription(tool: ToolbarTool): String = when (tool) {
@@ -2102,6 +2104,7 @@ private fun toolDescription(tool: ToolbarTool): String = when (tool) {
     ToolbarTool.OCR -> "Point the camera at printed text and type it — pick just the words you need"
     ToolbarTool.QR_SCAN -> "Scan a QR code or barcode and insert its text"
     ToolbarTool.DOC_SCAN -> "Scan a document with Google's scanner and send it as an image"
+    ToolbarTool.VOICE -> "Dictate text with the device's speech recognizer — English and Bengali"
 }
 
 private fun toolIconFor(tool: ToolbarTool): androidx.compose.ui.graphics.vector.ImageVector = when (tool) {
@@ -2137,6 +2140,7 @@ private fun toolIconFor(tool: ToolbarTool): androidx.compose.ui.graphics.vector.
     ToolbarTool.OCR -> Icons.Outlined.TextFields
     ToolbarTool.QR_SCAN -> Icons.Outlined.QrCodeScanner
     ToolbarTool.DOC_SCAN -> Icons.Outlined.DocumentScanner
+    ToolbarTool.VOICE -> Icons.Outlined.Mic
 }
 
 /**
@@ -2153,7 +2157,7 @@ private fun ToolsSettings(settings: KeyboardSettings, onOpenTool: (ToolbarTool) 
         "Panels" to listOf(
             ToolbarTool.EMOJI, ToolbarTool.CLIPBOARD, ToolbarTool.SNIPPETS,
             ToolbarTool.TEXT_EDIT, ToolbarTool.NUMPAD, ToolbarTool.HANDWRITING,
-            ToolbarTool.CAMERA, ToolbarTool.DICTIONARY,
+            ToolbarTool.VOICE, ToolbarTool.CAMERA, ToolbarTool.DICTIONARY,
         ),
         "Scanners" to listOf(
             ToolbarTool.OCR, ToolbarTool.QR_SCAN, ToolbarTool.DOC_SCAN,
@@ -2816,6 +2820,38 @@ private fun ToolDetailSettings(
                 "camera photo, once the keyboard reopens. Processing is " +
                 "on-device.",
         )
+        ToolbarTool.VOICE -> {
+            SettingsGroup("Dictation") {
+                item {
+                    ToggleSetting(
+                        "Compact bar",
+                        "Dictate over the keys instead of a full panel",
+                        settings.voiceStripMode,
+                    ) { scope.launch { repository.setVoiceStripMode(it) } }
+                }
+                item {
+                    ToggleSetting(
+                        "Keep listening",
+                        "Start the next sentence automatically after each one commits",
+                        settings.voiceContinuous,
+                    ) { scope.launch { repository.setVoiceContinuous(it) } }
+                }
+                item {
+                    ToggleSetting(
+                        "Spoken punctuation",
+                        "Saying \"comma\", \"question mark\" or \"দাঁড়ি\" types the mark",
+                        settings.voiceSpokenPunctuation,
+                    ) { scope.launch { repository.setVoiceSpokenPunctuation(it) } }
+                }
+            }
+            CaptionText(
+                "Recognition uses the device's speech recognizer. On Android " +
+                    "12+ it runs on-device when the language model is " +
+                    "installed; otherwise audio goes to the recognizer " +
+                    "service while you dictate. Long-press the mic to " +
+                    "dictate walkie-talkie style — it stops when you let go.",
+            )
+        }
         else -> {}
     }
 }
