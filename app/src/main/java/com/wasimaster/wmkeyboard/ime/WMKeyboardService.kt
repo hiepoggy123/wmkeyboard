@@ -82,9 +82,15 @@ import com.wasimaster.wmkeyboard.core.tools.GiphyClient
 import com.wasimaster.wmkeyboard.core.tools.GoogleSearchClient
 import com.wasimaster.wmkeyboard.core.tools.ImageResult
 import com.wasimaster.wmkeyboard.core.tools.KlipyClient
+import com.wasimaster.wmkeyboard.core.settings.AiAction
+import com.wasimaster.wmkeyboard.core.tools.AiClient
+import com.wasimaster.wmkeyboard.core.tools.AiPrompts
+import com.wasimaster.wmkeyboard.core.tools.CurrencyClient
+import com.wasimaster.wmkeyboard.core.tools.QrCodeGen
 import com.wasimaster.wmkeyboard.core.tools.ToolApiKeys
 import com.wasimaster.wmkeyboard.core.tools.ToolHttp
 import com.wasimaster.wmkeyboard.core.tools.TranslateClient
+import com.wasimaster.wmkeyboard.core.tools.WikipediaClient
 import com.wasimaster.wmkeyboard.core.tools.WeatherClient
 import com.wasimaster.wmkeyboard.core.tools.WebResult
 import com.wasimaster.wmkeyboard.core.voice.VoiceInputEngine
@@ -443,6 +449,20 @@ class WMKeyboardService : InputMethodService() {
                 onGrammarFix = ::onGrammarFix,
                 onGrammarFixAll = ::onGrammarFixAll,
                 onGrammarDialect = ::onGrammarDialectChange,
+                onWikiOpen = ::onWikiOpen,
+                onWikiBack = ::onWikiBack,
+                onWikiLoadLinks = ::onWikiLoadLinks,
+                onWikiLoadFull = ::onWikiLoadFull,
+                onSymbolInsert = ::onSymbolInsert,
+                onToolInsert = ::onToolTextInsert,
+                onCurrencyPairChange = ::onCurrencyPairChange,
+                onCurrencyRefresh = { refreshCurrencyRates(force = true) },
+                onPwSetting = ::onPwSetting,
+                onQrSend = ::onQrSend,
+                onAiAction = ::onAiAction,
+                onAiReplace = ::onAiReplace,
+                onAiInsert = ::onAiInsert,
+                onAiRetry = ::onAiRetry,
                 onOpenToolSettings = ::openToolSettings,
                 onOpenSettings = ::openSettings,
             )
@@ -585,6 +605,8 @@ class WMKeyboardService : InputMethodService() {
         if (_uiState.value.panel == PanelMode.TRANSLATE) scheduleTranslate()
         // Same for the grammar strip (offline, so a re-lint is cheap).
         if (_uiState.value.panel == PanelMode.GRAMMAR) scheduleGrammarCheck()
+        // The QR generator mirrors the field text live (local, so cheap).
+        if (_uiState.value.panel == PanelMode.QR_GEN) refreshQrText()
     }
 
     override fun onFinishInputView(finishingInput: Boolean) {
@@ -1309,7 +1331,9 @@ class WMKeyboardService : InputMethodService() {
                 mediaQuery = "",
                 // Web/image search open straight into the search box (there
                 // is nothing to show yet); gif/sticker open on trending.
-                mediaSearchActive = next == PanelMode.WEB_SEARCH || next == PanelMode.IMAGE_SEARCH,
+                // Wikipedia keeps a previous article/results if it has one.
+                mediaSearchActive = next == PanelMode.WEB_SEARCH || next == PanelMode.IMAGE_SEARCH ||
+                    (next == PanelMode.WIKIPEDIA && it.wiki !is WikiUi.Article && it.wiki !is WikiUi.SearchResults),
                 mediaDownloadingId = null,
                 translate = TranslateUi(),
                 grammar = GrammarUi(available = GrammarChecker.available),
@@ -1337,6 +1361,16 @@ class WMKeyboardService : InputMethodService() {
             PanelMode.GRAMMAR -> {
                 currentInputConnection?.let { commitComposing(it, autocorrect = false) }
                 scheduleGrammarCheck(immediate = true)
+            }
+            PanelMode.CURRENCY -> refreshCurrencyRates()
+            PanelMode.QR_GEN -> {
+                currentInputConnection?.let { commitComposing(it, autocorrect = false) }
+                refreshQrText()
+            }
+            PanelMode.AI -> _uiState.update {
+                it.copy(
+                    ai = if (AiClient.isConfigured(it.settings)) AiUi.Idle else AiUi.NeedSetup,
+                )
             }
             else -> {}
         }
@@ -1982,6 +2016,310 @@ class WMKeyboardService : InputMethodService() {
         }
     }
 
+    // ---- wikipedia tool ----
+
+    private var wikiJob: Job? = null
+
+    /** The results an open article came from, for the back arrow. */
+    private var wikiLastResults: WikiUi.SearchResults? = null
+
+    private fun runWikiSearch(query: String) {
+        if (query.isBlank()) return
+        wikiJob?.cancel()
+        _uiState.update { it.copy(wiki = WikiUi.Loading) }
+        wikiJob = serviceScope.launch {
+            val lang = _uiState.value.settings.wikiLanguage
+            val result = withContext(Dispatchers.IO) {
+                runCatching { WikipediaClient.search(query, lang) }
+            }
+            _uiState.update {
+                it.copy(
+                    wiki = result.fold(
+                        onSuccess = { r -> WikiUi.SearchResults(r, query) },
+                        onFailure = { e -> WikiUi.Error(e.message ?: "Search failed") },
+                    ),
+                )
+            }
+        }
+    }
+
+    /** Search result or article link tapped: load that article's summary. */
+    fun onWikiOpen(title: String) {
+        vibrate()
+        (_uiState.value.wiki as? WikiUi.SearchResults)?.let { wikiLastResults = it }
+        wikiJob?.cancel()
+        _uiState.update { it.copy(wiki = WikiUi.Loading) }
+        wikiJob = serviceScope.launch {
+            val lang = _uiState.value.settings.wikiLanguage
+            val result = withContext(Dispatchers.IO) {
+                runCatching { WikipediaClient.summary(title, lang) }
+            }
+            _uiState.update {
+                it.copy(
+                    wiki = result.fold(
+                        onSuccess = { s ->
+                            WikiUi.Article(s, canGoBack = wikiLastResults != null)
+                        },
+                        onFailure = { e -> WikiUi.Error(e.message ?: "Couldn't load the article") },
+                    ),
+                )
+            }
+        }
+    }
+
+    fun onWikiBack() {
+        vibrate()
+        _uiState.update { it.copy(wiki = wikiLastResults ?: WikiUi.Idle) }
+    }
+
+    /** Links tab opened for the first time: fetch the article's links. */
+    fun onWikiLoadLinks() {
+        val article = _uiState.value.wiki as? WikiUi.Article ?: return
+        if (article.links != null || article.loadingExtra) return
+        _uiState.update { it.copy(wiki = article.copy(loadingExtra = true)) }
+        serviceScope.launch {
+            val lang = _uiState.value.settings.wikiLanguage
+            val result = withContext(Dispatchers.IO) {
+                runCatching { WikipediaClient.links(article.summary.title, lang) }
+            }
+            _uiState.update { state ->
+                val current = state.wiki as? WikiUi.Article ?: return@update state
+                if (current.summary.title != article.summary.title) return@update state
+                state.copy(
+                    wiki = current.copy(
+                        links = result.getOrDefault(emptyList()),
+                        loadingExtra = false,
+                    ),
+                )
+            }
+        }
+    }
+
+    /** Full-article tab opened for the first time: fetch the plain text. */
+    fun onWikiLoadFull() {
+        val article = _uiState.value.wiki as? WikiUi.Article ?: return
+        if (article.fullText != null || article.loadingExtra) return
+        _uiState.update { it.copy(wiki = article.copy(loadingExtra = true)) }
+        serviceScope.launch {
+            val lang = _uiState.value.settings.wikiLanguage
+            val result = withContext(Dispatchers.IO) {
+                runCatching { WikipediaClient.fullText(article.summary.title, lang) }
+            }
+            _uiState.update { state ->
+                val current = state.wiki as? WikiUi.Article ?: return@update state
+                if (current.summary.title != article.summary.title) return@update state
+                state.copy(
+                    wiki = current.copy(
+                        fullText = result.getOrDefault(""),
+                        loadingExtra = false,
+                    ),
+                )
+            }
+        }
+    }
+
+    // ---- currency tool ----
+
+    private var currencyJob: Job? = null
+
+    /** Rates refresh at most every 6 h (they update daily upstream anyway). */
+    private fun refreshCurrencyRates(force: Boolean = false) {
+        val current = _uiState.value.currency
+        if (!force && current is CurrencyUi.Ready &&
+            System.currentTimeMillis() - current.fetchedAtMs < 6 * 60 * 60 * 1000
+        ) {
+            return
+        }
+        currencyJob?.cancel()
+        _uiState.update { it.copy(currency = CurrencyUi.Loading) }
+        currencyJob = serviceScope.launch {
+            val result = withContext(Dispatchers.IO) {
+                runCatching { CurrencyClient.fetchRates() }
+            }
+            _uiState.update {
+                it.copy(
+                    currency = result.fold(
+                        onSuccess = { r -> CurrencyUi.Ready(r, System.currentTimeMillis()) },
+                        onFailure = {
+                            CurrencyUi.Error("Couldn't fetch exchange rates — check your connection.")
+                        },
+                    ),
+                )
+            }
+        }
+    }
+
+    fun onCurrencyPairChange(from: String, to: String) {
+        vibrate()
+        serviceScope.launch { settingsRepository.setCurrencyPair(from, to) }
+    }
+
+    // ---- QR generator tool ----
+
+    /** Mirrors the focused field into [KeyboardUiState.qrText]. */
+    private fun refreshQrText() {
+        _uiState.update { it.copy(qrText = extractFieldText().trim()) }
+    }
+
+    /** Renders the field's QR at the configured size and commits the PNG. */
+    fun onQrSend() {
+        val state = _uiState.value
+        val content = state.qrText
+        if (content.isBlank()) return
+        vibrate()
+        serviceScope.launch {
+            val file = withContext(Dispatchers.IO) {
+                runCatching {
+                    val bitmap = QrCodeGen.bitmap(
+                        content, state.settings.qrSizePx, state.settings.qrEcc.name,
+                    ) ?: error("Too much text for one QR code")
+                    val dir = File(cacheDir, "media").apply { mkdirs() }
+                    val target = File(dir, "qr_${content.hashCode().toUInt()}.png")
+                    target.outputStream().use {
+                        bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
+                    }
+                    target
+                }.getOrNull()
+            }
+            if (file == null) {
+                Toast.makeText(
+                    this@WMKeyboardService,
+                    "Couldn't generate the QR code",
+                    Toast.LENGTH_SHORT,
+                ).show()
+                return@launch
+            }
+            commitImageFile(file, "image/png")
+        }
+    }
+
+    // ---- symbols / calculator / converter inserts ----
+
+    /** Symbol cell tapped: type it and remember it under Recents. */
+    fun onSymbolInsert(symbol: String) {
+        vibrate()
+        val ic = currentInputConnection ?: return
+        commitComposing(ic, autocorrect = false)
+        ic.commitText(symbol, 1)
+        serviceScope.launch { settingsRepository.addSymbolRecent(symbol) }
+    }
+
+    /** Insert chip on the calculator/converter/generator panels. */
+    fun onToolTextInsert(text: String) {
+        if (text.isEmpty()) return
+        vibrate()
+        val ic = currentInputConnection ?: return
+        commitComposing(ic, autocorrect = false)
+        ic.commitText(text, 1)
+    }
+
+    // ---- password generator tool ----
+
+    /** Panel controls persist straight into settings (they're the defaults). */
+    fun onPwSetting(action: PwSettingAction) {
+        vibrate()
+        serviceScope.launch {
+            when (action) {
+                is PwSettingAction.PassphraseMode -> settingsRepository.setPwPassphraseMode(action.on)
+                is PwSettingAction.Length -> settingsRepository.setPwLength(action.value)
+                is PwSettingAction.Upper -> settingsRepository.setPwUppercase(action.on)
+                is PwSettingAction.Digits -> settingsRepository.setPwDigits(action.on)
+                is PwSettingAction.Symbols -> settingsRepository.setPwSymbols(action.on)
+                is PwSettingAction.ExcludeAmbiguous ->
+                    settingsRepository.setPwExcludeAmbiguous(action.on)
+                is PwSettingAction.Words -> settingsRepository.setPpWordCount(action.value)
+                is PwSettingAction.Separator -> settingsRepository.setPpSeparator(action.value)
+                is PwSettingAction.Capitalize -> settingsRepository.setPpCapitalize(action.on)
+                is PwSettingAction.IncludeDigit -> settingsRepository.setPpIncludeDigit(action.on)
+            }
+        }
+    }
+
+    // ---- AI tool ----
+
+    private var aiJob: Job? = null
+
+    /** Selection first; whole field otherwise (text before cursor for Continue). */
+    private fun aiInputText(action: AiAction): String {
+        val ic = currentInputConnection ?: return ""
+        ic.getSelectedText(0)?.toString()?.takeIf { it.isNotBlank() }?.let { return it }
+        return if (action == AiAction.CONTINUE) {
+            ic.getTextBeforeCursor(4000, 0)?.toString().orEmpty()
+        } else {
+            extractFieldText()
+        }
+    }
+
+    fun onAiAction(action: AiAction) {
+        vibrate()
+        if (!AiClient.isConfigured(_uiState.value.settings)) {
+            _uiState.update { it.copy(ai = AiUi.NeedSetup) }
+            return
+        }
+        currentInputConnection?.let { commitComposing(it, autocorrect = false) }
+        val source = aiInputText(action).trim()
+        if (source.isEmpty()) {
+            _uiState.update {
+                it.copy(ai = AiUi.Error(action, "Nothing to work on — type some text first."))
+            }
+            return
+        }
+        runAi(action, source)
+    }
+
+    private fun runAi(action: AiAction, source: String) {
+        aiJob?.cancel()
+        _uiState.update { it.copy(ai = AiUi.Loading(action)) }
+        aiJob = serviceScope.launch {
+            val settings = _uiState.value.settings
+            val system = AiPrompts.systemPrompt(action, settings)
+            val config = AiClient.config(settings)
+            val result = withContext(Dispatchers.IO) {
+                runCatching { AiClient.complete(config, system, source, settings.aiMaxTokens) }
+            }
+            _uiState.update {
+                it.copy(
+                    ai = result.fold(
+                        onSuccess = { text ->
+                            if (text.isBlank()) AiUi.Error(action, "The model returned nothing.")
+                            else AiUi.Ready(action, text, source)
+                        },
+                        onFailure = { e -> AiUi.Error(action, e.message ?: "Request failed") },
+                    ),
+                )
+            }
+        }
+    }
+
+    /** Re-runs the last action on the text it originally saw. */
+    fun onAiRetry() {
+        when (val ai = _uiState.value.ai) {
+            is AiUi.Ready -> { vibrate(); runAi(ai.action, ai.sourceText) }
+            is AiUi.Error -> onAiAction(ai.action)
+            else -> {}
+        }
+    }
+
+    /**
+     * Replaces the field with the result — except for Continue, where
+     * "replace" would delete the text being continued; that appends.
+     */
+    fun onAiReplace() {
+        val ai = _uiState.value.ai as? AiUi.Ready ?: return
+        vibrate()
+        if (ai.action == AiAction.CONTINUE) {
+            currentInputConnection?.commitText(ai.result, 1)
+            return
+        }
+        replaceFieldText(ai.result)
+    }
+
+    fun onAiInsert() {
+        val ai = _uiState.value.ai as? AiUi.Ready ?: return
+        vibrate()
+        currentInputConnection?.commitText(ai.result, 1)
+    }
+
     // ---- tools: dictionary & camera ----
 
     private var dictionaryJob: Job? = null
@@ -2147,6 +2485,7 @@ class WMKeyboardService : InputMethodService() {
             }
             PanelMode.WEB_SEARCH -> runWebSearch(query)
             PanelMode.IMAGE_SEARCH -> runImageSearch(query)
+            PanelMode.WIKIPEDIA -> runWikiSearch(query)
             else -> {}
         }
     }
@@ -2158,6 +2497,11 @@ class WMKeyboardService : InputMethodService() {
             PanelMode.GIF, PanelMode.STICKER -> refreshMedia(_uiState.value.mediaQuery.trim())
             PanelMode.WEB_SEARCH -> runWebSearch(_uiState.value.mediaQuery.trim())
             PanelMode.IMAGE_SEARCH -> runImageSearch(_uiState.value.mediaQuery.trim())
+            PanelMode.WIKIPEDIA -> {
+                val query = _uiState.value.mediaQuery.trim()
+                if (query.isNotEmpty()) runWikiSearch(query)
+                else _uiState.update { it.copy(wiki = WikiUi.Idle, mediaSearchActive = true) }
+            }
             else -> {}
         }
     }

@@ -75,7 +75,15 @@ import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.DocumentScanner
 import androidx.compose.material.icons.outlined.GifBox
 import androidx.compose.material.icons.outlined.ImageSearch
+import androidx.compose.material.icons.outlined.Calculate
+import androidx.compose.material.icons.outlined.CurrencyExchange
+import androidx.compose.material.icons.outlined.Functions
+import androidx.compose.material.icons.outlined.Password
+import androidx.compose.material.icons.outlined.Psychology
+import androidx.compose.material.icons.outlined.Public
+import androidx.compose.material.icons.outlined.QrCode2
 import androidx.compose.material.icons.outlined.QrCodeScanner
+import androidx.compose.material.icons.outlined.SwapHoriz
 import androidx.compose.material.icons.outlined.TextFields
 import androidx.compose.material.icons.outlined.Translate
 import androidx.compose.material.icons.outlined.TravelExplore
@@ -124,6 +132,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import android.provider.OpenableColumns
@@ -143,9 +152,13 @@ import com.wasimaster.wmkeyboard.core.settings.EmojiInsertMode
 import com.wasimaster.wmkeyboard.core.settings.EmojiTabMode
 import com.wasimaster.wmkeyboard.core.settings.HapticStyle
 import com.wasimaster.wmkeyboard.core.settings.KeySoundStyle
+import com.wasimaster.wmkeyboard.core.settings.AiAction
+import com.wasimaster.wmkeyboard.core.settings.AiProvider
 import com.wasimaster.wmkeyboard.core.settings.GifContentFilter
 import com.wasimaster.wmkeyboard.core.settings.GifSourceMode
+import com.wasimaster.wmkeyboard.core.settings.QrEccLevel
 import com.wasimaster.wmkeyboard.core.settings.WebSearchProvider
+import com.wasimaster.wmkeyboard.core.tools.AiPrompts
 import com.wasimaster.wmkeyboard.core.tools.GeoPlace
 import com.wasimaster.wmkeyboard.core.tools.ToolApiKeys
 import com.wasimaster.wmkeyboard.core.tools.TranslateClient
@@ -2071,6 +2084,14 @@ private fun toolTitle(tool: ToolbarTool): String = when (tool) {
     ToolbarTool.DOC_SCAN -> "Document scanner"
     ToolbarTool.VOICE -> "Voice typing"
     ToolbarTool.GRAMMAR -> "Grammar check"
+    ToolbarTool.WIKIPEDIA -> "Wikipedia"
+    ToolbarTool.SYMBOLS -> "Special symbols"
+    ToolbarTool.CALCULATOR -> "Calculator"
+    ToolbarTool.UNIT_CONVERT -> "Unit converter"
+    ToolbarTool.CURRENCY -> "Currency converter"
+    ToolbarTool.QR_GEN -> "QR code generator"
+    ToolbarTool.PASSWORD_GEN -> "Password generator"
+    ToolbarTool.AI -> "AI writing tools"
 }
 
 private fun toolDescription(tool: ToolbarTool): String = when (tool) {
@@ -2108,6 +2129,14 @@ private fun toolDescription(tool: ToolbarTool): String = when (tool) {
     ToolbarTool.DOC_SCAN -> "Scan a document with Google's scanner and send it as an image"
     ToolbarTool.VOICE -> "Dictate text with the device's speech recognizer — English and Bengali"
     ToolbarTool.GRAMMAR -> "Check the text you're writing for grammar issues — fully offline (Harper)"
+    ToolbarTool.WIKIPEDIA -> "Search Wikipedia, read summaries and insert text or links"
+    ToolbarTool.SYMBOLS -> "Fractions, math, Greek, arrows and more — one tap to type"
+    ToolbarTool.CALCULATOR -> "Scientific calculator; insert the result at the cursor"
+    ToolbarTool.UNIT_CONVERT -> "Convert length, mass, temperature, data and 10+ more categories"
+    ToolbarTool.CURRENCY -> "Live exchange rates from free APIs — no key needed"
+    ToolbarTool.QR_GEN -> "Turn the text in the field into a QR code and send it as an image"
+    ToolbarTool.PASSWORD_GEN -> "Strong passwords and passphrases, generated on-device"
+    ToolbarTool.AI -> "Rewrite, summarize, translate and more — your own API key or local server"
 }
 
 private fun toolIconFor(tool: ToolbarTool): androidx.compose.ui.graphics.vector.ImageVector = when (tool) {
@@ -2145,6 +2174,14 @@ private fun toolIconFor(tool: ToolbarTool): androidx.compose.ui.graphics.vector.
     ToolbarTool.DOC_SCAN -> Icons.Outlined.DocumentScanner
     ToolbarTool.VOICE -> Icons.Outlined.Mic
     ToolbarTool.GRAMMAR -> Icons.AutoMirrored.Outlined.FactCheck
+    ToolbarTool.WIKIPEDIA -> Icons.Outlined.Public
+    ToolbarTool.SYMBOLS -> Icons.Outlined.Functions
+    ToolbarTool.CALCULATOR -> Icons.Outlined.Calculate
+    ToolbarTool.UNIT_CONVERT -> Icons.Outlined.SwapHoriz
+    ToolbarTool.CURRENCY -> Icons.Outlined.CurrencyExchange
+    ToolbarTool.QR_GEN -> Icons.Outlined.QrCode2
+    ToolbarTool.PASSWORD_GEN -> Icons.Outlined.Password
+    ToolbarTool.AI -> Icons.Outlined.Psychology
 }
 
 /**
@@ -2170,6 +2207,11 @@ private fun ToolsSettings(settings: KeyboardSettings, onOpenTool: (ToolbarTool) 
         "Online tools" to listOf(
             ToolbarTool.TRANSLATE, ToolbarTool.GIF, ToolbarTool.STICKER,
             ToolbarTool.WEB_SEARCH, ToolbarTool.IMAGE_SEARCH,
+            ToolbarTool.WIKIPEDIA, ToolbarTool.CURRENCY, ToolbarTool.AI,
+        ),
+        "Create & convert" to listOf(
+            ToolbarTool.SYMBOLS, ToolbarTool.CALCULATOR, ToolbarTool.UNIT_CONVERT,
+            ToolbarTool.QR_GEN, ToolbarTool.PASSWORD_GEN,
         ),
         "Keyboard modes" to listOf(
             ToolbarTool.ONE_HANDED, ToolbarTool.SPLIT, ToolbarTool.FLOATING,
@@ -2865,8 +2907,396 @@ private fun ToolDetailSettings(
                 "switches between American, British, Canadian and " +
                 "Australian English.",
         )
+        ToolbarTool.WIKIPEDIA -> {
+            SettingsGroup("Options") {
+                item {
+                    TextFieldSetting(
+                        label = "Wikipedia language",
+                        value = settings.wikiLanguage,
+                        hint = "Subdomain code: en, bn, de, fr, es …",
+                    ) { repository.setWikiLanguage(it) }
+                }
+                item {
+                    ToggleSetting(
+                        "Markdown links",
+                        "Insert links as [Title](url) instead of the bare URL",
+                        settings.wikiLinksMarkdown,
+                    ) { scope.launch { repository.setWikiLinksMarkdown(it) } }
+                }
+            }
+            CaptionText(
+                "Searches and article text come from wikipedia.org's free APIs — " +
+                    "only while you use the tool.",
+            )
+        }
+        ToolbarTool.SYMBOLS -> {
+            SettingsGroup("Recents") {
+                item {
+                    ListItem(
+                        headlineContent = { Text("Clear recent symbols") },
+                        supportingContent = {
+                            Text(
+                                if (settings.symbolRecents.isEmpty()) "No recents yet"
+                                else "${settings.symbolRecents.size} symbols remembered",
+                            )
+                        },
+                        colors = transparentListColors(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { scope.launch { repository.clearSymbolRecents() } },
+                    )
+                }
+            }
+            CaptionText(
+                "Fractions, math operators, Greek letters, arrows, currency signs, " +
+                    "super/subscripts and typographic marks — everything types " +
+                    "locally, like a regular key.",
+            )
+        }
+        ToolbarTool.CALCULATOR -> SettingsGroup("Options") {
+            item {
+                ToggleSetting(
+                    "Degrees",
+                    "Trig functions use degrees; off = radians",
+                    settings.calcDegrees,
+                ) { scope.launch { repository.setCalcDegrees(it) } }
+            }
+            item {
+                SliderSetting(
+                    "Result precision",
+                    subtitle = "Maximum decimal places (also used by the unit converter)",
+                    value = settings.calcPrecision.toFloat(),
+                    range = 0f..12f,
+                    display = "${settings.calcPrecision}",
+                ) { scope.launch { repository.setCalcPrecision(it.roundToInt()) } }
+            }
+        }
+        ToolbarTool.UNIT_CONVERT -> CaptionText(
+            "14 categories — length, mass, temperature, area, volume, speed, " +
+                "time, data, energy, power, pressure, angle, frequency and fuel " +
+                "economy. All conversions run on-device; result precision " +
+                "follows the calculator's setting.",
+        )
+        ToolbarTool.CURRENCY -> CaptionText(
+            "Rates come from open.er-api.com (about 160 currencies, updated " +
+                "daily), with frankfurter.app (European Central Bank) as a " +
+                "fallback — both free, no API key. Rates refresh at most every " +
+                "six hours; the from/to pair you pick on the panel is " +
+                "remembered.",
+        )
+        ToolbarTool.QR_GEN -> {
+            SettingsGroup("Options") {
+                item {
+                    SliderSetting(
+                        "Image size",
+                        subtitle = "Side length of the inserted PNG",
+                        value = settings.qrSizePx.toFloat(),
+                        range = 256f..2048f,
+                        display = "${settings.qrSizePx} px",
+                    ) { scope.launch { repository.setQrSizePx(it.roundToInt()) } }
+                }
+            }
+            SectionHeader("Error correction")
+            SingleChoiceSegmentedButtonRow(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+            ) {
+                QrEccLevel.entries.forEachIndexed { index, level ->
+                    SegmentedButton(
+                        selected = settings.qrEcc == level,
+                        onClick = { scope.launch { repository.setQrEcc(level) } },
+                        shape = SegmentedButtonDefaults.itemShape(index, QrEccLevel.entries.size),
+                    ) { Text(level.name, maxLines = 1) }
+                }
+            }
+            CaptionText(
+                "Higher levels survive more smudging and damage but fit less " +
+                    "text. The code is generated on-device and follows whatever " +
+                    "the text field contains.",
+            )
+        }
+        ToolbarTool.PASSWORD_GEN -> {
+            SettingsGroup("Password") {
+                item {
+                    SliderSetting(
+                        "Length",
+                        value = settings.pwLength.toFloat(),
+                        range = 4f..64f,
+                        display = "${settings.pwLength}",
+                    ) { scope.launch { repository.setPwLength(it.roundToInt()) } }
+                }
+                item {
+                    ToggleSetting("Uppercase letters", "A–Z", settings.pwUppercase) {
+                        scope.launch { repository.setPwUppercase(it) }
+                    }
+                }
+                item {
+                    ToggleSetting("Digits", "0–9", settings.pwDigits) {
+                        scope.launch { repository.setPwDigits(it) }
+                    }
+                }
+                item {
+                    ToggleSetting("Symbols", "!@#\$%…", settings.pwSymbols) {
+                        scope.launch { repository.setPwSymbols(it) }
+                    }
+                }
+                item {
+                    ToggleSetting(
+                        "Exclude look-alikes",
+                        "Skip Il1O0o5S8B and similar",
+                        settings.pwExcludeAmbiguous,
+                    ) { scope.launch { repository.setPwExcludeAmbiguous(it) } }
+                }
+            }
+            SettingsGroup("Passphrase") {
+                item {
+                    SliderSetting(
+                        "Words",
+                        value = settings.ppWordCount.toFloat(),
+                        range = 2f..10f,
+                        display = "${settings.ppWordCount}",
+                    ) { scope.launch { repository.setPpWordCount(it.roundToInt()) } }
+                }
+                item {
+                    TextFieldSetting(
+                        label = "Separator",
+                        value = settings.ppSeparator,
+                        hint = "Between words, e.g. - or . (blank = none)",
+                    ) { repository.setPpSeparator(it) }
+                }
+                item {
+                    ToggleSetting("Capitalize words", "correct-Horse → Correct-Horse", settings.ppCapitalize) {
+                        scope.launch { repository.setPpCapitalize(it) }
+                    }
+                }
+                item {
+                    ToggleSetting("Include a digit", "Appended to a random word", settings.ppIncludeDigit) {
+                        scope.launch { repository.setPpIncludeDigit(it) }
+                    }
+                }
+            }
+            CaptionText(
+                "Everything is generated on this device with a cryptographic " +
+                    "random source, never stored or logged. Passphrase words come " +
+                    "from the keyboard's bundled English dictionary.",
+            )
+        }
+        ToolbarTool.AI -> AiToolSettings(repository, settings)
         else -> {}
     }
+}
+
+/** The AI tool's settings: provider, credentials, output and prompts. */
+@Composable
+private fun AiToolSettings(repository: SettingsRepository, settings: KeyboardSettings) {
+    val scope = rememberCoroutineScope()
+    SectionHeader("Provider")
+    SingleChoiceSegmentedButtonRow(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+    ) {
+        AiProvider.entries.forEachIndexed { index, provider ->
+            SegmentedButton(
+                selected = settings.aiProvider == provider,
+                onClick = { scope.launch { repository.setAiProvider(provider) } },
+                shape = SegmentedButtonDefaults.itemShape(index, AiProvider.entries.size),
+            ) { Text(provider.label, maxLines = 1, fontSize = 11.sp) }
+        }
+    }
+    when (settings.aiProvider) {
+        AiProvider.ANTHROPIC -> SettingsGroup("Claude (Anthropic)") {
+            item {
+                ApiKeyField(
+                    label = "Anthropic API key",
+                    value = settings.aiAnthropicKey,
+                    builtInAvailable = false,
+                    emptyHint = "From console.anthropic.com → API keys",
+                ) { repository.setAiAnthropicKey(it) }
+            }
+            item {
+                TextFieldSetting(
+                    label = "Model",
+                    value = settings.aiAnthropicModel,
+                    hint = "Blank = claude-haiku-4-5-20251001",
+                ) { repository.setAiAnthropicModel(it) }
+            }
+        }
+        AiProvider.OPENAI -> SettingsGroup("OpenAI") {
+            item {
+                ApiKeyField(
+                    label = "OpenAI API key",
+                    value = settings.aiOpenAiKey,
+                    builtInAvailable = false,
+                    emptyHint = "From platform.openai.com → API keys",
+                ) { repository.setAiOpenAiKey(it) }
+            }
+            item {
+                TextFieldSetting(
+                    label = "Model",
+                    value = settings.aiOpenAiModel,
+                    hint = "Blank = gpt-4o-mini",
+                ) { repository.setAiOpenAiModel(it) }
+            }
+        }
+        AiProvider.GEMINI -> SettingsGroup("Gemini (Google)") {
+            item {
+                ApiKeyField(
+                    label = "Gemini API key",
+                    value = settings.aiGeminiKey,
+                    builtInAvailable = false,
+                    emptyHint = "Free tier from aistudio.google.com",
+                ) { repository.setAiGeminiKey(it) }
+            }
+            item {
+                TextFieldSetting(
+                    label = "Model",
+                    value = settings.aiGeminiModel,
+                    hint = "Blank = gemini-2.0-flash",
+                ) { repository.setAiGeminiModel(it) }
+            }
+        }
+        AiProvider.OLLAMA -> SettingsGroup("Ollama server") {
+            item {
+                TextFieldSetting(
+                    label = "Server address",
+                    value = settings.aiOllamaUrl,
+                    hint = "e.g. http://192.168.0.10:11434 (your computer's LAN IP)",
+                ) { repository.setAiOllamaUrl(it) }
+            }
+            item {
+                TextFieldSetting(
+                    label = "Model",
+                    value = settings.aiOllamaModel,
+                    hint = "Blank = llama3.2",
+                ) { repository.setAiOllamaModel(it) }
+            }
+        }
+        AiProvider.LM_STUDIO -> SettingsGroup("LM Studio server") {
+            item {
+                TextFieldSetting(
+                    label = "Server address",
+                    value = settings.aiLmStudioUrl,
+                    hint = "e.g. http://192.168.0.10:1234 (enable the local server in LM Studio)",
+                ) { repository.setAiLmStudioUrl(it) }
+            }
+            item {
+                TextFieldSetting(
+                    label = "Model",
+                    value = settings.aiLmStudioModel,
+                    hint = "Blank = whatever model the server has loaded",
+                ) { repository.setAiLmStudioModel(it) }
+            }
+        }
+    }
+    if (settings.aiProvider == AiProvider.OLLAMA || settings.aiProvider == AiProvider.LM_STUDIO) {
+        CaptionText(
+            "Start Ollama with OLLAMA_HOST=0.0.0.0 (or enable “serve on local " +
+                "network” in LM Studio) so the phone can reach it. Plain-HTTP " +
+                "traffic stays on your network.",
+        )
+    }
+    SettingsGroup("Output") {
+        item {
+            SliderSetting(
+                "Max response length",
+                subtitle = "Upper bound in tokens (≈ ¾ of a word each)",
+                value = settings.aiMaxTokens.toFloat(),
+                range = 64f..4096f,
+                display = "${settings.aiMaxTokens}",
+            ) { scope.launch { repository.setAiMaxTokens(it.roundToInt()) } }
+        }
+        item {
+            TextFieldSetting(
+                label = "Translate action's target language",
+                value = settings.aiTranslateTo,
+                hint = "e.g. English, Bengali, Japanese",
+            ) { repository.setAiTranslateTo(it) }
+        }
+    }
+    SectionHeader("Prompts")
+    CaptionText(
+        "Each action's system prompt, editable. Blank uses the built-in " +
+            "prompt (shown as the hint).",
+    )
+    for (action in AiAction.entries) {
+        val current = when (action) {
+            AiAction.REWRITE -> settings.aiPromptRewrite
+            AiAction.SUMMARIZE -> settings.aiPromptSummarize
+            AiAction.TRANSLATE -> settings.aiPromptTranslate
+            AiAction.IMPROVE -> settings.aiPromptImprove
+            AiAction.FIX_GRAMMAR -> settings.aiPromptFixGrammar
+            AiAction.EXPLAIN -> settings.aiPromptExplain
+            AiAction.CONTINUE -> settings.aiPromptContinue
+        }
+        PromptFieldSetting(
+            label = action.label,
+            value = current,
+            defaultPrompt = AiPrompts.defaultPrompt(action, settings.aiTranslateTo),
+        ) { repository.setAiPrompt(action, it) }
+    }
+    CaptionText(
+        "The text you run an action on is sent to the selected provider, " +
+            "only when you tap the action. Keys are stored on this device.",
+    )
+}
+
+/** A plain saved-as-you-type text setting (same mechanics as ApiKeyField). */
+@Composable
+private fun TextFieldSetting(
+    label: String,
+    value: String,
+    hint: String,
+    onSave: suspend (String) -> Unit,
+) {
+    val scope = rememberCoroutineScope()
+    var text by remember(label) { mutableStateOf(value) }
+    OutlinedTextField(
+        value = text,
+        onValueChange = {
+            text = it
+            scope.launch { onSave(it) }
+        },
+        label = { Text(label) },
+        singleLine = true,
+        supportingText = { Text(hint) },
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp),
+    )
+}
+
+/** Multi-line prompt override; the built-in prompt shows as the hint. */
+@Composable
+private fun PromptFieldSetting(
+    label: String,
+    value: String,
+    defaultPrompt: String,
+    onSave: suspend (String) -> Unit,
+) {
+    val scope = rememberCoroutineScope()
+    var text by remember(label) { mutableStateOf(value) }
+    OutlinedTextField(
+        value = text,
+        onValueChange = {
+            text = it
+            scope.launch { onSave(it) }
+        },
+        label = { Text(label) },
+        minLines = 1,
+        maxLines = 4,
+        supportingText = {
+            Text(
+                if (text.isBlank()) defaultPrompt else "Custom prompt (clear to restore the default)",
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis,
+            )
+        },
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp),
+    )
 }
 
 /**

@@ -96,8 +96,16 @@ import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Pets
 import androidx.compose.material.icons.outlined.DocumentScanner
 import androidx.compose.material.icons.outlined.PhotoCamera
+import androidx.compose.material.icons.outlined.QrCode2
 import androidx.compose.material.icons.outlined.QrCodeScanner
 import androidx.compose.material.icons.outlined.TextFields
+import androidx.compose.material.icons.outlined.Calculate
+import androidx.compose.material.icons.outlined.CurrencyExchange
+import androidx.compose.material.icons.outlined.Functions
+import androidx.compose.material.icons.outlined.Password
+import androidx.compose.material.icons.outlined.Psychology
+import androidx.compose.material.icons.outlined.Public
+import androidx.compose.material.icons.outlined.SwapHoriz
 import androidx.compose.material.icons.automirrored.outlined.FactCheck
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.outlined.Mic
@@ -233,6 +241,7 @@ import com.wasimaster.wmkeyboard.ime.hasMediaSearch
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
 import com.wasimaster.wmkeyboard.ime.LayoutMode
 import com.wasimaster.wmkeyboard.ime.PanelMode
+import com.wasimaster.wmkeyboard.ime.PwSettingAction
 import com.wasimaster.wmkeyboard.ime.SoundHapticAction
 import com.wasimaster.wmkeyboard.ime.TextEditAction
 import com.wasimaster.wmkeyboard.ime.ShiftState
@@ -332,6 +341,20 @@ fun KeyboardScreen(
     onGrammarFix: (GrammarLint, GrammarFix) -> Unit = { _, _ -> },
     onGrammarFixAll: () -> Unit = {},
     onGrammarDialect: (GrammarDialect) -> Unit = {},
+    onWikiOpen: (String) -> Unit = {},
+    onWikiBack: () -> Unit = {},
+    onWikiLoadLinks: () -> Unit = {},
+    onWikiLoadFull: () -> Unit = {},
+    onSymbolInsert: (String) -> Unit = {},
+    onToolInsert: (String) -> Unit = {},
+    onCurrencyPairChange: (String, String) -> Unit = { _, _ -> },
+    onCurrencyRefresh: () -> Unit = {},
+    onPwSetting: (PwSettingAction) -> Unit = {},
+    onQrSend: () -> Unit = {},
+    onAiAction: (com.wasimaster.wmkeyboard.core.settings.AiAction) -> Unit = {},
+    onAiReplace: () -> Unit = {},
+    onAiInsert: () -> Unit = {},
+    onAiRetry: () -> Unit = {},
     onOpenToolSettings: (ToolbarTool) -> Unit = {},
     onOpenSettings: () -> Unit,
 ) {
@@ -378,6 +401,14 @@ fun KeyboardScreen(
             ToolbarTool.DOC_SCAN -> onDocScan()
             ToolbarTool.VOICE -> onPanelChange(PanelMode.VOICE)
             ToolbarTool.GRAMMAR -> onPanelChange(PanelMode.GRAMMAR)
+            ToolbarTool.WIKIPEDIA -> onPanelChange(PanelMode.WIKIPEDIA)
+            ToolbarTool.SYMBOLS -> onPanelChange(PanelMode.SYMBOLS)
+            ToolbarTool.CALCULATOR -> onPanelChange(PanelMode.CALCULATOR)
+            ToolbarTool.UNIT_CONVERT -> onPanelChange(PanelMode.UNIT_CONVERT)
+            ToolbarTool.CURRENCY -> onPanelChange(PanelMode.CURRENCY)
+            ToolbarTool.QR_GEN -> onPanelChange(PanelMode.QR_GEN)
+            ToolbarTool.PASSWORD_GEN -> onPanelChange(PanelMode.PASSWORD_GEN)
+            ToolbarTool.AI -> onPanelChange(PanelMode.AI)
         }
     }
 
@@ -441,6 +472,20 @@ fun KeyboardScreen(
                 onGrammarFix = onGrammarFix,
                 onGrammarFixAll = onGrammarFixAll,
                 onGrammarDialect = onGrammarDialect,
+                onWikiOpen = onWikiOpen,
+                onWikiBack = onWikiBack,
+                onWikiLoadLinks = onWikiLoadLinks,
+                onWikiLoadFull = onWikiLoadFull,
+                onSymbolInsert = onSymbolInsert,
+                onToolInsert = onToolInsert,
+                onCurrencyPairChange = onCurrencyPairChange,
+                onCurrencyRefresh = onCurrencyRefresh,
+                onPwSetting = onPwSetting,
+                onQrSend = onQrSend,
+                onAiAction = onAiAction,
+                onAiReplace = onAiReplace,
+                onAiInsert = onAiInsert,
+                onAiRetry = onAiRetry,
                 onOpenToolSettings = onOpenToolSettings,
             )
         }
@@ -1016,6 +1061,14 @@ private fun toolIcon(tool: ToolbarTool): ImageVector = when (tool) {
     ToolbarTool.DOC_SCAN -> Icons.Outlined.DocumentScanner
     ToolbarTool.VOICE -> Icons.Outlined.Mic
     ToolbarTool.GRAMMAR -> Icons.AutoMirrored.Outlined.FactCheck
+    ToolbarTool.WIKIPEDIA -> Icons.Outlined.Public
+    ToolbarTool.SYMBOLS -> Icons.Outlined.Functions
+    ToolbarTool.CALCULATOR -> Icons.Outlined.Calculate
+    ToolbarTool.UNIT_CONVERT -> Icons.Outlined.SwapHoriz
+    ToolbarTool.CURRENCY -> Icons.Outlined.CurrencyExchange
+    ToolbarTool.QR_GEN -> Icons.Outlined.QrCode2
+    ToolbarTool.PASSWORD_GEN -> Icons.Outlined.Password
+    ToolbarTool.AI -> Icons.Outlined.Psychology
 }
 
 private fun toolLabel(tool: ToolbarTool): String = when (tool) {
@@ -1053,6 +1106,14 @@ private fun toolLabel(tool: ToolbarTool): String = when (tool) {
     ToolbarTool.DOC_SCAN -> "Doc scan"
     ToolbarTool.VOICE -> "Voice"
     ToolbarTool.GRAMMAR -> "Grammar"
+    ToolbarTool.WIKIPEDIA -> "Wikipedia"
+    ToolbarTool.SYMBOLS -> "Symbols"
+    ToolbarTool.CALCULATOR -> "Calculator"
+    ToolbarTool.UNIT_CONVERT -> "Units"
+    ToolbarTool.CURRENCY -> "Currency"
+    ToolbarTool.QR_GEN -> "QR code"
+    ToolbarTool.PASSWORD_GEN -> "Password"
+    ToolbarTool.AI -> "AI"
 }
 
 private fun toolActive(tool: ToolbarTool, state: KeyboardUiState): Boolean = when (tool) {
@@ -1090,6 +1151,14 @@ private fun toolActive(tool: ToolbarTool, state: KeyboardUiState): Boolean = whe
     ToolbarTool.DOC_SCAN -> false
     ToolbarTool.VOICE -> state.panel == PanelMode.VOICE || state.voice.strip
     ToolbarTool.GRAMMAR -> state.panel == PanelMode.GRAMMAR
+    ToolbarTool.WIKIPEDIA -> state.panel == PanelMode.WIKIPEDIA
+    ToolbarTool.SYMBOLS -> state.panel == PanelMode.SYMBOLS
+    ToolbarTool.CALCULATOR -> state.panel == PanelMode.CALCULATOR
+    ToolbarTool.UNIT_CONVERT -> state.panel == PanelMode.UNIT_CONVERT
+    ToolbarTool.CURRENCY -> state.panel == PanelMode.CURRENCY
+    ToolbarTool.QR_GEN -> state.panel == PanelMode.QR_GEN
+    ToolbarTool.PASSWORD_GEN -> state.panel == PanelMode.PASSWORD_GEN
+    ToolbarTool.AI -> state.panel == PanelMode.AI
 }
 
 /**
@@ -1691,6 +1760,20 @@ private fun KeyboardBody(
     onGrammarFix: (GrammarLint, GrammarFix) -> Unit,
     onGrammarFixAll: () -> Unit,
     onGrammarDialect: (GrammarDialect) -> Unit,
+    onWikiOpen: (String) -> Unit,
+    onWikiBack: () -> Unit,
+    onWikiLoadLinks: () -> Unit,
+    onWikiLoadFull: () -> Unit,
+    onSymbolInsert: (String) -> Unit,
+    onToolInsert: (String) -> Unit,
+    onCurrencyPairChange: (String, String) -> Unit,
+    onCurrencyRefresh: () -> Unit,
+    onPwSetting: (PwSettingAction) -> Unit,
+    onQrSend: () -> Unit,
+    onAiAction: (com.wasimaster.wmkeyboard.core.settings.AiAction) -> Unit,
+    onAiReplace: () -> Unit,
+    onAiInsert: () -> Unit,
+    onAiRetry: () -> Unit,
     onOpenToolSettings: (ToolbarTool) -> Unit,
 ) {
     val drag = remember { ToolDragController() }
@@ -1842,6 +1925,35 @@ private fun KeyboardBody(
                     onRetry = onMediaRetry,
                     onResult = onImageResult,
                     onResultLink = onImageResultLink,
+                    onOpenToolSettings = onOpenToolSettings,
+                )
+                PanelMode.WIKIPEDIA -> WikipediaPanel(
+                    state = state,
+                    onQueryTap = onMediaQueryTap,
+                    onRetry = onMediaRetry,
+                    onOpen = onWikiOpen,
+                    onBack = onWikiBack,
+                    onLoadLinks = onWikiLoadLinks,
+                    onLoadFull = onWikiLoadFull,
+                    onInsert = onToolInsert,
+                )
+                PanelMode.SYMBOLS -> SymbolsPanel(state, onSymbolInsert)
+                PanelMode.CALCULATOR -> CalculatorPanel(state, onToolInsert)
+                PanelMode.UNIT_CONVERT -> UnitConverterPanel(state, onToolInsert)
+                PanelMode.CURRENCY -> CurrencyPanel(
+                    state = state,
+                    onPairChange = onCurrencyPairChange,
+                    onRefresh = onCurrencyRefresh,
+                    onInsert = onToolInsert,
+                )
+                PanelMode.QR_GEN -> QrGeneratorPanel(state, onQrSend)
+                PanelMode.PASSWORD_GEN -> PasswordPanel(state, onPwSetting, onToolInsert)
+                PanelMode.AI -> AiPanel(
+                    state = state,
+                    onAction = onAiAction,
+                    onReplace = onAiReplace,
+                    onInsert = onAiInsert,
+                    onRetry = onAiRetry,
                     onOpenToolSettings = onOpenToolSettings,
                 )
                 PanelMode.NONE -> KeyRows(state, onKey, onText, onGesture, onGesturePreview, onCursorMove, onLanguageSelect)

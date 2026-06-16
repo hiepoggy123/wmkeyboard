@@ -19,6 +19,7 @@ enum class PanelMode {
     THEMES, SOUND_HAPTICS, NUMPAD, HANDWRITING, CAMERA, DICTIONARY,
     TRANSLATE, GIF, STICKER, WEB_SEARCH, IMAGE_SEARCH,
     OCR, QR_SCAN, VOICE, GRAMMAR,
+    WIKIPEDIA, SYMBOLS, CALCULATOR, UNIT_CONVERT, CURRENCY, QR_GEN, PASSWORD_GEN, AI,
 }
 
 /**
@@ -27,7 +28,8 @@ enum class PanelMode {
  */
 val PanelMode.hasMediaSearch: Boolean
     get() = this == PanelMode.GIF || this == PanelMode.STICKER ||
-        this == PanelMode.WEB_SEARCH || this == PanelMode.IMAGE_SEARCH
+        this == PanelMode.WEB_SEARCH || this == PanelMode.IMAGE_SEARCH ||
+        this == PanelMode.WIKIPEDIA
 
 /** Readiness of the handwriting panel's recognition model. */
 enum class HandwritingStatus { CHECKING, NEED_MODEL, DOWNLOADING, READY, ERROR }
@@ -80,6 +82,20 @@ data class VoiceUi(
     /** Download percent while [modelState] is DOWNLOADING, -1 when unknown. */
     val modelProgress: Int = -1,
 )
+
+/** One change made from the password generator panel (all persisted). */
+sealed interface PwSettingAction {
+    data class PassphraseMode(val on: Boolean) : PwSettingAction
+    data class Length(val value: Int) : PwSettingAction
+    data class Upper(val on: Boolean) : PwSettingAction
+    data class Digits(val on: Boolean) : PwSettingAction
+    data class Symbols(val on: Boolean) : PwSettingAction
+    data class ExcludeAmbiguous(val on: Boolean) : PwSettingAction
+    data class Words(val value: Int) : PwSettingAction
+    data class Separator(val value: String) : PwSettingAction
+    data class Capitalize(val on: Boolean) : PwSettingAction
+    data class IncludeDigit(val on: Boolean) : PwSettingAction
+}
 
 /** One change made from the sound & haptics quick panel. */
 sealed interface SoundHapticAction {
@@ -159,6 +175,58 @@ data class GrammarUi(
     /** Native Harper library present in this build. */
     val available: Boolean = true,
 )
+
+/** Wikipedia panel state, owned by the service (it does the fetching). */
+sealed interface WikiUi {
+    /** Nothing searched yet — the panel opens into its search box. */
+    data object Idle : WikiUi
+    data object Loading : WikiUi
+    data class Error(val message: String) : WikiUi
+    data class SearchResults(
+        val results: List<com.wasimaster.wmkeyboard.core.tools.WikipediaClient.SearchResult>,
+        val query: String,
+    ) : WikiUi
+    /**
+     * One article: summary always present; [links] and [fullText] load
+     * lazily when their tab is first opened. [canGoBack] returns to the
+     * search results this article came from.
+     */
+    data class Article(
+        val summary: com.wasimaster.wmkeyboard.core.tools.WikipediaClient.Summary,
+        val links: List<String>? = null,
+        val fullText: String? = null,
+        val loadingExtra: Boolean = false,
+        val canGoBack: Boolean = false,
+    ) : WikiUi
+}
+
+/** Currency converter state; rates are cross-computed from one USD table. */
+sealed interface CurrencyUi {
+    data object Loading : CurrencyUi
+    data class Error(val message: String) : CurrencyUi
+    data class Ready(
+        val rates: com.wasimaster.wmkeyboard.core.tools.CurrencyClient.Rates,
+        val fetchedAtMs: Long,
+    ) : CurrencyUi
+}
+
+/** AI tool state, owned by the service (it makes the provider request). */
+sealed interface AiUi {
+    /** Selected provider has no key/URL configured yet. */
+    data object NeedSetup : AiUi
+    data object Idle : AiUi
+    data class Loading(val action: com.wasimaster.wmkeyboard.core.settings.AiAction) : AiUi
+    data class Ready(
+        val action: com.wasimaster.wmkeyboard.core.settings.AiAction,
+        val result: String,
+        /** Text the action ran on, for the retry button. */
+        val sourceText: String,
+    ) : AiUi
+    data class Error(
+        val action: com.wasimaster.wmkeyboard.core.settings.AiAction,
+        val message: String,
+    ) : AiUi
+}
 
 /** Weather panel state, owned by the service (it does the fetching). */
 sealed interface WeatherUi {
@@ -255,4 +323,9 @@ data class KeyboardUiState(
     val imageSearch: ImageSearchUi = ImageSearchUi.Idle,
     val translate: TranslateUi = TranslateUi(),
     val grammar: GrammarUi = GrammarUi(),
+    val wiki: WikiUi = WikiUi.Idle,
+    val currency: CurrencyUi = CurrencyUi.Loading,
+    val ai: AiUi = AiUi.Idle,
+    /** Focused field's text, mirrored for the QR-generator panel. */
+    val qrText: String = "",
 )

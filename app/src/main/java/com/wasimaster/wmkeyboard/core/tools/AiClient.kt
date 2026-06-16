@@ -1,0 +1,184 @@
+package com.wasimaster.wmkeyboard.core.tools
+
+import com.wasimaster.wmkeyboard.core.settings.AiProvider
+import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.add
+import kotlinx.serialization.json.buildJsonArray
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonObject
+
+/**
+ * One-shot chat completion against the AI tool's configured provider —
+ * Anthropic, OpenAI, Gemini, or a self-hosted Ollama / LM Studio server
+ * (OpenAI-compatible). Bring-your-own-key: keys and base URLs live in the
+ * tool's settings; nothing is sent anywhere until the user runs an action.
+ */
+object AiClient {
+
+    private val json = Json { ignoreUnknownKeys = true }
+
+    /** Resolved connection details for one provider, from settings. */
+    data class Config(
+        val provider: AiProvider,
+        val apiKey: String,
+        val model: String,
+        val baseUrl: String,
+    )
+
+    fun config(settings: KeyboardSettings): Config = when (settings.aiProvider) {
+        AiProvider.ANTHROPIC -> Config(
+            AiProvider.ANTHROPIC, settings.aiAnthropicKey,
+            settings.aiAnthropicModel.ifBlank { "claude-haiku-4-5-20251001" }, "",
+        )
+        AiProvider.OPENAI -> Config(
+            AiProvider.OPENAI, settings.aiOpenAiKey,
+            settings.aiOpenAiModel.ifBlank { "gpt-4o-mini" }, "",
+        )
+        AiProvider.GEMINI -> Config(
+            AiProvider.GEMINI, settings.aiGeminiKey,
+            settings.aiGeminiModel.ifBlank { "gemini-2.0-flash" }, "",
+        )
+        AiProvider.OLLAMA -> Config(
+            AiProvider.OLLAMA, "",
+            settings.aiOllamaModel.ifBlank { "llama3.2" },
+            settings.aiOllamaUrl,
+        )
+        AiProvider.LM_STUDIO -> Config(
+            AiProvider.LM_STUDIO, "",
+            settings.aiLmStudioModel,
+            settings.aiLmStudioUrl,
+        )
+    }
+
+    /** Whether the selected provider has what it needs to make a request. */
+    fun isConfigured(settings: KeyboardSettings): Boolean {
+        val config = config(settings)
+        return when (config.provider) {
+            AiProvider.OLLAMA, AiProvider.LM_STUDIO -> config.baseUrl.isNotBlank()
+            else -> config.apiKey.isNotBlank()
+        }
+    }
+
+    /** Runs one system+user exchange, returning the assistant's text. */
+    fun complete(config: Config, system: String, user: String, maxTokens: Int): String =
+        when (config.provider) {
+            AiProvider.ANTHROPIC -> anthropic(config, system, user, maxTokens)
+            AiProvider.OPENAI -> openAiCompatible(
+                "https://api.openai.com/v1/chat/completions", config, system, user, maxTokens,
+            )
+            AiProvider.GEMINI -> gemini(config, system, user, maxTokens)
+            AiProvider.OLLAMA -> ollama(config, system, user)
+            AiProvider.LM_STUDIO -> openAiCompatible(
+                "${config.baseUrl.trimEnd('/')}/v1/chat/completions", config, system, user, maxTokens,
+            )
+        }
+
+    private fun anthropic(config: Config, system: String, user: String, maxTokens: Int): String {
+        val body = buildJsonObject {
+            put("model", config.model)
+            put("max_tokens", maxTokens)
+            put("system", system)
+            put("messages", buildJsonArray {
+                add(buildJsonObject {
+                    put("role", "user")
+                    put("content", user)
+                })
+            })
+        }.toString()
+        val response = ToolHttp.postJson(
+            "https://api.anthropic.com/v1/messages",
+            body,
+            headers = mapOf(
+                "x-api-key" to config.apiKey,
+                "anthropic-version" to "2023-06-01",
+            ),
+        )
+        return parseAnthropic(response)
+    }
+
+    internal fun parseAnthropic(body: String): String =
+        json.parseToJsonElement(body).jsonObject["content"]?.jsonArray
+            ?.firstNotNullOfOrNull { block ->
+                block.jsonObject.takeIf { it["type"]?.jsonPrimitive?.content == "text" }
+                    ?.get("text")?.jsonPrimitive?.content
+            }.orEmpty().trim()
+
+    private fun openAiCompatible(
+        url: String,
+        config: Config,
+        system: String,
+        user: String,
+        maxTokens: Int,
+    ): String {
+        val body = buildJsonObject {
+            if (config.model.isNotBlank()) put("model", config.model)
+            put("max_tokens", maxTokens)
+            put("messages", buildJsonArray {
+                add(buildJsonObject { put("role", "system"); put("content", system) })
+                add(buildJsonObject { put("role", "user"); put("content", user) })
+            })
+        }.toString()
+        val headers = if (config.apiKey.isNotBlank()) {
+            mapOf("Authorization" to "Bearer ${config.apiKey}")
+        } else {
+            emptyMap()
+        }
+        return parseOpenAi(ToolHttp.postJson(url, body, headers = headers))
+    }
+
+    internal fun parseOpenAi(body: String): String =
+        json.parseToJsonElement(body).jsonObject["choices"]?.jsonArray
+            ?.firstOrNull()?.jsonObject?.get("message")?.jsonObject
+            ?.get("content")?.jsonPrimitive?.content.orEmpty().trim()
+
+    private fun gemini(config: Config, system: String, user: String, maxTokens: Int): String {
+        val body = buildJsonObject {
+            putJsonObject("system_instruction") {
+                put("parts", buildJsonArray { add(buildJsonObject { put("text", system) }) })
+            }
+            put("contents", buildJsonArray {
+                add(buildJsonObject {
+                    put("role", "user")
+                    put("parts", buildJsonArray { add(buildJsonObject { put("text", user) }) })
+                })
+            })
+            putJsonObject("generationConfig") { put("maxOutputTokens", maxTokens) }
+        }.toString()
+        val url = "https://generativelanguage.googleapis.com/v1beta/models/" +
+            "${config.model}:generateContent"
+        val response = ToolHttp.postJson(
+            url, body, headers = mapOf("x-goog-api-key" to config.apiKey),
+        )
+        return parseGemini(response)
+    }
+
+    internal fun parseGemini(body: String): String =
+        json.parseToJsonElement(body).jsonObject["candidates"]?.jsonArray
+            ?.firstOrNull()?.jsonObject?.get("content")?.jsonObject
+            ?.get("parts")?.jsonArray
+            ?.mapNotNull { it.jsonObject["text"]?.jsonPrimitive?.content }
+            ?.joinToString("").orEmpty().trim()
+
+    private fun ollama(config: Config, system: String, user: String): String {
+        val body = buildJsonObject {
+            put("model", config.model)
+            put("stream", false)
+            put("messages", buildJsonArray {
+                add(buildJsonObject { put("role", "system"); put("content", system) })
+                add(buildJsonObject { put("role", "user"); put("content", user) })
+            })
+        }.toString()
+        return parseOllama(
+            ToolHttp.postJson("${config.baseUrl.trimEnd('/')}/api/chat", body, timeoutMs = 120_000),
+        )
+    }
+
+    internal fun parseOllama(body: String): String =
+        json.parseToJsonElement(body).jsonObject["message"]?.jsonObject
+            ?.get("content")?.jsonPrimitive?.content.orEmpty().trim()
+}

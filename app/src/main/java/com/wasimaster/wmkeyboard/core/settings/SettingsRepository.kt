@@ -78,7 +78,24 @@ enum class ToolbarTool {
     INCOGNITO, THEMES, AUTOCORRECT, SOUND_HAPTICS, NUMPAD, HANDWRITING, CAMERA,
     DICTIONARY, TRANSLATE, GIF, STICKER, WEB_SEARCH, IMAGE_SEARCH,
     OCR, QR_SCAN, DOC_SCAN, VOICE, GRAMMAR,
+    WIKIPEDIA, SYMBOLS, CALCULATOR, UNIT_CONVERT, CURRENCY, QR_GEN, PASSWORD_GEN, AI,
 }
+
+/** Backend for the AI tool — cloud APIs (bring your own key) or a self-hosted server. */
+enum class AiProvider(val label: String) {
+    ANTHROPIC("Claude"), OPENAI("OpenAI"), GEMINI("Gemini"),
+    OLLAMA("Ollama"), LM_STUDIO("LM Studio"),
+}
+
+/** One-tap writing actions on the AI tool's panel. */
+enum class AiAction(val label: String) {
+    REWRITE("Rewrite"), SUMMARIZE("Summarize"), TRANSLATE("Translate"),
+    IMPROVE("Improve"), FIX_GRAMMAR("Fix grammar"), EXPLAIN("Explain"),
+    CONTINUE("Continue"),
+}
+
+/** Error-correction level for generated QR codes (higher = more redundant). */
+enum class QrEccLevel { L, M, Q, H }
 
 /**
  * English dialect the offline grammar tool lints against. Ordinals are the
@@ -351,6 +368,58 @@ data class KeyboardSettings(
     val searchProvider: WebSearchProvider = WebSearchProvider.BRAVE,
     /** Results per web/image search (the API caps a page at 10). */
     val searchResultCount: Int = 8,
+    /** Wikipedia subdomain the encyclopedia tool reads (en, bn, de …). */
+    val wikiLanguage: String = "en",
+    /** Insert Wikipedia links as `[Title](url)` instead of the bare URL. */
+    val wikiLinksMarkdown: Boolean = false,
+    /** Recently used special symbols, newest first (symbols tool). */
+    val symbolRecents: List<String> = emptyList(),
+    /** Trig in degrees (off = radians) for the calculator tool. */
+    val calcDegrees: Boolean = true,
+    /** Decimal places in calculator/converter results. */
+    val calcPrecision: Int = 8,
+    /** Currency codes the converter starts on. */
+    val currencyFrom: String = "USD",
+    val currencyTo: String = "BDT",
+    // Password generator defaults (the panel tweaks these live).
+    val pwLength: Int = 16,
+    val pwUppercase: Boolean = true,
+    val pwDigits: Boolean = true,
+    val pwSymbols: Boolean = true,
+    /** Skip look-alikes (Il1O0…) for passwords read aloud or retyped. */
+    val pwExcludeAmbiguous: Boolean = false,
+    /** Generator opens in passphrase mode instead of password mode. */
+    val pwPassphraseMode: Boolean = false,
+    val ppWordCount: Int = 4,
+    val ppSeparator: String = "-",
+    val ppCapitalize: Boolean = false,
+    val ppIncludeDigit: Boolean = false,
+    /** Side length of the QR image the generator inserts. */
+    val qrSizePx: Int = 512,
+    val qrEcc: QrEccLevel = QrEccLevel.M,
+    // AI tool: provider, per-provider keys/models, self-hosted URLs and
+    // per-action prompt overrides (blank = built-in prompt).
+    val aiProvider: AiProvider = AiProvider.ANTHROPIC,
+    val aiAnthropicKey: String = "",
+    val aiOpenAiKey: String = "",
+    val aiGeminiKey: String = "",
+    val aiAnthropicModel: String = "",
+    val aiOpenAiModel: String = "",
+    val aiGeminiModel: String = "",
+    val aiOllamaUrl: String = "",
+    val aiOllamaModel: String = "",
+    val aiLmStudioUrl: String = "",
+    val aiLmStudioModel: String = "",
+    val aiMaxTokens: Int = 1024,
+    /** Target language of the AI translate action. */
+    val aiTranslateTo: String = "English",
+    val aiPromptRewrite: String = "",
+    val aiPromptSummarize: String = "",
+    val aiPromptTranslate: String = "",
+    val aiPromptImprove: String = "",
+    val aiPromptFixGrammar: String = "",
+    val aiPromptExplain: String = "",
+    val aiPromptContinue: String = "",
 )
 
 /**
@@ -487,6 +556,46 @@ class SettingsRepository(private val context: Context) {
         private val GIF_CONTENT_FILTER = stringPreferencesKey("gif_content_filter")
         private val SEARCH_SAFE = booleanPreferencesKey("search_safe")
         private val SEARCH_RESULT_COUNT = intPreferencesKey("search_result_count")
+        private val WIKI_LANGUAGE = stringPreferencesKey("wiki_language")
+        private val WIKI_LINKS_MARKDOWN = booleanPreferencesKey("wiki_links_markdown")
+        // Tab-separated (symbols are single graphemes; some are commas).
+        private val SYMBOL_RECENTS = stringPreferencesKey("symbol_recents")
+        private val CALC_DEGREES = booleanPreferencesKey("calc_degrees")
+        private val CALC_PRECISION = intPreferencesKey("calc_precision")
+        private val CURRENCY_FROM = stringPreferencesKey("currency_from")
+        private val CURRENCY_TO = stringPreferencesKey("currency_to")
+        private val PW_LENGTH = intPreferencesKey("pw_length")
+        private val PW_UPPERCASE = booleanPreferencesKey("pw_uppercase")
+        private val PW_DIGITS = booleanPreferencesKey("pw_digits")
+        private val PW_SYMBOLS = booleanPreferencesKey("pw_symbols")
+        private val PW_EXCLUDE_AMBIGUOUS = booleanPreferencesKey("pw_exclude_ambiguous")
+        private val PW_PASSPHRASE_MODE = booleanPreferencesKey("pw_passphrase_mode")
+        private val PP_WORD_COUNT = intPreferencesKey("pp_word_count")
+        private val PP_SEPARATOR = stringPreferencesKey("pp_separator")
+        private val PP_CAPITALIZE = booleanPreferencesKey("pp_capitalize")
+        private val PP_INCLUDE_DIGIT = booleanPreferencesKey("pp_include_digit")
+        private val QR_SIZE_PX = intPreferencesKey("qr_size_px")
+        private val QR_ECC = stringPreferencesKey("qr_ecc")
+        private val AI_PROVIDER = stringPreferencesKey("ai_provider")
+        private val AI_ANTHROPIC_KEY = stringPreferencesKey("ai_anthropic_key")
+        private val AI_OPENAI_KEY = stringPreferencesKey("ai_openai_key")
+        private val AI_GEMINI_KEY = stringPreferencesKey("ai_gemini_key")
+        private val AI_ANTHROPIC_MODEL = stringPreferencesKey("ai_anthropic_model")
+        private val AI_OPENAI_MODEL = stringPreferencesKey("ai_openai_model")
+        private val AI_GEMINI_MODEL = stringPreferencesKey("ai_gemini_model")
+        private val AI_OLLAMA_URL = stringPreferencesKey("ai_ollama_url")
+        private val AI_OLLAMA_MODEL = stringPreferencesKey("ai_ollama_model")
+        private val AI_LM_STUDIO_URL = stringPreferencesKey("ai_lm_studio_url")
+        private val AI_LM_STUDIO_MODEL = stringPreferencesKey("ai_lm_studio_model")
+        private val AI_MAX_TOKENS = intPreferencesKey("ai_max_tokens")
+        private val AI_TRANSLATE_TO = stringPreferencesKey("ai_translate_to")
+        private val AI_PROMPT_REWRITE = stringPreferencesKey("ai_prompt_rewrite")
+        private val AI_PROMPT_SUMMARIZE = stringPreferencesKey("ai_prompt_summarize")
+        private val AI_PROMPT_TRANSLATE = stringPreferencesKey("ai_prompt_translate")
+        private val AI_PROMPT_IMPROVE = stringPreferencesKey("ai_prompt_improve")
+        private val AI_PROMPT_FIX_GRAMMAR = stringPreferencesKey("ai_prompt_fix_grammar")
+        private val AI_PROMPT_EXPLAIN = stringPreferencesKey("ai_prompt_explain")
+        private val AI_PROMPT_CONTINUE = stringPreferencesKey("ai_prompt_continue")
     }
 
     val settings: Flow<KeyboardSettings> = context.dataStore.data.map { p ->
@@ -660,6 +769,49 @@ class SettingsRepository(private val context: Context) {
                 ?: defaults.gifContentFilter,
             searchSafe = p[SEARCH_SAFE] ?: defaults.searchSafe,
             searchResultCount = p[SEARCH_RESULT_COUNT] ?: defaults.searchResultCount,
+            wikiLanguage = p[WIKI_LANGUAGE] ?: defaults.wikiLanguage,
+            wikiLinksMarkdown = p[WIKI_LINKS_MARKDOWN] ?: defaults.wikiLinksMarkdown,
+            symbolRecents = p[SYMBOL_RECENTS]?.split('\t')?.filter { it.isNotEmpty() }
+                ?: defaults.symbolRecents,
+            calcDegrees = p[CALC_DEGREES] ?: defaults.calcDegrees,
+            calcPrecision = p[CALC_PRECISION] ?: defaults.calcPrecision,
+            currencyFrom = p[CURRENCY_FROM] ?: defaults.currencyFrom,
+            currencyTo = p[CURRENCY_TO] ?: defaults.currencyTo,
+            pwLength = p[PW_LENGTH] ?: defaults.pwLength,
+            pwUppercase = p[PW_UPPERCASE] ?: defaults.pwUppercase,
+            pwDigits = p[PW_DIGITS] ?: defaults.pwDigits,
+            pwSymbols = p[PW_SYMBOLS] ?: defaults.pwSymbols,
+            pwExcludeAmbiguous = p[PW_EXCLUDE_AMBIGUOUS] ?: defaults.pwExcludeAmbiguous,
+            pwPassphraseMode = p[PW_PASSPHRASE_MODE] ?: defaults.pwPassphraseMode,
+            ppWordCount = p[PP_WORD_COUNT] ?: defaults.ppWordCount,
+            ppSeparator = p[PP_SEPARATOR] ?: defaults.ppSeparator,
+            ppCapitalize = p[PP_CAPITALIZE] ?: defaults.ppCapitalize,
+            ppIncludeDigit = p[PP_INCLUDE_DIGIT] ?: defaults.ppIncludeDigit,
+            qrSizePx = p[QR_SIZE_PX] ?: defaults.qrSizePx,
+            qrEcc = p[QR_ECC]?.let { runCatching { QrEccLevel.valueOf(it) }.getOrNull() }
+                ?: defaults.qrEcc,
+            aiProvider = p[AI_PROVIDER]
+                ?.let { runCatching { AiProvider.valueOf(it) }.getOrNull() }
+                ?: defaults.aiProvider,
+            aiAnthropicKey = p[AI_ANTHROPIC_KEY] ?: defaults.aiAnthropicKey,
+            aiOpenAiKey = p[AI_OPENAI_KEY] ?: defaults.aiOpenAiKey,
+            aiGeminiKey = p[AI_GEMINI_KEY] ?: defaults.aiGeminiKey,
+            aiAnthropicModel = p[AI_ANTHROPIC_MODEL] ?: defaults.aiAnthropicModel,
+            aiOpenAiModel = p[AI_OPENAI_MODEL] ?: defaults.aiOpenAiModel,
+            aiGeminiModel = p[AI_GEMINI_MODEL] ?: defaults.aiGeminiModel,
+            aiOllamaUrl = p[AI_OLLAMA_URL] ?: defaults.aiOllamaUrl,
+            aiOllamaModel = p[AI_OLLAMA_MODEL] ?: defaults.aiOllamaModel,
+            aiLmStudioUrl = p[AI_LM_STUDIO_URL] ?: defaults.aiLmStudioUrl,
+            aiLmStudioModel = p[AI_LM_STUDIO_MODEL] ?: defaults.aiLmStudioModel,
+            aiMaxTokens = p[AI_MAX_TOKENS] ?: defaults.aiMaxTokens,
+            aiTranslateTo = p[AI_TRANSLATE_TO] ?: defaults.aiTranslateTo,
+            aiPromptRewrite = p[AI_PROMPT_REWRITE] ?: defaults.aiPromptRewrite,
+            aiPromptSummarize = p[AI_PROMPT_SUMMARIZE] ?: defaults.aiPromptSummarize,
+            aiPromptTranslate = p[AI_PROMPT_TRANSLATE] ?: defaults.aiPromptTranslate,
+            aiPromptImprove = p[AI_PROMPT_IMPROVE] ?: defaults.aiPromptImprove,
+            aiPromptFixGrammar = p[AI_PROMPT_FIX_GRAMMAR] ?: defaults.aiPromptFixGrammar,
+            aiPromptExplain = p[AI_PROMPT_EXPLAIN] ?: defaults.aiPromptExplain,
+            aiPromptContinue = p[AI_PROMPT_CONTINUE] ?: defaults.aiPromptContinue,
         )
     }
 
@@ -1086,4 +1238,123 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setSearchResultCount(value: Int) =
         context.dataStore.edit { it[SEARCH_RESULT_COUNT] = value.coerceIn(1, 10) }
+
+    suspend fun setWikiLanguage(value: String) =
+        context.dataStore.edit { it[WIKI_LANGUAGE] = value.trim().lowercase() }
+
+    suspend fun setWikiLinksMarkdown(value: Boolean) =
+        context.dataStore.edit { it[WIKI_LINKS_MARKDOWN] = value }
+
+    /** Pushes one symbol to the front of the recents row (capped, deduped). */
+    suspend fun addSymbolRecent(symbol: String) =
+        context.dataStore.edit { prefs ->
+            val current = prefs[SYMBOL_RECENTS]?.split('\t')?.filter { it.isNotEmpty() }
+                ?: emptyList()
+            prefs[SYMBOL_RECENTS] =
+                (listOf(symbol) + current.filter { it != symbol }).take(24).joinToString("\t")
+        }
+
+    suspend fun clearSymbolRecents() =
+        context.dataStore.edit { it.remove(SYMBOL_RECENTS) }
+
+    suspend fun setCalcDegrees(value: Boolean) =
+        context.dataStore.edit { it[CALC_DEGREES] = value }
+
+    suspend fun setCalcPrecision(value: Int) =
+        context.dataStore.edit { it[CALC_PRECISION] = value.coerceIn(0, 12) }
+
+    suspend fun setCurrencyPair(from: String, to: String) =
+        context.dataStore.edit {
+            it[CURRENCY_FROM] = from.trim().uppercase()
+            it[CURRENCY_TO] = to.trim().uppercase()
+        }
+
+    suspend fun setPwLength(value: Int) =
+        context.dataStore.edit { it[PW_LENGTH] = value.coerceIn(4, 64) }
+
+    suspend fun setPwUppercase(value: Boolean) =
+        context.dataStore.edit { it[PW_UPPERCASE] = value }
+
+    suspend fun setPwDigits(value: Boolean) =
+        context.dataStore.edit { it[PW_DIGITS] = value }
+
+    suspend fun setPwSymbols(value: Boolean) =
+        context.dataStore.edit { it[PW_SYMBOLS] = value }
+
+    suspend fun setPwExcludeAmbiguous(value: Boolean) =
+        context.dataStore.edit { it[PW_EXCLUDE_AMBIGUOUS] = value }
+
+    suspend fun setPwPassphraseMode(value: Boolean) =
+        context.dataStore.edit { it[PW_PASSPHRASE_MODE] = value }
+
+    suspend fun setPpWordCount(value: Int) =
+        context.dataStore.edit { it[PP_WORD_COUNT] = value.coerceIn(2, 10) }
+
+    suspend fun setPpSeparator(value: String) =
+        context.dataStore.edit { it[PP_SEPARATOR] = value.take(3) }
+
+    suspend fun setPpCapitalize(value: Boolean) =
+        context.dataStore.edit { it[PP_CAPITALIZE] = value }
+
+    suspend fun setPpIncludeDigit(value: Boolean) =
+        context.dataStore.edit { it[PP_INCLUDE_DIGIT] = value }
+
+    suspend fun setQrSizePx(value: Int) =
+        context.dataStore.edit { it[QR_SIZE_PX] = value.coerceIn(256, 2048) }
+
+    suspend fun setQrEcc(value: QrEccLevel) =
+        context.dataStore.edit { it[QR_ECC] = value.name }
+
+    suspend fun setAiProvider(value: AiProvider) =
+        context.dataStore.edit { it[AI_PROVIDER] = value.name }
+
+    suspend fun setAiAnthropicKey(value: String) =
+        context.dataStore.edit { it[AI_ANTHROPIC_KEY] = value.trim() }
+
+    suspend fun setAiOpenAiKey(value: String) =
+        context.dataStore.edit { it[AI_OPENAI_KEY] = value.trim() }
+
+    suspend fun setAiGeminiKey(value: String) =
+        context.dataStore.edit { it[AI_GEMINI_KEY] = value.trim() }
+
+    suspend fun setAiAnthropicModel(value: String) =
+        context.dataStore.edit { it[AI_ANTHROPIC_MODEL] = value.trim() }
+
+    suspend fun setAiOpenAiModel(value: String) =
+        context.dataStore.edit { it[AI_OPENAI_MODEL] = value.trim() }
+
+    suspend fun setAiGeminiModel(value: String) =
+        context.dataStore.edit { it[AI_GEMINI_MODEL] = value.trim() }
+
+    suspend fun setAiOllamaUrl(value: String) =
+        context.dataStore.edit { it[AI_OLLAMA_URL] = value.trim().trimEnd('/') }
+
+    suspend fun setAiOllamaModel(value: String) =
+        context.dataStore.edit { it[AI_OLLAMA_MODEL] = value.trim() }
+
+    suspend fun setAiLmStudioUrl(value: String) =
+        context.dataStore.edit { it[AI_LM_STUDIO_URL] = value.trim().trimEnd('/') }
+
+    suspend fun setAiLmStudioModel(value: String) =
+        context.dataStore.edit { it[AI_LM_STUDIO_MODEL] = value.trim() }
+
+    suspend fun setAiMaxTokens(value: Int) =
+        context.dataStore.edit { it[AI_MAX_TOKENS] = value.coerceIn(64, 8192) }
+
+    suspend fun setAiTranslateTo(value: String) =
+        context.dataStore.edit { it[AI_TRANSLATE_TO] = value.trim() }
+
+    suspend fun setAiPrompt(action: AiAction, value: String) =
+        context.dataStore.edit {
+            val key = when (action) {
+                AiAction.REWRITE -> AI_PROMPT_REWRITE
+                AiAction.SUMMARIZE -> AI_PROMPT_SUMMARIZE
+                AiAction.TRANSLATE -> AI_PROMPT_TRANSLATE
+                AiAction.IMPROVE -> AI_PROMPT_IMPROVE
+                AiAction.FIX_GRAMMAR -> AI_PROMPT_FIX_GRAMMAR
+                AiAction.EXPLAIN -> AI_PROMPT_EXPLAIN
+                AiAction.CONTINUE -> AI_PROMPT_CONTINUE
+            }
+            it[key] = value
+        }
 }

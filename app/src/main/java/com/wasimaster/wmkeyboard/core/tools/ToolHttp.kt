@@ -69,6 +69,33 @@ internal object ToolHttp {
         }
     }
 
+    fun postJson(
+        url: String,
+        body: String,
+        timeoutMs: Int = 60_000,
+        headers: Map<String, String> = emptyMap(),
+    ): String {
+        val connection = URL(url).openConnection() as HttpURLConnection
+        try {
+            connection.connectTimeout = 10_000
+            connection.readTimeout = timeoutMs
+            connection.setRequestProperty("User-Agent", USER_AGENT)
+            connection.requestMethod = "POST"
+            connection.doOutput = true
+            connection.setRequestProperty("Content-Type", "application/json; charset=UTF-8")
+            for ((name, value) in headers) connection.setRequestProperty(name, value)
+            connection.outputStream.use { it.write(body.toByteArray()) }
+            val status = connection.responseCode
+            if (status !in 200..299) {
+                val error = connection.errorStream?.bufferedReader()?.use { it.readText() }
+                throw IOException(apiErrorMessage(status, error))
+            }
+            return connection.inputStream.bufferedReader().use { it.readText() }
+        } finally {
+            connection.disconnect()
+        }
+    }
+
     /** Streams a URL into [target] (creating parent dirs); deletes the partial file on failure. */
     fun download(url: String, target: File, timeoutMs: Int = 20_000) {
         target.parentFile?.mkdirs()
