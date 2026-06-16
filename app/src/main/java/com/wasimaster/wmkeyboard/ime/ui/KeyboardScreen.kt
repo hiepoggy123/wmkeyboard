@@ -98,6 +98,7 @@ import androidx.compose.material.icons.outlined.DocumentScanner
 import androidx.compose.material.icons.outlined.PhotoCamera
 import androidx.compose.material.icons.outlined.QrCodeScanner
 import androidx.compose.material.icons.outlined.TextFields
+import androidx.compose.material.icons.automirrored.outlined.FactCheck
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material.icons.outlined.PictureInPictureAlt
@@ -204,9 +205,12 @@ import com.wasimaster.wmkeyboard.core.clipboard.ClipItem
 import com.wasimaster.wmkeyboard.core.clipboard.ClipKind
 import com.wasimaster.wmkeyboard.core.emoji.EmojiVariantIndex
 import com.wasimaster.wmkeyboard.core.gesture.GesturePoint
+import com.wasimaster.wmkeyboard.core.grammar.GrammarFix
+import com.wasimaster.wmkeyboard.core.grammar.GrammarLint
 import com.wasimaster.wmkeyboard.core.gesture.KeyCenter
 import com.wasimaster.wmkeyboard.core.handwriting.HwStroke
 import com.wasimaster.wmkeyboard.core.settings.EmojiBarContent
+import com.wasimaster.wmkeyboard.core.settings.GrammarDialect
 import com.wasimaster.wmkeyboard.core.settings.EmojiBarMode
 import com.wasimaster.wmkeyboard.core.settings.EmojiTabMode
 import com.wasimaster.wmkeyboard.core.settings.InputMode
@@ -325,6 +329,9 @@ fun KeyboardScreen(
     onTranslateTarget: (String) -> Unit = {},
     onTranslateReplace: () -> Unit = {},
     onTranslateInsert: () -> Unit = {},
+    onGrammarFix: (GrammarLint, GrammarFix) -> Unit = { _, _ -> },
+    onGrammarFixAll: () -> Unit = {},
+    onGrammarDialect: (GrammarDialect) -> Unit = {},
     onOpenToolSettings: (ToolbarTool) -> Unit = {},
     onOpenSettings: () -> Unit,
 ) {
@@ -370,6 +377,7 @@ fun KeyboardScreen(
             // Not a panel: the scanner is a full-screen Google activity.
             ToolbarTool.DOC_SCAN -> onDocScan()
             ToolbarTool.VOICE -> onPanelChange(PanelMode.VOICE)
+            ToolbarTool.GRAMMAR -> onPanelChange(PanelMode.GRAMMAR)
         }
     }
 
@@ -430,6 +438,9 @@ fun KeyboardScreen(
                 onTranslateTarget = onTranslateTarget,
                 onTranslateReplace = onTranslateReplace,
                 onTranslateInsert = onTranslateInsert,
+                onGrammarFix = onGrammarFix,
+                onGrammarFixAll = onGrammarFixAll,
+                onGrammarDialect = onGrammarDialect,
                 onOpenToolSettings = onOpenToolSettings,
             )
         }
@@ -1004,6 +1015,7 @@ private fun toolIcon(tool: ToolbarTool): ImageVector = when (tool) {
     ToolbarTool.QR_SCAN -> Icons.Outlined.QrCodeScanner
     ToolbarTool.DOC_SCAN -> Icons.Outlined.DocumentScanner
     ToolbarTool.VOICE -> Icons.Outlined.Mic
+    ToolbarTool.GRAMMAR -> Icons.AutoMirrored.Outlined.FactCheck
 }
 
 private fun toolLabel(tool: ToolbarTool): String = when (tool) {
@@ -1040,6 +1052,7 @@ private fun toolLabel(tool: ToolbarTool): String = when (tool) {
     ToolbarTool.QR_SCAN -> "QR scan"
     ToolbarTool.DOC_SCAN -> "Doc scan"
     ToolbarTool.VOICE -> "Voice"
+    ToolbarTool.GRAMMAR -> "Grammar"
 }
 
 private fun toolActive(tool: ToolbarTool, state: KeyboardUiState): Boolean = when (tool) {
@@ -1076,6 +1089,7 @@ private fun toolActive(tool: ToolbarTool, state: KeyboardUiState): Boolean = whe
     ToolbarTool.QR_SCAN -> state.panel == PanelMode.QR_SCAN
     ToolbarTool.DOC_SCAN -> false
     ToolbarTool.VOICE -> state.panel == PanelMode.VOICE || state.voice.strip
+    ToolbarTool.GRAMMAR -> state.panel == PanelMode.GRAMMAR
 }
 
 /**
@@ -1674,6 +1688,9 @@ private fun KeyboardBody(
     onTranslateTarget: (String) -> Unit,
     onTranslateReplace: () -> Unit,
     onTranslateInsert: () -> Unit,
+    onGrammarFix: (GrammarLint, GrammarFix) -> Unit,
+    onGrammarFixAll: () -> Unit,
+    onGrammarDialect: (GrammarDialect) -> Unit,
     onOpenToolSettings: (ToolbarTool) -> Unit,
 ) {
     val drag = remember { ToolDragController() }
@@ -1796,6 +1813,12 @@ private fun KeyboardBody(
                     onReplace = onTranslateReplace,
                     onInsert = onTranslateInsert,
                 )
+                PanelMode.GRAMMAR -> GrammarPanel(
+                    state = state,
+                    onFix = onGrammarFix,
+                    onFixAll = onGrammarFixAll,
+                    onDialect = onGrammarDialect,
+                )
                 PanelMode.GIF, PanelMode.STICKER -> GifPanel(
                     state = state,
                     stickers = state.panel == PanelMode.STICKER,
@@ -1832,9 +1855,10 @@ private fun KeyboardBody(
                 KeyRows(state, onKey, onText, onGesture, onGesturePreview, onCursorMove, onLanguageSelect)
             }
             // Same for a media panel's search box, and always under the
-            // translate strip (it translates what you type live).
+            // translate and grammar strips (they follow what you type live).
             if ((state.panel.hasMediaSearch && state.mediaSearchActive) ||
-                state.panel == PanelMode.TRANSLATE
+                state.panel == PanelMode.TRANSLATE ||
+                state.panel == PanelMode.GRAMMAR
             ) {
                 KeyRows(state, onKey, onText, onGesture, onGesturePreview, onCursorMove, onLanguageSelect)
             }

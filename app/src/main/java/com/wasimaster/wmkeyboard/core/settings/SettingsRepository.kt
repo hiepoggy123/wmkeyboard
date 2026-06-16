@@ -77,7 +77,15 @@ enum class ToolbarTool {
     FLASHLIGHT, COMPASS, LEVEL, UNDO, REDO, MOON_PHASE, WEATHER, CALENDAR,
     INCOGNITO, THEMES, AUTOCORRECT, SOUND_HAPTICS, NUMPAD, HANDWRITING, CAMERA,
     DICTIONARY, TRANSLATE, GIF, STICKER, WEB_SEARCH, IMAGE_SEARCH,
-    OCR, QR_SCAN, DOC_SCAN, VOICE,
+    OCR, QR_SCAN, DOC_SCAN, VOICE, GRAMMAR,
+}
+
+/**
+ * English dialect the offline grammar tool lints against. Ordinals are the
+ * contract with the native Harper library — append only, never reorder.
+ */
+enum class GrammarDialect(val label: String) {
+    AMERICAN("American"), BRITISH("British"), CANADIAN("Canadian"), AUSTRALIAN("Australian"),
 }
 
 /** Content filter for the GIF and sticker tools (provider rating levels). */
@@ -311,6 +319,8 @@ data class KeyboardSettings(
     val emojiRowAboveToolbar: Boolean = false,
     /** ISO 639-1 code the translate tool translates into (source is auto-detected). */
     val translateTargetLang: String = "en",
+    /** English dialect the offline grammar tool checks against. */
+    val grammarDialect: GrammarDialect = GrammarDialect.AMERICAN,
     /**
      * User-supplied API keys, overriding any key baked into the build.
      * Blank means "use the built-in key" (which may itself be blank).
@@ -461,6 +471,7 @@ class SettingsRepository(private val context: Context) {
         private val TOOLBOX_COLUMNS = intPreferencesKey("toolbox_columns")
         private val EMOJI_ROW_ABOVE_TOOLBAR = booleanPreferencesKey("emoji_row_above_toolbar")
         private val TRANSLATE_TARGET_LANG = stringPreferencesKey("translate_target_lang")
+        private val GRAMMAR_DIALECT = stringPreferencesKey("grammar_dialect")
         private val TRANSLATE_API_KEY = stringPreferencesKey("translate_api_key")
         private val KLIPY_API_KEY = stringPreferencesKey("klipy_api_key")
         private val BRAVE_API_KEY = stringPreferencesKey("brave_api_key")
@@ -625,6 +636,9 @@ class SettingsRepository(private val context: Context) {
             toolboxColumns = p[TOOLBOX_COLUMNS] ?: defaults.toolboxColumns,
             emojiRowAboveToolbar = p[EMOJI_ROW_ABOVE_TOOLBAR] ?: defaults.emojiRowAboveToolbar,
             translateTargetLang = p[TRANSLATE_TARGET_LANG] ?: defaults.translateTargetLang,
+            grammarDialect = p[GRAMMAR_DIALECT]
+                ?.let { runCatching { GrammarDialect.valueOf(it) }.getOrNull() }
+                ?: defaults.grammarDialect,
             translateApiKey = p[TRANSLATE_API_KEY] ?: defaults.translateApiKey,
             klipyApiKey = p[KLIPY_API_KEY] ?: defaults.klipyApiKey,
             braveApiKey = p[BRAVE_API_KEY] ?: defaults.braveApiKey,
@@ -1024,6 +1038,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setTranslateTargetLang(value: String) =
         context.dataStore.edit { it[TRANSLATE_TARGET_LANG] = value }
+
+    suspend fun setGrammarDialect(value: GrammarDialect) =
+        context.dataStore.edit { it[GRAMMAR_DIALECT] = value.name }
 
     suspend fun setTranslateApiKey(value: String) =
         context.dataStore.edit { it[TRANSLATE_API_KEY] = value.trim() }

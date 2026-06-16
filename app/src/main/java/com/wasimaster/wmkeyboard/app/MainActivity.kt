@@ -35,6 +35,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.FactCheck
 import androidx.compose.material.icons.automirrored.outlined.HelpOutline
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
@@ -2069,6 +2070,7 @@ private fun toolTitle(tool: ToolbarTool): String = when (tool) {
     ToolbarTool.QR_SCAN -> "QR & barcode scanner"
     ToolbarTool.DOC_SCAN -> "Document scanner"
     ToolbarTool.VOICE -> "Voice typing"
+    ToolbarTool.GRAMMAR -> "Grammar check"
 }
 
 private fun toolDescription(tool: ToolbarTool): String = when (tool) {
@@ -2105,6 +2107,7 @@ private fun toolDescription(tool: ToolbarTool): String = when (tool) {
     ToolbarTool.QR_SCAN -> "Scan a QR code or barcode and insert its text"
     ToolbarTool.DOC_SCAN -> "Scan a document with Google's scanner and send it as an image"
     ToolbarTool.VOICE -> "Dictate text with the device's speech recognizer — English and Bengali"
+    ToolbarTool.GRAMMAR -> "Check the text you're writing for grammar issues — fully offline (Harper)"
 }
 
 private fun toolIconFor(tool: ToolbarTool): androidx.compose.ui.graphics.vector.ImageVector = when (tool) {
@@ -2141,6 +2144,7 @@ private fun toolIconFor(tool: ToolbarTool): androidx.compose.ui.graphics.vector.
     ToolbarTool.QR_SCAN -> Icons.Outlined.QrCodeScanner
     ToolbarTool.DOC_SCAN -> Icons.Outlined.DocumentScanner
     ToolbarTool.VOICE -> Icons.Outlined.Mic
+    ToolbarTool.GRAMMAR -> Icons.AutoMirrored.Outlined.FactCheck
 }
 
 /**
@@ -2158,6 +2162,7 @@ private fun ToolsSettings(settings: KeyboardSettings, onOpenTool: (ToolbarTool) 
             ToolbarTool.EMOJI, ToolbarTool.CLIPBOARD, ToolbarTool.SNIPPETS,
             ToolbarTool.TEXT_EDIT, ToolbarTool.NUMPAD, ToolbarTool.HANDWRITING,
             ToolbarTool.VOICE, ToolbarTool.CAMERA, ToolbarTool.DICTIONARY,
+            ToolbarTool.GRAMMAR,
         ),
         "Scanners" to listOf(
             ToolbarTool.OCR, ToolbarTool.QR_SCAN, ToolbarTool.DOC_SCAN,
@@ -2852,6 +2857,14 @@ private fun ToolDetailSettings(
                     "dictate walkie-talkie style — it stops when you let go.",
             )
         }
+        ToolbarTool.GRAMMAR -> CaptionText(
+            "Grammar checking runs on this device with the Harper engine " +
+                "(the same one behind harper-ls) — offline, nothing you " +
+                "type is uploaded. Open the tool while writing to see " +
+                "issues with one-tap fixes; the dialect chip on the panel " +
+                "switches between American, British, Canadian and " +
+                "Australian English.",
+        )
         else -> {}
     }
 }

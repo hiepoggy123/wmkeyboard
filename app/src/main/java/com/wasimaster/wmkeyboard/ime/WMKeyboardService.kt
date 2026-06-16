@@ -72,6 +72,10 @@ import com.wasimaster.wmkeyboard.core.settings.WebSearchProvider
 import com.wasimaster.wmkeyboard.core.tools.BraveSearchClient
 import com.wasimaster.wmkeyboard.core.tools.DictionaryClient
 import com.wasimaster.wmkeyboard.core.tools.GifItem
+import com.wasimaster.wmkeyboard.core.grammar.GrammarChecker
+import com.wasimaster.wmkeyboard.core.grammar.GrammarFix
+import com.wasimaster.wmkeyboard.core.grammar.GrammarLint
+import com.wasimaster.wmkeyboard.core.settings.GrammarDialect
 import com.wasimaster.wmkeyboard.core.tools.GifSource
 import com.wasimaster.wmkeyboard.core.tools.GifSources
 import com.wasimaster.wmkeyboard.core.tools.GiphyClient
@@ -163,6 +167,8 @@ class WMKeyboardService : InputMethodService() {
 
     // ---- network tool state (translate, gif/sticker, web/image search) ----
     private var translateJob: Job? = null
+    /** Offline grammar tool (Harper); job debounces re-lints while typing. */
+    private var grammarJob: Job? = null
     private var mediaFetchJob: Job? = null
     private var mediaLiveSearchJob: Job? = null
     private var mediaInsertJob: Job? = null
@@ -434,6 +440,9 @@ class WMKeyboardService : InputMethodService() {
                 onTranslateTarget = ::onTranslateTargetChange,
                 onTranslateReplace = ::onTranslateReplace,
                 onTranslateInsert = ::onTranslateInsert,
+                onGrammarFix = ::onGrammarFix,
+                onGrammarFixAll = ::onGrammarFixAll,
+                onGrammarDialect = ::onGrammarDialectChange,
                 onOpenToolSettings = ::openToolSettings,
                 onOpenSettings = ::openSettings,
             )
@@ -515,6 +524,7 @@ class WMKeyboardService : InputMethodService() {
                 mediaQuery = "",
                 mediaDownloadingId = null,
                 translate = TranslateUi(),
+                grammar = GrammarUi(available = GrammarChecker.available),
                 composingPreview = "",
                 suggestions = emptyList(),
                 emojiSuggestions = emptyList(),
@@ -573,6 +583,8 @@ class WMKeyboardService : InputMethodService() {
         // The translate strip follows the field: any text or cursor change
         // while it is open re-extracts and re-translates (debounced).
         if (_uiState.value.panel == PanelMode.TRANSLATE) scheduleTranslate()
+        // Same for the grammar strip (offline, so a re-lint is cheap).
+        if (_uiState.value.panel == PanelMode.GRAMMAR) scheduleGrammarCheck()
     }
 
     override fun onFinishInputView(finishingInput: Boolean) {
@@ -1300,9 +1312,11 @@ class WMKeyboardService : InputMethodService() {
                 mediaSearchActive = next == PanelMode.WEB_SEARCH || next == PanelMode.IMAGE_SEARCH,
                 mediaDownloadingId = null,
                 translate = TranslateUi(),
+                grammar = GrammarUi(available = GrammarChecker.available),
             )
         }
         translateJob?.cancel()
+        grammarJob?.cancel()
         mediaFetchJob?.cancel()
         mediaLiveSearchJob?.cancel()
         when (_uiState.value.panel) {
@@ -1319,6 +1333,10 @@ class WMKeyboardService : InputMethodService() {
                 // Flush any half-typed word so the strip sees the whole field.
                 currentInputConnection?.let { commitComposing(it, autocorrect = false) }
                 scheduleTranslate(immediate = true)
+            }
+            PanelMode.GRAMMAR -> {
+                currentInputConnection?.let { commitComposing(it, autocorrect = false) }
+                scheduleGrammarCheck(immediate = true)
             }
             else -> {}
         }
@@ -2500,6 +2518,114 @@ class WMKeyboardService : InputMethodService() {
         if (translated.isEmpty()) return
         vibrate()
         currentInputConnection?.commitText(translated, 1)
+    }
+
+    // ---- grammar tool (offline, Harper via JNI) ----
+
+    /**
+     * Re-extracts the field and lints it after a short debounce. Linting is
+     * local and fast, but the debounce keeps the strip from churning on
+     * every keystroke mid-word.
+     */
+    private fun scheduleGrammarCheck(immediate: Boolean = false) {
+        grammarJob?.cancel()
+        grammarJob = serviceScope.launch {
+            if (!immediate) delay(350)
+            val state = _uiState.value
+            if (state.panel != PanelMode.GRAMMAR) return@launch
+            if (!GrammarChecker.available) {
+                _uiState.update { it.copy(grammar = GrammarUi(available = false)) }
+                return@launch
+            }
+            val source = extractFieldText()
+            if (source.isBlank()) {
+                _uiState.update { it.copy(grammar = GrammarUi()) }
+                return@launch
+            }
+            if (source == state.grammar.sourceText && state.grammar.checkedOnce) return@launch
+            _uiState.update {
+                it.copy(grammar = it.grammar.copy(sourceText = source, checking = true))
+            }
+            val dialect = _uiState.value.settings.grammarDialect
+            val lints = GrammarChecker.check(source, dialect.ordinal)
+            if (_uiState.value.panel != PanelMode.GRAMMAR) return@launch
+            _uiState.update {
+                it.copy(
+                    grammar = GrammarUi(
+                        sourceText = source,
+                        lints = lints,
+                        checking = false,
+                        checkedOnce = true,
+                    ),
+                )
+            }
+        }
+    }
+
+    /** Replaces the whole field with [newText] (same mechanics as translate). */
+    private fun replaceFieldText(newText: String) {
+        val ic = currentInputConnection ?: return
+        composing = StringBuilder()
+        ic.beginBatchEdit()
+        val length = runCatching {
+            ic.getExtractedText(ExtractedTextRequest(), 0)?.text?.length
+        }.getOrNull()
+        if (length != null) {
+            ic.setSelection(0, length)
+        } else {
+            ic.performContextMenuAction(android.R.id.selectAll)
+        }
+        ic.commitText(newText, 1)
+        ic.endBatchEdit()
+    }
+
+    /** Tapped one fix chip: apply it and re-lint the result. */
+    fun onGrammarFix(lint: GrammarLint, fix: GrammarFix) {
+        vibrate()
+        val source = _uiState.value.grammar.sourceText
+        val fixed = GrammarChecker.apply(source, lint, fix)
+        if (fixed == source) return
+        replaceFieldText(fixed)
+        scheduleGrammarCheck(immediate = true)
+    }
+
+    /** Tapped "Fix all": apply every lint's top suggestion. */
+    fun onGrammarFixAll() {
+        vibrate()
+        val source = _uiState.value.grammar.sourceText
+        val fixed = GrammarChecker.applyAll(source, _uiState.value.grammar.lints)
+        if (fixed == source) return
+        replaceFieldText(fixed)
+        scheduleGrammarCheck(immediate = true)
+    }
+
+    fun onGrammarDialectChange(dialect: GrammarDialect) {
+        vibrate()
+        serviceScope.launch { settingsRepository.setGrammarDialect(dialect) }
+        // Force a fresh lint: clear checkedOnce so the same text re-checks
+        // under the new dialect (the settings flow updates asynchronously,
+        // so check directly with the new value).
+        _uiState.update { it.copy(grammar = it.grammar.copy(checkedOnce = false, checking = true)) }
+        grammarJob?.cancel()
+        grammarJob = serviceScope.launch {
+            val source = extractFieldText()
+            if (source.isBlank()) {
+                _uiState.update { it.copy(grammar = GrammarUi()) }
+                return@launch
+            }
+            val lints = GrammarChecker.check(source, dialect.ordinal)
+            if (_uiState.value.panel != PanelMode.GRAMMAR) return@launch
+            _uiState.update {
+                it.copy(
+                    grammar = GrammarUi(
+                        sourceText = source,
+                        lints = lints,
+                        checking = false,
+                        checkedOnce = true,
+                    ),
+                )
+            }
+        }
     }
 
     /**

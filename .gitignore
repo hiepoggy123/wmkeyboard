@@ -8,3 +8,6 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# Rust native (Harper grammar engine)
+/native/harper-jni/target

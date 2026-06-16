@@ -1,0 +1,96 @@
+package com.wasimaster.wmkeyboard.core.grammar
+
+import java.util.concurrent.Executors
+import kotlinx.coroutines.asCoroutineDispatcher
+import kotlinx.coroutines.withContext
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
+
+/** One way to resolve a [GrammarLint]; mirrors Harper's Suggestion enum. */
+@Serializable
+data class GrammarFix(
+    /** "replace", "remove" or "insertAfter". */
+    val kind: String,
+    val text: String? = null,
+) {
+    /** Short label for the fix chip. */
+    val label: String
+        get() = when (kind) {
+            "remove" -> "Remove"
+            "insertAfter" -> "+ ${text.orEmpty()}"
+            else -> text.orEmpty()
+        }
+}
+
+/** One grammar/style issue. [start]/[end] are UTF-16 indices into the checked text. */
+@Serializable
+data class GrammarLint(
+    val start: Int,
+    val end: Int,
+    val original: String = "",
+    val kind: String = "",
+    val message: String = "",
+    val priority: Int = 0,
+    val suggestions: List<GrammarFix> = emptyList(),
+)
+
+/**
+ * Offline grammar checking via the bundled Harper engine.
+ *
+ * All native calls run on one dedicated thread: Harper's linter cache is
+ * thread-local on the Rust side (its `LintGroup` is not `Send`), so fanning
+ * out over a pool would rebuild the ~100ms rule set per thread for nothing.
+ */
+object GrammarChecker {
+    val available: Boolean get() = HarperNative.available
+
+    private val dispatcher =
+        Executors.newSingleThreadExecutor { r -> Thread(r, "harper-lint") }.asCoroutineDispatcher()
+    private val json = Json { ignoreUnknownKeys = true }
+
+    /** Builds the native linter ahead of the first check; cheap if already built. */
+    suspend fun warmUp(dialectOrdinal: Int) {
+        if (!available) return
+        withContext(dispatcher) { runCatching { HarperNative.nativeWarmUp(dialectOrdinal) } }
+    }
+
+    /** Lints [text]; empty result when the native library is missing or errors. */
+    suspend fun check(text: String, dialectOrdinal: Int): List<GrammarLint> {
+        if (!available || text.isBlank()) return emptyList()
+        return withContext(dispatcher) {
+            runCatching {
+                val raw = HarperNative.nativeLint(text, dialectOrdinal) ?: return@runCatching emptyList()
+                json.decodeFromString<List<GrammarLint>>(raw)
+                    .filter { it.start in 0..it.end && it.end <= text.length }
+            }.getOrDefault(emptyList())
+        }
+    }
+
+    /** [text] with one fix applied. */
+    fun apply(text: String, lint: GrammarLint, fix: GrammarFix): String {
+        if (lint.end > text.length) return text
+        return when (fix.kind) {
+            "replace" -> text.replaceRange(lint.start, lint.end, fix.text.orEmpty())
+            "remove" -> text.removeRange(lint.start, lint.end)
+            "insertAfter" -> text.substring(0, lint.end) + fix.text.orEmpty() + text.substring(lint.end)
+            else -> text
+        }
+    }
+
+    /**
+     * [text] with every lint's first suggestion applied. Fixes are applied
+     * back-to-front so earlier spans stay valid; overlapping lints keep only
+     * the later one to avoid compounding edits inside an already-fixed span.
+     */
+    fun applyAll(text: String, lints: List<GrammarLint>): String {
+        var result = text
+        var lastStart = Int.MAX_VALUE
+        for (lint in lints.sortedByDescending { it.start }) {
+            val fix = lint.suggestions.firstOrNull() ?: continue
+            if (lint.end > lastStart || lint.end > result.length) continue
+            result = apply(result, lint, fix)
+            lastStart = lint.start
+        }
+        return result
+    }
+}

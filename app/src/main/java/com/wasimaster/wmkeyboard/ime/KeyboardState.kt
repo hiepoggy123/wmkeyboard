@@ -18,7 +18,7 @@ enum class PanelMode {
     COMPASS, LEVEL, MOON_PHASE, WEATHER, CALENDAR,
     THEMES, SOUND_HAPTICS, NUMPAD, HANDWRITING, CAMERA, DICTIONARY,
     TRANSLATE, GIF, STICKER, WEB_SEARCH, IMAGE_SEARCH,
-    OCR, QR_SCAN, VOICE,
+    OCR, QR_SCAN, VOICE, GRAMMAR,
 }
 
 /**
@@ -144,6 +144,22 @@ data class TranslateUi(
     val error: String? = null,
 )
 
+/**
+ * Grammar strip state. Like translate, the strip follows the focused field:
+ * the service re-extracts and re-lints (debounced) on every change while the
+ * panel is open. All linting is offline via the bundled Harper engine.
+ */
+data class GrammarUi(
+    /** Field text the current [lints] correspond to. */
+    val sourceText: String = "",
+    val lints: List<com.wasimaster.wmkeyboard.core.grammar.GrammarLint> = emptyList(),
+    val checking: Boolean = false,
+    /** False until the first check of the current field completes. */
+    val checkedOnce: Boolean = false,
+    /** Native Harper library present in this build. */
+    val available: Boolean = true,
+)
+
 /** Weather panel state, owned by the service (it does the fetching). */
 sealed interface WeatherUi {
     /** No location configured in the weather tool's settings. */
@@ -238,4 +254,5 @@ data class KeyboardUiState(
     val webSearch: WebSearchUi = WebSearchUi.Idle,
     val imageSearch: ImageSearchUi = ImageSearchUi.Idle,
     val translate: TranslateUi = TranslateUi(),
+    val grammar: GrammarUi = GrammarUi(),
 )
