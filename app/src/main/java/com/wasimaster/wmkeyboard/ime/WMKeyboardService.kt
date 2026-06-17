@@ -29,6 +29,10 @@ import com.wasimaster.wmkeyboard.app.CameraPermissionActivity
 import com.wasimaster.wmkeyboard.app.DocScanActivity
 import com.wasimaster.wmkeyboard.app.MainActivity
 import com.wasimaster.wmkeyboard.app.MicPermissionActivity
+import com.wasimaster.wmkeyboard.app.StoragePermissionActivity
+import com.wasimaster.wmkeyboard.core.media.GallerySaver
+import com.wasimaster.wmkeyboard.core.media.MediaMime
+import com.wasimaster.wmkeyboard.core.settings.MediaSendMode
 import android.provider.DocumentsContract
 import com.wasimaster.wmkeyboard.core.clipboard.ClipKind
 import com.wasimaster.wmkeyboard.core.clipboard.ClipLinks
@@ -760,7 +764,13 @@ class WMKeyboardService : InputMethodService() {
         // ran while the keyboard was down, so they can only insert now,
         // as the target field regains the input connection.
         for (page in DocScanActivity.consumePendingPages()) {
-            commitImageFile(page, "image/jpeg")
+            saveToGalleryIfEnabled(
+                page,
+                MediaMime.JPEG,
+                _uiState.value.settings.docScanSaveToGallery,
+                "SCAN",
+            )
+            commitImageFile(page, MediaMime.JPEG)
         }
     }
 
@@ -2397,7 +2407,53 @@ class WMKeyboardService : InputMethodService() {
                 ).show()
                 return@launch
             }
-            commitImageFile(file, "image/png")
+            saveToGalleryIfEnabled(
+                file,
+                MediaMime.PNG,
+                state.settings.qrSaveToGallery,
+                "QR",
+            )
+            commitImageFile(file, MediaMime.PNG, state.settings.qrSendMode)
+        }
+    }
+
+    /**
+     * Copies a produced image into Pictures/WM Keyboard when the tool's
+     * save option is on. Runs off the main thread; a failure only costs the
+     * gallery copy, never the send that follows.
+     */
+    private fun saveToGalleryIfEnabled(
+        file: File,
+        mimeType: String,
+        enabled: Boolean,
+        namePrefix: String,
+    ) {
+        if (!enabled) return
+        if (!GallerySaver.canSave(this)) {
+            // Pre-Q needs WRITE_EXTERNAL_STORAGE, which an IME cannot ask
+            // for itself — bounce through the trampoline and let the user
+            // retry once it is granted.
+            startActivity(
+                Intent(this, StoragePermissionActivity::class.java).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                },
+            )
+            return
+        }
+        val stamp = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.US)
+            .format(java.util.Date())
+        val name = "${namePrefix}_$stamp.${MediaMime.extension(mimeType)}"
+        serviceScope.launch(Dispatchers.IO) {
+            val saved = GallerySaver.save(this@WMKeyboardService, file, mimeType, name) != null
+            if (!saved) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(
+                        this@WMKeyboardService,
+                        "Couldn't save to the gallery",
+                        Toast.LENGTH_SHORT,
+                    ).show()
+                }
+            }
         }
     }
 
@@ -2649,7 +2705,13 @@ class WMKeyboardService : InputMethodService() {
     /** Camera tool captured a photo: send it into the editor as an image. */
     fun onCameraSend(file: File) {
         vibrate()
-        commitImageFile(file, "image/jpeg")
+        saveToGalleryIfEnabled(
+            file,
+            MediaMime.JPEG,
+            _uiState.value.settings.cameraSaveToGallery,
+            "IMG",
+        )
+        commitImageFile(file, MediaMime.JPEG)
         // The photo is on its way (or on the clipboard) — the tool's job is
         // done, give the keys back.
         _uiState.update { it.copy(panel = PanelMode.NONE) }
@@ -2881,9 +2943,19 @@ class WMKeyboardService : InputMethodService() {
         }
     }
 
-    /** Tapped a GIF/sticker cell: download the full file and commit it. */
+    /**
+     * Tapped a GIF/sticker cell: download the full file and commit it. The
+     * two panels share this path, so which send mode applies depends on
+     * which one is open.
+     */
     fun onGifSelect(item: GifItem) {
-        insertDownloadedImage(item.id, item.fullUrl, item.mime)
+        val settings = _uiState.value.settings
+        val sendMode = if (_uiState.value.panel == PanelMode.STICKER) {
+            settings.stickerSendMode
+        } else {
+            settings.gifSendMode
+        }
+        insertDownloadedImage(item.id, item.fullUrl, item.mime, sendMode)
     }
 
     /** Tapped an image-search cell: download the full image and commit it. */
@@ -2924,19 +2996,19 @@ class WMKeyboardService : InputMethodService() {
      * the same commitContent path as clipboard images. One insert at a
      * time; the panel shows a spinner over the tapped cell meanwhile.
      */
-    private fun insertDownloadedImage(id: String, url: String, mime: String) {
+    private fun insertDownloadedImage(
+        id: String,
+        url: String,
+        mime: String,
+        sendMode: MediaSendMode = MediaSendMode.IMAGE,
+    ) {
         if (_uiState.value.mediaDownloadingId != null) return
         vibrate()
         _uiState.update { it.copy(mediaDownloadingId = id) }
         mediaInsertJob = serviceScope.launch {
             val file = withContext(Dispatchers.IO) {
                 runCatching {
-                    val extension = when (mime) {
-                        "image/gif" -> "gif"
-                        "image/webp" -> "webp"
-                        "image/png" -> "png"
-                        else -> "jpg"
-                    }
+                    val extension = MediaMime.extension(mime)
                     val dir = File(cacheDir, "media").apply { mkdirs() }
                     pruneMediaCache(dir)
                     // Name is stable per item so re-inserting the same GIF
@@ -2955,7 +3027,7 @@ class WMKeyboardService : InputMethodService() {
                 ).show()
                 return@launch
             }
-            commitImageFile(file, mime)
+            commitImageFile(file, mime, sendMode)
         }
     }
 
@@ -3462,40 +3534,91 @@ class WMKeyboardService : InputMethodService() {
 
     /**
      * Commits any image file (clipboard clip, camera capture, downloaded
-     * GIF/sticker/search result) via commitContent, falling back to the
-     * system clipboard when the editor doesn't accept that MIME type.
+     * GIF/sticker/search result) via commitContent.
+     *
+     * The target field advertises what it takes in EditorInfo, so rather
+     * than guessing per app we offer [MediaMime.candidates] in preference
+     * order and send the first one it accepts — WhatsApp gets a real
+     * sticker, everything else degrades to a plain image on its own. When
+     * nothing matches we try a PNG re-encode (WhatsApp accepts image/png
+     * but not image/webp, so a WebP would otherwise never arrive), and
+     * only then fall back to the system clipboard.
      */
-    private fun commitImageFile(file: File, mimeType: String) {
+    private fun commitImageFile(
+        file: File,
+        mimeType: String,
+        sendMode: MediaSendMode = MediaSendMode.IMAGE,
+    ) {
+        val editorInfo = currentInputEditorInfo
+        val accepted = editorInfo
+            ?.let { EditorInfoCompat.getContentMimeTypes(it).toList() }
+            .orEmpty()
+
+        val chosen = MediaMime.candidates(mimeType, sendMode).firstOrNull { candidate ->
+            accepted.any { ClipDescription.compareMimeTypes(candidate, it) }
+        }
+        if (chosen != null && tryCommit(file, chosen)) return
+
+        // Nothing matched. A WebP the field won't take can usually go
+        // through as PNG; animated WebP would lose its animation that way,
+        // so leave those for the clipboard instead of silently flattening.
+        if (chosen == null && mimeType == MediaMime.WEBP &&
+            accepted.any { ClipDescription.compareMimeTypes(MediaMime.PNG, it) }
+        ) {
+            val png = transcodeToPng(file)
+            if (png != null && tryCommit(png, MediaMime.PNG)) return
+        }
+
         val contentUri = runCatching {
             FileProvider.getUriForFile(this, clipboardFileProviderAuthority, file)
         }.getOrNull() ?: return
-
-        val ic = currentInputConnection
-        val editorInfo = currentInputEditorInfo
-        val supported = editorInfo != null &&
-            EditorInfoCompat.getContentMimeTypes(editorInfo)
-                .any { ClipDescription.compareMimeTypes(mimeType, it) }
-
-        if (ic != null && editorInfo != null && supported) {
-            val info = InputContentInfoCompat(
-                contentUri,
-                ClipDescription("image", arrayOf(mimeType)),
-                null,
-            )
-            val committed = InputConnectionCompat.commitContent(
-                ic,
-                editorInfo,
-                info,
-                InputConnectionCompat.INPUT_CONTENT_GRANT_READ_URI_PERMISSION,
-                null,
-            )
-            if (committed) return
-        }
-
         (getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager)
             .setPrimaryClip(android.content.ClipData.newUri(contentResolver, "image", contentUri))
         Toast.makeText(this, "This app doesn't accept images here — image copied, paste it instead", Toast.LENGTH_SHORT).show()
     }
+
+    /** One commitContent attempt with a settled MIME type. */
+    private fun tryCommit(file: File, mimeType: String): Boolean {
+        val ic = currentInputConnection ?: return false
+        val editorInfo = currentInputEditorInfo ?: return false
+        val contentUri = runCatching {
+            FileProvider.getUriForFile(this, clipboardFileProviderAuthority, file)
+        }.getOrNull() ?: return false
+
+        return runCatching {
+            InputConnectionCompat.commitContent(
+                ic,
+                editorInfo,
+                InputContentInfoCompat(
+                    contentUri,
+                    ClipDescription("image", arrayOf(mimeType)),
+                    null,
+                ),
+                InputConnectionCompat.INPUT_CONTENT_GRANT_READ_URI_PERMISSION,
+                null,
+            )
+        }.getOrDefault(false)
+    }
+
+    /**
+     * Re-encodes a still image as PNG in the media cache. Returns null for
+     * animated sources (their animation would be lost) and anything that
+     * won't decode.
+     */
+    private fun transcodeToPng(file: File): File? = runCatching {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            val source = android.graphics.ImageDecoder.createSource(file)
+            val drawable = android.graphics.ImageDecoder.decodeDrawable(source)
+            if (drawable is android.graphics.drawable.AnimatedImageDrawable) return null
+        }
+        val bitmap = android.graphics.BitmapFactory.decodeFile(file.absolutePath) ?: return null
+        val dir = File(cacheDir, "media").apply { mkdirs() }
+        val target = File(dir, "${file.nameWithoutExtension}_png.png")
+        target.outputStream().use {
+            bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
+        }
+        target
+    }.getOrNull()
 
     fun onClipboardPin(item: com.wasimaster.wmkeyboard.core.clipboard.ClipItem) {
         clipboardStore.setPinned(item.id, !item.pinned)

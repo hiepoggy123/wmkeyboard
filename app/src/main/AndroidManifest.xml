@@ -16,6 +16,12 @@
          are read into memory for the suggestion strip, never stored. -->
     <uses-permission android:name="android.permission.READ_CONTACTS" />
 
+    <!-- Save-to-gallery on API 24-28 only. From API 29 scoped storage lets an
+         app write its own media without any permission, so this is capped. -->
+    <uses-permission
+        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="28" />
+
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-feature android:name="android.hardware.camera.front" android:required="false" />
     <uses-feature android:name="android.hardware.camera.flash" android:required="false" />
@@ -70,6 +76,15 @@
              android.permission.RECORD_AUDIO. -->
         <activity
             android:name="com.wasimaster.wmkeyboard.app.MicPermissionActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:noHistory="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
+        <!-- Same trampoline pattern for save-to-gallery's
+             android.permission.WRITE_EXTERNAL_STORAGE (API 24-28 only). -->
+        <activity
+            android:name="com.wasimaster.wmkeyboard.app.StoragePermissionActivity"
             android:excludeFromRecents="true"
             android:exported="false"
             android:noHistory="true"

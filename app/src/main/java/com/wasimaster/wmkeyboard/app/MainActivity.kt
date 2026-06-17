@@ -166,6 +166,7 @@ import com.wasimaster.wmkeyboard.core.settings.AiAction
 import com.wasimaster.wmkeyboard.core.settings.AiProvider
 import com.wasimaster.wmkeyboard.core.settings.GifContentFilter
 import com.wasimaster.wmkeyboard.core.settings.GifSourceMode
+import com.wasimaster.wmkeyboard.core.settings.MediaSendMode
 import com.wasimaster.wmkeyboard.core.settings.QrEccLevel
 import com.wasimaster.wmkeyboard.core.tools.AiPrompts
 import com.wasimaster.wmkeyboard.core.tools.GeoPlace
@@ -626,7 +627,7 @@ private fun SettingsScreen(
  * gaps between rows, large rounded corners at the group's ends and
  * small ones inside.
  */
-private class SettingsGroupScope {
+internal class SettingsGroupScope {
     val items = mutableListOf<@Composable () -> Unit>()
     fun item(content: @Composable () -> Unit) {
         items += content
@@ -634,7 +635,7 @@ private class SettingsGroupScope {
 }
 
 @Composable
-private fun SettingsGroup(
+internal fun SettingsGroup(
     title: String? = null,
     builder: SettingsGroupScope.() -> Unit,
 ) {
@@ -668,12 +669,12 @@ private fun SettingsGroup(
 
 /** ListItem colors that let the group card's surface show through. */
 @Composable
-private fun transparentListColors(): ListItemColors =
+internal fun transparentListColors(): ListItemColors =
     ListItemDefaults.colors(containerColor = Color.Transparent)
 
 /** "?" affordance that opens a dialog with the full explanation of a setting. */
 @Composable
-private fun InfoButton(title: String, detail: String) {
+internal fun InfoButton(title: String, detail: String) {
     var open by remember { mutableStateOf(false) }
     IconButton(onClick = { open = true }) {
         Icon(
@@ -694,7 +695,7 @@ private fun InfoButton(title: String, detail: String) {
 }
 
 @Composable
-private fun SectionHeader(text: String) {
+internal fun SectionHeader(text: String) {
     Text(
         text,
         style = MaterialTheme.typography.titleSmall,
@@ -707,7 +708,7 @@ private fun SectionHeader(text: String) {
 
 /** Free-standing explanatory text aligned with group content. */
 @Composable
-private fun CaptionText(text: String, error: Boolean = false) {
+internal fun CaptionText(text: String, error: Boolean = false) {
     Text(
         text,
         style = MaterialTheme.typography.bodySmall,
@@ -719,7 +720,7 @@ private fun CaptionText(text: String, error: Boolean = false) {
 
 /** A navigation row: title, optional subtitle, optional current value, chevron. */
 @Composable
-private fun NavRow(
+internal fun NavRow(
     title: String,
     subtitle: String? = null,
     value: String? = null,
@@ -753,7 +754,7 @@ private fun NavRow(
 }
 
 @Composable
-private fun ToggleSetting(
+internal fun ToggleSetting(
     title: String,
     subtitle: String?,
     checked: Boolean,
@@ -774,7 +775,7 @@ private fun ToggleSetting(
 }
 
 @Composable
-private fun SliderSetting(
+internal fun SliderSetting(
     title: String,
     subtitle: String? = null,
     value: Float,
@@ -803,7 +804,7 @@ private fun SliderSetting(
 
 /** A titled single-choice row of segmented buttons over [options]. */
 @Composable
-private fun <T> ChoiceSetting(
+internal fun <T> ChoiceSetting(
     title: String,
     subtitle: String? = null,
     info: String? = null,
@@ -2557,6 +2558,16 @@ private fun ToolDetailSettings(
                             "framing. Off: keep the sensor's true orientation.",
                     ) { scope.launch { repository.setCameraMirrorFront(it) } }
                 }
+                item {
+                    ToggleSetting(
+                        "Save to gallery",
+                        "Also keep captures in Pictures/WM Keyboard",
+                        settings.cameraSaveToGallery,
+                        info = "Off by default: photos taken here are normally " +
+                            "one-shot sends, not keepsakes. On: every capture is " +
+                            "copied into the gallery as well as sent.",
+                    ) { scope.launch { repository.setCameraSaveToGallery(it) } }
+                }
             }
             SettingsGroup("Feedback") {
                 item {
@@ -2737,6 +2748,41 @@ private fun ToolDetailSettings(
                     "filter below. Any one key is enough; every configured source " +
                     "shows up in the panel.",
             )
+            SettingsGroup("Sending") {
+                item {
+                    ChoiceSetting(
+                        title = "Send stickers as",
+                        subtitle = "What the sticker tool hands the chat app",
+                        info = "Android has no sticker flag — the only signal is the " +
+                            "file's MIME type, and the receiving app decides. " +
+                            "Sticker: offer WhatsApp's sticker type first, so " +
+                            "stickers arrive as real stickers there; apps that " +
+                            "don't support it get a normal image instead. " +
+                            "Image: always send as a plain image.",
+                        options = listOf(
+                            MediaSendMode.STICKER to "Sticker",
+                            MediaSendMode.IMAGE to "Image",
+                        ),
+                        selected = settings.stickerSendMode,
+                    ) { scope.launch { repository.setStickerSendMode(it) } }
+                }
+                item {
+                    ChoiceSetting(
+                        title = "Send GIFs as",
+                        subtitle = "Images by default — most chat apps animate them",
+                        info = "Sticker mode only takes effect for GIFs the source " +
+                            "provides in WebP form. Android ships no animated-WebP " +
+                            "encoder, so a real animated GIF cannot be converted " +
+                            "into a sticker — those keep sending as images no " +
+                            "matter what this is set to.",
+                        options = listOf(
+                            MediaSendMode.IMAGE to "Image",
+                            MediaSendMode.STICKER to "Sticker",
+                        ),
+                        selected = settings.gifSendMode,
+                    ) { scope.launch { repository.setGifSendMode(it) } }
+                }
+            }
             SectionHeader("Multiple sources")
             SingleChoiceSegmentedButtonRow(
                 modifier = Modifier
@@ -2840,13 +2886,24 @@ private fun ToolDetailSettings(
                 "formats (EAN, UPC, Code 128 …). Insert types the code's " +
                 "text at the cursor.",
         )
-        ToolbarTool.DOC_SCAN -> CaptionText(
+        ToolbarTool.DOC_SCAN -> {
+            SettingsGroup("Options") {
+                item {
+                    ToggleSetting(
+                        "Save to gallery",
+                        "Also keep scanned pages in Pictures/WM Keyboard",
+                        settings.docScanSaveToGallery,
+                    ) { scope.launch { repository.setDocScanSaveToGallery(it) } }
+                }
+            }
+            CaptionText(
             "Opens Google's document scanner (part of Google Play services) " +
                 "with edge detection, crop and shadow cleanup. Scanned pages " +
                 "come back as images and are inserted into the chat like a " +
                 "camera photo, once the keyboard reopens. Processing is " +
                 "on-device.",
-        )
+            )
+        }
         ToolbarTool.VOICE -> {
             SettingsGroup("Dictation") {
                 item {
@@ -2974,6 +3031,28 @@ private fun ToolDetailSettings(
                         range = 256f..2048f,
                         display = "${settings.qrSizePx} px",
                     ) { scope.launch { repository.setQrSizePx(it.roundToInt()) } }
+                }
+                item {
+                    ChoiceSetting(
+                        title = "Send as",
+                        subtitle = "QR codes go out as images by default",
+                        info = "Some chat apps render a bare incoming image with no " +
+                            "bubble, which can look like a sticker even though it " +
+                            "was sent as an image. Sticker mode offers WhatsApp's " +
+                            "sticker type instead, where supported.",
+                        options = listOf(
+                            MediaSendMode.IMAGE to "Image",
+                            MediaSendMode.STICKER to "Sticker",
+                        ),
+                        selected = settings.qrSendMode,
+                    ) { scope.launch { repository.setQrSendMode(it) } }
+                }
+                item {
+                    ToggleSetting(
+                        "Save to gallery",
+                        "Also keep generated codes in Pictures/WM Keyboard",
+                        settings.qrSaveToGallery,
+                    ) { scope.launch { repository.setQrSaveToGallery(it) } }
                 }
             }
             SectionHeader("Error correction")

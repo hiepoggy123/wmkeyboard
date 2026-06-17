@@ -71,6 +71,16 @@ enum class OneHandedMode { OFF, LEFT, RIGHT }
 enum class KeyboardAlignment { LEFT, CENTER, RIGHT }
 
 /**
+ * How media is offered to the target app through commitContent.
+ *
+ * There is no "sticker" flag in the platform API — the only signal is the
+ * MIME type, and the receiving app decides. [STICKER] means "prefer a
+ * sticker MIME where the field advertises one"; apps that don't get a
+ * normal image instead. See [MediaMime].
+ */
+enum class MediaSendMode { IMAGE, STICKER }
+
+/**
  * A tool that can live on the top toolbar. Tools not in
  * [KeyboardSettings.toolbarTools] wait in the toolbox panel; the user drags
  * them between the two while the toolbox is open (Gboard style). Tools not
@@ -180,6 +190,24 @@ enum class EmojiFontChoice { SYSTEM, NOTO, CUSTOM }
  */
 enum class EmojiInsertMode { REPLACE, APPEND }
 
+/**
+ * Colour-vision correction applied to the whole resolved keyboard palette.
+ * The three dichromacies daltonize (redistribute the hues that eye cannot
+ * separate); [GRAYSCALE] strips colour entirely, which both helps monochromacy
+ * and makes any luminance-contrast failure in a theme immediately visible.
+ */
+enum class ColorVisionFilter { NONE, DEUTERANOPIA, PROTANOPIA, TRITANOPIA, GRAYSCALE }
+
+/**
+ * How the keyboard exposes itself to TalkBack. [OFF] leaves the keys as raw
+ * touch targets (what a screen-reader user gets today: nothing readable).
+ * [LABELS] adds spoken labels but keeps direct typing, which suits switch
+ * access and low-vision users who still touch-type. [EXPLORE] is the
+ * conventional IME behaviour under touch exploration — drag to hear a key,
+ * lift to type it — and is what TalkBack users expect.
+ */
+enum class ScreenReaderMode { OFF, LABELS, EXPLORE }
+
 data class KeyboardSettings(
     val inputMode: InputMode = InputMode.ENGLISH,
     val enabledModes: List<InputMode> =
@@ -241,6 +269,28 @@ data class KeyboardSettings(
     val keyPopupOnKey: Boolean = true,
     val popupFontScale: Float = 1.0f,
     val keyPopupHeightDp: Int = 110,
+    // ---- accessibility ----
+    /** Daltonization / grayscale applied over the resolved theme palette. */
+    val colorVisionFilter: ColorVisionFilter = ColorVisionFilter.NONE,
+    /** Force key text to maximum contrast and separate the board from the keys. */
+    val highContrastKeys: Boolean = false,
+    /** Draw an outline on every key, so key edges don't rely on fill contrast. */
+    val keyOutlines: Boolean = false,
+    /** Render key labels bold. */
+    val boldKeyLabels: Boolean = false,
+    /**
+     * Suppress non-essential animation across the keyboard and settings app,
+     * for vestibular sensitivity. Feedback that carries meaning (the key
+     * preview bubble, press colour) is untouched — only motion is removed.
+     */
+    val reduceMotion: Boolean = false,
+    val screenReaderMode: ScreenReaderMode = ScreenReaderMode.LABELS,
+    /**
+     * Ignore a repeat press of the same key within this many milliseconds
+     * (0 = off). The tremor/spasticity counterpart to a long-press delay:
+     * it drops the unintended second contact of a bouncing tap.
+     */
+    val keyDebounceMs: Int = 0,
     val numberRow: Boolean = false,
     val autocorrect: Boolean = true,
     /** Fix missing apostrophes on commit: arent → aren't, im → I'm. */
@@ -338,6 +388,18 @@ data class KeyboardSettings(
     val cameraShutterSound: Boolean = true,
     /** Vibrate on camera controls, countdown ticks and the shutter. */
     val cameraHaptics: Boolean = true,
+    /** Copy camera captures into Pictures/WM Keyboard as well as sending them. */
+    val cameraSaveToGallery: Boolean = false,
+    /** Copy scanned document pages into Pictures/WM Keyboard. */
+    val docScanSaveToGallery: Boolean = false,
+    /** Copy generated QR codes into Pictures/WM Keyboard. */
+    val qrSaveToGallery: Boolean = false,
+    /** How sticker-tool picks are sent. WhatsApp shows real stickers for these. */
+    val stickerSendMode: MediaSendMode = MediaSendMode.STICKER,
+    /** How GIF picks are sent. Sticker mode only applies to WebP-backed GIFs. */
+    val gifSendMode: MediaSendMode = MediaSendMode.IMAGE,
+    /** How generated QR codes are sent. */
+    val qrSendMode: MediaSendMode = MediaSendMode.IMAGE,
     /** Dictionary tool looks up the word at the cursor when it opens. */
     val dictionaryAutoLookup: Boolean = true,
     /** Tools per row in the toolbox grid. */
@@ -400,7 +462,7 @@ data class KeyboardSettings(
     val ppCapitalize: Boolean = false,
     val ppIncludeDigit: Boolean = false,
     /** Side length of the QR image the generator inserts. */
-    val qrSizePx: Int = 512,
+    val qrSizePx: Int = 1024,
     val qrEcc: QrEccLevel = QrEccLevel.M,
     // AI tool: provider, per-provider keys/models, self-hosted URLs and
     // per-action prompt overrides (blank = built-in prompt).
@@ -475,6 +537,13 @@ class SettingsRepository(private val context: Context) {
         private val KEY_POPUP_ON_KEY = booleanPreferencesKey("key_popup_on_key")
         private val POPUP_FONT_SCALE = floatPreferencesKey("popup_font_scale")
         private val KEY_POPUP_HEIGHT = intPreferencesKey("key_popup_height")
+        private val COLOR_VISION_FILTER = stringPreferencesKey("color_vision_filter")
+        private val HIGH_CONTRAST_KEYS = booleanPreferencesKey("high_contrast_keys")
+        private val KEY_OUTLINES = booleanPreferencesKey("key_outlines")
+        private val BOLD_KEY_LABELS = booleanPreferencesKey("bold_key_labels")
+        private val REDUCE_MOTION = booleanPreferencesKey("reduce_motion")
+        private val SCREEN_READER_MODE = stringPreferencesKey("screen_reader_mode")
+        private val KEY_DEBOUNCE_MS = intPreferencesKey("key_debounce_ms")
         private val NUMBER_ROW = booleanPreferencesKey("number_row")
         private val AUTOCORRECT = booleanPreferencesKey("autocorrect")
         private val AUTO_CAPITALIZE = booleanPreferencesKey("auto_capitalize")
@@ -543,6 +612,12 @@ class SettingsRepository(private val context: Context) {
         private val CAMERA_MIRROR_FRONT = booleanPreferencesKey("camera_mirror_front")
         private val CAMERA_SHUTTER_SOUND = booleanPreferencesKey("camera_shutter_sound")
         private val CAMERA_HAPTICS = booleanPreferencesKey("camera_haptics")
+        private val CAMERA_SAVE_TO_GALLERY = booleanPreferencesKey("camera_save_to_gallery")
+        private val DOC_SCAN_SAVE_TO_GALLERY = booleanPreferencesKey("doc_scan_save_to_gallery")
+        private val QR_SAVE_TO_GALLERY = booleanPreferencesKey("qr_save_to_gallery")
+        private val STICKER_SEND_MODE = stringPreferencesKey("sticker_send_mode")
+        private val GIF_SEND_MODE = stringPreferencesKey("gif_send_mode")
+        private val QR_SEND_MODE = stringPreferencesKey("qr_send_mode")
         private val DICTIONARY_AUTO_LOOKUP = booleanPreferencesKey("dictionary_auto_lookup")
         private val TOOLBOX_COLUMNS = intPreferencesKey("toolbox_columns")
         private val EMOJI_ROW_ABOVE_TOOLBAR = booleanPreferencesKey("emoji_row_above_toolbar")
@@ -664,6 +739,17 @@ class SettingsRepository(private val context: Context) {
             keyPopupOnKey = p[KEY_POPUP_ON_KEY] ?: defaults.keyPopupOnKey,
             popupFontScale = p[POPUP_FONT_SCALE] ?: defaults.popupFontScale,
             keyPopupHeightDp = p[KEY_POPUP_HEIGHT] ?: defaults.keyPopupHeightDp,
+            colorVisionFilter = p[COLOR_VISION_FILTER]
+                ?.let { runCatching { ColorVisionFilter.valueOf(it) }.getOrNull() }
+                ?: defaults.colorVisionFilter,
+            highContrastKeys = p[HIGH_CONTRAST_KEYS] ?: defaults.highContrastKeys,
+            keyOutlines = p[KEY_OUTLINES] ?: defaults.keyOutlines,
+            boldKeyLabels = p[BOLD_KEY_LABELS] ?: defaults.boldKeyLabels,
+            reduceMotion = p[REDUCE_MOTION] ?: defaults.reduceMotion,
+            screenReaderMode = p[SCREEN_READER_MODE]
+                ?.let { runCatching { ScreenReaderMode.valueOf(it) }.getOrNull() }
+                ?: defaults.screenReaderMode,
+            keyDebounceMs = p[KEY_DEBOUNCE_MS] ?: defaults.keyDebounceMs,
             numberRow = p[NUMBER_ROW] ?: defaults.numberRow,
             autocorrect = p[AUTOCORRECT] ?: defaults.autocorrect,
             autoApostrophe = p[AUTO_APOSTROPHE] ?: defaults.autoApostrophe,
@@ -750,6 +836,18 @@ class SettingsRepository(private val context: Context) {
             cameraMirrorFront = p[CAMERA_MIRROR_FRONT] ?: defaults.cameraMirrorFront,
             cameraShutterSound = p[CAMERA_SHUTTER_SOUND] ?: defaults.cameraShutterSound,
             cameraHaptics = p[CAMERA_HAPTICS] ?: defaults.cameraHaptics,
+            cameraSaveToGallery = p[CAMERA_SAVE_TO_GALLERY] ?: defaults.cameraSaveToGallery,
+            docScanSaveToGallery = p[DOC_SCAN_SAVE_TO_GALLERY] ?: defaults.docScanSaveToGallery,
+            qrSaveToGallery = p[QR_SAVE_TO_GALLERY] ?: defaults.qrSaveToGallery,
+            stickerSendMode = p[STICKER_SEND_MODE]
+                ?.let { runCatching { MediaSendMode.valueOf(it) }.getOrNull() }
+                ?: defaults.stickerSendMode,
+            gifSendMode = p[GIF_SEND_MODE]
+                ?.let { runCatching { MediaSendMode.valueOf(it) }.getOrNull() }
+                ?: defaults.gifSendMode,
+            qrSendMode = p[QR_SEND_MODE]
+                ?.let { runCatching { MediaSendMode.valueOf(it) }.getOrNull() }
+                ?: defaults.qrSendMode,
             dictionaryAutoLookup = p[DICTIONARY_AUTO_LOOKUP] ?: defaults.dictionaryAutoLookup,
             toolboxColumns = p[TOOLBOX_COLUMNS] ?: defaults.toolboxColumns,
             translateTargetLang = p[TRANSLATE_TARGET_LANG] ?: defaults.translateTargetLang,
@@ -932,6 +1030,24 @@ class SettingsRepository(private val context: Context) {
     suspend fun setCameraHaptics(value: Boolean) =
         context.dataStore.edit { it[CAMERA_HAPTICS] = value }
 
+    suspend fun setCameraSaveToGallery(value: Boolean) =
+        context.dataStore.edit { it[CAMERA_SAVE_TO_GALLERY] = value }
+
+    suspend fun setDocScanSaveToGallery(value: Boolean) =
+        context.dataStore.edit { it[DOC_SCAN_SAVE_TO_GALLERY] = value }
+
+    suspend fun setQrSaveToGallery(value: Boolean) =
+        context.dataStore.edit { it[QR_SAVE_TO_GALLERY] = value }
+
+    suspend fun setStickerSendMode(value: MediaSendMode) =
+        context.dataStore.edit { it[STICKER_SEND_MODE] = value.name }
+
+    suspend fun setGifSendMode(value: MediaSendMode) =
+        context.dataStore.edit { it[GIF_SEND_MODE] = value.name }
+
+    suspend fun setQrSendMode(value: MediaSendMode) =
+        context.dataStore.edit { it[QR_SEND_MODE] = value.name }
+
     suspend fun setDictionaryAutoLookup(value: Boolean) =
         context.dataStore.edit { it[DICTIONARY_AUTO_LOOKUP] = value }
 
@@ -1112,6 +1228,29 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setKeyPopupHeightDp(value: Int) =
         context.dataStore.edit { it[KEY_POPUP_HEIGHT] = value.coerceIn(32, 160) }
+
+    // ---- accessibility ----
+
+    suspend fun setColorVisionFilter(value: ColorVisionFilter) =
+        context.dataStore.edit { it[COLOR_VISION_FILTER] = value.name }
+
+    suspend fun setHighContrastKeys(value: Boolean) =
+        context.dataStore.edit { it[HIGH_CONTRAST_KEYS] = value }
+
+    suspend fun setKeyOutlines(value: Boolean) =
+        context.dataStore.edit { it[KEY_OUTLINES] = value }
+
+    suspend fun setBoldKeyLabels(value: Boolean) =
+        context.dataStore.edit { it[BOLD_KEY_LABELS] = value }
+
+    suspend fun setReduceMotion(value: Boolean) =
+        context.dataStore.edit { it[REDUCE_MOTION] = value }
+
+    suspend fun setScreenReaderMode(value: ScreenReaderMode) =
+        context.dataStore.edit { it[SCREEN_READER_MODE] = value.name }
+
+    suspend fun setKeyDebounceMs(value: Int) =
+        context.dataStore.edit { it[KEY_DEBOUNCE_MS] = value.coerceIn(0, 500) }
 
     suspend fun setNumberRow(value: Boolean) =
         context.dataStore.edit { it[NUMBER_ROW] = value }
