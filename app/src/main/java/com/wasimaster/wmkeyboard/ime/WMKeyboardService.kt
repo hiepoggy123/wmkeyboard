@@ -28,7 +28,9 @@ import com.wasimaster.wmkeyboard.app.CameraPermissionActivity
 import com.wasimaster.wmkeyboard.app.DocScanActivity
 import com.wasimaster.wmkeyboard.app.MainActivity
 import com.wasimaster.wmkeyboard.app.MicPermissionActivity
+import android.provider.DocumentsContract
 import com.wasimaster.wmkeyboard.core.clipboard.ClipKind
+import com.wasimaster.wmkeyboard.core.clipboard.ClipLinks
 import com.wasimaster.wmkeyboard.core.clipboard.ClipboardStore
 import com.wasimaster.wmkeyboard.core.emoji.EmojiCatalog
 import com.wasimaster.wmkeyboard.core.emoji.EmojiEntry
@@ -80,6 +82,7 @@ import com.wasimaster.wmkeyboard.core.grammar.GrammarFix
 import com.wasimaster.wmkeyboard.core.grammar.GrammarLint
 import com.wasimaster.wmkeyboard.core.settings.GrammarDialect
 import com.wasimaster.wmkeyboard.core.tools.GifSource
+import com.wasimaster.wmkeyboard.core.tools.LinkPreviewClient
 import com.wasimaster.wmkeyboard.core.tools.GifSources
 import com.wasimaster.wmkeyboard.core.tools.GiphyClient
 import com.wasimaster.wmkeyboard.core.tools.ImageResult
@@ -146,6 +149,8 @@ class WMKeyboardService : InputMethodService() {
     private lateinit var userLexicon: UserLexicon
     private lateinit var emojiUsage: EmojiUsage
     private lateinit var clipboardStore: ClipboardStore
+    /** In-flight link-metadata fetch; one at a time (see [fetchLinkPreviews]). */
+    private var linkPreviewJob: Job? = null
     private lateinit var snippetStore: SnippetStore
 
     /** Latest settings straight from DataStore, before mode overrides. */
@@ -227,6 +232,15 @@ class WMKeyboardService : InputMethodService() {
         val imageMime = uri?.let { u ->
             runCatching { contentResolver.getType(u) }.getOrNull()?.takeIf { it.startsWith("image/") }
         }
+        // Non-image URIs are files or folders copied from a file manager;
+        // record them by reference (see [addFileClips]) rather than copying.
+        if (uri != null && imageMime == null && item.text == null) {
+            val uris = (0 until clip.itemCount).mapNotNull { clip.getItemAt(it)?.uri }
+            if (uris.isNotEmpty()) {
+                serviceScope.launch(Dispatchers.IO) { addFileClips(uris) }
+                return@OnPrimaryClipChangedListener
+            }
+        }
         if (uri != null && imageMime != null) {
             // Copy the image out of the source app's content provider while the
             // clip's URI grant is valid; the store owns the file afterwards.
@@ -256,13 +270,132 @@ class WMKeyboardService : InputMethodService() {
 
         val text = item.coerceToText(this)?.toString() ?: return@OnPrimaryClipChangedListener
         val html = item.htmlText
-        if (html != null) clipboardStore.addHtml(text, html) else clipboardStore.add(text)
+        val added = if (html != null) clipboardStore.addHtml(text, html) else clipboardStore.add(text)
         clipboardStore.save()
         _uiState.update { it.copy(clipboardItems = clipboardStore.items()) }
+        if (added?.kind == ClipKind.LINK) fetchLinkPreviews()
     }
 
     private val clipboardFileProviderAuthority: String
         get() = "$packageName.clipboard"
+
+    /**
+     * Records copied files and folders as clips. Only the URI, display name
+     * and size are stored — the bytes stay with the app that owns them, so a
+     * copied 4 GB video costs us nothing.
+     *
+     * Clipboard URI grants are short-lived, so we try to persist them; most
+     * providers refuse, in which case inserting later falls back to putting
+     * the URI back on the system clipboard.
+     */
+    private fun addFileClips(uris: List<Uri>) {
+        var added = false
+        for (uri in uris.take(MAX_FILE_CLIPS_PER_COPY)) {
+            val info = resolveClipFile(uri) ?: continue
+            runCatching {
+                contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            clipboardStore.addUri(
+                uriString = uri.toString(),
+                displayName = info.name,
+                mimeType = info.mimeType,
+                isDirectory = info.isDirectory,
+                size = info.size,
+            )
+            added = true
+        }
+        if (!added) return
+        clipboardStore.save()
+        _uiState.update { it.copy(clipboardItems = clipboardStore.items()) }
+    }
+
+    private data class ClipFileInfo(
+        val name: String,
+        val mimeType: String,
+        val size: Long,
+        val isDirectory: Boolean,
+    )
+
+    /** Display name, size and directory-ness of a copied file URI. */
+    private fun resolveClipFile(uri: Uri): ClipFileInfo? {
+        if (uri.scheme == "file") {
+            val file = uri.path?.let(::File) ?: return null
+            return ClipFileInfo(
+                name = file.name.ifBlank { uri.toString() },
+                mimeType = if (file.isDirectory) DocumentsContract.Document.MIME_TYPE_DIR
+                else contentResolver.getType(uri) ?: "application/octet-stream",
+                size = if (file.isDirectory) -1 else file.length(),
+                isDirectory = file.isDirectory,
+            )
+        }
+        if (uri.scheme != "content") return null
+        // A tree URI describes a folder but can't be queried directly; its
+        // document URI can.
+        val queryUri = runCatching {
+            if (DocumentsContract.isTreeUri(uri)) {
+                DocumentsContract.buildDocumentUriUsingTree(
+                    uri, DocumentsContract.getTreeDocumentId(uri),
+                )
+            } else {
+                uri
+            }
+        }.getOrDefault(uri)
+
+        val projection = arrayOf(
+            DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+            DocumentsContract.Document.COLUMN_SIZE,
+            DocumentsContract.Document.COLUMN_MIME_TYPE,
+        )
+        var name: String? = null
+        var size = -1L
+        var mime: String? = null
+        runCatching {
+            contentResolver.query(queryUri, projection, null, null, null)?.use { cursor ->
+                if (!cursor.moveToFirst()) return@use
+                fun column(key: String) = cursor.getColumnIndex(key).takeIf { it >= 0 }
+                column(DocumentsContract.Document.COLUMN_DISPLAY_NAME)
+                    ?.let { if (!cursor.isNull(it)) name = cursor.getString(it) }
+                column(DocumentsContract.Document.COLUMN_SIZE)
+                    ?.let { if (!cursor.isNull(it)) size = cursor.getLong(it) }
+                column(DocumentsContract.Document.COLUMN_MIME_TYPE)
+                    ?.let { if (!cursor.isNull(it)) mime = cursor.getString(it) }
+            }
+        }
+        val resolvedMime = mime
+            ?: runCatching { contentResolver.getType(uri) }.getOrNull()
+            ?: return null
+        val isDirectory = resolvedMime == DocumentsContract.Document.MIME_TYPE_DIR ||
+            runCatching { DocumentsContract.isTreeUri(uri) }.getOrDefault(false)
+        return ClipFileInfo(
+            name = name?.takeIf { it.isNotBlank() }
+                ?: uri.lastPathSegment?.substringAfterLast('/')?.takeIf { it.isNotBlank() }
+                ?: "Unnamed",
+            mimeType = resolvedMime,
+            size = if (isDirectory) -1 else size,
+            isDirectory = isDirectory,
+        )
+    }
+
+    /**
+     * Fills in Open Graph metadata for copied links, newest first, when the
+     * user has link previews on. Runs one link at a time so a panel full of
+     * links doesn't fire a dozen simultaneous requests.
+     */
+    private fun fetchLinkPreviews() {
+        if (!_uiState.value.settings.clipboardLinkPreviews) return
+        if (linkPreviewJob?.isActive == true) return
+        val pending = clipboardStore.linksNeedingPreview().take(MAX_LINK_PREVIEWS)
+        if (pending.isEmpty()) return
+        linkPreviewJob = serviceScope.launch(Dispatchers.IO) {
+            for (clip in pending) {
+                val url = ClipLinks.asUrl(clip.text) ?: continue
+                val preview = LinkPreviewClient.fetch(url)
+                clipboardStore.setLinkPreview(clip.id, preview)
+                _uiState.update { it.copy(clipboardItems = clipboardStore.items()) }
+            }
+            clipboardStore.save()
+        }
+    }
 
     override fun onCreate() {
         super.onCreate()
@@ -283,8 +416,18 @@ class WMKeyboardService : InputMethodService() {
         serviceScope.launch {
             var lexiconVersion = -1
             var contactsEnabled: Boolean? = null
+            var linkPreviewsEnabled: Boolean? = null
             settingsRepository.settings.collect { settings ->
                 clipboardStore.expiryMillis = settings.clipboardExpiryHours * 60L * 60 * 1000
+                // Turning previews off throws away what was already fetched, so
+                // the panel stops showing metadata the user opted out of.
+                if (linkPreviewsEnabled == true && !settings.clipboardLinkPreviews) {
+                    linkPreviewJob?.cancel()
+                    clipboardStore.clearLinkPreviews()
+                    clipboardStore.save()
+                    _uiState.update { it.copy(clipboardItems = clipboardStore.items()) }
+                }
+                linkPreviewsEnabled = settings.clipboardLinkPreviews
                 if (!settings.floatingKeyboard) floatingPanelBounds = null
                 if (settings.contactSuggestions != contactsEnabled) {
                     contactsEnabled = settings.contactSuggestions
@@ -1378,6 +1521,7 @@ class WMKeyboardService : InputMethodService() {
         vibrate()
         // The settings app edits snippets in the same file; re-read on open.
         if (panel == PanelMode.SNIPPETS) snippetStore.reload()
+        if (panel == PanelMode.CLIPBOARD) fetchLinkPreviews()
         _uiState.update {
             val closing = it.panel == panel
             val next = if (closing) PanelMode.NONE else panel
@@ -3109,13 +3253,40 @@ class WMKeyboardService : InputMethodService() {
 
     fun onSnippetTapped(snippet: Snippet) {
         vibrate()
-        val expanded = SnippetStore.expand(
+        val ic = currentInputConnection
+        val expanded = SnippetStore.expandWithCursor(
             text = snippet.text,
-            clipboard = clipboardStore.latestText(),
+            context = snippetContext(ic),
         )
-        currentInputConnection?.commitText(expanded, 1)
+        if (ic != null) {
+            // Committing with newCursorPosition = 1 leaves the cursor at the
+            // end; {cursor} then walks it back to the marked spot.
+            ic.commitText(expanded.text, 1)
+            val trailing = expanded.text.length - expanded.cursorOffset
+            if (trailing > 0) {
+                val end = ic.getExtractedText(ExtractedTextRequest(), 0)?.selectionEnd
+                if (end != null && end >= trailing) ic.setSelection(end - trailing, end - trailing)
+            }
+        }
         _uiState.update { it.copy(panel = PanelMode.NONE) }
     }
+
+    /** The app, clipboard and selection a snippet's variables expand against. */
+    private fun snippetContext(ic: InputConnection?): SnippetStore.Companion.Context {
+        val pkg = currentPackage
+        return SnippetStore.Companion.Context(
+            clipboard = clipboardStore.latestText(),
+            appName = pkg?.let(::appLabel),
+            packageName = pkg,
+            selection = ic?.getSelectedText(0)?.toString(),
+        )
+    }
+
+    /** Human-readable label for [pkg], falling back to the package name. */
+    private fun appLabel(pkg: String): String = runCatching {
+        val info = packageManager.getApplicationInfo(pkg, 0)
+        packageManager.getApplicationLabel(info).toString()
+    }.getOrDefault(pkg)
 
     fun onEmojiTapped(emoji: String) {
         vibrate()
@@ -3206,11 +3377,69 @@ class WMKeyboardService : InputMethodService() {
 
     fun onClipboardItemTapped(item: com.wasimaster.wmkeyboard.core.clipboard.ClipItem) {
         vibrate()
-        if (item.kind == ClipKind.IMAGE) {
-            commitImageClip(item)
-            return
+        when (item.kind) {
+            ClipKind.IMAGE -> commitImageClip(item)
+            ClipKind.FILE -> commitFileClip(item)
+            // A folder is a container, not content — there is nothing to attach
+            // to a text field, so insert its name and hand the URI back to the
+            // system clipboard for a file manager to paste.
+            ClipKind.FOLDER -> {
+                currentInputConnection?.commitText(item.fileName.orEmpty(), 1)
+                item.uriString?.let { copyUriToSystemClipboard(Uri.parse(it), item.fileName.orEmpty()) }
+                Toast.makeText(
+                    this,
+                    "Folders can't be inserted — name typed, folder copied for pasting elsewhere",
+                    Toast.LENGTH_SHORT,
+                ).show()
+            }
+            else -> currentInputConnection?.commitText(item.text, 1)
         }
-        currentInputConnection?.commitText(item.text, 1)
+    }
+
+    /**
+     * Attaches a copied file via commitContent when the editor accepts its
+     * MIME type. Unlike image clips we don't own these bytes, so the URI grant
+     * may already be gone; either way the fallback puts the file back on the
+     * system clipboard so a long-press paste still works.
+     */
+    private fun commitFileClip(item: com.wasimaster.wmkeyboard.core.clipboard.ClipItem) {
+        val uri = item.uriString?.let { runCatching { Uri.parse(it) }.getOrNull() } ?: return
+        val label = item.fileName.orEmpty()
+        val ic = currentInputConnection
+        val editorInfo = currentInputEditorInfo
+        val supported = editorInfo != null &&
+            EditorInfoCompat.getContentMimeTypes(editorInfo)
+                .any { ClipDescription.compareMimeTypes(item.mimeType, it) }
+
+        if (ic != null && editorInfo != null && supported) {
+            val committed = runCatching {
+                InputConnectionCompat.commitContent(
+                    ic,
+                    editorInfo,
+                    InputContentInfoCompat(
+                        uri,
+                        ClipDescription(label, arrayOf(item.mimeType)),
+                        null,
+                    ),
+                    0,
+                    null,
+                )
+            }.getOrDefault(false)
+            if (committed) return
+        }
+        copyUriToSystemClipboard(uri, label)
+        Toast.makeText(
+            this,
+            "This app doesn't accept files here — file copied, paste it instead",
+            Toast.LENGTH_SHORT,
+        ).show()
+    }
+
+    private fun copyUriToSystemClipboard(uri: Uri, label: String) {
+        runCatching {
+            (getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager)
+                .setPrimaryClip(android.content.ClipData.newUri(contentResolver, label, uri))
+        }
     }
 
     /**
@@ -3473,6 +3702,10 @@ class WMKeyboardService : InputMethodService() {
         private const val WEATHER_CACHE_MS = 15L * 60 * 1000
         private val SENTENCE_ENDERS = charArrayOf('.', '!', '?', '।')
         private const val SHIFT_DOUBLE_TAP_MS = 350L
+        /** Cap on files recorded from one multi-select copy. */
+        private const val MAX_FILE_CLIPS_PER_COPY = 20
+        /** Links fetched per panel open, so a history of links isn't a request storm. */
+        private const val MAX_LINK_PREVIEWS = 8
 
         private fun EditorInfo?.enterAction(): EnterAction {
             val options = this?.imeOptions ?: return EnterAction.DEFAULT

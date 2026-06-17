@@ -190,6 +190,7 @@ import kotlin.math.roundToInt
 import com.wasimaster.wmkeyboard.core.prediction.UserLexicon
 import com.wasimaster.wmkeyboard.core.snippets.Snippet
 import com.wasimaster.wmkeyboard.core.snippets.SnippetStore
+import com.wasimaster.wmkeyboard.core.snippets.SnippetVariable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -2361,6 +2362,14 @@ private fun ToolDetailSettings(
                         else "${settings.clipboardExpiryHours} h",
                 ) { scope.launch { repository.setClipboardExpiryHours(it.toInt()) } }
             }
+            item {
+                ToggleSetting(
+                    "Link previews",
+                    "Fetch the page title of copied links and show it in the panel. " +
+                        "This contacts the linked site.",
+                    settings.clipboardLinkPreviews,
+                ) { scope.launch { repository.setClipboardLinkPreviews(it) } }
+            }
         }
         ToolbarTool.SPLIT -> SettingsGroup("Options") {
             item {
@@ -3634,16 +3643,21 @@ private fun SnippetSettings() {
         Column(modifier = Modifier.padding(16.dp)) {
             Text("Template variables", style = MaterialTheme.typography.titleSmall)
             Spacer(Modifier.height(8.dp))
-            // Live examples: expand the actual templates so the preview
-            // always matches what an insertion would produce right now.
-            VariableRow("{date}", "today's date", SnippetStore.expand("{date}"))
-            VariableRow("{time}", "current time", SnippetStore.expand("{time}"))
-            VariableRow("{datetime}", "date and time", SnippetStore.expand("{datetime}"))
-            VariableRow("{clip}", "latest clipboard entry", "whatever you copied last")
+            // Live examples: expand the actual templates so the preview always
+            // matches what an insertion would produce right now. The variables
+            // the IME alone can fill in get a stand-in example instead.
+            for (variable in SnippetVariable.entries) {
+                VariableRow(variable.token, variable.description, sampleFor(variable))
+            }
+            VariableRow(
+                "{date:…}", "any date format you like",
+                SnippetStore.expand("{date:EEE d MMM}"),
+            )
             Spacer(Modifier.height(8.dp))
             Text(
                 "Variables expand at the moment the snippet is inserted, not when it " +
-                    "is saved — so {date} always produces the current date.",
+                    "is saved — so {date} always produces the current date. " +
+                    "{date:…} takes a pattern, e.g. {date:EEEE} or {date:dd/MM/yy}.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -3663,9 +3677,13 @@ private fun SnippetSettings() {
                     supportingContent = {
                         Column {
                             Text(snippet.text, maxLines = 2)
-                            if (snippet.text != SnippetStore.expand(snippet.text, clipboard = "…")) {
+                            val preview = SnippetStore.expandWithCursor(
+                                snippet.text,
+                                context = SNIPPET_PREVIEW_CONTEXT,
+                            ).text
+                            if (snippet.text != preview) {
                                 Text(
-                                    "Inserts as: " + SnippetStore.expand(snippet.text, clipboard = "…"),
+                                    "Inserts as: $preview",
                                     maxLines = 2,
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.primary,
@@ -3707,6 +3725,28 @@ private fun SnippetSettings() {
             },
         )
     }
+}
+
+/** Stand-in values so the settings preview shows a realistic expansion. */
+private val SNIPPET_PREVIEW_CONTEXT = SnippetStore.Companion.Context(
+    clipboard = "…",
+    appName = "this app",
+    packageName = "com.example.app",
+    selection = "…",
+)
+
+/**
+ * Example value for the reference card. Most variables can be expanded for
+ * real; the ones that depend on the keyboard's live context (clipboard, app,
+ * selection) get a description of what they'd produce instead.
+ */
+private fun sampleFor(variable: SnippetVariable): String = when (variable) {
+    SnippetVariable.CLIP -> "whatever you copied last"
+    SnippetVariable.SELECTION -> "the text you had selected"
+    SnippetVariable.APP -> "Messages"
+    SnippetVariable.PACKAGE -> "com.google.android.apps.messaging"
+    SnippetVariable.CURSOR -> "nothing — it only moves the cursor"
+    else -> SnippetStore.expand(variable.token)
 }
 
 /** One row in the template-variable reference card. */
@@ -3754,7 +3794,7 @@ private fun SnippetDialog(
                 OutlinedTextField(
                     value = text,
                     onValueChange = { text = it },
-                    label = { Text("Text — supports {date} {time} {datetime} {clip}") },
+                    label = { Text("Text — supports {date} {time} {clip} {app} {cursor} …") },
                     minLines = 3,
                 )
             }

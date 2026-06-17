@@ -67,7 +67,15 @@ import androidx.compose.material.icons.automirrored.outlined.Redo
 import androidx.compose.material.icons.automirrored.outlined.Send
 import androidx.compose.material.icons.automirrored.outlined.Undo
 import androidx.compose.material.icons.filled.PushPin
+import androidx.compose.material.icons.outlined.AudioFile
 import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.Description
+import androidx.compose.material.icons.outlined.Folder
+import androidx.compose.material.icons.outlined.Image
+import androidx.compose.material.icons.outlined.InsertDriveFile
+import androidx.compose.material.icons.outlined.Link
+import androidx.compose.material.icons.outlined.PictureAsPdf
+import androidx.compose.material.icons.outlined.VideoFile
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.ChevronLeft
@@ -198,6 +206,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
@@ -216,6 +225,7 @@ import android.os.SystemClock
 import kotlinx.coroutines.delay
 import com.wasimaster.wmkeyboard.core.clipboard.ClipItem
 import com.wasimaster.wmkeyboard.core.clipboard.ClipKind
+import com.wasimaster.wmkeyboard.core.clipboard.ClipLinks
 import com.wasimaster.wmkeyboard.core.emoji.EmojiVariantIndex
 import com.wasimaster.wmkeyboard.core.gesture.GesturePoint
 import com.wasimaster.wmkeyboard.core.grammar.GrammarFix
@@ -4067,10 +4077,11 @@ private fun ClipboardPanel(
                     .clickable { onClipboardItem(item) }
                     .padding(10.dp),
             ) {
-                if (item.kind == ClipKind.IMAGE) {
-                    ClipThumbnail(item)
-                } else {
-                    Text(
+                when (item.kind) {
+                    ClipKind.IMAGE -> ClipThumbnail(item)
+                    ClipKind.FILE, ClipKind.FOLDER -> ClipFileBody(item)
+                    ClipKind.LINK -> ClipLinkBody(item)
+                    else -> Text(
                         text = item.text,
                         maxLines = 3,
                         overflow = TextOverflow.Ellipsis,
@@ -4108,6 +4119,121 @@ private fun ClipboardPanel(
             }
         }
     }
+}
+
+/**
+ * A copied file or folder: type icon, name, and either the file size or a
+ * "Folder" label. Folders are marked plainly because tapping one can't attach
+ * it anywhere — it types the name instead.
+ */
+@Composable
+private fun ClipFileBody(item: ClipItem) {
+    val isFolder = item.kind == ClipKind.FOLDER
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(
+            if (isFolder) Icons.Outlined.Folder else fileIconFor(item.mimeType),
+            contentDescription = if (isFolder) "Folder" else "File",
+            modifier = Modifier
+                .size(28.dp)
+                .padding(end = 6.dp),
+            tint = MaterialTheme.colorScheme.primary,
+        )
+        Column {
+            Text(
+                text = item.fileName.orEmpty().ifBlank { item.text },
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Text(
+                text = if (isFolder) "Folder" else listOfNotNull(
+                    formatFileSize(item.fileSize),
+                    item.mimeType.substringAfterLast('/').takeIf { it.isNotBlank() }?.uppercase(),
+                ).joinToString(" · "),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                fontSize = 10.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+/**
+ * A copied link, tinted and underlined so it reads as one. When link previews
+ * are on and the fetch found something, the page title and description replace
+ * the raw URL, which drops to a host line underneath.
+ */
+@Composable
+private fun ClipLinkBody(item: ClipItem) {
+    val preview = item.linkPreview?.takeIf { !it.failed && !it.isEmpty }
+    val linkColor = MaterialTheme.colorScheme.primary
+    Column {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                Icons.Outlined.Link,
+                contentDescription = "Link",
+                modifier = Modifier
+                    .size(22.dp)
+                    .padding(end = 4.dp),
+                tint = linkColor,
+            )
+            Text(
+                text = preview?.title?.takeIf { it.isNotBlank() } ?: item.text,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                fontSize = 13.sp,
+                fontWeight = if (preview != null) FontWeight.Medium else FontWeight.Normal,
+                color = if (preview != null) MaterialTheme.colorScheme.onSurface else linkColor,
+                textDecoration = if (preview != null) null else TextDecoration.Underline,
+            )
+        }
+        if (preview != null && preview.description.isNotBlank()) {
+            Text(
+                text = preview.description,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                fontSize = 11.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        val host = ClipLinks.host(ClipLinks.asUrl(item.text) ?: item.text)
+        if (host.isNotBlank()) {
+            Text(
+                text = preview?.siteName?.takeIf { it.isNotBlank() } ?: host,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                fontSize = 10.sp,
+                color = linkColor,
+            )
+        }
+    }
+}
+
+private fun fileIconFor(mimeType: String) = when {
+    mimeType.startsWith("audio/") -> Icons.Outlined.AudioFile
+    mimeType.startsWith("video/") -> Icons.Outlined.VideoFile
+    mimeType.startsWith("image/") -> Icons.Outlined.Image
+    mimeType == "application/pdf" -> Icons.Outlined.PictureAsPdf
+    mimeType.startsWith("text/") -> Icons.Outlined.Description
+    else -> Icons.Outlined.InsertDriveFile
+}
+
+/** Human file size, or null when the provider didn't report one. */
+private fun formatFileSize(bytes: Long): String? {
+    if (bytes < 0) return null
+    if (bytes < 1024) return "$bytes B"
+    val units = listOf("KB", "MB", "GB", "TB")
+    var value = bytes.toDouble() / 1024
+    var unit = 0
+    while (value >= 1024 && unit < units.lastIndex) {
+        value /= 1024
+        unit++
+    }
+    return if (value >= 10) "${value.toInt()} ${units[unit]}"
+    else String.format(java.util.Locale.getDefault(), "%.1f %s", value, units[unit])
 }
 
 /** Decodes a downsampled preview of an image clip off the main thread. */

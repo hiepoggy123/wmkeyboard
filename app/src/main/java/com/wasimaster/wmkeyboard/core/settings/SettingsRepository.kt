@@ -255,6 +255,8 @@ data class KeyboardSettings(
     val learnFromTyping: Boolean = true,
     val clipboardHistory: Boolean = true,
     val clipboardExpiryHours: Int = 24,
+    /** Fetch page titles for copied links and show them in the clipboard panel. */
+    val clipboardLinkPreviews: Boolean = false,
     val longPressDelayMs: Int = 300,
     val keyRepeatIntervalMs: Int = 50,
     /** Small corner label on each key showing its first long-press character. */
@@ -480,6 +482,7 @@ class SettingsRepository(private val context: Context) {
         private val LEARN_FROM_TYPING = booleanPreferencesKey("learn_from_typing")
         private val CLIPBOARD_HISTORY = booleanPreferencesKey("clipboard_history")
         private val CLIPBOARD_EXPIRY_HOURS = intPreferencesKey("clipboard_expiry_hours")
+        private val CLIPBOARD_LINK_PREVIEWS = booleanPreferencesKey("clipboard_link_previews")
         private val LONG_PRESS_DELAY = intPreferencesKey("long_press_delay")
         private val KEY_REPEAT_INTERVAL = intPreferencesKey("key_repeat_interval")
         private val LONG_PRESS_HINTS = booleanPreferencesKey("long_press_hints")
@@ -674,6 +677,7 @@ class SettingsRepository(private val context: Context) {
             learnFromTyping = p[LEARN_FROM_TYPING] ?: defaults.learnFromTyping,
             clipboardHistory = p[CLIPBOARD_HISTORY] ?: defaults.clipboardHistory,
             clipboardExpiryHours = p[CLIPBOARD_EXPIRY_HOURS] ?: defaults.clipboardExpiryHours,
+            clipboardLinkPreviews = p[CLIPBOARD_LINK_PREVIEWS] ?: defaults.clipboardLinkPreviews,
             longPressDelayMs = p[LONG_PRESS_DELAY] ?: defaults.longPressDelayMs,
             keyRepeatIntervalMs = p[KEY_REPEAT_INTERVAL] ?: defaults.keyRepeatIntervalMs,
             longPressHints = p[LONG_PRESS_HINTS] ?: defaults.longPressHints,
@@ -1145,6 +1149,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setClipboardExpiryHours(value: Int) =
         context.dataStore.edit { it[CLIPBOARD_EXPIRY_HOURS] = value.coerceIn(0, 24 * 7) }
+
+    suspend fun setClipboardLinkPreviews(value: Boolean) =
+        context.dataStore.edit { it[CLIPBOARD_LINK_PREVIEWS] = value }
 
     suspend fun setLongPressDelayMs(value: Int) =
         context.dataStore.edit { it[LONG_PRESS_DELAY] = value.coerceIn(150, 700) }

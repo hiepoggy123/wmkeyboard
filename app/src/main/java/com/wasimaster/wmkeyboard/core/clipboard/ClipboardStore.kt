@@ -5,9 +5,31 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.io.File
 
-/** What a clip holds: plain text, styled text (HTML source kept), or an image file. */
+/**
+ * What a clip holds. [TEXT]/[HTML]/[LINK] are textual (insertable as text);
+ * [IMAGE] is a file this app owns; [FILE]/[FOLDER] are content URIs owned by
+ * the app that did the copying.
+ */
 @Serializable
-enum class ClipKind { TEXT, HTML, IMAGE }
+enum class ClipKind {
+    TEXT, HTML, LINK, IMAGE, FILE, FOLDER;
+
+    /** True when the clip can be committed as plain text. */
+    val isTextual: Boolean get() = this == TEXT || this == HTML || this == LINK
+}
+
+/** Open Graph / HTML metadata for a [ClipKind.LINK] clip, fetched on demand. */
+@Serializable
+data class LinkPreview(
+    val title: String = "",
+    val description: String = "",
+    val siteName: String = "",
+    val imageUrl: String = "",
+    /** A finished attempt that found nothing; stops us re-fetching every open. */
+    val failed: Boolean = false,
+) {
+    val isEmpty: Boolean get() = title.isBlank() && description.isBlank() && siteName.isBlank()
+}
 
 @Serializable
 data class ClipItem(
@@ -21,18 +43,48 @@ data class ClipItem(
     /** Absolute path of the copied image for [ClipKind.IMAGE] items. */
     val imagePath: String? = null,
     val mimeType: String = "text/plain",
+    /** Source content URI for [ClipKind.FILE] and [ClipKind.FOLDER] items. */
+    val uriString: String? = null,
+    /** Display name of a file/folder clip. */
+    val fileName: String? = null,
+    /** Byte size of a file clip; -1 when the provider didn't report one. */
+    val fileSize: Long = -1,
+    /** Fetched metadata for a [ClipKind.LINK] clip; null until fetched. */
+    val linkPreview: LinkPreview? = null,
 )
+
+/** Recognises clips that are a bare URL, so they can be shown as links. */
+object ClipLinks {
+
+    private val URL_REGEX = Regex(
+        """^(?:https?://|www\.)[^\s<>"']+$""",
+        RegexOption.IGNORE_CASE,
+    )
+
+    /** The clip text as a URL, or null when it isn't a single bare link. */
+    fun asUrl(text: String): String? {
+        val trimmed = text.trim()
+        if (trimmed.length > 2048 || !URL_REGEX.matches(trimmed)) return null
+        return if (trimmed.startsWith("www.", ignoreCase = true)) "https://$trimmed" else trimmed
+    }
+
+    /** Host without a leading `www.`, for the site label on a link card. */
+    fun host(url: String): String =
+        runCatching { java.net.URI(url).host.orEmpty() }.getOrDefault("")
+            .removePrefix("www.")
+}
 
 /**
  * Clipboard history with pinning, persisted as JSON on device.
  *
- * The IME service feeds new clips in via [add]/[addHtml]/[addImage] from its
- * OnPrimaryClipChangedListener. Unpinned items expire after
+ * The IME service feeds new clips in via [add]/[addHtml]/[addImage]/[addUri]
+ * from its OnPrimaryClipChangedListener. Unpinned items expire after
  * [expiryMillis] (0 disables expiry); pinned items never expire.
  *
  * Image clips reference files the service copies into [imagesDir]; the store
  * owns their lifecycle and deletes the file whenever its item is removed
- * (expiry, cap, delete, clear).
+ * (expiry, cap, delete, clear). File and folder clips only record the source
+ * URI — the copying app still owns those bytes, so nothing is deleted for them.
  */
 class ClipboardStore(
     private val storageFile: File?,
@@ -56,7 +108,15 @@ class ClipboardStore(
         storageFile?.takeIf { it.exists() }?.let { file ->
             runCatching {
                 val snapshot = json.decodeFromString<Snapshot>(file.readText())
-                items.addAll(snapshot.items.filter { it.kind != ClipKind.IMAGE || it.imagePath != null })
+                items.addAll(
+                    snapshot.items.filter {
+                        when (it.kind) {
+                            ClipKind.IMAGE -> it.imagePath != null
+                            ClipKind.FILE, ClipKind.FOLDER -> it.uriString != null
+                            else -> true
+                        }
+                    }
+                )
                 nextId = (items.maxOfOrNull { it.id } ?: 0L) + 1
             }
         }
@@ -96,16 +156,58 @@ class ClipboardStore(
         return item.takeIf { items.contains(item) }
     }
 
+    /**
+     * Registers a copied file or folder by its source URI. Nothing is copied —
+     * the clip is a reference, and inserting it later depends on the URI grant
+     * still being valid.
+     */
+    @Synchronized
+    fun addUri(
+        uriString: String,
+        displayName: String,
+        mimeType: String,
+        isDirectory: Boolean,
+        size: Long = -1,
+        now: Long = System.currentTimeMillis(),
+    ): ClipItem? {
+        if (uriString.isBlank()) return null
+        // Re-copying the same file moves it to the top instead of duplicating.
+        items.firstOrNull { it.uriString == uriString }?.let { existing ->
+            items.remove(existing)
+            val refreshed = existing.copy(timestamp = now)
+            items.add(0, refreshed)
+            return refreshed
+        }
+        val item = ClipItem(
+            id = nextId++,
+            text = displayName,
+            timestamp = now,
+            kind = if (isDirectory) ClipKind.FOLDER else ClipKind.FILE,
+            mimeType = mimeType,
+            uriString = uriString,
+            fileName = displayName,
+            fileSize = if (isDirectory) -1 else size,
+        )
+        items.add(0, item)
+        prune(now)
+        return item
+    }
+
     private fun addTextual(text: String, html: String?, now: Long): ClipItem? {
         val trimmed = text.trim()
         if (trimmed.isEmpty()) return null
+        val isLink = html == null && ClipLinks.asUrl(trimmed) != null
         // Re-copying an existing item moves it to the top instead of duplicating.
-        val existing = items.firstOrNull { it.kind != ClipKind.IMAGE && it.text == trimmed }
+        val existing = items.firstOrNull { it.kind.isTextual && it.text == trimmed }
         if (existing != null) {
             items.remove(existing)
             val refreshed = existing.copy(
                 timestamp = now,
-                kind = if (html != null) ClipKind.HTML else existing.kind,
+                kind = when {
+                    html != null -> ClipKind.HTML
+                    isLink -> ClipKind.LINK
+                    else -> existing.kind
+                },
                 htmlText = html ?: existing.htmlText,
             )
             items.add(0, refreshed)
@@ -115,7 +217,11 @@ class ClipboardStore(
             id = nextId++,
             text = trimmed,
             timestamp = now,
-            kind = if (html != null) ClipKind.HTML else ClipKind.TEXT,
+            kind = when {
+                html != null -> ClipKind.HTML
+                isLink -> ClipKind.LINK
+                else -> ClipKind.TEXT
+            },
             htmlText = html,
             mimeType = if (html != null) "text/html" else "text/plain",
         )
@@ -135,7 +241,26 @@ class ClipboardStore(
     /** Most recent textual clip, for snippet {clip} expansion. */
     @Synchronized
     fun latestText(now: Long = System.currentTimeMillis()): String? =
-        items(now).firstOrNull { it.kind != ClipKind.IMAGE }?.text
+        items(now).firstOrNull { it.kind.isTextual }?.text
+
+    /** Link clips still missing metadata, oldest-first in display order. */
+    @Synchronized
+    fun linksNeedingPreview(now: Long = System.currentTimeMillis()): List<ClipItem> =
+        items(now).filter { it.kind == ClipKind.LINK && it.linkPreview == null }
+
+    @Synchronized
+    fun setLinkPreview(id: Long, preview: LinkPreview) {
+        val index = items.indexOfFirst { it.id == id }
+        if (index >= 0) items[index] = items[index].copy(linkPreview = preview)
+    }
+
+    /** Drops every fetched preview, e.g. when the user turns previews off. */
+    @Synchronized
+    fun clearLinkPreviews() {
+        for (index in items.indices) {
+            if (items[index].linkPreview != null) items[index] = items[index].copy(linkPreview = null)
+        }
+    }
 
     @Synchronized
     fun setPinned(id: Long, pinned: Boolean) {
@@ -155,7 +280,14 @@ class ClipboardStore(
 
     @Synchronized
     fun search(query: String): List<ClipItem> =
-        items().filter { it.kind != ClipKind.IMAGE && it.text.contains(query, ignoreCase = true) }
+        items().filter {
+            when {
+                it.kind.isTextual -> it.text.contains(query, ignoreCase = true)
+                it.kind == ClipKind.FILE || it.kind == ClipKind.FOLDER ->
+                    it.fileName.orEmpty().contains(query, ignoreCase = true)
+                else -> false
+            }
+        }
 
     @Synchronized
     fun save() {
