@@ -278,6 +278,8 @@ data class KeyboardSettings(
     val commaAsEmoji: Boolean = false,
     /** History tab of the emoji panel: recently used vs most used. */
     val emojiTabMode: EmojiTabMode = EmojiTabMode.RECENTS,
+    /** "Clear recents" button on the emoji panel's history tab. Off by default. */
+    val emojiClearRecentsButton: Boolean = false,
     /** Emoji candidates in the suggestion strip while typing. */
     val emojiPrediction: Boolean = true,
     val emojiBarMode: EmojiBarMode = EmojiBarMode.BUTTON,
@@ -497,6 +499,7 @@ class SettingsRepository(private val context: Context) {
         private val TOOL_CIRCLE_RADIUS = intPreferencesKey("tool_circle_radius")
         private val COMMA_AS_EMOJI = booleanPreferencesKey("comma_as_emoji")
         private val EMOJI_TAB_MODE = stringPreferencesKey("emoji_tab_mode")
+        private val EMOJI_CLEAR_RECENTS_BUTTON = booleanPreferencesKey("emoji_clear_recents_button")
         private val EMOJI_PREDICTION = booleanPreferencesKey("emoji_prediction")
         private val EMOJI_BAR_MODE = stringPreferencesKey("emoji_bar_mode")
         private val EMOJI_BAR_CONTENT = stringPreferencesKey("emoji_bar_content")
@@ -699,6 +702,7 @@ class SettingsRepository(private val context: Context) {
             emojiTabMode = p[EMOJI_TAB_MODE]
                 ?.let { runCatching { EmojiTabMode.valueOf(it) }.getOrNull() }
                 ?: defaults.emojiTabMode,
+            emojiClearRecentsButton = p[EMOJI_CLEAR_RECENTS_BUTTON] ?: defaults.emojiClearRecentsButton,
             emojiPrediction = p[EMOJI_PREDICTION] ?: defaults.emojiPrediction,
             emojiBarMode = p[EMOJI_BAR_MODE]
                 ?.let { runCatching { EmojiBarMode.valueOf(it) }.getOrNull() }
@@ -1179,6 +1183,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setEmojiTabMode(value: EmojiTabMode) =
         context.dataStore.edit { it[EMOJI_TAB_MODE] = value.name }
+
+    suspend fun setEmojiClearRecentsButton(value: Boolean) =
+        context.dataStore.edit { it[EMOJI_CLEAR_RECENTS_BUTTON] = value }
 
     suspend fun setEmojiPrediction(value: Boolean) =
         context.dataStore.edit { it[EMOJI_PREDICTION] = value }

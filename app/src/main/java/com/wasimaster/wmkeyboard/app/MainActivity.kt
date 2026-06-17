@@ -1709,6 +1709,15 @@ private fun EmojiSettings(repository: SettingsRepository, settings: KeyboardSett
                 selected = settings.emojiTabMode,
             ) { scope.launch { repository.setEmojiTabMode(it) } }
         }
+        item {
+            ToggleSetting(
+                "Clear recents button",
+                "A button on the Recent tab to wipe the recents list",
+                settings.emojiClearRecentsButton,
+                info = "Adds a \"Clear recents\" button to the emoji panel's Recent tab. " +
+                    "Off by default so the tab stays uncluttered.",
+            ) { scope.launch { repository.setEmojiClearRecentsButton(it) } }
+        }
     }
     SettingsGroup("Emoji row") {
         item {
