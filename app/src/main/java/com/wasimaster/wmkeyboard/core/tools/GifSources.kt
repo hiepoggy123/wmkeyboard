@@ -1,12 +1,12 @@
 package com.wasimaster.wmkeyboard.core.tools
 
 /** Where a GIF/sticker result came from. */
-enum class GifSource { KLIPY, GIPHY, GOOGLE }
+enum class GifSource { KLIPY, GIPHY }
 
 /**
  * One GIF or sticker result: a small preview for the panel grid and the
  * full-size file that actually gets committed to the editor. Produced by
- * [KlipyClient], [GiphyClient] and [GoogleSearchClient.gifSearch].
+ * [KlipyClient] and [GiphyClient].
  */
 data class GifItem(
     val id: String,
@@ -27,7 +27,6 @@ object GifSources {
     fun displayName(source: GifSource): String = when (source) {
         GifSource.KLIPY -> "Klipy"
         GifSource.GIPHY -> "GIPHY"
-        GifSource.GOOGLE -> "Google"
     }
 
     /**

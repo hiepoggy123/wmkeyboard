@@ -157,7 +157,6 @@ import com.wasimaster.wmkeyboard.core.settings.AiProvider
 import com.wasimaster.wmkeyboard.core.settings.GifContentFilter
 import com.wasimaster.wmkeyboard.core.settings.GifSourceMode
 import com.wasimaster.wmkeyboard.core.settings.QrEccLevel
-import com.wasimaster.wmkeyboard.core.settings.WebSearchProvider
 import com.wasimaster.wmkeyboard.core.tools.AiPrompts
 import com.wasimaster.wmkeyboard.core.tools.GeoPlace
 import com.wasimaster.wmkeyboard.core.tools.ToolApiKeys
@@ -2120,9 +2119,9 @@ private fun toolDescription(tool: ToolbarTool): String = when (tool) {
     ToolbarTool.CAMERA -> "Take a photo and send it without leaving the keyboard"
     ToolbarTool.DICTIONARY -> "English definitions, pronunciation and synonyms"
     ToolbarTool.TRANSLATE -> "Translate what you type, live, into any language"
-    ToolbarTool.GIF -> "Search GIFs (Klipy, GIPHY, Google) and send them without leaving the keyboard"
+    ToolbarTool.GIF -> "Search GIFs (Klipy, GIPHY) and send them without leaving the keyboard"
     ToolbarTool.STICKER -> "Search stickers — transparent, chat-ready"
-    ToolbarTool.WEB_SEARCH -> "Search the web (Brave or Google) and insert a result's link"
+    ToolbarTool.WEB_SEARCH -> "Search the web (Brave) and insert a result's link"
     ToolbarTool.IMAGE_SEARCH -> "Image search from the keyboard; tap to send an image"
     ToolbarTool.OCR -> "Point the camera at printed text and type it — pick just the words you need"
     ToolbarTool.QR_SCAN -> "Scan a QR code or barcode and insert its text"
@@ -2661,37 +2660,6 @@ private fun ToolDetailSettings(
                         emptyHint = "Free from developers.giphy.com",
                     ) { repository.setGiphyApiKey(it) }
                 }
-                item {
-                    ToggleSetting(
-                        "Google Images as a source",
-                        "Animated GIFs (transparent PNGs for stickers) via web/image search's keys",
-                        settings.gifUseGoogle,
-                        info = "Needs the Google Programmable Search key from the web " +
-                            "search tool's settings, plus an engine id — either the " +
-                            "dedicated ones below or, if blank, the web search tool's " +
-                            "engine. Google only searches when you press enter (or pick " +
-                            "its chip) — never per keystroke — because its free tier is " +
-                            "100 requests a day, shared with the web and image search " +
-                            "tools. Google previews are static; the inserted GIF still " +
-                            "animates.",
-                    ) { scope.launch { repository.setGifUseGoogle(it) } }
-                }
-                item {
-                    ApiKeyField(
-                        label = "Engine ID (cx) — GIFs",
-                        value = settings.googleSearchCxGifs,
-                        builtInAvailable = ToolApiKeys.builtInGoogleCxGifs,
-                        emptyHint = "Dedicated GIF-site engine; blank = web search's engine",
-                    ) { repository.setGoogleSearchCxGifs(it) }
-                }
-                item {
-                    ApiKeyField(
-                        label = "Engine ID (cx) — stickers",
-                        value = settings.googleSearchCxStickers,
-                        builtInAvailable = ToolApiKeys.builtInGoogleCxStickers,
-                        emptyHint = "Dedicated sticker-site engine; blank = web search's engine",
-                    ) { repository.setGoogleSearchCxStickers(it) }
-                }
             }
             CaptionText(
                 "The GIF and sticker tools share all of this, including the content " +
@@ -2750,37 +2718,10 @@ private fun ToolDetailSettings(
             }
             CaptionText(
                 "High hides the most; Off hides nothing. Maps to Klipy's and " +
-                    "GIPHY's rating (High = G … Off = R); for Google, SafeSearch " +
-                    "follows the web search tool's setting.",
+                    "GIPHY's rating (High = G … Off = R).",
             )
         }
         ToolbarTool.WEB_SEARCH, ToolbarTool.IMAGE_SEARCH -> {
-            SectionHeader("Search provider")
-            SingleChoiceSegmentedButtonRow(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-            ) {
-                WebSearchProvider.entries.forEachIndexed { index, provider ->
-                    SegmentedButton(
-                        selected = settings.searchProvider == provider,
-                        onClick = { scope.launch { repository.setSearchProvider(provider) } },
-                        shape = SegmentedButtonDefaults.itemShape(index, WebSearchProvider.entries.size),
-                    ) {
-                        Text(
-                            when (provider) {
-                                WebSearchProvider.BRAVE -> "Brave"
-                                WebSearchProvider.GOOGLE -> "Google"
-                            },
-                            maxLines = 1,
-                        )
-                    }
-                }
-            }
-            CaptionText(
-                "Web and image search share everything here. If the chosen provider " +
-                    "has no key, the other one is used automatically.",
-            )
             SettingsGroup("Brave Search") {
                 item {
                     ApiKeyField(
@@ -2792,42 +2733,10 @@ private fun ToolDetailSettings(
                 }
             }
             CaptionText(
-                "Searches the whole web. Brave's plan includes a monthly free " +
-                    "credit (roughly a thousand searches) and asks for attribution — " +
-                    "the panel shows “via Brave”.",
-            )
-            SettingsGroup("Google Programmable Search") {
-                item {
-                    ApiKeyField(
-                        label = "API key",
-                        value = settings.googleSearchApiKey,
-                        builtInAvailable = ToolApiKeys.builtInGoogleSearch,
-                        emptyHint = "From Google Cloud — enable the Custom Search API",
-                    ) { repository.setGoogleSearchApiKey(it) }
-                }
-                item {
-                    ApiKeyField(
-                        label = "Engine ID (cx) — web search",
-                        value = settings.googleSearchCx,
-                        builtInAvailable = ToolApiKeys.builtInGoogleSearch,
-                        emptyHint = "From programmablesearchengine.google.com",
-                    ) { repository.setGoogleSearchCx(it) }
-                }
-                item {
-                    ApiKeyField(
-                        label = "Engine ID (cx) — image search",
-                        value = settings.googleSearchCxImages,
-                        builtInAvailable = ToolApiKeys.builtInGoogleCxImages,
-                        emptyHint = "Blank = same engine as web search",
-                    ) { repository.setGoogleSearchCxImages(it) }
-                }
-            }
-            CaptionText(
-                "Note: since Jan 2026, new Programmable Search engines can no longer " +
-                    "“search the entire web” — they search up to 50 sites you pick. " +
-                    "Engines that already had whole-web search keep it until " +
-                    "Jan 1, 2027. Free tier: 100 searches a day (also feeds the GIF " +
-                    "tool's Google source).",
+                "Web and image search share everything here. Searches the whole " +
+                    "web. Brave's plan includes a monthly free credit (roughly a " +
+                    "thousand searches) and asks for attribution — the panel shows " +
+                    "“via Brave”.",
             )
             SettingsGroup("Results") {
                 item {

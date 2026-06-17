@@ -150,46 +150,6 @@ class GifSourcesTest {
     }
 }
 
-class GoogleSearchClientTest {
-
-    @Test
-    fun `web results parse title, snippet and links`() {
-        val body = """
-            {"items":[
-                {"title":"Kotlin","snippet":"A language.","link":"https://kotlinlang.org/","displayLink":"kotlinlang.org"},
-                {"snippet":"missing title and link"}
-            ]}
-        """.trimIndent()
-        val results = GoogleSearchClient.parseWeb(body)
-        assertEquals(1, results.size)
-        assertEquals("Kotlin", results[0].title)
-        assertEquals("https://kotlinlang.org/", results[0].url)
-        assertEquals("kotlinlang.org", results[0].displayUrl)
-    }
-
-    @Test
-    fun `image results parse thumb, full url and mime`() {
-        val body = """
-            {"items":[
-                {"title":"A cat","link":"https://x/cat.jpg","mime":"image/jpeg",
-                 "image":{"thumbnailLink":"https://x/cat_t.jpg","contextLink":"https://x/page"}}
-            ]}
-        """.trimIndent()
-        val results = GoogleSearchClient.parseImages(body)
-        assertEquals(1, results.size)
-        assertEquals("https://x/cat_t.jpg", results[0].thumbUrl)
-        assertEquals("https://x/cat.jpg", results[0].imageUrl)
-        assertEquals("image/jpeg", results[0].mime)
-        assertEquals("https://x/page", results[0].contextUrl)
-    }
-
-    @Test
-    fun `no items parses to empty list`() {
-        assertTrue(GoogleSearchClient.parseWeb("""{"kind":"customsearch#search"}""").isEmpty())
-        assertTrue(GoogleSearchClient.parseImages("{}").isEmpty())
-    }
-}
-
 class BraveSearchClientTest {
 
     @Test

@@ -72,7 +72,6 @@ import com.wasimaster.wmkeyboard.core.settings.resolveKeyboardMode
 import com.wasimaster.wmkeyboard.core.snippets.Snippet
 import com.wasimaster.wmkeyboard.core.snippets.SnippetStore
 import com.wasimaster.wmkeyboard.core.settings.GifSourceMode
-import com.wasimaster.wmkeyboard.core.settings.WebSearchProvider
 import com.wasimaster.wmkeyboard.core.tools.BraveSearchClient
 import com.wasimaster.wmkeyboard.core.tools.DictionaryClient
 import com.wasimaster.wmkeyboard.core.tools.GifItem
@@ -83,7 +82,6 @@ import com.wasimaster.wmkeyboard.core.settings.GrammarDialect
 import com.wasimaster.wmkeyboard.core.tools.GifSource
 import com.wasimaster.wmkeyboard.core.tools.GifSources
 import com.wasimaster.wmkeyboard.core.tools.GiphyClient
-import com.wasimaster.wmkeyboard.core.tools.GoogleSearchClient
 import com.wasimaster.wmkeyboard.core.tools.ImageResult
 import com.wasimaster.wmkeyboard.core.tools.KlipyClient
 import com.wasimaster.wmkeyboard.core.settings.AiAction
@@ -2542,9 +2540,9 @@ class WMKeyboardService : InputMethodService() {
 
     // ---- translate / gif / sticker / web & image search tools ----
 
-    /** Whether any web/image search backend (Brave or Google) is keyed. */
+    /** Whether the web/image search backend (Brave) is keyed. */
     private fun hasSearchKey(): Boolean =
-        ToolApiKeys.activeSearchProvider(_uiState.value.settings) != null
+        ToolApiKeys.hasSearchProvider(_uiState.value.settings)
 
     /** Search-bar tap on a media panel: toggle typing-into-the-query mode. */
     fun onMediaQueryTap() {
@@ -2564,7 +2562,7 @@ class WMKeyboardService : InputMethodService() {
         val query = state.mediaQuery.trim()
         mediaLiveSearchJob = serviceScope.launch {
             delay(450)
-            refreshMedia(query, live = true)
+            refreshMedia(query)
         }
     }
 
@@ -2602,22 +2600,10 @@ class WMKeyboardService : InputMethodService() {
     }
 
     /**
-     * Google GIF results per query, so re-selecting the Google chip or
-     * re-running a search never re-spends the tiny daily search quota.
-     */
-    private val googleGifCache = object : LinkedHashMap<String, List<GifItem>>(16, 0.75f, true) {
-        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, List<GifItem>>) =
-            size > 20
-    }
-
-    /**
      * Fetches GIFs or stickers for [query] from every active provider
-     * (blank query = trending; Google has no trending and sits out).
-     * [live] marks a per-keystroke search — those skip Google entirely so
-     * typing can't drain the 100-requests/day Programmable Search quota;
-     * Google joins on enter, retry, or its chip being selected.
+     * (blank query = trending).
      */
-    private fun refreshMedia(query: String, live: Boolean = false) {
+    private fun refreshMedia(query: String) {
         val state = _uiState.value
         val sticker = state.panel == PanelMode.STICKER
         if (!sticker && state.panel != PanelMode.GIF) return
@@ -2625,7 +2611,7 @@ class WMKeyboardService : InputMethodService() {
             _uiState.update { if (sticker) it.copy(sticker = ui) else it.copy(gif = ui) }
         }
         val settings = state.settings
-        val sources = ToolApiKeys.gifSources(settings, sticker)
+        val sources = ToolApiKeys.gifSources(settings)
         if (sources.isEmpty()) {
             setUi(MediaUi.NeedKey)
             return
@@ -2637,15 +2623,12 @@ class WMKeyboardService : InputMethodService() {
         } else {
             sources
         }
-        val effective = if (live) targets - GifSource.GOOGLE else targets
-        // Google-only view while typing: keep what's shown, search on enter.
-        if (effective.isEmpty()) return
         mediaFetchJob?.cancel()
         setUi(MediaUi.Loading)
         val panel = state.panel
         mediaFetchJob = serviceScope.launch {
             val results = withContext(Dispatchers.IO) {
-                effective.map { source ->
+                targets.map { source ->
                     async { runCatching { fetchGifs(source, query, sticker, settings) } }
                 }.awaitAll()
             }
@@ -2675,18 +2658,6 @@ class WMKeyboardService : InputMethodService() {
             KlipyClient.search(query, ToolApiKeys.klipy(settings), sticker, settings.gifContentFilter)
         GifSource.GIPHY ->
             GiphyClient.search(query, ToolApiKeys.giphy(settings), sticker, settings.gifContentFilter)
-        GifSource.GOOGLE -> {
-            val cacheKey = "$sticker|${query.lowercase()}"
-            synchronized(googleGifCache) { googleGifCache[cacheKey] }
-                ?: GoogleSearchClient.gifSearch(
-                    query,
-                    ToolApiKeys.googleSearch(settings),
-                    if (sticker) ToolApiKeys.googleSearchCxStickers(settings)
-                    else ToolApiKeys.googleSearchCxGifs(settings),
-                    settings.searchSafe,
-                    sticker,
-                ).also { synchronized(googleGifCache) { googleGifCache[cacheKey] = it } }
-        }
     }
 
     /** Provider chip on the GIF/sticker panel (tabs mode). */
@@ -2700,8 +2671,7 @@ class WMKeyboardService : InputMethodService() {
     private fun runWebSearch(query: String) {
         if (query.isBlank()) return
         val settings = _uiState.value.settings
-        val provider = ToolApiKeys.activeSearchProvider(settings)
-        if (provider == null) {
+        if (!ToolApiKeys.hasSearchProvider(settings)) {
             _uiState.update { it.copy(webSearch = WebSearchUi.NeedKey) }
             return
         }
@@ -2710,21 +2680,12 @@ class WMKeyboardService : InputMethodService() {
         webSearchJob = serviceScope.launch {
             val result = withContext(Dispatchers.IO) {
                 runCatching {
-                    when (provider) {
-                        WebSearchProvider.BRAVE -> BraveSearchClient.webSearch(
-                            query,
-                            ToolApiKeys.brave(settings),
-                            settings.searchResultCount,
-                            settings.searchSafe,
-                        )
-                        WebSearchProvider.GOOGLE -> GoogleSearchClient.webSearch(
-                            query,
-                            ToolApiKeys.googleSearch(settings),
-                            ToolApiKeys.googleSearchCx(settings),
-                            settings.searchResultCount,
-                            settings.searchSafe,
-                        )
-                    }
+                    BraveSearchClient.webSearch(
+                        query,
+                        ToolApiKeys.brave(settings),
+                        settings.searchResultCount,
+                        settings.searchSafe,
+                    )
                 }
             }
             _uiState.update {
@@ -2741,8 +2702,7 @@ class WMKeyboardService : InputMethodService() {
     private fun runImageSearch(query: String) {
         if (query.isBlank()) return
         val settings = _uiState.value.settings
-        val provider = ToolApiKeys.activeSearchProvider(settings)
-        if (provider == null) {
+        if (!ToolApiKeys.hasSearchProvider(settings)) {
             _uiState.update { it.copy(imageSearch = ImageSearchUi.NeedKey) }
             return
         }
@@ -2751,21 +2711,12 @@ class WMKeyboardService : InputMethodService() {
         imageSearchJob = serviceScope.launch {
             val result = withContext(Dispatchers.IO) {
                 runCatching {
-                    when (provider) {
-                        WebSearchProvider.BRAVE -> BraveSearchClient.imageSearch(
-                            query,
-                            ToolApiKeys.brave(settings),
-                            settings.searchResultCount,
-                            settings.searchSafe,
-                        )
-                        WebSearchProvider.GOOGLE -> GoogleSearchClient.imageSearch(
-                            query,
-                            ToolApiKeys.googleSearch(settings),
-                            ToolApiKeys.googleSearchCxImages(settings),
-                            settings.searchResultCount,
-                            settings.searchSafe,
-                        )
-                    }
+                    BraveSearchClient.imageSearch(
+                        query,
+                        ToolApiKeys.brave(settings),
+                        settings.searchResultCount,
+                        settings.searchSafe,
+                    )
                 }
             }
             _uiState.update {

@@ -116,14 +116,6 @@ enum class GifContentFilter { OFF, LOW, MEDIUM, HIGH }
 enum class GifSourceMode { TABS, MIX }
 
 /**
- * Backend for the web and image search tools. Brave searches the whole
- * web on a monthly free credit; Google Programmable Search still works
- * for engines that already had "search the entire web" (until
- * 2027-01-01) or new engines scoped to up to 50 chosen sites.
- */
-enum class WebSearchProvider { BRAVE, GOOGLE }
-
-/**
  * Key-press sound: which of the system's UI sound effects plays. All come
  * from the device's sound pack, so they match the stock keyboard's palette.
  */
@@ -346,26 +338,11 @@ data class KeyboardSettings(
     val klipyApiKey: String = "",
     val giphyApiKey: String = "",
     val braveApiKey: String = "",
-    val googleSearchApiKey: String = "",
-    /** Programmable Search engine id (cx) that goes with [googleSearchApiKey], used for web search. */
-    val googleSearchCx: String = "",
-    /**
-     * Optional dedicated engine ids per tool. Blank falls back to
-     * [googleSearchCx], so one engine can still serve everything. A
-     * GIF-only engine set here is never used by the other tools.
-     */
-    val googleSearchCxImages: String = "",
-    val googleSearchCxGifs: String = "",
-    val googleSearchCxStickers: String = "",
     val gifContentFilter: GifContentFilter = GifContentFilter.MEDIUM,
     /** Tabs per provider vs one evenly-mixed grid, when several have keys. */
     val gifSourceMode: GifSourceMode = GifSourceMode.TABS,
-    /** Offer Google Images (animated GIFs / transparent PNGs) as a source. */
-    val gifUseGoogle: Boolean = true,
     /** SafeSearch for the web and image search tools. */
     val searchSafe: Boolean = true,
-    /** Preferred web/image search backend (falls back to whichever has a key). */
-    val searchProvider: WebSearchProvider = WebSearchProvider.BRAVE,
     /** Results per web/image search (the API caps a page at 10). */
     val searchResultCount: Int = 8,
     /** Wikipedia subdomain the encyclopedia tool reads (en, bn, de …). */
@@ -544,15 +521,8 @@ class SettingsRepository(private val context: Context) {
         private val TRANSLATE_API_KEY = stringPreferencesKey("translate_api_key")
         private val KLIPY_API_KEY = stringPreferencesKey("klipy_api_key")
         private val BRAVE_API_KEY = stringPreferencesKey("brave_api_key")
-        private val SEARCH_PROVIDER = stringPreferencesKey("search_provider")
         private val GIPHY_API_KEY = stringPreferencesKey("giphy_api_key")
         private val GIF_SOURCE_MODE = stringPreferencesKey("gif_source_mode")
-        private val GIF_USE_GOOGLE = booleanPreferencesKey("gif_use_google")
-        private val GOOGLE_SEARCH_API_KEY = stringPreferencesKey("google_search_api_key")
-        private val GOOGLE_SEARCH_CX = stringPreferencesKey("google_search_cx")
-        private val GOOGLE_SEARCH_CX_IMAGES = stringPreferencesKey("google_search_cx_images")
-        private val GOOGLE_SEARCH_CX_GIFS = stringPreferencesKey("google_search_cx_gifs")
-        private val GOOGLE_SEARCH_CX_STICKERS = stringPreferencesKey("google_search_cx_stickers")
         private val GIF_CONTENT_FILTER = stringPreferencesKey("gif_content_filter")
         private val SEARCH_SAFE = booleanPreferencesKey("search_safe")
         private val SEARCH_RESULT_COUNT = intPreferencesKey("search_result_count")
@@ -751,19 +721,10 @@ class SettingsRepository(private val context: Context) {
             translateApiKey = p[TRANSLATE_API_KEY] ?: defaults.translateApiKey,
             klipyApiKey = p[KLIPY_API_KEY] ?: defaults.klipyApiKey,
             braveApiKey = p[BRAVE_API_KEY] ?: defaults.braveApiKey,
-            searchProvider = p[SEARCH_PROVIDER]
-                ?.let { runCatching { WebSearchProvider.valueOf(it) }.getOrNull() }
-                ?: defaults.searchProvider,
             giphyApiKey = p[GIPHY_API_KEY] ?: defaults.giphyApiKey,
             gifSourceMode = p[GIF_SOURCE_MODE]
                 ?.let { runCatching { GifSourceMode.valueOf(it) }.getOrNull() }
                 ?: defaults.gifSourceMode,
-            gifUseGoogle = p[GIF_USE_GOOGLE] ?: defaults.gifUseGoogle,
-            googleSearchApiKey = p[GOOGLE_SEARCH_API_KEY] ?: defaults.googleSearchApiKey,
-            googleSearchCx = p[GOOGLE_SEARCH_CX] ?: defaults.googleSearchCx,
-            googleSearchCxImages = p[GOOGLE_SEARCH_CX_IMAGES] ?: defaults.googleSearchCxImages,
-            googleSearchCxGifs = p[GOOGLE_SEARCH_CX_GIFS] ?: defaults.googleSearchCxGifs,
-            googleSearchCxStickers = p[GOOGLE_SEARCH_CX_STICKERS] ?: defaults.googleSearchCxStickers,
             gifContentFilter = p[GIF_CONTENT_FILTER]
                 ?.let { runCatching { GifContentFilter.valueOf(it) }.getOrNull() }
                 ?: defaults.gifContentFilter,
@@ -1203,32 +1164,11 @@ class SettingsRepository(private val context: Context) {
     suspend fun setBraveApiKey(value: String) =
         context.dataStore.edit { it[BRAVE_API_KEY] = value.trim() }
 
-    suspend fun setSearchProvider(value: WebSearchProvider) =
-        context.dataStore.edit { it[SEARCH_PROVIDER] = value.name }
-
     suspend fun setGiphyApiKey(value: String) =
         context.dataStore.edit { it[GIPHY_API_KEY] = value.trim() }
 
     suspend fun setGifSourceMode(value: GifSourceMode) =
         context.dataStore.edit { it[GIF_SOURCE_MODE] = value.name }
-
-    suspend fun setGifUseGoogle(value: Boolean) =
-        context.dataStore.edit { it[GIF_USE_GOOGLE] = value }
-
-    suspend fun setGoogleSearchApiKey(value: String) =
-        context.dataStore.edit { it[GOOGLE_SEARCH_API_KEY] = value.trim() }
-
-    suspend fun setGoogleSearchCx(value: String) =
-        context.dataStore.edit { it[GOOGLE_SEARCH_CX] = value.trim() }
-
-    suspend fun setGoogleSearchCxImages(value: String) =
-        context.dataStore.edit { it[GOOGLE_SEARCH_CX_IMAGES] = value.trim() }
-
-    suspend fun setGoogleSearchCxGifs(value: String) =
-        context.dataStore.edit { it[GOOGLE_SEARCH_CX_GIFS] = value.trim() }
-
-    suspend fun setGoogleSearchCxStickers(value: String) =
-        context.dataStore.edit { it[GOOGLE_SEARCH_CX_STICKERS] = value.trim() }
 
     suspend fun setGifContentFilter(value: GifContentFilter) =
         context.dataStore.edit { it[GIF_CONTENT_FILTER] = value.name }

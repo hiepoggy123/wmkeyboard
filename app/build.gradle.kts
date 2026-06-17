@@ -7,7 +7,7 @@ plugins {
 }
 
 // API keys for the network tools (GIF/sticker via KLIPY/GIPHY, web/image search via
-// Google Programmable Search, optional official Cloud Translation). Read from
+// Brave Search, optional official Cloud Translation). Read from
 // local.properties (never committed) or, failing that, environment variables —
 // all optional: without a key the affected tool shows a "needs API key" panel
 // and users can paste their own key in the tool's settings.
@@ -47,12 +47,26 @@ android {
         buildConfigField("String", "KLIPY_API_KEY", "\"${apiKey("wmkb.klipyApiKey", "WMKB_KLIPY_API_KEY")}\"")
         buildConfigField("String", "GIPHY_API_KEY", "\"${apiKey("wmkb.giphyApiKey", "WMKB_GIPHY_API_KEY")}\"")
         buildConfigField("String", "BRAVE_API_KEY", "\"${apiKey("wmkb.braveApiKey", "WMKB_BRAVE_API_KEY")}\"")
-        buildConfigField("String", "GOOGLE_SEARCH_API_KEY", "\"${apiKey("wmkb.googleSearchApiKey", "WMKB_GOOGLE_SEARCH_API_KEY")}\"")
-        buildConfigField("String", "GOOGLE_SEARCH_CX", "\"${apiKey("wmkb.googleSearchCx", "WMKB_GOOGLE_SEARCH_CX")}\"")
-        buildConfigField("String", "GOOGLE_SEARCH_CX_IMAGES", "\"${apiKey("wmkb.googleSearchCxImages", "WMKB_GOOGLE_SEARCH_CX_IMAGES")}\"")
-        buildConfigField("String", "GOOGLE_SEARCH_CX_GIFS", "\"${apiKey("wmkb.googleSearchCxGifs", "WMKB_GOOGLE_SEARCH_CX_GIFS")}\"")
-        buildConfigField("String", "GOOGLE_SEARCH_CX_STICKERS", "\"${apiKey("wmkb.googleSearchCxStickers", "WMKB_GOOGLE_SEARCH_CX_STICKERS")}\"")
         buildConfigField("String", "TRANSLATE_API_KEY", "\"${apiKey("wmkb.translateApiKey", "WMKB_TRANSLATE_API_KEY")}\"")
+    }
+
+    // Build flavors for storage-constrained devices.
+    // - full: all features (handwriting, OCR, QR scan, doc scan, grammar checker).
+    // - lite: removes ~100 MB of ML Kit + Harper native libraries for low-storage devices.
+    flavorDimensions += "capabilities"
+    productFlavors {
+        create("full") {
+            dimension = "capabilities"
+            buildConfigField("Boolean", "ENABLE_ML_KIT_HANDWRITING", "true")
+            buildConfigField("Boolean", "ENABLE_ML_KIT_SCANNERS", "true")
+            buildConfigField("Boolean", "ENABLE_GRAMMAR", "true")
+        }
+        create("lite") {
+            dimension = "capabilities"
+            buildConfigField("Boolean", "ENABLE_ML_KIT_HANDWRITING", "false")
+            buildConfigField("Boolean", "ENABLE_ML_KIT_SCANNERS", "false")
+            buildConfigField("Boolean", "ENABLE_GRAMMAR", "false")
+        }
     }
 
     buildTypes {

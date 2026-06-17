@@ -59,7 +59,6 @@ import coil3.gif.AnimatedImageDecoder
 import coil3.gif.GifDecoder
 import com.wasimaster.wmkeyboard.core.settings.GifSourceMode
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
-import com.wasimaster.wmkeyboard.core.settings.WebSearchProvider
 import com.wasimaster.wmkeyboard.core.tools.GifItem
 import com.wasimaster.wmkeyboard.core.tools.GifSource
 import com.wasimaster.wmkeyboard.core.tools.GifSources
@@ -151,11 +150,6 @@ private fun MediaSearchBar(
     }
 }
 
-private fun searchProviderName(provider: WebSearchProvider): String = when (provider) {
-    WebSearchProvider.BRAVE -> "Brave"
-    WebSearchProvider.GOOGLE -> "Google"
-}
-
 /** Centered message with an optional action chip, in panel theme colors. */
 @Composable
 private fun PanelNotice(
@@ -206,11 +200,10 @@ private fun PanelSpinner() {
 // ---- GIF & sticker panels ----
 
 /**
- * GIF/sticker picker: trending on open, live search from the search bar
- * (KLIPY/GIPHY; Google joins on enter to spare its daily quota), animated
- * previews, tap to download & commit into the editor. With several
- * providers configured, either a chip per source or one evenly-mixed
- * grid, per the tool's settings.
+ * GIF/sticker picker: trending on open, live search from the search bar,
+ * animated previews, tap to download & commit into the editor. With
+ * several providers configured, either a chip per source or one
+ * evenly-mixed grid, per the tool's settings.
  */
 @Composable
 internal fun GifPanel(
@@ -226,7 +219,7 @@ internal fun GifPanel(
     val ui = if (stickers) state.sticker else state.gif
     val tool = if (stickers) ToolbarTool.STICKER else ToolbarTool.GIF
     val noun = if (stickers) "stickers" else "GIFs"
-    val sources = ToolApiKeys.gifSources(state.settings, stickers)
+    val sources = ToolApiKeys.gifSources(state.settings)
     val tabsMode = state.settings.gifSourceMode == GifSourceMode.TABS
     val attribution = when {
         sources.isEmpty() -> null
@@ -253,13 +246,10 @@ internal fun GifPanel(
                 onSelect = onSourceSelect,
             )
         }
-        val googleOnlyView =
-            if (tabsMode) (state.mediaSource.takeIf { it in sources } ?: sources.firstOrNull()) == GifSource.GOOGLE
-            else sources == listOf(GifSource.GOOGLE)
         when (ui) {
             MediaUi.NeedKey -> PanelNotice(
-                "The $noun tool needs an API key — Klipy or GIPHY (both free), " +
-                    "or Google Programmable Search. Add one in the tool's settings.",
+                "The $noun tool needs an API key — Klipy or GIPHY (both free). " +
+                    "Add one in the tool's settings.",
                 actionLabel = "Open settings",
                 onAction = { onOpenToolSettings(tool) },
             )
@@ -268,12 +258,8 @@ internal fun GifPanel(
             is MediaUi.Ready -> {
                 if (ui.items.isEmpty()) {
                     PanelNotice(
-                        when {
-                            ui.query.isBlank() && googleOnlyView ->
-                                "Google has no trending — type a search and press enter."
-                            ui.query.isBlank() -> "Nothing trending right now"
-                            else -> "No $noun for “${ui.query}”"
-                        },
+                        if (ui.query.isBlank()) "Nothing trending right now"
+                        else "No $noun for “${ui.query}”",
                     )
                 } else {
                     GifGrid(items = ui.items, downloadingId = state.mediaDownloadingId, onSelect = onSelect)
@@ -283,7 +269,7 @@ internal fun GifPanel(
     }
 }
 
-/** Provider chips (tabs mode): Klipy / GIPHY / Google. */
+/** Provider chips (tabs mode): Klipy / GIPHY. */
 @Composable
 private fun GifSourceChips(
     sources: List<GifSource>,
@@ -304,7 +290,9 @@ private fun GifSourceChips(
                 color = if (active) kb.toolCircleActiveIcon else kb.suggestionText,
                 fontSize = 12.sp,
                 fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
+                textAlign = TextAlign.Center,
                 modifier = Modifier
+                    .weight(1f)
                     .background(if (active) kb.toolCircleActive else kb.chip, RoundedCornerShape(12.dp))
                     .clickable { onSelect(source) }
                     .padding(horizontal = 12.dp, vertical = 4.dp),
@@ -375,7 +363,7 @@ internal fun WebSearchPanel(
 ) {
     val kb = LocalKbTheme.current
     val height = if (state.mediaSearchActive) MediaSearchHeight else keyRowsHeight(state.settings)
-    val provider = ToolApiKeys.activeSearchProvider(state.settings)
+    val hasProvider = ToolApiKeys.hasSearchProvider(state.settings)
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -385,12 +373,11 @@ internal fun WebSearchPanel(
             state = state,
             placeholder = "Search the web",
             onQueryTap = onQueryTap,
-            attribution = provider?.let { "via " + searchProviderName(it) },
+            attribution = "via Brave".takeIf { hasProvider },
         )
         when (val ui = state.webSearch) {
             WebSearchUi.NeedKey -> PanelNotice(
-                "Web search needs an API key — Brave Search, or Google Programmable " +
-                    "Search. Add one in the tool's settings.",
+                "Web search needs an API key — Brave Search. Add one in the tool's settings.",
                 actionLabel = "Open settings",
                 onAction = { onOpenToolSettings(ToolbarTool.WEB_SEARCH) },
             )
@@ -469,7 +456,7 @@ internal fun ImageSearchPanel(
     onOpenToolSettings: (ToolbarTool) -> Unit,
 ) {
     val height = if (state.mediaSearchActive) MediaSearchHeight else keyRowsHeight(state.settings)
-    val provider = ToolApiKeys.activeSearchProvider(state.settings)
+    val hasProvider = ToolApiKeys.hasSearchProvider(state.settings)
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -479,12 +466,11 @@ internal fun ImageSearchPanel(
             state = state,
             placeholder = "Search images",
             onQueryTap = onQueryTap,
-            attribution = provider?.let { "via " + searchProviderName(it) },
+            attribution = "via Brave".takeIf { hasProvider },
         )
         when (val ui = state.imageSearch) {
             ImageSearchUi.NeedKey -> PanelNotice(
-                "Image search needs an API key — Brave Search, or Google Programmable " +
-                    "Search. Add one in the tool's settings.",
+                "Image search needs an API key — Brave Search. Add one in the tool's settings.",
                 actionLabel = "Open settings",
                 onAction = { onOpenToolSettings(ToolbarTool.IMAGE_SEARCH) },
             )
