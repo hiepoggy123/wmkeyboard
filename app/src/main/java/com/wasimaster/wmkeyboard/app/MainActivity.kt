@@ -27,6 +27,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -68,7 +69,12 @@ import androidx.compose.material.icons.outlined.Spellcheck
 import androidx.compose.material.icons.outlined.Straighten
 import androidx.compose.material.icons.outlined.TextSnippet
 import androidx.compose.material.icons.outlined.TouchApp
+import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material.icons.outlined.Vibration
+import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.ArrowDownward
+import androidx.compose.material.icons.outlined.ArrowUpward
+import androidx.compose.material.icons.outlined.ViewAgenda
 import androidx.compose.material.icons.outlined.VerticalSplit
 import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material.icons.outlined.AutoAwesome
@@ -89,9 +95,13 @@ import androidx.compose.material.icons.outlined.Translate
 import androidx.compose.material.icons.outlined.TravelExplore
 import androidx.compose.material.icons.outlined.WbSunny
 import androidx.compose.material.icons.outlined.Widgets
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -164,8 +174,13 @@ import com.wasimaster.wmkeyboard.core.tools.TranslateClient
 import com.wasimaster.wmkeyboard.core.tools.WeatherClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import com.wasimaster.wmkeyboard.core.settings.BarRow
 import com.wasimaster.wmkeyboard.core.settings.KeyboardAlignment
+import com.wasimaster.wmkeyboard.core.settings.KeyboardMode
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
+import com.wasimaster.wmkeyboard.core.settings.ModeField
+import com.wasimaster.wmkeyboard.core.tools.BuiltInSymbolSets
+import com.wasimaster.wmkeyboard.core.tools.SymbolSet
 import com.wasimaster.wmkeyboard.core.settings.OneHandedMode
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import com.wasimaster.wmkeyboard.core.settings.SpaceSwipeAction
@@ -359,6 +374,28 @@ private fun SettingsNavHost(
                 PrivacySettings(repository, settings)
             }
         }
+        composable("rows") {
+            SettingsScreen("Rows & bars", { navController.popBackStack() }) {
+                RowsSettings(repository, settings) { navController.navigate(it) }
+            }
+        }
+        composable("symbol_set_edit/{setId}") { backStackEntry ->
+            val setId = backStackEntry.arguments?.getString("setId").orEmpty()
+            SettingsScreen("Edit symbol set", { navController.popBackStack() }) {
+                SymbolSetEditor(repository, settings, setId) { navController.popBackStack() }
+            }
+        }
+        composable("modes") {
+            SettingsScreen("Keyboard modes", { navController.popBackStack() }) {
+                ModesSettings(repository, settings) { navController.navigate(it) }
+            }
+        }
+        composable("mode_edit/{modeId}") { backStackEntry ->
+            val modeId = backStackEntry.arguments?.getString("modeId").orEmpty()
+            SettingsScreen("Edit mode", { navController.popBackStack() }) {
+                ModeEditor(repository, settings, modeId) { navController.popBackStack() }
+            }
+        }
     }
 }
 
@@ -417,6 +454,18 @@ private fun HomeScreen(settings: KeyboardSettings, onNavigate: (String) -> Unit)
                         Icons.Outlined.AspectRatio, "Layout & size",
                         "Key size, number row, one-handed, split & floating",
                     ) { onNavigate("layout") }
+                }
+                item {
+                    HomeItem(
+                        Icons.Outlined.ViewAgenda, "Rows & bars",
+                        "Symbol row, emoji row, row order & symbol sets",
+                    ) { onNavigate("rows") }
+                }
+                item {
+                    HomeItem(
+                        Icons.Outlined.Tune, "Keyboard modes",
+                        "Per-app setups: email, browser, coding, passwords",
+                    ) { onNavigate("modes") }
                 }
             }
             SettingsGroup("Features") {
@@ -1690,15 +1739,12 @@ private fun EmojiSettings(repository: SettingsRepository, settings: KeyboardSett
                 ) { scope.launch { repository.setEmojiBarContent(it) } }
             }
         }
-        if (settings.emojiBarMode == EmojiBarMode.ALWAYS) {
-            item {
-                ToggleSetting(
-                    "Emoji row above the toolbar",
-                    "Show the dedicated row on top instead of between toolbar and keys",
-                    settings.emojiRowAboveToolbar,
-                ) { scope.launch { repository.setEmojiRowAboveToolbar(it) } }
-            }
-        }
+    }
+    if (settings.emojiBarMode == EmojiBarMode.ALWAYS) {
+        CaptionText(
+            "Where the emoji row sits relative to the toolbar and symbol row " +
+                "is set in Rows & bars on the settings home screen.",
+        )
     }
     SettingsGroup("Emoji style") {
         item {
@@ -2091,6 +2137,7 @@ private fun toolTitle(tool: ToolbarTool): String = when (tool) {
     ToolbarTool.QR_GEN -> "QR code generator"
     ToolbarTool.PASSWORD_GEN -> "Password generator"
     ToolbarTool.AI -> "AI writing tools"
+    ToolbarTool.MODES -> "Keyboard modes"
 }
 
 private fun toolDescription(tool: ToolbarTool): String = when (tool) {
@@ -2136,6 +2183,7 @@ private fun toolDescription(tool: ToolbarTool): String = when (tool) {
     ToolbarTool.QR_GEN -> "Turn the text in the field into a QR code and send it as an image"
     ToolbarTool.PASSWORD_GEN -> "Strong passwords and passphrases, generated on-device"
     ToolbarTool.AI -> "Rewrite, summarize, translate and more — your own API key or local server"
+    ToolbarTool.MODES -> "Switch between per-app setups: emoji row, pinned tools, symbol sets"
 }
 
 private fun toolIconFor(tool: ToolbarTool): androidx.compose.ui.graphics.vector.ImageVector = when (tool) {
@@ -2181,6 +2229,7 @@ private fun toolIconFor(tool: ToolbarTool): androidx.compose.ui.graphics.vector.
     ToolbarTool.QR_GEN -> Icons.Outlined.QrCode2
     ToolbarTool.PASSWORD_GEN -> Icons.Outlined.Password
     ToolbarTool.AI -> Icons.Outlined.Psychology
+    ToolbarTool.MODES -> Icons.Outlined.Tune
 }
 
 /**
@@ -2213,7 +2262,7 @@ private fun ToolsSettings(settings: KeyboardSettings, onOpenTool: (ToolbarTool) 
             ToolbarTool.QR_GEN, ToolbarTool.PASSWORD_GEN,
         ),
         "Keyboard modes" to listOf(
-            ToolbarTool.ONE_HANDED, ToolbarTool.SPLIT, ToolbarTool.FLOATING,
+            ToolbarTool.MODES, ToolbarTool.ONE_HANDED, ToolbarTool.SPLIT, ToolbarTool.FLOATING,
         ),
         "Quick actions" to listOf(
             ToolbarTool.UNDO, ToolbarTool.REDO, ToolbarTool.AUTOCORRECT,
@@ -2992,6 +3041,15 @@ private fun ToolDetailSettings(
             )
         }
         ToolbarTool.AI -> AiToolSettings(repository, settings)
+        ToolbarTool.MODES -> SettingsGroup("Modes") {
+            item {
+                NavRow(
+                    "Edit keyboard modes",
+                    "Per-app and per-field setups, and what each one changes",
+                    value = "${settings.keyboardModes.size}",
+                ) { onNavigate("modes") }
+            }
+        }
         else -> {}
     }
 }
@@ -3707,6 +3765,557 @@ private fun SnippetDialog(
                 onClick = { onSave(label.trim(), text) },
             ) { Text("Save") }
         },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
+}
+
+// ---- rows & bars ----
+
+private fun barRowTitle(row: BarRow): String = when (row) {
+    BarRow.TOPBAR -> "Suggestions & toolbar"
+    BarRow.EMOJI -> "Emoji row"
+    BarRow.SYMBOL -> "Symbol row"
+}
+
+private fun barRowSubtitle(row: BarRow, settings: KeyboardSettings): String = when (row) {
+    BarRow.TOPBAR -> "Always shown"
+    BarRow.EMOJI -> when (settings.emojiBarMode) {
+        EmojiBarMode.OFF -> "Off — enable it in Emoji settings"
+        EmojiBarMode.BUTTON -> "Behind a toolbar button"
+        EmojiBarMode.ALWAYS -> "Own row"
+    }
+    BarRow.SYMBOL -> if (settings.symbolRowEnabled) "On" else "Off"
+}
+
+/** Row layout above the keys: symbol row, row order and symbol sets. */
+@Composable
+private fun RowsSettings(
+    repository: SettingsRepository,
+    settings: KeyboardSettings,
+    onNavigate: (String) -> Unit,
+) {
+    val scope = rememberCoroutineScope()
+    SettingsGroup("Symbol row") {
+        item {
+            ToggleSetting(
+                "Symbol row",
+                "A row of special characters and snippets above the keys",
+                settings.symbolRowEnabled,
+                info = "Shows one symbol set at a time — @gmail.com and friends for " +
+                    "email, https:// for browsing, brackets for coding. The chip at " +
+                    "the row's left edge switches sets; keyboard modes can pick a " +
+                    "set per app automatically.",
+            ) { scope.launch { repository.setSymbolRowEnabled(it) } }
+        }
+    }
+    SettingsGroup("Row order") {
+        val order = settings.barOrder
+        order.forEachIndexed { index, row ->
+            item {
+                ListItem(
+                    headlineContent = { Text(barRowTitle(row)) },
+                    supportingContent = { Text(barRowSubtitle(row, settings)) },
+                    trailingContent = {
+                        if (row != BarRow.TOPBAR) {
+                            Row {
+                                IconButton(
+                                    enabled = index > 0,
+                                    onClick = {
+                                        val next = order.toMutableList()
+                                        next[index] = next[index - 1].also { next[index - 1] = next[index] }
+                                        scope.launch { repository.setBarOrder(next) }
+                                    },
+                                ) {
+                                    Icon(Icons.Outlined.ArrowUpward, contentDescription = "Move up")
+                                }
+                                IconButton(
+                                    enabled = index < order.lastIndex,
+                                    onClick = {
+                                        val next = order.toMutableList()
+                                        next[index] = next[index + 1].also { next[index + 1] = next[index] }
+                                        scope.launch { repository.setBarOrder(next) }
+                                    },
+                                ) {
+                                    Icon(Icons.Outlined.ArrowDownward, contentDescription = "Move down")
+                                }
+                            }
+                        }
+                    },
+                    colors = transparentListColors(),
+                )
+            }
+        }
+    }
+    CaptionText("Rows are stacked top to bottom in this order. Hidden rows keep their slot.")
+    SettingsGroup("Symbol sets") {
+        val allSets = BuiltInSymbolSets.sets + settings.customSymbolSets
+        for (set in allSets) {
+            item {
+                val enabled = set.id in settings.symbolRowSetIds
+                val custom = settings.customSymbolSets.any { it.id == set.id }
+                ListItem(
+                    headlineContent = { Text(set.name) },
+                    supportingContent = {
+                        Text(
+                            set.chars.take(8).joinToString(" ") + if (set.chars.size > 8) " …" else "",
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    },
+                    leadingContent = {
+                        Checkbox(
+                            checked = enabled,
+                            onCheckedChange = { on ->
+                                val next = if (on) {
+                                    settings.symbolRowSetIds + set.id
+                                } else {
+                                    settings.symbolRowSetIds - set.id
+                                }
+                                // At least one set stays enabled — an empty row
+                                // would have nothing to show.
+                                if (next.isNotEmpty()) {
+                                    scope.launch { repository.setSymbolRowSetIds(next) }
+                                }
+                            },
+                        )
+                    },
+                    trailingContent = if (custom) {
+                        {
+                            IconButton(onClick = { onNavigate("symbol_set_edit/${set.id}") }) {
+                                Icon(Icons.Outlined.Edit, contentDescription = "Edit set")
+                            }
+                        }
+                    } else null,
+                    colors = transparentListColors(),
+                )
+            }
+        }
+        item {
+            ListItem(
+                leadingContent = { Icon(Icons.Outlined.Add, contentDescription = null) },
+                headlineContent = { Text("New symbol set") },
+                supportingContent = { Text("Your own characters and snippets") },
+                colors = transparentListColors(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        onNavigate("symbol_set_edit/custom_${System.currentTimeMillis()}")
+                    },
+            )
+        }
+    }
+    CaptionText(
+        "Checked sets appear in the symbol row's picker. Built-in sets can't be " +
+            "edited — make a new set to customize.",
+    )
+}
+
+/** Create or edit one custom symbol set. */
+@Composable
+private fun SymbolSetEditor(
+    repository: SettingsRepository,
+    settings: KeyboardSettings,
+    setId: String,
+    onDone: () -> Unit,
+) {
+    val scope = rememberCoroutineScope()
+    val existing = settings.customSymbolSets.firstOrNull { it.id == setId }
+    var name by remember(setId) { mutableStateOf(existing?.name ?: "") }
+    var charsText by remember(setId) { mutableStateOf(existing?.chars?.joinToString(" ") ?: "") }
+    SettingsGroup {
+        item {
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                label = { Text("Name") },
+                singleLine = true,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+            )
+        }
+        item {
+            OutlinedTextField(
+                value = charsText,
+                onValueChange = { charsText = it },
+                label = { Text("Characters & snippets") },
+                supportingText = {
+                    Text("Separate entries with spaces — single characters (© § →) or whole snippets (@gmail.com https://)")
+                },
+                minLines = 3,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+            )
+        }
+    }
+    Row(modifier = Modifier.padding(horizontal = 16.dp)) {
+        if (existing != null) {
+            TextButton(onClick = {
+                scope.launch {
+                    repository.deleteSymbolSet(setId)
+                }
+                onDone()
+            }) {
+                Icon(Icons.Outlined.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(4.dp))
+                Text("Delete set")
+            }
+        }
+        Spacer(Modifier.weight(1f))
+        Button(
+            enabled = charsText.isNotBlank(),
+            onClick = {
+                val chars = charsText.split(Regex("\\s+")).filter { it.isNotEmpty() }
+                scope.launch {
+                    repository.upsertSymbolSet(
+                        SymbolSet(setId, name.trim().ifEmpty { "My set" }, chars),
+                    )
+                    // A new set should show up in the row right away.
+                    if (setId !in settings.symbolRowSetIds) {
+                        repository.setSymbolRowSetIds(settings.symbolRowSetIds + setId)
+                    }
+                }
+                onDone()
+            },
+        ) { Text("Save") }
+    }
+}
+
+// ---- keyboard modes ----
+
+/** One-line recap of a mode's bindings for the list screen. */
+private fun modeBindingsSummary(mode: KeyboardMode): String {
+    val parts = mutableListOf<String>()
+    if (mode.apps.isNotEmpty()) {
+        parts += if (mode.apps.size == 1) "1 app" else "${mode.apps.size} apps"
+    }
+    if (mode.fieldKinds.isNotEmpty()) {
+        parts += mode.fieldKinds.joinToString(", ") { modeFieldLabel(it).lowercase() } + " fields"
+    }
+    return if (parts.isEmpty()) "Manual only (Modes tool)" else "Auto: " + parts.joinToString(" · ")
+}
+
+private fun modeFieldLabel(field: ModeField): String = when (field) {
+    ModeField.PASSWORD -> "Password"
+    ModeField.EMAIL -> "Email"
+    ModeField.URL -> "URL"
+    ModeField.NUMBER -> "Number"
+    ModeField.PHONE -> "Phone"
+}
+
+/** The modes list: tap to edit, plus creating a new mode. */
+@Composable
+private fun ModesSettings(
+    repository: SettingsRepository,
+    settings: KeyboardSettings,
+    onNavigate: (String) -> Unit,
+) {
+    val scope = rememberCoroutineScope()
+    CaptionText(
+        "A mode is a bundle of overrides — emoji row, pinned tools, symbol sets — " +
+            "that switches on automatically for chosen apps or field types " +
+            "(passwords, email boxes…), or manually from the Modes tool on the keyboard.",
+    )
+    SettingsGroup("Modes") {
+        for (mode in settings.keyboardModes) {
+            item {
+                ListItem(
+                    headlineContent = { Text(mode.name) },
+                    supportingContent = { Text(modeBindingsSummary(mode)) },
+                    trailingContent = {
+                        IconButton(onClick = {
+                            scope.launch { repository.deleteKeyboardMode(mode.id) }
+                        }) {
+                            Icon(Icons.Outlined.Delete, contentDescription = "Delete mode")
+                        }
+                    },
+                    colors = transparentListColors(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onNavigate("mode_edit/${mode.id}") },
+                )
+            }
+        }
+        item {
+            ListItem(
+                leadingContent = { Icon(Icons.Outlined.Add, contentDescription = null) },
+                headlineContent = { Text("New mode") },
+                colors = transparentListColors(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onNavigate("mode_edit/mode_custom_${System.currentTimeMillis()}") },
+            )
+        }
+    }
+}
+
+/** Everything one mode overrides, and when it activates. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ModeEditor(
+    repository: SettingsRepository,
+    settings: KeyboardSettings,
+    modeId: String,
+    onDeleted: () -> Unit = {},
+) {
+    val scope = rememberCoroutineScope()
+    val mode = settings.keyboardModes.firstOrNull { it.id == modeId }
+        ?: KeyboardMode(modeId, "New mode")
+    // A brand-new mode is only persisted on its first edit — backing out of
+    // an untouched editor leaves nothing behind.
+    val save: (KeyboardMode) -> Unit = { scope.launch { repository.upsertKeyboardMode(it) } }
+
+    SettingsGroup {
+        item {
+            TextFieldSetting(
+                label = "Name",
+                value = mode.name,
+                hint = "Shown in the Modes tool",
+            ) { repository.upsertKeyboardMode(mode.copy(name = it.trim().ifEmpty { "Mode" })) }
+        }
+    }
+    SettingsGroup("What this mode changes") {
+        item {
+            ChoiceSetting(
+                title = "Emoji row",
+                subtitle = "While this mode is active",
+                options = listOf(
+                    null to "Inherit",
+                    EmojiBarMode.OFF to "Off",
+                    EmojiBarMode.BUTTON to "Button",
+                    EmojiBarMode.ALWAYS to "Row",
+                ),
+                selected = mode.emojiBarMode,
+            ) { save(mode.copy(emojiBarMode = it)) }
+        }
+        item {
+            ChoiceSetting(
+                title = "Symbol row",
+                options = listOf(
+                    null to "Inherit",
+                    true to "On",
+                    false to "Off",
+                ),
+                selected = mode.symbolRowEnabled,
+            ) { save(mode.copy(symbolRowEnabled = it)) }
+        }
+        item {
+            ToggleSetting(
+                "Custom pinned tools",
+                "Replace the toolbar's pinned tools while active",
+                mode.toolbarTools != null,
+            ) { on ->
+                save(mode.copy(toolbarTools = if (on) settings.toolbarTools else null))
+            }
+        }
+        val pinned = mode.toolbarTools
+        if (pinned != null) {
+            item {
+                FlowRow(
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    for (tool in ToolbarTool.entries.filter { it in settings.enabledTools }) {
+                        FilterChip(
+                            selected = tool in pinned,
+                            onClick = {
+                                save(
+                                    mode.copy(
+                                        toolbarTools =
+                                            if (tool in pinned) pinned - tool else pinned + tool,
+                                    ),
+                                )
+                            },
+                            label = { Text(toolTitle(tool), maxLines = 1) },
+                        )
+                    }
+                }
+            }
+        }
+        item {
+            ToggleSetting(
+                "Custom symbol sets",
+                "The symbol row offers only this mode's sets while active",
+                mode.symbolSetIds != null,
+            ) { on ->
+                save(
+                    mode.copy(
+                        symbolSetIds = if (on) {
+                            settings.symbolRowSetIds.ifEmpty { BuiltInSymbolSets.defaultEnabledIds }
+                        } else {
+                            null
+                        },
+                    ),
+                )
+            }
+        }
+        val modeSets = mode.symbolSetIds
+        if (modeSets != null) {
+            item {
+                FlowRow(
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    for (set in BuiltInSymbolSets.sets + settings.customSymbolSets) {
+                        FilterChip(
+                            selected = set.id in modeSets,
+                            onClick = {
+                                val next =
+                                    if (set.id in modeSets) modeSets - set.id else modeSets + set.id
+                                if (next.isNotEmpty()) save(mode.copy(symbolSetIds = next))
+                            },
+                            label = { Text(set.name, maxLines = 1) },
+                        )
+                    }
+                }
+            }
+            item {
+                CaptionText("The first picked set is what the row opens on.")
+            }
+        }
+    }
+    SettingsGroup("Activate automatically for") {
+        item {
+            Text(
+                "Field types",
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+            )
+            FlowRow(
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                for (field in ModeField.entries) {
+                    FilterChip(
+                        selected = field in mode.fieldKinds,
+                        onClick = {
+                            save(
+                                mode.copy(
+                                    fieldKinds =
+                                        if (field in mode.fieldKinds) mode.fieldKinds - field
+                                        else mode.fieldKinds + field,
+                                ),
+                            )
+                        },
+                        label = { Text(modeFieldLabel(field), maxLines = 1) },
+                    )
+                }
+            }
+        }
+        for (pkg in mode.apps) {
+            item {
+                val context = LocalContext.current
+                val label = remember(pkg) {
+                    runCatching {
+                        context.packageManager.getApplicationLabel(
+                            context.packageManager.getApplicationInfo(pkg, 0),
+                        ).toString()
+                    }.getOrDefault(pkg)
+                }
+                ListItem(
+                    headlineContent = { Text(label) },
+                    supportingContent = if (label != pkg) {
+                        { Text(pkg) }
+                    } else null,
+                    trailingContent = {
+                        IconButton(onClick = { save(mode.copy(apps = mode.apps - pkg)) }) {
+                            Icon(Icons.Outlined.Delete, contentDescription = "Remove app")
+                        }
+                    },
+                    colors = transparentListColors(),
+                )
+            }
+        }
+        item {
+            var pickerOpen by remember { mutableStateOf(false) }
+            ListItem(
+                leadingContent = { Icon(Icons.Outlined.Add, contentDescription = null) },
+                headlineContent = { Text("Add app") },
+                supportingContent = { Text("This mode switches on when the app's fields are focused") },
+                colors = transparentListColors(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { pickerOpen = true },
+            )
+            if (pickerOpen) {
+                AppPickerDialog(
+                    exclude = mode.apps,
+                    onPick = { pkg ->
+                        pickerOpen = false
+                        save(mode.copy(apps = mode.apps + pkg))
+                    },
+                    onDismiss = { pickerOpen = false },
+                )
+            }
+        }
+    }
+    CaptionText(
+        "When several modes match, a field-type match beats an app match — a " +
+            "password box in a browser still gets the password mode. A mode picked " +
+            "by hand from the Modes tool wins until you switch apps.",
+    )
+    Row(modifier = Modifier.padding(horizontal = 16.dp)) {
+        TextButton(onClick = {
+            scope.launch { repository.deleteKeyboardMode(modeId) }
+            onDeleted()
+        }) {
+            Icon(Icons.Outlined.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(4.dp))
+            Text("Delete mode")
+        }
+    }
+}
+
+/** Picks one installed app (launcher activities) for a mode binding. */
+@Composable
+private fun AppPickerDialog(
+    exclude: List<String>,
+    onPick: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val context = LocalContext.current
+    var query by remember { mutableStateOf("") }
+    val apps = remember {
+        val pm = context.packageManager
+        val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+        pm.queryIntentActivities(intent, 0)
+            .map { it.activityInfo.packageName to it.loadLabel(pm).toString() }
+            .distinctBy { it.first }
+            .sortedBy { it.second.lowercase() }
+    }
+    val shown = apps.filter { (pkg, label) ->
+        pkg !in exclude &&
+            (query.isBlank() || label.contains(query, ignoreCase = true) ||
+                pkg.contains(query, ignoreCase = true))
+    }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Choose an app") },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = query,
+                    onValueChange = { query = it },
+                    label = { Text("Search") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Spacer(Modifier.height(8.dp))
+                LazyColumn(modifier = Modifier.heightIn(max = 380.dp)) {
+                    items(shown, key = { it.first }) { (pkg, label) ->
+                        ListItem(
+                            headlineContent = { Text(label) },
+                            supportingContent = { Text(pkg) },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onPick(pkg) },
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {},
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     )
 }

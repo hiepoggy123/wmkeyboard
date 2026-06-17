@@ -45,6 +45,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.wasimaster.wmkeyboard.core.settings.EmojiBarMode
 import com.wasimaster.wmkeyboard.core.settings.HapticStyle
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
@@ -305,6 +306,55 @@ private fun LookPage(repository: SettingsRepository, settings: KeyboardSettings)
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(16.dp),
+    )
+    Text(
+        "Rows above the keys",
+        style = MaterialTheme.typography.titleSmall,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 4.dp),
+    )
+    Text(
+        "The toolbar (suggestions, tools and the toolbox) is always there. " +
+            "The emoji and symbol rows are up to you — both can be reordered " +
+            "and customized later in Rows & bars.",
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(horizontal = 16.dp),
+    )
+    Text(
+        "Emoji row",
+        style = MaterialTheme.typography.bodyLarge,
+        modifier = Modifier.padding(start = 16.dp, top = 12.dp),
+    )
+    SingleChoiceSegmentedButtonRow(modifier = Modifier
+        .fillMaxWidth()
+        .padding(horizontal = 16.dp, vertical = 8.dp)) {
+        val options = listOf(
+            EmojiBarMode.OFF to "Off",
+            EmojiBarMode.BUTTON to "Button",
+            EmojiBarMode.ALWAYS to "Own row",
+        )
+        options.forEachIndexed { index, (mode, label) ->
+            SegmentedButton(
+                selected = settings.emojiBarMode == mode,
+                onClick = { scope.launch { repository.setEmojiBarMode(mode) } },
+                shape = SegmentedButtonDefaults.itemShape(index, options.size),
+            ) {
+                Text(label, maxLines = 1)
+            }
+        }
+    }
+    ListItem(
+        headlineContent = { Text("Symbol row") },
+        supportingContent = {
+            Text("Special characters and snippets — @gmail.com, https://, brackets — one tap away")
+        },
+        trailingContent = {
+            Switch(
+                checked = settings.symbolRowEnabled,
+                onCheckedChange = { scope.launch { repository.setSymbolRowEnabled(it) } },
+            )
+        },
     )
 }
 

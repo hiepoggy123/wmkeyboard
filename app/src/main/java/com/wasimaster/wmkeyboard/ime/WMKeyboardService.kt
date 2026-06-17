@@ -475,10 +475,8 @@ class WMKeyboardService : InputMethodService() {
                 onWikiLoadLinks = ::onWikiLoadLinks,
                 onWikiLoadFull = ::onWikiLoadFull,
                 onSymbolInsert = ::onSymbolInsert,
-                // onSymbolSetSelect and onModeSelect are wired in parallel session;
-                // stubs provided locally for now.
-                // onSymbolSetSelect = ::onSymbolSetSelect,
-                // onModeSelect = ::onModeSelect,
+                onSymbolSetSelect = ::onSymbolSetSelect,
+                onModeSelect = ::onModeSelect,
                 onToolInsert = ::onToolTextInsert,
                 onCurrencyPairChange = ::onCurrencyPairChange,
                 onCurrencyRefresh = { refreshCurrencyRates(force = true) },
@@ -2284,8 +2282,15 @@ class WMKeyboardService : InputMethodService() {
     /** Symbol row's picker chip: switch the visible set. */
     fun onSymbolSetSelect(id: String) {
         vibrate()
+        val state = _uiState.value
         _uiState.update { it.copy(activeSymbolSetId = id) }
-        serviceScope.launch { settingsRepository.setSymbolRowActiveSet(id) }
+        // While a mode prescribes its own set list the pick is session-only —
+        // it shouldn't rewrite the global row's default set.
+        val modeSets = baseSettings?.keyboardModes
+            ?.firstOrNull { it.id == state.activeModeId }?.symbolSetIds
+        if (modeSets == null) {
+            serviceScope.launch { settingsRepository.setSymbolRowActiveSet(id) }
+        }
     }
 
     /** Symbol cell tapped: type it and remember it under Recents. */

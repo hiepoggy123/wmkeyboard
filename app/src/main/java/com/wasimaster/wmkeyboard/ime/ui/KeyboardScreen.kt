@@ -1038,6 +1038,219 @@ private fun EmojiBarStrip(
     }
 }
 
+/** Height of the dedicated symbol row (chips are text, not emoji). */
+internal val SymbolRowHeight = 40.dp
+
+/**
+ * The dedicated symbol row: one symbol set's characters and snippets a tap
+ * away, with a picker chip on the left switching between the enabled sets
+ * (or the sets the active keyboard mode prescribes).
+ */
+@Composable
+private fun SymbolRowStrip(
+    state: KeyboardUiState,
+    onInsert: (String) -> Unit,
+    onSetSelect: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val settings = state.settings
+    val allSets = BuiltInSymbolSets.sets + settings.customSymbolSets
+    val enabledSets = settings.symbolRowSetIds
+        .mapNotNull { id -> allSets.firstOrNull { it.id == id } }
+        .ifEmpty { BuiltInSymbolSets.sets }
+    val activeId = state.activeSymbolSetId ?: settings.symbolRowActiveSetId
+    val active = enabledSets.firstOrNull { it.id == activeId } ?: enabledSets.first()
+    var pickerOpen by remember { mutableStateOf(false) }
+    val feedback = LocalKeyPressFeedback.current
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(SymbolRowHeight),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        // Only offer the picker when there is something to switch to.
+        Box {
+            Row(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(14.dp))
+                    .clickable(enabled = enabledSets.size > 1) {
+                        feedback()
+                        pickerOpen = true
+                    }
+                    .padding(start = 10.dp, end = 2.dp, top = 4.dp, bottom = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    active.name,
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                )
+                if (enabledSets.size > 1) {
+                    Icon(
+                        Icons.Outlined.ArrowDropDown,
+                        contentDescription = "Switch symbol set",
+                        modifier = Modifier.size(18.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            DropdownMenu(expanded = pickerOpen, onDismissRequest = { pickerOpen = false }) {
+                for (set in enabledSets) {
+                    DropdownMenuItem(
+                        text = { Text(set.name) },
+                        trailingIcon = if (set.id == active.id) {
+                            {
+                                Icon(
+                                    Icons.Outlined.Check,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp),
+                                )
+                            }
+                        } else {
+                            null
+                        },
+                        onClick = {
+                            pickerOpen = false
+                            onSetSelect(set.id)
+                        },
+                    )
+                }
+            }
+        }
+        LazyRow(
+            modifier = Modifier.weight(1f),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceEvenly,
+        ) {
+            lazyRowItems(active.chars) { symbol ->
+                Text(
+                    text = symbolChipLabel(symbol),
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable { onInsert(symbol) }
+                        .padding(horizontal = 8.dp, vertical = 8.dp),
+                    fontSize = 15.sp,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                )
+            }
+        }
+    }
+}
+
+/**
+ * The Modes panel: pick which keyboard mode is active. "Automatic" follows
+ * the per-app and per-field bindings; picking a mode by hand overrides them
+ * until the user switches to another app. Modes are created and edited in
+ * the settings app (long-press the tool).
+ */
+@Composable
+private fun ModesPanel(state: KeyboardUiState, onModeSelect: (String?) -> Unit) {
+    val height = keyRowsHeight(state.settings)
+    val modes = state.settings.keyboardModes
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(height),
+    ) {
+        if (modes.isEmpty()) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text(
+                    "No modes yet — create one in Settings → Modes.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            return@Column
+        }
+        Text(
+            "Long-press the tool to edit modes. A manual pick lasts until you switch apps.",
+            fontSize = 12.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp),
+        )
+        LazyColumn(modifier = Modifier.weight(1f)) {
+            item {
+                ModeRow(
+                    title = "Automatic",
+                    subtitle = "Follow each mode's app and field bindings",
+                    selected = state.activeModeId == null,
+                ) { onModeSelect(null) }
+            }
+            lazyRowItems(modes) { mode ->
+                ModeRow(
+                    title = mode.name,
+                    subtitle = modeSummary(mode),
+                    selected = state.activeModeId == mode.id,
+                ) { onModeSelect(mode.id) }
+            }
+        }
+    }
+}
+
+/** One-line recap of what a mode changes and when it kicks in. */
+private fun modeSummary(mode: KeyboardMode): String {
+    val parts = mutableListOf<String>()
+    mode.emojiBarMode?.let {
+        parts += when (it) {
+            EmojiBarMode.OFF -> "emoji row off"
+            EmojiBarMode.BUTTON -> "emoji button"
+            EmojiBarMode.ALWAYS -> "emoji row"
+        }
+    }
+    mode.toolbarTools?.let { parts += "${it.size} pinned tools" }
+    mode.symbolRowEnabled?.let { parts += if (it) "symbol row" else "symbol row off" }
+    if (mode.apps.isNotEmpty()) {
+        parts += if (mode.apps.size == 1) "1 app" else "${mode.apps.size} apps"
+    }
+    if (mode.fieldKinds.isNotEmpty()) {
+        parts += mode.fieldKinds.joinToString(", ") { it.name.lowercase() } + " fields"
+    }
+    return if (parts.isEmpty()) "No overrides" else parts.joinToString(" · ")
+        .replaceFirstChar { it.uppercase() }
+}
+
+@Composable
+private fun ModeRow(
+    title: String,
+    subtitle: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    val kb = LocalKbTheme.current
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 20.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                title,
+                fontSize = 15.sp,
+                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Text(
+                subtitle,
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        if (selected) {
+            Icon(
+                Icons.Outlined.Check,
+                contentDescription = "Active",
+                modifier = Modifier.size(20.dp),
+                tint = kb.accent,
+            )
+        }
+    }
+}
+
 // ---- customizable toolbar & toolbox ----
 
 private fun toolIcon(tool: ToolbarTool): ImageVector = when (tool) {
@@ -1820,27 +2033,36 @@ private fun KeyboardBody(
             val fullBleed = state.panel == PanelMode.OCR
             val emojiRowVisible = !fullBleed &&
                 state.settings.emojiBarMode == EmojiBarMode.ALWAYS && state.panel != PanelMode.EMOJI
-            if (emojiRowVisible && state.settings.emojiRowAboveToolbar) {
-                EmojiBarStrip(
-                    state = state,
-                    onEmoji = onEmoji,
-                    onOpenPanel = { onPanelChange(PanelMode.EMOJI) },
-                )
-            }
-            if (!fullBleed) {
-                TopBar(
-                    state, onSuggestion, onEmoji, onEmojiSuggestion, onPanelChange, onToolTap, drag,
-                    onVoiceToggle = onVoiceToggle,
-                    onVoiceUndo = onVoiceUndo,
-                    onVoicePermissionRequest = onVoicePermissionRequest,
-                )
-            }
-            if (emojiRowVisible && !state.settings.emojiRowAboveToolbar) {
-                EmojiBarStrip(
-                    state = state,
-                    onEmoji = onEmoji,
-                    onOpenPanel = { onPanelChange(PanelMode.EMOJI) },
-                )
+            // The symbols panel already is special characters — the row
+            // would be redundant there, so it yields like the emoji row.
+            val symbolRowVisible = !fullBleed &&
+                state.settings.symbolRowEnabled && state.panel != PanelMode.SYMBOLS
+            // The rows stack in the user's chosen order (Rows settings).
+            for (row in state.settings.barOrder) {
+                when (row) {
+                    BarRow.TOPBAR -> if (!fullBleed) {
+                        TopBar(
+                            state, onSuggestion, onEmoji, onEmojiSuggestion, onPanelChange, onToolTap, drag,
+                            onVoiceToggle = onVoiceToggle,
+                            onVoiceUndo = onVoiceUndo,
+                            onVoicePermissionRequest = onVoicePermissionRequest,
+                        )
+                    }
+                    BarRow.EMOJI -> if (emojiRowVisible) {
+                        EmojiBarStrip(
+                            state = state,
+                            onEmoji = onEmoji,
+                            onOpenPanel = { onPanelChange(PanelMode.EMOJI) },
+                        )
+                    }
+                    BarRow.SYMBOL -> if (symbolRowVisible) {
+                        SymbolRowStrip(
+                            state = state,
+                            onInsert = onToolInsert,
+                            onSetSelect = onSymbolSetSelect,
+                        )
+                    }
+                }
             }
             when (state.panel) {
                 PanelMode.EMOJI -> EmojiPanel(
@@ -1975,6 +2197,7 @@ private fun KeyboardBody(
                     onRetry = onAiRetry,
                     onOpenToolSettings = onOpenToolSettings,
                 )
+                PanelMode.MODES -> ModesPanel(state, onModeSelect)
                 PanelMode.NONE -> KeyRows(state, onKey, onText, onGesture, onGesturePreview, onCursorMove, onLanguageSelect)
             }
             // In emoji search mode the letters stay visible for typing the query.

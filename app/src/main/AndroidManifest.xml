@@ -23,6 +23,16 @@
     <uses-feature android:name="android.hardware.sensor.compass" android:required="false" />
     <uses-feature android:name="android.hardware.microphone" android:required="false" />
 
+    <!-- The keyboard-mode editor lists installed apps (launcher activities)
+         so a mode can be bound to specific apps; Android 11+ hides the app
+         list without this. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+    </queries>
+
     <!-- Cleartext HTTP is only for the AI tool's self-hosted providers
          (Ollama / LM Studio on a LAN address); every bundled cloud client
          is HTTPS. -->

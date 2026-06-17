@@ -11,6 +11,9 @@ import androidx.datastore.preferences.preferencesDataStore
 import com.wasimaster.wmkeyboard.core.theme.DEFAULT_THEME_ID
 import com.wasimaster.wmkeyboard.core.theme.ThemeCodec
 import com.wasimaster.wmkeyboard.core.theme.ThemeSpec
+import com.wasimaster.wmkeyboard.core.tools.BuiltInSymbolSets
+import com.wasimaster.wmkeyboard.core.tools.SymbolSet
+import com.wasimaster.wmkeyboard.core.tools.SymbolSetCodec
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -79,6 +82,7 @@ enum class ToolbarTool {
     DICTIONARY, TRANSLATE, GIF, STICKER, WEB_SEARCH, IMAGE_SEARCH,
     OCR, QR_SCAN, DOC_SCAN, VOICE, GRAMMAR,
     WIKIPEDIA, SYMBOLS, CALCULATOR, UNIT_CONVERT, CURRENCY, QR_GEN, PASSWORD_GEN, AI,
+    MODES,
 }
 
 /** Backend for the AI tool — cloud APIs (bring your own key) or a self-hosted server. */
@@ -324,8 +328,6 @@ data class KeyboardSettings(
     val dictionaryAutoLookup: Boolean = true,
     /** Tools per row in the toolbox grid. */
     val toolboxColumns: Int = 4,
-    /** Dedicated emoji row sits above the toolbar instead of below it. */
-    val emojiRowAboveToolbar: Boolean = false,
     /** ISO 639-1 code the translate tool translates into (source is auto-detected). */
     val translateTargetLang: String = "en",
     /** English dialect the offline grammar tool checks against. */
@@ -351,6 +353,18 @@ data class KeyboardSettings(
     val wikiLinksMarkdown: Boolean = false,
     /** Recently used special symbols, newest first (symbols tool). */
     val symbolRecents: List<String> = emptyList(),
+    /** Dedicated symbol row above the keys (special characters & snippets). */
+    val symbolRowEnabled: Boolean = false,
+    /** Symbol sets offered by the row's picker chip (built-in or custom ids). */
+    val symbolRowSetIds: List<String> = BuiltInSymbolSets.defaultEnabledIds,
+    /** Set the row currently shows; the picker chip changes it. */
+    val symbolRowActiveSetId: String = BuiltInSymbolSets.PUNCTUATION_ID,
+    /** User-created symbol sets; built-ins live in code (BuiltInSymbolSets). */
+    val customSymbolSets: List<SymbolSet> = emptyList(),
+    /** Top-to-bottom order of the rows above the keys. */
+    val barOrder: List<BarRow> = listOf(BarRow.TOPBAR, BarRow.EMOJI, BarRow.SYMBOL),
+    /** Keyboard modes (per-app / per-field bundles of overrides). */
+    val keyboardModes: List<KeyboardMode> = DefaultKeyboardModes,
     /** Trig in degrees (off = radians) for the calculator tool. */
     val calcDegrees: Boolean = true,
     /** Decimal places in calculator/converter results. */
@@ -530,6 +544,13 @@ class SettingsRepository(private val context: Context) {
         private val WIKI_LINKS_MARKDOWN = booleanPreferencesKey("wiki_links_markdown")
         // Tab-separated (symbols are single graphemes; some are commas).
         private val SYMBOL_RECENTS = stringPreferencesKey("symbol_recents")
+        private val SYMBOL_ROW_ENABLED = booleanPreferencesKey("symbol_row_enabled")
+        // Tab-separated ids (custom set names are user text; ids are safe).
+        private val SYMBOL_ROW_SETS = stringPreferencesKey("symbol_row_sets")
+        private val SYMBOL_ROW_ACTIVE_SET = stringPreferencesKey("symbol_row_active_set")
+        private val CUSTOM_SYMBOL_SETS = stringPreferencesKey("custom_symbol_sets")
+        private val BAR_ORDER = stringPreferencesKey("bar_order")
+        private val KEYBOARD_MODES = stringPreferencesKey("keyboard_modes")
         private val CALC_DEGREES = booleanPreferencesKey("calc_degrees")
         private val CALC_PRECISION = intPreferencesKey("calc_precision")
         private val CURRENCY_FROM = stringPreferencesKey("currency_from")
@@ -713,7 +734,6 @@ class SettingsRepository(private val context: Context) {
             cameraHaptics = p[CAMERA_HAPTICS] ?: defaults.cameraHaptics,
             dictionaryAutoLookup = p[DICTIONARY_AUTO_LOOKUP] ?: defaults.dictionaryAutoLookup,
             toolboxColumns = p[TOOLBOX_COLUMNS] ?: defaults.toolboxColumns,
-            emojiRowAboveToolbar = p[EMOJI_ROW_ABOVE_TOOLBAR] ?: defaults.emojiRowAboveToolbar,
             translateTargetLang = p[TRANSLATE_TARGET_LANG] ?: defaults.translateTargetLang,
             grammarDialect = p[GRAMMAR_DIALECT]
                 ?.let { runCatching { GrammarDialect.valueOf(it) }.getOrNull() }
@@ -734,6 +754,25 @@ class SettingsRepository(private val context: Context) {
             wikiLinksMarkdown = p[WIKI_LINKS_MARKDOWN] ?: defaults.wikiLinksMarkdown,
             symbolRecents = p[SYMBOL_RECENTS]?.split('\t')?.filter { it.isNotEmpty() }
                 ?: defaults.symbolRecents,
+            symbolRowEnabled = p[SYMBOL_ROW_ENABLED] ?: defaults.symbolRowEnabled,
+            symbolRowSetIds = p[SYMBOL_ROW_SETS]?.split('\t')?.filter { it.isNotEmpty() }
+                ?.ifEmpty { null } ?: defaults.symbolRowSetIds,
+            symbolRowActiveSetId = p[SYMBOL_ROW_ACTIVE_SET] ?: defaults.symbolRowActiveSetId,
+            customSymbolSets = p[CUSTOM_SYMBOL_SETS]?.let { SymbolSetCodec.decodeList(it) }
+                ?: defaults.customSymbolSets,
+            // Never stored: honor the legacy emoji-row position toggle so
+            // existing users keep their arrangement.
+            barOrder = p[BAR_ORDER]
+                ?.split(',')
+                ?.mapNotNull { runCatching { BarRow.valueOf(it) }.getOrNull() }
+                ?.let { sanitizeBarOrder(it) }
+                ?: if (p[EMOJI_ROW_ABOVE_TOOLBAR] == true) {
+                    listOf(BarRow.EMOJI, BarRow.TOPBAR, BarRow.SYMBOL)
+                } else {
+                    defaults.barOrder
+                },
+            keyboardModes = p[KEYBOARD_MODES]?.let { KeyboardModeCodec.decodeList(it) }
+                ?: defaults.keyboardModes,
             calcDegrees = p[CALC_DEGREES] ?: defaults.calcDegrees,
             calcPrecision = p[CALC_PRECISION] ?: defaults.calcPrecision,
             currencyFrom = p[CURRENCY_FROM] ?: defaults.currencyFrom,
@@ -1196,6 +1235,69 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun clearSymbolRecents() =
         context.dataStore.edit { it.remove(SYMBOL_RECENTS) }
+
+    suspend fun setSymbolRowEnabled(value: Boolean) =
+        context.dataStore.edit { it[SYMBOL_ROW_ENABLED] = value }
+
+    /** The sets the row's picker offers; an empty pick falls back to defaults. */
+    suspend fun setSymbolRowSetIds(ids: List<String>) =
+        context.dataStore.edit { it[SYMBOL_ROW_SETS] = ids.distinct().joinToString("\t") }
+
+    suspend fun setSymbolRowActiveSet(id: String) =
+        context.dataStore.edit { it[SYMBOL_ROW_ACTIVE_SET] = id }
+
+    /** Adds the set or replaces the stored set with the same id. */
+    suspend fun upsertSymbolSet(set: SymbolSet) =
+        context.dataStore.edit { prefs ->
+            val current = prefs[CUSTOM_SYMBOL_SETS]?.let { SymbolSetCodec.decodeList(it) }
+                ?: emptyList()
+            val next = current.filter { it.id != set.id } + set
+            prefs[CUSTOM_SYMBOL_SETS] = SymbolSetCodec.encodeList(next)
+        }
+
+    /** Deletes a custom set and drops every reference to it. */
+    suspend fun deleteSymbolSet(id: String) =
+        context.dataStore.edit { prefs ->
+            val current = prefs[CUSTOM_SYMBOL_SETS]?.let { SymbolSetCodec.decodeList(it) }
+                ?: emptyList()
+            prefs[CUSTOM_SYMBOL_SETS] = SymbolSetCodec.encodeList(current.filter { it.id != id })
+            prefs[SYMBOL_ROW_SETS]?.let { stored ->
+                prefs[SYMBOL_ROW_SETS] = stored.split('\t').filter { it.isNotEmpty() && it != id }
+                    .joinToString("\t")
+            }
+            if (prefs[SYMBOL_ROW_ACTIVE_SET] == id) prefs.remove(SYMBOL_ROW_ACTIVE_SET)
+            // Modes referencing the set inherit the global sets again.
+            prefs[KEYBOARD_MODES]?.let { stored ->
+                val modes = KeyboardModeCodec.decodeList(stored).map { mode ->
+                    val kept = mode.symbolSetIds?.filter { it != id }
+                    mode.copy(symbolSetIds = kept?.ifEmpty { null })
+                }
+                prefs[KEYBOARD_MODES] = KeyboardModeCodec.encodeList(modes)
+            }
+        }
+
+    suspend fun setBarOrder(rows: List<BarRow>) =
+        context.dataStore.edit {
+            it[BAR_ORDER] = sanitizeBarOrder(rows).joinToString(",") { row -> row.name }
+        }
+
+    /** Adds the mode or replaces the stored mode with the same id. */
+    suspend fun upsertKeyboardMode(mode: KeyboardMode) =
+        context.dataStore.edit { prefs ->
+            val current = prefs[KEYBOARD_MODES]?.let { KeyboardModeCodec.decodeList(it) }
+                ?: DefaultKeyboardModes
+            val next =
+                if (current.any { it.id == mode.id }) current.map { if (it.id == mode.id) mode else it }
+                else current + mode
+            prefs[KEYBOARD_MODES] = KeyboardModeCodec.encodeList(next)
+        }
+
+    suspend fun deleteKeyboardMode(id: String) =
+        context.dataStore.edit { prefs ->
+            val current = prefs[KEYBOARD_MODES]?.let { KeyboardModeCodec.decodeList(it) }
+                ?: DefaultKeyboardModes
+            prefs[KEYBOARD_MODES] = KeyboardModeCodec.encodeList(current.filter { it.id != id })
+        }
 
     suspend fun setCalcDegrees(value: Boolean) =
         context.dataStore.edit { it[CALC_DEGREES] = value }

@@ -126,10 +126,13 @@ internal fun SymbolsPanel(
     val symbols = if (selected == "Recents") recents
     else SymbolCatalog.categories.firstOrNull { it.name == selected }?.symbols.orEmpty()
 
+    // The symbol row hides while this panel is open; absorbing its height
+    // here keeps the keyboard from resizing on panel switches.
+    val barCompensation = if (state.settings.symbolRowEnabled) SymbolRowHeight else 0.dp
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .height(keyRowsHeight(state.settings)),
+            .height(keyRowsHeight(state.settings) + barCompensation),
     ) {
         Row(
             modifier = Modifier
