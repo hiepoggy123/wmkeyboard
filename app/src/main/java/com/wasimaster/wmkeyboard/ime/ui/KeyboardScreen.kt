@@ -2,6 +2,7 @@ package com.wasimaster.wmkeyboard.ime.ui
 
 import android.graphics.BitmapFactory
 import android.view.WindowManager
+import com.wasimaster.wmkeyboard.BuildConfig
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.AnimationVector2D
@@ -248,6 +249,7 @@ import com.wasimaster.wmkeyboard.core.settings.OneHandedMode
 import com.wasimaster.wmkeyboard.core.settings.SpaceSwipeAction
 import com.wasimaster.wmkeyboard.core.settings.ThemeMode
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
+import com.wasimaster.wmkeyboard.core.settings.isSupportedTool
 import com.wasimaster.wmkeyboard.core.snippets.Snippet
 import com.wasimaster.wmkeyboard.core.tools.BuiltInSymbolSets
 import com.wasimaster.wmkeyboard.core.tools.GifItem
@@ -416,12 +418,12 @@ fun KeyboardScreen(
             ToolbarTool.STICKER -> onPanelChange(PanelMode.STICKER)
             ToolbarTool.WEB_SEARCH -> onPanelChange(PanelMode.WEB_SEARCH)
             ToolbarTool.IMAGE_SEARCH -> onPanelChange(PanelMode.IMAGE_SEARCH)
-            ToolbarTool.OCR -> onPanelChange(PanelMode.OCR)
-            ToolbarTool.QR_SCAN -> onPanelChange(PanelMode.QR_SCAN)
+            ToolbarTool.OCR -> if (BuildConfig.ENABLE_ML_KIT_SCANNERS) onPanelChange(PanelMode.OCR)
+            ToolbarTool.QR_SCAN -> if (BuildConfig.ENABLE_ML_KIT_SCANNERS) onPanelChange(PanelMode.QR_SCAN)
             // Not a panel: the scanner is a full-screen Google activity.
-            ToolbarTool.DOC_SCAN -> onDocScan()
+            ToolbarTool.DOC_SCAN -> if (BuildConfig.ENABLE_ML_KIT_SCANNERS) onDocScan()
             ToolbarTool.VOICE -> onPanelChange(PanelMode.VOICE)
-            ToolbarTool.GRAMMAR -> onPanelChange(PanelMode.GRAMMAR)
+            ToolbarTool.GRAMMAR -> if (BuildConfig.ENABLE_GRAMMAR) onPanelChange(PanelMode.GRAMMAR)
             ToolbarTool.WIKIPEDIA -> onPanelChange(PanelMode.WIKIPEDIA)
             ToolbarTool.SYMBOLS -> onPanelChange(PanelMode.SYMBOLS)
             ToolbarTool.CALCULATOR -> onPanelChange(PanelMode.CALCULATOR)
@@ -1676,7 +1678,7 @@ private fun RowScope.ToolbarRow(
 ) {
     val customizing = state.panel == PanelMode.TOOLBOX
     val greedy = state.settings.toolbarGreedy
-    val tools = state.settings.toolbarTools.filter { it in state.settings.enabledTools }
+    val tools = state.settings.toolbarTools.filter { it in state.settings.enabledTools && isSupportedTool(it) }
     val panelOpen = state.panel != PanelMode.NONE
 
     // In greedy mode every button — chevron, toolbox and tools alike — is an
@@ -1868,7 +1870,7 @@ private fun ToolboxPanel(
             }
         }
         val available = ToolbarTool.entries.filter {
-            it !in state.settings.toolbarTools && it in state.settings.enabledTools
+            it !in state.settings.toolbarTools && it in state.settings.enabledTools && isSupportedTool(it)
         }
         if (available.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -2097,15 +2099,19 @@ private fun KeyboardBody(
                 PanelMode.THEMES -> ThemesPanel(state, onThemeSelect)
                 PanelMode.SOUND_HAPTICS -> SoundHapticsPanel(state, onSoundHaptic)
                 PanelMode.NUMPAD -> NumpadPanel(state, onText, onKey)
-                PanelMode.HANDWRITING -> HandwritingPanel(
-                    state = state,
-                    onStroke = onHandwritingStroke,
-                    onUndoStroke = onHandwritingUndo,
-                    onDownloadModel = onHandwritingDownload,
-                    onKey = onKey,
-                    onLanguageSelect = onLanguageSelect,
-                    onClose = { onPanelChange(PanelMode.HANDWRITING) },
-                )
+                PanelMode.HANDWRITING -> if (BuildConfig.ENABLE_ML_KIT_HANDWRITING) {
+                    HandwritingPanel(
+                        state = state,
+                        onStroke = onHandwritingStroke,
+                        onUndoStroke = onHandwritingUndo,
+                        onDownloadModel = onHandwritingDownload,
+                        onKey = onKey,
+                        onLanguageSelect = onLanguageSelect,
+                        onClose = { onPanelChange(PanelMode.HANDWRITING) },
+                    )
+                } else {
+                    onPanelChange(PanelMode.SNIPPETS)
+                }
                 PanelMode.CAMERA -> CameraPanel(
                     state = state,
                     onSend = onCameraSend,
@@ -2113,18 +2119,26 @@ private fun KeyboardBody(
                     // Toggling the open panel closes it.
                     onClose = { onPanelChange(PanelMode.CAMERA) },
                 )
-                PanelMode.OCR -> OcrPanel(
-                    state = state,
-                    onInsert = onScannedInsert,
-                    onRequestPermission = onCameraPermissionRequest,
-                    onClose = { onPanelChange(PanelMode.OCR) },
-                )
-                PanelMode.QR_SCAN -> QrScanPanel(
-                    state = state,
-                    onInsert = onScannedInsert,
-                    onRequestPermission = onCameraPermissionRequest,
-                    onClose = { onPanelChange(PanelMode.QR_SCAN) },
-                )
+                PanelMode.OCR -> if (BuildConfig.ENABLE_ML_KIT_SCANNERS) {
+                    OcrPanel(
+                        state = state,
+                        onInsert = onScannedInsert,
+                        onRequestPermission = onCameraPermissionRequest,
+                        onClose = { onPanelChange(PanelMode.OCR) },
+                    )
+                } else {
+                    onPanelChange(PanelMode.SNIPPETS)
+                }
+                PanelMode.QR_SCAN -> if (BuildConfig.ENABLE_ML_KIT_SCANNERS) {
+                    QrScanPanel(
+                        state = state,
+                        onInsert = onScannedInsert,
+                        onRequestPermission = onCameraPermissionRequest,
+                        onClose = { onPanelChange(PanelMode.QR_SCAN) },
+                    )
+                } else {
+                    onPanelChange(PanelMode.SNIPPETS)
+                }
                 PanelMode.VOICE -> VoicePanel(
                     state = state,
                     onToggle = onVoiceToggle,
@@ -2147,12 +2161,16 @@ private fun KeyboardBody(
                     onReplace = onTranslateReplace,
                     onInsert = onTranslateInsert,
                 )
-                PanelMode.GRAMMAR -> GrammarPanel(
-                    state = state,
-                    onFix = onGrammarFix,
-                    onFixAll = onGrammarFixAll,
-                    onDialect = onGrammarDialect,
-                )
+                PanelMode.GRAMMAR -> if (BuildConfig.ENABLE_GRAMMAR) {
+                    GrammarPanel(
+                        state = state,
+                        onFix = onGrammarFix,
+                        onFixAll = onGrammarFixAll,
+                        onDialect = onGrammarDialect,
+                    )
+                } else {
+                    onPanelChange(PanelMode.SNIPPETS)
+                }
                 PanelMode.GIF, PanelMode.STICKER -> GifPanel(
                     state = state,
                     stickers = state.panel == PanelMode.STICKER,

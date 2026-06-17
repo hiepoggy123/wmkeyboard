@@ -24,6 +24,7 @@ import androidx.core.content.FileProvider
 import androidx.core.view.inputmethod.EditorInfoCompat
 import androidx.core.view.inputmethod.InputConnectionCompat
 import androidx.core.view.inputmethod.InputContentInfoCompat
+import com.wasimaster.wmkeyboard.BuildConfig
 import com.wasimaster.wmkeyboard.app.CameraPermissionActivity
 import com.wasimaster.wmkeyboard.app.DocScanActivity
 import com.wasimaster.wmkeyboard.app.MainActivity
@@ -2670,6 +2671,7 @@ class WMKeyboardService : InputMethodService() {
      * [onStartInputView], once the target app has focus again.
      */
     fun onDocScanStart() {
+        if (!BuildConfig.ENABLE_ML_KIT_SCANNERS) return
         vibrate()
         _uiState.update { it.copy(panel = PanelMode.NONE) }
         startActivity(

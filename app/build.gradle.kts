@@ -88,6 +88,13 @@ android {
         compose = true
         buildConfig = true
     }
+
+    sourceSets {
+        // Lite builds exclude native libraries (Harper grammar, ~20 MB per ABI).
+        getByName("lite") {
+            jniLibs.setSrcDirs(emptySet<String>())
+        }
+    }
 }
 
 kotlin {
@@ -120,10 +127,13 @@ dependencies {
     implementation(libs.androidx.camera.view)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kotlinx.coroutines.android)
-    implementation(libs.mlkit.digital.ink)
-    implementation(libs.mlkit.text.recognition)
-    implementation(libs.mlkit.barcode.scanning)
-    implementation(libs.mlkit.document.scanner)
+
+    // ML Kit features (full flavor only)
+    "fullImplementation"(libs.mlkit.digital.ink)
+    "fullImplementation"(libs.mlkit.text.recognition)
+    "fullImplementation"(libs.mlkit.barcode.scanning)
+    "fullImplementation"(libs.mlkit.document.scanner)
+
     implementation(libs.coil.compose)
     implementation(libs.coil.gif)
     implementation(libs.coil.network.okhttp)
