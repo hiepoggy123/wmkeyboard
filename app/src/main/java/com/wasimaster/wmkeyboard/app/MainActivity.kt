@@ -178,6 +178,7 @@ import com.wasimaster.wmkeyboard.core.settings.BarRow
 import com.wasimaster.wmkeyboard.core.settings.KeyboardAlignment
 import com.wasimaster.wmkeyboard.core.settings.KeyboardMode
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
+import com.wasimaster.wmkeyboard.core.settings.isSupportedTool
 import com.wasimaster.wmkeyboard.core.settings.ModeField
 import com.wasimaster.wmkeyboard.core.tools.BuiltInSymbolSets
 import com.wasimaster.wmkeyboard.core.tools.SymbolSet
@@ -2288,7 +2289,10 @@ private fun ToolsSettings(settings: KeyboardSettings, onOpenTool: (ToolbarTool) 
     // settings entry (this menu is the only path to a tool's options).
     val grouped = groups.flatMap { it.second }.toSet()
     val ungrouped = ToolbarTool.entries.filterNot { it in grouped }
-    val allGroups = if (ungrouped.isEmpty()) groups else groups + ("Other" to ungrouped)
+    val allGroups = (if (ungrouped.isEmpty()) groups else groups + ("Other" to ungrouped))
+        // Tools this build can't provide (lite flavor) get no settings entry.
+        .map { (title, tools) -> title to tools.filter(::isSupportedTool) }
+        .filter { it.second.isNotEmpty() }
     for ((groupTitle, tools) in allGroups) {
         SettingsGroup(groupTitle) {
             for (tool in tools) {
@@ -4165,7 +4169,10 @@ private fun ModeEditor(
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    for (tool in ToolbarTool.entries.filter { it in settings.enabledTools }) {
+                    for (
+                        tool in ToolbarTool.entries
+                            .filter { it in settings.enabledTools && isSupportedTool(it) }
+                    ) {
                         FilterChip(
                             selected = tool in pinned,
                             onClick = {

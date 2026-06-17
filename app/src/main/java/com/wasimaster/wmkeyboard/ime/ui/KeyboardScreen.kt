@@ -410,7 +410,8 @@ fun KeyboardScreen(
             ToolbarTool.AUTOCORRECT -> onAutocorrectToggle()
             ToolbarTool.SOUND_HAPTICS -> onPanelChange(PanelMode.SOUND_HAPTICS)
             ToolbarTool.NUMPAD -> onPanelChange(PanelMode.NUMPAD)
-            ToolbarTool.HANDWRITING -> onPanelChange(PanelMode.HANDWRITING)
+            ToolbarTool.HANDWRITING ->
+                if (BuildConfig.ENABLE_ML_KIT_HANDWRITING) onPanelChange(PanelMode.HANDWRITING)
             ToolbarTool.CAMERA -> onPanelChange(PanelMode.CAMERA)
             ToolbarTool.DICTIONARY -> onPanelChange(PanelMode.DICTIONARY)
             ToolbarTool.TRANSLATE -> onPanelChange(PanelMode.TRANSLATE)

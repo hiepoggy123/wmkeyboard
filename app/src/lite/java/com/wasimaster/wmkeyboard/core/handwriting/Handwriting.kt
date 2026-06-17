@@ -1,0 +1,68 @@
+package com.wasimaster.wmkeyboard.core.handwriting
+
+import com.wasimaster.wmkeyboard.core.settings.InputMode
+import com.wasimaster.wmkeyboard.core.settings.KeyboardLanguage
+import com.wasimaster.wmkeyboard.core.settings.language
+
+/** One sampled point of a handwriting stroke, in canvas pixels. */
+data class HwPoint(val x: Float, val y: Float, val t: Long)
+
+/** A finished stroke: the points between one touch-down and its release. */
+data class HwStroke(val points: List<HwPoint>)
+
+data class HandwritingLanguage(val tag: String, val displayName: String)
+
+/**
+ * Lite-flavor stand-in: no ML Kit, so no models exist and nothing can be
+ * downloaded. The handwriting tool is hidden in lite builds; these members
+ * only keep the shared callers (IME, panel, settings) compiling.
+ */
+object HandwritingModels {
+
+    /** No downloadable models in lite builds. */
+    val supported: List<HandwritingLanguage> = emptyList()
+
+    /** Same tag mapping as the full flavor, so UI state stays coherent. */
+    fun tagForMode(mode: InputMode): String = when (mode.language) {
+        KeyboardLanguage.ENGLISH -> "en-US"
+        KeyboardLanguage.BANGLA -> "bn"
+        KeyboardLanguage.FRENCH -> "fr"
+        KeyboardLanguage.GERMAN -> "de"
+        KeyboardLanguage.SPANISH -> "es"
+    }
+
+    fun shortLabel(tag: String): String = when (tag) {
+        "en-US" -> "EN"
+        "bn" -> "বাং"
+        "fr" -> "FR"
+        "de" -> "DE"
+        "es" -> "ES"
+        else -> tag.uppercase()
+    }
+
+    fun displayName(tag: String): String = tag
+
+    suspend fun isDownloaded(tag: String): Boolean = false
+
+    suspend fun download(tag: String) {
+        throw IllegalStateException("Handwriting is not available in the lite build")
+    }
+
+    suspend fun delete(tag: String) = Unit
+}
+
+/** Lite-flavor stand-in; recognition is never reachable without ML Kit. */
+class HandwritingRecognizerCache {
+
+    suspend fun recognize(
+        tag: String,
+        strokes: List<HwStroke>,
+        preContext: String,
+        writingAreaWidth: Float,
+        writingAreaHeight: Float,
+        maxCandidates: Int = 4,
+    ): List<String> =
+        throw IllegalStateException("Handwriting is not available in the lite build")
+
+    fun close() = Unit
+}
