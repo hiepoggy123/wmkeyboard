@@ -62,6 +62,7 @@ import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material.icons.outlined.PhotoCamera
+import androidx.compose.material.icons.outlined.Save
 import androidx.compose.material.icons.outlined.Security
 import androidx.compose.material.icons.outlined.PictureInPictureAlt
 import androidx.compose.material.icons.outlined.Settings
@@ -177,8 +178,10 @@ import com.wasimaster.wmkeyboard.core.tools.WeatherClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import com.wasimaster.wmkeyboard.core.settings.BarRow
+import com.wasimaster.wmkeyboard.BuildConfig
 import com.wasimaster.wmkeyboard.core.settings.KeyboardAlignment
 import com.wasimaster.wmkeyboard.core.settings.KeyboardLanguage
+import com.wasimaster.wmkeyboard.core.settings.SettingsBackup
 import com.wasimaster.wmkeyboard.core.settings.KeyboardMode
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.isSupportedTool
@@ -324,6 +327,11 @@ private fun SettingsNavHost(
         composable("dictionary") {
             SettingsScreen("Personal dictionary", { navController.popBackStack() }) {
                 DictionarySettings(repository)
+            }
+        }
+        composable("backup") {
+            SettingsScreen("Backup & restore", { navController.popBackStack() }) {
+                BackupSettings(repository)
             }
         }
         composable("customdictionaries") {
@@ -524,6 +532,12 @@ private fun HomeScreen(settings: KeyboardSettings, onNavigate: (String) -> Unit)
                         Icons.Outlined.Security, "Privacy",
                         "On-device learning, incognito",
                     ) { onNavigate("privacy") }
+                }
+                item {
+                    HomeItem(
+                        Icons.Outlined.Save, "Backup & restore",
+                        "Export your settings to a file, or restore them",
+                    ) { onNavigate("backup") }
                 }
             }
             Spacer(Modifier.height(24.dp))
@@ -2008,6 +2022,167 @@ private fun DictionarySettings(repository: SettingsRepository) {
                 ) { Text("Add") }
             },
             dismissButton = { TextButton(onClick = { showAdd = false }) { Text("Cancel") } },
+        )
+    }
+}
+
+// ---- backup ----
+
+@Composable
+private fun BackupSettings(repository: SettingsRepository) {
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    var includeSecrets by remember { mutableStateOf(false) }
+    var message by remember { mutableStateOf<String?>(null) }
+    var confirmImport by remember { mutableStateOf<String?>(null) }
+
+    val exportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument(SettingsBackup.MIME_TYPE),
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            val ok = runCatching {
+                val text = repository.exportSettings(
+                    includeSecrets = includeSecrets,
+                    appVersion = BuildConfig.VERSION_CODE,
+                    appVersionName = BuildConfig.VERSION_NAME,
+                )
+                withContext(Dispatchers.IO) {
+                    context.contentResolver.openOutputStream(uri)?.use {
+                        it.write(text.toByteArray())
+                    } ?: error("no stream")
+                }
+            }.isSuccess
+            message = if (ok) {
+                if (includeSecrets) {
+                    "Settings exported, API keys included. Treat that file as a password."
+                } else {
+                    "Settings exported."
+                }
+            } else {
+                "Could not write that file."
+            }
+        }
+    }
+
+    // Import reads the file first and asks before writing: restoring is not
+    // something to discover you have done.
+    val importLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            val text = withContext(Dispatchers.IO) {
+                runCatching {
+                    context.contentResolver.openInputStream(uri)!!
+                        .use { it.readBytes().decodeToString() }
+                }.getOrNull()
+            }
+            val parsed = text?.let { SettingsBackup.decode(it) }
+            if (text == null || parsed == null) {
+                message = "That file is not a WMKeyboard settings backup."
+                return@launch
+            }
+            confirmImport = text
+        }
+    }
+
+    Text(
+        "Save every keyboard setting to a file you can keep, move to another " +
+            "phone, or restore after a reinstall.\n\n" +
+            "Themes, snippets and imported word lists are separate files with " +
+            "their own import buttons, and learned words stay on this device — " +
+            "none of them are in this backup.",
+        style = MaterialTheme.typography.bodyMedium,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+    )
+
+    SettingsGroup("Export") {
+        item {
+            ToggleSetting(
+                "Include API keys",
+                "Translate, GIF, search and AI keys",
+                includeSecrets,
+                info = "Off by default, because a settings file is easy to mail to " +
+                    "yourself or drop in a shared folder, and these keys spend real " +
+                    "money on your accounts.\n\n" +
+                    "Turn it on only for a backup you keep to yourself — anyone who " +
+                    "opens that file can use your keys.",
+            ) { includeSecrets = it }
+        }
+        item {
+            OutlinedButton(
+                onClick = {
+                    exportLauncher.launch("wmkeyboard-settings.${SettingsBackup.FILE_EXTENSION}")
+                },
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            ) { Text("Export settings") }
+        }
+    }
+
+    SettingsGroup("Import") {
+        item {
+            OutlinedButton(
+                onClick = { importLauncher.launch(arrayOf("*/*")) },
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            ) { Text("Import settings") }
+        }
+    }
+    CaptionText(
+        "Importing overwrites the settings named in the file and leaves the " +
+            "rest as they are, so an older backup will not reset anything added " +
+            "since it was made.",
+    )
+    Spacer(Modifier.height(16.dp))
+
+    val pending = confirmImport
+    if (pending != null) {
+        val parsed = remember(pending) { SettingsBackup.decode(pending) }
+        AlertDialog(
+            onDismissRequest = { confirmImport = null },
+            title = { Text("Import settings?") },
+            text = {
+                Text(
+                    buildString {
+                        append("This will overwrite ${parsed?.entries?.size ?: 0} settings ")
+                        append("with the values in that file.")
+                        if (parsed?.containsSecrets == true) {
+                            append("\n\nThe file includes API keys, which will replace the ones ")
+                            append("set here.")
+                        }
+                        if ((parsed?.skipped ?: 0) > 0) {
+                            append("\n\n${parsed?.skipped} entries could not be read and will ")
+                            append("be skipped.")
+                        }
+                    },
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmImport = null
+                    scope.launch {
+                        message = when (val result = repository.importSettings(pending)) {
+                            is SettingsRepository.ImportResult.Applied ->
+                                "Restored ${result.settings} settings."
+                            SettingsRepository.ImportResult.RolledBack ->
+                                "That backup could not be applied — your settings are unchanged."
+                            SettingsRepository.ImportResult.NotABackup ->
+                                "That file is not a WMKeyboard settings backup."
+                        }
+                    }
+                }) { Text("Import") }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmImport = null }) { Text("Cancel") }
+            },
+        )
+    }
+
+    if (message != null) {
+        AlertDialog(
+            onDismissRequest = { message = null },
+            text = { Text(message!!) },
+            confirmButton = { TextButton(onClick = { message = null }) { Text("OK") } },
         )
     }
 }

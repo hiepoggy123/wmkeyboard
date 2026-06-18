@@ -2,11 +2,16 @@ package com.wasimaster.wmkeyboard.core.settings
 
 import android.content.Context
 import android.os.Build
+import androidx.datastore.preferences.core.MutablePreferences
+import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.doublePreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.wasimaster.wmkeyboard.BuildConfig
 import com.wasimaster.wmkeyboard.core.theme.DEFAULT_THEME_ID
@@ -16,6 +21,7 @@ import com.wasimaster.wmkeyboard.core.tools.BuiltInSymbolSets
 import com.wasimaster.wmkeyboard.core.tools.SymbolSet
 import com.wasimaster.wmkeyboard.core.tools.SymbolSetCodec
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
 /**
@@ -1281,6 +1287,72 @@ class SettingsRepository(private val context: Context) {
         }
 
     /** Signals the IME that the learned-words file changed on disk. */
+    // ---- backup ----
+
+    /** Serializes every stored preference; see [SettingsBackup]. */
+    suspend fun exportSettings(
+        includeSecrets: Boolean,
+        appVersion: Int,
+        appVersionName: String,
+    ): String = SettingsBackup.encode(
+        context.dataStore.data.first(),
+        includeSecrets,
+        appVersion,
+        appVersionName,
+    )
+
+    sealed interface ImportResult {
+        data class Applied(val settings: Int, val skipped: Int) : ImportResult
+        /** The file parsed but left the app unable to read its own settings. */
+        data object RolledBack : ImportResult
+        data object NotABackup : ImportResult
+    }
+
+    /**
+     * Merges a backup into the current settings: keys named in the file are
+     * overwritten, everything else is left alone, so an old backup never
+     * resets settings that did not exist when it was made.
+     *
+     * A hand-edited file can carry a value of the wrong type for its key
+     * (a string where an Int is expected), which DataStore stores happily
+     * and then throws on at read time — bricking the settings screen and
+     * the keyboard with it. So the whole write is verified by reading the
+     * settings back, and rolled back to the previous snapshot if that
+     * fails.
+     */
+    suspend fun importSettings(text: String): ImportResult {
+        val parsed = SettingsBackup.decode(text) ?: return ImportResult.NotABackup
+        val snapshot = context.dataStore.data.first()
+        context.dataStore.edit { prefs -> parsed.entries.forEach { prefs.put(it) } }
+        val readable = runCatching { settings.first() }.isSuccess
+        if (!readable) {
+            context.dataStore.edit { prefs ->
+                prefs.clear()
+                for ((key, value) in snapshot.asMap()) {
+                    @Suppress("UNCHECKED_CAST")
+                    prefs[key as Preferences.Key<Any>] = value
+                }
+            }
+            return ImportResult.RolledBack
+        }
+        return ImportResult.Applied(parsed.entries.size, parsed.skipped)
+    }
+
+    private fun MutablePreferences.put(entry: SettingsBackup.Entry) {
+        when (entry.type) {
+            "boolean" -> set(booleanPreferencesKey(entry.name), entry.value as Boolean)
+            "int" -> set(intPreferencesKey(entry.name), entry.value as Int)
+            "long" -> set(longPreferencesKey(entry.name), entry.value as Long)
+            "float" -> set(floatPreferencesKey(entry.name), entry.value as Float)
+            "double" -> set(doublePreferencesKey(entry.name), entry.value as Double)
+            "string" -> set(stringPreferencesKey(entry.name), entry.value as String)
+            "stringSet" -> {
+                @Suppress("UNCHECKED_CAST")
+                set(stringSetPreferencesKey(entry.name), entry.value as Set<String>)
+            }
+        }
+    }
+
     suspend fun bumpLexiconVersion() =
         context.dataStore.edit { it[LEXICON_VERSION] = (it[LEXICON_VERSION] ?: 0) + 1 }
 
