@@ -27,13 +27,16 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
+import com.wasimaster.wmkeyboard.core.settings.ColorVisionFilter
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.ThemeMode
 import com.wasimaster.wmkeyboard.core.settings.isLatinScript
 import com.wasimaster.wmkeyboard.core.theme.BuiltInThemes
+import com.wasimaster.wmkeyboard.core.theme.ColorVision
 import com.wasimaster.wmkeyboard.core.theme.DEFAULT_THEME_ID
 import com.wasimaster.wmkeyboard.core.theme.ThemeSpec
 import kotlinx.coroutines.Dispatchers
@@ -245,6 +248,83 @@ private fun schemeFor(kb: KbTheme): ColorScheme {
     )
 }
 
+/** Every colour in the theme put through [f]; non-colour fields untouched. */
+private fun KbTheme.mapColors(f: (Color) -> Color): KbTheme = copy(
+    board = f(board),
+    key = f(key),
+    keyText = f(keyText),
+    modifierKey = f(modifierKey),
+    modifierKeyText = f(modifierKeyText),
+    enterKey = f(enterKey),
+    enterKeyText = f(enterKeyText),
+    pressedKey = f(pressedKey),
+    keyBorder = keyBorder?.let(f),
+    accent = f(accent),
+    popup = f(popup),
+    popupText = f(popupText),
+    toolbarIcon = f(toolbarIcon),
+    toolCircle = f(toolCircle),
+    toolCircleActive = f(toolCircleActive),
+    toolCircleActiveIcon = f(toolCircleActiveIcon),
+    chip = f(chip),
+    suggestionText = f(suggestionText),
+    secondaryText = f(secondaryText),
+    divider = f(divider),
+)
+
+/** Near-black or near-white, whichever reads on [background]. */
+private fun maxContrastOn(background: Color): Color =
+    if (background.luminance() > 0.45f) Color(0xFF000000) else Color(0xFFFFFFFF)
+
+/**
+ * Applies the accessibility settings that are palette-level: colour-vision
+ * correction, forced contrast and key outlines. Doing it here — after the
+ * theme (default or stored) has fully resolved — means every drawing site
+ * downstream reads the adjusted values through [LocalKbTheme] without
+ * knowing accessibility exists, and it works identically for built-in,
+ * custom and dynamic-colour themes.
+ */
+private fun KbTheme.accessibilityAdjusted(settings: KeyboardSettings): KbTheme {
+    // Correction runs first so the contrast pass gets the last word: after
+    // daltonization shifts hues, the text/background relationship is what
+    // matters and it must not be re-broken.
+    var kb = if (settings.colorVisionFilter == ColorVisionFilter.NONE) {
+        this
+    } else {
+        mapColors { ColorVision.correct(it, settings.colorVisionFilter) }
+    }
+
+    if (settings.highContrastKeys) {
+        // Push the board away from the keys as well as fixing the text: a
+        // high-contrast palette that only touches labels still leaves the
+        // key *shapes* indistinct, which is the harder problem for low vision.
+        val board = if (kb.dark) Color(0xFF000000) else Color(0xFFFFFFFF)
+        val key = if (kb.dark) Color(0xFF2A2A2A) else Color(0xFFEDEDED)
+        val modifier = if (kb.dark) Color(0xFF141414) else Color(0xFFD2D2D2)
+        kb = kb.copy(
+            board = board,
+            key = key,
+            modifierKey = modifier,
+            keyText = maxContrastOn(key),
+            modifierKeyText = maxContrastOn(modifier),
+            enterKeyText = maxContrastOn(kb.enterKey),
+            popupText = maxContrastOn(kb.popup),
+            suggestionText = maxContrastOn(board),
+            toolbarIcon = maxContrastOn(board),
+            secondaryText = maxContrastOn(board).copy(alpha = 0.75f),
+            divider = maxContrastOn(board).copy(alpha = 0.4f),
+        )
+    }
+
+    if (settings.keyOutlines && kb.keyBorderWidthDp <= 0f) {
+        kb = kb.copy(
+            keyBorder = maxContrastOn(kb.key).copy(alpha = if (settings.highContrastKeys) 0.9f else 0.45f),
+            keyBorderWidthDp = 1.5f,
+        )
+    }
+    return kb
+}
+
 /**
  * Resolves the selected theme and provides [LocalKbTheme] plus a matching
  * MaterialTheme to [content]. The default theme follows the theme mode
@@ -261,7 +341,7 @@ fun KeyboardThemeProvider(settings: KeyboardSettings, content: @Composable () ->
         settings.customThemes.find { it.id == settings.keyboardThemeId }
             ?: BuiltInThemes.find { it.id == settings.keyboardThemeId }
     }
-    val kb = if (spec == null) {
+    val resolved = if (spec == null) {
         val dark = when (settings.themeMode) {
             ThemeMode.SYSTEM -> systemDark
             ThemeMode.LIGHT -> false
@@ -278,6 +358,7 @@ fun KeyboardThemeProvider(settings: KeyboardSettings, content: @Composable () ->
     } else {
         specKbTheme(spec, settings)
     }
+    val kb = resolved.accessibilityAdjusted(settings)
     // The chosen font rides in through the Material typography, so every
     // Text on the keyboard — key labels, suggestions, panels — follows it
     // without per-call plumbing. Emojis get their own family via

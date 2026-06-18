@@ -42,6 +42,7 @@ import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.automirrored.outlined.Redo
 import androidx.compose.material.icons.automirrored.outlined.Undo
+import androidx.compose.material.icons.outlined.Accessibility
 import androidx.compose.material.icons.outlined.AspectRatio
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Check
@@ -270,9 +271,11 @@ private fun SettingsNavHost(
             navController.navigate("tool/${openTool.name}")
         }
     }
-    // Quick shared-axis slide instead of the sluggish default cross-fade.
-    val spec = tween<androidx.compose.ui.unit.IntOffset>(220)
-    val fadeSpec = tween<Float>(220)
+    // Quick shared-axis slide instead of the sluggish default cross-fade;
+    // collapsed to an instant cut when the user has asked for reduced motion.
+    val navMs = if (settings.reduceMotion) 0 else 220
+    val spec = tween<androidx.compose.ui.unit.IntOffset>(navMs)
+    val fadeSpec = tween<Float>(navMs)
     // Frozen at first composition: completing onboarding navigates away
     // explicitly, it must not yank the graph out from under the NavHost.
     val startDestination = remember { if (settings.onboardingDone) "home" else "onboarding" }
@@ -370,6 +373,16 @@ private fun SettingsNavHost(
                         navController.navigate(route)
                     }
                 }
+            }
+        }
+        composable("accessibility") {
+            SettingsScreen("Accessibility", { navController.popBackStack() }) {
+                AccessibilitySettings(
+                    repository, settings,
+                    onOpenFonts = { navController.navigate("fonts") },
+                    onOpenLayout = { navController.navigate("layout") },
+                    onOpenKeyPress = { navController.navigate("keypress") },
+                )
             }
         }
         composable("privacy") {
@@ -483,6 +496,14 @@ private fun HomeScreen(settings: KeyboardSettings, onNavigate: (String) -> Unit)
                         Icons.Outlined.Widgets, "Tools",
                         "Flashlight, compass, snippets, calendar & more",
                     ) { onNavigate("tools") }
+                }
+            }
+            SettingsGroup("Accessibility") {
+                item {
+                    HomeItem(
+                        Icons.Outlined.Accessibility, "Accessibility",
+                        "Contrast, colour vision, TalkBack, reduced motion",
+                    ) { onNavigate("accessibility") }
                 }
             }
             SettingsGroup("Data") {

@@ -160,6 +160,7 @@ import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -223,6 +224,14 @@ import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
 import android.os.Build
 import android.os.SystemClock
+import android.content.Context
+import android.view.accessibility.AccessibilityManager
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
+import com.wasimaster.wmkeyboard.core.settings.ScreenReaderMode
 import kotlinx.coroutines.delay
 import com.wasimaster.wmkeyboard.core.clipboard.ClipItem
 import com.wasimaster.wmkeyboard.core.clipboard.ClipKind
@@ -292,6 +301,77 @@ internal val LocalKeyPressFeedback = staticCompositionLocalOf<() -> Unit> { {} }
  * root so it does not have to thread through every key-grid layer.
  */
 internal val LocalClipboardKeyAction = staticCompositionLocalOf<(ClipboardKeyAction) -> Unit> { {} }
+
+/**
+ * Whether TalkBack (or another explore-by-touch service) is currently
+ * driving the screen. Resolved once at the root rather than per key —
+ * every key would otherwise register its own listener.
+ */
+internal val LocalTouchExploration = staticCompositionLocalOf { false }
+
+/**
+ * Live touch-exploration state. The keyboard has to react to this while
+ * running, not only at start: users toggle TalkBack with a shortcut mid-task
+ * and the key gesture handling has to swap over with it.
+ */
+@Composable
+private fun rememberTouchExploration(): Boolean {
+    val context = LocalContext.current
+    val manager = remember(context) {
+        context.getSystemService(Context.ACCESSIBILITY_SERVICE) as? AccessibilityManager
+    }
+    var enabled by remember { mutableStateOf(manager?.isTouchExplorationEnabled == true) }
+    DisposableEffect(manager) {
+        if (manager == null) return@DisposableEffect onDispose {}
+        val listener = AccessibilityManager.TouchExplorationStateChangeListener { enabled = it }
+        manager.addTouchExplorationStateChangeListener(listener)
+        enabled = manager.isTouchExplorationEnabled
+        onDispose { manager.removeTouchExplorationStateChangeListener(listener) }
+    }
+    return enabled
+}
+
+/**
+ * What a screen reader should call this key. Punctuation and whitespace get
+ * spoken names because TalkBack either skips them or reads them as silence,
+ * which makes a symbol layout unusable by ear.
+ */
+private fun spokenLabel(key: Key, state: KeyboardUiState): String = when (key.action) {
+    KeyAction.Space -> "Space"
+    KeyAction.Delete -> "Delete"
+    KeyAction.Enter -> when (state.enterAction) {
+        EnterAction.SEARCH -> "Search"
+        EnterAction.SEND -> "Send"
+        EnterAction.GO -> "Go"
+        EnterAction.NEXT -> "Next"
+        EnterAction.PREVIOUS -> "Previous"
+        EnterAction.DONE -> "Done"
+        EnterAction.DEFAULT -> "Enter"
+    }
+    KeyAction.Shift -> when (state.shiftState) {
+        ShiftState.CAPS_LOCK -> "Caps lock on"
+        ShiftState.ON -> "Shift on"
+        ShiftState.OFF -> "Shift"
+    }
+    KeyAction.LanguageSwitch -> "Switch language"
+    KeyAction.Emoji -> "Emoji"
+    else -> {
+        val label = displayLabel(key, state)
+        punctuationNames[label] ?: label
+    }
+}
+
+private val punctuationNames = mapOf(
+    "." to "Period", "," to "Comma", "?" to "Question mark", "!" to "Exclamation mark",
+    "'" to "Apostrophe", "\"" to "Quote", ";" to "Semicolon", ":" to "Colon",
+    "-" to "Hyphen", "_" to "Underscore", "/" to "Slash", "\\" to "Backslash",
+    "(" to "Left parenthesis", ")" to "Right parenthesis", "[" to "Left bracket",
+    "]" to "Right bracket", "{" to "Left brace", "}" to "Right brace",
+    "@" to "At sign", "#" to "Hash", "$" to "Dollar sign", "%" to "Percent",
+    "&" to "Ampersand", "*" to "Asterisk", "+" to "Plus", "=" to "Equals",
+    "<" to "Less than", ">" to "Greater than", "|" to "Vertical bar",
+    "~" to "Tilde", "^" to "Caret", "`" to "Backtick",
+)
 
 /** Root composable for the IME. Renders [KeyboardUiState] and forwards input. */
 @Composable
@@ -441,6 +521,7 @@ fun KeyboardScreen(
         CompositionLocalProvider(
             LocalKeyPressFeedback provides onKeyPressed,
             LocalClipboardKeyAction provides onClipboardKey,
+            LocalTouchExploration provides rememberTouchExploration(),
         ) {
             KeyboardBody(
                 state = bodyState,
@@ -1679,6 +1760,8 @@ private fun RowScope.ToolbarRow(
 ) {
     val customizing = state.panel == PanelMode.TOOLBOX
     val greedy = state.settings.toolbarGreedy
+    val enterMs = if (state.settings.reduceMotion) 0 else 140
+    val exitMs = if (state.settings.reduceMotion) 0 else 120
     val tools = state.settings.toolbarTools.filter { it in state.settings.enabledTools && isSupportedTool(it) }
     val panelOpen = state.panel != PanelMode.NONE
 
@@ -1696,17 +1779,20 @@ private fun RowScope.ToolbarRow(
             AnimatedVisibility(
                 visibleState = chevronVisible,
                 modifier = if (greedy) cell else Modifier,
+                // Reduce motion collapses the durations to zero rather than
+                // dropping AnimatedVisibility: the transition state still has
+                // to run its lifecycle or the weighted cell never releases.
                 enter = if (greedy) {
                     // The weighted slot can't grow, so the chevron itself
                     // scales and fades into it.
-                    scaleIn(tween(140)) + fadeIn(tween(140))
+                    scaleIn(tween(enterMs)) + fadeIn(tween(enterMs))
                 } else {
-                    expandHorizontally(tween(140)) + fadeIn(tween(140))
+                    expandHorizontally(tween(enterMs)) + fadeIn(tween(enterMs))
                 },
                 exit = if (greedy) {
-                    scaleOut(tween(120)) + fadeOut(tween(120))
+                    scaleOut(tween(exitMs)) + fadeOut(tween(exitMs))
                 } else {
-                    shrinkHorizontally(tween(140)) + fadeOut(tween(140))
+                    shrinkHorizontally(tween(enterMs)) + fadeOut(tween(enterMs))
                 },
             ) {
                 Box(
@@ -2805,25 +2891,68 @@ private fun KeyButton(
     // on whichever cell they fall in, so there are no dead zones.
     val density = LocalDensity.current
     var keyWidthPx by remember { mutableIntStateOf(0) }
+
+    // Tremor filter: drop a second contact on the same key that lands
+    // within the debounce window. Scoped per key, so alternating keys
+    // (typing "aa" vs "ab") are never affected — only a bouncing repeat is.
+    var lastAcceptedAt by remember { mutableLongStateOf(0L) }
+    val debounced: (Key) -> Unit = remember(onKey, settings.keyDebounceMs) {
+        { pressedKey ->
+            val now = SystemClock.uptimeMillis()
+            if (settings.keyDebounceMs <= 0 || now - lastAcceptedAt >= settings.keyDebounceMs) {
+                lastAcceptedAt = now
+                onKey(pressedKey)
+            }
+        }
+    }
+
+    // Under an explore-by-touch service the accessibility framework owns the
+    // touch stream, so the custom press/long-press/swipe detector never sees
+    // a coherent gesture. Hand the key over to semantics instead: TalkBack
+    // announces on hover and commits on the activation tap.
+    val touchExploration = LocalTouchExploration.current
+    val screenReaderKeys = settings.screenReaderMode != ScreenReaderMode.OFF
+    val semanticsDriven =
+        touchExploration && settings.screenReaderMode == ScreenReaderMode.EXPLORE
+    val label = spokenLabel(key, state)
+
     Box(
         modifier = modifier
             .height((heightDp ?: settings.keyHeightDp).dp + KeyGapVertical * 2)
-            .pointerInputKey(key, settings.longPressDelayMs, settings.keyRepeatIntervalMs,
-                spaceShortSwipe = settings.spaceShortSwipe,
-                spaceLongSwipe = settings.spaceLongSwipe,
-                enabledModes = settings.enabledModes.ifEmpty { listOf(InputMode.ENGLISH) },
-                currentMode = state.inputMode,
-                setPressed = { pressed = it },
-                onKeyPress = onKeyPress,
-                hapticOnLongPress = settings.hapticOnLongPress,
-                hapticOnLongPressRelease = settings.hapticOnLongPressRelease,
-                openAlternates = { showAlternates = true },
-                onKey = onKey,
-                onClipboardKey = onClipboardKey,
-                onCursorMove = onCursorMove,
-                onLanguageSelect = onLanguageSelect,
-                setLanguagePreview = { languagePreview = it },
-                scope = scope)
+            .then(
+                if (screenReaderKeys) {
+                    Modifier.semantics {
+                        contentDescription = label
+                        role = Role.Button
+                        if (semanticsDriven) {
+                            onClick(label = "Type $label") { debounced(key); true }
+                        }
+                    }
+                } else {
+                    Modifier
+                }
+            )
+            .then(
+                if (semanticsDriven) Modifier
+                else Modifier.pointerInputKey(
+                    key, settings.longPressDelayMs, settings.keyRepeatIntervalMs,
+                    spaceShortSwipe = settings.spaceShortSwipe,
+                    spaceLongSwipe = settings.spaceLongSwipe,
+                    enabledModes = settings.enabledModes.ifEmpty { listOf(InputMode.ENGLISH) },
+                    currentMode = state.inputMode,
+                    setPressed = { pressed = it },
+                    onKeyPress = onKeyPress,
+                    hapticOnLongPress = settings.hapticOnLongPress,
+                    hapticOnLongPressRelease = settings.hapticOnLongPressRelease,
+                    openAlternates = { showAlternates = true },
+                    onKey = debounced,
+                    onClipboardKey = onClipboardKey,
+                    onCursorMove = onCursorMove,
+                    onLanguageSelect = onLanguageSelect,
+                    setLanguagePreview = { languagePreview = it },
+                    scope = scope,
+                )
+            )
             .padding(horizontal = KeyGapHorizontal, vertical = KeyGapVertical)
             .background(background, keyShape)
             .then(
@@ -3032,7 +3161,7 @@ private fun KeyContent(key: Key, state: KeyboardUiState, contentColor: Color) {
                 text = displayLabel(key, state),
                 modifier = Modifier.align(Alignment.Center),
                 fontSize = ((if (isModeLabel) 15.6f else 23f) * fontScale).sp,
-                fontWeight = FontWeight.Medium,
+                fontWeight = if (state.settings.boldKeyLabels) FontWeight.Bold else FontWeight.Medium,
                 color = contentColor,
             )
             // Corner hint: the key's first long-press alternate. Keys whose
