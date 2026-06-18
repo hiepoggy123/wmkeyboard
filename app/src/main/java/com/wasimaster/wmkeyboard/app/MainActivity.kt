@@ -1041,6 +1041,35 @@ private fun TypingSettings(
             ) { scope.launch { repository.setSpaceLongSwipe(it) } }
         }
     }
+
+    SettingsGroup("Volume keys") {
+        item {
+            ToggleSetting(
+                "Volume cursor control",
+                "Volume up and down move the text cursor",
+                settings.volumeCursor,
+                info = "While the keyboard is open, volume down moves the cursor one character " +
+                    "left and volume up moves it one character right; hold a key to repeat. " +
+                    "The volume keys behave normally everywhere else, and as soon as the " +
+                    "keyboard closes.",
+            ) { scope.launch { repository.setVolumeCursor(it) } }
+        }
+        if (settings.volumeCursor) {
+            item {
+                ToggleSetting(
+                    "Release while audio plays",
+                    "Keep volume control when something is playing",
+                    settings.volumeCursorMediaAware,
+                    info = "With music, a video or a podcast playing, the volume keys go back to " +
+                        "changing the volume even with the keyboard open — so typing a reply " +
+                        "never costs you the ability to turn the sound down. Cursor control " +
+                        "returns once playback stops.\n\n" +
+                        "Turn this off if you want the volume keys to always move the cursor " +
+                        "while the keyboard is showing.",
+                ) { scope.launch { repository.setVolumeCursorMediaAware(it) } }
+            }
+        }
+    }
 }
 
 // ---- key press ----

@@ -348,6 +348,13 @@ data class KeyboardSettings(
     val spaceShortSwipe: SpaceSwipeAction = SpaceSwipeAction.LANGUAGE,
     /** Swipe that begins after holding the spacebar past the long-press delay. */
     val spaceLongSwipe: SpaceSwipeAction = SpaceSwipeAction.CURSOR,
+    /** Volume up/down move the text cursor while the keyboard is showing. */
+    val volumeCursor: Boolean = false,
+    /**
+     * Hand the volume keys back to the system while audio is playing, so
+     * cursor control never costs you the ability to turn a song down.
+     */
+    val volumeCursorMediaAware: Boolean = true,
     /** Replace the 🌐 key with an emoji key (language switching moves to spacebar swipes). */
     val globeAsEmoji: Boolean = true,
     val onboardingDone: Boolean = false,
@@ -606,6 +613,8 @@ class SettingsRepository(private val context: Context) {
         private val SPACEBAR_CURSOR = booleanPreferencesKey("spacebar_cursor")
         private val SPACE_SHORT_SWIPE = stringPreferencesKey("space_short_swipe")
         private val SPACE_LONG_SWIPE = stringPreferencesKey("space_long_swipe")
+        private val VOLUME_CURSOR = booleanPreferencesKey("volume_cursor")
+        private val VOLUME_CURSOR_MEDIA_AWARE = booleanPreferencesKey("volume_cursor_media_aware")
         private val GLOBE_AS_EMOJI = booleanPreferencesKey("globe_as_emoji")
         private val ONBOARDING_DONE = booleanPreferencesKey("onboarding_done")
         private val CONJUNCT_BACKSPACE = booleanPreferencesKey("conjunct_backspace")
@@ -821,6 +830,8 @@ class SettingsRepository(private val context: Context) {
             spaceLongSwipe = p[SPACE_LONG_SWIPE]
                 ?.let { runCatching { SpaceSwipeAction.valueOf(it) }.getOrNull() }
                 ?: if (p[SPACEBAR_CURSOR] == false) SpaceSwipeAction.NONE else defaults.spaceLongSwipe,
+            volumeCursor = p[VOLUME_CURSOR] ?: defaults.volumeCursor,
+            volumeCursorMediaAware = p[VOLUME_CURSOR_MEDIA_AWARE] ?: defaults.volumeCursorMediaAware,
             globeAsEmoji = p[GLOBE_AS_EMOJI] ?: defaults.globeAsEmoji,
             onboardingDone = p[ONBOARDING_DONE] ?: defaults.onboardingDone,
             conjunctBackspace = p[CONJUNCT_BACKSPACE] ?: defaults.conjunctBackspace,
@@ -1369,6 +1380,12 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setSpaceLongSwipe(value: SpaceSwipeAction) =
         context.dataStore.edit { it[SPACE_LONG_SWIPE] = value.name }
+
+    suspend fun setVolumeCursor(value: Boolean) =
+        context.dataStore.edit { it[VOLUME_CURSOR] = value }
+
+    suspend fun setVolumeCursorMediaAware(value: Boolean) =
+        context.dataStore.edit { it[VOLUME_CURSOR_MEDIA_AWARE] = value }
 
     suspend fun setGlobeAsEmoji(value: Boolean) =
         context.dataStore.edit { it[GLOBE_AS_EMOJI] = value }

@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraManager
+import android.media.AudioManager
 import android.os.Build
 import android.os.SystemClock
 import android.text.InputType
@@ -3715,6 +3716,11 @@ class WMKeyboardService : InputMethodService() {
         ) {
             return true
         }
+        if (volumeCursorDelta(keyCode) != 0) {
+            // Auto-repeat rides along for free: holding the key repeats DOWN.
+            onCursorMove(volumeCursorDelta(keyCode))
+            return true
+        }
         return super.onKeyDown(keyCode, event)
     }
 
@@ -3726,7 +3732,33 @@ class WMKeyboardService : InputMethodService() {
             if (_uiState.value.voice.strip) closeVoiceStrip() else onPanelChange(panel)
             return true
         }
+        // Swallow the UP too, so the system never sees half a volume event.
+        if (volumeCursorDelta(keyCode) != 0) return true
         return super.onKeyUp(keyCode, event)
+    }
+
+    /**
+     * Cursor step a volume key should produce right now, or 0 to let the key
+     * through to the system. Down is left and up is right, matching the way
+     * the keys sit on the phone when it is held upright.
+     *
+     * The media-aware option re-checks playback on every event rather than
+     * latching, so starting or stopping a song swaps the behaviour instantly.
+     */
+    private fun volumeCursorDelta(keyCode: Int): Int {
+        val delta = when (keyCode) {
+            KeyEvent.KEYCODE_VOLUME_DOWN -> -1
+            KeyEvent.KEYCODE_VOLUME_UP -> 1
+            else -> return 0
+        }
+        val settings = _uiState.value.settings
+        if (!settings.volumeCursor || !isInputViewShown) return 0
+        if (settings.volumeCursorMediaAware &&
+            (getSystemService(Context.AUDIO_SERVICE) as AudioManager).isMusicActive
+        ) {
+            return 0
+        }
+        return delta
     }
 
     fun openSettings() {
