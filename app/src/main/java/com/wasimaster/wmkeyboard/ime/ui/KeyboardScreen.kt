@@ -444,6 +444,7 @@ fun KeyboardScreen(
     onTranslateInsert: () -> Unit = {},
     onGrammarFix: (GrammarLint, GrammarFix) -> Unit = { _, _ -> },
     onGrammarFixAll: () -> Unit = {},
+    onGrammarDismiss: (GrammarLint) -> Unit = {},
     onGrammarDialect: (GrammarDialect) -> Unit = {},
     onWikiOpen: (String) -> Unit = {},
     onWikiBack: () -> Unit = {},
@@ -581,6 +582,7 @@ fun KeyboardScreen(
                 onTranslateInsert = onTranslateInsert,
                 onGrammarFix = onGrammarFix,
                 onGrammarFixAll = onGrammarFixAll,
+                onGrammarDismiss = onGrammarDismiss,
                 onGrammarDialect = onGrammarDialect,
                 onWikiOpen = onWikiOpen,
                 onWikiBack = onWikiBack,
@@ -2295,6 +2297,7 @@ private fun KeyboardBody(
     onTranslateInsert: () -> Unit,
     onGrammarFix: (GrammarLint, GrammarFix) -> Unit,
     onGrammarFixAll: () -> Unit,
+    onGrammarDismiss: (GrammarLint) -> Unit,
     onGrammarDialect: (GrammarDialect) -> Unit,
     onWikiOpen: (String) -> Unit,
     onWikiBack: () -> Unit,
@@ -2461,6 +2464,7 @@ private fun KeyboardBody(
                         state = state,
                         onFix = onGrammarFix,
                         onFixAll = onGrammarFixAll,
+                        onDismiss = onGrammarDismiss,
                         onDialect = onGrammarDialect,
                     )
                 } else {

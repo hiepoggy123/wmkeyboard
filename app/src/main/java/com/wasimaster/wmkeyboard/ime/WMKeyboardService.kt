@@ -644,6 +644,7 @@ class WMKeyboardService : InputMethodService() {
                 onTranslateInsert = ::onTranslateInsert,
                 onGrammarFix = ::onGrammarFix,
                 onGrammarFixAll = ::onGrammarFixAll,
+                onGrammarDismiss = ::onGrammarDismiss,
                 onGrammarDialect = ::onGrammarDialectChange,
                 onWikiOpen = ::onWikiOpen,
                 onWikiBack = ::onWikiBack,
@@ -3237,6 +3238,42 @@ class WMKeyboardService : InputMethodService() {
         ic.endBatchEdit()
     }
 
+    /**
+     * Re-lints [text] directly, without the InputConnection round-trip.
+     * Used right after a fix is applied: extracting the field again races the
+     * batch edit (the editor may still report the old text, which matches
+     * [GrammarUi.sourceText] and skips the check), so lint the string we just
+     * committed instead. checkedOnce stays false until this completes so the
+     * selection-update recheck re-lints rather than skipping if this job gets
+     * cancelled mid-check.
+     */
+    private fun relintAfterFix(text: String) {
+        grammarJob?.cancel()
+        grammarJob = serviceScope.launch {
+            _uiState.update {
+                it.copy(
+                    grammar = it.grammar.copy(
+                        sourceText = text,
+                        checking = true,
+                        checkedOnce = false,
+                    ),
+                )
+            }
+            val lints = GrammarChecker.check(text, _uiState.value.settings.grammarDialect.ordinal)
+            if (_uiState.value.panel != PanelMode.GRAMMAR) return@launch
+            _uiState.update {
+                it.copy(
+                    grammar = GrammarUi(
+                        sourceText = text,
+                        lints = lints,
+                        checking = false,
+                        checkedOnce = true,
+                    ),
+                )
+            }
+        }
+    }
+
     /** Tapped one fix chip: apply it and re-lint the result. */
     fun onGrammarFix(lint: GrammarLint, fix: GrammarFix) {
         vibrate()
@@ -3244,7 +3281,7 @@ class WMKeyboardService : InputMethodService() {
         val fixed = GrammarChecker.apply(source, lint, fix)
         if (fixed == source) return
         replaceFieldText(fixed)
-        scheduleGrammarCheck(immediate = true)
+        relintAfterFix(fixed)
     }
 
     /** Tapped "Fix all": apply every lint's top suggestion. */
@@ -3254,7 +3291,13 @@ class WMKeyboardService : InputMethodService() {
         val fixed = GrammarChecker.applyAll(source, _uiState.value.grammar.lints)
         if (fixed == source) return
         replaceFieldText(fixed)
-        scheduleGrammarCheck(immediate = true)
+        relintAfterFix(fixed)
+    }
+
+    /** Dismissed a card: hide the lint until the field text changes again. */
+    fun onGrammarDismiss(lint: GrammarLint) {
+        vibrate()
+        _uiState.update { it.copy(grammar = it.grammar.copy(lints = it.grammar.lints - lint)) }
     }
 
     fun onGrammarDialectChange(dialect: GrammarDialect) {
