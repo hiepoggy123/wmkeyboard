@@ -22,6 +22,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -34,8 +35,10 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -45,12 +48,16 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.wasimaster.wmkeyboard.core.settings.DefaultToolOrder
 import com.wasimaster.wmkeyboard.core.settings.EmojiBarMode
 import com.wasimaster.wmkeyboard.core.settings.HapticStyle
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
+import com.wasimaster.wmkeyboard.core.settings.RecommendedTools
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import com.wasimaster.wmkeyboard.core.settings.SpaceSwipeAction
 import com.wasimaster.wmkeyboard.core.settings.ThemeMode
+import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
+import com.wasimaster.wmkeyboard.core.settings.isSupportedTool
 import com.wasimaster.wmkeyboard.core.theme.BuiltInThemes
 import com.wasimaster.wmkeyboard.core.theme.DEFAULT_THEME_ID
 import kotlinx.coroutines.launch
@@ -69,7 +76,11 @@ internal fun OnboardingScreen(
 ) {
     val scope = rememberCoroutineScope()
     var page by rememberSaveable { mutableIntStateOf(0) }
-    val pageCount = 5
+    val pageCount = 6
+    // Whether the tools page has applied its recommended starting selection.
+    // Hoisted here (not in the page) so leaving and revisiting the page
+    // can't re-apply it over the user's choices.
+    var toolsSeeded by rememberSaveable { mutableStateOf(false) }
     val finish: () -> Unit = {
         scope.launch { repository.setOnboardingDone(true) }
         onFinished()
@@ -103,6 +114,11 @@ internal fun OnboardingScreen(
                     2 -> LookPage(repository, settings)
                     3 -> FeedbackPage(repository, settings)
                     4 -> GesturesPage(repository, settings)
+                    5 -> ToolsPage(
+                        repository, settings,
+                        seeded = toolsSeeded,
+                        onSeeded = { toolsSeeded = true },
+                    )
                 }
             }
             Row(
@@ -531,4 +547,60 @@ private fun GesturesPage(repository: SettingsRepository, settings: KeyboardSetti
             )
         },
     )
+}
+
+@Composable
+private fun ToolsPage(
+    repository: SettingsRepository,
+    settings: KeyboardSettings,
+    seeded: Boolean,
+    onSeeded: () -> Unit,
+) {
+    val scope = rememberCoroutineScope()
+    PageHeader(
+        "Your tools",
+        "The toolbox packs everything from GIFs to a calculator into the " +
+            "toolbar's grid button. Start with just the tools you'll actually " +
+            "use — every one can be toggled any time in Tools settings.",
+    )
+    // First visit swaps the enable-everything default for the recommended
+    // starter set — but only over an untouched default, so a user who
+    // already toggled tools (or reinstalled with settings intact) keeps
+    // their selection.
+    LaunchedEffect(Unit) {
+        if (!seeded) {
+            onSeeded()
+            if (settings.enabledTools.toSet() == ToolbarTool.entries.toSet()) {
+                repository.setEnabledTools(RecommendedTools)
+            }
+        }
+    }
+    Row(modifier = Modifier.padding(horizontal = 8.dp)) {
+        TextButton(onClick = { scope.launch { repository.setEnabledTools(RecommendedTools) } }) {
+            Text("Recommended")
+        }
+        TextButton(onClick = { scope.launch { repository.setEnabledTools(ToolbarTool.entries) } }) {
+            Text("Everything")
+        }
+    }
+    // Most-used-by-most-people first — same order the toolbox itself opens with.
+    for (tool in DefaultToolOrder.filter(::isSupportedTool)) {
+        ListItem(
+            leadingContent = {
+                Icon(
+                    toolIconFor(tool),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            },
+            headlineContent = { Text(toolTitle(tool)) },
+            supportingContent = { Text(toolDescription(tool)) },
+            trailingContent = {
+                Switch(
+                    checked = tool in settings.enabledTools,
+                    onCheckedChange = { scope.launch { repository.setToolEnabled(tool, it) } },
+                )
+            },
+        )
+    }
 }

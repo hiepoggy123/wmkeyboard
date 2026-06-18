@@ -579,6 +579,7 @@ class WMKeyboardService : InputMethodService() {
                 onFloatingBounds = ::onFloatingBounds,
                 onToggleSplit = ::onToggleSplit,
                 onToolbarToolsChange = ::onToolbarToolsChange,
+                onToolboxOrderChange = ::onToolboxOrderChange,
                 onToolSettings = ::openToolSettings,
                 onToolboxHintDismiss = {
                     serviceScope.launch { settingsRepository.setToolboxHintDismissed(true) }
@@ -3651,6 +3652,11 @@ class WMKeyboardService : InputMethodService() {
     fun onToolbarToolsChange(tools: List<ToolbarTool>) {
         vibrate()
         serviceScope.launch { settingsRepository.setToolbarTools(tools) }
+    }
+
+    fun onToolboxOrderChange(order: List<ToolbarTool>) {
+        vibrate()
+        serviceScope.launch { settingsRepository.setToolboxOrder(order) }
     }
 
     /**

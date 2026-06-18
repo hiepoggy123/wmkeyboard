@@ -2127,7 +2127,7 @@ private fun importFontFile(context: Context, uri: android.net.Uri, dest: java.io
 
 // ---- tools ----
 
-private fun toolTitle(tool: ToolbarTool): String = when (tool) {
+internal fun toolTitle(tool: ToolbarTool): String = when (tool) {
     ToolbarTool.EMOJI -> "Emoji"
     ToolbarTool.CLIPBOARD -> "Clipboard"
     ToolbarTool.SNIPPETS -> "Snippets"
@@ -2173,7 +2173,7 @@ private fun toolTitle(tool: ToolbarTool): String = when (tool) {
     ToolbarTool.MODES -> "Keyboard modes"
 }
 
-private fun toolDescription(tool: ToolbarTool): String = when (tool) {
+internal fun toolDescription(tool: ToolbarTool): String = when (tool) {
     ToolbarTool.EMOJI -> "Emoji panel with search and skin tones"
     ToolbarTool.CLIPBOARD -> "Paste from clipboard history"
     ToolbarTool.SNIPPETS -> "Insert saved text snippets"
@@ -2219,7 +2219,7 @@ private fun toolDescription(tool: ToolbarTool): String = when (tool) {
     ToolbarTool.MODES -> "Switch between per-app setups: emoji row, pinned tools, symbol sets"
 }
 
-private fun toolIconFor(tool: ToolbarTool): androidx.compose.ui.graphics.vector.ImageVector = when (tool) {
+internal fun toolIconFor(tool: ToolbarTool): androidx.compose.ui.graphics.vector.ImageVector = when (tool) {
     ToolbarTool.EMOJI -> Icons.Outlined.EmojiEmotions
     ToolbarTool.CLIPBOARD -> Icons.Outlined.ContentPaste
     ToolbarTool.SNIPPETS -> Icons.Outlined.TextSnippet

@@ -181,6 +181,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Path
@@ -219,6 +220,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.round
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.toOffset
+import androidx.compose.ui.unit.toSize
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
@@ -405,6 +407,7 @@ fun KeyboardScreen(
     onFloatingBounds: (IntRect) -> Unit = {},
     onToggleSplit: () -> Unit = {},
     onToolbarToolsChange: (List<ToolbarTool>) -> Unit = {},
+    onToolboxOrderChange: (List<ToolbarTool>) -> Unit = {},
     onToolSettings: (ToolbarTool) -> Unit = {},
     onToolboxHintDismiss: () -> Unit = {},
     onFlashlightToggle: () -> Unit = {},
@@ -546,6 +549,7 @@ fun KeyboardScreen(
                 onSnippet = onSnippet,
                 onToolTap = onToolTap,
                 onToolbarToolsChange = onToolbarToolsChange,
+                onToolboxOrderChange = onToolboxOrderChange,
                 onToolSettings = onToolSettings,
                 onToolboxHintDismiss = onToolboxHintDismiss,
                 onWeatherRefresh = onWeatherRefresh,
@@ -1489,12 +1493,25 @@ private fun toolActive(tool: ToolbarTool, state: KeyboardUiState): Boolean = whe
  * Live state of a toolbar-customization drag. Bounds and positions are all
  * in window-root coordinates; the ghost is drawn relative to the keyboard
  * body's origin. Drops on the toolbar insert at the slot under the finger,
- * drops anywhere else send a toolbar tool back to the toolbox.
+ * drops on the toolbox grid reorder the toolbox (unpinning first when the
+ * tool came off the bar), drops anywhere else send a toolbar tool back to
+ * the toolbox at its remembered rank.
+ *
+ * [barSlot] and [boxSlot] are the live drop preview: whichever is non-null
+ * is where the tool would land right now, and the owning row/grid renders
+ * a ghost stand-in there so the surrounding icons make room ahead of the
+ * drop.
  */
 private class ToolDragController {
     var dragging by mutableStateOf<ToolbarTool?>(null)
         private set
     var position by mutableStateOf(Offset.Zero)
+        private set
+    /** Toolbar insertion slot under the finger, or null when off the bar. */
+    var barSlot by mutableStateOf<Int?>(null)
+        private set
+    /** Toolbox grid slot under the finger, or null when off the grid. */
+    var boxSlot by mutableStateOf<Int?>(null)
         private set
     private var fromToolbar = false
     var toolbarBounds: Rect? = null
@@ -1506,35 +1523,59 @@ private class ToolDragController {
     var onSnap: () -> Unit = {}
     /** Hold without dragging past the slop: open the tool's settings page. */
     var onOpenSettings: (ToolbarTool) -> Unit = {}
-    private var lastSlot: Int? = null
+
+    // Toolbox geometry and data, registered by ToolboxPanel while it is
+    // open (a drag can only happen with the toolbox open). The viewport is
+    // the visible panel box; content coords are the scrolling grid column,
+    // so slot math follows the scroll position for free.
+    var toolboxViewport: Rect? = null
+    var toolboxContentCoords: LayoutCoordinates? = null
+    var toolboxCellSize: Size = Size.Zero
+    var toolboxColumns: Int = 1
+    /** The tools the toolbox grid is showing, in toolbox order. */
+    var toolboxTools: List<ToolbarTool> = emptyList()
+    /** Complete ordering over every tool; reorders rewrite this. */
+    var toolboxOrder: List<ToolbarTool> = emptyList()
+    var onOrderCommit: (List<ToolbarTool>) -> Unit = {}
 
     fun start(tool: ToolbarTool, fromBar: Boolean, at: Offset) {
         dragging = tool
         fromToolbar = fromBar
         position = at
-        lastSlot = slotAt(at)
+        barSlot = slotAt(at)
+        boxSlot = if (barSlot == null) toolboxSlotAt(at) else null
     }
 
     fun move(to: Offset) {
         position = to
-        val slot = slotAt(to)
-        if (slot != lastSlot) {
-            lastSlot = slot
+        val bar = slotAt(to)
+        val box = if (bar == null) toolboxSlotAt(to) else null
+        if (bar != barSlot || box != boxSlot) {
+            barSlot = bar
+            boxSlot = box
             onSnap()
         }
     }
 
     fun cancel() {
         dragging = null
+        barSlot = null
+        boxSlot = null
     }
 
     fun end() {
         val tool = dragging ?: return
-        val slot = slotAt(position)
-        dragging = null
-        if (slot != null) {
+        val bar = slotAt(position)
+        val box = if (bar == null) toolboxSlotAt(position) else null
+        cancel()
+        if (bar != null) {
             val without = currentTools - tool
-            onCommit(without.toMutableList().apply { add(slot, tool) })
+            onCommit(without.toMutableList().apply { add(bar, tool) })
+        } else if (box != null) {
+            // Dropped on the grid: place it at that spot in the toolbox
+            // order — and off the bar first, when that's where it came from.
+            if (fromToolbar) onCommit(currentTools - tool)
+            onOrderCommit(orderWith(tool, box))
         } else if (fromToolbar) {
             onCommit(currentTools - tool)
         }
@@ -1553,6 +1594,39 @@ private class ToolDragController {
         return (((at.x - bar.left) / bar.width) * (without.size + 1))
             .toInt()
             .coerceIn(0, without.size)
+    }
+
+    /**
+     * Toolbox grid slot under [at], or null when off the visible panel. The
+     * grid scrolls, so the position converts through the content column's
+     * live coordinates rather than a captured rect.
+     */
+    private fun toolboxSlotAt(at: Offset): Int? {
+        val tool = dragging ?: return null
+        val viewport = toolboxViewport ?: return null
+        if (!viewport.contains(at)) return null
+        val coords = toolboxContentCoords?.takeIf { it.isAttached } ?: return null
+        val cell = toolboxCellSize
+        if (cell.width <= 0f || cell.height <= 0f) return null
+        val origin = coords.positionInRoot()
+        val columns = toolboxColumns.coerceAtLeast(1)
+        val count = (toolboxTools - tool).size
+        val col = ((at.x - origin.x) / cell.width).toInt().coerceIn(0, columns - 1)
+        val row = ((at.y - origin.y) / cell.height).toInt().coerceAtLeast(0)
+        return (row * columns + col).coerceIn(0, count)
+    }
+
+    /** The full tool order with [tool] moved to display slot [slot] of the grid. */
+    private fun orderWith(tool: ToolbarTool, slot: Int): List<ToolbarTool> {
+        // The grid previews the drop with the dragged tool removed, so the
+        // slot indexes that list; the displayed tool it lands in front of
+        // anchors the position in the complete order.
+        val displayed = toolboxTools - tool
+        val successor = displayed.getOrNull(slot.coerceIn(0, displayed.size))
+        val order = toolboxOrder.toMutableList().apply { remove(tool) }
+        val at = successor?.let { order.indexOf(it) }?.takeIf { it >= 0 } ?: order.size
+        order.add(at, tool)
+        return order
     }
 }
 
@@ -1747,6 +1821,32 @@ private fun ToolCircle(
 }
 
 /**
+ * The drop-preview stand-in rendered at the slot a dragged tool would land
+ * in: same footprint as [ToolCircle], drawn washed out so it reads as
+ * "will go here" rather than "is here". Keyed placement animation makes it
+ * slide from slot to slot as the finger moves.
+ */
+@Composable
+private fun GhostToolCircle(tool: ToolbarTool, modifier: Modifier = Modifier) {
+    val kb = LocalKbTheme.current
+    val shape = RoundedCornerShape(kb.toolRadiusDp.dp)
+    Box(
+        modifier = modifier
+            .size(38.dp)
+            .background(kb.toolCircleActive.copy(alpha = 0.22f), shape)
+            .border(1.dp, kb.toolbarIcon.copy(alpha = 0.35f), shape),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            toolIcon(tool),
+            contentDescription = null,
+            modifier = Modifier.size(20.dp),
+            tint = kb.toolbarIcon.copy(alpha = 0.45f),
+        )
+    }
+}
+
+/**
  * The toolbar itself: fixed toolbox launcher, then the user's tools —
  * spread across the free space when the greedy setting is on, packed to
  * the left otherwise.
@@ -1763,6 +1863,20 @@ private fun RowScope.ToolbarRow(
     val enterMs = if (state.settings.reduceMotion) 0 else 140
     val exitMs = if (state.settings.reduceMotion) 0 else 120
     val tools = state.settings.toolbarTools.filter { it in state.settings.enabledTools && isSupportedTool(it) }
+    // While a drag is live the bar previews the drop: the dragged tool's
+    // cell leaves the row and a null entry (the ghost) occupies the slot
+    // under the finger, so the pinned icons slide out of the way before
+    // anything is committed.
+    val dragTool = drag.dragging
+    val ghostSlot = if (customizing) drag.barSlot else null
+    val displayTools: List<ToolbarTool?> = if (customizing && dragTool != null) {
+        val without = tools - dragTool
+        ArrayList<ToolbarTool?>(without).apply {
+            if (ghostSlot != null) add(ghostSlot.coerceIn(0, without.size), null)
+        }
+    } else {
+        ArrayList<ToolbarTool?>(tools)
+    }
     val panelOpen = state.panel != PanelMode.NONE
 
     // In greedy mode every button — chevron, toolbox and tools alike — is an
@@ -1819,8 +1933,8 @@ private fun RowScope.ToolbarRow(
         }
     }
     val toolCells: @Composable RowScope.() -> Unit = {
-        for (tool in tools) {
-            key(tool) {
+        for (tool in displayTools) {
+            key(tool ?: "bar-ghost") {
                 val cell = if (greedy) {
                     Modifier
                         .weight(1f)
@@ -1829,24 +1943,33 @@ private fun RowScope.ToolbarRow(
                     Modifier.padding(horizontal = 3.dp)
                 }
                 Box(cell, contentAlignment = Alignment.Center) {
-                    DraggableTool(tool, fromToolbar = true, enabled = customizing, drag = drag) { dragModifier ->
-                        ToolCircle(
-                            icon = toolIcon(tool),
-                            description = toolLabel(tool),
-                            active = toolActive(tool, state),
-                            // The icon itself animates, anchored at the
-                            // keyboard body: cells are weighted so their
-                            // widths snap, and only body-relative tracking
-                            // sees the true on-screen motion.
-                            modifier = dragModifier.animatePlacement { drag.bodyCoords },
-                            // While customizing, long-press belongs to the
-                            // drag (hold-without-drag opens settings there);
-                            // otherwise long-press goes straight to the
-                            // tool's settings page.
-                            onLongPress = if (customizing) null else {
-                                { drag.onOpenSettings(tool) }
-                            },
-                        ) { onToolTap(tool) }
+                    if (tool == null) {
+                        // The drop preview; dragTool is never null when a
+                        // ghost entry exists.
+                        GhostToolCircle(
+                            dragTool ?: return@Box,
+                            modifier = Modifier.animatePlacement { drag.bodyCoords },
+                        )
+                    } else {
+                        DraggableTool(tool, fromToolbar = true, enabled = customizing, drag = drag) { dragModifier ->
+                            ToolCircle(
+                                icon = toolIcon(tool),
+                                description = toolLabel(tool),
+                                active = toolActive(tool, state),
+                                // The icon itself animates, anchored at the
+                                // keyboard body: cells are weighted so their
+                                // widths snap, and only body-relative tracking
+                                // sees the true on-screen motion.
+                                modifier = dragModifier.animatePlacement { drag.bodyCoords },
+                                // While customizing, long-press belongs to the
+                                // drag (hold-without-drag opens settings there);
+                                // otherwise long-press goes straight to the
+                                // tool's settings page.
+                                onLongPress = if (customizing) null else {
+                                    { drag.onOpenSettings(tool) }
+                                },
+                            ) { onToolTap(tool) }
+                        }
                     }
                 }
             }
@@ -1869,7 +1992,7 @@ private fun RowScope.ToolbarRow(
             // It still exists (zero tools aside) as the drag-drop target.
             Row(
                 modifier = Modifier
-                    .weight(tools.size.coerceAtLeast(1).toFloat())
+                    .weight(displayTools.size.coerceAtLeast(1).toFloat())
                     .fillMaxHeight()
                     .onGloballyPositioned { drag.toolbarBounds = it.boundsInRoot() },
                 verticalAlignment = Alignment.CenterVertically,
@@ -1904,8 +2027,10 @@ private fun RowScope.ToolbarRow(
 
 /**
  * Gboard-style toolbox: every tool that is not on the toolbar, shown in a
- * labeled grid. Tap to use a tool in place; hold and drag it up onto the
- * toolbar to pin it. Toolbar tools drag down here to unpin.
+ * labeled grid ordered by [KeyboardSettings.toolboxOrder] (most-used-first
+ * until the user rearranges it). Tap to use a tool in place; hold and drag
+ * it up onto the toolbar to pin it, or around the grid to reorder. Toolbar
+ * tools drag down here to unpin — at the spot they're dropped.
  */
 @Composable
 private fun ToolboxPanel(
@@ -1921,10 +2046,20 @@ private fun ToolboxPanel(
     var hintVisible by remember(state.settings.toolboxHintDismissed) {
         mutableStateOf(!state.settings.toolboxHintDismissed || rareReminder)
     }
+    // The registered geometry outlives the panel unless cleared, and a
+    // stale viewport would let a later drag "drop on the toolbox" with the
+    // panel long gone.
+    DisposableEffect(drag) {
+        onDispose {
+            drag.toolboxViewport = null
+            drag.toolboxContentCoords = null
+        }
+    }
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .height(height),
+            .height(height)
+            .onGloballyPositioned { drag.toolboxViewport = it.boundsInRoot() },
     ) {
         if (hintVisible) {
             Row(
@@ -1934,7 +2069,7 @@ private fun ToolboxPanel(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    "Hold and drag a tool onto the toolbar to pin it — or drag a toolbar tool down here to remove it.",
+                    "Hold and drag a tool onto the toolbar to pin it, around this grid to reorder — or drag a toolbar tool down here to remove it.",
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,
@@ -1956,10 +2091,28 @@ private fun ToolboxPanel(
                 }
             }
         }
-        val available = ToolbarTool.entries.filter {
+        // Toolbox order is a complete ranking over every tool; the grid
+        // shows the available subset in that order.
+        val available = state.settings.toolboxOrder.filter {
             it !in state.settings.toolbarTools && it in state.settings.enabledTools && isSupportedTool(it)
         }
-        if (available.isEmpty()) {
+        val columns = state.settings.toolboxColumns.coerceAtLeast(1)
+        drag.toolboxTools = available
+        drag.toolboxOrder = state.settings.toolboxOrder
+        drag.toolboxColumns = columns
+        // Drop preview, mirroring the toolbar's: the dragged tool leaves
+        // the grid and a null entry marks the slot it would land in.
+        val dragTool = drag.dragging
+        val boxSlot = drag.boxSlot
+        val display: List<ToolbarTool?> = if (dragTool != null) {
+            val without = available - dragTool
+            ArrayList<ToolbarTool?>(without).apply {
+                if (boxSlot != null) add(boxSlot.coerceIn(0, without.size), null)
+            }
+        } else {
+            ArrayList<ToolbarTool?>(available)
+        }
+        if (display.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text(
                     "Every tool is on the toolbar.",
@@ -1978,45 +2131,75 @@ private fun ToolboxPanel(
         Column(
             modifier = Modifier
                 .verticalScroll(rememberScrollState())
-                .onGloballyPositioned { gridCoords = it },
+                .onGloballyPositioned {
+                    gridCoords = it
+                    drag.toolboxContentCoords = it
+                },
         ) {
-            val columns = state.settings.toolboxColumns.coerceAtLeast(1)
-            for (rowTools in available.chunked(columns)) {
+            for (rowTools in display.chunked(columns)) {
                 Row(modifier = Modifier.fillMaxWidth()) {
                     for (tool in rowTools) {
-                        key(tool) {
+                        key(tool ?: "box-ghost") {
                             Box(
-                                modifier = Modifier.weight(1f),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    // Every cell is the same size; whichever
+                                    // reported last feeds the slot math.
+                                    .onGloballyPositioned { drag.toolboxCellSize = it.size.toSize() },
                                 contentAlignment = Alignment.Center,
                             ) {
-                                DraggableTool(tool, fromToolbar = false, enabled = true, drag = drag) { dragModifier ->
-                                    // Anchored at the scrolling content (see
-                                    // gridCoords above), NOT the keyboard body:
-                                    // body-relative, every scroll frame moved
-                                    // every icon and restarted its spring — a
-                                    // per-frame coroutine storm that tanked
-                                    // scroll fps. Content-relative, scrolling
-                                    // is a no-op; (un)pin reorders still slide.
+                                if (tool == null) {
+                                    // The drop preview; dragTool is never
+                                    // null when a ghost entry exists.
+                                    val ghostOf = dragTool ?: return@Box
                                     Column(
-                                        modifier = dragModifier
+                                        modifier = Modifier
                                             .animatePlacement { gridCoords }
                                             .padding(vertical = 10.dp),
                                         horizontalAlignment = Alignment.CenterHorizontally,
                                     ) {
-                                        ToolCircle(
-                                            icon = toolIcon(tool),
-                                            description = toolLabel(tool),
-                                            active = toolActive(tool, state),
-                                        ) { onToolTap(tool) }
+                                        GhostToolCircle(ghostOf)
                                         Text(
-                                            toolLabel(tool),
+                                            toolLabel(ghostOf),
                                             fontSize = 11.sp,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                .copy(alpha = 0.5f),
                                             textAlign = TextAlign.Center,
                                             modifier = Modifier
                                                 .padding(top = 4.dp, start = 2.dp, end = 2.dp)
                                                 .fillMaxWidth(),
                                         )
+                                    }
+                                } else {
+                                    DraggableTool(tool, fromToolbar = false, enabled = true, drag = drag) { dragModifier ->
+                                        // Anchored at the scrolling content (see
+                                        // gridCoords above), NOT the keyboard body:
+                                        // body-relative, every scroll frame moved
+                                        // every icon and restarted its spring — a
+                                        // per-frame coroutine storm that tanked
+                                        // scroll fps. Content-relative, scrolling
+                                        // is a no-op; (un)pin reorders still slide.
+                                        Column(
+                                            modifier = dragModifier
+                                                .animatePlacement { gridCoords }
+                                                .padding(vertical = 10.dp),
+                                            horizontalAlignment = Alignment.CenterHorizontally,
+                                        ) {
+                                            ToolCircle(
+                                                icon = toolIcon(tool),
+                                                description = toolLabel(tool),
+                                                active = toolActive(tool, state),
+                                            ) { onToolTap(tool) }
+                                            Text(
+                                                toolLabel(tool),
+                                                fontSize = 11.sp,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                textAlign = TextAlign.Center,
+                                                modifier = Modifier
+                                                    .padding(top = 4.dp, start = 2.dp, end = 2.dp)
+                                                    .fillMaxWidth(),
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -2057,6 +2240,7 @@ private fun KeyboardBody(
     onSnippet: (Snippet) -> Unit,
     onToolTap: (ToolbarTool) -> Unit,
     onToolbarToolsChange: (List<ToolbarTool>) -> Unit,
+    onToolboxOrderChange: (List<ToolbarTool>) -> Unit,
     onToolSettings: (ToolbarTool) -> Unit,
     onToolboxHintDismiss: () -> Unit,
     onWeatherRefresh: () -> Unit,
@@ -2110,6 +2294,7 @@ private fun KeyboardBody(
     val drag = remember { ToolDragController() }
     drag.currentTools = state.settings.toolbarTools
     drag.onCommit = onToolbarToolsChange
+    drag.onOrderCommit = onToolboxOrderChange
     drag.onSnap = LocalKeyPressFeedback.current
     drag.onOpenSettings = onToolSettings
     var bodyOrigin by remember { mutableStateOf(Offset.Zero) }

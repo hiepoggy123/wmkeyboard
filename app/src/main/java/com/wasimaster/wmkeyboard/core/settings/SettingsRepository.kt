@@ -105,6 +105,43 @@ fun isSupportedTool(tool: ToolbarTool): Boolean = when {
     else -> true
 }
 
+/**
+ * Toolbox order until the user rearranges it: what most people reach for
+ * most often comes first (expressive media, then everyday text helpers,
+ * then keyboard tweaks, then the specialty and novelty tools). A tool
+ * missing from the ranked list still shows — appended at the end — so
+ * forgetting to rank a new tool is cosmetic, never a disappearance.
+ */
+private val RankedToolOrder: List<ToolbarTool> = listOf(
+    ToolbarTool.EMOJI, ToolbarTool.GIF, ToolbarTool.STICKER, ToolbarTool.CLIPBOARD,
+    ToolbarTool.VOICE, ToolbarTool.TRANSLATE, ToolbarTool.SNIPPETS, ToolbarTool.TEXT_EDIT,
+    ToolbarTool.UNDO, ToolbarTool.REDO, ToolbarTool.SETTINGS, ToolbarTool.THEMES,
+    ToolbarTool.WEB_SEARCH, ToolbarTool.IMAGE_SEARCH, ToolbarTool.DICTIONARY, ToolbarTool.CALCULATOR,
+    ToolbarTool.AI, ToolbarTool.GRAMMAR, ToolbarTool.NUMPAD, ToolbarTool.ONE_HANDED,
+    ToolbarTool.SPLIT, ToolbarTool.FLOATING, ToolbarTool.INCOGNITO, ToolbarTool.AUTOCORRECT,
+    ToolbarTool.SOUND_HAPTICS, ToolbarTool.MODES, ToolbarTool.OCR, ToolbarTool.QR_SCAN,
+    ToolbarTool.QR_GEN, ToolbarTool.DOC_SCAN, ToolbarTool.CAMERA, ToolbarTool.HANDWRITING,
+    ToolbarTool.SYMBOLS, ToolbarTool.UNIT_CONVERT, ToolbarTool.CURRENCY, ToolbarTool.PASSWORD_GEN,
+    ToolbarTool.WIKIPEDIA, ToolbarTool.CALENDAR, ToolbarTool.WEATHER, ToolbarTool.FLASHLIGHT,
+    ToolbarTool.COMPASS, ToolbarTool.LEVEL, ToolbarTool.MOON_PHASE,
+)
+
+val DefaultToolOrder: List<ToolbarTool> =
+    RankedToolOrder + (ToolbarTool.entries - RankedToolOrder.toSet())
+
+/**
+ * The onboarding wizard's starting selection: the everyday tools most people
+ * actually use, leaving the specialty ones (sensors, scanners, generators)
+ * off until asked for. Only a default — the wizard page and the Tools
+ * settings both toggle from here.
+ */
+val RecommendedTools: Set<ToolbarTool> = setOf(
+    ToolbarTool.EMOJI, ToolbarTool.GIF, ToolbarTool.STICKER, ToolbarTool.CLIPBOARD,
+    ToolbarTool.VOICE, ToolbarTool.TRANSLATE, ToolbarTool.SNIPPETS, ToolbarTool.TEXT_EDIT,
+    ToolbarTool.UNDO, ToolbarTool.REDO, ToolbarTool.SETTINGS, ToolbarTool.THEMES,
+    ToolbarTool.WEB_SEARCH, ToolbarTool.DICTIONARY, ToolbarTool.CALCULATOR, ToolbarTool.ONE_HANDED,
+)
+
 /** Backend for the AI tool — cloud APIs (bring your own key) or a self-hosted server. */
 enum class AiProvider(val label: String) {
     ANTHROPIC("Claude"), OPENAI("OpenAI"), GEMINI("Gemini"),
@@ -348,6 +385,13 @@ data class KeyboardSettings(
     val emojiInsertMode: EmojiInsertMode = EmojiInsertMode.APPEND,
     /** Tools available anywhere on the keyboard; disabled tools are hidden. */
     val enabledTools: List<ToolbarTool> = ToolbarTool.entries.toList(),
+    /**
+     * Every tool's position in the toolbox grid, most-used-first by default;
+     * the user rearranges it by dragging tools around the toolbox. Always a
+     * complete ordering over all tools — pinned/disabled ones keep their
+     * rank so they come back where they belong.
+     */
+    val toolboxOrder: List<ToolbarTool> = DefaultToolOrder,
     /** The toolbox drag hint was dismissed; after that it only rarely reappears. */
     val toolboxHintDismissed: Boolean = false,
     /** Turn the torch off automatically when the keyboard is dismissed. */
@@ -586,6 +630,7 @@ class SettingsRepository(private val context: Context) {
         // Stored as the DISABLED set so tools added in future versions
         // default to enabled even for users who already toggled some off.
         private val DISABLED_TOOLS = stringPreferencesKey("disabled_tools")
+        private val TOOLBOX_ORDER = stringPreferencesKey("toolbox_order")
         private val TOOLBOX_HINT_DISMISSED = booleanPreferencesKey("toolbox_hint_dismissed")
         private val FLASHLIGHT_AUTO_OFF = booleanPreferencesKey("flashlight_auto_off")
         private val COMPASS_SHOW_DEGREES = booleanPreferencesKey("compass_show_degrees")
@@ -810,6 +855,7 @@ class SettingsRepository(private val context: Context) {
                 ?.let { runCatching { EmojiInsertMode.valueOf(it) }.getOrNull() }
                 ?: defaults.emojiInsertMode,
             enabledTools = ToolbarTool.entries - decodeDisabledTools(p[DISABLED_TOOLS]),
+            toolboxOrder = decodeToolOrder(p[TOOLBOX_ORDER]),
             toolboxHintDismissed = p[TOOLBOX_HINT_DISMISSED] ?: defaults.toolboxHintDismissed,
             flashlightAutoOff = p[FLASHLIGHT_AUTO_OFF] ?: defaults.flashlightAutoOff,
             compassShowDegrees = p[COMPASS_SHOW_DEGREES] ?: defaults.compassShowDegrees,
@@ -943,12 +989,39 @@ class SettingsRepository(private val context: Context) {
             prefs[DISABLED_TOOLS] = next.joinToString(",") { it.name }
         }
 
+    /** Replaces the whole enabled set at once (the onboarding tools page). */
+    suspend fun setEnabledTools(enabled: Collection<ToolbarTool>) =
+        context.dataStore.edit { prefs ->
+            prefs[DISABLED_TOOLS] =
+                (ToolbarTool.entries - enabled.toSet()).joinToString(",") { it.name }
+        }
+
+    suspend fun setToolboxOrder(order: List<ToolbarTool>) =
+        context.dataStore.edit {
+            it[TOOLBOX_ORDER] = order.distinct().joinToString(",") { tool -> tool.name }
+        }
+
     suspend fun setToolboxHintDismissed(value: Boolean) =
         context.dataStore.edit { it[TOOLBOX_HINT_DISMISSED] = value }
 
     private fun decodeDisabledTools(csv: String?): List<ToolbarTool> =
         csv?.split(',')?.mapNotNull { runCatching { ToolbarTool.valueOf(it) }.getOrNull() }
             ?: emptyList()
+
+    /**
+     * Stored order, made complete: tools the saved CSV doesn't know (added in
+     * a later version, or a corrupt entry dropped) rejoin at their default
+     * rank's relative position — appended in default order after the known
+     * ones, so nothing ever vanishes from the toolbox.
+     */
+    private fun decodeToolOrder(csv: String?): List<ToolbarTool> {
+        val stored = csv?.split(',')
+            ?.mapNotNull { runCatching { ToolbarTool.valueOf(it) }.getOrNull() }
+            ?.distinct()
+            .orEmpty()
+        if (stored.isEmpty()) return DefaultToolOrder
+        return stored + (DefaultToolOrder - stored.toSet())
+    }
 
     suspend fun setFlashlightAutoOff(value: Boolean) =
         context.dataStore.edit { it[FLASHLIGHT_AUTO_OFF] = value }
