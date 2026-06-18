@@ -1743,9 +1743,14 @@ class WMKeyboardService : InputMethodService() {
                     voiceSilentRetries = 0
                     if (settings.voiceContinuous && !voiceStopRequested && voiceSessionAlive()) {
                         // Continuous dictation: chain straight into the next
-                        // utterance until the user stops or leaves.
+                        // utterance until the user stops or leaves. Deferred
+                        // to the next looper tick — starting a new recognizer
+                        // synchronously from inside the old one's onResults
+                        // callback races its teardown and spuriously fires
+                        // onError (ERROR_CLIENT) on some OEM builds even
+                        // though this utterance already succeeded.
                         _uiState.update { it.copy(voice = it.voice.copy(partial = "", level = 0f, canUndo = true)) }
-                        startVoice()
+                        serviceScope.launch(Dispatchers.Main) { startVoice() }
                     } else {
                         _uiState.update {
                             it.copy(
@@ -1770,7 +1775,7 @@ class WMKeyboardService : InputMethodService() {
                         voiceSilentRetries < 2
                     ) {
                         voiceSilentRetries++
-                        startVoice()
+                        serviceScope.launch(Dispatchers.Main) { startVoice() }
                         return
                     }
                     val (status, message) = when (kind) {
