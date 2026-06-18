@@ -19,7 +19,7 @@ import com.wasimaster.wmkeyboard.core.transliteration.BengaliPhoneticIndex
  */
 class SuggestionEngine(
     private val dictionary: Trie,
-    private val bengaliIndex: BengaliPhoneticIndex,
+    bengaliIndex: BengaliPhoneticIndex,
     private val userLexicon: UserLexicon,
     private val loanwords: EnglishBengaliMap = EnglishBengaliMap.EMPTY,
     private val seedBigrams: SeedBigrams = SeedBigrams.EMPTY,
@@ -50,16 +50,52 @@ class SuggestionEngine(
     @Volatile
     var englishSources: Boolean = true
 
+    /**
+     * Word list the user imported for the language now being typed (empty
+     * when they have imported none). Swapped by the IME on every input-mode
+     * change, so an imported French list never leaks into English.
+     *
+     * Unlike [dictionary] this is not gated by [englishSources]: it is the
+     * whole point of the feature that French, German and Spanish — which
+     * ship no bundled list — can get completions this way.
+     */
+    @Volatile
+    var customDictionary: Trie = Trie()
+
+    /**
+     * Bengali index, rebuilt when an imported Bengali list arrives so its
+     * words become reachable by transliteration too.
+     */
+    @Volatile
+    var bengaliIndex: BengaliPhoneticIndex = bengaliIndex
+
     private val emptyTrie = Trie()
 
     /** The bundled dictionary, or an empty one when [englishSources] is off. */
     private val activeDictionary: Trie
         get() = if (englishSources) dictionary else emptyTrie
 
+    /** Best frequency for a word across the bundled and imported lists. */
+    private fun dictionaryFrequencyOf(word: String): Int = maxOf(
+        activeDictionary.frequencyOf(word),
+        customDictionary.frequencyOf(word) * CUSTOM_WORD_WEIGHT,
+    )
+
+    private fun inDictionaries(word: String): Boolean =
+        activeDictionary.contains(word) || customDictionary.contains(word)
+
     companion object {
         private const val ALPHABET = "abcdefghijklmnopqrstuvwxyz"
         /** Learned words get a large boost so personalization wins quickly. */
         private const val USER_WORD_WEIGHT = 500
+
+        /**
+         * Imported word lists usually carry no frequency column, so every
+         * word lands at 1 and would rank below the bundled list's rarest
+         * tail. This lifts them to roughly mid-dictionary — present and
+         * correctable, without outranking words the user actually types.
+         */
+        private const val CUSTOM_WORD_WEIGHT = 100
         /** Per-occurrence weight of a contact-name word (counts are tiny). */
         private const val CONTACT_WEIGHT = 3000
         /** Split suggestions score slightly under their rarer half. */
@@ -118,16 +154,19 @@ class SuggestionEngine(
         for (s in activeDictionary.complete(lower, limit * 2)) {
             merged.merge(s.word, s.frequency, ::maxOf)
         }
+        for (s in customDictionary.complete(lower, limit * 2)) {
+            merged.merge(s.word, s.frequency * CUSTOM_WORD_WEIGHT, ::maxOf)
+        }
         for (s in userLexicon.complete(lower, limit)) {
             merged.merge(s.word, s.frequency * USER_WORD_WEIGHT, ::maxOf)
         }
         for (s in contacts.complete(lower, limit)) {
             merged.merge(s.word, s.frequency * CONTACT_WEIGHT, ::maxOf)
         }
-        if (!activeDictionary.contains(lower) && !userLexicon.contains(lower)) {
+        if (!inDictionaries(lower) && !userLexicon.contains(lower)) {
             for ((candidate, weight) in edits1Weighted(lower)) {
                 val freq = maxOf(
-                    activeDictionary.frequencyOf(candidate),
+                    dictionaryFrequencyOf(candidate),
                     userLexicon.frequencyOf(candidate) * USER_WORD_WEIGHT,
                 )
                 if (freq > 0) merged.merge(candidate, (freq * weight).toInt(), ::maxOf)
@@ -162,11 +201,11 @@ class SuggestionEngine(
             val left = word.substring(0, i)
             val right = word.substring(i)
             val leftFreq = maxOf(
-                activeDictionary.frequencyOf(left),
+                dictionaryFrequencyOf(left),
                 userLexicon.frequencyOf(left) * USER_WORD_WEIGHT,
             )
             val rightFreq = maxOf(
-                activeDictionary.frequencyOf(right),
+                dictionaryFrequencyOf(right),
                 userLexicon.frequencyOf(right) * USER_WORD_WEIGHT,
             )
             if (leftFreq > 0 && rightFreq > 0) {
@@ -217,16 +256,17 @@ class SuggestionEngine(
      * The correction [word] should be silently replaced with on commit, or
      * null when it should be left alone.
      *
-     * Null when the word is known (a known word is never corrected away),
-     * or when no candidate is confident: a candidate wins outright only if
-     * the bundled dictionary and the user's lexicon independently agree on
+     * Null when the word is known (a known word — bundled, imported or
+     * learned — is never corrected away), or when no candidate is
+     * confident: a candidate wins outright only if the dictionaries and
+     * the user's lexicon independently agree on
      * it, or its score beats the runner-up by [AUTOCORRECT_CONFIDENCE].
      * Anything closer stays in the suggestion strip for the user to pick.
      */
     fun shouldAutocorrect(word: String): String? {
         val lower = word.lowercase()
         if (lower.length < 3) return null
-        if (activeDictionary.contains(lower) || userLexicon.contains(lower)) return null
+        if (inDictionaries(lower) || userLexicon.contains(lower)) return null
         // Contact names are known words too — never "corrected" away.
         if (contacts.contains(lower)) return null
 
@@ -236,7 +276,7 @@ class SuggestionEngine(
         var bestUserScore = 0.0
         val combined = HashMap<String, Double>()
         for ((candidate, weight) in edits1Weighted(lower)) {
-            val dictScore = activeDictionary.frequencyOf(candidate) * weight
+            val dictScore = dictionaryFrequencyOf(candidate) * weight
             val userScore = userLexicon.frequencyOf(candidate) * USER_WORD_WEIGHT * weight
             if (dictScore <= 0 && userScore <= 0) continue
             if (dictScore > bestDictScore) {

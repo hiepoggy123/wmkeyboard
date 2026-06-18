@@ -57,6 +57,7 @@ import android.content.pm.PackageManager
 import android.provider.ContactsContract
 import com.wasimaster.wmkeyboard.core.prediction.Apostrophes
 import com.wasimaster.wmkeyboard.core.prediction.ContactNames
+import com.wasimaster.wmkeyboard.core.prediction.CustomDictionaries
 import com.wasimaster.wmkeyboard.core.prediction.DictionaryLoader
 import com.wasimaster.wmkeyboard.core.prediction.EnglishBengaliMap
 import com.wasimaster.wmkeyboard.core.prediction.KeyProximity
@@ -67,6 +68,8 @@ import com.wasimaster.wmkeyboard.core.prediction.UserLexicon
 import com.wasimaster.wmkeyboard.core.settings.EmojiInsertMode
 import com.wasimaster.wmkeyboard.core.settings.HapticStyle
 import com.wasimaster.wmkeyboard.core.settings.InputMode
+import com.wasimaster.wmkeyboard.core.settings.KeyboardLanguage
+import com.wasimaster.wmkeyboard.core.settings.language
 import com.wasimaster.wmkeyboard.core.settings.isEnglish
 import com.wasimaster.wmkeyboard.core.settings.isFixedBengali
 import com.wasimaster.wmkeyboard.core.settings.isLatinScript
@@ -188,6 +191,12 @@ class WMKeyboardService : InputMethodService() {
 
     /** English word list used by the gesture decoder (bundled dictionary). */
     private var gestureLexicon: List<Pair<String, Int>> = emptyList()
+
+    /** Word lists the user imported, one trie per language (empty when none). */
+    private var customDictionaries: Map<KeyboardLanguage, Trie> = emptyMap()
+
+    /** Bundled Bengali entries, kept so the phonetic index can be rebuilt. */
+    private var bengaliAssetEntries: List<Pair<String, Int>> = emptyList()
 
     /** Last word committed by a swipe, so tapping an alternate replaces it. */
     private var lastGestureWord: String? = null
@@ -421,6 +430,7 @@ class WMKeyboardService : InputMethodService() {
 
         serviceScope.launch {
             var lexiconVersion = -1
+            var customDictVersion = -1
             var contactsEnabled: Boolean? = null
             var linkPreviewsEnabled: Boolean? = null
             settingsRepository.settings.collect { settings ->
@@ -469,6 +479,17 @@ class WMKeyboardService : InputMethodService() {
                 // completions never offer English for their words.
                 suggestionEngine?.englishSources = !settings.inputMode.isLatinScript ||
                     settings.inputMode.isEnglish
+                // Imported word lists are per language, so the active one
+                // follows the mode: a French list never reaches English.
+                if (customDictVersion != -1 && settings.customDictVersion != customDictVersion) {
+                    withContext(Dispatchers.Default) {
+                        customDictionaries = loadCustomDictionaries()
+                        suggestionEngine?.bengaliIndex = buildBengaliIndex()
+                    }
+                }
+                customDictVersion = settings.customDictVersion
+                suggestionEngine?.customDictionary =
+                    customDictionaries[settings.inputMode.language] ?: Trie()
             }
         }
 
@@ -494,9 +515,12 @@ class WMKeyboardService : InputMethodService() {
             }
             val english = Trie().apply { for ((word, freq) in englishEntries) insert(word, freq) }
             gestureLexicon = englishEntries
+            bengaliAssetEntries = bengaliEntries
+            val customTries = withContext(Dispatchers.Default) { loadCustomDictionaries() }
+            customDictionaries = customTries
             suggestionEngine = SuggestionEngine(
                 english,
-                BengaliPhoneticIndex(bengaliEntries),
+                buildBengaliIndex(),
                 userLexicon,
                 loanwords,
                 seedBigrams,
@@ -505,6 +529,7 @@ class WMKeyboardService : InputMethodService() {
                 proximity = KeyProximity.forMode(_uiState.value.inputMode)
                 val mode = _uiState.value.inputMode
                 englishSources = !mode.isLatinScript || mode.isEnglish
+                customDictionary = customTries[mode.language] ?: Trie()
             }
             emojiEntries = catalog
             emojiSearch = EmojiSearch(catalog)
@@ -3760,6 +3785,19 @@ class WMKeyboardService : InputMethodService() {
         }
         return delta
     }
+
+    /** Re-reads every imported word list from disk into per-language tries. */
+    private fun loadCustomDictionaries(): Map<KeyboardLanguage, Trie> =
+        KeyboardLanguage.entries.associateWith { CustomDictionaries.trie(filesDir, it) }
+
+    /**
+     * Bengali index over the bundled list plus any imported Bengali list, so
+     * imported words are reachable by transliteration and not only by prefix.
+     */
+    private fun buildBengaliIndex(): BengaliPhoneticIndex =
+        BengaliPhoneticIndex(
+            bengaliAssetEntries + CustomDictionaries.entries(filesDir, KeyboardLanguage.BANGLA),
+        )
 
     fun openSettings() {
         startActivity(

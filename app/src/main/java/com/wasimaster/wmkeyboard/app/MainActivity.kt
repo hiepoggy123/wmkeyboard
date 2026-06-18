@@ -178,6 +178,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import com.wasimaster.wmkeyboard.core.settings.BarRow
 import com.wasimaster.wmkeyboard.core.settings.KeyboardAlignment
+import com.wasimaster.wmkeyboard.core.settings.KeyboardLanguage
 import com.wasimaster.wmkeyboard.core.settings.KeyboardMode
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.isSupportedTool
@@ -190,6 +191,8 @@ import com.wasimaster.wmkeyboard.core.settings.SpaceSwipeAction
 import com.wasimaster.wmkeyboard.core.settings.ThemeMode
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
 import kotlin.math.roundToInt
+import com.wasimaster.wmkeyboard.core.prediction.CustomDictionaries
+import com.wasimaster.wmkeyboard.core.prediction.DictionaryLoader
 import com.wasimaster.wmkeyboard.core.prediction.UserLexicon
 import com.wasimaster.wmkeyboard.core.snippets.Snippet
 import com.wasimaster.wmkeyboard.core.snippets.SnippetStore
@@ -306,7 +309,11 @@ private fun SettingsNavHost(
         }
         composable("typing") {
             SettingsScreen("Typing", { navController.popBackStack() }) {
-                TypingSettings(repository, settings) { navController.navigate("dictionary") }
+                TypingSettings(
+                    repository, settings,
+                    onOpenDictionary = { navController.navigate("dictionary") },
+                    onOpenCustomDictionaries = { navController.navigate("customdictionaries") },
+                )
             }
         }
         composable("keypress") {
@@ -317,6 +324,11 @@ private fun SettingsNavHost(
         composable("dictionary") {
             SettingsScreen("Personal dictionary", { navController.popBackStack() }) {
                 DictionarySettings(repository)
+            }
+        }
+        composable("customdictionaries") {
+            SettingsScreen("Custom dictionaries", { navController.popBackStack() }) {
+                CustomDictionarySettings(repository)
             }
         }
         composable("appearance") {
@@ -893,6 +905,7 @@ private fun TypingSettings(
     repository: SettingsRepository,
     settings: KeyboardSettings,
     onOpenDictionary: () -> Unit,
+    onOpenCustomDictionaries: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
     SettingsGroup("Automatic corrections") {
@@ -1004,6 +1017,13 @@ private fun TypingSettings(
                 "Personal dictionary",
                 "Words the keyboard has learned — review, remove, add your own",
                 onClick = onOpenDictionary,
+            )
+        }
+        item {
+            NavRow(
+                "Custom dictionaries",
+                "Import your own word lists, per language",
+                onClick = onOpenCustomDictionaries,
             )
         }
     }
@@ -1988,6 +2008,155 @@ private fun DictionarySettings(repository: SettingsRepository) {
                 ) { Text("Add") }
             },
             dismissButton = { TextButton(onClick = { showAdd = false }) { Text("Cancel") } },
+        )
+    }
+}
+
+// ---- custom dictionaries ----
+
+/** Human name for a language, used as the word-list group header. */
+private fun languageLabel(language: KeyboardLanguage): String = when (language) {
+    KeyboardLanguage.ENGLISH -> "English"
+    KeyboardLanguage.BANGLA -> "Bengali"
+    KeyboardLanguage.FRENCH -> "French"
+    KeyboardLanguage.GERMAN -> "German"
+    KeyboardLanguage.SPANISH -> "Spanish"
+}
+
+/** One imported list: the file plus how many words it parsed to. */
+private data class WordListEntry(val file: java.io.File, val words: Int)
+
+@Composable
+private fun CustomDictionarySettings(repository: SettingsRepository) {
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    var lists by remember {
+        mutableStateOf<Map<KeyboardLanguage, List<WordListEntry>>>(emptyMap())
+    }
+    var pending by remember { mutableStateOf<KeyboardLanguage?>(null) }
+    var busy by remember { mutableStateOf(false) }
+    var message by remember { mutableStateOf<String?>(null) }
+
+    // Counting words means reading every list, so it never runs on the main
+    // thread — the screen draws empty for a moment and fills in.
+    suspend fun refresh() {
+        lists = withContext(Dispatchers.IO) {
+            KeyboardLanguage.entries.associateWith { language ->
+                CustomDictionaries.lists(context.filesDir, language).map { file ->
+                    val words = runCatching {
+                        file.inputStream().use { DictionaryLoader.loadEntries(it).size }
+                    }.getOrDefault(0)
+                    WordListEntry(file, words)
+                }
+            }
+        }
+    }
+
+    LaunchedEffect(Unit) { refresh() }
+
+    val importList = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        val language = pending
+        pending = null
+        if (uri == null || language == null) return@rememberLauncherForActivityResult
+        busy = true
+        scope.launch {
+            val result = withContext(Dispatchers.IO) {
+                runCatching {
+                    val name = context.contentResolver
+                        .query(uri, null, null, null, null)?.use { cursor ->
+                            val index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                            if (index >= 0 && cursor.moveToFirst()) cursor.getString(index) else null
+                        } ?: "wordlist"
+                    val size = context.contentResolver
+                        .query(uri, null, null, null, null)?.use { cursor ->
+                            val index = cursor.getColumnIndex(OpenableColumns.SIZE)
+                            if (index >= 0 && cursor.moveToFirst()) cursor.getLong(index) else -1L
+                        } ?: -1L
+                    if (size > CustomDictionaries.MAX_BYTES) return@runCatching -1
+                    val stream = context.contentResolver.openInputStream(uri)
+                        ?: return@runCatching 0
+                    stream.use { CustomDictionaries.import(context.filesDir, language, name, it) }
+                }.getOrDefault(0)
+            }
+            busy = false
+            message = when {
+                result < 0 -> "That file is too large to import."
+                result == 0 -> "No words found in that file — is it a word list?"
+                else -> "Added $result words to ${languageLabel(language)}."
+            }
+            if (result > 0) {
+                refresh()
+                repository.bumpCustomDictVersion()
+            }
+        }
+    }
+
+    Text(
+        "Import your own word lists so the keyboard can complete and correct " +
+            "words it does not ship with. French, German and Spanish have no " +
+            "bundled dictionary at all, so a list here is what gives them " +
+            "suggestions; for English and Bengali your lists stack on top of " +
+            "the built-in one.\n\n" +
+            "Format: one word per line, optionally followed by a space and a " +
+            "frequency number. Lines starting with # are ignored. Imported " +
+            "words are never autocorrected away.",
+        style = MaterialTheme.typography.bodyMedium,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+    )
+
+    for (language in KeyboardLanguage.entries) {
+        val entries = lists[language].orEmpty()
+        SettingsGroup(languageLabel(language)) {
+            for (entry in entries) {
+                item {
+                    ListItem(
+                        headlineContent = { Text(entry.file.nameWithoutExtension) },
+                        supportingContent = { Text("${entry.words} words") },
+                        trailingContent = {
+                            IconButton(
+                                enabled = !busy,
+                                onClick = {
+                                    scope.launch {
+                                        withContext(Dispatchers.IO) {
+                                            CustomDictionaries.remove(entry.file)
+                                        }
+                                        refresh()
+                                        repository.bumpCustomDictVersion()
+                                    }
+                                },
+                            ) {
+                                Icon(
+                                    Icons.Outlined.Delete,
+                                    contentDescription =
+                                        "Remove ${entry.file.nameWithoutExtension}",
+                                )
+                            }
+                        },
+                        colors = transparentListColors(),
+                    )
+                }
+            }
+            item {
+                OutlinedButton(
+                    enabled = !busy,
+                    onClick = {
+                        pending = language
+                        importList.launch(arrayOf("*/*"))
+                    },
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                ) { Text(if (entries.isEmpty()) "Import word list" else "Import another") }
+            }
+        }
+    }
+    Spacer(Modifier.height(16.dp))
+
+    if (message != null) {
+        AlertDialog(
+            onDismissRequest = { message = null },
+            text = { Text(message!!) },
+            confirmButton = { TextButton(onClick = { message = null }) { Text("OK") } },
         )
     }
 }

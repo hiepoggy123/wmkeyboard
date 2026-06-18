@@ -289,6 +289,8 @@ data class KeyboardSettings(
      * directly, so the IME (which keeps the lexicon in memory) reloads it.
      */
     val lexiconVersion: Int = 0,
+    /** Bumped when the settings app imports or removes a custom word list. */
+    val customDictVersion: Int = 0,
     /** Emoji look on the keyboard: system pack, Noto (stock Android), or custom. */
     val emojiFont: EmojiFontChoice = EmojiFontChoice.SYSTEM,
     val hapticFeedback: Boolean = true,
@@ -578,6 +580,7 @@ class SettingsRepository(private val context: Context) {
         private val BENGALI_FONT_ID = stringPreferencesKey("bengali_font_id")
         private val CUSTOM_BENGALI_FONT_NAME = stringPreferencesKey("custom_bengali_font_name")
         private val LEXICON_VERSION = intPreferencesKey("lexicon_version")
+        private val CUSTOM_DICT_VERSION = intPreferencesKey("custom_dict_version")
         private val EMOJI_FONT = stringPreferencesKey("emoji_font")
         private val AUTO_APOSTROPHE = booleanPreferencesKey("auto_apostrophe")
         private val HAPTIC = booleanPreferencesKey("haptic")
@@ -778,6 +781,7 @@ class SettingsRepository(private val context: Context) {
             customBengaliFontName = p[CUSTOM_BENGALI_FONT_NAME]
                 ?: defaults.customBengaliFontName,
             lexiconVersion = p[LEXICON_VERSION] ?: defaults.lexiconVersion,
+            customDictVersion = p[CUSTOM_DICT_VERSION] ?: defaults.customDictVersion,
             emojiFont = p[EMOJI_FONT]
                 ?.let { runCatching { EmojiFontChoice.valueOf(it) }.getOrNull() }
                 ?: defaults.emojiFont,
@@ -1279,6 +1283,9 @@ class SettingsRepository(private val context: Context) {
     /** Signals the IME that the learned-words file changed on disk. */
     suspend fun bumpLexiconVersion() =
         context.dataStore.edit { it[LEXICON_VERSION] = (it[LEXICON_VERSION] ?: 0) + 1 }
+
+    suspend fun bumpCustomDictVersion() =
+        context.dataStore.edit { it[CUSTOM_DICT_VERSION] = (it[CUSTOM_DICT_VERSION] ?: 0) + 1 }
 
     suspend fun setEmojiFont(value: EmojiFontChoice) =
         context.dataStore.edit { it[EMOJI_FONT] = value.name }
