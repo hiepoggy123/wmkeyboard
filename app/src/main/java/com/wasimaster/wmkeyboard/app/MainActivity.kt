@@ -933,6 +933,14 @@ private fun TypingSettings(
                     "layout.",
             ) { scope.launch { repository.setDoubleSpacePeriod(it) } }
         }
+        item {
+            ToggleSetting(
+                "Double-space tab", "Double-tapping space inserts a tab", settings.doubleSpaceTab,
+                info = "Tapping space twice quickly replaces the first space with a tab " +
+                    "character — handy for indentation and forms. While this is on it takes " +
+                    "priority over double-space period.",
+            ) { scope.launch { repository.setDoubleSpaceTab(it) } }
+        }
     }
 
     SettingsGroup("Suggestions") {
@@ -954,6 +962,16 @@ private fun TypingSettings(
                     "the resting state instead — next-word predictions are always one glance " +
                     "away — and the chevron on its left opens the toolbar when you need a tool.",
             ) { scope.launch { repository.setSuggestionsFirst(it) } }
+        }
+        item {
+            ToggleSetting(
+                "Best suggestion in the middle",
+                "Show the top candidate in the center slot",
+                settings.suggestionPrimaryCenter,
+                info = "The strongest candidate (the one autocorrect would pick) sits in the " +
+                    "middle of the strip with the runner-up on its left — the layout most " +
+                    "keyboards use. Turn off to rank candidates left to right instead.",
+            ) { scope.launch { repository.setSuggestionPrimaryCenter(it) } }
         }
         item {
             val context = LocalContext.current
@@ -1005,8 +1023,9 @@ private fun TypingSettings(
                 subtitle = "A swipe that starts moving right away",
                 info = "Slide horizontally on the spacebar without pausing. \"Language\" cycles " +
                     "your enabled input modes with a live preview above the spacebar — release " +
-                    "to switch. \"Cursor\" moves the text cursor one character per step. A tap " +
-                    "without movement always types a space.",
+                    "to switch, and holding the spacebar just past a tap shows the picker even " +
+                    "before you swipe. \"Cursor\" moves the text cursor one character per step. " +
+                    "A tap without movement always types a space.",
                 value = settings.spaceShortSwipe,
             ) { scope.launch { repository.setSpaceShortSwipe(it) } }
         }

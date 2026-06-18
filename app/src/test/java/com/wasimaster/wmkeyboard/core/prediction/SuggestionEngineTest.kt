@@ -1,5 +1,6 @@
 package com.wasimaster.wmkeyboard.core.prediction
 
+import com.wasimaster.wmkeyboard.core.transliteration.AvroPhonetic
 import com.wasimaster.wmkeyboard.core.transliteration.BengaliPhoneticIndex
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -102,6 +103,27 @@ class SuggestionEngineTest {
         )
         assertEquals("কিবোর্ড", e.suggest("keyboard", null, avroMode = true).first())
         assertEquals("চেয়ার", e.suggest("chair", null, avroMode = true).first())
+    }
+
+    @Test fun avroLiteralHoldsAgainstNearTieSibling() {
+        // হলো is more frequent than হল, but the composing preview showed
+        // হলো — when the top sibling is less than 2x more frequent, the
+        // literal (what the user sees while typing) survives.
+        val bengali = BengaliPhoneticIndex(
+            listOf("হলো" to 1986, "হল" to 1900)
+        )
+        val e = SuggestionEngine(Trie(), bengali, UserLexicon(null))
+        val suggestions = e.suggest("holO", null, avroMode = true)
+        assertEquals("হলো", suggestions.first())
+        assertTrue("হল" in suggestions)
+    }
+
+    @Test fun avroLiteralWinsWithoutSiblings() {
+        // "wasi" has no phonetic sibling in the dictionary; the literal
+        // transliteration (ওয়াসি) must survive the space commit untouched.
+        val e = engine()
+        val literal = AvroPhonetic.transliterate("wasi")
+        assertEquals(literal, e.suggest("wasi", null, avroMode = true).first())
     }
 
     @Test fun avroSentenceWords() {

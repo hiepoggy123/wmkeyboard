@@ -72,6 +72,15 @@ class SuggestionEngine(
          */
         private const val AUTOCORRECT_CONFIDENCE = 4.0
 
+        /**
+         * A Bengali phonetic sibling only outranks the literal
+         * transliteration (which is what the composing preview shows) when
+         * it is at least this many times more frequent. আছি (6900) beats
+         * আসি (2300) for "asi", but হল (1986) never steals "holO" from
+         * হলো (1900).
+         */
+        private const val SIBLING_CONFIDENCE = 2.0
+
         // Likelihood weights per edit kind, multiplied into a candidate's
         // frequency. A neighbouring-key substitution is the classic
         // fat-finger slip; a distant substitution usually means the user
@@ -174,10 +183,19 @@ class SuggestionEngine(
         // "chair" → চেয়ার. Avro phonetics can't reach these conventional
         // spellings, so the map is consulted before anything else.
         ordered.addAll(loanwords.lookup(composing))
-        // Phonetic siblings from the dictionary come next (আছি for "asi"),
-        // then the literal transliteration, so the primary suggestion is a
-        // real word whenever one matches the sound of what was typed.
-        ordered.addAll(bengaliIndex.lookup(composing))
+        // Phonetic siblings from the dictionary (আছি for "asi") outrank the
+        // literal transliteration only when clearly more common — the commit
+        // path takes the first entry, and the preview showed the literal, so
+        // a near-tie sibling silently replacing it reads as a bug (হলো
+        // becoming হল). A literal that isn't a dictionary word at all always
+        // yields to siblings.
+        val siblings = bengaliIndex.lookup(composing)
+        val literalFreq = bengaliIndex.frequencyOf(phonetic)
+        val topSiblingFreq = siblings.firstOrNull()?.let { bengaliIndex.frequencyOf(it) } ?: 0
+        if (literalFreq > 0 && topSiblingFreq < literalFreq * SIBLING_CONFIDENCE) {
+            ordered.add(phonetic)
+        }
+        ordered.addAll(siblings)
         ordered.add(phonetic)
         return ordered.take(limit).toList()
     }

@@ -1134,6 +1134,19 @@ class WMKeyboardService : InputMethodService() {
             fixApostrophes = state.settings.autoApostrophe,
         )
 
+        // Double-tap space inserts a tab. Checked before the period rule so
+        // enabling it wins, and unlike the period it works anywhere a space
+        // was just typed (indenting at a line start has no word before it).
+        if (!committed && state.settings.doubleSpaceTab && now - lastSpaceTime < 400) {
+            val before = ic.getTextBeforeCursor(1, 0)?.toString().orEmpty()
+            if (before == " ") {
+                ic.deleteSurroundingText(1, 0)
+                ic.commitText("\t", 1)
+                lastSpaceTime = 0
+                return
+            }
+        }
+
         // Double-space inserts ". "
         // Only in plain text fields: a double space in an email, URI or
         // number box must stay two spaces, not become ". ".

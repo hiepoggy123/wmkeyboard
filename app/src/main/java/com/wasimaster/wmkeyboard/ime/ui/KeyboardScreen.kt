@@ -927,8 +927,21 @@ private fun TopBar(
     if (state.settings.emojiBarMode != EmojiBarMode.BUTTON || state.panel == PanelMode.EMOJI) {
         emojiBarOpen = false
     }
-    val showToolbar = state.panel == PanelMode.TOOLBOX || toolbarOverride ||
-        (!hasSuggestions && !suggestionsFirst)
+    // Committing a word empties the strip for the ~100ms it takes the
+    // next-word predictions to land; flipping to the toolbar for that gap
+    // makes the whole bar flicker on every space. The toolbar only takes
+    // over once the strip has stayed empty for a beat.
+    var emptySettled by remember { mutableStateOf(true) }
+    LaunchedEffect(hasSuggestions) {
+        if (hasSuggestions) {
+            emptySettled = false
+        } else {
+            delay(250)
+            emptySettled = true
+        }
+    }
+    val showToolbar = state.panel != PanelMode.NONE || toolbarOverride ||
+        (!hasSuggestions && emptySettled && !suggestionsFirst)
 
     Row(
         modifier = Modifier
@@ -973,10 +986,10 @@ private fun TopBar(
             }
             return@Row
         }
-        // While the toolbox is open the toolbar is forced on and shows its
-        // own back chevron, so the suggestions-toggle chevron would sit next
-        // to it doing nothing — hide it for that panel.
-        if ((hasSuggestions || suggestionsFirst) && state.panel != PanelMode.TOOLBOX) {
+        // While any panel is open the toolbar is forced on and shows its own
+        // back chevron, so the suggestions-toggle chevron would sit next to
+        // it doing nothing — tools don't need suggestions. Hide it.
+        if ((hasSuggestions || suggestionsFirst) && state.panel == PanelMode.NONE) {
             IconButton(
                 onClick = {
                     feedback()
@@ -1025,7 +1038,17 @@ private fun TopBar(
                     .fillMaxHeight(),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                val shown = state.suggestions.take(3)
+                val ranked = state.suggestions.take(3)
+                // Gboard convention: the primary candidate sits in the middle
+                // slot with the runner-up on its left. The commit path still
+                // uses the engine's order — this is display-only.
+                val centerPrimary = state.settings.suggestionPrimaryCenter && ranked.size >= 2
+                val shown = if (centerPrimary) {
+                    listOf(ranked[1], ranked[0]) + ranked.drop(2)
+                } else {
+                    ranked
+                }
+                val primaryIndex = if (centerPrimary) 1 else 0
                 shown.forEachIndexed { index, suggestion ->
                     if (index > 0) {
                         VerticalDivider(
@@ -1044,7 +1067,7 @@ private fun TopBar(
                             text = suggestion,
                             modifier = Modifier.padding(horizontal = 6.dp),
                             color = MaterialTheme.colorScheme.onSurface,
-                            fontWeight = if (index == 0) FontWeight.SemiBold else FontWeight.Normal,
+                            fontWeight = if (index == primaryIndex) FontWeight.SemiBold else FontWeight.Normal,
                             textAlign = TextAlign.Center,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
@@ -3406,6 +3429,13 @@ private val PreviewPopupProperties = PopupProperties(
 )
 
 /**
+ * Hold time after which a spacebar press (with language switching on the
+ * short-swipe slot) shows the language picker: longer than any normal tap,
+ * shorter than the long-press delay so the picker feels immediate.
+ */
+private const val SpaceHoldPickerMs = 250
+
+/**
  * Press handling: tap commits, long-press opens alternates (or begins
  * repeating for delete), release cancels. The spacebar instead supports
  * horizontal swipes: a swipe that starts moving right away performs
@@ -3468,18 +3498,19 @@ private fun Modifier.pointerInputKey(
                 val twoModes = enabledModes.size == 2
                 var runDir = 0
                 var runSwitched = false
-                // With both swipe slots set to language switching there is
-                // no second action to disambiguate from, so a plain hold
-                // opens the switcher immediately — no initial swipe needed.
-                // Movement past the slop before the delay still resolves as
-                // a normal short swipe below.
-                val holdOpensSwitcher = spaceShortSwipe == SpaceSwipeAction.LANGUAGE &&
-                    spaceLongSwipe == SpaceSwipeAction.LANGUAGE
+                // With language switching on the short-swipe slot, holding
+                // the spacebar just past a normal tap shows the language
+                // picker without needing any initial swipe. The action is
+                // not locked in — a drag afterwards still resolves short vs
+                // long normally, so a hold + swipe cursor action survives —
+                // but a release with the picker up must not type a space.
+                var holdPreviewShown = false
+                val holdOpensSwitcher = spaceShortSwipe == SpaceSwipeAction.LANGUAGE
                 val holdJob = if (holdOpensSwitcher) {
                     scope.launch {
-                        delay(longPressDelayMs.toLong())
+                        delay(minOf(longPressDelayMs, SpaceHoldPickerMs).toLong())
                         if (action == null) {
-                            action = SpaceSwipeAction.LANGUAGE
+                            holdPreviewShown = true
                             setLanguagePreview(enabledModes[langIndex])
                             if (hapticOnLongPress) onKeyPress()
                         }
@@ -3499,6 +3530,11 @@ private fun Modifier.pointerInputKey(
                             // careful drag, so distance can't tell them apart.
                             val elapsed = change.uptimeMillis - down.uptimeMillis
                             action = if (elapsed < longPressDelayMs) spaceShortSwipe else spaceLongSwipe
+                            // The hold picker was only a preview; a drag that
+                            // resolves to another action dismisses it.
+                            if (holdPreviewShown && action != SpaceSwipeAction.LANGUAGE) {
+                                setLanguagePreview(null)
+                            }
                             lastX = change.position.x
                             accumulated = 0f
                             if (action == SpaceSwipeAction.LANGUAGE) {
@@ -3608,9 +3644,16 @@ private fun Modifier.pointerInputKey(
                 holdJob?.cancel()
                 setPressed(false)
                 setLanguagePreview(null)
-                when (action) {
-                    null -> onKey(key)
-                    SpaceSwipeAction.LANGUAGE -> {
+                when {
+                    // Releasing with the hold picker up commits whatever it
+                    // showed (usually the current language — a no-op) and
+                    // must not type a space.
+                    action == null && holdPreviewShown -> {
+                        val selected = enabledModes[langIndex]
+                        if (selected != currentMode) onLanguageSelect(selected)
+                    }
+                    action == null -> onKey(key)
+                    action == SpaceSwipeAction.LANGUAGE -> {
                         val selected = enabledModes[langIndex]
                         if (selected != currentMode) onLanguageSelect(selected)
                     }

@@ -334,9 +334,13 @@ data class KeyboardSettings(
     val autoApostrophe: Boolean = true,
     val autoCapitalize: Boolean = true,
     val doubleSpacePeriod: Boolean = true,
+    /** Double-tapping space inserts a tab character (wins over the period). */
+    val doubleSpaceTab: Boolean = false,
     val suggestions: Boolean = true,
     /** Keep the suggestion strip as the default top bar even with nothing typed. */
     val suggestionsFirst: Boolean = false,
+    /** Show the primary candidate in the middle slot (Gboard style) instead of the left. */
+    val suggestionPrimaryCenter: Boolean = true,
     /** Suggest names from the phone's contacts (needs the Contacts permission). */
     val contactSuggestions: Boolean = false,
     val gestureTyping: Boolean = true,
@@ -592,8 +596,10 @@ class SettingsRepository(private val context: Context) {
         private val AUTOCORRECT = booleanPreferencesKey("autocorrect")
         private val AUTO_CAPITALIZE = booleanPreferencesKey("auto_capitalize")
         private val DOUBLE_SPACE_PERIOD = booleanPreferencesKey("double_space_period")
+        private val DOUBLE_SPACE_TAB = booleanPreferencesKey("double_space_tab")
         private val SUGGESTIONS = booleanPreferencesKey("suggestions")
         private val SUGGESTIONS_FIRST = booleanPreferencesKey("suggestions_first")
+        private val SUGGESTION_PRIMARY_CENTER = booleanPreferencesKey("suggestion_primary_center")
         private val CONTACT_SUGGESTIONS = booleanPreferencesKey("contact_suggestions")
         private val GESTURE_TYPING = booleanPreferencesKey("gesture_typing")
         // Legacy boolean, read only to migrate into SPACE_LONG_SWIPE.
@@ -800,8 +806,11 @@ class SettingsRepository(private val context: Context) {
             autoApostrophe = p[AUTO_APOSTROPHE] ?: defaults.autoApostrophe,
             autoCapitalize = p[AUTO_CAPITALIZE] ?: defaults.autoCapitalize,
             doubleSpacePeriod = p[DOUBLE_SPACE_PERIOD] ?: defaults.doubleSpacePeriod,
+            doubleSpaceTab = p[DOUBLE_SPACE_TAB] ?: defaults.doubleSpaceTab,
             suggestions = p[SUGGESTIONS] ?: defaults.suggestions,
             suggestionsFirst = p[SUGGESTIONS_FIRST] ?: defaults.suggestionsFirst,
+            suggestionPrimaryCenter = p[SUGGESTION_PRIMARY_CENTER]
+                ?: defaults.suggestionPrimaryCenter,
             contactSuggestions = p[CONTACT_SUGGESTIONS] ?: defaults.contactSuggestions,
             gestureTyping = p[GESTURE_TYPING] ?: defaults.gestureTyping,
             spaceShortSwipe = p[SPACE_SHORT_SWIPE]
@@ -1337,11 +1346,17 @@ class SettingsRepository(private val context: Context) {
     suspend fun setDoubleSpacePeriod(value: Boolean) =
         context.dataStore.edit { it[DOUBLE_SPACE_PERIOD] = value }
 
+    suspend fun setDoubleSpaceTab(value: Boolean) =
+        context.dataStore.edit { it[DOUBLE_SPACE_TAB] = value }
+
     suspend fun setSuggestions(value: Boolean) =
         context.dataStore.edit { it[SUGGESTIONS] = value }
 
     suspend fun setSuggestionsFirst(value: Boolean) =
         context.dataStore.edit { it[SUGGESTIONS_FIRST] = value }
+
+    suspend fun setSuggestionPrimaryCenter(value: Boolean) =
+        context.dataStore.edit { it[SUGGESTION_PRIMARY_CENTER] = value }
 
     suspend fun setContactSuggestions(value: Boolean) =
         context.dataStore.edit { it[CONTACT_SUGGESTIONS] = value }

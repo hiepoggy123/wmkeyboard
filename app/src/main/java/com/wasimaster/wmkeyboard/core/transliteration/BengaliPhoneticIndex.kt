@@ -14,12 +14,14 @@ package com.wasimaster.wmkeyboard.core.transliteration
 class BengaliPhoneticIndex(entries: List<Pair<String, Int>>) {
 
     private val byKey = HashMap<String, MutableList<Pair<String, Int>>>()
+    private val freqByWord = HashMap<String, Int>()
 
     init {
         for ((word, frequency) in entries) {
             val key = foldBengali(word)
             if (key.isEmpty()) continue
             byKey.getOrPut(key) { mutableListOf() }.add(word to frequency)
+            freqByWord.merge(word, frequency, ::maxOf)
         }
         byKey.values.forEach { list -> list.sortByDescending { it.second } }
     }
@@ -27,6 +29,9 @@ class BengaliPhoneticIndex(entries: List<Pair<String, Int>>) {
     /** Dictionary words phonetically matching the romanized [input], best first. */
     fun lookup(input: String): List<String> =
         byKey[foldRoman(input)]?.map { it.first }.orEmpty()
+
+    /** Dictionary frequency of a Bengali [word], 0 when unknown. */
+    fun frequencyOf(word: String): Int = freqByWord[word] ?: 0
 
     companion object {
 
@@ -55,11 +60,15 @@ class BengaliPhoneticIndex(entries: List<Pair<String, Int>>) {
 
         /** Folds a Bengali word to its canonical phonetic key. */
         fun foldBengali(word: String): String {
-            // Normalize decomposed nukta pairs to precomposed code points.
+            // Normalize decomposed nukta pairs to precomposed code points,
+            // and the corrupt U+0985 U+09BE pair (seen in scraped word lists)
+            // to U+0986: the pair folds to "oa" and would hijack keys like
+            // "oasi"/"wasi".
             val normalized = word
                 .replace("\u09A1\u09BC", "\u09DC")
                 .replace("\u09A2\u09BC", "\u09DD")
                 .replace("\u09AF\u09BC", "\u09DF")
+                .replace("\u0985\u09BE", "\u0986")
             val out = StringBuilder()
             for (ch in normalized) {
                 val c = consonantClasses[ch]
