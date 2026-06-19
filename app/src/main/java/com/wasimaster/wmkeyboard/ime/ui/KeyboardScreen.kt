@@ -25,7 +25,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
@@ -127,6 +126,7 @@ import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material.icons.outlined.StarBorder
+import androidx.compose.material.icons.outlined.StickyNote2
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Smartphone
 import androidx.compose.material.icons.outlined.Spellcheck
@@ -269,6 +269,7 @@ import com.wasimaster.wmkeyboard.core.tools.GifSource
 import com.wasimaster.wmkeyboard.core.tools.symbolChipLabel
 import com.wasimaster.wmkeyboard.core.tools.ImageResult
 import com.wasimaster.wmkeyboard.core.tools.WebResult
+import com.wasimaster.wmkeyboard.ime.AiUi
 import com.wasimaster.wmkeyboard.ime.EnterAction
 import com.wasimaster.wmkeyboard.ime.hasMediaSearch
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
@@ -304,6 +305,22 @@ internal val LocalKeyPressFeedback = staticCompositionLocalOf<() -> Unit> { {} }
  * root so it does not have to thread through every key-grid layer.
  */
 internal val LocalClipboardKeyAction = staticCompositionLocalOf<(ClipboardKeyAction) -> Unit> { {} }
+
+/**
+ * Whether a backspace press would still delete anything (text before the
+ * cursor, a selection, or an active search query). Held-backspace repeat
+ * loops poll this and stop once the field is empty, instead of buzzing
+ * away at nothing.
+ */
+internal val LocalCanDelete = staticCompositionLocalOf<() -> Boolean> { { true } }
+
+/**
+ * Like [LocalCanDelete] but always about the real text field, even while a
+ * panel search is active and the backspace key is editing a query — for
+ * controls that delete from the field directly (the emoji search bar's
+ * backspace).
+ */
+internal val LocalCanDeleteField = staticCompositionLocalOf<() -> Boolean> { { true } }
 
 /**
  * Whether TalkBack (or another explore-by-touch service) is currently
@@ -388,6 +405,8 @@ fun KeyboardScreen(
     onCursorMove: (Int) -> Unit = {},
     onLanguageSelect: (InputMode) -> Unit = {},
     onClipboardKey: (ClipboardKeyAction) -> Unit = {},
+    canDelete: () -> Boolean = { true },
+    canDeleteField: () -> Boolean = { true },
     onSuggestion: (String) -> Unit,
     onEmoji: (String) -> Unit,
     onEmojiVariant: (String, String) -> Unit = { _, v -> onEmoji(v) },
@@ -395,6 +414,8 @@ fun KeyboardScreen(
     onEmojiSuggestion: (String) -> Unit = onEmoji,
     onEmojiQueryTap: () -> Unit,
     onEmojiRecentsClear: () -> Unit = {},
+    onEmojiRecentRemove: (String) -> Unit = {},
+    onEmojiSearchFieldDelete: () -> Unit = {},
     onTextEdit: (TextEditAction) -> Unit = {},
     onPanelChange: (PanelMode) -> Unit,
     onClipboardItem: (ClipItem) -> Unit,
@@ -464,6 +485,7 @@ fun KeyboardScreen(
     onAiReplace: () -> Unit = {},
     onAiInsert: () -> Unit = {},
     onAiRetry: () -> Unit = {},
+    onAiPickModel: (com.wasimaster.wmkeyboard.core.settings.AiProvider, String?) -> Unit = { _, _ -> },
     onOpenToolSettings: (ToolbarTool) -> Unit = {},
     onOpenSettings: () -> Unit,
 ) {
@@ -527,6 +549,8 @@ fun KeyboardScreen(
         CompositionLocalProvider(
             LocalKeyPressFeedback provides onKeyPressed,
             LocalClipboardKeyAction provides onClipboardKey,
+            LocalCanDelete provides canDelete,
+            LocalCanDeleteField provides canDeleteField,
             LocalTouchExploration provides rememberTouchExploration(),
         ) {
             KeyboardBody(
@@ -544,6 +568,8 @@ fun KeyboardScreen(
                 onEmojiSuggestion = onEmojiSuggestion,
                 onEmojiQueryTap = onEmojiQueryTap,
                 onEmojiRecentsClear = onEmojiRecentsClear,
+                onEmojiRecentRemove = onEmojiRecentRemove,
+                onEmojiSearchFieldDelete = onEmojiSearchFieldDelete,
                 onTextEdit = onTextEdit,
                 onPanelChange = onPanelChange,
                 onClipboardItem = onClipboardItem,
@@ -603,6 +629,7 @@ fun KeyboardScreen(
                 onAiReplace = onAiReplace,
                 onAiInsert = onAiInsert,
                 onAiRetry = onAiRetry,
+                onAiPickModel = onAiPickModel,
                 onOpenToolSettings = onOpenToolSettings,
             )
         }
@@ -1406,7 +1433,7 @@ private fun toolIcon(tool: ToolbarTool): ImageVector = when (tool) {
     ToolbarTool.DICTIONARY -> Icons.AutoMirrored.Outlined.MenuBook
     ToolbarTool.TRANSLATE -> Icons.Outlined.Translate
     ToolbarTool.GIF -> Icons.Outlined.GifBox
-    ToolbarTool.STICKER -> Icons.Outlined.EmojiObjects
+    ToolbarTool.STICKER -> Icons.Outlined.StickyNote2
     ToolbarTool.WEB_SEARCH -> Icons.Outlined.TravelExplore
     ToolbarTool.IMAGE_SEARCH -> Icons.Outlined.ImageSearch
     ToolbarTool.OCR -> Icons.Outlined.TextFields
@@ -1673,42 +1700,67 @@ private fun DraggableTool(
 ) {
     var origin by remember { mutableStateOf(Offset.Zero) }
     val feedback = LocalKeyPressFeedback.current
+    val scope = rememberCoroutineScope()
     content(
         Modifier
             .onGloballyPositioned { origin = it.positionInRoot() }
             .pointerInput(enabled, tool) {
                 if (!enabled) return@pointerInput
-                val slop = 18.dp.toPx()
-                // Travel is summed from the drag deltas (finger motion), not
-                // from node positions — the icon animates under a held
-                // finger, and node-relative math read that as a drag.
-                var travel = Offset.Zero
-                var dragged = false
-                detectDragGesturesAfterLongPress(
-                    onDragStart = { at ->
+                // Raw press-and-hold, mirroring the key rows' handler, instead
+                // of detectDragGesturesAfterLongPress: its long-press never
+                // fired inside the IME window on device, so tools could not
+                // be dragged at all. An external timer plus a plain event
+                // loop is the pattern already proven by the repeat keys.
+                val dragSlop = 18.dp.toPx()
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    var last = down.position
+                    // Travel is summed from finger deltas, not node positions —
+                    // the icon animates under a held finger, and node-relative
+                    // math read that as a drag.
+                    var travel = Offset.Zero
+                    var longPressed = false
+                    var dragged = false
+                    val timer = scope.launch {
+                        delay(viewConfiguration.longPressTimeoutMillis)
                         // The pick-up is invisible until the first move; the
                         // buzz tells the user the long-press registered.
                         feedback()
-                        travel = Offset.Zero
-                        dragged = false
-                        drag.start(tool, fromToolbar, origin + at)
-                    },
-                    onDrag = { change, delta ->
-                        change.consume()
-                        travel += delta
-                        if (travel.getDistance() > slop) dragged = true
-                        drag.move(origin + change.position)
-                    },
-                    onDragEnd = {
-                        if (dragged) {
-                            drag.end()
-                        } else {
-                            drag.cancel()
-                            drag.onOpenSettings(tool)
+                        longPressed = true
+                        drag.start(tool, fromToolbar, origin + last)
+                    }
+                    try {
+                        while (true) {
+                            val event = awaitPointerEvent()
+                            val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                            if (!change.pressed) break
+                            val delta = change.position - last
+                            last = change.position
+                            travel += delta
+                            if (!longPressed) {
+                                // Real drift before the hold registers is a
+                                // scroll (toolbox grid) — hand the gesture back.
+                                if (travel.getDistance() > viewConfiguration.touchSlop) break
+                            } else {
+                                change.consume()
+                                if (travel.getDistance() > dragSlop) dragged = true
+                                drag.move(origin + change.position)
+                            }
                         }
-                    },
-                    onDragCancel = { drag.cancel() },
-                )
+                    } finally {
+                        timer.cancel()
+                        when {
+                            !longPressed -> drag.cancel()
+                            dragged -> drag.end()
+                            // A hold that never travelled past the slop is a
+                            // distinct gesture: open the tool's settings page.
+                            else -> {
+                                drag.cancel()
+                                drag.onOpenSettings(tool)
+                            }
+                        }
+                    }
+                }
             }
     )
 }
@@ -2248,7 +2300,7 @@ private fun ToolboxPanel(
  */
 private val FullBleedPanels = setOf(
     PanelMode.OCR, PanelMode.CALCULATOR, PanelMode.CURRENCY, PanelMode.UNIT_CONVERT,
-    PanelMode.LEVEL, PanelMode.COMPASS, PanelMode.CALENDAR,
+    PanelMode.LEVEL, PanelMode.COMPASS, PanelMode.CALENDAR, PanelMode.AI,
 )
 
 /**
@@ -2263,6 +2315,12 @@ private fun FullBleedTool(
     state: KeyboardUiState,
     title: String,
     onClose: () -> Unit,
+    // Grows the keyboard window upward beyond the normal keyboard height —
+    // for tools (AI) whose content is worth more vertical room.
+    extraHeight: Dp = 0.dp,
+    // Fills the header's free width (after the back button + title) with the
+    // tool's own controls, so the reclaimed toolbar row does real work.
+    headerActions: (@Composable RowScope.() -> Unit)? = null,
     content: @Composable () -> Unit,
 ) {
     val kb = LocalKbTheme.current
@@ -2272,7 +2330,7 @@ private fun FullBleedTool(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .height(keyRowsHeight(state.settings) + hiddenRows),
+            .height(keyRowsHeight(state.settings) + hiddenRows + extraHeight),
     ) {
         Row(
             modifier = Modifier
@@ -2294,6 +2352,10 @@ private fun FullBleedTool(
                 fontWeight = FontWeight.Medium,
                 modifier = Modifier.padding(start = 8.dp),
             )
+            if (headerActions != null) {
+                Spacer(Modifier.weight(1f))
+                headerActions()
+            }
         }
         Box(
             modifier = Modifier
@@ -2323,6 +2385,8 @@ private fun KeyboardBody(
     onEmojiSuggestion: (String) -> Unit,
     onEmojiQueryTap: () -> Unit,
     onEmojiRecentsClear: () -> Unit,
+    onEmojiRecentRemove: (String) -> Unit,
+    onEmojiSearchFieldDelete: () -> Unit,
     onTextEdit: (TextEditAction) -> Unit,
     onPanelChange: (PanelMode) -> Unit,
     onClipboardItem: (ClipItem) -> Unit,
@@ -2382,6 +2446,7 @@ private fun KeyboardBody(
     onAiReplace: () -> Unit,
     onAiInsert: () -> Unit,
     onAiRetry: () -> Unit,
+    onAiPickModel: (com.wasimaster.wmkeyboard.core.settings.AiProvider, String?) -> Unit,
     onOpenToolSettings: (ToolbarTool) -> Unit,
 ) {
     val drag = remember { ToolDragController() }
@@ -2416,9 +2481,12 @@ private fun KeyboardBody(
             val symbolRowVisible = !fullBleed &&
                 state.settings.symbolRowEnabled && state.panel != PanelMode.SYMBOLS
             // The rows stack in the user's chosen order (Rows settings).
+            // While an emoji search is typing, the toolbar is dead weight —
+            // hide it and let the panel spend the height on result rows.
+            val emojiSearching = state.panel == PanelMode.EMOJI && state.emojiSearchActive
             for (row in state.settings.barOrder) {
                 when (row) {
-                    BarRow.TOPBAR -> if (!fullBleed) {
+                    BarRow.TOPBAR -> if (!fullBleed && !emojiSearching) {
                         TopBar(
                             state, onSuggestion, onEmoji, onEmojiSuggestion, onPanelChange, onToolTap, drag,
                             onVoiceToggle = onVoiceToggle,
@@ -2445,6 +2513,8 @@ private fun KeyboardBody(
             when (state.panel) {
                 PanelMode.EMOJI -> EmojiPanel(
                     state, onEmoji, onEmojiVariant, onEmojiFavourite, onEmojiQueryTap, onEmojiRecentsClear,
+                    onRecentRemove = onEmojiRecentRemove,
+                    onSearchFieldDelete = onEmojiSearchFieldDelete,
                     onKey = onKey,
                     // Toggling the open panel closes it — back to the keys.
                     onClose = { onPanelChange(PanelMode.EMOJI) },
@@ -2605,14 +2675,38 @@ private fun KeyboardBody(
                 }
                 PanelMode.QR_GEN -> QrGeneratorPanel(state, onQrSend)
                 PanelMode.PASSWORD_GEN -> PasswordPanel(state, onPwSetting, onToolInsert)
-                PanelMode.AI -> AiPanel(
+                PanelMode.AI -> FullBleedTool(
                     state = state,
-                    onAction = onAiAction,
-                    onReplace = onAiReplace,
-                    onInsert = onAiInsert,
-                    onRetry = onAiRetry,
-                    onOpenToolSettings = onOpenToolSettings,
-                )
+                    title = "AI",
+                    onClose = { onPanelChange(PanelMode.AI) },
+                    extraHeight = 160.dp,
+                    headerActions = {
+                        val ai = state.ai
+                        if (ai is AiUi.Ready && !ai.generating) {
+                            ToolPanelChip("Replace", selected = true) { onAiReplace() }
+                            Spacer(Modifier.width(5.dp))
+                            ToolPanelChip("Insert") { onAiInsert() }
+                            Spacer(Modifier.width(5.dp))
+                            ToolPanelChip("↻") { onAiRetry() }
+                            Spacer(Modifier.width(5.dp))
+                        }
+                        ToolCircle(
+                            icon = Icons.Outlined.Settings,
+                            description = "AI settings",
+                            active = false,
+                        ) { onOpenToolSettings(ToolbarTool.AI) }
+                    },
+                ) {
+                    AiPanel(
+                        state = state,
+                        onAction = onAiAction,
+                        onReplace = onAiReplace,
+                        onInsert = onAiInsert,
+                        onRetry = onAiRetry,
+                        onPickModel = onAiPickModel,
+                        onOpenToolSettings = onOpenToolSettings,
+                    )
+                }
                 PanelMode.MODES -> ModesPanel(state, onModeSelect)
                 PanelMode.NONE -> KeyRows(state, onKey, onText, onGesture, onGesturePreview, onCursorMove, onLanguageSelect)
             }
@@ -3153,6 +3247,7 @@ private fun KeyButton(
     val settings = state.settings
     val onKeyPress = LocalKeyPressFeedback.current
     val onClipboardKey = LocalClipboardKeyAction.current
+    val canDelete = LocalCanDelete.current
 
     // The preview bubble outlives the physical press by up to the minimum
     // popup duration, so a fast tap still shows a readable bubble instead
@@ -3251,6 +3346,7 @@ private fun KeyButton(
                     onCursorMove = onCursorMove,
                     onLanguageSelect = onLanguageSelect,
                     setLanguagePreview = { languagePreview = it },
+                    canDelete = canDelete,
                     scope = scope,
                 )
             )
@@ -3565,6 +3661,7 @@ private fun Modifier.pointerInputKey(
     onCursorMove: (Int) -> Unit,
     onLanguageSelect: (InputMode) -> Unit,
     setLanguagePreview: (InputMode?) -> Unit,
+    canDelete: () -> Boolean,
     scope: kotlinx.coroutines.CoroutineScope,
 ): Modifier = this.then(
     if (key.action == KeyAction.Space &&
@@ -3794,7 +3891,10 @@ private fun Modifier.pointerInputKey(
                                     delay(longPressDelayMs.toLong())
                                     p.longPressFired = true
                                     if (key.action == KeyAction.Delete || key.action == KeyAction.Space) {
-                                        while (true) {
+                                        // Held backspace stops once there is
+                                        // nothing left to delete — no point
+                                        // buzzing against an empty field.
+                                        while (key.action != KeyAction.Delete || canDelete()) {
                                             onKeyPress()
                                             onKey(key)
                                             delay(repeatIntervalMs.toLong())
@@ -3922,6 +4022,8 @@ private fun EmojiPanel(
     onEmojiFavourite: (String) -> Unit,
     onEmojiQueryTap: () -> Unit,
     onClearRecents: () -> Unit,
+    onRecentRemove: (String) -> Unit,
+    onSearchFieldDelete: () -> Unit,
     onKey: (Key) -> Unit,
     onClose: () -> Unit,
 ) {
@@ -3936,8 +4038,12 @@ private fun EmojiPanel(
     // height here keeps the keyboard from resizing on panel switches.
     val barCompensation =
         if (state.settings.emojiBarMode == EmojiBarMode.ALWAYS) EmojiBarHeight else 0.dp
+    // Search mode hides the toolbar row too (see KeyboardBody), so the
+    // panel absorbs its height — the keyboard stays the same size and the
+    // reclaimed row shows more results.
     val height =
-        (if (state.emojiSearchActive) 120.dp else keyRowsHeight(state.settings)) + barCompensation
+        (if (state.emojiSearchActive) 120.dp + TopBarHeight else keyRowsHeight(state.settings)) +
+            barCompensation
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -3949,6 +4055,9 @@ private fun EmojiPanel(
         // entry point is the first icon of the tab strip below, so the panel
         // doesn't spend a whole bar of vertical space on it.
         if (state.emojiSearchActive || state.emojiQuery.isNotEmpty()) {
+            val feedback = LocalKeyPressFeedback.current
+            val canDeleteField = LocalCanDeleteField.current
+            val scope = rememberCoroutineScope()
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -3967,6 +4076,7 @@ private fun EmojiPanel(
                 Box(modifier = Modifier.width(8.dp))
                 Text(
                     text = state.emojiQuery.ifEmpty { "Type to search…" },
+                    modifier = Modifier.weight(1f),
                     color = if (state.emojiQuery.isEmpty()) {
                         MaterialTheme.colorScheme.onSurfaceVariant
                     } else {
@@ -3975,6 +4085,38 @@ private fun EmojiPanel(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
+                // While searching, the keys type into the query — so an
+                // emoji just inserted from the results can't be deleted
+                // from the field with them. This backspace edits the real
+                // text field (with hold-to-repeat), keeping search mode up.
+                if (state.emojiSearchActive) {
+                    Icon(
+                        Icons.AutoMirrored.Outlined.Backspace,
+                        contentDescription = "Delete from text field",
+                        modifier = Modifier
+                            .padding(start = 8.dp)
+                            .size(18.dp)
+                            .pointerInput(state.settings.longPressDelayMs, state.settings.keyRepeatIntervalMs) {
+                                detectTapGestures(
+                                    onPress = {
+                                        feedback()
+                                        onSearchFieldDelete()
+                                        val repeat = scope.launch {
+                                            delay(state.settings.longPressDelayMs.toLong())
+                                            while (canDeleteField()) {
+                                                feedback()
+                                                onSearchFieldDelete()
+                                                delay(state.settings.keyRepeatIntervalMs.toLong())
+                                            }
+                                        }
+                                        tryAwaitRelease()
+                                        repeat.cancel()
+                                    },
+                                )
+                            },
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
         }
 
@@ -4088,6 +4230,7 @@ private fun EmojiPanel(
                         onTap = onEmoji,
                         onPick = onEmoji,
                         onFavourite = onEmojiFavourite,
+                        onRemove = onRecentRemove,
                     )
                 }
             }
@@ -4139,6 +4282,7 @@ private fun EmojiBottomBar(
 ) {
     val kb = LocalKbTheme.current
     val feedback = LocalKeyPressFeedback.current
+    val canDelete = LocalCanDelete.current
     val scope = rememberCoroutineScope()
     val settings = state.settings
     val shape = kb.keyShape()
@@ -4203,10 +4347,11 @@ private fun EmojiBottomBar(
                         feedback()
                         onKey(Key("⌫", action = KeyAction.Delete))
                         // Same hold-to-repeat cadence as the real backspace,
-                        // buzzing on every repeat.
+                        // buzzing on every repeat — and the same stop once
+                        // the field has nothing left to delete.
                         val repeat = scope.launch {
                             delay(settings.longPressDelayMs.toLong())
-                            while (true) {
+                            while (canDelete()) {
                                 feedback()
                                 onKey(Key("⌫", action = KeyAction.Delete))
                                 delay(settings.keyRepeatIntervalMs.toLong())
@@ -4250,6 +4395,7 @@ private fun EmojiCell(
     onTap: (String) -> Unit,
     onPick: (String) -> Unit,
     onFavourite: (String) -> Unit,
+    onRemove: ((String) -> Unit)? = null,
 ) {
     var showVariants by remember { mutableStateOf(false) }
     Box {
@@ -4279,6 +4425,12 @@ private fun EmojiCell(
                     onPick(it)
                 },
                 onFavourite = onFavourite,
+                onRemove = onRemove?.let { remove ->
+                    {
+                        showVariants = false
+                        remove(display)
+                    }
+                },
             )
         }
     }
@@ -4300,6 +4452,7 @@ private fun EmojiVariantPopup(
     onDismiss: () -> Unit,
     onPick: (String) -> Unit,
     onFavourite: (String) -> Unit,
+    onRemove: (() -> Unit)? = null,
 ) {
     val kb = LocalKbTheme.current
     Popup(
@@ -4336,6 +4489,28 @@ private fun EmojiVariantPopup(
                         fontSize = 13.sp,
                         color = MaterialTheme.colorScheme.onSurface,
                     )
+                }
+                // History cells only: drop this emoji from recents/most-used.
+                if (onRemove != null) {
+                    Row(
+                        modifier = Modifier
+                            .clickable { onRemove() }
+                            .padding(horizontal = 6.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            Icons.Outlined.Delete,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp),
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
+                        Box(modifier = Modifier.width(6.dp))
+                        Text(
+                            "Remove from recents",
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                    }
                 }
                 val members = remember(base, genderVariants) { listOf(base) + genderVariants }
                 if (index.hasDualTones(base) || genderVariants.any { index.hasDualTones(it) }) {

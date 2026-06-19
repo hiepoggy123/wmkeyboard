@@ -228,13 +228,21 @@ sealed interface CurrencyUi {
 sealed interface AiUi {
     /** Selected provider has no key/URL configured yet. */
     data object NeedSetup : AiUi
+    /** On-device provider selected but no model downloaded/selected. */
+    data object NeedModel : AiUi
     data object Idle : AiUi
-    data class Loading(val action: com.wasimaster.wmkeyboard.core.settings.AiAction) : AiUi
+    data class Loading(
+        val action: com.wasimaster.wmkeyboard.core.settings.AiAction,
+        /** A reasoning model is inside a `<think>` block (hidden by default). */
+        val thinking: Boolean = false,
+    ) : AiUi
     data class Ready(
         val action: com.wasimaster.wmkeyboard.core.settings.AiAction,
         val result: String,
         /** Text the action ran on, for the retry button. */
         val sourceText: String,
+        /** True while an on-device response is still streaming in. */
+        val generating: Boolean = false,
     ) : AiUi
     data class Error(
         val action: com.wasimaster.wmkeyboard.core.settings.AiAction,

@@ -53,6 +53,10 @@ object AiClient {
             settings.aiLmStudioModel,
             settings.aiLmStudioUrl,
         )
+        AiProvider.ON_DEVICE -> Config(
+            AiProvider.ON_DEVICE, "",
+            settings.aiLocalModelId, "",
+        )
     }
 
     /** Whether the selected provider has what it needs to make a request. */
@@ -60,9 +64,27 @@ object AiClient {
         val config = config(settings)
         return when (config.provider) {
             AiProvider.OLLAMA, AiProvider.LM_STUDIO -> config.baseUrl.isNotBlank()
+            AiProvider.ON_DEVICE -> config.model.isNotBlank()
             else -> config.apiKey.isNotBlank()
         }
     }
+
+    /**
+     * The cloud/server providers that are ready to use right now — the AI
+     * panel's model picker only offers these. ON_DEVICE is excluded: its
+     * choices are per-model and need file checks the caller owns.
+     */
+    fun configuredRemoteProviders(settings: KeyboardSettings): List<AiProvider> =
+        AiProvider.entries.filter { provider ->
+            when (provider) {
+                AiProvider.ANTHROPIC -> settings.aiAnthropicKey.isNotBlank()
+                AiProvider.OPENAI -> settings.aiOpenAiKey.isNotBlank()
+                AiProvider.GEMINI -> settings.aiGeminiKey.isNotBlank()
+                AiProvider.OLLAMA -> settings.aiOllamaUrl.isNotBlank()
+                AiProvider.LM_STUDIO -> settings.aiLmStudioUrl.isNotBlank()
+                AiProvider.ON_DEVICE -> false
+            }
+        }
 
     /** Runs one system+user exchange, returning the assistant's text. */
     fun complete(config: Config, system: String, user: String, maxTokens: Int): String =
@@ -76,6 +98,10 @@ object AiClient {
             AiProvider.LM_STUDIO -> openAiCompatible(
                 "${config.baseUrl.trimEnd('/')}/v1/chat/completions", config, system, user, maxTokens,
             )
+            // On-device inference needs a Context and model file; the IME
+            // service routes to LocalLlmEngine before ever calling here.
+            AiProvider.ON_DEVICE ->
+                throw IllegalStateException("On-device models run locally, not over HTTP")
         }
 
     private fun anthropic(config: Config, system: String, user: String, maxTokens: Int): String {

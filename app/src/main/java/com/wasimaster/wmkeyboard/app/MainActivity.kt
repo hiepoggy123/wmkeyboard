@@ -146,6 +146,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.unit.sp
 import android.provider.OpenableColumns
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -2595,8 +2596,14 @@ private fun importFontFile(context: Context, uri: android.net.Uri, dest: java.io
  * drives the "has more settings" marker on the tools list. Kept as the
  * caption-only exceptions so a new tool with options is marked by default.
  */
+/**
+ * Whether the tool's detail page offers anything beyond the enable switch —
+ * gates the "has more settings" affordance in the tools list. Keep in sync
+ * with [ToolDetailSettings]'s `when`: a tool whose page is just the toggle
+ * (or a caption) doesn't earn the icon.
+ */
 private fun toolHasOptions(tool: ToolbarTool): Boolean =
-    tool != ToolbarTool.UNIT_CONVERT
+    tool !in setOf(ToolbarTool.UNIT_CONVERT, ToolbarTool.SETTINGS)
 
 internal fun toolTitle(tool: ToolbarTool): String = when (tool) {
     ToolbarTool.EMOJI -> "Emoji"
@@ -2732,7 +2739,7 @@ internal fun toolIconFor(tool: ToolbarTool): androidx.compose.ui.graphics.vector
     ToolbarTool.CURRENCY -> Icons.Outlined.CurrencyExchange
     ToolbarTool.QR_GEN -> Icons.Outlined.QrCode2
     ToolbarTool.PASSWORD_GEN -> Icons.Outlined.Password
-    ToolbarTool.AI -> Icons.Outlined.Psychology
+    ToolbarTool.AI -> Icons.Outlined.AutoAwesome
     ToolbarTool.MODES -> Icons.Outlined.Tune
 }
 
@@ -3792,17 +3799,22 @@ private fun ToolDetailSettings(
 private fun AiToolSettings(repository: SettingsRepository, settings: KeyboardSettings) {
     val scope = rememberCoroutineScope()
     SectionHeader("Provider")
-    SingleChoiceSegmentedButtonRow(
+    // Six providers no longer fit a segmented row; chips wrap instead.
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .padding(horizontal = 16.dp, vertical = 4.dp),
     ) {
-        AiProvider.entries.forEachIndexed { index, provider ->
-            SegmentedButton(
+        val providers = AiProvider.entries.filter {
+            it != AiProvider.ON_DEVICE || BuildConfig.ENABLE_LOCAL_LLM
+        }
+        for (provider in providers) {
+            FilterChip(
                 selected = settings.aiProvider == provider,
                 onClick = { scope.launch { repository.setAiProvider(provider) } },
-                shape = SegmentedButtonDefaults.itemShape(index, AiProvider.entries.size),
-            ) { Text(provider.label, maxLines = 1, fontSize = 11.sp) }
+                label = { Text(provider.label, maxLines = 1) },
+            )
         }
     }
     when (settings.aiProvider) {
@@ -3889,6 +3901,7 @@ private fun AiToolSettings(repository: SettingsRepository, settings: KeyboardSet
                 ) { repository.setAiLmStudioModel(it) }
             }
         }
+        AiProvider.ON_DEVICE -> LocalLlmModelManager(repository, settings)
     }
     if (settings.aiProvider == AiProvider.OLLAMA || settings.aiProvider == AiProvider.LM_STUDIO) {
         CaptionText(
@@ -3898,14 +3911,16 @@ private fun AiToolSettings(repository: SettingsRepository, settings: KeyboardSet
         )
     }
     SettingsGroup("Output") {
-        item {
-            SliderSetting(
-                "Max response length",
-                subtitle = "Upper bound in tokens (≈ ¾ of a word each)",
-                value = settings.aiMaxTokens.toFloat(),
-                range = 64f..4096f,
-                display = "${settings.aiMaxTokens}",
-            ) { scope.launch { repository.setAiMaxTokens(it.roundToInt()) } }
+        if (settings.aiProvider != AiProvider.ON_DEVICE) {
+            item {
+                SliderSetting(
+                    "Max response length",
+                    subtitle = "Upper bound in tokens (≈ ¾ of a word each)",
+                    value = settings.aiMaxTokens.toFloat(),
+                    range = 64f..4096f,
+                    display = "${settings.aiMaxTokens}",
+                ) { scope.launch { repository.setAiMaxTokens(it.roundToInt()) } }
+            }
         }
         item {
             TextFieldSetting(
@@ -3914,11 +3929,25 @@ private fun AiToolSettings(repository: SettingsRepository, settings: KeyboardSet
                 hint = "e.g. English, Bengali, Japanese",
             ) { repository.setAiTranslateTo(it) }
         }
+        item {
+            ToggleSetting(
+                "Show model reasoning",
+                "Stream reasoning models' <think> passages instead of a progress bar",
+                settings.aiShowThinking,
+            ) { scope.launch { repository.setAiShowThinking(it) } }
+        }
+        item {
+            ToggleSetting(
+                "Model picker on the panel",
+                "Switch between configured providers and downloaded models right on the keyboard",
+                settings.aiPanelModelPicker,
+            ) { scope.launch { repository.setAiPanelModelPicker(it) } }
+        }
     }
     SectionHeader("Prompts")
     CaptionText(
-        "Each action's system prompt, editable. Blank uses the built-in " +
-            "prompt (shown as the hint).",
+        "Each action's system prompt, editable. Clearing a field restores " +
+            "the built-in prompt.",
     )
     for (action in AiAction.entries) {
         val current = when (action) {
@@ -3930,15 +3959,25 @@ private fun AiToolSettings(repository: SettingsRepository, settings: KeyboardSet
             AiAction.EXPLAIN -> settings.aiPromptExplain
             AiAction.CONTINUE -> settings.aiPromptContinue
         }
+        val builtIn = AiPrompts.defaultPrompt(action, settings.aiTranslateTo)
         PromptFieldSetting(
             label = action.label,
-            value = current,
-            defaultPrompt = AiPrompts.defaultPrompt(action, settings.aiTranslateTo),
+            // Pre-filled with the built-in prompt so editing starts from the
+            // real text instead of a blank field; saving identical text is a
+            // no-op override.
+            value = current.ifBlank { builtIn },
+            defaultPrompt = builtIn,
         ) { repository.setAiPrompt(action, it) }
     }
     CaptionText(
-        "The text you run an action on is sent to the selected provider, " +
-            "only when you tap the action. Keys are stored on this device.",
+        if (settings.aiProvider == AiProvider.ON_DEVICE) {
+            "On-device models run entirely on this phone — the text you run " +
+                "an action on never leaves it. Response length is bounded by " +
+                "the model's context window."
+        } else {
+            "The text you run an action on is sent to the selected provider, " +
+                "only when you tap the action. Keys are stored on this device."
+        },
     )
 }
 
@@ -3988,7 +4027,11 @@ private fun PromptFieldSetting(
         maxLines = 4,
         supportingText = {
             Text(
-                if (text.isBlank()) defaultPrompt else "Custom prompt (clear to restore the default)",
+                when {
+                    text.isBlank() -> defaultPrompt
+                    text == defaultPrompt -> "Built-in prompt"
+                    else -> "Custom prompt (clear to restore the default)"
+                },
                 maxLines = 3,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -4006,7 +4049,7 @@ private fun PromptFieldSetting(
  * key when the build has one.
  */
 @Composable
-private fun ApiKeyField(
+internal fun ApiKeyField(
     label: String,
     value: String,
     builtInAvailable: Boolean,
@@ -4195,6 +4238,11 @@ private fun WeatherLocationSetting(repository: SettingsRepository, settings: Key
 
     AlertDialog(
         onDismissRequest = { editing = false },
+        // Typing in the search/coordinate fields moves the dialog around the
+        // keyboard, so a tap can land on the scrim where the dialog just was
+        // and silently swallow the half-entered location. Explicit
+        // Cancel/Save only; back still dismisses.
+        properties = DialogProperties(dismissOnClickOutside = false),
         title = { Text("Weather location") },
         text = {
             Column(modifier = Modifier.verticalScroll(rememberScrollState())) {

@@ -1,6 +1,7 @@
 package com.wasimaster.wmkeyboard.ime
 
 import android.content.ClipboardManager
+import android.content.ComponentCallbacks2
 import android.content.Context
 import android.content.Intent
 import android.hardware.camera2.CameraCharacteristics
@@ -97,8 +98,13 @@ import com.wasimaster.wmkeyboard.core.tools.GiphyClient
 import com.wasimaster.wmkeyboard.core.tools.ImageResult
 import com.wasimaster.wmkeyboard.core.tools.KlipyClient
 import com.wasimaster.wmkeyboard.core.settings.AiAction
+import com.wasimaster.wmkeyboard.core.settings.AiProvider
+import com.wasimaster.wmkeyboard.core.localllm.LocalLlmCatalog
+import com.wasimaster.wmkeyboard.core.localllm.LocalLlmEngine
+import com.wasimaster.wmkeyboard.core.localllm.LocalLlmStore
 import com.wasimaster.wmkeyboard.core.tools.AiClient
 import com.wasimaster.wmkeyboard.core.tools.AiPrompts
+import com.wasimaster.wmkeyboard.core.tools.AiThinking
 import com.wasimaster.wmkeyboard.core.tools.CurrencyClient
 import com.wasimaster.wmkeyboard.core.tools.QrCodeGen
 import com.wasimaster.wmkeyboard.core.tools.ToolApiKeys
@@ -118,6 +124,7 @@ import com.wasimaster.wmkeyboard.ime.layout.KeyAction
 import com.wasimaster.wmkeyboard.ime.ui.KeyboardScreen
 import android.inputmethodservice.InputMethodService
 import java.io.File
+import java.io.IOException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -588,6 +595,8 @@ class WMKeyboardService : InputMethodService() {
                 onCursorMove = ::onCursorMove,
                 onLanguageSelect = ::onLanguageSelected,
                 onClipboardKey = ::onClipboardKey,
+                canDelete = ::canDelete,
+                canDeleteField = ::canDeleteField,
                 onSuggestion = ::onSuggestionTapped,
                 onEmoji = ::onEmojiTapped,
                 onEmojiVariant = ::onEmojiVariantPicked,
@@ -595,6 +604,8 @@ class WMKeyboardService : InputMethodService() {
                 onEmojiSuggestion = ::onEmojiSuggestionTapped,
                 onEmojiQueryTap = ::onEmojiSearchToggled,
                 onEmojiRecentsClear = ::onEmojiRecentsClear,
+                onEmojiRecentRemove = ::onEmojiRecentRemoved,
+                onEmojiSearchFieldDelete = ::onEmojiSearchFieldDelete,
                 onTextEdit = ::onTextEdit,
                 onPanelChange = ::onPanelChange,
                 onClipboardItem = ::onClipboardItemTapped,
@@ -669,6 +680,7 @@ class WMKeyboardService : InputMethodService() {
                 onAiReplace = ::onAiReplace,
                 onAiInsert = ::onAiInsert,
                 onAiRetry = ::onAiRetry,
+                onAiPickModel = ::onAiPickModel,
                 onOpenToolSettings = ::openToolSettings,
                 onOpenSettings = ::openSettings,
             )
@@ -876,9 +888,17 @@ class WMKeyboardService : InputMethodService() {
         clipboardStore.save()
         voiceEngine.cancel()
         hwRecognizer.close()
+        LocalLlmEngine.release()
         lifecycleOwner.onDestroy()
         serviceScope.cancel()
         super.onDestroy()
+    }
+
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        // A cached local model pins hundreds of MB to a few GB — free it the
+        // moment the system signals pressure; the next AI action reloads it.
+        if (level >= ComponentCallbacks2.TRIM_MEMORY_MODERATE) LocalLlmEngine.release()
     }
 
     // ---- key handling ----
@@ -1071,6 +1091,18 @@ class WMKeyboardService : InputMethodService() {
             }
             return
         }
+        deleteFromField()
+    }
+
+    /**
+     * One backspace against the real text field, regardless of any active
+     * panel search: selection first, then gesture-word / autocorrect undo,
+     * then composing, then a full grapheme cluster. Split from [onDelete]
+     * so the emoji search bar's field-backspace can reach it while the
+     * backspace key is busy editing the query.
+     */
+    private fun deleteFromField() {
+        val state = _uiState.value
         val ic = currentInputConnection ?: return
         // Deleting with an active selection removes the selected text only.
         if (hasSelection(ic)) {
@@ -1633,11 +1665,7 @@ class WMKeyboardService : InputMethodService() {
                 currentInputConnection?.let { commitComposing(it, autocorrect = false) }
                 refreshQrText()
             }
-            PanelMode.AI -> _uiState.update {
-                it.copy(
-                    ai = if (AiClient.isConfigured(it.settings)) AiUi.Idle else AiUi.NeedSetup,
-                )
-            }
+            PanelMode.AI -> _uiState.update { it.copy(ai = aiInitialState(it.settings)) }
             else -> {}
         }
         if (_uiState.value.panel == PanelMode.HANDWRITING) {
@@ -2592,6 +2620,64 @@ class WMKeyboardService : InputMethodService() {
 
     private var aiJob: Job? = null
 
+    /**
+     * Identifies the latest [runAi] call. On-device streaming callbacks
+     * arrive from a blocking native call that outlives job cancellation, so
+     * stale runs must be ignored rather than relied on to stop.
+     */
+    private var aiRunSeq = 0
+
+    /**
+     * The on-device model to run: the explicit selection, or — when nothing
+     * (valid) is selected — the only model on disk. So the first download
+     * just works without a selection step, and a deleted selection heals
+     * itself while a sole alternative exists.
+     */
+    private fun effectiveLocalModelId(settings: KeyboardSettings): String? =
+        settings.aiLocalModelId
+            .takeIf { LocalLlmStore.selectedModelFile(filesDir, it) != null }
+            ?: LocalLlmStore.soleDownloadedId(filesDir)
+
+    private fun effectiveLocalModelFile(settings: KeyboardSettings): java.io.File? =
+        effectiveLocalModelId(settings)?.let { LocalLlmStore.selectedModelFile(filesDir, it) }
+
+    /**
+     * Whether the model streams Qwen3-style implicit reasoning (no opening
+     * tag, just bare thought ending in `</think>`). Catalog models declare
+     * it; imported files fall back to a name sniff.
+     */
+    private fun isReasoningModel(modelId: String?): Boolean {
+        if (modelId == null) return false
+        LocalLlmCatalog.byId(modelId)?.let { return it.reasoning }
+        val name = modelId.removePrefix(LocalLlmStore.CUSTOM_PREFIX).lowercase()
+        return "qwen3" in name || "deepseek" in name
+    }
+
+    /** What the AI panel should show before any action runs. */
+    private fun aiInitialState(settings: KeyboardSettings): AiUi = when {
+        settings.aiProvider == AiProvider.ON_DEVICE &&
+            effectiveLocalModelFile(settings) == null -> AiUi.NeedModel
+        !AiClient.isConfigured(settings) &&
+            settings.aiProvider != AiProvider.ON_DEVICE -> AiUi.NeedSetup
+        else -> AiUi.Idle
+    }
+
+    /** Model-picker row on the AI panel: switch provider (and local model). */
+    fun onAiPickModel(provider: AiProvider, localModelId: String?) {
+        vibrate()
+        serviceScope.launch {
+            if (localModelId != null) settingsRepository.setAiLocalModelId(localModelId)
+            settingsRepository.setAiProvider(provider)
+            // Re-derive the panel state for the new choice; the settings flow
+            // update races this tap, so compute from the edited values.
+            val updated = _uiState.value.settings.copy(
+                aiProvider = provider,
+                aiLocalModelId = localModelId ?: _uiState.value.settings.aiLocalModelId,
+            )
+            _uiState.update { it.copy(ai = aiInitialState(updated)) }
+        }
+    }
+
     /** Selection first; whole field otherwise (text before cursor for Continue). */
     private fun aiInputText(action: AiAction): String {
         val ic = currentInputConnection ?: return ""
@@ -2605,8 +2691,9 @@ class WMKeyboardService : InputMethodService() {
 
     fun onAiAction(action: AiAction) {
         vibrate()
-        if (!AiClient.isConfigured(_uiState.value.settings)) {
-            _uiState.update { it.copy(ai = AiUi.NeedSetup) }
+        val initial = aiInitialState(_uiState.value.settings)
+        if (initial is AiUi.NeedModel || initial is AiUi.NeedSetup) {
+            _uiState.update { it.copy(ai = initial) }
             return
         }
         currentInputConnection?.let { commitComposing(it, autocorrect = false) }
@@ -2622,23 +2709,88 @@ class WMKeyboardService : InputMethodService() {
 
     private fun runAi(action: AiAction, source: String) {
         aiJob?.cancel()
+        val seq = ++aiRunSeq
         _uiState.update { it.copy(ai = AiUi.Loading(action)) }
         aiJob = serviceScope.launch {
             val settings = _uiState.value.settings
             val system = AiPrompts.systemPrompt(action, settings)
             val config = AiClient.config(settings)
             val result = withContext(Dispatchers.IO) {
-                runCatching { AiClient.complete(config, system, source, settings.aiMaxTokens) }
+                runCatching {
+                    if (config.provider == AiProvider.ON_DEVICE) {
+                        runAiOnDevice(seq, action, source, system, settings)
+                    } else {
+                        AiClient.complete(config, system, source, settings.aiMaxTokens)
+                    }
+                }
             }
+            if (seq != aiRunSeq) return@launch
             _uiState.update {
                 it.copy(
                     ai = result.fold(
-                        onSuccess = { text ->
-                            if (text.isBlank()) AiUi.Error(action, "The model returned nothing.")
-                            else AiUi.Ready(action, text, source)
+                        onSuccess = { raw ->
+                            val text =
+                                if (settings.aiShowThinking) raw.trim()
+                                else AiThinking.stripped(raw)
+                            when {
+                                text.isNotBlank() -> AiUi.Ready(action, text, source)
+                                raw.isBlank() -> AiUi.Error(action, "The model returned nothing.")
+                                else -> AiUi.Error(
+                                    action,
+                                    "The model spent its whole response reasoning — " +
+                                        "try again, or turn on “Show reasoning” in settings.",
+                                )
+                            }
                         },
                         onFailure = { e -> AiUi.Error(action, e.message ?: "Request failed") },
                     ),
+                )
+            }
+        }
+    }
+
+    /**
+     * Blocking on-device generation, streaming partial text into
+     * [AiUi.Ready] with [AiUi.Ready.generating] set so the panel can render
+     * the response as it forms. Call under [Dispatchers.IO].
+     */
+    private fun runAiOnDevice(
+        seq: Int,
+        action: AiAction,
+        source: String,
+        system: String,
+        settings: KeyboardSettings,
+    ): String {
+        val modelId = effectiveLocalModelId(settings)
+        val modelFile = effectiveLocalModelFile(settings)
+            ?: throw IOException("The selected model is gone — download it again in settings")
+        val implicitThink = isReasoningModel(modelId)
+        var lastPartialAt = 0L
+        return LocalLlmEngine.generate(
+            context = applicationContext,
+            modelFile = modelFile,
+            backend = settings.aiLocalBackend,
+            system = system,
+            user = source,
+        ) { raw ->
+            val now = SystemClock.uptimeMillis()
+            if (seq != aiRunSeq || now - lastPartialAt < 120) return@generate
+            lastPartialAt = now
+            // Reasoning models: keep the spinner (marked "thinking") until
+            // real output starts, unless the user wants the raw stream.
+            val shown = if (settings.aiShowThinking) {
+                AiThinking.Split(raw, thinking = false)
+            } else {
+                AiThinking.split(raw, implicitThink)
+            }
+            _uiState.update {
+                it.copy(
+                    ai = when {
+                        shown.output.isBlank() && shown.thinking ->
+                            AiUi.Loading(action, thinking = true)
+                        shown.output.isBlank() -> it.ai // nothing visible yet
+                        else -> AiUi.Ready(action, shown.output, source, generating = true)
+                    },
                 )
             }
         }
@@ -2661,17 +2813,25 @@ class WMKeyboardService : InputMethodService() {
         val ai = _uiState.value.ai as? AiUi.Ready ?: return
         vibrate()
         if (ai.action == AiAction.CONTINUE) {
-            currentInputConnection?.commitText(ai.result, 1)
+            currentInputConnection?.commitText(aiInsertableText(ai), 1)
             return
         }
-        replaceFieldText(ai.result)
+        replaceFieldText(aiInsertableText(ai))
     }
 
     fun onAiInsert() {
         val ai = _uiState.value.ai as? AiUi.Ready ?: return
         vibrate()
-        currentInputConnection?.commitText(ai.result, 1)
+        currentInputConnection?.commitText(aiInsertableText(ai), 1)
     }
+
+    /**
+     * What Replace/Insert actually commit: even when the panel shows a
+     * reasoning model's think block (verbose mode), only the trimmed answer
+     * belongs in the text field.
+     */
+    private fun aiInsertableText(ai: AiUi.Ready): String =
+        AiThinking.stripped(ai.result).ifBlank { ai.result.trim() }
 
     // ---- tools: dictionary & camera ----
 

@@ -14,15 +14,21 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material3.Button
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -36,7 +42,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
@@ -48,6 +56,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.wasimaster.wmkeyboard.BuildConfig
+import com.wasimaster.wmkeyboard.core.localllm.LocalLlmCatalog
+import com.wasimaster.wmkeyboard.core.localllm.LocalLlmDownloadManager
+import com.wasimaster.wmkeyboard.core.settings.AiProvider
 import com.wasimaster.wmkeyboard.core.settings.DefaultToolOrder
 import com.wasimaster.wmkeyboard.core.settings.EmojiBarMode
 import com.wasimaster.wmkeyboard.core.settings.HapticStyle
@@ -556,7 +568,7 @@ private fun GesturesPage(repository: SettingsRepository, settings: KeyboardSetti
 
 /** Tools with a first-run choice worth asking about on the setup page. */
 private val ToolSetupTools = setOf(
-    ToolbarTool.CALENDAR, ToolbarTool.WEATHER, ToolbarTool.COMPASS,
+    ToolbarTool.CALENDAR, ToolbarTool.WEATHER, ToolbarTool.COMPASS, ToolbarTool.AI,
 )
 
 /**
@@ -635,6 +647,151 @@ private fun ToolSetupPage(repository: SettingsRepository, settings: KeyboardSett
             )
         }
     }
+    if (ToolbarTool.AI in settings.enabledTools) {
+        AiSetupSection(repository, settings)
+    }
+}
+
+/**
+ * Compact AI first-run setup: pick a provider, then just the one credential
+ * (or starter-model download) it needs to work. The full options — models,
+ * prompts, the whole on-device catalog — live under Tools → AI.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun AiSetupSection(repository: SettingsRepository, settings: KeyboardSettings) {
+    val scope = rememberCoroutineScope()
+    SectionTitle("AI writing tools")
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.padding(horizontal = 16.dp),
+    ) {
+        val providers = AiProvider.entries.filter {
+            it != AiProvider.ON_DEVICE || BuildConfig.ENABLE_LOCAL_LLM
+        }
+        for (provider in providers) {
+            FilterChip(
+                selected = settings.aiProvider == provider,
+                onClick = { scope.launch { repository.setAiProvider(provider) } },
+                label = { Text(provider.label) },
+            )
+        }
+    }
+    when (settings.aiProvider) {
+        AiProvider.ANTHROPIC -> ApiKeyField(
+            label = "Anthropic API key",
+            value = settings.aiAnthropicKey,
+            builtInAvailable = false,
+            emptyHint = "From console.anthropic.com → API keys",
+        ) { repository.setAiAnthropicKey(it) }
+        AiProvider.OPENAI -> ApiKeyField(
+            label = "OpenAI API key",
+            value = settings.aiOpenAiKey,
+            builtInAvailable = false,
+            emptyHint = "From platform.openai.com → API keys",
+        ) { repository.setAiOpenAiKey(it) }
+        AiProvider.GEMINI -> ApiKeyField(
+            label = "Gemini API key",
+            value = settings.aiGeminiKey,
+            builtInAvailable = false,
+            emptyHint = "Free tier from aistudio.google.com",
+        ) { repository.setAiGeminiKey(it) }
+        AiProvider.OLLAMA -> ApiKeyField(
+            label = "Ollama server address",
+            value = settings.aiOllamaUrl,
+            builtInAvailable = false,
+            emptyHint = "e.g. http://192.168.0.10:11434",
+        ) { repository.setAiOllamaUrl(it) }
+        AiProvider.LM_STUDIO -> ApiKeyField(
+            label = "LM Studio server address",
+            value = settings.aiLmStudioUrl,
+            builtInAvailable = false,
+            emptyHint = "e.g. http://192.168.0.10:1234",
+        ) { repository.setAiLmStudioUrl(it) }
+        AiProvider.ON_DEVICE -> StarterModelDownload(repository, settings)
+    }
+    Text(
+        "You can switch providers, change models and edit every prompt later " +
+            "under Tools → AI.",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+    )
+}
+
+/**
+ * One-tap download of the smallest ungated catalog model so on-device AI
+ * works right after onboarding; it auto-selects when the download lands.
+ */
+@Composable
+private fun StarterModelDownload(repository: SettingsRepository, settings: KeyboardSettings) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val filesDir = context.filesDir
+    val model = remember { LocalLlmCatalog.models.first { !it.gated } }
+    val states by LocalLlmDownloadManager.states.collectAsState()
+    val status = states[model.id] ?: LocalLlmDownloadManager.DownloadStatus.NotDownloaded
+
+    LaunchedEffect(Unit) { LocalLlmDownloadManager.refresh(filesDir) }
+    LaunchedEffect(status) {
+        if (status is LocalLlmDownloadManager.DownloadStatus.Downloaded &&
+            settings.aiLocalModelId.isBlank()
+        ) {
+            repository.setAiLocalModelId(model.id)
+        }
+    }
+
+    ListItem(
+        headlineContent = { Text("${model.displayName} — starter model") },
+        supportingContent = {
+            when (status) {
+                is LocalLlmDownloadManager.DownloadStatus.Downloading -> Column {
+                    val progress = if (status.total > 0) {
+                        (status.bytes.toFloat() / status.total).coerceIn(0f, 1f)
+                    } else null
+                    if (progress != null) {
+                        LinearProgressIndicator(
+                            progress = { progress },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 6.dp),
+                        )
+                    } else {
+                        LinearProgressIndicator(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 6.dp),
+                        )
+                    }
+                }
+                is LocalLlmDownloadManager.DownloadStatus.Downloaded ->
+                    Text("Downloaded — AI now runs fully on this phone")
+                is LocalLlmDownloadManager.DownloadStatus.Failed -> Text(status.message)
+                else -> Text(
+                    "${formatBytes(model.sizeBytes)} · runs offline, nothing " +
+                        "leaves the phone. Bigger models are under Tools → AI.",
+                )
+            }
+        },
+        trailingContent = {
+            when (status) {
+                is LocalLlmDownloadManager.DownloadStatus.Downloaded ->
+                    Icon(Icons.Outlined.Check, contentDescription = "Downloaded")
+                is LocalLlmDownloadManager.DownloadStatus.Downloading ->
+                    TextButton(onClick = { LocalLlmDownloadManager.cancel() }) { Text("Cancel") }
+                else -> TextButton(
+                    onClick = { LocalLlmDownloadManager.start(filesDir, model, settings.hfToken) },
+                    enabled = !LocalLlmDownloadManager.isBusy,
+                ) {
+                    Text(
+                        if (status is LocalLlmDownloadManager.DownloadStatus.Paused) {
+                            "Resume"
+                        } else "Download",
+                    )
+                }
+            }
+        },
+    )
 }
 
 @Composable

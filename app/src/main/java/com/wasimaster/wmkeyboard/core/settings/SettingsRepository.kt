@@ -148,11 +148,20 @@ val RecommendedTools: Set<ToolbarTool> = setOf(
     ToolbarTool.WEB_SEARCH, ToolbarTool.DICTIONARY, ToolbarTool.CALCULATOR, ToolbarTool.ONE_HANDED,
 )
 
-/** Backend for the AI tool — cloud APIs (bring your own key) or a self-hosted server. */
+/**
+ * Backend for the AI tool — cloud APIs (bring your own key), a self-hosted
+ * server, or a model running entirely on this device (full builds only).
+ */
 enum class AiProvider(val label: String) {
     ANTHROPIC("Claude"), OPENAI("OpenAI"), GEMINI("Gemini"),
-    OLLAMA("Ollama"), LM_STUDIO("LM Studio"),
+    OLLAMA("Ollama"), LM_STUDIO("LM Studio"), ON_DEVICE("On-device"),
 }
+
+/**
+ * Compute backend for on-device AI models. GPU is best-effort: the engine
+ * falls back to CPU when GPU initialization fails on this device.
+ */
+enum class LocalLlmBackend(val label: String) { CPU("CPU"), GPU("GPU") }
 
 /** One-tap writing actions on the AI tool's panel. */
 enum class AiAction(val label: String) {
@@ -575,6 +584,22 @@ data class KeyboardSettings(
     val aiPromptFixGrammar: String = "",
     val aiPromptExplain: String = "",
     val aiPromptContinue: String = "",
+    /**
+     * Selected on-device model: a LocalLlmCatalog id, or "custom:<fileName>"
+     * for an imported file. Blank = none selected.
+     */
+    val aiLocalModelId: String = "",
+    val aiLocalBackend: LocalLlmBackend = LocalLlmBackend.CPU,
+    /** Hugging Face access token — only needed to download gated models (Gemma). */
+    val hfToken: String = "",
+    /**
+     * Show reasoning models' <think> passages verbatim while they stream.
+     * Off (default) hides them behind a "reasoning" progress bar and strips
+     * them from the result.
+     */
+    val aiShowThinking: Boolean = false,
+    /** Show a model/provider switcher row on the AI panel itself. */
+    val aiPanelModelPicker: Boolean = true,
 )
 
 /**
@@ -783,6 +808,11 @@ class SettingsRepository(private val context: Context) {
         private val AI_PROMPT_FIX_GRAMMAR = stringPreferencesKey("ai_prompt_fix_grammar")
         private val AI_PROMPT_EXPLAIN = stringPreferencesKey("ai_prompt_explain")
         private val AI_PROMPT_CONTINUE = stringPreferencesKey("ai_prompt_continue")
+        private val AI_LOCAL_MODEL_ID = stringPreferencesKey("ai_local_model_id")
+        private val AI_LOCAL_BACKEND = stringPreferencesKey("ai_local_backend")
+        private val HF_TOKEN = stringPreferencesKey("hf_token")
+        private val AI_SHOW_THINKING = booleanPreferencesKey("ai_show_thinking")
+        private val AI_PANEL_MODEL_PICKER = booleanPreferencesKey("ai_panel_model_picker")
     }
 
     val settings: Flow<KeyboardSettings> = context.dataStore.data.map { p ->
@@ -1051,6 +1081,13 @@ class SettingsRepository(private val context: Context) {
             aiPromptFixGrammar = p[AI_PROMPT_FIX_GRAMMAR] ?: defaults.aiPromptFixGrammar,
             aiPromptExplain = p[AI_PROMPT_EXPLAIN] ?: defaults.aiPromptExplain,
             aiPromptContinue = p[AI_PROMPT_CONTINUE] ?: defaults.aiPromptContinue,
+            aiLocalModelId = p[AI_LOCAL_MODEL_ID] ?: defaults.aiLocalModelId,
+            aiLocalBackend = p[AI_LOCAL_BACKEND]
+                ?.let { runCatching { LocalLlmBackend.valueOf(it) }.getOrNull() }
+                ?: defaults.aiLocalBackend,
+            hfToken = p[HF_TOKEN] ?: defaults.hfToken,
+            aiShowThinking = p[AI_SHOW_THINKING] ?: defaults.aiShowThinking,
+            aiPanelModelPicker = p[AI_PANEL_MODEL_PICKER] ?: defaults.aiPanelModelPicker,
         )
     }
 
@@ -1826,4 +1863,19 @@ class SettingsRepository(private val context: Context) {
             }
             it[key] = value
         }
+
+    suspend fun setAiLocalModelId(value: String) =
+        context.dataStore.edit { it[AI_LOCAL_MODEL_ID] = value }
+
+    suspend fun setAiLocalBackend(value: LocalLlmBackend) =
+        context.dataStore.edit { it[AI_LOCAL_BACKEND] = value.name }
+
+    suspend fun setHfToken(value: String) =
+        context.dataStore.edit { it[HF_TOKEN] = value.trim() }
+
+    suspend fun setAiShowThinking(value: Boolean) =
+        context.dataStore.edit { it[AI_SHOW_THINKING] = value }
+
+    suspend fun setAiPanelModelPicker(value: Boolean) =
+        context.dataStore.edit { it[AI_PANEL_MODEL_PICKER] = value }
 }

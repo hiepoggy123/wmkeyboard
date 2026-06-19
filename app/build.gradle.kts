@@ -60,12 +60,14 @@ android {
             buildConfigField("Boolean", "ENABLE_ML_KIT_HANDWRITING", "true")
             buildConfigField("Boolean", "ENABLE_ML_KIT_SCANNERS", "true")
             buildConfigField("Boolean", "ENABLE_GRAMMAR", "true")
+            buildConfigField("Boolean", "ENABLE_LOCAL_LLM", "true")
         }
         create("lite") {
             dimension = "capabilities"
             buildConfigField("Boolean", "ENABLE_ML_KIT_HANDWRITING", "false")
             buildConfigField("Boolean", "ENABLE_ML_KIT_SCANNERS", "false")
             buildConfigField("Boolean", "ENABLE_GRAMMAR", "false")
+            buildConfigField("Boolean", "ENABLE_LOCAL_LLM", "false")
         }
     }
 
@@ -133,6 +135,9 @@ dependencies {
     "fullImplementation"(libs.mlkit.text.recognition)
     "fullImplementation"(libs.mlkit.barcode.scanning)
     "fullImplementation"(libs.mlkit.document.scanner)
+
+    // On-device LLM runtime (full flavor only)
+    "fullImplementation"(libs.litertlm.android)
 
     implementation(libs.coil.compose)
     implementation(libs.coil.gif)
