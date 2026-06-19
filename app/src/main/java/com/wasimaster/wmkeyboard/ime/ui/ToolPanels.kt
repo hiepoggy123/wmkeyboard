@@ -90,6 +90,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.wasimaster.wmkeyboard.core.settings.HapticStyle
 import com.wasimaster.wmkeyboard.core.settings.KeySoundStyle
+import com.wasimaster.wmkeyboard.app.ThemePreview
 import com.wasimaster.wmkeyboard.core.theme.BuiltInThemes
 import com.wasimaster.wmkeyboard.core.theme.DEFAULT_THEME_ID
 import com.wasimaster.wmkeyboard.core.tools.CalendarSystems
@@ -595,7 +596,9 @@ internal fun WeatherPanel(
     onRefresh: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
-    val height = keyRowsHeight(state.settings)
+    // Taller than the key rows (the window grows upward, like the AI tool)
+    // so the whole stat grid fits without scrolling.
+    val height = keyRowsHeight(state.settings) + 120.dp
     val kb = LocalKbTheme.current
     Box(
         modifier = Modifier
@@ -1054,10 +1057,12 @@ private fun InsertChip(label: String, onClick: () -> Unit) {
 // ---- themes ----
 
 /**
- * Quick theme switcher: a two-column scrolling grid of swatches — the
- * default (dynamic) theme, every built-in and every custom theme. Tap to
- * apply immediately. The Auto swatch previews what the default id would
- * resolve to (device dynamic colors), not the currently active theme.
+ * Quick theme switcher: a two-column scrolling grid of miniature keyboard
+ * previews (the same [ThemePreview] drawing the settings app uses, so
+ * gradients, images and key shapes all show) — the default (dynamic) theme,
+ * every built-in and every custom theme. Tap to apply immediately. The Auto
+ * swatch previews what the default id would resolve to (device dynamic
+ * colors), not the currently active theme.
  */
 @Composable
 internal fun ThemesPanel(
@@ -1094,64 +1099,51 @@ internal fun ThemesPanel(
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             item(key = DEFAULT_THEME_ID) {
-                ThemeSwatch(
+                ThemeCard(
                     name = "Auto",
-                    board = auto.board,
-                    key = auto.key,
-                    accent = auto.accent,
                     selected = selectedId == DEFAULT_THEME_ID,
-                ) { onThemeSelect(DEFAULT_THEME_ID) }
+                    nameOnDark = auto.board.luminance() < 0.5f,
+                    onClick = { onThemeSelect(DEFAULT_THEME_ID) },
+                ) { AutoThemePreview(auto) }
             }
             items(themes, key = { it.id }) { theme ->
-                ThemeSwatch(
+                ThemeCard(
                     name = theme.name,
-                    board = Color(theme.boardBackground.toInt()),
-                    key = Color(theme.keyBackground.toInt()),
-                    accent = Color(theme.accent.toInt()),
                     selected = selectedId == theme.id,
-                ) { onThemeSelect(theme.id) }
+                    nameOnDark = Color(theme.boardBackground.toInt()).luminance() < 0.5f,
+                    onClick = { onThemeSelect(theme.id) },
+                ) { ThemePreview(theme) }
             }
         }
     }
 }
 
-/** Mini preview card: board color with two key rects and the accent dot. */
+/** Selection border + name overlay around a miniature keyboard preview. */
 @Composable
-private fun ThemeSwatch(
+private fun ThemeCard(
     name: String,
-    board: Color,
-    key: Color,
-    accent: Color,
     selected: Boolean,
+    nameOnDark: Boolean,
     onClick: () -> Unit,
+    preview: @Composable () -> Unit,
 ) {
     val kb = LocalKbTheme.current
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(58.dp)
-            .clip(RoundedCornerShape(12.dp))
-            .background(board)
+            .clip(RoundedCornerShape(10.dp))
             .then(
-                if (selected) Modifier.border(2.dp, kb.accent, RoundedCornerShape(12.dp))
-                else Modifier.border(1.dp, kb.divider, RoundedCornerShape(12.dp))
+                if (selected) Modifier.border(2.dp, kb.accent, RoundedCornerShape(10.dp))
+                else Modifier.border(1.dp, kb.divider, RoundedCornerShape(10.dp))
             )
             .clickable(onClick = onClick),
     ) {
-        Row(
-            modifier = Modifier.align(Alignment.Center),
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Box(Modifier.size(width = 20.dp, height = 13.dp).clip(RoundedCornerShape(3.dp)).background(key))
-            Box(Modifier.size(width = 20.dp, height = 13.dp).clip(RoundedCornerShape(3.dp)).background(key))
-            Box(Modifier.size(13.dp).clip(CircleShape).background(accent))
-        }
-        // Name on the swatch itself, tinted for its board — labels under
+        preview()
+        // Name on the preview itself, tinted for its board — labels under
         // the cards read as clutter in a dense grid.
         Text(
             name,
-            color = if (board.luminance() < 0.5f) Color.White.copy(alpha = 0.85f)
+            color = if (nameOnDark) Color.White.copy(alpha = 0.85f)
                 else Color.Black.copy(alpha = 0.75f),
             fontSize = 10.sp,
             maxLines = 1,
@@ -1160,6 +1152,72 @@ private fun ThemeSwatch(
                 .align(Alignment.BottomStart)
                 .padding(start = 8.dp, bottom = 4.dp),
         )
+    }
+}
+
+/**
+ * Miniature keyboard drawn from the resolved dynamic colors — the Auto
+ * entry has no ThemeSpec to hand to [ThemePreview], so it mirrors that
+ * layout from the live [KbTheme] values.
+ */
+@Composable
+private fun AutoThemePreview(auto: KbTheme) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(92.dp)
+            .background(auto.board)
+            .padding(horizontal = 8.dp, vertical = 6.dp),
+        verticalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+            repeat(3) {
+                Box(
+                    modifier = Modifier
+                        .size(11.dp)
+                        .background(auto.toolCircle, CircleShape),
+                )
+            }
+        }
+        repeat(2) {
+            Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                repeat(8) {
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(14.dp)
+                            .background(auto.key, RoundedCornerShape(4.dp)),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(4.dp)
+                                .background(auto.keyText, CircleShape),
+                        )
+                    }
+                }
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+            Box(
+                modifier = Modifier
+                    .weight(1.4f)
+                    .height(14.dp)
+                    .background(auto.modifierKey, RoundedCornerShape(4.dp)),
+            )
+            Box(
+                modifier = Modifier
+                    .weight(3.6f)
+                    .height(14.dp)
+                    .background(auto.key, RoundedCornerShape(4.dp)),
+            )
+            Box(
+                modifier = Modifier
+                    .weight(1.4f)
+                    .height(14.dp)
+                    .background(auto.accent, RoundedCornerShape(4.dp)),
+            )
+        }
     }
 }
 

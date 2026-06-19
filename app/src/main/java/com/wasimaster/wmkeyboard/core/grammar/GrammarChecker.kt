@@ -62,6 +62,16 @@ object GrammarChecker {
                 val raw = HarperNative.nativeLint(text, dialectOrdinal) ?: return@runCatching emptyList()
                 json.decodeFromString<List<GrammarLint>>(raw)
                     .filter { it.start in 0..it.end && it.end <= text.length }
+                    // Harper can emit the same fix twice for one span (e.g.
+                    // "they're" and "they're "), which renders as identical
+                    // chips; whitespace-insensitive dedupe keeps one.
+                    .map { lint ->
+                        lint.copy(
+                            suggestions = lint.suggestions
+                                .distinctBy { it.kind to it.text?.trim() },
+                        )
+                    }
+                    .distinct()
             }.getOrDefault(emptyList())
         }
     }
@@ -70,11 +80,31 @@ object GrammarChecker {
     fun apply(text: String, lint: GrammarLint, fix: GrammarFix): String {
         if (lint.end > text.length) return text
         return when (fix.kind) {
-            "replace" -> text.replaceRange(lint.start, lint.end, fix.text.orEmpty())
+            "replace" -> text.replaceRange(
+                lint.start, lint.end,
+                trimOverlap(fix.text.orEmpty(), text, lint.start, lint.end),
+            )
             "remove" -> text.removeRange(lint.start, lint.end)
             "insertAfter" -> text.substring(0, lint.end) + fix.text.orEmpty() + text.substring(lint.end)
             else -> text
         }
+    }
+
+    /**
+     * Harper sometimes pads a replacement with whitespace the text already
+     * has around the span ("they're " next to a following space), which
+     * lands as a doubled space. Drop the padding that duplicates what is
+     * already adjacent.
+     */
+    private fun trimOverlap(replacement: String, text: String, start: Int, end: Int): String {
+        var result = replacement
+        while (result.endsWith(' ') && text.getOrNull(end) == ' ') {
+            result = result.dropLast(1)
+        }
+        while (result.startsWith(' ') && start > 0 && text[start - 1] == ' ') {
+            result = result.drop(1)
+        }
+        return result
     }
 
     /**

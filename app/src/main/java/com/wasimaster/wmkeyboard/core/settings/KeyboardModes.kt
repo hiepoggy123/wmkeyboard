@@ -64,6 +64,31 @@ object KeyboardModeCodec {
     fun decodeList(json: String): List<KeyboardMode> =
         runCatching { modeJson.decodeFromString<List<KeyboardMode>>(json) }
             .getOrDefault(emptyList())
+            .map(::migrateMode)
+
+    /** App list the browser mode used to ship with (now field-bound only). */
+    private val legacyBrowserApps = listOf(
+        "com.android.chrome",
+        "org.mozilla.firefox",
+        "com.brave.browser",
+        "com.microsoft.emmx",
+        "com.opera.browser",
+        "com.sec.android.app.sbrowser",
+        "com.duckduckgo.mobile.android",
+    )
+
+    /**
+     * Stored copies of the seeded browser mode keep the old app bindings
+     * forever; drop them when they are exactly the old default so the mode
+     * becomes URL-field-only like a fresh install. A user-edited app list
+     * is left alone.
+     */
+    private fun migrateMode(mode: KeyboardMode): KeyboardMode =
+        if (mode.id == "mode_browser" && mode.apps == legacyBrowserApps) {
+            mode.copy(apps = emptyList())
+        } else {
+            mode
+        }
 }
 
 /**
@@ -96,20 +121,14 @@ val DefaultKeyboardModes: List<KeyboardMode> = listOf(
         ),
         fieldKinds = listOf(ModeField.EMAIL),
     ),
+    // Field-bound only: most typing in a browser is ordinary text (search
+    // boxes, forms, web apps) — the web symbol set should kick in just for
+    // the address bar, so no app bindings here.
     KeyboardMode(
         id = "mode_browser",
         name = "Browser",
         symbolRowEnabled = true,
         symbolSetIds = listOf(BuiltInSymbolSets.WEB_ID),
-        apps = listOf(
-            "com.android.chrome",
-            "org.mozilla.firefox",
-            "com.brave.browser",
-            "com.microsoft.emmx",
-            "com.opera.browser",
-            "com.sec.android.app.sbrowser",
-            "com.duckduckgo.mobile.android",
-        ),
         fieldKinds = listOf(ModeField.URL),
     ),
     KeyboardMode(

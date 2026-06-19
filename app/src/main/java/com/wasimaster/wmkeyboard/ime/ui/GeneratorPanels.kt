@@ -121,27 +121,13 @@ internal fun PasswordPanel(
         PasswordGen.passwordEntropyBits(passwordSpec)
     }
 
+    // The Password/Passphrase tabs live in the FullBleedTool header next to
+    // the back button; the body starts at the generated result.
     Column(
         modifier = Modifier
-            .fillMaxWidth()
-            .height(keyRowsHeight(state.settings))
+            .fillMaxSize()
             .padding(horizontal = 8.dp, vertical = 3.dp),
     ) {
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            ToolPanelChip("Password", selected = !passphraseMode) {
-                onSetting(PwSettingAction.PassphraseMode(false))
-            }
-            ToolPanelChip("Passphrase", selected = passphraseMode) {
-                onSetting(PwSettingAction.PassphraseMode(true))
-            }
-            Spacer(Modifier.weight(1f))
-            Text(
-                "≈$entropy bits",
-                color = kb.secondaryText,
-                fontSize = 11.sp,
-                modifier = Modifier.align(Alignment.CenterVertically),
-            )
-        }
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -171,6 +157,14 @@ internal fun PasswordPanel(
             Spacer(Modifier.width(4.dp))
             ToolPanelChip("Insert") { if (generated.isNotEmpty()) onInsert(generated) }
         }
+        Text(
+            "≈$entropy bits of entropy",
+            color = kb.secondaryText,
+            fontSize = 11.sp,
+            modifier = Modifier
+                .align(Alignment.End)
+                .padding(bottom = 2.dp),
+        )
         Column(
             modifier = Modifier
                 .weight(1f)

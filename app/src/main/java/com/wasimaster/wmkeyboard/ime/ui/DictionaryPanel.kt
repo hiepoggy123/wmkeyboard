@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -52,66 +53,73 @@ import com.wasimaster.wmkeyboard.ime.KeyboardUiState
  * serif display face for the headword — dictionary typography, not
  * keyboard typography.
  */
+/**
+ * Header-row search field for the full-bleed dictionary: sits next to the
+ * back button and takes the row's free width. Tapping it routes the key
+ * rows into the query, like emoji search.
+ */
 @Composable
-internal fun DictionaryPanel(
+internal fun RowScope.DictionaryHeaderSearchBar(
     state: KeyboardUiState,
     onSearchToggle: () -> Unit,
     onLookup: (String) -> Unit,
-    onInsert: (String) -> Unit,
 ) {
     val kb = LocalKbTheme.current
-    // While searching the panel shrinks so the key rows fit underneath.
-    val height = if (state.dictionarySearchActive) 56.dp else keyRowsHeight(state.settings)
-
-    Column(
+    Row(
         modifier = Modifier
-            .fillMaxWidth()
-            .height(height),
+            .weight(1f)
+            .padding(start = 6.dp, end = 4.dp)
+            .clip(RoundedCornerShape(18.dp))
+            .background(kb.chip)
+            .clickable { onSearchToggle() }
+            .padding(start = 12.dp, end = 4.dp, top = 2.dp, bottom = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 4.dp)
-                .clip(RoundedCornerShape(20.dp))
-                .background(kb.chip)
-                .clickable { onSearchToggle() }
-                .padding(start = 12.dp, end = 4.dp, top = 2.dp, bottom = 2.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(
-                Icons.Outlined.Search,
-                contentDescription = null,
-                modifier = Modifier.size(18.dp),
-                tint = kb.toolbarIcon,
-            )
-            Spacer(Modifier.width(8.dp))
-            Text(
-                text = when {
-                    state.dictionaryQuery.isNotEmpty() -> state.dictionaryQuery
-                    state.dictionarySearchActive -> "Type a word…"
-                    else -> "Look up a word…"
-                },
-                color = if (state.dictionaryQuery.isEmpty()) kb.toolbarIcon else kb.modifierKeyText,
-                fontSize = 14.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f),
-            )
-            if (state.dictionarySearchActive) {
-                IconButton(
-                    onClick = { onLookup(state.dictionaryQuery) },
-                    modifier = Modifier.size(36.dp),
-                ) {
-                    Icon(
-                        Icons.AutoMirrored.Outlined.ArrowForward,
-                        contentDescription = "Look up",
-                        modifier = Modifier.size(18.dp),
-                        tint = kb.accent,
-                    )
-                }
+        Icon(
+            Icons.Outlined.Search,
+            contentDescription = null,
+            modifier = Modifier.size(16.dp),
+            tint = kb.toolbarIcon,
+        )
+        Spacer(Modifier.width(8.dp))
+        Text(
+            text = when {
+                state.dictionaryQuery.isNotEmpty() -> state.dictionaryQuery
+                state.dictionarySearchActive -> "Type a word…"
+                else -> "Look up a word…"
+            },
+            color = if (state.dictionaryQuery.isEmpty()) kb.toolbarIcon else kb.modifierKeyText,
+            fontSize = 13.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+        if (state.dictionarySearchActive) {
+            IconButton(
+                onClick = { onLookup(state.dictionaryQuery) },
+                modifier = Modifier.size(30.dp),
+            ) {
+                Icon(
+                    Icons.AutoMirrored.Outlined.ArrowForward,
+                    contentDescription = "Look up",
+                    modifier = Modifier.size(16.dp),
+                    tint = kb.accent,
+                )
             }
         }
-        if (state.dictionarySearchActive) return@Column
+    }
+}
+
+@Composable
+internal fun DictionaryPanel(
+    state: KeyboardUiState,
+    onLookup: (String) -> Unit,
+    onInsert: (String) -> Unit,
+) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        // While searching the wrapper collapses to just the header; the
+        // body would only flash clipped content, so skip it.
+        if (state.dictionarySearchActive) return@Box
 
         when (val dict = state.dictionary) {
             DictionaryUi.Idle -> DictionaryMessage(

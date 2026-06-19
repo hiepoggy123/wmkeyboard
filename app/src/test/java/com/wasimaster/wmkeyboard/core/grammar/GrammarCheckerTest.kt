@@ -30,6 +30,27 @@ class GrammarCheckerTest {
     }
 
     @Test
+    fun `trailing space in replacement does not double the existing space`() {
+        val text = "their not liking things"
+        val fixed = GrammarChecker.apply(text, lint(0, 5), GrammarFix("replace", "they're "))
+        assertEquals("they're not liking things", fixed)
+    }
+
+    @Test
+    fun `leading space in replacement does not double the existing space`() {
+        val text = "liking their things"
+        val fixed = GrammarChecker.apply(text, lint(7, 12), GrammarFix("replace", " they're"))
+        assertEquals("liking they're things", fixed)
+    }
+
+    @Test
+    fun `replacement whitespace is kept when nothing adjacent duplicates it`() {
+        val text = "their"
+        val fixed = GrammarChecker.apply(text, lint(0, 5), GrammarFix("replace", "they're "))
+        assertEquals("they're ", fixed)
+    }
+
+    @Test
     fun `out of bounds lint is a no-op`() {
         val text = "short"
         assertEquals(text, GrammarChecker.apply(text, lint(2, 99), GrammarFix("replace", "x")))

@@ -2603,7 +2603,12 @@ private fun importFontFile(context: Context, uri: android.net.Uri, dest: java.io
  * (or a caption) doesn't earn the icon.
  */
 private fun toolHasOptions(tool: ToolbarTool): Boolean =
-    tool !in setOf(ToolbarTool.UNIT_CONVERT, ToolbarTool.SETTINGS)
+    tool !in setOf(
+        ToolbarTool.UNIT_CONVERT, ToolbarTool.SETTINGS,
+        // Quick toggles/panels, not tools with settings of their own —
+        // their options all live elsewhere (Appearance, Typing).
+        ToolbarTool.THEMES, ToolbarTool.SOUND_HAPTICS, ToolbarTool.ONE_HANDED,
+    )
 
 internal fun toolTitle(tool: ToolbarTool): String = when (tool) {
     ToolbarTool.EMOJI -> "Emoji"

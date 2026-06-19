@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -110,62 +111,65 @@ private fun KeypadButton(
  * online — fractions, math operators, Greek, arrows and friends. Tapping a
  * symbol types it and files it under Recents.
  */
+/**
+ * Category chips for the symbols tool, living in the [FullBleedTool] header
+ * next to the back button (the reclaimed toolbar row's blank space does the
+ * navigation work).
+ */
 @Composable
-internal fun SymbolsPanel(
+internal fun RowScope.SymbolCategoryChips(
     state: KeyboardUiState,
-    onSymbol: (String) -> Unit,
+    selected: String,
+    onSelect: (String) -> Unit,
 ) {
-    val kb = LocalKbTheme.current
     val recents = state.settings.symbolRecents
     val categoryNames = buildList {
         if (recents.isNotEmpty()) add("Recents")
         SymbolCatalog.categories.forEach { add(it.name) }
     }
-    var selected by rememberSaveable(recents.isNotEmpty()) {
-        mutableStateOf(if (recents.isNotEmpty()) "Recents" else categoryNames.first())
-    }
-    val symbols = if (selected == "Recents") recents
-    else SymbolCatalog.categories.firstOrNull { it.name == selected }?.symbols.orEmpty()
-
-    // The symbol row hides while this panel is open; absorbing its height
-    // here keeps the keyboard from resizing on panel switches.
-    val barCompensation = if (state.settings.symbolRowEnabled) SymbolRowHeight else 0.dp
-    Column(
+    Row(
         modifier = Modifier
-            .fillMaxWidth()
-            .height(keyRowsHeight(state.settings) + barCompensation),
+            .weight(1f)
+            .horizontalScroll(rememberScrollState())
+            .padding(horizontal = 6.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState())
-                .padding(horizontal = 8.dp, vertical = 4.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            for (name in categoryNames) {
-                ToolPanelChip(name, selected = name == selected) { selected = name }
-            }
+        for (name in categoryNames) {
+            ToolPanelChip(name, selected = name == selected) { onSelect(name) }
         }
-        LazyVerticalGrid(
-            columns = GridCells.Adaptive(minSize = 44.dp),
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
-        ) {
-            items(symbols, key = { it }) { symbol ->
-                Box(
-                    modifier = Modifier
-                        .height(42.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .clickable { onSymbol(symbol) },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    val label = SymbolCatalog.label(symbol)
-                    Text(
-                        label,
-                        color = kb.keyText,
-                        fontSize = if (label.length > 2) 11.sp else 20.sp,
-                    )
-                }
+    }
+}
+
+@Composable
+internal fun SymbolsPanel(
+    state: KeyboardUiState,
+    onSymbol: (String) -> Unit,
+    selectedCategory: String,
+) {
+    val kb = LocalKbTheme.current
+    val recents = state.settings.symbolRecents
+    val symbols = if (selectedCategory == "Recents") recents
+    else SymbolCatalog.categories.firstOrNull { it.name == selectedCategory }?.symbols.orEmpty()
+
+    LazyVerticalGrid(
+        columns = GridCells.Adaptive(minSize = 44.dp),
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+    ) {
+        items(symbols, key = { it }) { symbol ->
+            Box(
+                modifier = Modifier
+                    .height(42.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable { onSymbol(symbol) },
+                contentAlignment = Alignment.Center,
+            ) {
+                val label = SymbolCatalog.label(symbol)
+                Text(
+                    label,
+                    color = kb.keyText,
+                    fontSize = if (label.length > 2) 11.sp else 20.sp,
+                )
             }
         }
     }

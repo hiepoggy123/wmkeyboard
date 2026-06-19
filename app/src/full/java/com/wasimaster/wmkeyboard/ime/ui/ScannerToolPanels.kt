@@ -123,7 +123,7 @@ internal fun OcrPanel(
     onRequestPermission: () -> Unit,
     onClose: () -> Unit,
 ) {
-    val height = keyRowsHeight(state.settings) + TopBarHeight
+    val height = keyRowsHeight(state.settings) + fullBleedHiddenRows(state.settings)
     val context = LocalContext.current
 
     var hasPermission by remember { mutableStateOf(hasCameraPermission(context)) }
@@ -535,7 +535,10 @@ internal fun QrScanPanel(
     onRequestPermission: () -> Unit,
     onClose: () -> Unit,
 ) {
-    val height = keyRowsHeight(state.settings)
+    // Full-bleed like the OCR tool: the toolbar hides, the viewfinder
+    // absorbs its height and the back button sits at the very top instead
+    // of below a blank strip.
+    val height = keyRowsHeight(state.settings) + fullBleedHiddenRows(state.settings)
     val context = LocalContext.current
 
     var hasPermission by remember { mutableStateOf(hasCameraPermission(context)) }

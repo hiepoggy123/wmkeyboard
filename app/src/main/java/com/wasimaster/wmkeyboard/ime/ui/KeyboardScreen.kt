@@ -25,6 +25,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
@@ -80,7 +81,6 @@ import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.ChevronLeft
 import androidx.compose.material.icons.outlined.ChevronRight
-import androidx.compose.material.icons.outlined.CloseFullscreen
 import androidx.compose.material.icons.outlined.ContentPaste
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.DarkMode
@@ -100,7 +100,7 @@ import androidx.compose.material.icons.outlined.Fastfood
 import androidx.compose.material.icons.outlined.Fullscreen
 import androidx.compose.material.icons.outlined.GridView
 import androidx.compose.material.icons.outlined.Language
-import androidx.compose.material.icons.outlined.OpenInFull
+import androidx.compose.material.icons.outlined.VerticalAlignBottom
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Pets
 import androidx.compose.material.icons.outlined.DocumentScanner
@@ -173,6 +173,7 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameMillis
 import androidx.compose.runtime.staticCompositionLocalOf
@@ -189,6 +190,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
@@ -275,6 +277,8 @@ import com.wasimaster.wmkeyboard.ime.hasMediaSearch
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
 import com.wasimaster.wmkeyboard.ime.LayoutMode
 import com.wasimaster.wmkeyboard.ime.PanelMode
+import com.wasimaster.wmkeyboard.core.tools.SymbolCatalog
+import com.wasimaster.wmkeyboard.core.tools.ToolApiKeys
 import com.wasimaster.wmkeyboard.ime.PwSettingAction
 import com.wasimaster.wmkeyboard.ime.SoundHapticAction
 import com.wasimaster.wmkeyboard.ime.TextEditAction
@@ -828,9 +832,11 @@ private fun FloatingHandleBar(
             .height(30.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        // A "send it back down" arrow: CloseFullscreen here read as
+        // "shrink", when docking actually returns the full-width keyboard.
         IconButton(onClick = onDock, modifier = Modifier.size(30.dp)) {
             Icon(
-                Icons.Outlined.CloseFullscreen,
+                Icons.Outlined.VerticalAlignBottom,
                 contentDescription = "Dock keyboard",
                 modifier = Modifier.size(16.dp),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -877,12 +883,29 @@ private fun FloatingHandleBar(
                 },
             contentAlignment = Alignment.Center,
         ) {
-            Icon(
-                Icons.Outlined.OpenInFull,
-                contentDescription = "Resize keyboard",
-                modifier = Modifier.size(14.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            // Classic grip lines instead of OpenInFull, whose diagonal
+            // arrows read as a "go fullscreen" button rather than a
+            // drag-to-resize handle.
+            val gripColor = MaterialTheme.colorScheme.onSurfaceVariant
+            Canvas(
+                modifier = Modifier
+                    .size(14.dp)
+                    .semantics { contentDescription = "Resize keyboard" },
+            ) {
+                val stroke = 1.5.dp.toPx()
+                drawLine(
+                    gripColor,
+                    Offset(size.width * 0.15f, size.height),
+                    Offset(size.width, size.height * 0.15f),
+                    stroke, cap = StrokeCap.Round,
+                )
+                drawLine(
+                    gripColor,
+                    Offset(size.width * 0.6f, size.height),
+                    Offset(size.width, size.height * 0.6f),
+                    stroke, cap = StrokeCap.Round,
+                )
+            }
         }
     }
 }
@@ -1299,7 +1322,11 @@ private fun SymbolRowStrip(
  * the settings app (long-press the tool).
  */
 @Composable
-private fun ModesPanel(state: KeyboardUiState, onModeSelect: (String?) -> Unit) {
+private fun ModesPanel(
+    state: KeyboardUiState,
+    onModeSelect: (String?) -> Unit,
+    onOpenSettings: () -> Unit,
+) {
     val height = keyRowsHeight(state.settings)
     val modes = state.settings.keyboardModes
     Column(
@@ -1308,20 +1335,39 @@ private fun ModesPanel(state: KeyboardUiState, onModeSelect: (String?) -> Unit) 
             .height(height),
     ) {
         if (modes.isEmpty()) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+            ) {
                 Text(
                     "No modes yet — create one in Settings → Modes.",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                Spacer(Modifier.height(10.dp))
+                ToolPanelChip("Mode settings", selected = true, onClick = onOpenSettings)
             }
             return@Column
         }
-        Text(
-            "Long-press the tool to edit modes. A manual pick lasts until you switch apps.",
-            fontSize = 12.sp,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp),
-        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 20.dp, end = 8.dp, top = 4.dp, bottom = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                "A manual pick lasts until you switch apps.",
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.weight(1f),
+            )
+            ToolCircle(
+                icon = Icons.Outlined.Settings,
+                description = "Mode settings",
+                active = false,
+                onClick = onOpenSettings,
+            )
+        }
         LazyColumn(modifier = Modifier.weight(1f)) {
             item {
                 ModeRow(
@@ -1631,7 +1677,10 @@ private class ToolDragController {
             // order — and off the bar first, when that's where it came from.
             if (fromToolbar) onCommit(currentTools - tool)
             onOrderCommit(orderWith(tool, box))
-        } else if (fromToolbar) {
+        } else if (fromToolbar && toolboxViewport != null) {
+            // Off-bar drops unpin only while the toolbox is open (its
+            // viewport is registered) — a reorder drag that wanders off the
+            // bar with no toolbox in sight just snaps back.
             onCommit(currentTools - tool)
         }
     }
@@ -1948,8 +1997,8 @@ private fun RowScope.ToolbarRow(
     // under the finger, so the pinned icons slide out of the way before
     // anything is committed.
     val dragTool = drag.dragging
-    val ghostSlot = if (customizing) drag.barSlot else null
-    val displayTools: List<ToolbarTool?> = if (customizing && dragTool != null) {
+    val ghostSlot = drag.barSlot
+    val displayTools: List<ToolbarTool?> = if (dragTool != null) {
         val without = tools - dragTool
         ArrayList<ToolbarTool?>(without).apply {
             if (ghostSlot != null) add(ghostSlot.coerceIn(0, without.size), null)
@@ -2031,7 +2080,10 @@ private fun RowScope.ToolbarRow(
                             modifier = Modifier.animatePlacement { drag.bodyCoords },
                         )
                     } else {
-                        DraggableTool(tool, fromToolbar = true, enabled = customizing, drag = drag) { dragModifier ->
+                        // Drag is always live: hold-and-drag reorders the bar
+                        // (or unpins into an open toolbox); a hold that never
+                        // moves opens the tool's settings page instead.
+                        DraggableTool(tool, fromToolbar = true, enabled = true, drag = drag) { dragModifier ->
                             ToolCircle(
                                 icon = toolIcon(tool),
                                 description = toolLabel(tool),
@@ -2041,13 +2093,6 @@ private fun RowScope.ToolbarRow(
                                 // widths snap, and only body-relative tracking
                                 // sees the true on-screen motion.
                                 modifier = dragModifier.animatePlacement { drag.bodyCoords },
-                                // While customizing, long-press belongs to the
-                                // drag (hold-without-drag opens settings there);
-                                // otherwise long-press goes straight to the
-                                // tool's settings page.
-                                onLongPress = if (customizing) null else {
-                                    { drag.onOpenSettings(tool) }
-                                },
                             ) { onToolTap(tool) }
                         }
                     }
@@ -2299,9 +2344,22 @@ private fun ToolboxPanel(
  * hopping to another tool mid-use — sensors, reference views, converters.
  */
 private val FullBleedPanels = setOf(
-    PanelMode.OCR, PanelMode.CALCULATOR, PanelMode.CURRENCY, PanelMode.UNIT_CONVERT,
-    PanelMode.LEVEL, PanelMode.COMPASS, PanelMode.CALENDAR, PanelMode.AI,
+    PanelMode.OCR, PanelMode.QR_SCAN, PanelMode.CALCULATOR, PanelMode.CURRENCY,
+    PanelMode.UNIT_CONVERT, PanelMode.CALENDAR, PanelMode.AI,
+    PanelMode.TRANSLATE, PanelMode.WEB_SEARCH, PanelMode.IMAGE_SEARCH,
+    PanelMode.DICTIONARY, PanelMode.SYMBOLS, PanelMode.PASSWORD_GEN,
 )
+
+/**
+ * Height of everything a full-bleed panel hides (toolbar plus any emoji or
+ * symbol row) — the panel absorbs it so opening one never resizes the
+ * keyboard window. Shared with the scanner panels, which draw their own
+ * chrome instead of using [FullBleedTool].
+ */
+internal fun fullBleedHiddenRows(settings: KeyboardSettings): Dp =
+    TopBarHeight +
+        (if (settings.emojiBarMode == EmojiBarMode.ALWAYS) EmojiBarHeight else 0.dp) +
+        (if (settings.symbolRowEnabled) SymbolRowHeight else 0.dp)
 
 /**
  * Chrome for a full-bleed tool: a slim header (back button + tool name)
@@ -2316,21 +2374,30 @@ private fun FullBleedTool(
     title: String,
     onClose: () -> Unit,
     // Grows the keyboard window upward beyond the normal keyboard height —
-    // for tools (AI) whose content is worth more vertical room.
+    // for tools (AI, converters) whose content is worth more vertical room.
     extraHeight: Dp = 0.dp,
+    // While the tool's search box is being typed into, the key rows render
+    // below the panel; the panel collapses to [compactHeight] so the two
+    // fit together (same trick as the media panels' search mode).
+    compact: Boolean = false,
+    compactHeight: Dp = 132.dp,
     // Fills the header's free width (after the back button + title) with the
     // tool's own controls, so the reclaimed toolbar row does real work.
+    // With an empty [title] the actions own the whole row — search bars and
+    // tab strips sit right next to the back button.
     headerActions: (@Composable RowScope.() -> Unit)? = null,
     content: @Composable () -> Unit,
 ) {
     val kb = LocalKbTheme.current
-    val hiddenRows = TopBarHeight +
-        (if (state.settings.emojiBarMode == EmojiBarMode.ALWAYS) EmojiBarHeight else 0.dp) +
-        (if (state.settings.symbolRowEnabled) SymbolRowHeight else 0.dp)
+    val height = if (compact) {
+        compactHeight
+    } else {
+        keyRowsHeight(state.settings) + fullBleedHiddenRows(state.settings) + extraHeight
+    }
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .height(keyRowsHeight(state.settings) + hiddenRows + extraHeight),
+            .height(height),
     ) {
         Row(
             modifier = Modifier
@@ -2345,15 +2412,17 @@ private fun FullBleedTool(
                 active = false,
                 onClick = onClose,
             )
-            Text(
-                title,
-                color = kb.secondaryText,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Medium,
-                modifier = Modifier.padding(start = 8.dp),
-            )
+            if (title.isNotEmpty()) {
+                Text(
+                    title,
+                    color = kb.secondaryText,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.padding(start = 8.dp),
+                )
+            }
             if (headerActions != null) {
-                Spacer(Modifier.weight(1f))
+                if (title.isNotEmpty()) Spacer(Modifier.weight(1f))
                 headerActions()
             }
         }
@@ -2523,13 +2592,18 @@ private fun KeyboardBody(
                 PanelMode.SNIPPETS -> SnippetsPanel(state, onSnippet)
                 PanelMode.TEXT_EDIT -> TextEditPanel(state, onTextEdit)
                 PanelMode.TOOLBOX -> ToolboxPanel(state, onToolTap, onToolboxHintDismiss, drag)
-                PanelMode.COMPASS -> FullBleedTool(
-                    state, "Compass",
-                    onClose = { onPanelChange(PanelMode.COMPASS) },
+                // Regular panels (toolbar stays visible): the sensors read
+                // fine at keyboard height and the toolbar keeps tool-hopping
+                // one tap away.
+                PanelMode.COMPASS -> Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .height(keyRowsHeight(state.settings)),
                 ) { CompassPanel(state) }
-                PanelMode.LEVEL -> FullBleedTool(
-                    state, "Level",
-                    onClose = { onPanelChange(PanelMode.LEVEL) },
+                PanelMode.LEVEL -> Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .height(keyRowsHeight(state.settings)),
                 ) { LevelPanel(state) }
                 PanelMode.MOON_PHASE -> MoonPhasePanel(state)
                 PanelMode.WEATHER -> WeatherPanel(
@@ -2540,6 +2614,7 @@ private fun KeyboardBody(
                 PanelMode.CALENDAR -> FullBleedTool(
                     state, "Calendar",
                     onClose = { onPanelChange(PanelMode.CALENDAR) },
+                    extraHeight = 120.dp,
                 ) { CalendarPanel(state, onInsert = onText) }
                 PanelMode.THEMES -> ThemesPanel(state, onThemeSelect)
                 PanelMode.SOUND_HAPTICS -> SoundHapticsPanel(state, onSoundHaptic)
@@ -2594,19 +2669,46 @@ private fun KeyboardBody(
                     onLanguageSelect = onLanguageSelect,
                     onClose = { onPanelChange(PanelMode.VOICE) },
                 )
-                PanelMode.DICTIONARY -> DictionaryPanel(
-                    state = state,
-                    onSearchToggle = onDictionarySearchToggle,
-                    onLookup = onDictionaryLookup,
-                    onInsert = onDictionaryInsert,
-                )
-                PanelMode.TRANSLATE -> TranslatePanel(
-                    state = state,
-                    onQueryTap = onMediaQueryTap,
-                    onTarget = onTranslateTarget,
-                    onReplace = onTranslateReplace,
-                    onInsert = onTranslateInsert,
-                )
+                PanelMode.DICTIONARY -> FullBleedTool(
+                    state, title = "",
+                    onClose = { onPanelChange(PanelMode.DICTIONARY) },
+                    // While the query types on the key rows below, only the
+                    // header (with its search bar) needs to stay visible.
+                    compact = state.dictionarySearchActive,
+                    compactHeight = 44.dp,
+                    headerActions = {
+                        DictionaryHeaderSearchBar(
+                            state = state,
+                            onSearchToggle = onDictionarySearchToggle,
+                            onLookup = onDictionaryLookup,
+                        )
+                    },
+                ) {
+                    DictionaryPanel(
+                        state = state,
+                        onLookup = onDictionaryLookup,
+                        onInsert = onDictionaryInsert,
+                    )
+                }
+                PanelMode.TRANSLATE -> FullBleedTool(
+                    state, title = "",
+                    onClose = { onPanelChange(PanelMode.TRANSLATE) },
+                    compact = state.mediaSearchActive,
+                    headerActions = {
+                        MediaHeaderSearchBar(
+                            state = state,
+                            placeholder = "Type text to translate…",
+                            onQueryTap = onMediaQueryTap,
+                        )
+                    },
+                ) {
+                    TranslatePanel(
+                        state = state,
+                        onTarget = onTranslateTarget,
+                        onReplace = onTranslateReplace,
+                        onInsert = onTranslateInsert,
+                    )
+                }
                 PanelMode.GRAMMAR -> if (BuildConfig.ENABLE_GRAMMAR) {
                     GrammarPanel(
                         state = state,
@@ -2627,22 +2729,50 @@ private fun KeyboardBody(
                     onSourceSelect = onGifSourceSelect,
                     onOpenToolSettings = onOpenToolSettings,
                 )
-                PanelMode.WEB_SEARCH -> WebSearchPanel(
-                    state = state,
-                    onQueryTap = onMediaQueryTap,
-                    onRetry = onMediaRetry,
-                    onResult = onWebResult,
-                    onOpen = onWebResultOpen,
-                    onOpenToolSettings = onOpenToolSettings,
-                )
-                PanelMode.IMAGE_SEARCH -> ImageSearchPanel(
-                    state = state,
-                    onQueryTap = onMediaQueryTap,
-                    onRetry = onMediaRetry,
-                    onResult = onImageResult,
-                    onResultLink = onImageResultLink,
-                    onOpenToolSettings = onOpenToolSettings,
-                )
+                PanelMode.WEB_SEARCH -> FullBleedTool(
+                    state, title = "",
+                    onClose = { onPanelChange(PanelMode.WEB_SEARCH) },
+                    compact = state.mediaSearchActive,
+                    headerActions = {
+                        MediaHeaderSearchBar(
+                            state = state,
+                            placeholder = "Search the web",
+                            onQueryTap = onMediaQueryTap,
+                            attribution = "via Brave"
+                                .takeIf { ToolApiKeys.hasSearchProvider(state.settings) },
+                        )
+                    },
+                ) {
+                    WebSearchPanel(
+                        state = state,
+                        onRetry = onMediaRetry,
+                        onResult = onWebResult,
+                        onOpen = onWebResultOpen,
+                        onOpenToolSettings = onOpenToolSettings,
+                    )
+                }
+                PanelMode.IMAGE_SEARCH -> FullBleedTool(
+                    state, title = "",
+                    onClose = { onPanelChange(PanelMode.IMAGE_SEARCH) },
+                    compact = state.mediaSearchActive,
+                    headerActions = {
+                        MediaHeaderSearchBar(
+                            state = state,
+                            placeholder = "Search images",
+                            onQueryTap = onMediaQueryTap,
+                            attribution = "via Brave"
+                                .takeIf { ToolApiKeys.hasSearchProvider(state.settings) },
+                        )
+                    },
+                ) {
+                    ImageSearchPanel(
+                        state = state,
+                        onRetry = onMediaRetry,
+                        onResult = onImageResult,
+                        onResultLink = onImageResultLink,
+                        onOpenToolSettings = onOpenToolSettings,
+                    )
+                }
                 PanelMode.WIKIPEDIA -> WikipediaPanel(
                     state = state,
                     onQueryTap = onMediaQueryTap,
@@ -2653,7 +2783,28 @@ private fun KeyboardBody(
                     onLoadFull = onWikiLoadFull,
                     onInsert = onToolInsert,
                 )
-                PanelMode.SYMBOLS -> SymbolsPanel(state, onSymbolInsert)
+                PanelMode.SYMBOLS -> {
+                    // Category selection lives up here so the header chips
+                    // and the grid share it.
+                    val recents = state.settings.symbolRecents
+                    var symbolCategory by rememberSaveable(recents.isNotEmpty()) {
+                        mutableStateOf(
+                            if (recents.isNotEmpty()) "Recents"
+                            else SymbolCatalog.categories.first().name
+                        )
+                    }
+                    FullBleedTool(
+                        state, title = "",
+                        onClose = { onPanelChange(PanelMode.SYMBOLS) },
+                        headerActions = {
+                            SymbolCategoryChips(
+                                state = state,
+                                selected = symbolCategory,
+                                onSelect = { symbolCategory = it },
+                            )
+                        },
+                    ) { SymbolsPanel(state, onSymbolInsert, symbolCategory) }
+                }
                 PanelMode.CALCULATOR -> FullBleedTool(
                     state, "Calculator",
                     onClose = { onPanelChange(PanelMode.CALCULATOR) },
@@ -2661,10 +2812,12 @@ private fun KeyboardBody(
                 PanelMode.UNIT_CONVERT -> FullBleedTool(
                     state, "Unit converter",
                     onClose = { onPanelChange(PanelMode.UNIT_CONVERT) },
+                    extraHeight = 120.dp,
                 ) { UnitConverterPanel(state, onToolInsert, onUnitSelection) }
                 PanelMode.CURRENCY -> FullBleedTool(
                     state, "Currency",
                     onClose = { onPanelChange(PanelMode.CURRENCY) },
+                    extraHeight = 120.dp,
                 ) {
                     CurrencyPanel(
                         state = state,
@@ -2674,7 +2827,22 @@ private fun KeyboardBody(
                     )
                 }
                 PanelMode.QR_GEN -> QrGeneratorPanel(state, onQrSend)
-                PanelMode.PASSWORD_GEN -> PasswordPanel(state, onPwSetting, onToolInsert)
+                PanelMode.PASSWORD_GEN -> FullBleedTool(
+                    state, title = "",
+                    onClose = { onPanelChange(PanelMode.PASSWORD_GEN) },
+                    headerActions = {
+                        val passphraseMode = state.settings.pwPassphraseMode
+                        Spacer(Modifier.width(4.dp))
+                        ToolPanelChip("Password", selected = !passphraseMode) {
+                            onPwSetting(PwSettingAction.PassphraseMode(false))
+                        }
+                        Spacer(Modifier.width(6.dp))
+                        ToolPanelChip("Passphrase", selected = passphraseMode) {
+                            onPwSetting(PwSettingAction.PassphraseMode(true))
+                        }
+                        Spacer(Modifier.weight(1f))
+                    },
+                ) { PasswordPanel(state, onPwSetting, onToolInsert) }
                 PanelMode.AI -> FullBleedTool(
                     state = state,
                     title = "AI",
@@ -2707,7 +2875,10 @@ private fun KeyboardBody(
                         onOpenToolSettings = onOpenToolSettings,
                     )
                 }
-                PanelMode.MODES -> ModesPanel(state, onModeSelect)
+                PanelMode.MODES -> ModesPanel(
+                    state, onModeSelect,
+                    onOpenSettings = { onOpenToolSettings(ToolbarTool.MODES) },
+                )
                 PanelMode.NONE -> KeyRows(state, onKey, onText, onGesture, onGesturePreview, onCursorMove, onLanguageSelect)
             }
             // In emoji search mode the letters stay visible for typing the query.
@@ -4724,54 +4895,133 @@ private fun ClipboardPanel(
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         items(state.clipboardItems, key = { it.id }) { item ->
-            Column(
-                modifier = Modifier
-                    .background(MaterialTheme.colorScheme.surfaceContainer, RoundedCornerShape(12.dp))
-                    .clickable { onClipboardItem(item) }
-                    .padding(10.dp),
-            ) {
-                when (item.kind) {
-                    ClipKind.IMAGE -> ClipThumbnail(item)
-                    ClipKind.FILE, ClipKind.FOLDER -> ClipFileBody(item)
-                    ClipKind.LINK -> ClipLinkBody(item)
-                    else -> Text(
-                        text = item.text,
-                        maxLines = 3,
-                        overflow = TextOverflow.Ellipsis,
-                        fontSize = 13.sp,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (item.kind == ClipKind.HTML) {
-                        Text(
-                            "Rich text",
-                            fontSize = 10.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(end = 4.dp),
+            SwipeToDeleteCard(onDelete = { onClipboardDelete(item) }) {
+                Column(
+                    modifier = Modifier
+                        .background(MaterialTheme.colorScheme.surfaceContainer, RoundedCornerShape(12.dp))
+                        .clickable { onClipboardItem(item) }
+                        .padding(10.dp),
+                ) {
+                    when (item.kind) {
+                        ClipKind.IMAGE -> ClipThumbnail(item)
+                        ClipKind.FILE, ClipKind.FOLDER -> ClipFileBody(item)
+                        ClipKind.LINK -> ClipLinkBody(item)
+                        else -> Text(
+                            text = item.text,
+                            maxLines = 3,
+                            overflow = TextOverflow.Ellipsis,
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.onSurface,
                         )
                     }
-                    IconButton(onClick = { onClipboardPin(item) }, modifier = Modifier.size(32.dp)) {
-                        Icon(
-                            if (item.pinned) Icons.Filled.PushPin else Icons.Outlined.PushPin,
-                            contentDescription = if (item.pinned) "Unpin" else "Pin",
-                            modifier = Modifier.size(16.dp),
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        if (item.kind == ClipKind.HTML) {
+                            Text(
+                                "Rich text",
+                                fontSize = 10.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Spacer(Modifier.weight(1f))
+                        ClipActionCircle(
+                            icon = if (item.pinned) Icons.Filled.PushPin else Icons.Outlined.PushPin,
+                            description = if (item.pinned) "Unpin" else "Pin",
                             tint = if (item.pinned) MaterialTheme.colorScheme.primary
                             else MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    IconButton(onClick = { onClipboardDelete(item) }, modifier = Modifier.size(32.dp)) {
-                        Icon(
-                            Icons.Outlined.Delete,
-                            contentDescription = "Delete",
-                            modifier = Modifier.size(16.dp),
+                        ) { onClipboardPin(item) }
+                        ClipActionCircle(
+                            icon = Icons.Outlined.Delete,
+                            description = "Delete",
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+                        ) { onClipboardDelete(item) }
                     }
                 }
             }
         }
     }
+}
+
+/** Small round action button on a clipboard card. */
+@Composable
+private fun ClipActionCircle(
+    icon: ImageVector,
+    description: String,
+    tint: Color,
+    onClick: () -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .size(30.dp)
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            icon,
+            contentDescription = description,
+            modifier = Modifier.size(15.dp),
+            tint = tint,
+        )
+    }
+}
+
+/**
+ * Horizontal swipe-to-dismiss for a grid card: the card follows the finger,
+ * fades as it travels, and a release past 40% of its width deletes it —
+ * otherwise it springs back. Vertical scrolling is untouched (only
+ * horizontal drags are claimed).
+ */
+@Composable
+private fun SwipeToDeleteCard(
+    onDelete: () -> Unit,
+    content: @Composable () -> Unit,
+) {
+    val offset = remember { Animatable(0f) }
+    val scope = rememberCoroutineScope()
+    var width by remember { mutableStateOf(0) }
+    Box(
+        modifier = Modifier
+            .onGloballyPositioned { width = it.size.width }
+            .graphicsLayer {
+                translationX = offset.value
+                alpha = if (width == 0) 1f
+                else (1f - abs(offset.value) / width).coerceIn(0.2f, 1f)
+            }
+            .pointerInput(Unit) {
+                detectHorizontalDragGestures(
+                    onHorizontalDrag = { change, delta ->
+                        change.consume()
+                        scope.launch { offset.snapTo(offset.value + delta) }
+                    },
+                    onDragEnd = {
+                        scope.launch {
+                            val threshold = width * 0.4f
+                            if (width > 0 && abs(offset.value) > threshold) {
+                                // Finish the slide off-screen, then delete.
+                                offset.animateTo(
+                                    if (offset.value > 0) width.toFloat() else -width.toFloat(),
+                                    tween(120),
+                                )
+                                onDelete()
+                                offset.snapTo(0f)
+                            } else {
+                                offset.animateTo(0f, spring(stiffness = Spring.StiffnessMediumLow))
+                            }
+                        }
+                    },
+                    onDragCancel = {
+                        scope.launch { offset.animateTo(0f) }
+                    },
+                )
+            },
+    ) { content() }
 }
 
 /**

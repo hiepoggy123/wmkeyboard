@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -90,6 +91,59 @@ private fun rememberMediaImageLoader(): ImageLoader {
                 }
             }
             .build()
+    }
+}
+
+/**
+ * Header-row variant of the media search field, for full-bleed panels: it
+ * sits next to the back button in the [FullBleedTool] header and takes the
+ * row's free width. Same key-rerouting trick as emoji search — typing goes
+ * into [KeyboardUiState.mediaQuery], never the focused field.
+ */
+@Composable
+internal fun RowScope.MediaHeaderSearchBar(
+    state: KeyboardUiState,
+    placeholder: String,
+    onQueryTap: () -> Unit,
+    attribution: String? = null,
+) {
+    val kb = LocalKbTheme.current
+    Row(
+        modifier = Modifier
+            .weight(1f)
+            .padding(start = 6.dp, end = 4.dp)
+            .background(kb.chip, RoundedCornerShape(18.dp))
+            .clickable { onQueryTap() }
+            .padding(horizontal = 12.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            Icons.Outlined.Search,
+            contentDescription = null,
+            modifier = Modifier.size(16.dp),
+            tint = kb.toolbarIcon,
+        )
+        Spacer(Modifier.width(8.dp))
+        Text(
+            text = when {
+                state.mediaQuery.isNotEmpty() -> state.mediaQuery
+                state.mediaSearchActive -> "Type to search…"
+                else -> placeholder
+            },
+            color = if (state.mediaQuery.isEmpty()) kb.secondaryText else kb.suggestionText,
+            fontSize = 13.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+        if (attribution != null) {
+            Text(
+                attribution,
+                color = kb.secondaryText,
+                fontSize = 9.sp,
+                modifier = Modifier.padding(start = 6.dp),
+            )
+        }
     }
 }
 
@@ -351,30 +405,20 @@ private fun GifGrid(
 
 // ---- web search panel ----
 
-/** Web search: type a query, enter to search, tap a result to insert its link. */
+/**
+ * Web search results (full-bleed body; the search bar lives in the
+ * [FullBleedTool] header): tap a result to insert its link.
+ */
 @Composable
 internal fun WebSearchPanel(
     state: KeyboardUiState,
-    onQueryTap: () -> Unit,
     onRetry: () -> Unit,
     onResult: (WebResult) -> Unit,
     onOpen: (WebResult) -> Unit,
     onOpenToolSettings: (ToolbarTool) -> Unit,
 ) {
     val kb = LocalKbTheme.current
-    val height = if (state.mediaSearchActive) MediaSearchHeight else keyRowsHeight(state.settings)
-    val hasProvider = ToolApiKeys.hasSearchProvider(state.settings)
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(height),
-    ) {
-        MediaSearchBar(
-            state = state,
-            placeholder = "Search the web",
-            onQueryTap = onQueryTap,
-            attribution = "via Brave".takeIf { hasProvider },
-        )
+    Column(modifier = Modifier.fillMaxSize()) {
         when (val ui = state.webSearch) {
             WebSearchUi.NeedKey -> PanelNotice(
                 "Web search needs an API key — Brave Search. Add one in the tool's settings.",
@@ -449,25 +493,12 @@ internal fun WebSearchPanel(
 @Composable
 internal fun ImageSearchPanel(
     state: KeyboardUiState,
-    onQueryTap: () -> Unit,
     onRetry: () -> Unit,
     onResult: (ImageResult) -> Unit,
     onResultLink: (ImageResult) -> Unit,
     onOpenToolSettings: (ToolbarTool) -> Unit,
 ) {
-    val height = if (state.mediaSearchActive) MediaSearchHeight else keyRowsHeight(state.settings)
-    val hasProvider = ToolApiKeys.hasSearchProvider(state.settings)
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(height),
-    ) {
-        MediaSearchBar(
-            state = state,
-            placeholder = "Search images",
-            onQueryTap = onQueryTap,
-            attribution = "via Brave".takeIf { hasProvider },
-        )
+    Column(modifier = Modifier.fillMaxSize()) {
         when (val ui = state.imageSearch) {
             ImageSearchUi.NeedKey -> PanelNotice(
                 "Image search needs an API key — Brave Search. Add one in the tool's settings.",
@@ -559,7 +590,6 @@ private fun ImageGrid(
 @Composable
 internal fun TranslatePanel(
     state: KeyboardUiState,
-    onQueryTap: () -> Unit,
     onTarget: (String) -> Unit,
     onReplace: () -> Unit,
     onInsert: () -> Unit,
@@ -569,21 +599,10 @@ internal fun TranslatePanel(
     val target = state.settings.translateTargetLang
     var pickerOpen by remember { mutableStateOf(false) }
     // The panel is its own translation window: the query types into the
-    // search bar (field text is never read). Compact while typing — the
-    // keys sit right below and the live result still fits above them —
-    // and full panel height once Enter or another search-bar tap ends
-    // typing (runMediaSearch / onMediaQueryTap both flip this off).
-    val height = if (state.mediaSearchActive) MediaSearchHeight else keyRowsHeight(state.settings)
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(height),
-    ) {
-        MediaSearchBar(
-            state = state,
-            placeholder = "Type text to translate…",
-            onQueryTap = onQueryTap,
-        )
+    // header search bar (field text is never read). The FullBleedTool
+    // wrapper collapses the panel while typing — the keys sit right below
+    // and the live result still fits above them.
+    Column(modifier = Modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
                 .weight(1f)

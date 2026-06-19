@@ -317,7 +317,7 @@ private fun GrammarLintCard(
                         .horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    lint.suggestions.take(5).forEach { fix ->
+                    lint.suggestions.distinctBy { it.label.trim() }.take(5).forEach { fix ->
                         Text(
                             fix.label.ifBlank { "Fix" },
                             color = kb.toolCircleActiveIcon,
