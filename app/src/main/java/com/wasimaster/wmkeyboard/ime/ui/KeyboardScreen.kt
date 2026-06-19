@@ -240,6 +240,7 @@ import com.wasimaster.wmkeyboard.core.clipboard.ClipKind
 import com.wasimaster.wmkeyboard.core.clipboard.ClipLinks
 import com.wasimaster.wmkeyboard.core.emoji.EmojiVariantIndex
 import com.wasimaster.wmkeyboard.core.gesture.GesturePoint
+import com.wasimaster.wmkeyboard.core.theme.brush
 import com.wasimaster.wmkeyboard.core.grammar.GrammarFix
 import com.wasimaster.wmkeyboard.core.grammar.GrammarLint
 import com.wasimaster.wmkeyboard.core.gesture.KeyCenter
@@ -3184,7 +3185,7 @@ private fun KeyButton(
         key.action != KeyAction.Text -> kb.modifierKeyText
         else -> kb.keyText
     }
-    val keyShape = RoundedCornerShape(kb.keyRadiusDp.dp)
+    val keyShape = kb.keyShape()
 
     // Outer box = full grid cell and the touch target; inner box = the
     // visible key, inset by the gap. Presses in the gap between keys land
@@ -3255,6 +3256,15 @@ private fun KeyButton(
             )
             .padding(horizontal = KeyGapHorizontal, vertical = KeyGapVertical)
             .background(background, keyShape)
+            .then(
+                // Sheen over letter keys only; pressed/enter/modifier states
+                // keep their solid colors so state changes stay legible.
+                if (kb.keyGradient != null && !pressed && key.action == KeyAction.Text) {
+                    Modifier.background(kb.keyGradient.brush(), keyShape)
+                } else {
+                    Modifier
+                }
+            )
             .then(
                 if (kb.keyBorder != null && kb.keyBorderWidthDp > 0f) {
                     Modifier.border(kb.keyBorderWidthDp.dp, kb.keyBorder, keyShape)
@@ -4131,7 +4141,7 @@ private fun EmojiBottomBar(
     val feedback = LocalKeyPressFeedback.current
     val scope = rememberCoroutineScope()
     val settings = state.settings
-    val shape = RoundedCornerShape(kb.keyRadiusDp.dp)
+    val shape = kb.keyShape()
     // Cell = touch target spanning the gap, like KeyButton: the input
     // modifier sits outside the padding so presses between keys still land.
     val cell: @Composable RowScope.(Float, Modifier, @Composable () -> Unit) -> Unit =

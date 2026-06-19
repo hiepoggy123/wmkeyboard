@@ -6,11 +6,14 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -28,6 +31,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.Crop
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.FileDownload
@@ -61,6 +65,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
@@ -68,25 +73,38 @@ import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import com.wasimaster.wmkeyboard.core.settings.ThemeMode
 import com.wasimaster.wmkeyboard.core.theme.BuiltInThemes
 import com.wasimaster.wmkeyboard.core.theme.DEFAULT_THEME_ID
+import com.wasimaster.wmkeyboard.core.theme.GradientSpec
+import com.wasimaster.wmkeyboard.core.theme.GradientType
+import com.wasimaster.wmkeyboard.core.theme.KeyShapeKind
 import com.wasimaster.wmkeyboard.core.theme.SeedSwatches
+import com.wasimaster.wmkeyboard.core.theme.ThemeAnimation
 import com.wasimaster.wmkeyboard.core.theme.ThemeCodec
 import com.wasimaster.wmkeyboard.core.theme.ThemeSpec
+import com.wasimaster.wmkeyboard.core.theme.blurredBy
+import com.wasimaster.wmkeyboard.core.theme.brush
+import com.wasimaster.wmkeyboard.core.theme.keyShapeFor
 import com.wasimaster.wmkeyboard.core.theme.themeFromSeed
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import kotlin.math.max
+import kotlin.math.roundToInt
 
 // ---- shared helpers ----
 
@@ -438,7 +456,7 @@ private fun ThemeCard(
 /** Miniature keyboard drawn from the spec: toolbar, two key rows, bottom row. */
 @Composable
 fun ThemePreview(theme: ThemeSpec, modifier: Modifier = Modifier) {
-    val keyShape = RoundedCornerShape(((theme.keyCornerRadiusDp ?: 8) / 3f + 1).dp)
+    val keyShape = keyShapeFor(theme.keyShape, ((theme.keyCornerRadiusDp ?: 8) / 3f + 1).toInt())
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -446,10 +464,12 @@ fun ThemePreview(theme: ThemeSpec, modifier: Modifier = Modifier) {
             .clip(RoundedCornerShape(10.dp)),
     ) {
         theme.backgroundImage?.let { path ->
-            val bitmap by produceState<ImageBitmap?>(initialValue = null, path) {
+            val bitmap by produceState<ImageBitmap?>(initialValue = null, path, theme.backgroundImageBlur) {
                 value = withContext(Dispatchers.IO) {
                     runCatching {
-                        BitmapFactory.decodeFile(path)?.asImageBitmap()
+                        BitmapFactory.decodeFile(path)
+                            ?.blurredBy(theme.backgroundImageBlur)
+                            ?.asImageBitmap()
                     }.getOrNull()
                 }
             }
@@ -464,11 +484,21 @@ fun ThemePreview(theme: ThemeSpec, modifier: Modifier = Modifier) {
                 )
             }
         }
-        Box(
-            modifier = Modifier
-                .matchParentSize()
-                .background(colorOf(theme.boardBackground)),
-        )
+        // Static (phase 0) gradient — the preview doesn't animate.
+        val boardGradient = theme.boardGradient
+        if (boardGradient != null) {
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .background(boardGradient.brush()),
+            )
+        } else {
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .background(colorOf(theme.boardBackground)),
+            )
+        }
         Column(
             modifier = Modifier
                 .matchParentSize()
@@ -561,11 +591,19 @@ fun ThemeEditorScreen(
                         file.outputStream().use { input.copyTo(it) }
                     }
                     theme.backgroundImage?.let { File(it).delete() }
-                    repository.upsertCustomTheme(theme.copy(backgroundImage = file.absolutePath))
+                    // Zero the board color's alpha so the fresh image shows at
+                    // full strength; the user raises it back to add a scrim.
+                    repository.upsertCustomTheme(
+                        theme.copy(
+                            backgroundImage = file.absolutePath,
+                            boardBackground = theme.boardBackground and 0x00FFFFFFL,
+                        )
+                    )
                 }
             }
         }
     }
+    var cropOpen by rememberSaveable(theme.id) { mutableStateOf(false) }
 
     // Live preview pinned on top.
     Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
@@ -643,6 +681,17 @@ fun ThemeEditorScreen(
     ColorRow("Background", theme.boardBackground, supportsAlpha = true) {
         update { t -> t.copy(boardBackground = it) }
     }
+    GradientEditor(
+        title = "Gradient background",
+        subtitle = "Painted instead of the solid background color",
+        gradient = theme.boardGradient,
+        defaultGradient = GradientSpec(
+            colors = listOf(theme.boardBackground or 0xFF000000L, theme.accent),
+            type = GradientType.LINEAR,
+            angleDeg = 135f,
+        ),
+        onChange = { update { t -> t.copy(boardGradient = it) } },
+    )
     ListItem(
         headlineContent = { Text("Background image") },
         supportingContent = {
@@ -655,7 +704,16 @@ fun ThemeEditorScreen(
             if (theme.backgroundImage != null) {
                 TextButton(onClick = {
                     theme.backgroundImage?.let { File(it).delete() }
-                    update { t -> t.copy(backgroundImage = null) }
+                    update { t ->
+                        // Give the board its alpha back if picking the image
+                        // zeroed it, so removal doesn't leave a see-through board.
+                        val board = if ((t.boardBackground ushr 24) == 0L) {
+                            t.boardBackground or 0xFF000000L
+                        } else {
+                            t.boardBackground
+                        }
+                        t.copy(backgroundImage = null, boardBackground = board)
+                    }
                 }) { Text("Remove") }
             }
         },
@@ -664,24 +722,88 @@ fun ThemeEditorScreen(
         },
     )
     if (theme.backgroundImage != null) {
+        ListItem(
+            headlineContent = { Text("Crop image") },
+            supportingContent = { Text("Pinch to zoom, drag to reposition") },
+            leadingContent = { Icon(Icons.Outlined.Crop, contentDescription = null) },
+            modifier = Modifier.clickable { cropOpen = true },
+        )
         SliderRow(
             "Image opacity",
             value = theme.backgroundImageOpacity,
             range = 0f..1f,
             display = "${(theme.backgroundImageOpacity * 100).toInt()}%",
         ) { update { t -> t.copy(backgroundImageOpacity = it) } }
+        SliderRow(
+            "Image blur",
+            value = theme.backgroundImageBlur,
+            range = 0f..25f,
+            display = if (theme.backgroundImageBlur < 0.5f) "off"
+                else theme.backgroundImageBlur.toInt().toString(),
+        ) { update { t -> t.copy(backgroundImageBlur = it) } }
         Text(
-            "Tip: lower the background color's opacity (in its color picker) to let the image show through the board.",
+            "The board color went transparent when you picked this image, so it shows at " +
+                "full strength. Raise the background color's opacity to tint or dim it.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = 16.dp),
         )
     }
+    if (cropOpen && theme.backgroundImage != null) {
+        CropImageDialog(
+            path = theme.backgroundImage!!,
+            onCropped = { newPath ->
+                scope.launch {
+                    theme.backgroundImage?.let { File(it).delete() }
+                    repository.upsertCustomTheme(theme.copy(backgroundImage = newPath))
+                }
+                cropOpen = false
+            },
+            onDismiss = { cropOpen = false },
+        )
+    }
 
     SectionHeaderPublic("Keys")
+    Text(
+        "Key shape",
+        style = MaterialTheme.typography.bodyLarge,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+    )
+    SingleChoiceSegmentedButtonRow(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp),
+    ) {
+        val labels = mapOf(
+            KeyShapeKind.ROUNDED to "Rounded",
+            KeyShapeKind.PILL to "Pill",
+            KeyShapeKind.CUT to "Cut",
+            KeyShapeKind.SQUIRCLE to "Squircle",
+        )
+        KeyShapeKind.entries.forEachIndexed { index, kind ->
+            SegmentedButton(
+                selected = theme.keyShape == kind,
+                onClick = { update { t -> t.copy(keyShape = kind) } },
+                shape = SegmentedButtonDefaults.itemShape(index, KeyShapeKind.entries.size),
+            ) {
+                Text(labels.getValue(kind), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
+    }
     ColorRow("Letter keys", theme.keyBackground, supportsAlpha = true) {
         update { t -> t.copy(keyBackground = it) }
     }
+    GradientEditor(
+        title = "Key gradient",
+        subtitle = "A sheen painted over the letter keys",
+        gradient = theme.keyGradient,
+        defaultGradient = GradientSpec(
+            colors = listOf(0x26FFFFFF, 0x00FFFFFF),
+            type = GradientType.LINEAR,
+            angleDeg = 90f,
+        ),
+        onChange = { update { t -> t.copy(keyGradient = it) } },
+    )
     ColorRow("Key text", theme.keyText) { update { t -> t.copy(keyText = it) } }
     ColorRow("Modifier keys", theme.modifierKeyBackground, supportsAlpha = true) {
         update { t -> t.copy(modifierKeyBackground = it) }
@@ -804,7 +926,273 @@ fun ThemeEditorScreen(
             display = if ((theme.toolCircleRadiusDp ?: 20) == 0) "off" else "${theme.toolCircleRadiusDp} dp",
         ) { update { t -> t.copy(toolCircleRadiusDp = it.toInt()) } }
     }
+
+    SectionHeaderPublic("Animation")
+    Text(
+        "Flow drifts the board gradient; Hue cycle slowly rotates its colors " +
+            "(or the solid board color). Runs only while the keyboard is visible.",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(horizontal = 16.dp),
+    )
+    SingleChoiceSegmentedButtonRow(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+    ) {
+        val labels = mapOf(
+            ThemeAnimation.NONE to "None",
+            ThemeAnimation.FLOW to "Flow",
+            ThemeAnimation.HUE_CYCLE to "Hue cycle",
+        )
+        ThemeAnimation.entries.forEachIndexed { index, anim ->
+            SegmentedButton(
+                selected = theme.animation == anim,
+                onClick = { update { t -> t.copy(animation = anim) } },
+                shape = SegmentedButtonDefaults.itemShape(index, ThemeAnimation.entries.size),
+            ) {
+                Text(labels.getValue(anim), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
+    }
+    if (theme.animation != ThemeAnimation.NONE) {
+        SliderRow(
+            "Speed",
+            value = theme.animationSpeed,
+            range = 0.25f..3f,
+            display = "%.2f×".format(theme.animationSpeed),
+        ) { update { t -> t.copy(animationSpeed = (it * 20).toInt() / 20f) } }
+    }
     Spacer(Modifier.height(24.dp))
+}
+
+// ---- gradient editor ----
+
+/**
+ * Toggleable gradient block: on/off switch, gradient type, angle, and 2–4
+ * color stops (each with alpha). A live strip previews the result.
+ */
+@Composable
+private fun GradientEditor(
+    title: String,
+    subtitle: String,
+    gradient: GradientSpec?,
+    defaultGradient: GradientSpec,
+    onChange: (GradientSpec?) -> Unit,
+) {
+    ListItem(
+        headlineContent = { Text(title) },
+        supportingContent = { Text(subtitle) },
+        trailingContent = {
+            Switch(
+                checked = gradient != null,
+                onCheckedChange = { on -> onChange(if (on) defaultGradient else null) },
+            )
+        },
+    )
+    if (gradient == null) return
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .height(28.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(8.dp))
+            .background(gradient.brush()),
+    )
+    SingleChoiceSegmentedButtonRow(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+    ) {
+        val labels = mapOf(
+            GradientType.LINEAR to "Linear",
+            GradientType.RADIAL to "Radial",
+            GradientType.SWEEP to "Sweep",
+        )
+        GradientType.entries.forEachIndexed { index, type ->
+            SegmentedButton(
+                selected = gradient.type == type,
+                onClick = { onChange(gradient.copy(type = type)) },
+                shape = SegmentedButtonDefaults.itemShape(index, GradientType.entries.size),
+            ) {
+                Text(labels.getValue(type), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
+    }
+    if (gradient.type != GradientType.RADIAL) {
+        SliderRow(
+            "Angle",
+            value = gradient.angleDeg,
+            range = 0f..360f,
+            display = "${gradient.angleDeg.toInt()}°",
+        ) { onChange(gradient.copy(angleDeg = it.toInt().toFloat())) }
+    }
+    gradient.colors.forEachIndexed { index, stop ->
+        ColorRow("Color ${index + 1}", stop, supportsAlpha = true) { picked ->
+            onChange(
+                gradient.copy(
+                    colors = gradient.colors.toMutableList().also { it[index] = picked },
+                )
+            )
+        }
+    }
+    Row(modifier = Modifier.padding(horizontal = 16.dp)) {
+        if (gradient.colors.size < 4) {
+            TextButton(onClick = {
+                onChange(gradient.copy(colors = gradient.colors + gradient.colors.last()))
+            }) { Text("Add color") }
+        }
+        if (gradient.colors.size > 2) {
+            TextButton(onClick = {
+                onChange(gradient.copy(colors = gradient.colors.dropLast(1)))
+            }) { Text("Remove color") }
+        }
+    }
+}
+
+// ---- image cropper ----
+
+/**
+ * Pinch/drag cropper. The frame is the crop; the image pans and zooms under
+ * it (cover-scaled, so the frame is always filled). Confirming maps the
+ * frame back into bitmap coordinates and writes a new image file.
+ */
+@Composable
+private fun CropImageDialog(
+    path: String,
+    onCropped: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val bitmap by produceState<android.graphics.Bitmap?>(initialValue = null, path) {
+        value = withContext(Dispatchers.IO) {
+            runCatching {
+                // Downsample huge photos; a keyboard background never needs
+                // more than ~2048 px on a side.
+                val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                BitmapFactory.decodeFile(path, bounds)
+                var sample = 1
+                while (bounds.outWidth / (sample * 2) >= 2048 || bounds.outHeight / (sample * 2) >= 2048) {
+                    sample *= 2
+                }
+                BitmapFactory.decodeFile(path, BitmapFactory.Options().apply { inSampleSize = sample })
+            }.getOrNull()
+        }
+    }
+    var aspect by rememberSaveable { mutableStateOf(2.4f) }
+    var zoom by remember { mutableStateOf(1f) }
+    var offset by remember { mutableStateOf(Offset.Zero) }
+    var frame by remember { mutableStateOf(IntSize.Zero) }
+    var saving by remember { mutableStateOf(false) }
+
+    fun coverScale(bmp: android.graphics.Bitmap): Float =
+        if (frame == IntSize.Zero) 1f
+        else max(frame.width / bmp.width.toFloat(), frame.height / bmp.height.toFloat())
+
+    fun clampOffset(o: Offset, bmp: android.graphics.Bitmap, z: Float): Offset {
+        val s = coverScale(bmp) * z
+        val maxX = ((bmp.width * s - frame.width) / 2f).coerceAtLeast(0f)
+        val maxY = ((bmp.height * s - frame.height) / 2f).coerceAtLeast(0f)
+        return Offset(o.x.coerceIn(-maxX, maxX), o.y.coerceIn(-maxY, maxY))
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Crop image") },
+        text = {
+            Column {
+                val bmp = bitmap
+                if (bmp == null) {
+                    Text("Loading…", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .aspectRatio(aspect)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color.Black)
+                            .onGloballyPositioned {
+                                if (frame != it.size) {
+                                    frame = it.size
+                                    offset = clampOffset(offset, bmp, zoom)
+                                }
+                            }
+                            .pointerInput(bmp, aspect) {
+                                detectTransformGestures { _, pan, gestureZoom, _ ->
+                                    zoom = (zoom * gestureZoom).coerceIn(1f, 6f)
+                                    offset = clampOffset(offset + pan, bmp, zoom)
+                                }
+                            },
+                    ) {
+                        Canvas(modifier = Modifier.matchParentSize()) {
+                            val s = coverScale(bmp) * zoom
+                            val w = (bmp.width * s).roundToInt()
+                            val h = (bmp.height * s).roundToInt()
+                            drawImage(
+                                image = bmp.asImageBitmap(),
+                                dstOffset = IntOffset(
+                                    ((size.width - w) / 2f + offset.x).roundToInt(),
+                                    ((size.height - h) / 2f + offset.y).roundToInt(),
+                                ),
+                                dstSize = IntSize(w, h),
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                        val ratios = listOf("Keyboard" to 2.4f, "Wide" to 1.7f, "Square" to 1f)
+                        ratios.forEachIndexed { index, (label, value) ->
+                            SegmentedButton(
+                                selected = aspect == value,
+                                onClick = {
+                                    aspect = value
+                                    zoom = 1f
+                                    offset = Offset.Zero
+                                },
+                                shape = SegmentedButtonDefaults.itemShape(index, ratios.size),
+                            ) {
+                                Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = bitmap != null && frame != IntSize.Zero && !saving,
+                onClick = {
+                    val bmp = bitmap ?: return@TextButton
+                    saving = true
+                    scope.launch(Dispatchers.IO) {
+                        val saved = runCatching {
+                            val s = coverScale(bmp) * zoom
+                            val srcW = (frame.width / s).roundToInt().coerceIn(1, bmp.width)
+                            val srcH = (frame.height / s).roundToInt().coerceIn(1, bmp.height)
+                            val srcLeft = ((bmp.width - srcW) / 2f - offset.x / s)
+                                .roundToInt().coerceIn(0, bmp.width - srcW)
+                            val srcTop = ((bmp.height - srcH) / 2f - offset.y / s)
+                                .roundToInt().coerceIn(0, bmp.height - srcH)
+                            val cropped = android.graphics.Bitmap.createBitmap(bmp, srcLeft, srcTop, srcW, srcH)
+                            val file = File(themeImagesDir(context), "crop_${System.currentTimeMillis()}.img")
+                            file.outputStream().use { out ->
+                                cropped.compress(android.graphics.Bitmap.CompressFormat.JPEG, 92, out)
+                            }
+                            if (cropped !== bmp) cropped.recycle()
+                            file.absolutePath
+                        }.getOrNull()
+                        withContext(Dispatchers.Main) {
+                            saving = false
+                            if (saved != null) onCropped(saved) else onDismiss()
+                        }
+                    }
+                },
+            ) { Text(if (saving) "Saving…" else "Crop") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
 }
 
 // ---- small building blocks ----

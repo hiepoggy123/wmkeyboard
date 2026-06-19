@@ -2,6 +2,12 @@ package com.wasimaster.wmkeyboard.ime.ui
 
 import android.graphics.BitmapFactory
 import android.os.Build
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -28,6 +34,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.toArgb
 import kotlin.math.max
 import kotlin.math.min
 import androidx.compose.ui.layout.ContentScale
@@ -40,7 +47,14 @@ import com.wasimaster.wmkeyboard.core.settings.isLatinScript
 import com.wasimaster.wmkeyboard.core.theme.BuiltInThemes
 import com.wasimaster.wmkeyboard.core.theme.ColorVision
 import com.wasimaster.wmkeyboard.core.theme.DEFAULT_THEME_ID
+import com.wasimaster.wmkeyboard.core.theme.GradientSpec
+import com.wasimaster.wmkeyboard.core.theme.KeyShapeKind
+import com.wasimaster.wmkeyboard.core.theme.ThemeAnimation
 import com.wasimaster.wmkeyboard.core.theme.ThemeSpec
+import com.wasimaster.wmkeyboard.core.theme.blurredBy
+import com.wasimaster.wmkeyboard.core.theme.brush
+import com.wasimaster.wmkeyboard.core.theme.hueShift
+import com.wasimaster.wmkeyboard.core.theme.keyShapeFor
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -52,8 +66,12 @@ import kotlinx.coroutines.withContext
 data class KbTheme(
     val dark: Boolean,
     val board: Color,
+    val boardGradient: GradientSpec?,
     val backgroundImage: String?,
     val backgroundImageOpacity: Float,
+    val backgroundImageBlur: Float,
+    val keyShapeKind: KeyShapeKind,
+    val keyGradient: GradientSpec?,
     val key: Color,
     val keyText: Color,
     val modifierKey: Color,
@@ -77,7 +95,12 @@ data class KbTheme(
     val keyRadiusDp: Int,
     val popupRadiusDp: Int,
     val toolRadiusDp: Int,
+    val animation: ThemeAnimation,
+    val animationSpeed: Float,
 )
+
+/** The resolved outline every key draws with. */
+fun KbTheme.keyShape() = keyShapeFor(keyShapeKind, keyRadiusDp)
 
 val LocalKbTheme = staticCompositionLocalOf<KbTheme> {
     error("LocalKbTheme not provided")
@@ -168,8 +191,12 @@ private fun defaultKbTheme(
     return KbTheme(
         dark = dark,
         board = board,
+        boardGradient = null,
         backgroundImage = null,
         backgroundImageOpacity = 1f,
+        backgroundImageBlur = 0f,
+        keyShapeKind = KeyShapeKind.ROUNDED,
+        keyGradient = null,
         key = key,
         keyText = scheme.onSurface,
         modifierKey = modifier,
@@ -199,6 +226,8 @@ private fun defaultKbTheme(
         keyRadiusDp = settings.keyCornerRadiusDp,
         popupRadiusDp = 12,
         toolRadiusDp = settings.toolCircleRadiusDp,
+        animation = ThemeAnimation.NONE,
+        animationSpeed = 1f,
     )
 }
 
@@ -216,8 +245,12 @@ private fun specKbTheme(spec: ThemeSpec, settings: KeyboardSettings): KbTheme {
     return KbTheme(
         dark = spec.dark,
         board = board,
+        boardGradient = spec.boardGradient,
         backgroundImage = spec.backgroundImage,
         backgroundImageOpacity = spec.backgroundImageOpacity,
+        backgroundImageBlur = spec.backgroundImageBlur,
+        keyShapeKind = spec.keyShape,
+        keyGradient = spec.keyGradient,
         key = key,
         keyText = keyText,
         modifierKey = colorOf(spec.modifierKeyBackground),
@@ -246,6 +279,8 @@ private fun specKbTheme(spec: ThemeSpec, settings: KeyboardSettings): KbTheme {
         keyRadiusDp = spec.keyCornerRadiusDp ?: settings.keyCornerRadiusDp,
         popupRadiusDp = spec.popupCornerRadiusDp ?: 12,
         toolRadiusDp = spec.toolCircleRadiusDp ?: settings.toolCircleRadiusDp,
+        animation = spec.animation,
+        animationSpeed = spec.animationSpeed,
     )
 }
 
@@ -277,9 +312,16 @@ private fun schemeFor(kb: KbTheme): ColorScheme {
     )
 }
 
+private fun Color.argbLong(): Long = toArgb().toLong() and 0xFFFFFFFFL
+
+private fun GradientSpec.mapColors(f: (Color) -> Color): GradientSpec =
+    copy(colors = colors.map { f(Color(it.toInt())).argbLong() })
+
 /** Every colour in the theme put through [f]; non-colour fields untouched. */
 private fun KbTheme.mapColors(f: (Color) -> Color): KbTheme = copy(
     board = f(board),
+    boardGradient = boardGradient?.mapColors(f),
+    keyGradient = keyGradient?.mapColors(f),
     key = f(key),
     keyText = f(keyText),
     modifierKey = f(modifierKey),
@@ -332,6 +374,11 @@ private fun KbTheme.accessibilityAdjusted(settings: KeyboardSettings): KbTheme {
         val modifier = if (kb.dark) Color(0xFF141414) else Color(0xFFD2D2D2)
         kb = kb.copy(
             board = board,
+            // Gradients, images and motion all fight legibility — drop them.
+            boardGradient = null,
+            keyGradient = null,
+            backgroundImage = null,
+            animation = ThemeAnimation.NONE,
             key = key,
             modifierKey = modifier,
             keyText = maxContrastOn(key),
@@ -444,16 +491,47 @@ fun autoKbTheme(settings: KeyboardSettings): KbTheme {
 }
 
 /**
- * Board background: optional image (center-cropped, with its own opacity)
- * under the board color. A translucent board color acts as a scrim over
- * the image; with no image it lets the app behind shine through.
+ * The animation clock: 0..1 phase looping while the keyboard is composed.
+ * Returns a static 0 for NONE so no infinite transition runs at all.
+ */
+@Composable
+fun themeAnimationPhase(animation: ThemeAnimation, speed: Float): Float {
+    if (animation == ThemeAnimation.NONE) return 0f
+    val transition = rememberInfiniteTransition(label = "themeAnim")
+    val phase by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(
+                durationMillis = (16000f / speed.coerceIn(0.25f, 3f)).toInt(),
+                easing = LinearEasing,
+            ),
+            repeatMode = RepeatMode.Restart,
+        ),
+        label = "phase",
+    )
+    return phase
+}
+
+/**
+ * Board background: optional image (center-cropped, blurred at decode time,
+ * with its own opacity) under the board layer. The board layer is the
+ * gradient when one is set, else the solid board color; either can be
+ * translucent to act as a scrim over the image (or, with no image, to let
+ * the app behind shine through). FLOW/HUE_CYCLE animate the board layer.
  */
 @Composable
 fun BoxScope.BoardBackground(kb: KbTheme) {
-    val bitmap by produceState<ImageBitmap?>(initialValue = null, kb.backgroundImage) {
+    val bitmap by produceState<ImageBitmap?>(
+        initialValue = null, kb.backgroundImage, kb.backgroundImageBlur,
+    ) {
         value = withContext(Dispatchers.IO) {
             kb.backgroundImage?.let { path ->
-                runCatching { BitmapFactory.decodeFile(path)?.asImageBitmap() }.getOrNull()
+                runCatching {
+                    BitmapFactory.decodeFile(path)
+                        ?.blurredBy(kb.backgroundImageBlur)
+                        ?.asImageBitmap()
+                }.getOrNull()
             }
         }
     }
@@ -467,9 +545,24 @@ fun BoxScope.BoardBackground(kb: KbTheme) {
             contentScale = ContentScale.Crop,
         )
     }
-    Box(
-        modifier = Modifier
-            .matchParentSize()
-            .background(kb.board),
-    )
+    val phase = themeAnimationPhase(kb.animation, kb.animationSpeed)
+    val gradient = kb.boardGradient
+    if (gradient != null) {
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .background(gradient.brush(kb.animation, phase)),
+        )
+    } else {
+        val board = if (kb.animation == ThemeAnimation.HUE_CYCLE) {
+            hueShift(kb.board, phase * 360f)
+        } else {
+            kb.board
+        }
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .background(board),
+        )
+    }
 }

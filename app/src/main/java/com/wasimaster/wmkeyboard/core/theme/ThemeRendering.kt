@@ -1,0 +1,157 @@
+package com.wasimaster.wmkeyboard.core.theme
+
+import android.graphics.Bitmap
+import android.graphics.Matrix
+import androidx.compose.foundation.shape.CutCornerShape
+import androidx.compose.foundation.shape.GenericShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.LinearGradientShader
+import androidx.compose.ui.graphics.RadialGradientShader
+import androidx.compose.ui.graphics.Shader
+import androidx.compose.ui.graphics.ShaderBrush
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.SweepGradientShader
+import androidx.compose.ui.graphics.TileMode
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.unit.dp
+import kotlin.math.PI
+import kotlin.math.abs
+import kotlin.math.cos
+import kotlin.math.max
+import kotlin.math.pow
+import kotlin.math.sign
+import kotlin.math.sin
+
+/**
+ * Shared drawing helpers for gradients, key shapes, animation and image blur,
+ * used by both the live keyboard (KbTheme/BoardBackground) and the settings
+ * app's theme previews/editor so the two always render identically.
+ */
+
+/** Hue-rotated copy of [color]; alpha, saturation and value preserved. */
+fun hueShift(color: Color, degrees: Float): Color {
+    if (degrees == 0f) return color
+    val hsv = FloatArray(3)
+    android.graphics.Color.colorToHSV(color.toArgb() or (0xFF shl 24), hsv)
+    hsv[0] = (hsv[0] + degrees).mod(360f)
+    return Color(android.graphics.Color.HSVToColor(hsv)).copy(alpha = color.alpha)
+}
+
+/**
+ * Size-aware brush for a [GradientSpec]. [phase] (0..1) drives the theme
+ * animation: FLOW slides a LINEAR gradient along its axis (mirror-tiled so the
+ * loop is seamless), orbits a RADIAL center, and spins a SWEEP; HUE_CYCLE
+ * rotates every stop's hue. Phase 0 with NONE is the static gradient.
+ */
+fun GradientSpec.brush(
+    animation: ThemeAnimation = ThemeAnimation.NONE,
+    phase: Float = 0f,
+): Brush {
+    val stops = colors
+        .map { Color(it.toInt()) }
+        .let { if (it.size == 1) it + it else it }
+        .let {
+            if (animation == ThemeAnimation.HUE_CYCLE) it.map { c -> hueShift(c, phase * 360f) } else it
+        }
+    val spec = this
+    return object : ShaderBrush() {
+        override fun createShader(size: Size): Shader = when (spec.type) {
+            GradientType.LINEAR -> {
+                val rad = Math.toRadians(spec.angleDeg.toDouble())
+                val dir = Offset(cos(rad).toFloat(), sin(rad).toFloat())
+                val center = Offset(size.width / 2f, size.height / 2f)
+                // Half-length that makes the gradient span the whole box at
+                // any angle (projection of the box onto the gradient axis).
+                val half = (abs(dir.x) * size.width + abs(dir.y) * size.height) / 2f
+                // Mirror tiling repeats every 4×half; sliding by that per
+                // cycle loops without a visible seam.
+                val slide = if (animation == ThemeAnimation.FLOW) {
+                    Offset(dir.x * 4f * half * phase, dir.y * 4f * half * phase)
+                } else {
+                    Offset.Zero
+                }
+                LinearGradientShader(
+                    from = center - Offset(dir.x * half, dir.y * half) + slide,
+                    to = center + Offset(dir.x * half, dir.y * half) + slide,
+                    colors = stops,
+                    tileMode = TileMode.Mirror,
+                )
+            }
+            GradientType.RADIAL -> {
+                val center = if (animation == ThemeAnimation.FLOW) {
+                    Offset(
+                        size.width * (0.5f + 0.22f * cos(phase * 2f * PI.toFloat())),
+                        size.height * (0.5f + 0.22f * sin(phase * 2f * PI.toFloat())),
+                    )
+                } else {
+                    Offset(size.width / 2f, size.height / 2f)
+                }
+                RadialGradientShader(
+                    center = center,
+                    radius = max(size.width, size.height) * 0.75f,
+                    colors = stops,
+                    tileMode = TileMode.Clamp,
+                )
+            }
+            GradientType.SWEEP -> {
+                val center = Offset(size.width / 2f, size.height / 2f)
+                // Close the ring so the 360°→0° seam doesn't show.
+                val shader = SweepGradientShader(center, stops + stops.first())
+                val spin = spec.angleDeg + if (animation == ThemeAnimation.FLOW) phase * 360f else 0f
+                if (spin != 0f) {
+                    shader.setLocalMatrix(Matrix().apply { setRotate(spin, center.x, center.y) })
+                }
+                shader
+            }
+        }
+    }
+}
+
+/** The visible key outline for a shape kind; ROUNDED/CUT use [radiusDp]. */
+fun keyShapeFor(kind: KeyShapeKind, radiusDp: Int): Shape = when (kind) {
+    KeyShapeKind.ROUNDED -> RoundedCornerShape(radiusDp.dp)
+    KeyShapeKind.PILL -> RoundedCornerShape(percent = 50)
+    KeyShapeKind.CUT -> CutCornerShape(radiusDp.coerceIn(2, 14).dp)
+    KeyShapeKind.SQUIRCLE -> SquircleKeyShape
+}
+
+/**
+ * Superellipse (n = 4) stretched to the key bounds — the iOS-icon "squircle"
+ * look, with corners that ease into the sides instead of arcing. Sampled as a
+ * 64-gon; at key sizes the segments are sub-pixel.
+ */
+private val SquircleKeyShape: Shape = GenericShape { size, _ ->
+    val a = size.width / 2.0
+    val b = size.height / 2.0
+    val n = 4.0
+    val steps = 64
+    for (i in 0..steps) {
+        val t = 2.0 * PI * i / steps
+        val ct = cos(t)
+        val st = sin(t)
+        val x = a + a * sign(ct) * abs(ct).pow(2.0 / n)
+        val y = b + b * sign(st) * abs(st).pow(2.0 / n)
+        if (i == 0) moveTo(x.toFloat(), y.toFloat()) else lineTo(x.toFloat(), y.toFloat())
+    }
+    close()
+}
+
+/**
+ * Cheap all-API blur: downscale with bilinear filtering, then upscale back.
+ * Runs once per decode (not per frame), so heavy radii are fine. Radius is
+ * the editor's 0..25 scale; 0 returns the bitmap untouched.
+ */
+fun Bitmap.blurredBy(radius: Float): Bitmap {
+    if (radius < 0.5f) return this
+    val factor = 1f + radius
+    val w = max(8, (width / factor).toInt())
+    val h = max(8, (height / factor).toInt())
+    val small = Bitmap.createScaledBitmap(this, w, h, true)
+    val out = Bitmap.createScaledBitmap(small, width, height, true)
+    if (small !== out && small !== this) small.recycle()
+    return out
+}
