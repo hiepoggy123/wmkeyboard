@@ -1,6 +1,10 @@
 package com.wasimaster.wmkeyboard.ime.ui
 
+import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.media.AudioManager
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
@@ -38,6 +42,7 @@ import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.outlined.KeyboardReturn
 import androidx.compose.material.icons.outlined.Air
 import androidx.compose.material.icons.outlined.Cloud
+import androidx.compose.material.icons.outlined.VolumeOff
 import androidx.compose.material.icons.outlined.Compress
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Thermostat
@@ -47,6 +52,7 @@ import androidx.compose.material.icons.outlined.WbSunny
 import androidx.compose.material.icons.outlined.WbTwilight
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -188,7 +194,6 @@ private fun PanelMessage(text: String, modifier: Modifier = Modifier) {
  */
 @Composable
 internal fun CompassPanel(state: KeyboardUiState) {
-    val height = keyRowsHeight(state.settings)
     val context = LocalContext.current
     val sensorManager = remember {
         context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
@@ -238,7 +243,7 @@ internal fun CompassPanel(state: KeyboardUiState) {
     }
 
     if (sensor == null) {
-        Box(Modifier.fillMaxWidth().height(height)) {
+        Box(Modifier.fillMaxSize()) {
             PanelMessage("This device has no orientation sensor.")
         }
         return
@@ -253,8 +258,7 @@ internal fun CompassPanel(state: KeyboardUiState) {
     val kb = LocalKbTheme.current
     Column(
         modifier = Modifier
-            .fillMaxWidth()
-            .height(height)
+            .fillMaxSize()
             .padding(vertical = 6.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
@@ -368,7 +372,6 @@ private fun cardinal(degrees: Int): String {
 /** Bubble level from the accelerometer; turns accent-colored when flat. */
 @Composable
 internal fun LevelPanel(state: KeyboardUiState) {
-    val height = keyRowsHeight(state.settings)
     val context = LocalContext.current
     val sensorManager = remember {
         context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
@@ -420,7 +423,7 @@ internal fun LevelPanel(state: KeyboardUiState) {
     }
 
     if (sensor == null) {
-        Box(Modifier.fillMaxWidth().height(height)) {
+        Box(Modifier.fillMaxSize()) {
             PanelMessage("This device has no accelerometer.")
         }
         return
@@ -433,8 +436,7 @@ internal fun LevelPanel(state: KeyboardUiState) {
 
     Column(
         modifier = Modifier
-            .fillMaxWidth()
-            .height(height)
+            .fillMaxSize()
             .padding(vertical = 6.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
@@ -754,7 +756,6 @@ internal fun CalendarPanel(
     state: KeyboardUiState,
     onInsert: (String) -> Unit,
 ) {
-    val height = keyRowsHeight(state.settings)
     val kb = LocalKbTheme.current
     val today = remember {
         Calendar.getInstance().let {
@@ -808,8 +809,7 @@ internal fun CalendarPanel(
 
     Column(
         modifier = Modifier
-            .fillMaxWidth()
-            .height(height)
+            .fillMaxSize()
             .padding(horizontal = 10.dp, vertical = 2.dp),
     ) {
         // Header: month navigation + Today shortcut.
@@ -975,28 +975,63 @@ internal fun CalendarPanel(
             CalendarSystems.bengaliDigits(bengali.year)
         val hijri = CalendarSystems.toHijri(selected.year, selected.month, selected.day, hijriAdjust)
         val hijriText = "${hijri.day} ${CalendarSystems.hijriMonths[hijri.month - 1]} ${hijri.year} AH"
+        // Header: weekday + distance from today, with an ISO chip (the
+        // format forms want). Then one slim row per enabled calendar, each
+        // with its own insert chip — the full-bleed panel has the room the
+        // old single cramped line didn't.
+        val weekdayText = remember(selected) {
+            SimpleDateFormat("EEEE", Locale.getDefault()).format(
+                Calendar.getInstance().apply {
+                    set(selected.year, selected.month - 1, selected.day)
+                }.time
+            )
+        }
+        val isoText = "%04d-%02d-%02d".format(selected.year, selected.month, selected.day)
+        val relativeDays =
+            (CalendarSystems.gregorianToJdn(selected.year, selected.month, selected.day) -
+                CalendarSystems.gregorianToJdn(today.year, today.month, today.day)).toInt()
+        val relativeText = when (relativeDays) {
+            0 -> "Today"
+            1 -> "Tomorrow"
+            -1 -> "Yesterday"
+            else -> if (relativeDays > 0) "in $relativeDays days" else "${-relativeDays} days ago"
+        }
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 2.dp, bottom = 4.dp),
+                .padding(top = 2.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            val parts = buildList {
-                add(gregorianText)
-                if (showBengali) add(bengaliText)
-                if (showHijri) add(hijriText)
-            }
             Text(
-                parts.joinToString(" · "),
-                color = kb.modifierKeyText,
+                "$weekdayText · $relativeText",
+                color = kb.secondaryText,
                 fontSize = 11.sp,
-                maxLines = 2,
+                maxLines = 1,
                 modifier = Modifier.weight(1f),
             )
-            InsertChip("Insert") { onInsert(gregorianText) }
-            if (showBengali) InsertChip("বাং") { onInsert(bengaliText) }
-            if (showHijri) InsertChip("هـ") { onInsert(hijriText) }
+            InsertChip(isoText) { onInsert(isoText) }
+        }
+        val dateRows = buildList {
+            add(gregorianText to "Insert")
+            if (showBengali) add(bengaliText to "বাং")
+            if (showHijri) add(hijriText to "هـ")
+        }
+        for ((text, chipLabel) in dateRows) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 2.dp, bottom = 2.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text,
+                    color = kb.modifierKeyText,
+                    fontSize = 12.sp,
+                    maxLines = 1,
+                    modifier = Modifier.weight(1f),
+                )
+                InsertChip(chipLabel) { onInsert(text) }
+            }
         }
     }
 }
@@ -1162,6 +1197,26 @@ internal fun SoundHapticsPanel(
     val height = keyRowsHeight(state.settings)
     val kb = LocalKbTheme.current
     val settings = state.settings
+    val context = LocalContext.current
+    // Key-press sounds ride the system sound-effect stream, which the
+    // ringer switch mutes — surface that, or "sound on but silent" reads
+    // as the keyboard being broken. Live-updates via the ringer broadcast.
+    val audioManager = remember {
+        context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+    }
+    var ringerMode by remember { mutableStateOf(audioManager.ringerMode) }
+    DisposableEffect(Unit) {
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(receiverContext: Context?, intent: Intent?) {
+                ringerMode = audioManager.ringerMode
+            }
+        }
+        context.registerReceiver(
+            receiver,
+            IntentFilter(AudioManager.RINGER_MODE_CHANGED_ACTION),
+        )
+        onDispose { context.unregisterReceiver(receiver) }
+    }
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -1170,6 +1225,33 @@ internal fun SoundHapticsPanel(
             .padding(horizontal = 16.dp, vertical = 6.dp),
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
+        if (settings.keySound && ringerMode != AudioManager.RINGER_MODE_NORMAL) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(MaterialTheme.colorScheme.errorContainer)
+                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    Icons.Outlined.VolumeOff,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                    tint = MaterialTheme.colorScheme.onErrorContainer,
+                )
+                Text(
+                    if (ringerMode == AudioManager.RINGER_MODE_VIBRATE) {
+                        "Phone is on vibrate — key press sounds won't play."
+                    } else {
+                        "Phone is silenced — key press sounds won't play."
+                    },
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                    fontSize = 12.sp,
+                    modifier = Modifier.padding(start = 8.dp),
+                )
+            }
+        }
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("Haptics", color = kb.modifierKeyText, fontSize = 14.sp,
                 fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
@@ -1269,10 +1351,17 @@ internal fun NumpadPanel(
             .height(height)
             .padding(horizontal = 4.dp, vertical = 4.dp),
     ) {
+        // Calculator-style puts 789 on top (like a desktop keypad); the
+        // phone-style setting flips the digit rows to a dialer's 123-on-top.
+        val digits = if (state.settings.numpadPhoneLayout) {
+            listOf("1", "2", "3", "4", "5", "6", "7", "8", "9")
+        } else {
+            listOf("7", "8", "9", "4", "5", "6", "1", "2", "3")
+        }
         val rows = listOf(
-            listOf("7", "8", "9", "⌫"),
-            listOf("4", "5", "6", "+"),
-            listOf("1", "2", "3", "-"),
+            listOf(digits[0], digits[1], digits[2], "⌫"),
+            listOf(digits[3], digits[4], digits[5], "+"),
+            listOf(digits[6], digits[7], digits[8], "-"),
             listOf(".", "0", ",", "⏎"),
         )
         for (row in rows) {

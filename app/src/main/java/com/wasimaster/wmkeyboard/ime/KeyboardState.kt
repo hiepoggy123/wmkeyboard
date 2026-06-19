@@ -42,7 +42,7 @@ enum class PanelMode {
 val PanelMode.hasMediaSearch: Boolean
     get() = this == PanelMode.GIF || this == PanelMode.STICKER ||
         this == PanelMode.WEB_SEARCH || this == PanelMode.IMAGE_SEARCH ||
-        this == PanelMode.WIKIPEDIA
+        this == PanelMode.WIKIPEDIA || this == PanelMode.TRANSLATE
 
 /** Readiness of the handwriting panel's recognition model. */
 enum class HandwritingStatus { CHECKING, NEED_MODEL, DOWNLOADING, READY, ERROR }
@@ -159,12 +159,13 @@ sealed interface ImageSearchUi {
 }
 
 /**
- * Translate strip state. The strip follows the focused field: the service
- * re-extracts the field text on every selection change while the panel is
- * open and translates it after a short debounce.
+ * Translate panel state. The panel is its own little window: what gets
+ * translated is the query typed into it ([KeyboardUiState.mediaQuery], the
+ * same key-rerouting trick as the media panels) — the focused field is
+ * never read.
  */
 data class TranslateUi(
-    /** Field text the current [translated] corresponds to. */
+    /** The typed query the current [translated] corresponds to. */
     val sourceText: String = "",
     val translated: String = "",
     /** ISO code of the auto-detected source language, "" while unknown. */

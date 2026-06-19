@@ -465,6 +465,31 @@ data class KeyboardSettings(
     val qrSendMode: MediaSendMode = MediaSendMode.IMAGE,
     /** Dictionary tool looks up the word at the cursor when it opens. */
     val dictionaryAutoLookup: Boolean = true,
+    /** Auto-repeat interval while holding an arrow/backspace in the text-editing tool. */
+    val textEditRepeatMs: Int = 60,
+    /** Number pad digits phone-style (123 on top) instead of calculator-style (789 on top). */
+    val numpadPhoneLayout: Boolean = false,
+    /** Incognito stops the clipboard tool from capturing copies. */
+    val incognitoPausesClipboard: Boolean = true,
+    /** Incognito stops word and emoji learning. */
+    val incognitoPausesLearning: Boolean = true,
+    /** Text scanner results start with every word selected (deselect to trim). */
+    val ocrAutoSelectWords: Boolean = true,
+    /** Vibrate when the QR scanner spots a code. */
+    val qrScanHaptics: Boolean = true,
+    /** Insert a scanned code into the field the moment it is spotted. */
+    val qrScanAutoInsert: Boolean = false,
+    /** Decimal places on currency conversion results. */
+    val currencyDecimals: Int = 2,
+    /** Hours exchange rates stay fresh before the panel refetches on open. */
+    val currencyCacheHours: Int = 6,
+    /** Pause after typing stops before the grammar tool re-lints the field. */
+    val grammarDebounceMs: Int = 350,
+    /**
+     * Unit converter memory: each category's last from/to pair, last-used
+     * category first ("Length|m|ft;Mass|kg|lb"). Restored on open.
+     */
+    val unitConvertLast: String = "",
     /** Tools per row in the toolbox grid. */
     val toolboxColumns: Int = 4,
     /** ISO 639-1 code the translate tool translates into (source is auto-detected). */
@@ -688,6 +713,17 @@ class SettingsRepository(private val context: Context) {
         private val GIF_SEND_MODE = stringPreferencesKey("gif_send_mode")
         private val QR_SEND_MODE = stringPreferencesKey("qr_send_mode")
         private val DICTIONARY_AUTO_LOOKUP = booleanPreferencesKey("dictionary_auto_lookup")
+        private val TEXT_EDIT_REPEAT_MS = intPreferencesKey("text_edit_repeat_ms")
+        private val NUMPAD_PHONE_LAYOUT = booleanPreferencesKey("numpad_phone_layout")
+        private val INCOGNITO_PAUSES_CLIPBOARD = booleanPreferencesKey("incognito_pauses_clipboard")
+        private val INCOGNITO_PAUSES_LEARNING = booleanPreferencesKey("incognito_pauses_learning")
+        private val OCR_AUTO_SELECT_WORDS = booleanPreferencesKey("ocr_auto_select_words")
+        private val QR_SCAN_HAPTICS = booleanPreferencesKey("qr_scan_haptics")
+        private val QR_SCAN_AUTO_INSERT = booleanPreferencesKey("qr_scan_auto_insert")
+        private val CURRENCY_DECIMALS = intPreferencesKey("currency_decimals")
+        private val CURRENCY_CACHE_HOURS = intPreferencesKey("currency_cache_hours")
+        private val GRAMMAR_DEBOUNCE_MS = intPreferencesKey("grammar_debounce_ms")
+        private val UNIT_CONVERT_LAST = stringPreferencesKey("unit_convert_last")
         private val TOOLBOX_COLUMNS = intPreferencesKey("toolbox_columns")
         private val EMOJI_ROW_ABOVE_TOOLBAR = booleanPreferencesKey("emoji_row_above_toolbar")
         private val TRANSLATE_TARGET_LANG = stringPreferencesKey("translate_target_lang")
@@ -925,6 +961,17 @@ class SettingsRepository(private val context: Context) {
                 ?.let { runCatching { MediaSendMode.valueOf(it) }.getOrNull() }
                 ?: defaults.qrSendMode,
             dictionaryAutoLookup = p[DICTIONARY_AUTO_LOOKUP] ?: defaults.dictionaryAutoLookup,
+            textEditRepeatMs = p[TEXT_EDIT_REPEAT_MS] ?: defaults.textEditRepeatMs,
+            numpadPhoneLayout = p[NUMPAD_PHONE_LAYOUT] ?: defaults.numpadPhoneLayout,
+            incognitoPausesClipboard = p[INCOGNITO_PAUSES_CLIPBOARD] ?: defaults.incognitoPausesClipboard,
+            incognitoPausesLearning = p[INCOGNITO_PAUSES_LEARNING] ?: defaults.incognitoPausesLearning,
+            ocrAutoSelectWords = p[OCR_AUTO_SELECT_WORDS] ?: defaults.ocrAutoSelectWords,
+            qrScanHaptics = p[QR_SCAN_HAPTICS] ?: defaults.qrScanHaptics,
+            qrScanAutoInsert = p[QR_SCAN_AUTO_INSERT] ?: defaults.qrScanAutoInsert,
+            currencyDecimals = p[CURRENCY_DECIMALS] ?: defaults.currencyDecimals,
+            currencyCacheHours = p[CURRENCY_CACHE_HOURS] ?: defaults.currencyCacheHours,
+            grammarDebounceMs = p[GRAMMAR_DEBOUNCE_MS] ?: defaults.grammarDebounceMs,
+            unitConvertLast = p[UNIT_CONVERT_LAST] ?: defaults.unitConvertLast,
             toolboxColumns = p[TOOLBOX_COLUMNS] ?: defaults.toolboxColumns,
             translateTargetLang = p[TRANSLATE_TARGET_LANG] ?: defaults.translateTargetLang,
             grammarDialect = p[GRAMMAR_DIALECT]
@@ -1150,6 +1197,39 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setQrSendMode(value: MediaSendMode) =
         context.dataStore.edit { it[QR_SEND_MODE] = value.name }
+
+    suspend fun setTextEditRepeatMs(value: Int) =
+        context.dataStore.edit { it[TEXT_EDIT_REPEAT_MS] = value.coerceIn(30, 200) }
+
+    suspend fun setNumpadPhoneLayout(value: Boolean) =
+        context.dataStore.edit { it[NUMPAD_PHONE_LAYOUT] = value }
+
+    suspend fun setIncognitoPausesClipboard(value: Boolean) =
+        context.dataStore.edit { it[INCOGNITO_PAUSES_CLIPBOARD] = value }
+
+    suspend fun setIncognitoPausesLearning(value: Boolean) =
+        context.dataStore.edit { it[INCOGNITO_PAUSES_LEARNING] = value }
+
+    suspend fun setOcrAutoSelectWords(value: Boolean) =
+        context.dataStore.edit { it[OCR_AUTO_SELECT_WORDS] = value }
+
+    suspend fun setQrScanHaptics(value: Boolean) =
+        context.dataStore.edit { it[QR_SCAN_HAPTICS] = value }
+
+    suspend fun setQrScanAutoInsert(value: Boolean) =
+        context.dataStore.edit { it[QR_SCAN_AUTO_INSERT] = value }
+
+    suspend fun setCurrencyDecimals(value: Int) =
+        context.dataStore.edit { it[CURRENCY_DECIMALS] = value.coerceIn(0, 6) }
+
+    suspend fun setCurrencyCacheHours(value: Int) =
+        context.dataStore.edit { it[CURRENCY_CACHE_HOURS] = value.coerceIn(1, 48) }
+
+    suspend fun setGrammarDebounceMs(value: Int) =
+        context.dataStore.edit { it[GRAMMAR_DEBOUNCE_MS] = value.coerceIn(100, 1500) }
+
+    suspend fun setUnitConvertLast(value: String) =
+        context.dataStore.edit { it[UNIT_CONVERT_LAST] = value }
 
     suspend fun setDictionaryAutoLookup(value: Boolean) =
         context.dataStore.edit { it[DICTIONARY_AUTO_LOOKUP] = value }

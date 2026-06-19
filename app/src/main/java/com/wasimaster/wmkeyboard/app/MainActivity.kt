@@ -168,6 +168,7 @@ import com.wasimaster.wmkeyboard.core.settings.AiAction
 import com.wasimaster.wmkeyboard.core.settings.AiProvider
 import com.wasimaster.wmkeyboard.core.settings.GifContentFilter
 import com.wasimaster.wmkeyboard.core.settings.GifSourceMode
+import com.wasimaster.wmkeyboard.core.settings.GrammarDialect
 import com.wasimaster.wmkeyboard.core.settings.MediaSendMode
 import com.wasimaster.wmkeyboard.core.settings.QrEccLevel
 import com.wasimaster.wmkeyboard.core.tools.AiPrompts
@@ -2883,7 +2884,7 @@ private fun ToolDetailSettings(
                 ) { scope.launch { repository.setLevelShowAngles(it) } }
             }
         }
-        ToolbarTool.REDO -> SettingsGroup("Options") {
+        ToolbarTool.UNDO, ToolbarTool.REDO -> SettingsGroup("Options") {
             item {
                 ToggleSetting(
                     "Redo sends Ctrl+Y",
@@ -3024,10 +3025,50 @@ private fun ToolDetailSettings(
                     "service — only when you use the tool.",
             )
         }
-        ToolbarTool.INCOGNITO -> CaptionText(
-            "Tapping the tool pauses on-device learning and clipboard capture; " +
-                "tapping again resumes them. Same switch as Settings → Privacy.",
-        )
+        ToolbarTool.TEXT_EDIT -> SettingsGroup("Options") {
+            item {
+                SliderSetting(
+                    "Key repeat interval",
+                    subtitle = "Pause between repeats while holding an arrow or " +
+                        "backspace — lower is faster",
+                    value = settings.textEditRepeatMs.toFloat(),
+                    range = 30f..200f,
+                    display = "${settings.textEditRepeatMs} ms",
+                ) { scope.launch { repository.setTextEditRepeatMs(it.toInt()) } }
+            }
+        }
+        ToolbarTool.NUMPAD -> SettingsGroup("Options") {
+            item {
+                ToggleSetting(
+                    "Phone-style layout",
+                    "1 2 3 on the top row, like a dialer. Off puts 7 8 9 on " +
+                        "top, like a calculator.",
+                    settings.numpadPhoneLayout,
+                ) { scope.launch { repository.setNumpadPhoneLayout(it) } }
+            }
+        }
+        ToolbarTool.INCOGNITO -> {
+            SettingsGroup("While incognito") {
+                item {
+                    ToggleSetting(
+                        "Pause learning",
+                        "No words or emoji habits are learned from typing",
+                        settings.incognitoPausesLearning,
+                    ) { scope.launch { repository.setIncognitoPausesLearning(it) } }
+                }
+                item {
+                    ToggleSetting(
+                        "Pause clipboard capture",
+                        "Copies don't join the clipboard tool's history",
+                        settings.incognitoPausesClipboard,
+                    ) { scope.launch { repository.setIncognitoPausesClipboard(it) } }
+                }
+            }
+            CaptionText(
+                "Tapping the tool turns incognito on; tapping again resumes " +
+                    "normal typing. Same switch as Settings → Privacy.",
+            )
+        }
         ToolbarTool.AUTOCORRECT -> SettingsGroup("Options") {
             item {
                 ToggleSetting(
@@ -3286,19 +3327,50 @@ private fun ToolDetailSettings(
                 }
             }
         }
-        ToolbarTool.OCR -> CaptionText(
-            "Recognition runs on this device with ML Kit — no photo or text " +
-                "leaves the phone, and it works offline. Reads Latin-script " +
-                "text (English etc.); Bengali isn't supported by ML Kit's " +
-                "text recognizer yet. After a capture, tap words to choose " +
-                "exactly what gets inserted or copied.",
-        )
-        ToolbarTool.QR_SCAN -> CaptionText(
-            "Decoding runs on this device with ML Kit — offline, nothing is " +
-                "uploaded. Reads QR codes plus the common product barcode " +
-                "formats (EAN, UPC, Code 128 …). Insert types the code's " +
-                "text at the cursor.",
-        )
+        ToolbarTool.OCR -> {
+            SettingsGroup("Options") {
+                item {
+                    ToggleSetting(
+                        "Start with everything selected",
+                        "Deselect words to trim the capture. Off starts empty " +
+                            "and words are picked one by one.",
+                        settings.ocrAutoSelectWords,
+                    ) { scope.launch { repository.setOcrAutoSelectWords(it) } }
+                }
+            }
+            CaptionText(
+                "Recognition runs on this device with ML Kit — no photo or text " +
+                    "leaves the phone, and it works offline. Reads Latin-script " +
+                    "text (English etc.); Bengali isn't supported by ML Kit's " +
+                    "text recognizer yet. After a capture, tap words to choose " +
+                    "exactly what gets inserted or copied.",
+            )
+        }
+        ToolbarTool.QR_SCAN -> {
+            SettingsGroup("Options") {
+                item {
+                    ToggleSetting(
+                        "Insert automatically",
+                        "Type the code's text the moment one is spotted, no " +
+                            "confirm tap",
+                        settings.qrScanAutoInsert,
+                    ) { scope.launch { repository.setQrScanAutoInsert(it) } }
+                }
+                item {
+                    ToggleSetting(
+                        "Vibrate on detection",
+                        "A short buzz when a code is spotted",
+                        settings.qrScanHaptics,
+                    ) { scope.launch { repository.setQrScanHaptics(it) } }
+                }
+            }
+            CaptionText(
+                "Decoding runs on this device with ML Kit — offline, nothing is " +
+                    "uploaded. Reads QR codes plus the common product barcode " +
+                    "formats (EAN, UPC, Code 128 …). Insert types the code's " +
+                    "text at the cursor.",
+            )
+        }
         ToolbarTool.DOC_SCAN -> {
             SettingsGroup("Options") {
                 item {
@@ -3349,14 +3421,35 @@ private fun ToolDetailSettings(
                     "dictate walkie-talkie style — it stops when you let go.",
             )
         }
-        ToolbarTool.GRAMMAR -> CaptionText(
-            "Grammar checking runs on this device with the Harper engine " +
-                "(the same one behind harper-ls) — offline, nothing you " +
-                "type is uploaded. Open the tool while writing to see " +
-                "issues with one-tap fixes; the dialect chip on the panel " +
-                "switches between American, British, Canadian and " +
-                "Australian English.",
-        )
+        ToolbarTool.GRAMMAR -> {
+            SettingsGroup("Options") {
+                item {
+                    ChoiceSetting(
+                        "English dialect",
+                        subtitle = "Spelling and style conventions to lint against",
+                        options = GrammarDialect.entries.map { it to it.label },
+                        selected = settings.grammarDialect,
+                    ) { scope.launch { repository.setGrammarDialect(it) } }
+                }
+                item {
+                    SliderSetting(
+                        "Re-check delay",
+                        subtitle = "Pause after typing stops before issues refresh — " +
+                            "lower feels snappier, higher churns less",
+                        value = settings.grammarDebounceMs.toFloat(),
+                        range = 100f..1500f,
+                        display = "${settings.grammarDebounceMs} ms",
+                    ) { scope.launch { repository.setGrammarDebounceMs(it.toInt()) } }
+                }
+            }
+            CaptionText(
+                "Grammar checking runs on this device with the Harper engine " +
+                    "(the same one behind harper-ls) — offline, nothing you " +
+                    "type is uploaded. Open the tool while writing to see " +
+                    "issues with one-tap fixes; the dialect chip on the panel " +
+                    "switches dialects too.",
+            )
+        }
         ToolbarTool.WIKIPEDIA -> {
             SettingsGroup("Options") {
                 item {
@@ -3425,15 +3518,40 @@ private fun ToolDetailSettings(
             "14 categories — length, mass, temperature, area, volume, speed, " +
                 "time, data, energy, power, pressure, angle, frequency and fuel " +
                 "economy. All conversions run on-device; result precision " +
-                "follows the calculator's setting.",
+                "follows the calculator's setting. The panel reopens on the " +
+                "category and units you used last.",
         )
-        ToolbarTool.CURRENCY -> CaptionText(
-            "Rates come from open.er-api.com (about 160 currencies, updated " +
-                "daily), with frankfurter.app (European Central Bank) as a " +
-                "fallback — both free, no API key. Rates refresh at most every " +
-                "six hours; the from/to pair you pick on the panel is " +
-                "remembered.",
-        )
+        ToolbarTool.CURRENCY -> {
+            SettingsGroup("Options") {
+                item {
+                    SliderSetting(
+                        "Decimal places",
+                        subtitle = "Rounding of the converted amount",
+                        value = settings.currencyDecimals.toFloat(),
+                        range = 0f..6f,
+                        display = "${settings.currencyDecimals}",
+                    ) { scope.launch { repository.setCurrencyDecimals(it.toInt()) } }
+                }
+                item {
+                    SliderSetting(
+                        "Refresh rates every",
+                        subtitle = "How long fetched exchange rates stay fresh",
+                        value = settings.currencyCacheHours.toFloat(),
+                        range = 1f..48f,
+                        display = "${settings.currencyCacheHours} h",
+                        info = "Upstream rates update about once a day, so " +
+                            "anything below 24 hours mostly affects how soon " +
+                            "a failed fetch is retried.",
+                    ) { scope.launch { repository.setCurrencyCacheHours(it.toInt()) } }
+                }
+            }
+            CaptionText(
+                "Rates come from open.er-api.com (about 160 currencies, updated " +
+                    "daily), with frankfurter.app (European Central Bank) as a " +
+                    "fallback — both free, no API key. The from/to pair you pick " +
+                    "on the panel is remembered.",
+            )
+        }
         ToolbarTool.QR_GEN -> {
             SettingsGroup("Options") {
                 item {

@@ -454,6 +454,7 @@ fun KeyboardScreen(
     onSymbolSetSelect: (String) -> Unit = {},
     onModeSelect: (String?) -> Unit = {},
     onToolInsert: (String) -> Unit = {},
+    onUnitSelection: (String) -> Unit = {},
     onCurrencyPairChange: (String, String) -> Unit = { _, _ -> },
     onCurrencyRefresh: () -> Unit = {},
     onPwSetting: (PwSettingAction) -> Unit = {},
@@ -592,6 +593,7 @@ fun KeyboardScreen(
                 onSymbolSetSelect = onSymbolSetSelect,
                 onModeSelect = onModeSelect,
                 onToolInsert = onToolInsert,
+                onUnitSelection = onUnitSelection,
                 onCurrencyPairChange = onCurrencyPairChange,
                 onCurrencyRefresh = onCurrencyRefresh,
                 onPwSetting = onPwSetting,
@@ -2238,6 +2240,69 @@ private fun ToolboxPanel(
 }
 
 /**
+ * Panels that take over the whole keyboard: the toolbar (plus any emoji or
+ * symbol row) hides while they're open and the panel absorbs that height.
+ * The right fit for tools that want the room and never involve typing or
+ * hopping to another tool mid-use — sensors, reference views, converters.
+ */
+private val FullBleedPanels = setOf(
+    PanelMode.OCR, PanelMode.CALCULATOR, PanelMode.CURRENCY, PanelMode.UNIT_CONVERT,
+    PanelMode.LEVEL, PanelMode.COMPASS, PanelMode.CALENDAR,
+)
+
+/**
+ * Chrome for a full-bleed tool: a slim header (back button + tool name)
+ * standing in for the hidden toolbar, then the tool filling everything
+ * else. The wrapper's height is the key rows plus every row the full-bleed
+ * mode hid, so opening one never resizes the keyboard window — the tool
+ * gets the reclaimed space instead.
+ */
+@Composable
+private fun FullBleedTool(
+    state: KeyboardUiState,
+    title: String,
+    onClose: () -> Unit,
+    content: @Composable () -> Unit,
+) {
+    val kb = LocalKbTheme.current
+    val hiddenRows = TopBarHeight +
+        (if (state.settings.emojiBarMode == EmojiBarMode.ALWAYS) EmojiBarHeight else 0.dp) +
+        (if (state.settings.symbolRowEnabled) SymbolRowHeight else 0.dp)
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(keyRowsHeight(state.settings) + hiddenRows),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(40.dp)
+                .padding(horizontal = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            ToolCircle(
+                icon = Icons.Outlined.ChevronLeft,
+                description = "Back to keyboard",
+                active = false,
+                onClick = onClose,
+            )
+            Text(
+                title,
+                color = kb.secondaryText,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier.padding(start = 8.dp),
+            )
+        }
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth(),
+        ) { content() }
+    }
+}
+
+/**
  * Toolbar + panels + key rows, wrapped in a Box so the tool-drag ghost can
  * float over everything while the toolbox is open.
  */
@@ -2307,6 +2372,7 @@ private fun KeyboardBody(
     onSymbolSetSelect: (String) -> Unit,
     onModeSelect: (String?) -> Unit,
     onToolInsert: (String) -> Unit,
+    onUnitSelection: (String) -> Unit,
     onCurrencyPairChange: (String, String) -> Unit,
     onCurrencyRefresh: () -> Unit,
     onPwSetting: (PwSettingAction) -> Unit,
@@ -2337,10 +2403,11 @@ private fun KeyboardBody(
             // The dedicated always-on emoji row (Gboard style) sits between
             // the strip and the keys — or on top of everything, per setting;
             // the emoji panel already is emojis, so it yields there.
-            // The OCR panel is the one full-bleed tool: it swallows the
-            // toolbar row too (its own height grows by [TopBarHeight]), so
-            // a captured page gets every pixel the keyboard owns.
-            val fullBleed = state.panel == PanelMode.OCR
+            // Full-bleed panels swallow the toolbar row (and any emoji or
+            // symbol row) too: the tool absorbs those rows' height, so it
+            // gets every pixel the keyboard owns. OCR draws its own chrome;
+            // the rest get the [FullBleedTool] back-header wrapper.
+            val fullBleed = state.panel in FullBleedPanels
             val emojiRowVisible = !fullBleed &&
                 state.settings.emojiBarMode == EmojiBarMode.ALWAYS && state.panel != PanelMode.EMOJI
             // The symbols panel already is special characters — the row
@@ -2385,15 +2452,24 @@ private fun KeyboardBody(
                 PanelMode.SNIPPETS -> SnippetsPanel(state, onSnippet)
                 PanelMode.TEXT_EDIT -> TextEditPanel(state, onTextEdit)
                 PanelMode.TOOLBOX -> ToolboxPanel(state, onToolTap, onToolboxHintDismiss, drag)
-                PanelMode.COMPASS -> CompassPanel(state)
-                PanelMode.LEVEL -> LevelPanel(state)
+                PanelMode.COMPASS -> FullBleedTool(
+                    state, "Compass",
+                    onClose = { onPanelChange(PanelMode.COMPASS) },
+                ) { CompassPanel(state) }
+                PanelMode.LEVEL -> FullBleedTool(
+                    state, "Level",
+                    onClose = { onPanelChange(PanelMode.LEVEL) },
+                ) { LevelPanel(state) }
                 PanelMode.MOON_PHASE -> MoonPhasePanel(state)
                 PanelMode.WEATHER -> WeatherPanel(
                     state = state,
                     onRefresh = onWeatherRefresh,
                     onOpenSettings = { onToolTap(ToolbarTool.SETTINGS) },
                 )
-                PanelMode.CALENDAR -> CalendarPanel(state, onInsert = onText)
+                PanelMode.CALENDAR -> FullBleedTool(
+                    state, "Calendar",
+                    onClose = { onPanelChange(PanelMode.CALENDAR) },
+                ) { CalendarPanel(state, onInsert = onText) }
                 PanelMode.THEMES -> ThemesPanel(state, onThemeSelect)
                 PanelMode.SOUND_HAPTICS -> SoundHapticsPanel(state, onSoundHaptic)
                 PanelMode.NUMPAD -> NumpadPanel(state, onText, onKey)
@@ -2455,6 +2531,7 @@ private fun KeyboardBody(
                 )
                 PanelMode.TRANSLATE -> TranslatePanel(
                     state = state,
+                    onQueryTap = onMediaQueryTap,
                     onTarget = onTranslateTarget,
                     onReplace = onTranslateReplace,
                     onInsert = onTranslateInsert,
@@ -2506,14 +2583,25 @@ private fun KeyboardBody(
                     onInsert = onToolInsert,
                 )
                 PanelMode.SYMBOLS -> SymbolsPanel(state, onSymbolInsert)
-                PanelMode.CALCULATOR -> CalculatorPanel(state, onToolInsert)
-                PanelMode.UNIT_CONVERT -> UnitConverterPanel(state, onToolInsert)
-                PanelMode.CURRENCY -> CurrencyPanel(
-                    state = state,
-                    onPairChange = onCurrencyPairChange,
-                    onRefresh = onCurrencyRefresh,
-                    onInsert = onToolInsert,
-                )
+                PanelMode.CALCULATOR -> FullBleedTool(
+                    state, "Calculator",
+                    onClose = { onPanelChange(PanelMode.CALCULATOR) },
+                ) { CalculatorPanel(state, onToolInsert) }
+                PanelMode.UNIT_CONVERT -> FullBleedTool(
+                    state, "Unit converter",
+                    onClose = { onPanelChange(PanelMode.UNIT_CONVERT) },
+                ) { UnitConverterPanel(state, onToolInsert, onUnitSelection) }
+                PanelMode.CURRENCY -> FullBleedTool(
+                    state, "Currency",
+                    onClose = { onPanelChange(PanelMode.CURRENCY) },
+                ) {
+                    CurrencyPanel(
+                        state = state,
+                        onPairChange = onCurrencyPairChange,
+                        onRefresh = onCurrencyRefresh,
+                        onInsert = onToolInsert,
+                    )
+                }
                 PanelMode.QR_GEN -> QrGeneratorPanel(state, onQrSend)
                 PanelMode.PASSWORD_GEN -> PasswordPanel(state, onPwSetting, onToolInsert)
                 PanelMode.AI -> AiPanel(
@@ -2535,10 +2623,10 @@ private fun KeyboardBody(
             if (state.panel == PanelMode.DICTIONARY && state.dictionarySearchActive) {
                 KeyRows(state, onKey, onText, onGesture, onGesturePreview, onCursorMove, onLanguageSelect)
             }
-            // Same for a media panel's search box, and always under the
-            // translate and grammar strips (they follow what you type live).
+            // Same for a media panel's search box (translate is one now —
+            // its query types into the panel), and always under the grammar
+            // strip (it follows the field live).
             if ((state.panel.hasMediaSearch && state.mediaSearchActive) ||
-                state.panel == PanelMode.TRANSLATE ||
                 state.panel == PanelMode.GRAMMAR
             ) {
                 KeyRows(state, onKey, onText, onGesture, onGesturePreview, onCursorMove, onLanguageSelect)

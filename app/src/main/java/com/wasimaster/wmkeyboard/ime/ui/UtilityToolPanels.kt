@@ -28,6 +28,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -197,8 +198,7 @@ internal fun CalculatorPanel(
 
     Column(
         modifier = Modifier
-            .fillMaxWidth()
-            .height(keyRowsHeight(state.settings))
+            .fillMaxSize()
             .padding(horizontal = 6.dp, vertical = 2.dp),
     ) {
         // Display: expression, live result, insert.
@@ -329,22 +329,52 @@ private fun ConverterKeypad(
 
 /**
  * Unit converter: pick a category, a from/to unit pair, type a value on
- * the keypad and insert the result. Everything converts locally.
+ * the keypad and insert the result. Everything converts locally. The
+ * selection persists (via [onSelectionChange]) so the panel reopens on
+ * whatever was converted last.
  */
 @Composable
 internal fun UnitConverterPanel(
     state: KeyboardUiState,
     onInsert: (String) -> Unit,
+    onSelectionChange: (String) -> Unit = {},
 ) {
     val kb = LocalKbTheme.current
-    var categoryIndex by rememberSaveable { mutableStateOf(0) }
+    // "Cat|from|to;Cat|from|to;…" — every category keeps its own unit pair,
+    // and the last-used category leads the list (it's what the panel reopens
+    // on). Matching is by name/symbol, not index, so a units-list change in
+    // an update degrades to the defaults instead of picking a wrong unit.
+    val savedEntries = state.settings.unitConvertLast.split(';').mapNotNull { entry ->
+        val parts = entry.split('|')
+        if (parts.size == 3) Triple(parts[0], parts[1], parts[2]) else null
+    }
+    var categoryIndex by rememberSaveable {
+        mutableStateOf(
+            UnitConvert.categories.indexOfFirst { it.name == savedEntries.firstOrNull()?.first }
+                .takeIf { it >= 0 } ?: 0
+        )
+    }
     val category = UnitConvert.categories[categoryIndex.coerceIn(UnitConvert.categories.indices)]
-    var fromIndex by rememberSaveable(categoryIndex) { mutableStateOf(0) }
-    var toIndex by rememberSaveable(categoryIndex) { mutableStateOf(1) }
+    fun savedUnit(pick: (Triple<String, String, String>) -> String, fallback: Int): Int =
+        savedEntries.firstOrNull { it.first == category.name }?.let { entry ->
+            category.units.indexOfFirst { it.symbol == pick(entry) }.takeIf { it >= 0 }
+        } ?: fallback
+    var fromIndex by rememberSaveable(categoryIndex) {
+        mutableStateOf(savedUnit({ it.second }, 0))
+    }
+    var toIndex by rememberSaveable(categoryIndex) {
+        mutableStateOf(savedUnit({ it.third }, 1))
+    }
     var value by rememberSaveable { mutableStateOf("1") }
 
     val from = category.units.getOrElse(fromIndex) { category.units.first() }
     val to = category.units.getOrElse(toIndex) { category.units.last() }
+    LaunchedEffect(category.name, from.symbol, to.symbol) {
+        val others = savedEntries.filter { it.first != category.name }
+        val encoded = (listOf(Triple(category.name, from.symbol, to.symbol)) + others)
+            .joinToString(";") { "${it.first}|${it.second}|${it.third}" }
+        onSelectionChange(encoded)
+    }
     val amount = value.toDoubleOrNull()
     val converted = amount?.let { UnitConvert.convert(it, from, to) }
     val resultText = converted?.takeIf { !it.isNaN() && !it.isInfinite() }
@@ -352,8 +382,7 @@ internal fun UnitConverterPanel(
 
     Column(
         modifier = Modifier
-            .fillMaxWidth()
-            .height(keyRowsHeight(state.settings))
+            .fillMaxSize()
             .padding(horizontal = 6.dp, vertical = 2.dp),
     ) {
         Row(
@@ -476,8 +505,7 @@ internal fun CurrencyPanel(
 
     Column(
         modifier = Modifier
-            .fillMaxWidth()
-            .height(keyRowsHeight(state.settings))
+            .fillMaxSize()
             .padding(horizontal = 6.dp, vertical = 2.dp),
     ) {
         when (val currency = state.currency) {
@@ -509,7 +537,9 @@ internal fun CurrencyPanel(
                 val converted = amount?.let {
                     CurrencyClient.convert(it, from, to, currency.rates)
                 }
-                val resultText = converted?.let { CalcEngine.format(it, 2) }
+                val resultText = converted?.let {
+                    CalcEngine.format(it, state.settings.currencyDecimals)
+                }
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()

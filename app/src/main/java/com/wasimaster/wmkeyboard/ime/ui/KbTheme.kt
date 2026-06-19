@@ -28,6 +28,8 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
+import kotlin.math.max
+import kotlin.math.min
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
@@ -117,6 +119,24 @@ private fun colorOf(argb: Long): Color = Color(argb.toInt())
 private fun blendOver(top: Color, base: Color, alpha: Float): Color =
     top.copy(alpha = alpha).compositeOver(base)
 
+/** WCAG-style contrast ratio between two (assumed opaque) colors. */
+private fun contrastRatio(a: Color, b: Color): Float {
+    val la = a.luminance() + 0.05f
+    val lb = b.luminance() + 0.05f
+    return max(la, lb) / min(la, lb)
+}
+
+/**
+ * First of [candidates] that actually reads on [background] (≥ 3:1, the
+ * large-text/UI-component threshold), else plain black/white. Lets active
+ * chips keep the theme's accent personality when it's legible and fall
+ * back to guaranteed contrast when it isn't — accent text on an
+ * accent-tinted chip was unreadable in most light themes.
+ */
+private fun legibleOn(background: Color, candidates: List<Color>): Color =
+    candidates.firstOrNull { contrastRatio(it, background) >= 3f }
+        ?: if (background.luminance() > 0.5f) Color.Black else Color.White
+
 /**
  * The default (system) theme, derived from the Material scheme. In dark
  * mode the key/circle colors are blends of onSurface over a darkened board
@@ -165,7 +185,13 @@ private fun defaultKbTheme(
         toolbarIcon = scheme.onSurfaceVariant,
         toolCircle = toolCircle,
         toolCircleActive = scheme.primaryContainer,
-        toolCircleActiveIcon = scheme.primary,
+        // onPrimaryContainer, not primary: primary-on-primaryContainer is
+        // tone-on-tone (blue text on light blue) and fails contrast in
+        // most light palettes.
+        toolCircleActiveIcon = legibleOn(
+            scheme.primaryContainer,
+            listOf(scheme.onPrimaryContainer, scheme.primary),
+        ),
         chip = chip,
         suggestionText = scheme.onSurface,
         secondaryText = scheme.onSurfaceVariant,
@@ -209,7 +235,10 @@ private fun specKbTheme(spec: ThemeSpec, settings: KeyboardSettings): KbTheme {
         toolCircle = spec.toolCircleBackground?.let(::colorOf)
             ?: blendOver(keyText, board, 0.14f),
         toolCircleActive = spec.toolCircleActiveBackground?.let(::colorOf) ?: pressed,
-        toolCircleActiveIcon = accent,
+        toolCircleActiveIcon = legibleOn(
+            spec.toolCircleActiveBackground?.let(::colorOf) ?: pressed,
+            listOf(accent, keyText),
+        ),
         chip = spec.chipBackground?.let(::colorOf) ?: colorOf(spec.modifierKeyBackground),
         suggestionText = spec.suggestionText?.let(::colorOf) ?: keyText,
         secondaryText = secondary,

@@ -55,6 +55,7 @@ internal fun TextEditPanel(
 ) {
     val height = keyRowsHeight(state.settings)
     val rowHeight = state.settings.keyHeightDp.dp
+    val repeatMs = state.settings.textEditRepeatMs.toLong()
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -76,6 +77,7 @@ internal fun TextEditPanel(
                     .weight(0.8f)
                     .fillMaxHeight(),
                 repeatable = true,
+                repeatIntervalMs = repeatMs,
             ) { onAction(TextEditAction.LEFT) }
             Column(
                 modifier = Modifier
@@ -90,6 +92,7 @@ internal fun TextEditPanel(
                         .weight(1f)
                         .fillMaxWidth(),
                     repeatable = true,
+                    repeatIntervalMs = repeatMs,
                 ) { onAction(TextEditAction.UP) }
                 EditKey(
                     label = "Select",
@@ -106,6 +109,7 @@ internal fun TextEditPanel(
                         .weight(1f)
                         .fillMaxWidth(),
                     repeatable = true,
+                    repeatIntervalMs = repeatMs,
                 ) { onAction(TextEditAction.DOWN) }
             }
             EditKey(
@@ -115,6 +119,7 @@ internal fun TextEditPanel(
                     .weight(0.8f)
                     .fillMaxHeight(),
                 repeatable = true,
+                repeatIntervalMs = repeatMs,
             ) { onAction(TextEditAction.RIGHT) }
             Column(
                 modifier = Modifier
@@ -175,6 +180,7 @@ internal fun TextEditPanel(
                     .weight(1f)
                     .fillMaxHeight(),
                 repeatable = true,
+                repeatIntervalMs = repeatMs,
             ) { onAction(TextEditAction.BACKSPACE) }
         }
     }
@@ -185,7 +191,8 @@ private const val REPEAT_INTERVAL_MS = 60L
 
 /**
  * One panel key, drawn with the keyboard theme's key colors. [repeatable]
- * keys fire once on press, then auto-repeat while held.
+ * keys fire once on press, then auto-repeat every [repeatIntervalMs] while
+ * held (the interval is the text-edit tool's repeat-speed setting).
  */
 @Composable
 private fun EditKey(
@@ -195,6 +202,7 @@ private fun EditKey(
     label: String? = null,
     active: Boolean = false,
     repeatable: Boolean = false,
+    repeatIntervalMs: Long = REPEAT_INTERVAL_MS,
     onAction: () -> Unit,
 ) {
     val kb = LocalKbTheme.current
@@ -206,7 +214,7 @@ private fun EditKey(
         modifier = modifier
             .clip(shape)
             .background(background, shape)
-            .pointerInput(repeatable) {
+            .pointerInput(repeatable, repeatIntervalMs) {
                 detectTapGestures(
                     onPress = {
                         onAction()
@@ -216,7 +224,7 @@ private fun EditKey(
                                 delay(REPEAT_START_MS)
                                 while (true) {
                                     onAction()
-                                    delay(REPEAT_INTERVAL_MS)
+                                    delay(repeatIntervalMs)
                                 }
                             }
                         }

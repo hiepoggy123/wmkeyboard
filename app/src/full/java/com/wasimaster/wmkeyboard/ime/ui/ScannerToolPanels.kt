@@ -135,7 +135,11 @@ internal fun OcrPanel(
             .height(height),
     ) {
         if (hasPermission) {
-            OcrContent(onInsert = onInsert, onClose = onClose)
+            OcrContent(
+                onInsert = onInsert,
+                onClose = onClose,
+                autoSelect = state.settings.ocrAutoSelectWords,
+            )
         } else {
             CameraPermissionPrompt(
                 "The text scanner needs the camera to read printed text. " +
@@ -160,6 +164,7 @@ internal fun OcrPanel(
 private fun OcrContent(
     onInsert: (String) -> Unit,
     onClose: () -> Unit,
+    autoSelect: Boolean,
 ) {
     val kb = LocalKbTheme.current
     val context = LocalContext.current
@@ -273,6 +278,7 @@ private fun OcrContent(
             is OcrStage.Done -> {
                 OcrResultView(
                     result = current.result,
+                    autoSelect = autoSelect,
                     onInsert = onInsert,
                     onRescan = { stage = OcrStage.Viewfinder },
                     onClose = onClose,
@@ -359,14 +365,17 @@ private fun OcrContent(
 }
 
 /**
- * The recognized words as chips, grouped by line. Everything starts
- * selected; tapping a word toggles it, so copying "only that one number"
- * is a couple of taps instead of a fiddly text selection.
+ * The recognized words as chips, grouped by line. With [autoSelect] on
+ * (the default setting) everything starts selected and tapping a word
+ * toggles it off, so copying "only that one number" is a couple of taps
+ * instead of a fiddly text selection; with it off the words start blank
+ * and get picked one by one.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun OcrResultView(
     result: OcrResult,
+    autoSelect: Boolean,
     onInsert: (String) -> Unit,
     onRescan: () -> Unit,
     onClose: () -> Unit,
@@ -374,8 +383,10 @@ private fun OcrResultView(
     val kb = LocalKbTheme.current
     val context = LocalContext.current
     val feedback = LocalKeyPressFeedback.current
-    var selected by remember(result) {
-        mutableStateOf(result.lines.flatten().map { it.id }.toSet())
+    var selected by remember(result, autoSelect) {
+        mutableStateOf(
+            if (autoSelect) result.lines.flatten().map { it.id }.toSet() else emptySet()
+        )
     }
 
     fun selectedText(): String = result.lines
@@ -536,7 +547,11 @@ internal fun QrScanPanel(
             .height(height),
     ) {
         if (hasPermission) {
-            QrScanContent(onInsert = onInsert)
+            QrScanContent(
+                onInsert = onInsert,
+                haptics = state.settings.qrScanHaptics,
+                autoInsert = state.settings.qrScanAutoInsert,
+            )
         } else {
             CameraPermissionPrompt(
                 "The scanner needs the camera to read QR codes and barcodes. " +
@@ -559,7 +574,11 @@ internal fun QrScanPanel(
 }
 
 @Composable
-private fun QrScanContent(onInsert: (String) -> Unit) {
+private fun QrScanContent(
+    onInsert: (String) -> Unit,
+    haptics: Boolean,
+    autoInsert: Boolean,
+) {
     val kb = LocalKbTheme.current
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -626,8 +645,12 @@ private fun QrScanContent(onInsert: (String) -> Unit) {
                     .addOnSuccessListener { barcodes ->
                         val hit = barcodes.firstOrNull { !it.rawValue.isNullOrEmpty() }
                         if (hit != null && result == null) {
-                            feedback()
+                            if (haptics) feedback()
+                            // Freeze into the result card either way — with
+                            // auto-insert the text is already committed and
+                            // the card shows what went in (Rescan re-arms).
                             result = ScannedCode(hit.rawValue!!, barcodeFormatLabel(hit.format))
+                            if (autoInsert) onInsert(hit.rawValue!!)
                         }
                     }
                     .addOnCompleteListener { busy = false }

@@ -234,7 +234,10 @@ class WMKeyboardService : InputMethodService() {
 
     private val clipboardListener = ClipboardManager.OnPrimaryClipChangedListener {
         val state = _uiState.value
-        if (!state.settings.clipboardHistory || state.settings.incognito || state.secureField) return@OnPrimaryClipChangedListener
+        if (!state.settings.clipboardHistory ||
+            (state.settings.incognito && state.settings.incognitoPausesClipboard) ||
+            state.secureField
+        ) return@OnPrimaryClipChangedListener
         val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         val clip = clipboard.primaryClip ?: return@OnPrimaryClipChangedListener
         val item = clip.getItemAt(0) ?: return@OnPrimaryClipChangedListener
@@ -654,6 +657,10 @@ class WMKeyboardService : InputMethodService() {
                 onSymbolSetSelect = ::onSymbolSetSelect,
                 onModeSelect = ::onModeSelect,
                 onToolInsert = ::onToolTextInsert,
+                // Selection memory, not a user action — persist silently.
+                onUnitSelection = { selection ->
+                    serviceScope.launch { settingsRepository.setUnitConvertLast(selection) }
+                },
                 onCurrencyPairChange = ::onCurrencyPairChange,
                 onCurrencyRefresh = { refreshCurrencyRates(force = true) },
                 onPwSetting = ::onPwSetting,
@@ -834,10 +841,10 @@ class WMKeyboardService : InputMethodService() {
         }
         refreshShiftForContext()
         refreshKarContext()
-        // The translate strip follows the field: any text or cursor change
-        // while it is open re-extracts and re-translates (debounced).
-        if (_uiState.value.panel == PanelMode.TRANSLATE) scheduleTranslate()
-        // Same for the grammar strip (offline, so a re-lint is cheap).
+        // The grammar strip follows the field: any text or cursor change
+        // while it is open re-extracts and re-lints (offline, so cheap).
+        // Translate deliberately does NOT — it translates its own typed
+        // query, never the field.
         if (_uiState.value.panel == PanelMode.GRAMMAR) scheduleGrammarCheck()
         // The QR generator mirrors the field text live (local, so cheap).
         if (_uiState.value.panel == PanelMode.QR_GEN) refreshQrText()
@@ -1095,7 +1102,8 @@ class WMKeyboardService : InputMethodService() {
                 if (before == expected) {
                     ic.deleteSurroundingText(expected.length, 0)
                     ic.commitText("$typed ", 1)
-                    if (state.settings.learnFromTyping && !state.settings.incognito &&
+                    if (state.settings.learnFromTyping &&
+                        !(state.settings.incognito && state.settings.incognitoPausesLearning) &&
                         !state.secureField
                     ) {
                         userLexicon.addWord(typed, boost = 5)
@@ -1326,7 +1334,8 @@ class WMKeyboardService : InputMethodService() {
      */
     private fun learn(word: String, reinforcement: Int = 1) {
         val state = _uiState.value
-        if (!state.settings.learnFromTyping || state.settings.incognito ||
+        if (!state.settings.learnFromTyping ||
+            (state.settings.incognito && state.settings.incognitoPausesLearning) ||
             state.secureField || state.fieldNoSuggestions
         ) {
             previousWord = word
@@ -1353,7 +1362,8 @@ class WMKeyboardService : InputMethodService() {
      */
     private fun learnEmoji(emoji: String) {
         val state = _uiState.value
-        if (!state.settings.learnFromTyping || state.settings.incognito ||
+        if (!state.settings.learnFromTyping ||
+            (state.settings.incognito && state.settings.incognitoPausesLearning) ||
             state.secureField || state.fieldNoSuggestions
         ) {
             previousWord = emoji
@@ -1588,10 +1598,12 @@ class WMKeyboardService : InputMethodService() {
                 snippets = snippetStore.items(),
                 dictionarySearchActive = false,
                 mediaQuery = "",
-                // Web/image search open straight into the search box (there
-                // is nothing to show yet); gif/sticker open on trending.
-                // Wikipedia keeps a previous article/results if it has one.
+                // Web/image search and translate open straight into their
+                // search box (there is nothing to show yet); gif/sticker
+                // open on trending. Wikipedia keeps a previous
+                // article/results if it has one.
                 mediaSearchActive = next == PanelMode.WEB_SEARCH || next == PanelMode.IMAGE_SEARCH ||
+                    next == PanelMode.TRANSLATE ||
                     (next == PanelMode.WIKIPEDIA && it.wiki !is WikiUi.Article && it.wiki !is WikiUi.SearchResults),
                 mediaDownloadingId = null,
                 translate = TranslateUi(),
@@ -1611,11 +1623,6 @@ class WMKeyboardService : InputMethodService() {
             }
             PanelMode.IMAGE_SEARCH -> _uiState.update {
                 it.copy(imageSearch = if (hasSearchKey()) ImageSearchUi.Idle else ImageSearchUi.NeedKey)
-            }
-            PanelMode.TRANSLATE -> {
-                // Flush any half-typed word so the strip sees the whole field.
-                currentInputConnection?.let { commitComposing(it, autocorrect = false) }
-                scheduleTranslate(immediate = true)
             }
             PanelMode.GRAMMAR -> {
                 currentInputConnection?.let { commitComposing(it, autocorrect = false) }
@@ -2386,11 +2393,12 @@ class WMKeyboardService : InputMethodService() {
 
     private var currencyJob: Job? = null
 
-    /** Rates refresh at most every 6 h (they update daily upstream anyway). */
+    /** Rates refresh at most every cache-TTL setting (they update daily upstream anyway). */
     private fun refreshCurrencyRates(force: Boolean = false) {
         val current = _uiState.value.currency
+        val ttlMs = _uiState.value.settings.currencyCacheHours * 60L * 60L * 1000L
         if (!force && current is CurrencyUi.Ready &&
-            System.currentTimeMillis() - current.fetchedAtMs < 6 * 60 * 60 * 1000
+            System.currentTimeMillis() - current.fetchedAtMs < ttlMs
         ) {
             return
         }
@@ -2816,6 +2824,12 @@ class WMKeyboardService : InputMethodService() {
      */
     private fun scheduleMediaLiveSearch() {
         val state = _uiState.value
+        // Translate is free-tier friendly too: its result follows the typed
+        // query live, on its own (400 ms) debounce.
+        if (state.panel == PanelMode.TRANSLATE) {
+            scheduleTranslate()
+            return
+        }
         if (state.panel != PanelMode.GIF && state.panel != PanelMode.STICKER) return
         mediaLiveSearchJob?.cancel()
         val query = state.mediaQuery.trim()
@@ -2838,6 +2852,7 @@ class WMKeyboardService : InputMethodService() {
             PanelMode.WEB_SEARCH -> runWebSearch(query)
             PanelMode.IMAGE_SEARCH -> runImageSearch(query)
             PanelMode.WIKIPEDIA -> runWikiSearch(query)
+            PanelMode.TRANSLATE -> scheduleTranslate(immediate = true)
             else -> {}
         }
     }
@@ -2854,6 +2869,7 @@ class WMKeyboardService : InputMethodService() {
                 if (query.isNotEmpty()) runWikiSearch(query)
                 else _uiState.update { it.copy(wiki = WikiUi.Idle, mediaSearchActive = true) }
             }
+            PanelMode.TRANSLATE -> scheduleTranslate(immediate = true)
             else -> {}
         }
     }
@@ -3085,7 +3101,7 @@ class WMKeyboardService : InputMethodService() {
 
     // ---- translate tool ----
 
-    /** Everything in the focused field, for the translate strip. */
+    /** Everything in the focused field, for the grammar strip. */
     private fun extractFieldText(): String {
         val ic = currentInputConnection ?: return ""
         val extracted = runCatching {
@@ -3099,8 +3115,10 @@ class WMKeyboardService : InputMethodService() {
     }
 
     /**
-     * Re-extracts the field and translates it after a short debounce, so the
-     * strip follows the user's typing without a request per keystroke.
+     * Translates the panel's typed query after a short debounce, so the
+     * result follows the typing without a request per keystroke. The query
+     * lives in [KeyboardUiState.mediaQuery] — the panel is its own window
+     * and never reads the focused field.
      */
     private fun scheduleTranslate(immediate: Boolean = false, targetOverride: String? = null) {
         translateJob?.cancel()
@@ -3108,7 +3126,7 @@ class WMKeyboardService : InputMethodService() {
             if (!immediate) delay(400)
             val state = _uiState.value
             if (state.panel != PanelMode.TRANSLATE) return@launch
-            val source = extractFieldText().trim()
+            val source = state.mediaQuery.trim()
             if (source.isEmpty()) {
                 _uiState.update { it.copy(translate = TranslateUi()) }
                 return@launch
@@ -3189,7 +3207,7 @@ class WMKeyboardService : InputMethodService() {
     private fun scheduleGrammarCheck(immediate: Boolean = false) {
         grammarJob?.cancel()
         grammarJob = serviceScope.launch {
-            if (!immediate) delay(350)
+            if (!immediate) delay(_uiState.value.settings.grammarDebounceMs.toLong())
             val state = _uiState.value
             if (state.panel != PanelMode.GRAMMAR) return@launch
             if (!GrammarChecker.available) {

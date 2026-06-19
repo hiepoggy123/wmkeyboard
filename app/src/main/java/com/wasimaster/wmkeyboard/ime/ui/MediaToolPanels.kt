@@ -550,14 +550,16 @@ private fun ImageGrid(
 // ---- translate panel ----
 
 /**
- * Gboard-style translate strip: sits above the key rows (which stay
- * visible), shows the focused field's text translated live, and can
- * replace the field with — or insert — the translation. Source language is
- * auto-detected; the chip picks the target.
+ * Translation window: the query types into the panel's own search bar
+ * (media-search key rerouting — the focused field is never read) and the
+ * result follows live. Insert types the translation at the cursor; Replace
+ * swaps the whole field for it. Source language is auto-detected; the chip
+ * picks the target.
  */
 @Composable
 internal fun TranslatePanel(
     state: KeyboardUiState,
+    onQueryTap: () -> Unit,
     onTarget: (String) -> Unit,
     onReplace: () -> Unit,
     onInsert: () -> Unit,
@@ -566,12 +568,27 @@ internal fun TranslatePanel(
     val translate = state.translate
     val target = state.settings.translateTargetLang
     var pickerOpen by remember { mutableStateOf(false) }
+    // The panel is its own translation window: the query types into the
+    // search bar (field text is never read). Compact while typing — the
+    // keys sit right below and the live result still fits above them —
+    // and full panel height once Enter or another search-bar tap ends
+    // typing (runMediaSearch / onMediaQueryTap both flip this off).
+    val height = if (state.mediaSearchActive) MediaSearchHeight else keyRowsHeight(state.settings)
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .height(126.dp)
-            .padding(horizontal = 8.dp, vertical = 4.dp),
+            .height(height),
     ) {
+        MediaSearchBar(
+            state = state,
+            placeholder = "Type text to translate…",
+            onQueryTap = onQueryTap,
+        )
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .padding(horizontal = 8.dp),
+        ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             val detected = translate.detectedSource
                 .takeIf { it.isNotBlank() && translate.translated.isNotEmpty() }
@@ -629,14 +646,14 @@ internal fun TranslatePanel(
                 translate.error != null -> translate.error
                 translate.translated.isNotEmpty() -> translate.translated
                 translate.translating -> "Translating…"
-                else -> "Type, or open a field with text — the translation shows here."
+                else -> "The translation shows here as you type."
             },
             color = when {
                 translate.error != null -> kb.accent
                 translate.translated.isEmpty() -> kb.secondaryText
                 else -> kb.suggestionText
             },
-            fontSize = 14.sp,
+            fontSize = if (state.mediaSearchActive) 14.sp else 16.sp,
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
@@ -644,7 +661,9 @@ internal fun TranslatePanel(
                 .verticalScroll(rememberScrollState()),
         )
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 4.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             TranslateAction(
@@ -659,6 +678,7 @@ internal fun TranslatePanel(
                 enabled = translate.translated.isNotEmpty(),
                 modifier = Modifier.weight(1f),
             ) { onInsert() }
+        }
         }
     }
 }
