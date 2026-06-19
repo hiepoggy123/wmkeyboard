@@ -96,8 +96,12 @@ internal object ToolHttp {
         }
     }
 
-    /** Streams a URL into [target] (creating parent dirs); deletes the partial file on failure. */
-    fun download(url: String, target: File, timeoutMs: Int = 20_000) {
+    /**
+     * Streams a URL into [target] (creating parent dirs); deletes the partial file on
+     * failure. [maxBytes] aborts the transfer once exceeded rather than trusting a
+     * (possibly absent or false) Content-Length header.
+     */
+    fun download(url: String, target: File, timeoutMs: Int = 20_000, maxBytes: Long = Long.MAX_VALUE) {
         target.parentFile?.mkdirs()
         val connection = URL(url).openConnection() as HttpURLConnection
         try {
@@ -108,7 +112,17 @@ internal object ToolHttp {
             val status = connection.responseCode
             if (status !in 200..299) throw IOException(apiErrorMessage(status, null))
             connection.inputStream.use { input ->
-                target.outputStream().use { output -> input.copyTo(output) }
+                target.outputStream().use { output ->
+                    val buffer = ByteArray(8192)
+                    var total = 0L
+                    while (true) {
+                        val read = input.read(buffer)
+                        if (read < 0) break
+                        total += read
+                        if (total > maxBytes) throw IOException("File exceeds the maximum allowed size")
+                        output.write(buffer, 0, read)
+                    }
+                }
             }
         } catch (e: Exception) {
             target.delete()

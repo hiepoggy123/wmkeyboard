@@ -174,6 +174,7 @@ import com.wasimaster.wmkeyboard.core.settings.QrEccLevel
 import com.wasimaster.wmkeyboard.core.tools.AiPrompts
 import com.wasimaster.wmkeyboard.core.tools.GeoPlace
 import com.wasimaster.wmkeyboard.core.tools.ToolApiKeys
+import com.wasimaster.wmkeyboard.core.tools.ToolHttp
 import com.wasimaster.wmkeyboard.core.tools.TranslateClient
 import com.wasimaster.wmkeyboard.core.tools.WeatherClient
 import kotlinx.coroutines.Dispatchers
@@ -2212,6 +2213,7 @@ private fun CustomDictionarySettings(repository: SettingsRepository) {
     var pending by remember { mutableStateOf<KeyboardLanguage?>(null) }
     var busy by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<String?>(null) }
+    var urlDialogFor by remember { mutableStateOf<KeyboardLanguage?>(null) }
 
     // Counting words means reading every list, so it never runs on the main
     // thread — the screen draws empty for a moment and fills in.
@@ -2229,6 +2231,40 @@ private fun CustomDictionarySettings(repository: SettingsRepository) {
     }
 
     LaunchedEffect(Unit) { refresh() }
+
+    fun importFromUrl(language: KeyboardLanguage, url: String) {
+        busy = true
+        scope.launch {
+            val result = withContext(Dispatchers.IO) {
+                runCatching {
+                    val uri = android.net.Uri.parse(url.trim())
+                    if (uri.scheme != "http" && uri.scheme != "https") {
+                        return@runCatching -2
+                    }
+                    val name = uri.lastPathSegment?.substringAfterLast('/')?.ifBlank { null }
+                        ?: "wordlist"
+                    val temp = java.io.File.createTempFile("dict_url_", ".tmp", context.cacheDir)
+                    try {
+                        ToolHttp.download(url.trim(), temp, maxBytes = CustomDictionaries.MAX_BYTES)
+                        temp.inputStream().use { CustomDictionaries.import(context.filesDir, language, name, it) }
+                    } finally {
+                        temp.delete()
+                    }
+                }.getOrElse { -1 }
+            }
+            busy = false
+            message = when {
+                result == -2 -> "Only http:// and https:// links are supported."
+                result < 0 -> "Could not download that list — check the URL and try again."
+                result == 0 -> "No words found in that file — is it a word list?"
+                else -> "Added $result words to ${languageLabel(language)}."
+            }
+            if (result > 0) {
+                refresh()
+                repository.bumpCustomDictVersion()
+            }
+        }
+    }
 
     val importList = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument(),
@@ -2315,14 +2351,20 @@ private fun CustomDictionarySettings(repository: SettingsRepository) {
                 }
             }
             item {
-                OutlinedButton(
-                    enabled = !busy,
-                    onClick = {
-                        pending = language
-                        importList.launch(arrayOf("*/*"))
-                    },
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                ) { Text(if (entries.isEmpty()) "Import word list" else "Import another") }
+                Row(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                    OutlinedButton(
+                        enabled = !busy,
+                        onClick = {
+                            pending = language
+                            importList.launch(arrayOf("*/*"))
+                        },
+                    ) { Text(if (entries.isEmpty()) "Import word list" else "Import another") }
+                    Spacer(Modifier.width(8.dp))
+                    OutlinedButton(
+                        enabled = !busy,
+                        onClick = { urlDialogFor = language },
+                    ) { Text("From URL") }
+                }
             }
         }
     }
@@ -2333,6 +2375,34 @@ private fun CustomDictionarySettings(repository: SettingsRepository) {
             onDismissRequest = { message = null },
             text = { Text(message!!) },
             confirmButton = { TextButton(onClick = { message = null }) { Text("OK") } },
+        )
+    }
+
+    val urlLanguage = urlDialogFor
+    if (urlLanguage != null) {
+        var url by remember { mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = { urlDialogFor = null },
+            title = { Text("Load dictionary from URL") },
+            text = {
+                OutlinedTextField(
+                    value = url,
+                    onValueChange = { url = it },
+                    singleLine = true,
+                    label = { Text("https://…") },
+                    placeholder = { Text("Link to a plain-text word list") },
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = url.isNotBlank(),
+                    onClick = {
+                        urlDialogFor = null
+                        importFromUrl(urlLanguage, url)
+                    },
+                ) { Text("Download") }
+            },
+            dismissButton = { TextButton(onClick = { urlDialogFor = null }) { Text("Cancel") } },
         )
     }
 }
