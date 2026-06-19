@@ -125,6 +125,18 @@ class EmojiUsage(private val storageFile: File?) {
         recents.clear()
     }
 
+    /**
+     * Drops [emoji] from history entirely — recents, usage counts, and (if
+     * pinned) favourites, since favourites head every history listing and
+     * would keep the emoji visible after a "remove". Variant prefs stay.
+     */
+    @Synchronized
+    fun removeFromHistory(emoji: String) {
+        recents.remove(emoji)
+        counts.remove(emoji)
+        favourites.remove(emoji)
+    }
+
     @Synchronized
     fun clear() {
         recents.clear()

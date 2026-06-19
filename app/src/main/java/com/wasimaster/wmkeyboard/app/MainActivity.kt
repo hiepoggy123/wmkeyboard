@@ -87,7 +87,7 @@ import androidx.compose.material.icons.outlined.Calculate
 import androidx.compose.material.icons.outlined.CurrencyExchange
 import androidx.compose.material.icons.outlined.Functions
 import androidx.compose.material.icons.outlined.Password
-import androidx.compose.material.icons.outlined.Psychology
+import androidx.compose.material.icons.outlined.StickyNote2
 import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material.icons.outlined.QrCode2
 import androidx.compose.material.icons.outlined.QrCodeScanner
@@ -2717,7 +2717,7 @@ internal fun toolIconFor(tool: ToolbarTool): androidx.compose.ui.graphics.vector
     ToolbarTool.DICTIONARY -> Icons.AutoMirrored.Outlined.MenuBook
     ToolbarTool.TRANSLATE -> Icons.Outlined.Translate
     ToolbarTool.GIF -> Icons.Outlined.GifBox
-    ToolbarTool.STICKER -> Icons.Outlined.AutoAwesome
+    ToolbarTool.STICKER -> Icons.Outlined.StickyNote2
     ToolbarTool.WEB_SEARCH -> Icons.Outlined.TravelExplore
     ToolbarTool.IMAGE_SEARCH -> Icons.Outlined.ImageSearch
     ToolbarTool.OCR -> Icons.Outlined.TextFields

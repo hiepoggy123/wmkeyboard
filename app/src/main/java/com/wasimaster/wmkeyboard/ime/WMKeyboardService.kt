@@ -3509,6 +3509,58 @@ class WMKeyboardService : InputMethodService() {
         _uiState.update { it.copy(emojiRecents = emojiUsage.recents()) }
     }
 
+    /** Long-press "remove" on a history cell: the emoji leaves recents,
+     * most-used counts, and favourites in one go. */
+    fun onEmojiRecentRemoved(emoji: String) {
+        vibrate()
+        emojiUsage.removeFromHistory(emoji)
+        emojiUsage.save()
+        _uiState.update {
+            it.copy(
+                emojiFavourites = emojiUsage.favourites(),
+                emojiRecents = emojiUsage.recents(),
+                emojiFrequents = emojiUsage.frequents(),
+            )
+        }
+    }
+
+    /**
+     * The emoji search bar's backspace: while search is active the keys
+     * edit the query, so this is the only way to delete the emoji (or any
+     * text) just committed to the real field without leaving search.
+     */
+    fun onEmojiSearchFieldDelete() {
+        vibrate()
+        deleteFromField()
+    }
+
+    /**
+     * Whether a backspace press would still delete anything, honoring
+     * whatever the backspace key currently edits (an active search query,
+     * or the field). Held-repeat loops poll this to stop at empty.
+     */
+    fun canDelete(): Boolean {
+        val state = _uiState.value
+        return when {
+            state.panel == PanelMode.HANDWRITING && state.handwriting.strokes.isNotEmpty() -> true
+            state.emojiSearchActive -> state.emojiQuery.isNotEmpty()
+            state.dictionarySearchActive -> state.dictionaryQuery.isNotEmpty()
+            state.mediaSearchActive && state.panel.hasMediaSearch -> state.mediaQuery.isNotEmpty()
+            else -> canDeleteField()
+        }
+    }
+
+    /** [canDelete] scoped to the real field only, for field-direct controls. */
+    fun canDeleteField(): Boolean {
+        if (composing.isNotEmpty()) return true
+        val ic = currentInputConnection ?: return false
+        if (hasSelection(ic)) return true
+        // A null answer means the editor can't say — keep deleting rather
+        // than stopping a working backspace; only a definite "" stops it.
+        val before = ic.getTextBeforeCursor(1, 0) ?: return true
+        return before.isNotEmpty()
+    }
+
     /**
      * An emoji candidate from the suggestion strip. In [EmojiInsertMode.REPLACE]
      * (Gboard semantics) committing over the active composing region swaps
