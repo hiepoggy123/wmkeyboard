@@ -382,7 +382,7 @@ private fun SettingsNavHost(
         }
         composable("tools") {
             SettingsScreen("Tools", { navController.popBackStack() }) {
-                ToolsSettings(settings) { tool -> navController.navigate("tool/${tool.name}") }
+                ToolsSettings(repository, settings) { tool -> navController.navigate("tool/${tool.name}") }
             }
         }
         composable("tool/{toolName}") { backStackEntry ->
@@ -2520,6 +2520,14 @@ private fun importFontFile(context: Context, uri: android.net.Uri, dest: java.io
 
 // ---- tools ----
 
+/**
+ * Whether a tool's settings page offers anything beyond the enable switch —
+ * drives the "has more settings" marker on the tools list. Kept as the
+ * caption-only exceptions so a new tool with options is marked by default.
+ */
+private fun toolHasOptions(tool: ToolbarTool): Boolean =
+    tool != ToolbarTool.UNIT_CONVERT
+
 internal fun toolTitle(tool: ToolbarTool): String = when (tool) {
     ToolbarTool.EMOJI -> "Emoji"
     ToolbarTool.CLIPBOARD -> "Clipboard"
@@ -2663,10 +2671,16 @@ internal fun toolIconFor(tool: ToolbarTool): androidx.compose.ui.graphics.vector
  * enable switch and the tool's own options — lives one level down.
  */
 @Composable
-private fun ToolsSettings(settings: KeyboardSettings, onOpenTool: (ToolbarTool) -> Unit) {
+private fun ToolsSettings(
+    repository: SettingsRepository,
+    settings: KeyboardSettings,
+    onOpenTool: (ToolbarTool) -> Unit,
+) {
+    val scope = rememberCoroutineScope()
     CaptionText(
         "Tools live on the keyboard's toolbar and in the toolbox (grid button on " +
-            "the toolbar). Tap a tool to enable or disable it and change its settings.",
+            "the toolbar). The switch enables a tool; tap a row for its settings — " +
+            "the ⚙ marks tools with options of their own.",
     )
     val groups = listOf(
         "Panels" to listOf(
@@ -2722,9 +2736,26 @@ private fun ToolsSettings(settings: KeyboardSettings, onOpenTool: (ToolbarTool) 
                         },
                         headlineContent = { Text(toolTitle(tool)) },
                         supportingContent = { Text(toolDescription(tool)) },
-                        trailingContent = if (tool !in settings.enabledTools) {
-                            { Text("Off", color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                        } else null,
+                        trailingContent = {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                if (toolHasOptions(tool)) {
+                                    Icon(
+                                        Icons.Outlined.Tune,
+                                        contentDescription = "Has more settings",
+                                        modifier = Modifier
+                                            .padding(end = 8.dp)
+                                            .size(16.dp),
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                                Switch(
+                                    checked = tool in settings.enabledTools,
+                                    onCheckedChange = { enabled ->
+                                        scope.launch { repository.setToolEnabled(tool, enabled) }
+                                    },
+                                )
+                            }
+                        },
                         colors = transparentListColors(),
                         modifier = Modifier
                             .fillMaxWidth()

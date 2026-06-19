@@ -76,7 +76,11 @@ internal fun OnboardingScreen(
 ) {
     val scope = rememberCoroutineScope()
     var page by rememberSaveable { mutableIntStateOf(0) }
-    val pageCount = 6
+    // The tool-setup page only exists when a tool with first-run choices is
+    // enabled (the tools page right before it decides that), so the wizard
+    // length adapts live.
+    val toolSetupVisible = settings.enabledTools.any { it in ToolSetupTools }
+    val pageCount = if (toolSetupVisible) 7 else 6
     // Whether the tools page has applied its recommended starting selection.
     // Hoisted here (not in the page) so leaving and revisiting the page
     // can't re-apply it over the user's choices.
@@ -119,6 +123,7 @@ internal fun OnboardingScreen(
                         seeded = toolsSeeded,
                         onSeeded = { toolsSeeded = true },
                     )
+                    6 -> ToolSetupPage(repository, settings)
                 }
             }
             Row(
@@ -546,6 +551,99 @@ private fun GesturesPage(repository: SettingsRepository, settings: KeyboardSetti
                 onCheckedChange = { scope.launch { repository.setNumberRow(it) } },
             )
         },
+    )
+}
+
+/** Tools with a first-run choice worth asking about on the setup page. */
+private val ToolSetupTools = setOf(
+    ToolbarTool.CALENDAR, ToolbarTool.WEATHER, ToolbarTool.COMPASS,
+)
+
+/**
+ * Per-tool first-run choices, one section per enabled tool from
+ * [ToolSetupTools]. Follows the tools page so it reflects what was just
+ * switched on; every option lives in the tool's settings too.
+ */
+@Composable
+private fun ToolSetupPage(repository: SettingsRepository, settings: KeyboardSettings) {
+    val scope = rememberCoroutineScope()
+    PageHeader(
+        "Set up your tools",
+        "A few of the tools you enabled have choices of their own. " +
+            "All of this can be changed later in each tool's settings.",
+    )
+    if (ToolbarTool.CALENDAR in settings.enabledTools) {
+        SectionTitle("Calendar")
+        ListItem(
+            headlineContent = { Text("Bengali calendar") },
+            supportingContent = { Text("Show বঙ্গাব্দ dates alongside the Gregorian month") },
+            trailingContent = {
+                Switch(
+                    checked = settings.calendarShowBengali,
+                    onCheckedChange = { scope.launch { repository.setCalendarShowBengali(it) } },
+                )
+            },
+        )
+        ListItem(
+            headlineContent = { Text("Hijri calendar") },
+            supportingContent = { Text("Show Islamic dates alongside the Gregorian month") },
+            trailingContent = {
+                Switch(
+                    checked = settings.calendarShowHijri,
+                    onCheckedChange = { scope.launch { repository.setCalendarShowHijri(it) } },
+                )
+            },
+        )
+    }
+    if (ToolbarTool.WEATHER in settings.enabledTools) {
+        SectionTitle("Weather")
+        ListItem(
+            headlineContent = { Text("Fahrenheit") },
+            supportingContent = { Text("Off shows temperatures in Celsius") },
+            trailingContent = {
+                Switch(
+                    checked = settings.weatherFahrenheit,
+                    onCheckedChange = { scope.launch { repository.setWeatherFahrenheit(it) } },
+                )
+            },
+        )
+        Text(
+            "The weather tool needs a saved place — set it under Tools → Weather.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 16.dp),
+        )
+    }
+    if (ToolbarTool.COMPASS in settings.enabledTools) {
+        SectionTitle("Compass")
+        ListItem(
+            headlineContent = { Text("Show qibla") },
+            supportingContent = { Text("Mark the direction of the Kaaba on the compass rose") },
+            trailingContent = {
+                Switch(
+                    checked = settings.compassShowQibla,
+                    onCheckedChange = { scope.launch { repository.setCompassShowQibla(it) } },
+                )
+            },
+        )
+        if (settings.compassShowQibla) {
+            Text(
+                "The qibla bearing uses the same saved place as the weather tool.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun SectionTitle(title: String) {
+    Text(
+        title,
+        style = MaterialTheme.typography.titleSmall,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(start = 16.dp, top = 16.dp, bottom = 4.dp),
     )
 }
 
