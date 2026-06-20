@@ -8,6 +8,7 @@ import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraManager
 import android.media.AudioManager
 import android.os.Build
+import android.os.Bundle
 import android.os.SystemClock
 import android.text.InputType
 import android.view.KeyEvent
@@ -15,6 +16,8 @@ import android.view.View
 import android.net.Uri
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.ExtractedTextRequest
+import android.view.inputmethod.InlineSuggestionsRequest
+import android.view.inputmethod.InlineSuggestionsResponse
 import android.view.inputmethod.InputConnection
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
@@ -710,6 +713,7 @@ class WMKeyboardService : InputMethodService() {
                 onAiPickModel = ::onAiPickModel,
                 onAiToggleStripMarkdown = ::onAiToggleStripMarkdown,
                 onOpenToolSettings = ::openToolSettings,
+                onDismissInlineSuggestions = ::onDismissInlineSuggestions,
                 onOpenSettings = ::openSettings,
             )
         }
@@ -890,9 +894,65 @@ class WMKeyboardService : InputMethodService() {
         if (_uiState.value.panel == PanelMode.QR_GEN) refreshQrText()
     }
 
+    /**
+     * Tells the system autofill service how much room the strip has, which
+     * is what makes password-manager chips appear there at all.
+     *
+     * Declining (returning null) is the documented way to opt out, and the
+     * cases that decline are the ones where showing saved credentials would
+     * be wrong: the feature switched off, or an incognito session, where the
+     * user has asked for this typing not to be remembered or surfaced.
+     */
+    override fun onCreateInlineSuggestionsRequest(uiExtras: Bundle): InlineSuggestionsRequest? {
+        if (!InlineAutofill.supported) return null
+        val settings = _uiState.value.settings
+        if (!settings.inlineAutofill || settings.incognito) return null
+        val density = resources.displayMetrics
+        val stripHeightPx = (INLINE_CHIP_HEIGHT_DP * density.density).toInt()
+        return runCatching {
+            InlineAutofill.request(
+                context = this,
+                uiExtras = uiExtras,
+                stripHeightPx = stripHeightPx,
+                maxWidthPx = density.widthPixels,
+            )
+        }.getOrNull()
+    }
+
+    /**
+     * The manager's answer. Returning true claims the suggestions so the
+     * platform does not fall back to its own dropdown over the keyboard.
+     */
+    override fun onInlineSuggestionsResponse(response: InlineSuggestionsResponse): Boolean {
+        if (!InlineAutofill.supported) return false
+        val settings = _uiState.value.settings
+        if (!settings.inlineAutofill || settings.incognito) return false
+        val density = resources.displayMetrics
+        InlineAutofill.inflateAll(
+            context = this,
+            suggestions = response.inlineSuggestions,
+            stripHeightPx = (INLINE_CHIP_HEIGHT_DP * density.density).toInt(),
+            maxWidthPx = density.widthPixels,
+        ) { views ->
+            _uiState.update { it.copy(inlineSuggestions = views) }
+        }
+        return true
+    }
+
+    /** Dismiss chip on the strip: drop them until the next autofill response. */
+    fun onDismissInlineSuggestions() {
+        vibrate()
+        _uiState.update { it.copy(inlineSuggestions = emptyList()) }
+    }
+
     override fun onFinishInputView(finishingInput: Boolean) {
         super.onFinishInputView(finishingInput)
         lifecycleOwner.onPause()
+        // Credentials for the field just left must not linger over the next
+        // one, which may belong to another app entirely.
+        if (_uiState.value.inlineSuggestions.isNotEmpty()) {
+            _uiState.update { it.copy(inlineSuggestions = emptyList()) }
+        }
         // The keyboard is going away mid-dictation: release the mic (the
         // privacy indicator must never outlive the keyboard) and keep the
         // partial that was already on screen.
@@ -4375,6 +4435,9 @@ class WMKeyboardService : InputMethodService() {
     companion object {
         /** Minimum spacing between haptic clicks so rapid presses stay distinct. */
         private const val MIN_HAPTIC_GAP_MS = 45L
+
+        /** Height offered to autofill chips, matching the suggestion strip. */
+        private const val INLINE_CHIP_HEIGHT_DP = 44
 
         /** Inline emoji search is a local index lookup — no network wait. */
         private const val EMOJI_SEARCH_DEBOUNCE_MS = 24L

@@ -395,6 +395,12 @@ data class KeyboardSettings(
     val appNameSuggestions: Boolean = false,
     /** Typing ":" then a word searches emoji in the suggestion strip (:smi → 😄). */
     val inlineEmojiSearch: Boolean = true,
+    /**
+     * Show password-manager entries from the system autofill service in the
+     * suggestion strip (Android 11+). The chips are rendered by the manager
+     * itself; the keyboard only gives them the space.
+     */
+    val inlineAutofill: Boolean = true,
     val gestureTyping: Boolean = true,
     /** Swipe that starts moving before the long-press delay elapses. */
     val spaceShortSwipe: SpaceSwipeAction = SpaceSwipeAction.LANGUAGE,
@@ -732,6 +738,7 @@ class SettingsRepository(private val context: Context) {
         private val CONTACT_SUGGESTIONS = booleanPreferencesKey("contact_suggestions")
         private val APP_NAME_SUGGESTIONS = booleanPreferencesKey("app_name_suggestions")
         private val INLINE_EMOJI_SEARCH = booleanPreferencesKey("inline_emoji_search")
+        private val INLINE_AUTOFILL = booleanPreferencesKey("inline_autofill")
         private val GESTURE_TYPING = booleanPreferencesKey("gesture_typing")
         // Legacy boolean, read only to migrate into SPACE_LONG_SWIPE.
         private val SPACEBAR_CURSOR = booleanPreferencesKey("spacebar_cursor")
@@ -982,6 +989,7 @@ class SettingsRepository(private val context: Context) {
             contactSuggestions = p[CONTACT_SUGGESTIONS] ?: defaults.contactSuggestions,
             appNameSuggestions = p[APP_NAME_SUGGESTIONS] ?: defaults.appNameSuggestions,
             inlineEmojiSearch = p[INLINE_EMOJI_SEARCH] ?: defaults.inlineEmojiSearch,
+            inlineAutofill = p[INLINE_AUTOFILL] ?: defaults.inlineAutofill,
             gestureTyping = p[GESTURE_TYPING] ?: defaults.gestureTyping,
             spaceShortSwipe = p[SPACE_SHORT_SWIPE]
                 ?.let { runCatching { SpaceSwipeAction.valueOf(it) }.getOrNull() }
@@ -1719,6 +1727,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setInlineEmojiSearch(value: Boolean) =
         context.dataStore.edit { it[INLINE_EMOJI_SEARCH] = value }
+
+    suspend fun setInlineAutofill(value: Boolean) =
+        context.dataStore.edit { it[INLINE_AUTOFILL] = value }
 
     suspend fun setGestureTyping(value: Boolean) =
         context.dataStore.edit { it[GESTURE_TYPING] = value }

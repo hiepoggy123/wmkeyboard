@@ -54,7 +54,9 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items as lazyRowItems
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -504,6 +506,7 @@ fun KeyboardScreen(
     onAiPickModel: (com.wasimaster.wmkeyboard.core.settings.AiProvider, String?) -> Unit = { _, _ -> },
     onAiToggleStripMarkdown: () -> Unit = {},
     onOpenToolSettings: (ToolbarTool) -> Unit = {},
+    onDismissInlineSuggestions: () -> Unit = {},
     onOpenSettings: () -> Unit,
 ) {
     val rawState by stateFlow.collectAsState()
@@ -600,6 +603,7 @@ fun KeyboardScreen(
         ) {
             KeyboardBody(
                 state = bodyState,
+                onDismissInlineSuggestions = onDismissInlineSuggestions,
                 onKey = onKey,
                 onText = onText,
                 onGesture = onGesture,
@@ -1001,6 +1005,7 @@ private fun TopBar(
     onVoiceToggle: () -> Unit = {},
     onVoiceUndo: () -> Unit = {},
     onVoicePermissionRequest: () -> Unit = {},
+    onDismissInlineSuggestions: () -> Unit = {},
 ) {
     // "Show the toolbar instead" while suggestions are up; resets once the
     // suggestions go away so the bar returns to candidates next time.
@@ -1126,6 +1131,41 @@ private fun TopBar(
                     active = false,
                     longPressLabel = "Emoji",
                 ) { onToolTap(ToolbarTool.EMOJI) }
+            }
+            // Autofill chips take the whole strip while they are up: they
+            // answer the field directly ("use this saved login"), which beats
+            // any word the dictionary could offer, and they are transient —
+            // dismissed, or gone as soon as the field is left.
+            if (state.inlineSuggestions.isNotEmpty()) {
+                Row(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .horizontalScroll(rememberScrollState()),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    for (chip in state.inlineSuggestions) {
+                        AndroidView(
+                            factory = { chip },
+                            modifier = Modifier.padding(horizontal = 2.dp),
+                        )
+                    }
+                }
+                Box(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .clickable { onDismissInlineSuggestions() }
+                        .padding(horizontal = 8.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        Icons.Outlined.Close,
+                        contentDescription = "Dismiss autofill suggestions",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(18.dp),
+                    )
+                }
+                return@Row
             }
             // A dead key is armed: show which accent the next letter will
             // take, otherwise the keyboard looks like it swallowed a press.
@@ -2520,6 +2560,7 @@ private fun FullBleedTool(
 @Composable
 private fun KeyboardBody(
     state: KeyboardUiState,
+    onDismissInlineSuggestions: () -> Unit,
     onKey: (Key) -> Unit,
     onText: (String) -> Unit,
     onGesture: (List<GesturePoint>, List<KeyCenter>, Float) -> Unit,
@@ -2641,6 +2682,7 @@ private fun KeyboardBody(
                             onVoiceToggle = onVoiceToggle,
                             onVoiceUndo = onVoiceUndo,
                             onVoicePermissionRequest = onVoicePermissionRequest,
+                            onDismissInlineSuggestions = onDismissInlineSuggestions,
                         )
                     }
                     BarRow.EMOJI -> if (emojiRowVisible) {

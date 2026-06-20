@@ -122,6 +122,7 @@ dependencies {
     implementation(libs.androidx.savedstate)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.androidx.emoji2)
+    implementation(libs.androidx.autofill)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.camera.core)
     implementation(libs.androidx.camera.camera2)

@@ -1090,6 +1090,22 @@ private fun TypingSettings(
                     "and pressing space leaves the text exactly as typed.",
             ) { scope.launch { repository.setInlineEmojiSearch(it) } }
         }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            item {
+                ToggleSetting(
+                    "Password manager suggestions",
+                    "Show saved logins from your autofill service in the strip",
+                    settings.inlineAutofill,
+                    info = "When a login field is focused, your password manager can offer " +
+                        "saved entries as chips in the suggestion strip instead of a separate " +
+                        "popup. The chips are drawn by the manager itself — the keyboard is " +
+                        "only given their size, and never sees the username or password " +
+                        "inside them. Turned off automatically in incognito mode. " +
+                        "Requires Android 11 or newer and a password manager set as your " +
+                        "system autofill service.",
+                ) { scope.launch { repository.setInlineAutofill(it) } }
+            }
+        }
         item {
             NavRow(
                 "Personal dictionary",

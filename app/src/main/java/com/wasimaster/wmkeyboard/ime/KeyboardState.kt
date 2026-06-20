@@ -297,6 +297,12 @@ data class KeyboardUiState(
     val suggestions: List<String> = emptyList(),
     /** Spacing form of the dead-key accent waiting for a letter, if any. */
     val pendingDeadKey: String? = null,
+    /**
+     * Chips from the system autofill service, already inflated by *its*
+     * process — the keyboard only hosts them. Views rather than data because
+     * that is the whole point: their contents are never exposed to the IME.
+     */
+    val inlineSuggestions: List<android.view.View> = emptyList(),
     /** Best gesture-typing candidate mid-swipe, shown floating above the finger. */
     val glideWord: String? = null,
     val composingPreview: String = "",
