@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Full-build-only additions.
+
+    The Harper spell checker lives here rather than in the main manifest
+    because lite builds ship no libharper_jni.so: declaring the service
+    there would list a spell checker in Android's system settings that can
+    never return a result.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+        <service
+            android:name="com.wasimaster.wmkeyboard.spell.HarperSpellCheckerService"
+            android:exported="true"
+            android:label="@string/spell_checker_name"
+            android:permission="android.permission.BIND_TEXT_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.textservice.SpellCheckerService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.view.textservice.scs"
+                android:resource="@xml/spellchecker" />
+        </service>
+    </application>
+
+</manifest>

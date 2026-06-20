@@ -3753,12 +3753,37 @@ private fun ToolDetailSettings(
                     ) { scope.launch { repository.setGrammarDebounceMs(it.toInt()) } }
                 }
             }
+            if (BuildConfig.ENABLE_GRAMMAR) {
+                val context = LocalContext.current
+                SettingsGroup("System-wide") {
+                    item {
+                        NavRow(
+                            "Use Harper everywhere",
+                            "Set WM Keyboard as Android's spell checker",
+                            onClick = {
+                                // No direct action for the spell-checker screen
+                                // exists on every version; the input-method
+                                // settings page is its reliable parent.
+                                runCatching {
+                                    context.startActivity(
+                                        Intent(Settings.ACTION_INPUT_METHOD_SETTINGS)
+                                    )
+                                }
+                            },
+                        )
+                    }
+                }
+            }
             CaptionText(
                 "Grammar checking runs on this device with the Harper engine " +
                     "(the same one behind harper-ls) — offline, nothing you " +
                     "type is uploaded. Open the tool while writing to see " +
                     "issues with one-tap fixes; the dialect chip on the panel " +
-                    "switches dialects too.",
+                    "switches dialects too.\n\n" +
+                    "Harper can also act as Android's system spell checker, so " +
+                    "the underlines and correction menus inside other apps come " +
+                    "from it as well. Pick it under Spell checker in the system " +
+                    "input settings; it follows the dialect chosen above.",
             )
         }
         ToolbarTool.WIKIPEDIA -> {
