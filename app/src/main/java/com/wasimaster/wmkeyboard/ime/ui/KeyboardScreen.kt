@@ -62,6 +62,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material.icons.automirrored.outlined.Backspace
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.outlined.KeyboardReturn
 import androidx.compose.material.icons.automirrored.outlined.KeyboardTab
 import androidx.compose.material.icons.automirrored.outlined.Redo
@@ -71,7 +73,13 @@ import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.outlined.AudioFile
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Description
+import androidx.compose.material.icons.outlined.FirstPage
 import androidx.compose.material.icons.outlined.Folder
+import androidx.compose.material.icons.outlined.KeyboardArrowDown
+import androidx.compose.material.icons.outlined.KeyboardArrowUp
+import androidx.compose.material.icons.outlined.KeyboardDoubleArrowDown
+import androidx.compose.material.icons.outlined.KeyboardDoubleArrowUp
+import androidx.compose.material.icons.outlined.LastPage
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.InsertDriveFile
 import androidx.compose.material.icons.outlined.Link
@@ -171,8 +179,12 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
+import android.content.res.Configuration
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.platform.LocalConfiguration
+import com.wasimaster.wmkeyboard.core.settings.ScreenVariant
+import com.wasimaster.wmkeyboard.core.settings.resolvedFor
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameMillis
@@ -494,7 +506,24 @@ fun KeyboardScreen(
     onOpenToolSettings: (ToolbarTool) -> Unit = {},
     onOpenSettings: () -> Unit,
 ) {
-    val state by stateFlow.collectAsState()
+    val rawState by stateFlow.collectAsState()
+
+    // Sizing is resolved once, here, for the screen shape we are actually
+    // drawing on: a folded phone in landscape can want a shorter key than
+    // the same phone upright, and a tablet wants neither. Everything below
+    // reads `state.settings.keyHeightDp` as before and never learns that
+    // screen variants exist.
+    val configuration = LocalConfiguration.current
+    val variant = ScreenVariant.of(
+        landscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE,
+        // Smallest dimension, not the current width: a phone turned sideways
+        // is wide but still a phone, while an opened foldable is wide either
+        // way round.
+        unfolded = configuration.smallestScreenWidthDp >= ScreenVariant.UNFOLDED_MIN_DP,
+    )
+    val state = remember(rawState, variant) {
+        rawState.copy(settings = rawState.settings.resolvedFor(variant))
+    }
 
     // One entry point for every toolbar/toolbox tool.
     val onToolTap: (ToolbarTool) -> Unit = { tool ->
@@ -547,6 +576,17 @@ fun KeyboardScreen(
             ToolbarTool.PASSWORD_GEN -> onPanelChange(PanelMode.PASSWORD_GEN)
             ToolbarTool.AI -> onPanelChange(PanelMode.AI)
             ToolbarTool.MODES -> onPanelChange(PanelMode.MODES)
+            // Same moves the text-editing panel offers, one tap deep instead
+            // of two. Selection still extends when the panel's select mode is
+            // on, since onTextEdit reads that state itself.
+            ToolbarTool.CURSOR_LEFT -> onTextEdit(TextEditAction.LEFT)
+            ToolbarTool.CURSOR_RIGHT -> onTextEdit(TextEditAction.RIGHT)
+            ToolbarTool.CURSOR_UP -> onTextEdit(TextEditAction.UP)
+            ToolbarTool.CURSOR_DOWN -> onTextEdit(TextEditAction.DOWN)
+            ToolbarTool.CURSOR_HOME -> onTextEdit(TextEditAction.HOME)
+            ToolbarTool.CURSOR_END -> onTextEdit(TextEditAction.END)
+            ToolbarTool.PAGE_UP -> onTextEdit(TextEditAction.PAGE_UP)
+            ToolbarTool.PAGE_DOWN -> onTextEdit(TextEditAction.PAGE_DOWN)
         }
     }
 
@@ -1087,6 +1127,22 @@ private fun TopBar(
                     longPressLabel = "Emoji",
                 ) { onToolTap(ToolbarTool.EMOJI) }
             }
+            // A dead key is armed: show which accent the next letter will
+            // take, otherwise the keyboard looks like it swallowed a press.
+            state.pendingDeadKey?.let { accent ->
+                Box(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .padding(horizontal = 6.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = accent,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
+            }
             // The top candidates split the whole bar evenly (Gboard style),
             // so each one gets the largest possible tap target.
             Row(
@@ -1498,6 +1554,14 @@ private fun toolIcon(tool: ToolbarTool): ImageVector = when (tool) {
     ToolbarTool.PASSWORD_GEN -> Icons.Outlined.Password
     ToolbarTool.AI -> Icons.Outlined.AutoAwesome
     ToolbarTool.MODES -> Icons.Outlined.Tune
+    ToolbarTool.CURSOR_LEFT -> Icons.AutoMirrored.Outlined.KeyboardArrowLeft
+    ToolbarTool.CURSOR_RIGHT -> Icons.AutoMirrored.Outlined.KeyboardArrowRight
+    ToolbarTool.CURSOR_UP -> Icons.Outlined.KeyboardArrowUp
+    ToolbarTool.CURSOR_DOWN -> Icons.Outlined.KeyboardArrowDown
+    ToolbarTool.CURSOR_HOME -> Icons.Outlined.FirstPage
+    ToolbarTool.CURSOR_END -> Icons.Outlined.LastPage
+    ToolbarTool.PAGE_UP -> Icons.Outlined.KeyboardDoubleArrowUp
+    ToolbarTool.PAGE_DOWN -> Icons.Outlined.KeyboardDoubleArrowDown
 }
 
 private fun toolLabel(tool: ToolbarTool): String = when (tool) {
@@ -1544,6 +1608,14 @@ private fun toolLabel(tool: ToolbarTool): String = when (tool) {
     ToolbarTool.PASSWORD_GEN -> "Password"
     ToolbarTool.AI -> "AI"
     ToolbarTool.MODES -> "Modes"
+    ToolbarTool.CURSOR_LEFT -> "Left"
+    ToolbarTool.CURSOR_RIGHT -> "Right"
+    ToolbarTool.CURSOR_UP -> "Up"
+    ToolbarTool.CURSOR_DOWN -> "Down"
+    ToolbarTool.CURSOR_HOME -> "Line start"
+    ToolbarTool.CURSOR_END -> "Line end"
+    ToolbarTool.PAGE_UP -> "Page up"
+    ToolbarTool.PAGE_DOWN -> "Page down"
 }
 
 private fun toolActive(tool: ToolbarTool, state: KeyboardUiState): Boolean = when (tool) {
@@ -1590,6 +1662,11 @@ private fun toolActive(tool: ToolbarTool, state: KeyboardUiState): Boolean = whe
     ToolbarTool.PASSWORD_GEN -> state.panel == PanelMode.PASSWORD_GEN
     ToolbarTool.AI -> state.panel == PanelMode.AI
     ToolbarTool.MODES -> state.panel == PanelMode.MODES || state.activeModeId != null
+    // Stateless one-shot moves, like undo/redo: nothing to stay lit for.
+    ToolbarTool.CURSOR_LEFT, ToolbarTool.CURSOR_RIGHT,
+    ToolbarTool.CURSOR_UP, ToolbarTool.CURSOR_DOWN,
+    ToolbarTool.CURSOR_HOME, ToolbarTool.CURSOR_END,
+    ToolbarTool.PAGE_UP, ToolbarTool.PAGE_DOWN -> false
 }
 
 /**
@@ -3722,21 +3799,45 @@ private fun KeyContent(key: Key, state: KeyboardUiState, contentColor: Color) {
             contentAlignment = Alignment.Center,
         ) {
             // Split-spacebar left halves carry an empty label: no language name.
-            if (key.label.isNotEmpty()) Text(
-                text = when (state.inputMode) {
-                    InputMode.ENGLISH -> "English"
-                    InputMode.AZERTY -> "English · AZERTY"
-                    InputMode.DVORAK -> "English · Dvorak"
-                    InputMode.AVRO -> "বাংলা · Avro"
-                    InputMode.PROBHAT -> "বাংলা · প্রভাত"
-                    InputMode.JATIYA -> "বাংলা · জাতীয়"
-                    InputMode.FRENCH -> "Français"
-                    InputMode.GERMAN -> "Deutsch"
-                    InputMode.SPANISH -> "Español"
-                },
-                fontSize = (11 * fontScale).sp,
-                color = contentColor.copy(alpha = 0.5f),
-            )
+            if (key.label.isNotEmpty()) {
+                // The arrows only mean something when a swipe actually cycles
+                // languages and there is more than one language to cycle.
+                val swipeSwitchesLanguage =
+                    state.settings.spaceShortSwipe == SpaceSwipeAction.LANGUAGE ||
+                        state.settings.spaceLongSwipe == SpaceSwipeAction.LANGUAGE
+                val showArrows = state.settings.spacebarLanguageArrows &&
+                    swipeSwitchesLanguage && state.settings.enabledModes.size > 1
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    if (showArrows) Text(
+                        text = "◀",
+                        fontSize = (8 * fontScale).sp,
+                        color = contentColor.copy(alpha = 0.35f),
+                    )
+                    Text(
+                        text = when (state.inputMode) {
+                            InputMode.ENGLISH -> "English"
+                            InputMode.AZERTY -> "English · AZERTY"
+                            InputMode.DVORAK -> "English · Dvorak"
+                            InputMode.AVRO -> "বাংলা · Avro"
+                            InputMode.PROBHAT -> "বাংলা · প্রভাত"
+                            InputMode.JATIYA -> "বাংলা · জাতীয়"
+                            InputMode.FRENCH -> "Français"
+                            InputMode.GERMAN -> "Deutsch"
+                            InputMode.SPANISH -> "Español"
+                        },
+                        fontSize = (11 * fontScale).sp,
+                        color = contentColor.copy(alpha = 0.5f),
+                    )
+                    if (showArrows) Text(
+                        text = "▶",
+                        fontSize = (8 * fontScale).sp,
+                        color = contentColor.copy(alpha = 0.35f),
+                    )
+                }
+            }
         }
         else -> Box(modifier = Modifier.fillMaxSize()) {
             // Multi-character mode labels (?123, ABC, =\<) read as labels,

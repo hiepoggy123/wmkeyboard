@@ -57,6 +57,8 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.provider.ContactsContract
 import com.wasimaster.wmkeyboard.core.prediction.Apostrophes
+import com.wasimaster.wmkeyboard.core.input.DeadKeys
+import com.wasimaster.wmkeyboard.core.prediction.AppNames
 import com.wasimaster.wmkeyboard.core.prediction.ContactNames
 import com.wasimaster.wmkeyboard.core.prediction.CustomDictionaries
 import com.wasimaster.wmkeyboard.core.prediction.DictionaryLoader
@@ -196,6 +198,15 @@ class WMKeyboardService : InputMethodService() {
 
     /** Contact-name words for suggestions, when the setting + permission allow. */
     private var contactNames: ContactNames = ContactNames.EMPTY
+
+    /** Installed-app label words for suggestions, when the setting allows. */
+    private var appNames: AppNames = AppNames.EMPTY
+
+    /**
+     * Accent armed by a dead key, waiting for the letter to combine with.
+     * Mirrored into [KeyboardUiState.pendingDeadKey] for the strip chip.
+     */
+    private var pendingDeadKey: Char? = null
 
     /** English word list used by the gesture decoder (bundled dictionary). */
     private var gestureLexicon: List<Pair<String, Int>> = emptyList()
@@ -443,6 +454,7 @@ class WMKeyboardService : InputMethodService() {
             var lexiconVersion = -1
             var customDictVersion = -1
             var contactsEnabled: Boolean? = null
+            var appNamesEnabled: Boolean? = null
             var linkPreviewsEnabled: Boolean? = null
             settingsRepository.settings.collect { settings ->
                 clipboardStore.expiryMillis = settings.clipboardExpiryHours * 60L * 60 * 1000
@@ -465,6 +477,15 @@ class WMKeyboardService : InputMethodService() {
                         suggestionEngine?.contacts = ContactNames.EMPTY
                     }
                 }
+                if (settings.appNameSuggestions != appNamesEnabled) {
+                    appNamesEnabled = settings.appNameSuggestions
+                    if (settings.appNameSuggestions) {
+                        loadAppNames()
+                    } else {
+                        appNames = AppNames.EMPTY
+                        suggestionEngine?.apps = AppNames.EMPTY
+                    }
+                }
                 // The settings app edited the learned-words file (personal
                 // dictionary): drop the in-memory copy for the disk state,
                 // otherwise the next save here would clobber those edits.
@@ -485,6 +506,8 @@ class WMKeyboardService : InputMethodService() {
                 }
                 // Typo weighting follows the active Latin layout's key grid.
                 suggestionEngine?.proximity = KeyProximity.forMode(settings.inputMode)
+                suggestionEngine?.autocorrectConfidence =
+                    settings.autocorrectConfidence.toDouble()
                 // Latin languages without a bundled dictionary (French, German,
                 // Spanish) drop the English word list so autocorrect and
                 // completions never offer English for their words.
@@ -537,7 +560,10 @@ class WMKeyboardService : InputMethodService() {
                 seedBigrams,
             ).apply {
                 contacts = contactNames
+                apps = appNames
                 proximity = KeyProximity.forMode(_uiState.value.inputMode)
+                autocorrectConfidence =
+                    _uiState.value.settings.autocorrectConfidence.toDouble()
                 val mode = _uiState.value.inputMode
                 englishSources = !mode.isLatinScript || mode.isEnglish
                 customDictionary = customTries[mode.language] ?: Trie()
@@ -941,6 +967,27 @@ class WMKeyboardService : InputMethodService() {
         // previous autocorrect.
         lastAutocorrect = null
 
+        // Dead keys: the accent arms and waits, then fuses with the next
+        // letter. Pressing the same accent twice types it literally, which
+        // is the standard escape hatch for wanting the accent on its own.
+        val pressedMark = DeadKeys.markOf(text)
+        val armedMark = pendingDeadKey
+        when {
+            pressedMark != null && pressedMark == armedMark -> {
+                setPendingDeadKey(null)
+                text = DeadKeys.standalone(pressedMark)
+            }
+            pressedMark != null -> {
+                setPendingDeadKey(pressedMark)
+                consumeShift()
+                return
+            }
+            armedMark != null -> {
+                setPendingDeadKey(null)
+                text = DeadKeys.apply(armedMark, text)
+            }
+        }
+
         if (state.emojiSearchActive) {
             text = fixedLayoutContextualVowel(text, state.emojiQuery.lastOrNull())
             _uiState.update { it.copy(emojiQuery = it.emojiQuery + text) }
@@ -980,6 +1027,22 @@ class WMKeyboardService : InputMethodService() {
         val isWordChar = text.length == 1 && (text[0].isLetter() || text[0] == '\'')
         val composingMode = !state.inputMode.isFixedBengali && !state.secureField &&
             !state.fieldNoSuggestions && state.settings.suggestions
+
+        // ":" on a word boundary opens inline emoji search: the colon and the
+        // letters after it go into the composing buffer, and refreshSuggestions
+        // turns that buffer into emoji instead of words. Nothing else needs to
+        // track a mode — "composing starts with a colon" *is* the mode, so
+        // backspacing the colon away ends it on its own.
+        if (state.settings.inlineEmojiSearch && text == ":" &&
+            composing.isEmpty() && composingMode
+        ) {
+            commitComposing(ic, autocorrect = false)
+            composing.append(text)
+            updateComposingText(ic)
+            refreshSuggestions()
+            consumeShift()
+            return
+        }
 
         if (isWordChar && composingMode) {
             composing.append(text)
@@ -1130,7 +1193,7 @@ class WMKeyboardService : InputMethodService() {
         // again — deleting the fix is the strongest "I meant what I typed".
         lastAutocorrect?.let { (typed, corrected) ->
             lastAutocorrect = null
-            if (composing.isEmpty()) {
+            if (composing.isEmpty() && state.settings.revertAutocorrectOnBackspace) {
                 val expected = "$corrected "
                 val before = ic.getTextBeforeCursor(expected.length, 0)?.toString()
                 if (before == expected) {
@@ -1323,6 +1386,17 @@ class WMKeyboardService : InputMethodService() {
         if (composing.isEmpty()) return false
         val typed = composing.toString()
         val state = _uiState.value
+
+        // An abandoned inline emoji query (":smi" then space) is literal text:
+        // never transliterated, autocorrected, or learned as a word.
+        if (inlineEmojiQuery() != null) {
+            ic.commitText(typed, 1)
+            composing = StringBuilder()
+            _uiState.update {
+                it.copy(composingPreview = "", suggestions = emptyList(), emojiSuggestions = emptyList())
+            }
+            return true
+        }
         // Apostrophe restoration outranks autocorrect: "dont" is a known
         // contraction slip, not a typo for "font"/"done" to be guessed at.
         val apostrophized =
@@ -1444,14 +1518,81 @@ class WMKeyboardService : InputMethodService() {
         }
     }
 
+    /**
+     * Reads the labels of launchable apps into [appNames] (memory only,
+     * never persisted). Needs no permission: the launcher-intent query is
+     * covered by the <queries> manifest entry.
+     */
+    private fun loadAppNames() {
+        serviceScope.launch {
+            val loaded = withContext(Dispatchers.IO) {
+                runCatching {
+                    val intent = Intent(Intent.ACTION_MAIN)
+                        .addCategory(Intent.CATEGORY_LAUNCHER)
+                    val pm = packageManager
+                    val labels = pm.queryIntentActivities(intent, 0)
+                        .mapNotNull { it.loadLabel(pm)?.toString() }
+                        .distinct()
+                    AppNames.fromNames(labels)
+                }.getOrDefault(AppNames.EMPTY)
+            }
+            appNames = loaded
+            suggestionEngine?.apps = loaded
+        }
+    }
+
+    /** Arms or clears the dead-key accent, keeping the strip chip in step. */
+    private fun setPendingDeadKey(mark: Char?) {
+        pendingDeadKey = mark
+        val label = mark?.let { DeadKeys.standalone(it) }
+        if (_uiState.value.pendingDeadKey != label) {
+            _uiState.update { it.copy(pendingDeadKey = label) }
+        }
+    }
+
     /** Heuristic: a learned bigram successor that is an emoji, not a word. */
     private fun isEmojiCandidate(text: String): Boolean =
         text.isNotBlank() && text.none { it.isLetterOrDigit() } && text.any { it.code > 0x2000 }
+
+    /**
+     * The inline emoji query when the composing buffer is one — ":smi" gives
+     * "smi". Null whenever inline search is off or the buffer is an ordinary
+     * word, so callers can branch on it directly.
+     */
+    private fun inlineEmojiQuery(): String? {
+        if (!_uiState.value.settings.inlineEmojiSearch) return null
+        val typed = composing.toString()
+        return if (typed.startsWith(":")) typed.drop(1) else null
+    }
 
     private fun refreshSuggestions() {
         val engine = suggestionEngine ?: return
         val state = _uiState.value
         if (!state.settings.suggestions || state.secureField || state.fieldNoSuggestions) return
+
+        // Inline emoji search takes over the strip entirely: word suggestions
+        // for ":smi" would be noise. A bare ":" shows nothing until there is
+        // something to search for.
+        inlineEmojiQuery()?.let { query ->
+            suggestionJob?.cancel()
+            suggestionJob = serviceScope.launch {
+                delay(EMOJI_SEARCH_DEBOUNCE_MS)
+                val results = if (query.length < 2) {
+                    emptyList()
+                } else {
+                    withContext(Dispatchers.Default) {
+                        emojiSearch?.search(query, limit = INLINE_EMOJI_LIMIT)
+                            .orEmpty()
+                            .map { it.emoji }
+                    }
+                }
+                _uiState.update {
+                    it.copy(suggestions = results, emojiSuggestions = emptyList())
+                }
+            }
+            return
+        }
+
         val typed = composing.toString()
         suggestionJob?.cancel()
         suggestionJob = serviceScope.launch {
@@ -1499,6 +1640,19 @@ class WMKeyboardService : InputMethodService() {
         }
         lastGestureWord = null
         lastAutocorrect = null
+
+        // An emoji picked from inline search replaces the ":query" buffer
+        // outright: no trailing space (emoji rarely start a new word) and
+        // nothing learned, since the emoji is not a word the user typed.
+        if (inlineEmojiQuery() != null) {
+            ic.commitText(suggestion, 1)
+            composing = StringBuilder()
+            _uiState.update {
+                it.copy(composingPreview = "", suggestions = emptyList(), emojiSuggestions = emptyList())
+            }
+            return
+        }
+
         ic.commitText("$suggestion ", 1)
         // Deliberately picked from the strip — a stronger signal than a
         // word that merely got committed.
@@ -2837,6 +2991,20 @@ class WMKeyboardService : InputMethodService() {
     }
 
     /**
+     * Carries the panel's "plain text" checkbox across runs: on by default,
+     * but a user who turned it off means it for the next result too.
+     */
+    private fun aiStripMarkdownDefault(): Boolean =
+        (_uiState.value.ai as? AiUi.Ready)?.stripMarkdown ?: true
+
+    /** Panel's "plain text" checkbox. */
+    fun onAiToggleStripMarkdown() {
+        val ai = _uiState.value.ai as? AiUi.Ready ?: return
+        vibrate()
+        _uiState.update { it.copy(ai = ai.copy(stripMarkdown = !ai.stripMarkdown)) }
+    }
+
+    /**
      * What Replace/Insert actually commit: even when the panel shows a
      * reasoning model's think block (verbose mode), only the trimmed answer
      * belongs in the text field — with markdown syntax removed unless the
@@ -2989,20 +3157,6 @@ class WMKeyboardService : InputMethodService() {
     fun onMediaQueryTap() {
         vibrate()
         _uiState.update { it.copy(mediaSearchActive = !it.mediaSearchActive) }
-    }
-
-    /**
-     * Carries the panel's "plain text" checkbox across runs: on by default,
-     * but a user who turned it off means it for the next result too.
-     */
-    private fun aiStripMarkdownDefault(): Boolean =
-        (_uiState.value.ai as? AiUi.Ready)?.stripMarkdown ?: true
-
-    /** Panel's "plain text" checkbox. */
-    fun onAiToggleStripMarkdown() {
-        val ai = _uiState.value.ai as? AiUi.Ready ?: return
-        vibrate()
-        _uiState.update { it.copy(ai = ai.copy(stripMarkdown = !ai.stripMarkdown)) }
     }
 
     /**
@@ -3553,6 +3707,8 @@ class WMKeyboardService : InputMethodService() {
             TextEditAction.DOWN -> sendEditorKey(KeyEvent.KEYCODE_DPAD_DOWN, selecting)
             TextEditAction.HOME -> sendEditorKey(KeyEvent.KEYCODE_MOVE_HOME, selecting)
             TextEditAction.END -> sendEditorKey(KeyEvent.KEYCODE_MOVE_END, selecting)
+            TextEditAction.PAGE_UP -> sendEditorKey(KeyEvent.KEYCODE_PAGE_UP, selecting)
+            TextEditAction.PAGE_DOWN -> sendEditorKey(KeyEvent.KEYCODE_PAGE_DOWN, selecting)
             TextEditAction.SELECT ->
                 _uiState.update { it.copy(textEditSelecting = !selecting) }
             TextEditAction.SELECT_ALL -> {
@@ -4219,6 +4375,10 @@ class WMKeyboardService : InputMethodService() {
     companion object {
         /** Minimum spacing between haptic clicks so rapid presses stay distinct. */
         private const val MIN_HAPTIC_GAP_MS = 45L
+
+        /** Inline emoji search is a local index lookup — no network wait. */
+        private const val EMOJI_SEARCH_DEBOUNCE_MS = 24L
+        private const val INLINE_EMOJI_LIMIT = 12
         private const val WEATHER_CACHE_MS = 15L * 60 * 1000
         private val SENTENCE_ENDERS = charArrayOf('.', '!', '?', '।')
         private const val SHIFT_DOUBLE_TAP_MS = 350L

@@ -33,6 +33,14 @@ class SuggestionEngine(
     var contacts: ContactNames = ContactNames.EMPTY
 
     /**
+     * Words from the labels of installed apps, so app names complete while
+     * typing ("sign" → Signal). Swapped in when the setting allows, cleared
+     * when it turns off.
+     */
+    @Volatile
+    var apps: AppNames = AppNames.EMPTY
+
+    /**
      * Adjacency map for typo weighting, following the active Latin layout
      * (set by the IME on input-mode changes; AZERTY/Dvorak fat-fingers land
      * on different neighbours than QWERTY's).
@@ -69,6 +77,15 @@ class SuggestionEngine(
     @Volatile
     var bengaliIndex: BengaliPhoneticIndex = bengaliIndex
 
+    /**
+     * How much the winning candidate must outscore the runner-up before
+     * autocorrect fires, set from the user's confidence slider. Higher is
+     * stricter: fewer corrections, but fewer wrong ones. Defaults to
+     * [DEFAULT_AUTOCORRECT_CONFIDENCE].
+     */
+    @Volatile
+    var autocorrectConfidence: Double = DEFAULT_AUTOCORRECT_CONFIDENCE
+
     private val emptyTrie = Trie()
 
     /** The bundled dictionary, or an empty one when [englishSources] is off. */
@@ -98,6 +115,13 @@ class SuggestionEngine(
         private const val CUSTOM_WORD_WEIGHT = 100
         /** Per-occurrence weight of a contact-name word (counts are tiny). */
         private const val CONTACT_WEIGHT = 3000
+
+        /**
+         * App-label words rank below contacts: you type a friend's name far
+         * more often than an app's, and app labels contain ordinary words
+         * ("Files", "Photos", "Clock") that must not outrank the dictionary.
+         */
+        private const val APP_WEIGHT = 400
         /** Split suggestions score slightly under their rarer half. */
         private const val WEIGHT_SPLIT = 0.8
 
@@ -106,7 +130,11 @@ class SuggestionEngine(
          * runner-up by this factor; anything closer is ambiguous and only
          * suggested, never forced.
          */
-        private const val AUTOCORRECT_CONFIDENCE = 4.0
+        const val DEFAULT_AUTOCORRECT_CONFIDENCE = 4.0
+
+        /** Slider bounds: 1.5 corrects eagerly, 10 only on near-certainty. */
+        const val MIN_AUTOCORRECT_CONFIDENCE = 1.5
+        const val MAX_AUTOCORRECT_CONFIDENCE = 10.0
 
         /**
          * A Bengali phonetic sibling only outranks the literal
@@ -162,6 +190,9 @@ class SuggestionEngine(
         }
         for (s in contacts.complete(lower, limit)) {
             merged.merge(s.word, s.frequency * CONTACT_WEIGHT, ::maxOf)
+        }
+        for (s in apps.complete(lower, limit)) {
+            merged.merge(s.word, s.frequency * APP_WEIGHT, ::maxOf)
         }
         if (!inDictionaries(lower) && !userLexicon.contains(lower)) {
             for ((candidate, weight) in edits1Weighted(lower)) {
@@ -260,15 +291,15 @@ class SuggestionEngine(
      * learned — is never corrected away), or when no candidate is
      * confident: a candidate wins outright only if the dictionaries and
      * the user's lexicon independently agree on
-     * it, or its score beats the runner-up by [AUTOCORRECT_CONFIDENCE].
+     * it, or its score beats the runner-up by [autocorrectConfidence].
      * Anything closer stays in the suggestion strip for the user to pick.
      */
     fun shouldAutocorrect(word: String): String? {
         val lower = word.lowercase()
         if (lower.length < 3) return null
         if (inDictionaries(lower) || userLexicon.contains(lower)) return null
-        // Contact names are known words too — never "corrected" away.
-        if (contacts.contains(lower)) return null
+        // Contact and app names are known words too — never "corrected" away.
+        if (contacts.contains(lower) || apps.contains(lower)) return null
 
         var bestDict: String? = null
         var bestDictScore = 0.0
@@ -297,7 +328,7 @@ class SuggestionEngine(
         val ranked = combined.entries.sortedByDescending { it.value }
         val top = ranked.firstOrNull() ?: return null
         val runnerUp = ranked.getOrNull(1)
-        if (runnerUp != null && top.value < runnerUp.value * AUTOCORRECT_CONFIDENCE) return null
+        if (runnerUp != null && top.value < runnerUp.value * autocorrectConfidence) return null
         return matchCase(word, top.key)
     }
 

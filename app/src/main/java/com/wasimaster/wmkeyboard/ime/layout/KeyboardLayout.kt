@@ -338,6 +338,18 @@ object Layouts {
                 Key("৳"), Key("€"), Key("£", longPress = listOf("₺")), Key("¥"), Key("₹"),
                 Key("^", longPress = listOf("↑", "↓", "←", "→")), Key("°", longPress = listOf("′", "″")),
                 Key("{"), Key("}"), Key("\\"),
+                // Dead-key accents: tap one, then a letter, and the pair
+                // fuses (´ then e → é). The label shows the accent on a
+                // dotted circle; the output is the bare combining mark,
+                // which is what marks a key as a dead key.
+                Key(
+                    label = "◌\u0301",
+                    output = "\u0301",
+                    longPress = listOf(
+                        "\u0300", "\u0302", "\u0308", "\u0303", "\u030C",
+                        "\u0304", "\u030A", "\u0327", "\u0328", "\u030B",
+                    ),
+                ),
             ),
             listOf(
                 Key("?123", action = KeyAction.Symbols, width = 1.5f),

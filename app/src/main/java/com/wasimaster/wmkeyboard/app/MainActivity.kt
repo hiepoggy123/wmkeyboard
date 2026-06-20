@@ -38,6 +38,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.FactCheck
 import androidx.compose.material.icons.automirrored.outlined.HelpOutline
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.automirrored.outlined.Redo
@@ -57,8 +58,14 @@ import androidx.compose.material.icons.outlined.EditNote
 import androidx.compose.material.icons.outlined.EmojiEmotions
 import androidx.compose.material.icons.outlined.Explore
 import androidx.compose.material.icons.outlined.FlashlightOn
+import androidx.compose.material.icons.outlined.FirstPage
 import androidx.compose.material.icons.outlined.Keyboard
+import androidx.compose.material.icons.outlined.KeyboardArrowDown
+import androidx.compose.material.icons.outlined.KeyboardArrowUp
+import androidx.compose.material.icons.outlined.KeyboardDoubleArrowDown
+import androidx.compose.material.icons.outlined.KeyboardDoubleArrowUp
 import androidx.compose.material.icons.outlined.Language
+import androidx.compose.material.icons.outlined.LastPage
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material.icons.outlined.PhotoCamera
@@ -182,6 +189,7 @@ import com.wasimaster.wmkeyboard.core.tools.WeatherClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import com.wasimaster.wmkeyboard.core.settings.BarRow
+import com.wasimaster.wmkeyboard.core.settings.CursorTools
 import com.wasimaster.wmkeyboard.BuildConfig
 import com.wasimaster.wmkeyboard.core.settings.KeyboardAlignment
 import com.wasimaster.wmkeyboard.core.settings.KeyboardLanguage
@@ -193,7 +201,9 @@ import com.wasimaster.wmkeyboard.core.settings.ModeField
 import com.wasimaster.wmkeyboard.core.tools.BuiltInSymbolSets
 import com.wasimaster.wmkeyboard.core.tools.SymbolSet
 import com.wasimaster.wmkeyboard.core.settings.OneHandedMode
+import com.wasimaster.wmkeyboard.core.settings.ScreenVariant
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
+import com.wasimaster.wmkeyboard.core.settings.sizingValuesFor
 import com.wasimaster.wmkeyboard.core.settings.SpaceSwipeAction
 import com.wasimaster.wmkeyboard.core.settings.ThemeMode
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
@@ -936,6 +946,33 @@ private fun TypingSettings(
                     "and autocorrect stays off in password fields.",
             ) { scope.launch { repository.setAutocorrect(it) } }
         }
+        if (settings.autocorrect) {
+            item {
+                SliderSetting(
+                    "Autocorrect confidence",
+                    subtitle = "How sure a correction must be before it is applied",
+                    value = settings.autocorrectConfidence,
+                    range = 1.5f..10f,
+                    display = "×%.1f".format(settings.autocorrectConfidence),
+                    info = "A correction only fires when the best candidate outscores the " +
+                        "runner-up by this factor. Low corrects eagerly and catches more " +
+                        "typos, but guesses wrong more often; high only corrects when the " +
+                        "word is nearly unambiguous. Corrections that two sources agree on " +
+                        "are applied regardless.",
+                ) { scope.launch { repository.setAutocorrectConfidence(it) } }
+            }
+            item {
+                ToggleSetting(
+                    "Undo autocorrect with backspace",
+                    "Backspace right after a correction restores what you typed",
+                    settings.revertAutocorrectOnBackspace,
+                    info = "Pressing backspace immediately after autocorrect changed a word " +
+                        "puts your original spelling back and teaches it to the keyboard, so " +
+                        "it is not corrected again. Turn this off to have backspace always " +
+                        "just delete a character.",
+                ) { scope.launch { repository.setRevertAutocorrectOnBackspace(it) } }
+            }
+        }
         item {
             ToggleSetting(
                 "Fix missing apostrophes", "arent → aren't, im → I'm, dont → don't",
@@ -1031,6 +1068,29 @@ private fun TypingSettings(
             }
         }
         item {
+            ToggleSetting(
+                "Suggest app names",
+                "Complete the names of installed apps as you type",
+                settings.appNameSuggestions,
+                info = "Words from the names of your installed apps complete like dictionary " +
+                    "words (\"sign\" → Signal), and autocorrect will never \"fix\" one. They " +
+                    "rank below contact names, since ordinary words like Files and Clock are " +
+                    "app names too. Read into memory only — nothing is stored or sent " +
+                    "anywhere, and no permission is needed.",
+            ) { scope.launch { repository.setAppNameSuggestions(it) } }
+        }
+        item {
+            ToggleSetting(
+                "Inline emoji search",
+                "Type \":\" then a word to find emoji — :smi → 😄",
+                settings.inlineEmojiSearch,
+                info = "Typing a colon at the start of a word turns the suggestion strip into " +
+                    "an emoji search: \":cat\" offers 🐱, and tapping one replaces what you " +
+                    "typed. Backspacing over the colon returns to normal word suggestions, " +
+                    "and pressing space leaves the text exactly as typed.",
+            ) { scope.launch { repository.setInlineEmojiSearch(it) } }
+        }
+        item {
             NavRow(
                 "Personal dictionary",
                 "Words the keyboard has learned — review, remove, add your own",
@@ -1077,6 +1137,20 @@ private fun TypingSettings(
                     "Both may also be set to the same action.",
                 value = settings.spaceLongSwipe,
             ) { scope.launch { repository.setSpaceLongSwipe(it) } }
+        }
+        if (settings.spaceShortSwipe == SpaceSwipeAction.LANGUAGE ||
+            settings.spaceLongSwipe == SpaceSwipeAction.LANGUAGE
+        ) {
+            item {
+                ToggleSetting(
+                    "Arrows on spacebar",
+                    "Hint that a swipe switches language",
+                    settings.spacebarLanguageArrows,
+                    info = "Draws a small ◀ and ▶ either side of the language name on the " +
+                        "spacebar. They are only a hint — the swipe works either way — and stay " +
+                        "hidden while a single input mode is enabled.",
+                ) { scope.launch { repository.setSpacebarLanguageArrows(it) } }
+            }
         }
     }
 
@@ -1627,6 +1701,104 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
                     },
                     selected = settings.keyboardAlignment,
                 ) { scope.launch { repository.setKeyboardAlignment(it) } }
+            }
+        }
+    }
+
+    var expandedVariant by remember { mutableStateOf<ScreenVariant?>(null) }
+    SettingsGroup("Per-screen sizing") {
+        item {
+            CaptionText(
+                "The sizes above are your portrait sizes. Landscape and unfolded screens can " +
+                    "override any of them — a key height that suits an upright phone is often " +
+                    "too tall in landscape, where vertical space is scarce. Anything you leave " +
+                    "untouched follows portrait.",
+            )
+        }
+        for (variant in ScreenVariant.entries.filter { it.isOverride }) {
+            val override = settings.sizingOverrides[variant]
+            val values = settings.sizingValuesFor(variant)
+            item {
+                NavRow(
+                    variant.label,
+                    if (override == null || override.isEmpty) {
+                        "Following portrait"
+                    } else {
+                        "${values.keyHeightDp} dp keys · ${values.keyboardWidthPercent}% wide"
+                    },
+                    onClick = {
+                        expandedVariant = if (expandedVariant == variant) null else variant
+                    },
+                )
+            }
+            if (expandedVariant == variant) {
+                item {
+                    SliderSetting(
+                        "Key height",
+                        value = (values.keyHeightDp ?: settings.keyHeightDp).toFloat(),
+                        range = 32f..100f,
+                        display = "${values.keyHeightDp} dp",
+                    ) { scope.launch { repository.setVariantKeyHeightDp(variant, it.toInt()) } }
+                }
+                if (settings.numberRow) {
+                    item {
+                        SliderSetting(
+                            "Number row height",
+                            value = (values.numberRowHeightDp ?: settings.numberRowHeightDp).toFloat(),
+                            range = 32f..100f,
+                            display = "${values.numberRowHeightDp} dp",
+                        ) {
+                            scope.launch {
+                                repository.setVariantNumberRowHeightDp(variant, it.toInt())
+                            }
+                        }
+                    }
+                }
+                item {
+                    SliderSetting(
+                        "Bottom padding",
+                        value = (values.bottomPaddingDp ?: settings.bottomPaddingDp).toFloat(),
+                        range = 0f..40f,
+                        display = "${values.bottomPaddingDp} dp",
+                    ) { scope.launch { repository.setVariantBottomPaddingDp(variant, it.toInt()) } }
+                }
+                item {
+                    SliderSetting(
+                        "Keyboard width",
+                        value = (values.keyboardWidthPercent ?: settings.keyboardWidthPercent).toFloat(),
+                        range = 50f..100f,
+                        display = "${values.keyboardWidthPercent}%",
+                    ) { scope.launch { repository.setVariantWidthPercent(variant, it.toInt()) } }
+                }
+                item {
+                    SliderSetting(
+                        "Font size",
+                        value = values.fontScale ?: settings.fontScale,
+                        range = 0.7f..1.5f,
+                        display = "×%.2f".format(values.fontScale ?: settings.fontScale),
+                    ) { scope.launch { repository.setVariantFontScale(variant, it) } }
+                }
+                if ((values.keyboardWidthPercent ?: settings.keyboardWidthPercent) < 100) {
+                    item {
+                        ChoiceSetting(
+                            title = "Keyboard position",
+                            options = KeyboardAlignment.entries.map { alignment ->
+                                alignment to alignment.name.lowercase()
+                                    .replaceFirstChar { it.uppercase() }
+                            },
+                            selected = values.keyboardAlignment ?: settings.keyboardAlignment,
+                        ) { scope.launch { repository.setVariantAlignment(variant, it) } }
+                    }
+                }
+                if (override != null && !override.isEmpty) {
+                    item {
+                        NavRow(
+                            "Follow portrait again",
+                            "Clear the overrides set for ${variant.label.lowercase()}",
+                            onClick = { scope.launch { repository.clearVariantSizing(variant) } },
+                        )
+                    }
+                }
             }
         }
     }
@@ -2655,6 +2827,14 @@ internal fun toolTitle(tool: ToolbarTool): String = when (tool) {
     ToolbarTool.PASSWORD_GEN -> "Password generator"
     ToolbarTool.AI -> "AI writing tools"
     ToolbarTool.MODES -> "Keyboard modes"
+    ToolbarTool.CURSOR_LEFT -> "Cursor left"
+    ToolbarTool.CURSOR_RIGHT -> "Cursor right"
+    ToolbarTool.CURSOR_UP -> "Cursor up"
+    ToolbarTool.CURSOR_DOWN -> "Cursor down"
+    ToolbarTool.CURSOR_HOME -> "Line start"
+    ToolbarTool.CURSOR_END -> "Line end"
+    ToolbarTool.PAGE_UP -> "Page up"
+    ToolbarTool.PAGE_DOWN -> "Page down"
 }
 
 internal fun toolDescription(tool: ToolbarTool): String = when (tool) {
@@ -2701,6 +2881,14 @@ internal fun toolDescription(tool: ToolbarTool): String = when (tool) {
     ToolbarTool.PASSWORD_GEN -> "Strong passwords and passphrases, generated on-device"
     ToolbarTool.AI -> "Rewrite, summarize, translate and more — your own API key or local server"
     ToolbarTool.MODES -> "Switch between per-app setups: emoji row, pinned tools, symbol sets"
+    ToolbarTool.CURSOR_LEFT -> "Move the cursor one character left"
+    ToolbarTool.CURSOR_RIGHT -> "Move the cursor one character right"
+    ToolbarTool.CURSOR_UP -> "Move the cursor one line up"
+    ToolbarTool.CURSOR_DOWN -> "Move the cursor one line down"
+    ToolbarTool.CURSOR_HOME -> "Jump to the start of the line"
+    ToolbarTool.CURSOR_END -> "Jump to the end of the line"
+    ToolbarTool.PAGE_UP -> "Scroll the cursor up a page"
+    ToolbarTool.PAGE_DOWN -> "Scroll the cursor down a page"
 }
 
 internal fun toolIconFor(tool: ToolbarTool): androidx.compose.ui.graphics.vector.ImageVector = when (tool) {
@@ -2747,6 +2935,14 @@ internal fun toolIconFor(tool: ToolbarTool): androidx.compose.ui.graphics.vector
     ToolbarTool.PASSWORD_GEN -> Icons.Outlined.Password
     ToolbarTool.AI -> Icons.Outlined.AutoAwesome
     ToolbarTool.MODES -> Icons.Outlined.Tune
+    ToolbarTool.CURSOR_LEFT -> Icons.AutoMirrored.Outlined.KeyboardArrowLeft
+    ToolbarTool.CURSOR_RIGHT -> Icons.AutoMirrored.Outlined.KeyboardArrowRight
+    ToolbarTool.CURSOR_UP -> Icons.Outlined.KeyboardArrowUp
+    ToolbarTool.CURSOR_DOWN -> Icons.Outlined.KeyboardArrowDown
+    ToolbarTool.CURSOR_HOME -> Icons.Outlined.FirstPage
+    ToolbarTool.CURSOR_END -> Icons.Outlined.LastPage
+    ToolbarTool.PAGE_UP -> Icons.Outlined.KeyboardDoubleArrowUp
+    ToolbarTool.PAGE_DOWN -> Icons.Outlined.KeyboardDoubleArrowDown
 }
 
 /**
@@ -2787,6 +2983,7 @@ private fun ToolsSettings(
         "Keyboard modes" to listOf(
             ToolbarTool.MODES, ToolbarTool.ONE_HANDED, ToolbarTool.SPLIT, ToolbarTool.FLOATING,
         ),
+        "Cursor" to CursorTools,
         "Quick actions" to listOf(
             ToolbarTool.UNDO, ToolbarTool.REDO, ToolbarTool.AUTOCORRECT,
             ToolbarTool.INCOGNITO, ToolbarTool.SOUND_HAPTICS, ToolbarTool.THEMES,

@@ -1,14 +1,20 @@
 package com.wasimaster.wmkeyboard.core.prediction
 
 /**
- * Name words harvested from the phone's contacts, so people's names
+ * An in-memory word index built from multi-word proper names, so they
  * complete like dictionary words ("was" → Wasi) and chain like bigrams
- * ("Wasi" → Mollik). Words keep the contact's own capitalization and are
- * counted across contacts, so shared surnames rank higher.
+ * ("Wasi" → Mollik). Words keep their source capitalization and are counted
+ * across entries, so a repeated surname — or a repeated vendor name across
+ * app labels — ranks higher.
  *
- * Built in memory from a one-off contacts query; nothing is persisted.
+ * Two things feed this: the phone's contacts ([ContactNames]) and the
+ * labels of installed apps ([AppNames]). Both are lists of short
+ * human-written names whose individual words people type, so they index
+ * identically; only the source and the weight differ.
+ *
+ * Built from a one-off query; nothing is persisted.
  */
-class ContactNames private constructor(
+class NameIndex private constructor(
     private val words: Map<String, Word>,
     private val nextMap: Map<String, List<String>>,
 ) {
@@ -17,10 +23,10 @@ class ContactNames private constructor(
 
     val isEmpty: Boolean get() = words.isEmpty()
 
-    /** True when [word] (lowercase) is part of some contact's name. */
+    /** True when [word] (lowercase) is part of some indexed name. */
     fun contains(word: String): Boolean = words.containsKey(word)
 
-    /** Name words starting with [prefix] (lowercase), most common first. */
+    /** Indexed words starting with [prefix] (lowercase), most common first. */
     fun complete(prefix: String, limit: Int): List<Suggestion> {
         if (prefix.isEmpty()) return emptyList()
         return words.entries
@@ -32,15 +38,15 @@ class ContactNames private constructor(
             .toList()
     }
 
-    /** Words that follow [previous] (lowercase) in contact names. */
+    /** Words that follow [previous] (lowercase) within an indexed name. */
     fun nextWords(previous: String): List<String> = nextMap[previous].orEmpty()
 
     companion object {
-        val EMPTY = ContactNames(emptyMap(), emptyMap())
+        val EMPTY = NameIndex(emptyMap(), emptyMap())
 
         private val SEPARATORS = Regex("[\\s,.()\\[\\]/_-]+")
 
-        fun fromNames(names: Iterable<String>): ContactNames {
+        fun fromNames(names: Iterable<String>): NameIndex {
             val words = HashMap<String, Word>()
             val next = HashMap<String, HashMap<String, Word>>()
             for (name in names) {
@@ -58,7 +64,7 @@ class ContactNames private constructor(
                     previous = key
                 }
             }
-            return ContactNames(
+            return NameIndex(
                 words,
                 next.mapValues { (_, followers) ->
                     followers.values.sortedByDescending { it.count }.map { it.display }
@@ -67,3 +73,9 @@ class ContactNames private constructor(
         }
     }
 }
+
+/** Name words harvested from the phone's contacts. */
+typealias ContactNames = NameIndex
+
+/** Name words harvested from the labels of installed apps. */
+typealias AppNames = NameIndex

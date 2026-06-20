@@ -277,7 +277,7 @@ sealed interface DictionaryUi {
 
 /** One button on the text-editing panel (cursor control, selection, clipboard). */
 enum class TextEditAction {
-    UP, DOWN, LEFT, RIGHT, HOME, END,
+    UP, DOWN, LEFT, RIGHT, HOME, END, PAGE_UP, PAGE_DOWN,
     SELECT, SELECT_ALL, COPY, PASTE, BACKSPACE,
 }
 
@@ -295,6 +295,8 @@ data class KeyboardUiState(
     val shiftState: ShiftState = ShiftState.OFF,
     val panel: PanelMode = PanelMode.NONE,
     val suggestions: List<String> = emptyList(),
+    /** Spacing form of the dead-key accent waiting for a letter, if any. */
+    val pendingDeadKey: String? = null,
     /** Best gesture-typing candidate mid-swipe, shown floating above the finger. */
     val glideWord: String? = null,
     val composingPreview: String = "",

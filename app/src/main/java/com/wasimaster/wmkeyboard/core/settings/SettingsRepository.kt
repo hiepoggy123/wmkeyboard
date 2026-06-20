@@ -100,7 +100,19 @@ enum class ToolbarTool {
     OCR, QR_SCAN, DOC_SCAN, VOICE, GRAMMAR,
     WIKIPEDIA, SYMBOLS, CALCULATOR, UNIT_CONVERT, CURRENCY, QR_GEN, PASSWORD_GEN, AI,
     MODES,
+    // One-tap cursor moves. The text-edit panel already offers these, but on
+    // the toolbar they cost a single tap instead of opening a panel first.
+    CURSOR_LEFT, CURSOR_RIGHT, CURSOR_UP, CURSOR_DOWN,
+    CURSOR_HOME, CURSOR_END, PAGE_UP, PAGE_DOWN,
 }
+
+/** The cursor tools, in the order they read on the toolbar. */
+val CursorTools: List<ToolbarTool> = listOf(
+    ToolbarTool.CURSOR_LEFT, ToolbarTool.CURSOR_RIGHT,
+    ToolbarTool.CURSOR_UP, ToolbarTool.CURSOR_DOWN,
+    ToolbarTool.CURSOR_HOME, ToolbarTool.CURSOR_END,
+    ToolbarTool.PAGE_UP, ToolbarTool.PAGE_DOWN,
+)
 
 fun isSupportedTool(tool: ToolbarTool): Boolean = when {
     !BuildConfig.ENABLE_ML_KIT_HANDWRITING && tool == ToolbarTool.HANDWRITING -> false
@@ -121,7 +133,10 @@ fun isSupportedTool(tool: ToolbarTool): Boolean = when {
 private val RankedToolOrder: List<ToolbarTool> = listOf(
     ToolbarTool.EMOJI, ToolbarTool.GIF, ToolbarTool.STICKER, ToolbarTool.CLIPBOARD,
     ToolbarTool.VOICE, ToolbarTool.TRANSLATE, ToolbarTool.SNIPPETS, ToolbarTool.TEXT_EDIT,
-    ToolbarTool.UNDO, ToolbarTool.REDO, ToolbarTool.SETTINGS, ToolbarTool.THEMES,
+    ToolbarTool.UNDO, ToolbarTool.REDO,
+    ToolbarTool.CURSOR_LEFT, ToolbarTool.CURSOR_RIGHT, ToolbarTool.CURSOR_UP, ToolbarTool.CURSOR_DOWN,
+    ToolbarTool.CURSOR_HOME, ToolbarTool.CURSOR_END, ToolbarTool.PAGE_UP, ToolbarTool.PAGE_DOWN,
+    ToolbarTool.SETTINGS, ToolbarTool.THEMES,
     ToolbarTool.WEB_SEARCH, ToolbarTool.IMAGE_SEARCH, ToolbarTool.DICTIONARY, ToolbarTool.CALCULATOR,
     ToolbarTool.AI, ToolbarTool.GRAMMAR, ToolbarTool.NUMPAD, ToolbarTool.ONE_HANDED,
     ToolbarTool.SPLIT, ToolbarTool.FLOATING, ToolbarTool.INCOGNITO, ToolbarTool.AUTOCORRECT,
@@ -346,7 +361,23 @@ data class KeyboardSettings(
      */
     val keyDebounceMs: Int = 0,
     val numberRow: Boolean = false,
+    /**
+     * Sizing overrides per screen shape (landscape, unfolded, both). The
+     * plain sizing fields above are the portrait values; anything a variant
+     * leaves unset inherits them. Resolve with [resolvedFor].
+     */
+    val sizingOverrides: Map<ScreenVariant, SizingOverride> = emptyMap(),
     val autocorrect: Boolean = true,
+    /**
+     * How sure autocorrect must be before it replaces a word: the factor by
+     * which the best candidate has to outscore the runner-up. Low corrects
+     * eagerly, high only on near-certainty. Mirrors
+     * `SuggestionEngine.DEFAULT_AUTOCORRECT_CONFIDENCE`, spelled out here
+     * because prediction already depends on this package.
+     */
+    val autocorrectConfidence: Float = 4f,
+    /** Backspace right after an autocorrect puts the typed word back. */
+    val revertAutocorrectOnBackspace: Boolean = true,
     /** Fix missing apostrophes on commit: arent → aren't, im → I'm. */
     val autoApostrophe: Boolean = true,
     val autoCapitalize: Boolean = true,
@@ -360,11 +391,21 @@ data class KeyboardSettings(
     val suggestionPrimaryCenter: Boolean = true,
     /** Suggest names from the phone's contacts (needs the Contacts permission). */
     val contactSuggestions: Boolean = false,
+    /** Suggest the names of installed apps ("sign" → Signal). No permission needed. */
+    val appNameSuggestions: Boolean = false,
+    /** Typing ":" then a word searches emoji in the suggestion strip (:smi → 😄). */
+    val inlineEmojiSearch: Boolean = true,
     val gestureTyping: Boolean = true,
     /** Swipe that starts moving before the long-press delay elapses. */
     val spaceShortSwipe: SpaceSwipeAction = SpaceSwipeAction.LANGUAGE,
     /** Swipe that begins after holding the spacebar past the long-press delay. */
     val spaceLongSwipe: SpaceSwipeAction = SpaceSwipeAction.CURSOR,
+    /**
+     * Draw ◀ ▶ arrows around the spacebar language name, hinting that a
+     * horizontal swipe switches language. Only shown when a swipe slot is
+     * actually set to language switching and more than one mode is enabled.
+     */
+    val spacebarLanguageArrows: Boolean = true,
     /** Volume up/down move the text cursor while the keyboard is showing. */
     val volumeCursor: Boolean = false,
     /**
@@ -633,6 +674,23 @@ class SettingsRepository(private val context: Context) {
         private val KEYBOARD_ALIGNMENT = stringPreferencesKey("keyboard_alignment")
         private val KEY_CORNER_RADIUS = intPreferencesKey("key_corner_radius")
         private val FONT_SCALE = floatPreferencesKey("font_scale")
+
+        // Per-variant sizing overrides. The keys are derived from the base
+        // names rather than spelled out, so the four screen shapes times six
+        // settings stay in step with each other by construction.
+        private fun variantKey(base: String, variant: ScreenVariant) = "${base}_${variant.suffix}"
+
+        private fun keyHeightKey(v: ScreenVariant) = intPreferencesKey(variantKey("key_height", v))
+        private fun numberRowHeightKey(v: ScreenVariant) =
+            intPreferencesKey(variantKey("number_row_height", v))
+        private fun bottomPaddingKey(v: ScreenVariant) =
+            intPreferencesKey(variantKey("bottom_padding", v))
+        private fun widthPercentKey(v: ScreenVariant) =
+            intPreferencesKey(variantKey("keyboard_width_percent", v))
+        private fun alignmentKey(v: ScreenVariant) =
+            stringPreferencesKey(variantKey("keyboard_alignment", v))
+        private fun fontScaleKey(v: ScreenVariant) =
+            floatPreferencesKey(variantKey("font_scale", v))
         private val KEY_FONT_ID = stringPreferencesKey("key_font_id")
         private val CUSTOM_FONT_NAME = stringPreferencesKey("custom_font_name")
         private val BENGALI_FONT_ID = stringPreferencesKey("bengali_font_id")
@@ -662,6 +720,9 @@ class SettingsRepository(private val context: Context) {
         private val KEY_DEBOUNCE_MS = intPreferencesKey("key_debounce_ms")
         private val NUMBER_ROW = booleanPreferencesKey("number_row")
         private val AUTOCORRECT = booleanPreferencesKey("autocorrect")
+        private val AUTOCORRECT_CONFIDENCE = floatPreferencesKey("autocorrect_confidence")
+        private val REVERT_AUTOCORRECT_ON_BACKSPACE =
+            booleanPreferencesKey("revert_autocorrect_on_backspace")
         private val AUTO_CAPITALIZE = booleanPreferencesKey("auto_capitalize")
         private val DOUBLE_SPACE_PERIOD = booleanPreferencesKey("double_space_period")
         private val DOUBLE_SPACE_TAB = booleanPreferencesKey("double_space_tab")
@@ -669,11 +730,14 @@ class SettingsRepository(private val context: Context) {
         private val SUGGESTIONS_FIRST = booleanPreferencesKey("suggestions_first")
         private val SUGGESTION_PRIMARY_CENTER = booleanPreferencesKey("suggestion_primary_center")
         private val CONTACT_SUGGESTIONS = booleanPreferencesKey("contact_suggestions")
+        private val APP_NAME_SUGGESTIONS = booleanPreferencesKey("app_name_suggestions")
+        private val INLINE_EMOJI_SEARCH = booleanPreferencesKey("inline_emoji_search")
         private val GESTURE_TYPING = booleanPreferencesKey("gesture_typing")
         // Legacy boolean, read only to migrate into SPACE_LONG_SWIPE.
         private val SPACEBAR_CURSOR = booleanPreferencesKey("spacebar_cursor")
         private val SPACE_SHORT_SWIPE = stringPreferencesKey("space_short_swipe")
         private val SPACE_LONG_SWIPE = stringPreferencesKey("space_long_swipe")
+        private val SPACEBAR_LANGUAGE_ARROWS = booleanPreferencesKey("spacebar_language_arrows")
         private val VOLUME_CURSOR = booleanPreferencesKey("volume_cursor")
         private val VOLUME_CURSOR_MEDIA_AWARE = booleanPreferencesKey("volume_cursor_media_aware")
         private val GLOBE_AS_EMOJI = booleanPreferencesKey("globe_as_emoji")
@@ -849,6 +913,20 @@ class SettingsRepository(private val context: Context) {
                 ?: defaults.keyboardAlignment,
             keyCornerRadiusDp = p[KEY_CORNER_RADIUS] ?: defaults.keyCornerRadiusDp,
             fontScale = p[FONT_SCALE] ?: defaults.fontScale,
+            sizingOverrides = ScreenVariant.entries
+                .filter { it.isOverride }
+                .associateWith { v ->
+                    SizingOverride(
+                        keyHeightDp = p[keyHeightKey(v)],
+                        numberRowHeightDp = p[numberRowHeightKey(v)],
+                        bottomPaddingDp = p[bottomPaddingKey(v)],
+                        keyboardWidthPercent = p[widthPercentKey(v)],
+                        fontScale = p[fontScaleKey(v)],
+                        keyboardAlignment = p[alignmentKey(v)]
+                            ?.let { name -> runCatching { KeyboardAlignment.valueOf(name) }.getOrNull() },
+                    )
+                }
+                .filterValues { !it.isEmpty },
             keyFontId = p[KEY_FONT_ID] ?: defaults.keyFontId,
             customFontName = p[CUSTOM_FONT_NAME] ?: defaults.customFontName,
             bengaliFontId = p[BENGALI_FONT_ID] ?: defaults.bengaliFontId,
@@ -890,6 +968,9 @@ class SettingsRepository(private val context: Context) {
             keyDebounceMs = p[KEY_DEBOUNCE_MS] ?: defaults.keyDebounceMs,
             numberRow = p[NUMBER_ROW] ?: defaults.numberRow,
             autocorrect = p[AUTOCORRECT] ?: defaults.autocorrect,
+            autocorrectConfidence = p[AUTOCORRECT_CONFIDENCE] ?: defaults.autocorrectConfidence,
+            revertAutocorrectOnBackspace =
+                p[REVERT_AUTOCORRECT_ON_BACKSPACE] ?: defaults.revertAutocorrectOnBackspace,
             autoApostrophe = p[AUTO_APOSTROPHE] ?: defaults.autoApostrophe,
             autoCapitalize = p[AUTO_CAPITALIZE] ?: defaults.autoCapitalize,
             doubleSpacePeriod = p[DOUBLE_SPACE_PERIOD] ?: defaults.doubleSpacePeriod,
@@ -899,6 +980,8 @@ class SettingsRepository(private val context: Context) {
             suggestionPrimaryCenter = p[SUGGESTION_PRIMARY_CENTER]
                 ?: defaults.suggestionPrimaryCenter,
             contactSuggestions = p[CONTACT_SUGGESTIONS] ?: defaults.contactSuggestions,
+            appNameSuggestions = p[APP_NAME_SUGGESTIONS] ?: defaults.appNameSuggestions,
+            inlineEmojiSearch = p[INLINE_EMOJI_SEARCH] ?: defaults.inlineEmojiSearch,
             gestureTyping = p[GESTURE_TYPING] ?: defaults.gestureTyping,
             spaceShortSwipe = p[SPACE_SHORT_SWIPE]
                 ?.let { runCatching { SpaceSwipeAction.valueOf(it) }.getOrNull() }
@@ -908,6 +991,8 @@ class SettingsRepository(private val context: Context) {
             spaceLongSwipe = p[SPACE_LONG_SWIPE]
                 ?.let { runCatching { SpaceSwipeAction.valueOf(it) }.getOrNull() }
                 ?: if (p[SPACEBAR_CURSOR] == false) SpaceSwipeAction.NONE else defaults.spaceLongSwipe,
+            spacebarLanguageArrows = p[SPACEBAR_LANGUAGE_ARROWS]
+                ?: defaults.spacebarLanguageArrows,
             volumeCursor = p[VOLUME_CURSOR] ?: defaults.volumeCursor,
             volumeCursorMediaAware = p[VOLUME_CURSOR_MEDIA_AWARE] ?: defaults.volumeCursorMediaAware,
             globeAsEmoji = p[GLOBE_AS_EMOJI] ?: defaults.globeAsEmoji,
@@ -1370,6 +1455,58 @@ class SettingsRepository(private val context: Context) {
             it[FLOATING_Y] = y.coerceIn(0f, 1f)
         }
 
+    // ---- per-variant sizing ----
+    //
+    // Writing to PORTRAIT edits the base values (the plain settings), so the
+    // variant editor and the ordinary sliders drive the same preferences
+    // instead of shadowing each other. A null value clears the override and
+    // lets the variant inherit portrait again.
+
+    suspend fun setVariantKeyHeightDp(variant: ScreenVariant, value: Int?) =
+        editVariant(variant, KEY_HEIGHT, keyHeightKey(variant), value?.coerceIn(32, 100))
+
+    suspend fun setVariantNumberRowHeightDp(variant: ScreenVariant, value: Int?) =
+        editVariant(
+            variant, NUMBER_ROW_HEIGHT, numberRowHeightKey(variant), value?.coerceIn(32, 100),
+        )
+
+    suspend fun setVariantBottomPaddingDp(variant: ScreenVariant, value: Int?) =
+        editVariant(variant, BOTTOM_PADDING, bottomPaddingKey(variant), value?.coerceIn(0, 40))
+
+    suspend fun setVariantWidthPercent(variant: ScreenVariant, value: Int?) =
+        editVariant(
+            variant, KEYBOARD_WIDTH_PERCENT, widthPercentKey(variant), value?.coerceIn(50, 100),
+        )
+
+    suspend fun setVariantFontScale(variant: ScreenVariant, value: Float?) =
+        editVariant(variant, FONT_SCALE, fontScaleKey(variant), value?.coerceIn(0.7f, 1.5f))
+
+    suspend fun setVariantAlignment(variant: ScreenVariant, value: KeyboardAlignment?) =
+        editVariant(variant, KEYBOARD_ALIGNMENT, alignmentKey(variant), value?.name)
+
+    /** Clears every override on [variant], returning it to the portrait values. */
+    suspend fun clearVariantSizing(variant: ScreenVariant) {
+        if (!variant.isOverride) return
+        context.dataStore.edit {
+            it.remove(keyHeightKey(variant))
+            it.remove(numberRowHeightKey(variant))
+            it.remove(bottomPaddingKey(variant))
+            it.remove(widthPercentKey(variant))
+            it.remove(fontScaleKey(variant))
+            it.remove(alignmentKey(variant))
+        }
+    }
+
+    private suspend fun <T : Any> editVariant(
+        variant: ScreenVariant,
+        baseKey: Preferences.Key<T>,
+        overrideKey: Preferences.Key<T>,
+        value: T?,
+    ) = context.dataStore.edit { prefs ->
+        val key = if (variant.isOverride) overrideKey else baseKey
+        if (value == null) prefs.remove(key) else prefs[key] = value
+    }
+
     suspend fun setKeyboardWidthPercent(value: Int) =
         context.dataStore.edit { it[KEYBOARD_WIDTH_PERCENT] = value.coerceIn(50, 100) }
 
@@ -1549,6 +1686,13 @@ class SettingsRepository(private val context: Context) {
     suspend fun setAutocorrect(value: Boolean) =
         context.dataStore.edit { it[AUTOCORRECT] = value }
 
+    /** Bounds mirror `SuggestionEngine.MIN/MAX_AUTOCORRECT_CONFIDENCE`. */
+    suspend fun setAutocorrectConfidence(value: Float) =
+        context.dataStore.edit { it[AUTOCORRECT_CONFIDENCE] = value.coerceIn(1.5f, 10f) }
+
+    suspend fun setRevertAutocorrectOnBackspace(value: Boolean) =
+        context.dataStore.edit { it[REVERT_AUTOCORRECT_ON_BACKSPACE] = value }
+
     suspend fun setAutoCapitalize(value: Boolean) =
         context.dataStore.edit { it[AUTO_CAPITALIZE] = value }
 
@@ -1570,6 +1714,12 @@ class SettingsRepository(private val context: Context) {
     suspend fun setContactSuggestions(value: Boolean) =
         context.dataStore.edit { it[CONTACT_SUGGESTIONS] = value }
 
+    suspend fun setAppNameSuggestions(value: Boolean) =
+        context.dataStore.edit { it[APP_NAME_SUGGESTIONS] = value }
+
+    suspend fun setInlineEmojiSearch(value: Boolean) =
+        context.dataStore.edit { it[INLINE_EMOJI_SEARCH] = value }
+
     suspend fun setGestureTyping(value: Boolean) =
         context.dataStore.edit { it[GESTURE_TYPING] = value }
 
@@ -1578,6 +1728,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setSpaceLongSwipe(value: SpaceSwipeAction) =
         context.dataStore.edit { it[SPACE_LONG_SWIPE] = value.name }
+
+    suspend fun setSpacebarLanguageArrows(value: Boolean) =
+        context.dataStore.edit { it[SPACEBAR_LANGUAGE_ARROWS] = value }
 
     suspend fun setVolumeCursor(value: Boolean) =
         context.dataStore.edit { it[VOLUME_CURSOR] = value }
