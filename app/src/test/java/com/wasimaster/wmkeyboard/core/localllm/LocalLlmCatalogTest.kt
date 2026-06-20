@@ -7,11 +7,19 @@ import org.junit.Test
 
 class LocalLlmCatalogTest {
 
+    // The catalog order is a quality ranking, not a size ranking — the
+    // settings list and the panel picker both render it as-is, so the models
+    // worth using have to come first.
     @Test
-    fun `catalog is sorted by size ascending`() {
+    fun `recommended models lead the catalog`() {
+        val tiers = LocalLlmCatalog.models.map { it.tier }
         assertEquals(
-            LocalLlmCatalog.models.sortedBy { it.sizeBytes },
-            LocalLlmCatalog.models,
+            listOf(ModelTier.RECOMMENDED, ModelTier.RECOMMENDED),
+            tiers.take(2),
+        )
+        assertTrue(
+            "a recommended model is buried below other tiers",
+            tiers.indexOfLast { it == ModelTier.RECOMMENDED } == 1,
         )
     }
 

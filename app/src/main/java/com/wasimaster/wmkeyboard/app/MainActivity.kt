@@ -172,6 +172,7 @@ import com.wasimaster.wmkeyboard.core.settings.GifSourceMode
 import com.wasimaster.wmkeyboard.core.settings.GrammarDialect
 import com.wasimaster.wmkeyboard.core.settings.MediaSendMode
 import com.wasimaster.wmkeyboard.core.settings.QrEccLevel
+import com.wasimaster.wmkeyboard.core.tools.AiClient
 import com.wasimaster.wmkeyboard.core.tools.AiPrompts
 import com.wasimaster.wmkeyboard.core.tools.GeoPlace
 import com.wasimaster.wmkeyboard.core.tools.ToolApiKeys
@@ -3836,7 +3837,7 @@ private fun AiToolSettings(repository: SettingsRepository, settings: KeyboardSet
                 TextFieldSetting(
                     label = "Model",
                     value = settings.aiAnthropicModel,
-                    hint = "Blank = claude-haiku-4-5-20251001",
+                    hint = "Blank = ${AiClient.DefaultModels.ANTHROPIC}",
                 ) { repository.setAiAnthropicModel(it) }
             }
         }
@@ -3853,7 +3854,7 @@ private fun AiToolSettings(repository: SettingsRepository, settings: KeyboardSet
                 TextFieldSetting(
                     label = "Model",
                     value = settings.aiOpenAiModel,
-                    hint = "Blank = gpt-4o-mini",
+                    hint = "Blank = ${AiClient.DefaultModels.OPENAI}",
                 ) { repository.setAiOpenAiModel(it) }
             }
         }
@@ -3870,7 +3871,7 @@ private fun AiToolSettings(repository: SettingsRepository, settings: KeyboardSet
                 TextFieldSetting(
                     label = "Model",
                     value = settings.aiGeminiModel,
-                    hint = "Blank = gemini-2.0-flash",
+                    hint = "Blank = ${AiClient.DefaultModels.GEMINI}",
                 ) { repository.setAiGeminiModel(it) }
             }
         }
@@ -3886,7 +3887,7 @@ private fun AiToolSettings(repository: SettingsRepository, settings: KeyboardSet
                 TextFieldSetting(
                     label = "Model",
                     value = settings.aiOllamaModel,
-                    hint = "Blank = llama3.2",
+                    hint = "Blank = ${AiClient.DefaultModels.OLLAMA}",
                 ) { repository.setAiOllamaModel(it) }
             }
         }
@@ -3920,9 +3921,11 @@ private fun AiToolSettings(repository: SettingsRepository, settings: KeyboardSet
             item {
                 SliderSetting(
                     "Max response length",
-                    subtitle = "Upper bound in tokens (≈ ¾ of a word each)",
+                    subtitle = "Upper bound in tokens (≈ ¾ of a word each). " +
+                        "Reasoning models automatically get 4× this, since their " +
+                        "thinking is spent from the same budget.",
                     value = settings.aiMaxTokens.toFloat(),
-                    range = 64f..4096f,
+                    range = 256f..8192f,
                     display = "${settings.aiMaxTokens}",
                 ) { scope.launch { repository.setAiMaxTokens(it.roundToInt()) } }
             }

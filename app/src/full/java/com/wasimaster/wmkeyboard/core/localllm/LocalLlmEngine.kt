@@ -116,7 +116,22 @@ object LocalLlmEngine {
                 return out.toString()
             } catch (e: Throwable) {
                 // Native failures (OOM included) can leave the engine wedged.
+                val wasGpu = loadedKey?.second == "gpu"
                 releaseLocked()
+                if (wasGpu) {
+                    // GPU init succeeded but generation blew up — usually GPU
+                    // memory, which is far tighter than system RAM. Blacklist
+                    // this model on GPU so the retry runs on CPU without the
+                    // user having to work out that the backend was the problem.
+                    gpuFallback += modelFile.path
+                    throw IOException(
+                        "The model crashed on the GPU — GPU memory is much tighter " +
+                            "than system RAM. Retrying will run it on the CPU " +
+                            "instead; switch Compute to CPU in settings to make " +
+                            "that permanent, or pick a smaller model.",
+                        e,
+                    )
+                }
                 throw IOException(
                     "The model ran out of memory or crashed — try a smaller model", e,
                 )

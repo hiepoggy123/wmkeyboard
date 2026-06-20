@@ -30,22 +30,34 @@ object AiClient {
         val baseUrl: String,
     )
 
+    /**
+     * Model each provider falls back to when its settings field is blank.
+     * Kept in one place because the settings screen shows the same strings as
+     * "Blank = …" hints — they must not drift apart.
+     */
+    object DefaultModels {
+        const val ANTHROPIC = "claude-sonnet-5"
+        const val OPENAI = "gpt-5.6-luna"
+        const val GEMINI = "gemini-3.5-flash"
+        const val OLLAMA = "qwen3"
+    }
+
     fun config(settings: KeyboardSettings): Config = when (settings.aiProvider) {
         AiProvider.ANTHROPIC -> Config(
             AiProvider.ANTHROPIC, settings.aiAnthropicKey,
-            settings.aiAnthropicModel.ifBlank { "claude-haiku-4-5-20251001" }, "",
+            settings.aiAnthropicModel.ifBlank { DefaultModels.ANTHROPIC }, "",
         )
         AiProvider.OPENAI -> Config(
             AiProvider.OPENAI, settings.aiOpenAiKey,
-            settings.aiOpenAiModel.ifBlank { "gpt-4o-mini" }, "",
+            settings.aiOpenAiModel.ifBlank { DefaultModels.OPENAI }, "",
         )
         AiProvider.GEMINI -> Config(
             AiProvider.GEMINI, settings.aiGeminiKey,
-            settings.aiGeminiModel.ifBlank { "gemini-2.0-flash" }, "",
+            settings.aiGeminiModel.ifBlank { DefaultModels.GEMINI }, "",
         )
         AiProvider.OLLAMA -> Config(
             AiProvider.OLLAMA, "",
-            settings.aiOllamaModel.ifBlank { "llama3.2" },
+            settings.aiOllamaModel.ifBlank { DefaultModels.OLLAMA },
             settings.aiOllamaUrl,
         )
         AiProvider.LM_STUDIO -> Config(
@@ -57,6 +69,36 @@ object AiClient {
             AiProvider.ON_DEVICE, "",
             settings.aiLocalModelId, "",
         )
+    }
+
+    /**
+     * Substrings that mark a model as one that reasons before answering.
+     * Matched against the lowercased model id — deliberately loose, since the
+     * cost of a false positive is a slightly larger token ceiling and the cost
+     * of a false negative is an answer that never arrives.
+     */
+    private val REASONING_MODEL_HINTS = listOf(
+        "thinking", "reason", "-r1", "qwq", "magistral",
+        "gpt-5", "o1-", "o3", "o4-", "qwen3", "qwen-3",
+    )
+
+    /** Reasoning models get this much more room than the user's setting. */
+    private const val REASONING_HEADROOM = 4
+    private const val MAX_TOKENS_CEILING = 32_768
+
+    /**
+     * The token ceiling to send for one request. A reasoning model spends most
+     * of its budget on the think block before writing a word of the answer, so
+     * the user's "max response length" — a number they picked thinking about
+     * the *answer* — buys them nothing but truncated reasoning. Multiply it for
+     * those models instead of making the user discover the problem.
+     */
+    fun effectiveMaxTokens(settings: KeyboardSettings): Int {
+        val model = config(settings).model.lowercase()
+        if (REASONING_MODEL_HINTS.none { it in model }) return settings.aiMaxTokens
+        return (settings.aiMaxTokens.toLong() * REASONING_HEADROOM)
+            .coerceAtMost(MAX_TOKENS_CEILING.toLong())
+            .toInt()
     }
 
     /** Whether the selected provider has what it needs to make a request. */

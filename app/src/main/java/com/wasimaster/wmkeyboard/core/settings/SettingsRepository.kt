@@ -574,7 +574,9 @@ data class KeyboardSettings(
     val aiOllamaModel: String = "",
     val aiLmStudioUrl: String = "",
     val aiLmStudioModel: String = "",
-    val aiMaxTokens: Int = 1024,
+    // Reasoning models get a multiple of this at request time (AiClient) —
+    // their think block spends the same budget as the answer.
+    val aiMaxTokens: Int = 2048,
     /** Target language of the AI translate action. */
     val aiTranslateTo: String = "English",
     val aiPromptRewrite: String = "",

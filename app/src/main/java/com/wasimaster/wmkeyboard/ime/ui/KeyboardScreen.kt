@@ -490,6 +490,7 @@ fun KeyboardScreen(
     onAiInsert: () -> Unit = {},
     onAiRetry: () -> Unit = {},
     onAiPickModel: (com.wasimaster.wmkeyboard.core.settings.AiProvider, String?) -> Unit = { _, _ -> },
+    onAiToggleStripMarkdown: () -> Unit = {},
     onOpenToolSettings: (ToolbarTool) -> Unit = {},
     onOpenSettings: () -> Unit,
 ) {
@@ -634,6 +635,7 @@ fun KeyboardScreen(
                 onAiInsert = onAiInsert,
                 onAiRetry = onAiRetry,
                 onAiPickModel = onAiPickModel,
+                onAiToggleStripMarkdown = onAiToggleStripMarkdown,
                 onOpenToolSettings = onOpenToolSettings,
             )
         }
@@ -2516,6 +2518,7 @@ private fun KeyboardBody(
     onAiInsert: () -> Unit,
     onAiRetry: () -> Unit,
     onAiPickModel: (com.wasimaster.wmkeyboard.core.settings.AiProvider, String?) -> Unit,
+    onAiToggleStripMarkdown: () -> Unit,
     onOpenToolSettings: (ToolbarTool) -> Unit,
 ) {
     val drag = remember { ToolDragController() }
@@ -2847,7 +2850,11 @@ private fun KeyboardBody(
                     state = state,
                     title = "AI",
                     onClose = { onPanelChange(PanelMode.AI) },
-                    extraHeight = 160.dp,
+                    // Reasoning models stream their think block into the same
+                    // box as the answer, so that mode — and only that mode —
+                    // needs the taller window; otherwise the panel stays at
+                    // the normal keyboard height.
+                    extraHeight = if (state.settings.aiShowThinking) 160.dp else 0.dp,
                     headerActions = {
                         val ai = state.ai
                         if (ai is AiUi.Ready && !ai.generating) {
@@ -2872,6 +2879,7 @@ private fun KeyboardBody(
                         onInsert = onAiInsert,
                         onRetry = onAiRetry,
                         onPickModel = onAiPickModel,
+                        onToggleStripMarkdown = onAiToggleStripMarkdown,
                         onOpenToolSettings = onOpenToolSettings,
                     )
                 }

@@ -104,6 +104,7 @@ import com.wasimaster.wmkeyboard.core.localllm.LocalLlmEngine
 import com.wasimaster.wmkeyboard.core.localllm.LocalLlmStore
 import com.wasimaster.wmkeyboard.core.tools.AiClient
 import com.wasimaster.wmkeyboard.core.tools.AiPrompts
+import com.wasimaster.wmkeyboard.core.tools.AiMarkdown
 import com.wasimaster.wmkeyboard.core.tools.AiThinking
 import com.wasimaster.wmkeyboard.core.tools.CurrencyClient
 import com.wasimaster.wmkeyboard.core.tools.QrCodeGen
@@ -681,6 +682,7 @@ class WMKeyboardService : InputMethodService() {
                 onAiInsert = ::onAiInsert,
                 onAiRetry = ::onAiRetry,
                 onAiPickModel = ::onAiPickModel,
+                onAiToggleStripMarkdown = ::onAiToggleStripMarkdown,
                 onOpenToolSettings = ::openToolSettings,
                 onOpenSettings = ::openSettings,
             )
@@ -2720,7 +2722,9 @@ class WMKeyboardService : InputMethodService() {
                     if (config.provider == AiProvider.ON_DEVICE) {
                         runAiOnDevice(seq, action, source, system, settings)
                     } else {
-                        AiClient.complete(config, system, source, settings.aiMaxTokens)
+                        AiClient.complete(
+                            config, system, source, AiClient.effectiveMaxTokens(settings),
+                        )
                     }
                 }
             }
@@ -2733,7 +2737,10 @@ class WMKeyboardService : InputMethodService() {
                                 if (settings.aiShowThinking) raw.trim()
                                 else AiThinking.stripped(raw)
                             when {
-                                text.isNotBlank() -> AiUi.Ready(action, text, source)
+                                text.isNotBlank() -> AiUi.Ready(
+                                    action, text, source,
+                                    stripMarkdown = aiStripMarkdownDefault(),
+                                )
                                 raw.isBlank() -> AiUi.Error(action, "The model returned nothing.")
                                 else -> AiUi.Error(
                                     action,
@@ -2789,7 +2796,11 @@ class WMKeyboardService : InputMethodService() {
                         shown.output.isBlank() && shown.thinking ->
                             AiUi.Loading(action, thinking = true)
                         shown.output.isBlank() -> it.ai // nothing visible yet
-                        else -> AiUi.Ready(action, shown.output, source, generating = true)
+                        else -> AiUi.Ready(
+                            action, shown.output, source,
+                            generating = true,
+                            stripMarkdown = (it.ai as? AiUi.Ready)?.stripMarkdown ?: true,
+                        )
                     },
                 )
             }
@@ -2828,10 +2839,13 @@ class WMKeyboardService : InputMethodService() {
     /**
      * What Replace/Insert actually commit: even when the panel shows a
      * reasoning model's think block (verbose mode), only the trimmed answer
-     * belongs in the text field.
+     * belongs in the text field — with markdown syntax removed unless the
+     * user unchecked it.
      */
-    private fun aiInsertableText(ai: AiUi.Ready): String =
-        AiThinking.stripped(ai.result).ifBlank { ai.result.trim() }
+    private fun aiInsertableText(ai: AiUi.Ready): String {
+        val answer = AiThinking.stripped(ai.result).ifBlank { ai.result.trim() }
+        return if (ai.stripMarkdown) AiMarkdown.strip(answer) else answer
+    }
 
     // ---- tools: dictionary & camera ----
 
@@ -2975,6 +2989,20 @@ class WMKeyboardService : InputMethodService() {
     fun onMediaQueryTap() {
         vibrate()
         _uiState.update { it.copy(mediaSearchActive = !it.mediaSearchActive) }
+    }
+
+    /**
+     * Carries the panel's "plain text" checkbox across runs: on by default,
+     * but a user who turned it off means it for the next result too.
+     */
+    private fun aiStripMarkdownDefault(): Boolean =
+        (_uiState.value.ai as? AiUi.Ready)?.stripMarkdown ?: true
+
+    /** Panel's "plain text" checkbox. */
+    fun onAiToggleStripMarkdown() {
+        val ai = _uiState.value.ai as? AiUi.Ready ?: return
+        vibrate()
+        _uiState.update { it.copy(ai = ai.copy(stripMarkdown = !ai.stripMarkdown)) }
     }
 
     /**

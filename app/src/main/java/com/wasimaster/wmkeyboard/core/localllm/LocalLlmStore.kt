@@ -72,6 +72,28 @@ object LocalLlmStore {
         return ids.singleOrNull()
     }
 
+    /**
+     * Directories left behind by models that have since been dropped from the
+     * catalog. Nothing can select or delete them through the normal rows — the
+     * settings screen offers a one-tap cleanup instead of silently eating the
+     * disk space (or silently deleting a multi-GB file the user paid to fetch).
+     */
+    fun orphanDirs(filesDir: File): List<File> {
+        val known = LocalLlmCatalog.models.map { it.id }.toSet() + "custom"
+        return modelsDir(filesDir).listFiles()
+            .orEmpty()
+            .filter { it.isDirectory && it.name !in known }
+    }
+
+    fun orphanBytes(filesDir: File): Long =
+        orphanDirs(filesDir).sumOf { dir ->
+            dir.walkBottomUp().filter { it.isFile }.sumOf { it.length() }
+        }
+
+    fun deleteOrphans(filesDir: File) {
+        orphanDirs(filesDir).forEach { it.deleteRecursively() }
+    }
+
     fun delete(filesDir: File, model: LocalLlmModel) {
         modelDir(filesDir, model).deleteRecursively()
     }

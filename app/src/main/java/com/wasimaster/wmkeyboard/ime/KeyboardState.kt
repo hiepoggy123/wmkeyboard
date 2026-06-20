@@ -243,6 +243,11 @@ sealed interface AiUi {
         val sourceText: String,
         /** True while an on-device response is still streaming in. */
         val generating: Boolean = false,
+        /**
+         * Strip markdown syntax before showing/committing the result. Only
+         * surfaced as a checkbox when the result actually contains markdown.
+         */
+        val stripMarkdown: Boolean = true,
     ) : AiUi
     data class Error(
         val action: com.wasimaster.wmkeyboard.core.settings.AiAction,

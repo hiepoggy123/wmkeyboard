@@ -1,6 +1,7 @@
 package com.wasimaster.wmkeyboard.ime.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -13,10 +14,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -40,6 +45,7 @@ import com.wasimaster.wmkeyboard.core.settings.AiAction
 import com.wasimaster.wmkeyboard.core.settings.AiProvider
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
 import com.wasimaster.wmkeyboard.core.tools.AiClient
+import com.wasimaster.wmkeyboard.core.tools.AiMarkdown
 import com.wasimaster.wmkeyboard.ime.AiUi
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
 
@@ -59,6 +65,7 @@ internal fun AiPanel(
     onInsert: () -> Unit,
     onRetry: () -> Unit,
     onPickModel: (AiProvider, String?) -> Unit,
+    onToggleStripMarkdown: () -> Unit,
     onOpenToolSettings: (ToolbarTool) -> Unit,
 ) {
     val kb = LocalKbTheme.current
@@ -184,6 +191,12 @@ internal fun AiPanel(
             // result.
             is AiUi.Ready -> Column(Modifier.fillMaxSize()) {
                 val resultScroll = rememberScrollState()
+                // What the panel shows is what Replace/Insert will commit —
+                // so the checkbox reformats the preview, not only the output.
+                val hasMarkdown = remember(ai.result) { AiMarkdown.hasMarkdown(ai.result) }
+                val shown = remember(ai.result, ai.stripMarkdown, hasMarkdown) {
+                    if (hasMarkdown && ai.stripMarkdown) AiMarkdown.strip(ai.result) else ai.result
+                }
                 LaunchedEffect(ai.result, ai.generating) {
                     // Follow the streaming text like a terminal tail.
                     if (ai.generating) resultScroll.scrollTo(resultScroll.maxValue)
@@ -200,10 +213,17 @@ internal fun AiPanel(
                     Text(
                         // Dim via alpha, not the theme's secondary color —
                         // some themes draw secondary text in the same white.
-                        grayThinking(ai.result, kb.modifierKeyText.copy(alpha = 0.45f)),
+                        grayThinking(shown, kb.modifierKeyText.copy(alpha = 0.45f)),
                         color = kb.modifierKeyText,
                         fontSize = 13.sp,
                         lineHeight = 18.sp,
+                    )
+                }
+                if (hasMarkdown) {
+                    PanelCheckbox(
+                        label = "Strip markdown",
+                        checked = ai.stripMarkdown,
+                        onToggle = onToggleStripMarkdown,
                     )
                 }
                 Row(
@@ -221,6 +241,46 @@ internal fun AiPanel(
                 }
             }
         }
+    }
+}
+
+/**
+ * Small themed checkbox for a panel — Material3's would ignore the keyboard
+ * theme and eat far more vertical room than this row has to give.
+ */
+@Composable
+private fun PanelCheckbox(label: String, checked: Boolean, onToggle: () -> Unit) {
+    val kb = LocalKbTheme.current
+    Row(
+        modifier = Modifier
+            .padding(top = 4.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .clickable(onClick = onToggle)
+            .padding(horizontal = 6.dp, vertical = 3.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(14.dp)
+                .clip(RoundedCornerShape(4.dp))
+                .background(if (checked) kb.toolCircleActive else kb.chip),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (checked) {
+                Icon(
+                    Icons.Outlined.Check,
+                    contentDescription = null,
+                    tint = kb.toolCircleActiveIcon,
+                    modifier = Modifier.size(11.dp),
+                )
+            }
+        }
+        Text(
+            label,
+            color = kb.secondaryText,
+            fontSize = 11.sp,
+            modifier = Modifier.padding(start = 6.dp),
+        )
     }
 }
 
@@ -251,11 +311,22 @@ private fun grayThinking(text: String, gray: Color): AnnotatedString {
     }
 }
 
+/** One entry in the panel's model picker. */
+private class ModelPick(
+    val label: String,
+    val selected: Boolean,
+    val onClick: () -> Unit,
+)
+
 /**
  * One-tap switcher across everything usable right now: each configured
  * cloud/server provider, plus every downloaded on-device model. Hidden via
  * the "model picker on the panel" setting, or when there's nothing to
  * switch between.
+ *
+ * The row scrolls horizontally, so the selected entry is pulled to the front
+ * — otherwise the one thing the user needs to see is the one thing off the
+ * right edge.
  */
 @Composable
 private fun ModelPickerRow(
@@ -282,6 +353,23 @@ private fun ModelPickerRow(
         .takeIf { id -> localIds.any { it.first == id } }
         ?: localIds.singleOrNull()?.first
 
+    val picks = localIds.map { (id, name) ->
+        ModelPick(
+            label = name,
+            selected = settings.aiProvider == AiProvider.ON_DEVICE && id == selectedLocalId,
+            onClick = { onPickModel(AiProvider.ON_DEVICE, id) },
+        )
+    } + remote.map { provider ->
+        ModelPick(
+            label = provider.label,
+            selected = settings.aiProvider == provider,
+            onClick = { onPickModel(provider, null) },
+        )
+    }
+    // Stable sort: the selected entry moves to the front, everything else
+    // keeps catalog order.
+    val ordered = picks.sortedByDescending { it.selected }
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -291,17 +379,8 @@ private fun ModelPickerRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text("Model:", color = kb.secondaryText, fontSize = 11.sp)
-        for ((id, name) in localIds) {
-            ToolPanelChip(
-                name,
-                selected = settings.aiProvider == AiProvider.ON_DEVICE && id == selectedLocalId,
-            ) { onPickModel(AiProvider.ON_DEVICE, id) }
-        }
-        for (provider in remote) {
-            ToolPanelChip(
-                provider.label,
-                selected = settings.aiProvider == provider,
-            ) { onPickModel(provider, null) }
+        for (pick in ordered) {
+            ToolPanelChip(pick.label, selected = pick.selected, onClick = pick.onClick)
         }
     }
 }
