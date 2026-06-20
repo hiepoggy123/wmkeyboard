@@ -10,7 +10,6 @@ class KeyboardModeTest {
     private val email = KeyboardMode(
         id = "email", name = "Email",
         symbolSetIds = listOf(BuiltInSymbolSets.EMAIL_ID),
-        apps = listOf("com.google.android.gm"),
         fieldKinds = listOf(ModeField.EMAIL),
     )
     private val password = KeyboardMode(
@@ -22,9 +21,17 @@ class KeyboardModeTest {
     private val browser = KeyboardMode(
         id = "browser", name = "Browser",
         apps = listOf("com.android.chrome"),
-        fieldKinds = listOf(ModeField.URL),
     )
-    private val modes = listOf(password, email, browser)
+    private val chat = KeyboardMode(
+        id = "chat", name = "Chat",
+        emojiBarMode = EmojiBarMode.ALWAYS,
+        toolbarTools = listOf(ToolbarTool.GIF, ToolbarTool.STICKER),
+        toolbarToolsAppend = true,
+        toolboxOrder = listOf(ToolbarTool.GIF, ToolbarTool.STICKER),
+        apps = listOf("com.whatsapp"),
+        fieldKinds = listOf(ModeField.TEXT),
+    )
+    private val modes = listOf(password, email, browser, chat)
 
     @Test
     fun `no match resolves to null`() {
@@ -40,13 +47,44 @@ class KeyboardModeTest {
     }
 
     @Test
-    fun `field kind beats app binding`() {
+    fun `field kind beats app-only binding`() {
         // A password box inside the browser gets the password mode.
         assertEquals(
             "password",
             resolveKeyboardMode(
                 modes, "com.android.chrome", setOf(ModeField.PASSWORD), null,
             )?.id,
+        )
+    }
+
+    @Test
+    fun `app plus field binding needs both`() {
+        // The chat composer in WhatsApp: app and text field both match.
+        assertEquals(
+            "chat",
+            resolveKeyboardMode(modes, "com.whatsapp", setOf(ModeField.TEXT), null)?.id,
+        )
+        // A text field in some other app is not enough.
+        assertNull(resolveKeyboardMode(modes, "com.example.other", setOf(ModeField.TEXT), null))
+        // Neither is a non-text field inside WhatsApp — its search box, say.
+        assertNull(resolveKeyboardMode(modes, "com.whatsapp", emptySet(), null))
+    }
+
+    @Test
+    fun `a bound field type still wins inside a chat app`() {
+        assertEquals(
+            "password",
+            resolveKeyboardMode(modes, "com.whatsapp", setOf(ModeField.PASSWORD), null)?.id,
+        )
+    }
+
+    @Test
+    fun `a mode with no bindings never matches automatically`() {
+        val manualOnly = listOf(KeyboardMode(id = "manual", name = "Manual"))
+        assertNull(resolveKeyboardMode(manualOnly, "com.whatsapp", setOf(ModeField.TEXT), null))
+        assertEquals(
+            "manual",
+            resolveKeyboardMode(manualOnly, "com.whatsapp", emptySet(), "manual")?.id,
         )
     }
 
@@ -85,6 +123,45 @@ class KeyboardModeTest {
         val applied = base.applyMode(email)
         assertEquals(listOf(BuiltInSymbolSets.EMAIL_ID), applied.symbolRowSetIds)
         assertEquals(BuiltInSymbolSets.EMAIL_ID, applied.symbolRowActiveSetId)
+    }
+
+    @Test
+    fun `append mode adds to the user's pins without duplicating them`() {
+        val base = KeyboardSettings(
+            toolbarTools = listOf(ToolbarTool.EMOJI, ToolbarTool.GIF),
+            enabledTools = listOf(ToolbarTool.EMOJI, ToolbarTool.GIF),
+        )
+        val applied = base.applyMode(chat)
+        assertEquals(
+            listOf(ToolbarTool.EMOJI, ToolbarTool.GIF, ToolbarTool.STICKER),
+            applied.toolbarTools,
+        )
+        // A pinned tool the user had switched off is enabled while active.
+        assertEquals(
+            listOf(ToolbarTool.EMOJI, ToolbarTool.GIF, ToolbarTool.STICKER),
+            applied.enabledTools,
+        )
+    }
+
+    @Test
+    fun `replace mode swaps the pins outright`() {
+        val base = KeyboardSettings(toolbarTools = listOf(ToolbarTool.EMOJI, ToolbarTool.GIF))
+        val applied = base.applyMode(chat.copy(toolbarToolsAppend = false))
+        assertEquals(listOf(ToolbarTool.GIF, ToolbarTool.STICKER), applied.toolbarTools)
+    }
+
+    @Test
+    fun `mode toolbox order leads, the rest keeps its global rank`() {
+        val base = KeyboardSettings(
+            toolboxOrder = listOf(ToolbarTool.CLIPBOARD, ToolbarTool.STICKER, ToolbarTool.VOICE),
+        )
+        val applied = base.applyMode(chat)
+        assertEquals(
+            listOf(
+                ToolbarTool.GIF, ToolbarTool.STICKER, ToolbarTool.CLIPBOARD, ToolbarTool.VOICE,
+            ),
+            applied.toolboxOrder,
+        )
     }
 
     @Test

@@ -455,6 +455,10 @@ class WMKeyboardService : InputMethodService() {
         )
         snippetStore = SnippetStore(File(filesDir, "snippets/snippets.json"))
 
+        // Tops up an upgraded install's stored mode list with modes added
+        // since it was first seeded. No-op once it has run.
+        serviceScope.launch { settingsRepository.seedNewDefaultModes() }
+
         serviceScope.launch {
             var lexiconVersion = -1
             var customDictVersion = -1
@@ -802,6 +806,10 @@ class WMKeyboardService : InputMethodService() {
                 FieldKind.URI -> add(ModeField.URL)
                 FieldKind.NUMBER -> add(ModeField.NUMBER)
                 FieldKind.PHONE -> add(ModeField.PHONE)
+                // Plain prose. A password box reports TEXT too, so it is
+                // excluded — modes bound to TEXT (chat composers, document
+                // bodies) must never take over a login form.
+                FieldKind.TEXT -> if (!secure) add(ModeField.TEXT)
                 else -> {}
             }
         }

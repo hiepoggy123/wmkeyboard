@@ -1490,6 +1490,7 @@ private fun ModesPanel(
                 ModeRow(
                     title = "Automatic",
                     subtitle = "Follow each mode's app and field bindings",
+                    icon = Icons.Outlined.AutoAwesome,
                     selected = state.activeModeId == null,
                 ) { onModeSelect(null) }
             }
@@ -1497,6 +1498,7 @@ private fun ModesPanel(
                 ModeRow(
                     title = mode.name,
                     subtitle = modeSummary(mode),
+                    icon = ModeIcons.icon(mode.icon),
                     selected = state.activeModeId == mode.id,
                 ) { onModeSelect(mode.id) }
             }
@@ -1514,7 +1516,9 @@ private fun modeSummary(mode: KeyboardMode): String {
             EmojiBarMode.ALWAYS -> "emoji row"
         }
     }
-    mode.toolbarTools?.let { parts += "${it.size} pinned tools" }
+    mode.toolbarTools?.let {
+        parts += if (mode.toolbarToolsAppend) "+${it.size} pinned tools" else "${it.size} pinned tools"
+    }
     mode.symbolRowEnabled?.let { parts += if (it) "symbol row" else "symbol row off" }
     if (mode.apps.isNotEmpty()) {
         parts += if (mode.apps.size == 1) "1 app" else "${mode.apps.size} apps"
@@ -1530,6 +1534,7 @@ private fun modeSummary(mode: KeyboardMode): String {
 private fun ModeRow(
     title: String,
     subtitle: String,
+    icon: ImageVector,
     selected: Boolean,
     onClick: () -> Unit,
 ) {
@@ -1541,6 +1546,16 @@ private fun ModeRow(
             .padding(horizontal = 20.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        Icon(
+            icon,
+            contentDescription = null,
+            modifier = Modifier
+                .padding(end = 14.dp)
+                .size(22.dp),
+            // The active mode's icon carries the accent; the rest stay quiet
+            // so the list reads as names first, icons second.
+            tint = if (selected) kb.accent else MaterialTheme.colorScheme.onSurfaceVariant,
+        )
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 title,

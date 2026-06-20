@@ -863,6 +863,7 @@ class SettingsRepository(private val context: Context) {
         private val CUSTOM_SYMBOL_SETS = stringPreferencesKey("custom_symbol_sets")
         private val BAR_ORDER = stringPreferencesKey("bar_order")
         private val KEYBOARD_MODES = stringPreferencesKey("keyboard_modes")
+        private val MODE_SEED_VERSION = intPreferencesKey("mode_seed_version")
         private val CALC_DEGREES = booleanPreferencesKey("calc_degrees")
         private val CALC_PRECISION = intPreferencesKey("calc_precision")
         private val CURRENCY_FROM = stringPreferencesKey("currency_from")
@@ -1939,6 +1940,32 @@ class SettingsRepository(private val context: Context) {
     suspend fun setBarOrder(rows: List<BarRow>) =
         context.dataStore.edit {
             it[BAR_ORDER] = sanitizeBarOrder(rows).joinToString(",") { row -> row.name }
+        }
+
+    /**
+     * Adds default modes introduced after this install first ran. Fresh
+     * installs get the whole list from [DefaultKeyboardModes]; an upgrade has
+     * a stored list frozen at whatever shipped back then, so the new modes
+     * would never appear. [MODE_SEED_VERSION] records how far the stored list
+     * has been topped up — bump it whenever [DefaultKeyboardModes] grows, and
+     * a mode the user deleted stays deleted because its version is already
+     * covered. Idempotent; safe to call on every start.
+     */
+    suspend fun seedNewDefaultModes() =
+        context.dataStore.edit { prefs ->
+            val seeded = prefs[MODE_SEED_VERSION] ?: 0
+            if (seeded >= CurrentModeSeedVersion) return@edit
+            val stored = prefs[KEYBOARD_MODES]?.let { KeyboardModeCodec.decodeList(it) }
+            prefs[MODE_SEED_VERSION] = CurrentModeSeedVersion
+            // No stored list at all: the read path already falls back to the
+            // full defaults, so there is nothing to top up.
+            if (stored == null) return@edit
+            val have = stored.map { it.id }.toSet()
+            val missing = DefaultKeyboardModes.filter {
+                it.id !in have && it.id in ModesAddedInSeedVersion2
+            }
+            if (missing.isEmpty()) return@edit
+            prefs[KEYBOARD_MODES] = KeyboardModeCodec.encodeList(stored + missing)
         }
 
     /** Adds the mode or replaces the stored mode with the same id. */

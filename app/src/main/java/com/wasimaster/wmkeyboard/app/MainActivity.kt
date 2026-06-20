@@ -31,6 +31,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -51,6 +52,7 @@ import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.ContentPaste
 import androidx.compose.material.icons.outlined.DarkMode
 import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.DragHandle
 import androidx.compose.material.icons.outlined.Dialpad
 import androidx.compose.material.icons.outlined.Draw
 import androidx.compose.material.icons.outlined.Edit
@@ -139,6 +141,7 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
@@ -150,6 +153,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -157,6 +161,10 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.unit.sp
 import android.provider.OpenableColumns
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.zIndex
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -168,6 +176,7 @@ import com.wasimaster.wmkeyboard.core.settings.EmojiBarContent
 import com.wasimaster.wmkeyboard.core.settings.EmojiBarMode
 import com.wasimaster.wmkeyboard.core.settings.EmojiFontChoice
 import com.wasimaster.wmkeyboard.ime.ui.KeyboardFonts
+import com.wasimaster.wmkeyboard.ime.ui.ModeIcons
 import com.wasimaster.wmkeyboard.core.settings.EmojiInsertMode
 import com.wasimaster.wmkeyboard.core.settings.EmojiTabMode
 import com.wasimaster.wmkeyboard.core.settings.HapticStyle
@@ -237,6 +246,9 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         repository = SettingsRepository(applicationContext)
+        // Modes added since this install was first seeded — the settings
+        // screen should list them even if the keyboard has not run yet.
+        lifecycleScope.launch { repository.seedNewDefaultModes() }
         val openTool = intent?.getStringExtra(EXTRA_OPEN_TOOL)
             ?.let { name -> ToolbarTool.entries.find { it.name == name } }
         setContent {
@@ -5081,7 +5093,8 @@ private fun modeBindingsSummary(mode: KeyboardMode): String {
     if (mode.fieldKinds.isNotEmpty()) {
         parts += mode.fieldKinds.joinToString(", ") { modeFieldLabel(it).lowercase() } + " fields"
     }
-    return if (parts.isEmpty()) "Manual only (Modes tool)" else "Auto: " + parts.joinToString(" · ")
+    // " + " rather than " · ": with both set, both have to match.
+    return if (parts.isEmpty()) "Manual only (Modes tool)" else "Auto: " + parts.joinToString(" + ")
 }
 
 private fun modeFieldLabel(field: ModeField): String = when (field) {
@@ -5090,6 +5103,184 @@ private fun modeFieldLabel(field: ModeField): String = when (field) {
     ModeField.URL -> "URL"
     ModeField.NUMBER -> "Number"
     ModeField.PHONE -> "Phone"
+    ModeField.TEXT -> "Text"
+}
+
+/** Row height inside [ReorderDialog] — fixed, so drags map to index shifts. */
+private val ReorderRowHeight = 52.dp
+
+/**
+ * Drags a list into the order the user wants. Rows carry a handle on the
+ * right; dragging one past the next row's height swaps the two, so the item
+ * tracks the finger and the list settles as it goes.
+ *
+ * The working copy only reaches the caller through [onConfirm] — backing out
+ * leaves the stored order alone.
+ */
+@Composable
+private fun <T> ReorderDialog(
+    title: String,
+    items: List<T>,
+    label: (T) -> String,
+    onConfirm: (List<T>) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var working by remember { mutableStateOf(items) }
+    // -1 = nothing being dragged.
+    var dragIndex by remember { mutableIntStateOf(-1) }
+    var dragOffset by remember { mutableFloatStateOf(0f) }
+    val rowPx = with(LocalDensity.current) { ReorderRowHeight.toPx() }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                CaptionText("Drag the handles to reorder. Top of the list comes first.")
+                // Deliberately not a LazyColumn: every row has to stay
+                // composed for a drag to swap past it, and these lists are
+                // short enough that laying them all out is free.
+                working.forEachIndexed { index, item ->
+                    val dragging = index == dragIndex
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(ReorderRowHeight)
+                            // The dragged row rides above its neighbours.
+                            .zIndex(if (dragging) 1f else 0f)
+                            .graphicsLayer { translationY = if (dragging) dragOffset else 0f },
+                    ) {
+                        Text(
+                            "${index + 1}.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.width(28.dp),
+                        )
+                        Text(
+                            label(item),
+                            style = MaterialTheme.typography.bodyLarge,
+                            maxLines = 1,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Icon(
+                            Icons.Outlined.DragHandle,
+                            contentDescription = "Reorder ${label(item)}",
+                            modifier = Modifier
+                                .padding(start = 8.dp)
+                                .size(28.dp)
+                                // Keyed on Unit so a swap mid-drag never
+                                // restarts the gesture: slot `index` is fixed
+                                // for the life of the row, only the item in it
+                                // moves. `dragIndex` is the live position.
+                                .pointerInput(Unit) {
+                                    detectDragGestures(
+                                        onDragStart = {
+                                            dragIndex = index
+                                            dragOffset = 0f
+                                        },
+                                        onDragEnd = {
+                                            dragIndex = -1
+                                            dragOffset = 0f
+                                        },
+                                        onDragCancel = {
+                                            dragIndex = -1
+                                            dragOffset = 0f
+                                        },
+                                    ) { change, drag ->
+                                        change.consume()
+                                        dragOffset += drag.y
+                                        val from = dragIndex
+                                        val to = from + (dragOffset / rowPx).roundToInt()
+                                        if (from >= 0 && to != from && to in working.indices) {
+                                            working = working.toMutableList().apply {
+                                                add(to, removeAt(from))
+                                            }
+                                            dragIndex = to
+                                            // Keep the offset relative to the
+                                            // row's new home, or the item
+                                            // would jump a full row.
+                                            dragOffset -= (to - from) * rowPx
+                                        }
+                                    }
+                                },
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(working) }) { Text("Save") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
+}
+
+/**
+ * A "Reorder…" row that opens a [ReorderDialog]. Disabled with a nudge when
+ * there is nothing to reorder yet.
+ */
+@Composable
+private fun <T> ReorderSetting(
+    title: String,
+    dialogTitle: String,
+    items: List<T>,
+    label: (T) -> String,
+    onReordered: (List<T>) -> Unit,
+) {
+    var open by remember { mutableStateOf(false) }
+    val enabled = items.size > 1
+    ListItem(
+        headlineContent = { Text(title) },
+        supportingContent = {
+            Text(
+                if (enabled) {
+                    items.joinToString(" · ", limit = 4) { label(it) }
+                } else {
+                    "Pick at least two above to set an order"
+                },
+            )
+        },
+        trailingContent = { Icon(Icons.Outlined.DragHandle, contentDescription = null) },
+        colors = transparentListColors(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(enabled = enabled) { open = true },
+    )
+    if (open) {
+        ReorderDialog(
+            title = dialogTitle,
+            items = items,
+            label = label,
+            onConfirm = {
+                open = false
+                onReordered(it)
+            },
+            onDismiss = { open = false },
+        )
+    }
+}
+
+/** A wrapping row of tool chips, used for a mode's pins and toolbox order. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ToolChips(
+    tools: List<ToolbarTool>,
+    selected: List<ToolbarTool>,
+    onToggle: (ToolbarTool) -> Unit,
+) {
+    FlowRow(
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        for (tool in tools) {
+            FilterChip(
+                selected = tool in selected,
+                onClick = { onToggle(tool) },
+                label = { Text(toolTitle(tool), maxLines = 1) },
+            )
+        }
+    }
 }
 
 /** The modes list: tap to edit, plus creating a new mode. */
@@ -5109,6 +5300,9 @@ private fun ModesSettings(
         for (mode in settings.keyboardModes) {
             item {
                 ListItem(
+                    leadingContent = {
+                        Icon(ModeIcons.icon(mode.icon), contentDescription = null)
+                    },
                     headlineContent = { Text(mode.name) },
                     supportingContent = { Text(modeBindingsSummary(mode)) },
                     trailingContent = {
@@ -5162,6 +5356,30 @@ private fun ModeEditor(
                 hint = "Shown in the Modes tool",
             ) { repository.upsertKeyboardMode(mode.copy(name = it.trim().ifEmpty { "Mode" })) }
         }
+        item {
+            var pickerOpen by remember { mutableStateOf(false) }
+            ListItem(
+                leadingContent = {
+                    Icon(ModeIcons.icon(mode.icon), contentDescription = null)
+                },
+                headlineContent = { Text("Icon") },
+                supportingContent = { Text("Shown beside the name in the Modes tool") },
+                colors = transparentListColors(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { pickerOpen = true },
+            )
+            if (pickerOpen) {
+                ModeIconPickerDialog(
+                    selected = mode.icon,
+                    onPick = { id ->
+                        pickerOpen = false
+                        save(mode.copy(icon = id))
+                    },
+                    onDismiss = { pickerOpen = false },
+                )
+            }
+        }
     }
     SettingsGroup("What this mode changes") {
         item {
@@ -5191,37 +5409,106 @@ private fun ModeEditor(
         item {
             ToggleSetting(
                 "Custom pinned tools",
-                "Replace the toolbar's pinned tools while active",
+                "Change the toolbar's pinned tools while active",
                 mode.toolbarTools != null,
             ) { on ->
-                save(mode.copy(toolbarTools = if (on) settings.toolbarTools else null))
+                save(
+                    mode.copy(
+                        // Appending starts from nothing (the user's own pins
+                        // are already there); replacing starts from a copy of
+                        // the current toolbar to edit down.
+                        toolbarTools = if (on) {
+                            if (mode.toolbarToolsAppend) emptyList() else settings.toolbarTools
+                        } else {
+                            null
+                        },
+                    ),
+                )
             }
         }
         val pinned = mode.toolbarTools
         if (pinned != null) {
             item {
-                FlowRow(
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    for (
-                        tool in ToolbarTool.entries
-                            .filter { it in settings.enabledTools && isSupportedTool(it) }
-                    ) {
-                        FilterChip(
-                            selected = tool in pinned,
-                            onClick = {
-                                save(
-                                    mode.copy(
-                                        toolbarTools =
-                                            if (tool in pinned) pinned - tool else pinned + tool,
-                                    ),
-                                )
-                            },
-                            label = { Text(toolTitle(tool), maxLines = 1) },
-                        )
-                    }
+                ChoiceSetting(
+                    title = "Pinned tools behaviour",
+                    subtitle = if (mode.toolbarToolsAppend) {
+                        "Added after the tools you pinned yourself"
+                    } else {
+                        "Only these tools are pinned while active"
+                    },
+                    options = listOf(true to "Add to mine", false to "Replace mine"),
+                    selected = mode.toolbarToolsAppend,
+                ) { append ->
+                    // Switching to append: the copied-in global pins would
+                    // duplicate what is already on the toolbar, so drop them.
+                    save(
+                        mode.copy(
+                            toolbarToolsAppend = append,
+                            toolbarTools = if (append) pinned - settings.toolbarTools.toSet() else pinned,
+                        ),
+                    )
                 }
+            }
+            item {
+                ToolChips(
+                    tools = ToolbarTool.entries
+                        .filter { it in settings.enabledTools && isSupportedTool(it) },
+                    selected = pinned,
+                ) { tool ->
+                    save(
+                        mode.copy(
+                            toolbarTools = if (tool in pinned) pinned - tool else pinned + tool,
+                        ),
+                    )
+                }
+            }
+            item {
+                ReorderSetting(
+                    title = "Modify pinned tool order",
+                    dialogTitle = "Pinned tool order",
+                    items = pinned,
+                    label = ::toolTitle,
+                ) { save(mode.copy(toolbarTools = it)) }
+            }
+        }
+        item {
+            ToggleSetting(
+                "Custom toolbox order",
+                "Float this mode's tools to the front of the toolbox panel",
+                mode.toolboxOrder != null,
+            ) { on ->
+                save(mode.copy(toolboxOrder = if (on) emptyList() else null))
+            }
+        }
+        val order = mode.toolboxOrder
+        if (order != null) {
+            item {
+                ToolChips(
+                    tools = settings.toolboxOrder.filter {
+                        it in settings.enabledTools && isSupportedTool(it)
+                    },
+                    selected = order,
+                ) { tool ->
+                    save(
+                        mode.copy(
+                            toolboxOrder = if (tool in order) order - tool else order + tool,
+                        ),
+                    )
+                }
+            }
+            item {
+                ReorderSetting(
+                    title = "Modify toolbox order",
+                    dialogTitle = "Toolbox order",
+                    items = order,
+                    label = ::toolTitle,
+                ) { save(mode.copy(toolboxOrder = it)) }
+            }
+            item {
+                CaptionText(
+                    "Picked tools lead the toolbox; everything else keeps its " +
+                        "usual place behind them.",
+                )
             }
         }
         item {
@@ -5262,7 +5549,19 @@ private fun ModeEditor(
                 }
             }
             item {
-                CaptionText("The first picked set is what the row opens on.")
+                val allSets = BuiltInSymbolSets.sets + settings.customSymbolSets
+                val setName = { id: String ->
+                    allSets.firstOrNull { it.id == id }?.name ?: id
+                }
+                ReorderSetting(
+                    title = "Modify symbol set order",
+                    dialogTitle = "Symbol set order",
+                    items = modeSets,
+                    label = setName,
+                ) { save(mode.copy(symbolSetIds = it)) }
+            }
+            item {
+                CaptionText("The first set in the order is what the row opens on.")
             }
         }
     }
@@ -5292,6 +5591,12 @@ private fun ModeEditor(
                         label = { Text(modeFieldLabel(field), maxLines = 1) },
                     )
                 }
+            }
+            if (mode.apps.isNotEmpty() && mode.fieldKinds.isNotEmpty()) {
+                CaptionText(
+                    "Both have to match: this mode switches on only for these " +
+                        "field types inside the apps listed below.",
+                )
             }
         }
         for (pkg in mode.apps) {
@@ -5323,7 +5628,15 @@ private fun ModeEditor(
             ListItem(
                 leadingContent = { Icon(Icons.Outlined.Add, contentDescription = null) },
                 headlineContent = { Text("Add app") },
-                supportingContent = { Text("This mode switches on when the app's fields are focused") },
+                supportingContent = {
+                    Text(
+                        if (mode.fieldKinds.isEmpty()) {
+                            "This mode switches on when the app's fields are focused"
+                        } else {
+                            "Plus one of the field types above"
+                        },
+                    )
+                },
                 colors = transparentListColors(),
                 modifier = Modifier
                     .fillMaxWidth()
@@ -5342,9 +5655,13 @@ private fun ModeEditor(
         }
     }
     CaptionText(
-        "When several modes match, a field-type match beats an app match — a " +
-            "password box in a browser still gets the password mode. A mode picked " +
-            "by hand from the Modes tool wins until you switch apps.",
+        "Setting apps and field types together means both must match — bind a mode " +
+            "to your chat apps and the Text field type and it stays off their search " +
+            "boxes. Setting only one matches on that alone, and setting neither makes " +
+            "the mode manual-only. When several modes match, one that names field " +
+            "types beats one that only names apps — a password box in a code editor " +
+            "still gets the password mode. A mode picked by hand from the Modes tool " +
+            "wins until you switch apps.",
     )
     Row(modifier = Modifier.padding(horizontal = 16.dp)) {
         TextButton(onClick = {
@@ -5356,6 +5673,44 @@ private fun ModeEditor(
             Text("Delete mode")
         }
     }
+}
+
+/**
+ * Picks a mode's icon from [ModeIcons.catalog]. Chips rather than a grid of
+ * bare icons: the selected state comes styled and the touch targets land on
+ * the same size the rest of the settings use.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ModeIconPickerDialog(
+    selected: String?,
+    onPick: (String?) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Mode icon") },
+        text = {
+            FlowRow(
+                modifier = Modifier
+                    .heightIn(max = 380.dp)
+                    .verticalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                for ((id, vector) in ModeIcons.catalog) {
+                    FilterChip(
+                        selected = id == selected,
+                        onClick = { onPick(id) },
+                        label = {
+                            Icon(vector, contentDescription = id, modifier = Modifier.size(22.dp))
+                        },
+                    )
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
 }
 
 /** Picks one installed app (launcher activities) for a mode binding. */
