@@ -82,16 +82,13 @@ internal fun RowScope.DictionaryHeaderSearchBar(
             tint = kb.toolbarIcon,
         )
         Spacer(Modifier.width(8.dp))
-        Text(
-            text = when {
-                state.dictionaryQuery.isNotEmpty() -> state.dictionaryQuery
-                state.dictionarySearchActive -> "Type a word…"
-                else -> "Look up a word…"
-            },
-            color = if (state.dictionaryQuery.isEmpty()) kb.toolbarIcon else kb.modifierKeyText,
+        SearchQueryText(
+            query = state.dictionaryQuery,
+            placeholder = if (state.dictionarySearchActive) "Type a word…" else "Look up a word…",
+            active = state.dictionarySearchActive,
+            textColor = kb.modifierKeyText,
+            placeholderColor = kb.toolbarIcon,
             fontSize = 13.sp,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
         )
         if (state.dictionarySearchActive) {

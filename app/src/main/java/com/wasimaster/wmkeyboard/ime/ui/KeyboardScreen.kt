@@ -4521,16 +4521,14 @@ private fun EmojiPanel(
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Box(modifier = Modifier.width(8.dp))
-                Text(
-                    text = state.emojiQuery.ifEmpty { "Type to search…" },
+                SearchQueryText(
+                    query = state.emojiQuery,
+                    placeholder = "Type to search…",
+                    active = state.emojiSearchActive,
+                    textColor = MaterialTheme.colorScheme.onSurface,
+                    placeholderColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 14.sp,
                     modifier = Modifier.weight(1f),
-                    color = if (state.emojiQuery.isEmpty()) {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    } else {
-                        MaterialTheme.colorScheme.onSurface
-                    },
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
                 )
                 // While searching, the keys type into the query — so an
                 // emoji just inserted from the results can't be deleted

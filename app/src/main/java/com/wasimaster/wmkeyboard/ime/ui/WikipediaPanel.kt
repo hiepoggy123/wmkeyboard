@@ -84,16 +84,17 @@ internal fun WikipediaPanel(
                 tint = kb.toolbarIcon,
             )
             Spacer(Modifier.width(8.dp))
-            Text(
-                text = when {
-                    state.mediaQuery.isNotEmpty() -> state.mediaQuery
-                    state.mediaSearchActive -> "Search Wikipedia… (enter to search)"
-                    else -> "Search Wikipedia…"
+            SearchQueryText(
+                query = state.mediaQuery,
+                placeholder = if (state.mediaSearchActive) {
+                    "Search Wikipedia… (enter to search)"
+                } else {
+                    "Search Wikipedia…"
                 },
-                color = if (state.mediaQuery.isEmpty()) kb.toolbarIcon else kb.modifierKeyText,
+                active = state.mediaSearchActive,
+                textColor = kb.modifierKeyText,
+                placeholderColor = kb.toolbarIcon,
                 fontSize = 14.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
             )
         }

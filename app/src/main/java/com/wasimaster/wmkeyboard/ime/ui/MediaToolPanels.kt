@@ -37,6 +37,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -48,12 +49,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
+import kotlinx.coroutines.delay
 import coil3.ImageLoader
 import coil3.compose.AsyncImage
 import coil3.gif.AnimatedImageDecoder
@@ -76,6 +80,65 @@ import com.wasimaster.wmkeyboard.ime.WebSearchUi
 
 /** Panel height while its search box is active and the key rows are shown below. */
 private val MediaSearchHeight = 132.dp
+
+/**
+ * Query text plus a blinking caret, for the in-panel search fields.
+ *
+ * None of those are real text fields — keys are rerouted into panel state
+ * instead of the focused editor — so the platform draws no cursor for them
+ * and typing looked dead. This fakes the caret: it sits after the query, or
+ * before the placeholder while the field is empty, and resets to solid on
+ * every keystroke like a real one.
+ */
+@Composable
+internal fun SearchQueryText(
+    query: String,
+    placeholder: String,
+    active: Boolean,
+    textColor: Color,
+    placeholderColor: Color,
+    fontSize: TextUnit,
+    modifier: Modifier = Modifier,
+) {
+    Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
+        if (active && query.isEmpty()) {
+            SearchCaret(textColor, fontSize, query)
+            Spacer(Modifier.width(4.dp))
+        }
+        Text(
+            text = query.ifEmpty { placeholder },
+            color = if (query.isEmpty()) placeholderColor else textColor,
+            fontSize = fontSize,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f, fill = false),
+        )
+        if (active && query.isNotEmpty()) {
+            Spacer(Modifier.width(2.dp))
+            SearchCaret(textColor, fontSize, query)
+        }
+    }
+}
+
+/** The blinking bar itself. [restartKey] resets the phase on each keystroke. */
+@Composable
+private fun SearchCaret(color: Color, fontSize: TextUnit, restartKey: Any?) {
+    var visible by remember { mutableStateOf(true) }
+    LaunchedEffect(restartKey) {
+        visible = true
+        while (true) {
+            delay(500)
+            visible = !visible
+        }
+    }
+    val height = with(LocalDensity.current) { fontSize.toDp() * 1.25f }
+    Box(
+        modifier = Modifier
+            .width(1.5.dp)
+            .height(height)
+            .background(if (visible) color else Color.Transparent),
+    )
+}
 
 /** One ImageLoader per composition with animated GIF/WebP support. */
 @Composable
@@ -124,16 +187,13 @@ internal fun RowScope.MediaHeaderSearchBar(
             tint = kb.toolbarIcon,
         )
         Spacer(Modifier.width(8.dp))
-        Text(
-            text = when {
-                state.mediaQuery.isNotEmpty() -> state.mediaQuery
-                state.mediaSearchActive -> "Type to search…"
-                else -> placeholder
-            },
-            color = if (state.mediaQuery.isEmpty()) kb.secondaryText else kb.suggestionText,
+        SearchQueryText(
+            query = state.mediaQuery,
+            placeholder = if (state.mediaSearchActive) "Type to search…" else placeholder,
+            active = state.mediaSearchActive,
+            textColor = kb.suggestionText,
+            placeholderColor = kb.secondaryText,
             fontSize = 13.sp,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
         )
         if (attribution != null) {
@@ -181,16 +241,14 @@ private fun MediaSearchBar(
                 tint = kb.toolbarIcon,
             )
             Spacer(Modifier.width(8.dp))
-            Text(
-                text = when {
-                    state.mediaQuery.isNotEmpty() -> state.mediaQuery
-                    state.mediaSearchActive -> "Type to search…"
-                    else -> placeholder
-                },
-                color = if (state.mediaQuery.isEmpty()) kb.secondaryText else kb.suggestionText,
+            SearchQueryText(
+                query = state.mediaQuery,
+                placeholder = if (state.mediaSearchActive) "Type to search…" else placeholder,
+                active = state.mediaSearchActive,
+                textColor = kb.suggestionText,
+                placeholderColor = kb.secondaryText,
                 fontSize = 14.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
             )
         }
         if (attribution != null) {
