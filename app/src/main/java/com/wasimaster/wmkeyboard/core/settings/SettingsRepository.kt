@@ -134,8 +134,6 @@ private val RankedToolOrder: List<ToolbarTool> = listOf(
     ToolbarTool.EMOJI, ToolbarTool.GIF, ToolbarTool.STICKER, ToolbarTool.CLIPBOARD,
     ToolbarTool.VOICE, ToolbarTool.TRANSLATE, ToolbarTool.SNIPPETS, ToolbarTool.TEXT_EDIT,
     ToolbarTool.UNDO, ToolbarTool.REDO,
-    ToolbarTool.CURSOR_LEFT, ToolbarTool.CURSOR_RIGHT, ToolbarTool.CURSOR_UP, ToolbarTool.CURSOR_DOWN,
-    ToolbarTool.CURSOR_HOME, ToolbarTool.CURSOR_END, ToolbarTool.PAGE_UP, ToolbarTool.PAGE_DOWN,
     ToolbarTool.SETTINGS, ToolbarTool.THEMES,
     ToolbarTool.WEB_SEARCH, ToolbarTool.IMAGE_SEARCH, ToolbarTool.DICTIONARY, ToolbarTool.CALCULATOR,
     ToolbarTool.AI, ToolbarTool.GRAMMAR, ToolbarTool.NUMPAD, ToolbarTool.ONE_HANDED,
@@ -145,6 +143,10 @@ private val RankedToolOrder: List<ToolbarTool> = listOf(
     ToolbarTool.SYMBOLS, ToolbarTool.UNIT_CONVERT, ToolbarTool.CURRENCY, ToolbarTool.PASSWORD_GEN,
     ToolbarTool.WIKIPEDIA, ToolbarTool.CALENDAR, ToolbarTool.WEATHER, ToolbarTool.FLASHLIGHT,
     ToolbarTool.COMPASS, ToolbarTool.LEVEL, ToolbarTool.MOON_PHASE,
+    // Eight one-tap cursor moves last: useful, but they would otherwise push
+    // every other tool a full row down in the toolbox.
+    ToolbarTool.CURSOR_LEFT, ToolbarTool.CURSOR_RIGHT, ToolbarTool.CURSOR_UP, ToolbarTool.CURSOR_DOWN,
+    ToolbarTool.CURSOR_HOME, ToolbarTool.CURSOR_END, ToolbarTool.PAGE_UP, ToolbarTool.PAGE_DOWN,
 )
 
 val DefaultToolOrder: List<ToolbarTool> =
@@ -412,6 +414,17 @@ data class KeyboardSettings(
      * actually set to language switching and more than one mode is enabled.
      */
     val spacebarLanguageArrows: Boolean = true,
+    /**
+     * Text drawn on the spacebar. Blank keeps the current language name;
+     * `%s` inside a custom label is replaced by it, so "— %s —" still
+     * tracks the mode.
+     */
+    val spacebarLabel: String = "",
+    /**
+     * Dragging sideways on backspace deletes whole words instead of
+     * repeating single-character deletes.
+     */
+    val backspaceSwipeDelete: Boolean = true,
     /** Volume up/down move the text cursor while the keyboard is showing. */
     val volumeCursor: Boolean = false,
     /**
@@ -452,6 +465,8 @@ data class KeyboardSettings(
     val emojiTabMode: EmojiTabMode = EmojiTabMode.RECENTS,
     /** "Clear recents" button on the emoji panel's history tab. Off by default. */
     val emojiClearRecentsButton: Boolean = false,
+    /** Show the emoji's Unicode name at the top of its long-press popup. */
+    val emojiLongPressName: Boolean = true,
     /** Emoji candidates in the suggestion strip while typing. */
     val emojiPrediction: Boolean = true,
     val emojiBarMode: EmojiBarMode = EmojiBarMode.BUTTON,
@@ -745,6 +760,8 @@ class SettingsRepository(private val context: Context) {
         private val SPACE_SHORT_SWIPE = stringPreferencesKey("space_short_swipe")
         private val SPACE_LONG_SWIPE = stringPreferencesKey("space_long_swipe")
         private val SPACEBAR_LANGUAGE_ARROWS = booleanPreferencesKey("spacebar_language_arrows")
+        private val SPACEBAR_LABEL = stringPreferencesKey("spacebar_label")
+        private val BACKSPACE_SWIPE_DELETE = booleanPreferencesKey("backspace_swipe_delete")
         private val VOLUME_CURSOR = booleanPreferencesKey("volume_cursor")
         private val VOLUME_CURSOR_MEDIA_AWARE = booleanPreferencesKey("volume_cursor_media_aware")
         private val GLOBE_AS_EMOJI = booleanPreferencesKey("globe_as_emoji")
@@ -770,6 +787,7 @@ class SettingsRepository(private val context: Context) {
         private val COMMA_AS_EMOJI = booleanPreferencesKey("comma_as_emoji")
         private val EMOJI_TAB_MODE = stringPreferencesKey("emoji_tab_mode")
         private val EMOJI_CLEAR_RECENTS_BUTTON = booleanPreferencesKey("emoji_clear_recents_button")
+        private val EMOJI_LONG_PRESS_NAME = booleanPreferencesKey("emoji_long_press_name")
         private val EMOJI_PREDICTION = booleanPreferencesKey("emoji_prediction")
         private val EMOJI_BAR_MODE = stringPreferencesKey("emoji_bar_mode")
         private val EMOJI_BAR_CONTENT = stringPreferencesKey("emoji_bar_content")
@@ -1001,6 +1019,8 @@ class SettingsRepository(private val context: Context) {
                 ?: if (p[SPACEBAR_CURSOR] == false) SpaceSwipeAction.NONE else defaults.spaceLongSwipe,
             spacebarLanguageArrows = p[SPACEBAR_LANGUAGE_ARROWS]
                 ?: defaults.spacebarLanguageArrows,
+            spacebarLabel = p[SPACEBAR_LABEL] ?: defaults.spacebarLabel,
+            backspaceSwipeDelete = p[BACKSPACE_SWIPE_DELETE] ?: defaults.backspaceSwipeDelete,
             volumeCursor = p[VOLUME_CURSOR] ?: defaults.volumeCursor,
             volumeCursorMediaAware = p[VOLUME_CURSOR_MEDIA_AWARE] ?: defaults.volumeCursorMediaAware,
             globeAsEmoji = p[GLOBE_AS_EMOJI] ?: defaults.globeAsEmoji,
@@ -1035,6 +1055,7 @@ class SettingsRepository(private val context: Context) {
                 ?.let { runCatching { EmojiTabMode.valueOf(it) }.getOrNull() }
                 ?: defaults.emojiTabMode,
             emojiClearRecentsButton = p[EMOJI_CLEAR_RECENTS_BUTTON] ?: defaults.emojiClearRecentsButton,
+            emojiLongPressName = p[EMOJI_LONG_PRESS_NAME] ?: defaults.emojiLongPressName,
             emojiPrediction = p[EMOJI_PREDICTION] ?: defaults.emojiPrediction,
             emojiBarMode = p[EMOJI_BAR_MODE]
                 ?.let { runCatching { EmojiBarMode.valueOf(it) }.getOrNull() }
@@ -1743,6 +1764,12 @@ class SettingsRepository(private val context: Context) {
     suspend fun setSpacebarLanguageArrows(value: Boolean) =
         context.dataStore.edit { it[SPACEBAR_LANGUAGE_ARROWS] = value }
 
+    suspend fun setSpacebarLabel(value: String) =
+        context.dataStore.edit { it[SPACEBAR_LABEL] = value.trim() }
+
+    suspend fun setBackspaceSwipeDelete(value: Boolean) =
+        context.dataStore.edit { it[BACKSPACE_SWIPE_DELETE] = value }
+
     suspend fun setVolumeCursor(value: Boolean) =
         context.dataStore.edit { it[VOLUME_CURSOR] = value }
 
@@ -1802,6 +1829,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setEmojiClearRecentsButton(value: Boolean) =
         context.dataStore.edit { it[EMOJI_CLEAR_RECENTS_BUTTON] = value }
+
+    suspend fun setEmojiLongPressName(value: Boolean) =
+        context.dataStore.edit { it[EMOJI_LONG_PRESS_NAME] = value }
 
     suspend fun setEmojiPrediction(value: Boolean) =
         context.dataStore.edit { it[EMOJI_PREDICTION] = value }

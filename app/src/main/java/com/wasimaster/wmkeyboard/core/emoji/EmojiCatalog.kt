@@ -13,14 +13,22 @@ data class EmojiEntry(
      * live in its long-press popup.
      */
     val parent: String? = null,
+    /**
+     * Unicode short name ("grinning face"), shown in the long-press popup
+     * when emoji descriptions are on. Kept case- and phrase-intact, unlike
+     * [keywords] which are lowercased and split for search.
+     */
+    val name: String? = null,
 )
 
 /**
  * Loads the bundled emoji catalog.
  *
- * Format: TSV with `emoji<TAB>category<TAB>en,keywords<TAB>bn,keywords[<TAB>parent]`.
- * English and Bengali keywords are merged into one list so search is
- * language-agnostic — searching বিড়াল or "cat" hits the same entries.
+ * Format: TSV with
+ * `emoji<TAB>category<TAB>en,keywords<TAB>bn,keywords<TAB>parent<TAB>name`.
+ * `parent` may be empty. English and Bengali keywords are merged into one
+ * list so search is language-agnostic — searching বিড়াল or "cat" hits the
+ * same entries.
  */
 object EmojiCatalog {
 
@@ -36,7 +44,8 @@ object EmojiCatalog {
                     if (parts.size > 3) addAll(parts[3].split(','))
                 }.map { it.trim().lowercase() }.filter { it.isNotEmpty() }
                 val parent = parts.getOrNull(4)?.trim()?.takeIf { it.isNotEmpty() }
-                entries.add(EmojiEntry(parts[0].trim(), parts[1].trim(), keywords, parent))
+                val name = parts.getOrNull(5)?.trim()?.takeIf { it.isNotEmpty() }
+                entries.add(EmojiEntry(parts[0].trim(), parts[1].trim(), keywords, parent, name))
             }
         }
         return entries

@@ -254,6 +254,7 @@ import kotlinx.coroutines.delay
 import com.wasimaster.wmkeyboard.core.clipboard.ClipItem
 import com.wasimaster.wmkeyboard.core.clipboard.ClipKind
 import com.wasimaster.wmkeyboard.core.clipboard.ClipLinks
+import com.wasimaster.wmkeyboard.core.emoji.EmojiNames
 import com.wasimaster.wmkeyboard.core.emoji.EmojiVariantIndex
 import com.wasimaster.wmkeyboard.core.gesture.GesturePoint
 import com.wasimaster.wmkeyboard.core.theme.brush
@@ -319,6 +320,13 @@ import kotlin.random.Random
 internal val LocalKeyPressFeedback = staticCompositionLocalOf<() -> Unit> { {} }
 
 /**
+ * Haptic only, no key sound — for cues that are not a keypress. The emoji
+ * long-press popup uses it: the click sound would announce an insertion the
+ * long press deliberately did not make.
+ */
+internal val LocalHapticFeedback = staticCompositionLocalOf<() -> Unit> { {} }
+
+/**
  * Sink for the A/C/V/X clipboard long-press shortcuts, provided once at the
  * root so it does not have to thread through every key-grid layer.
  */
@@ -339,6 +347,13 @@ internal val LocalCanDelete = staticCompositionLocalOf<() -> Boolean> { { true }
  * backspace).
  */
 internal val LocalCanDeleteField = staticCompositionLocalOf<() -> Boolean> { { true } }
+
+/**
+ * Deletes the word before the cursor. Fired per step of a sideways drag on
+ * the backspace key; provided at the root like [LocalCanDelete] so it does
+ * not have to thread through every key-grid layer.
+ */
+internal val LocalDeleteWord = staticCompositionLocalOf<() -> Unit> { {} }
 
 /**
  * Whether TalkBack (or another explore-by-touch service) is currently
@@ -417,6 +432,7 @@ fun KeyboardScreen(
     stateFlow: StateFlow<KeyboardUiState>,
     onKey: (Key) -> Unit,
     onKeyPressed: () -> Unit = {},
+    onHaptic: () -> Unit = onKeyPressed,
     onText: (String) -> Unit = {},
     onGesture: (List<GesturePoint>, List<KeyCenter>, Float) -> Unit = { _, _, _ -> },
     onGesturePreview: (List<GesturePoint>, List<KeyCenter>, Float) -> Unit = { _, _, _ -> },
@@ -425,6 +441,7 @@ fun KeyboardScreen(
     onClipboardKey: (ClipboardKeyAction) -> Unit = {},
     canDelete: () -> Boolean = { true },
     canDeleteField: () -> Boolean = { true },
+    onDeleteWord: () -> Unit = {},
     onSuggestion: (String) -> Unit,
     onEmoji: (String) -> Unit,
     onEmojiVariant: (String, String) -> Unit = { _, v -> onEmoji(v) },
@@ -596,9 +613,11 @@ fun KeyboardScreen(
     val body: @Composable ColumnScope.(KeyboardUiState) -> Unit = { bodyState ->
         CompositionLocalProvider(
             LocalKeyPressFeedback provides onKeyPressed,
+            LocalHapticFeedback provides onHaptic,
             LocalClipboardKeyAction provides onClipboardKey,
             LocalCanDelete provides canDelete,
             LocalCanDeleteField provides canDeleteField,
+            LocalDeleteWord provides onDeleteWord,
             LocalTouchExploration provides rememberTouchExploration(),
         ) {
             KeyboardBody(
@@ -3546,6 +3565,7 @@ private fun KeyButton(
     val onKeyPress = LocalKeyPressFeedback.current
     val onClipboardKey = LocalClipboardKeyAction.current
     val canDelete = LocalCanDelete.current
+    val onDeleteWord = LocalDeleteWord.current
 
     // The preview bubble outlives the physical press by up to the minimum
     // popup duration, so a fast tap still shows a readable bubble instead
@@ -3645,6 +3665,8 @@ private fun KeyButton(
                     onLanguageSelect = onLanguageSelect,
                     setLanguagePreview = { languagePreview = it },
                     canDelete = canDelete,
+                    onDeleteWord = onDeleteWord,
+                    backspaceSwipeDelete = settings.backspaceSwipeDelete,
                     scope = scope,
                 )
             )
@@ -3858,17 +3880,25 @@ private fun KeyContent(key: Key, state: KeyboardUiState, contentColor: Color) {
                         fontSize = (8 * fontScale).sp,
                         color = contentColor.copy(alpha = 0.35f),
                     )
+                    val languageName = when (state.inputMode) {
+                        InputMode.ENGLISH -> "English"
+                        InputMode.AZERTY -> "English · AZERTY"
+                        InputMode.DVORAK -> "English · Dvorak"
+                        InputMode.AVRO -> "বাংলা · Avro"
+                        InputMode.PROBHAT -> "বাংলা · প্রভাত"
+                        InputMode.JATIYA -> "বাংলা · জাতীয়"
+                        InputMode.FRENCH -> "Français"
+                        InputMode.GERMAN -> "Deutsch"
+                        InputMode.SPANISH -> "Español"
+                    }
+                    // A custom label replaces the language name; %s inside it
+                    // puts the name back, so "— %s —" keeps tracking the mode.
+                    val custom = state.settings.spacebarLabel
                     Text(
-                        text = when (state.inputMode) {
-                            InputMode.ENGLISH -> "English"
-                            InputMode.AZERTY -> "English · AZERTY"
-                            InputMode.DVORAK -> "English · Dvorak"
-                            InputMode.AVRO -> "বাংলা · Avro"
-                            InputMode.PROBHAT -> "বাংলা · প্রভাত"
-                            InputMode.JATIYA -> "বাংলা · জাতীয়"
-                            InputMode.FRENCH -> "Français"
-                            InputMode.GERMAN -> "Deutsch"
-                            InputMode.SPANISH -> "Español"
+                        text = if (custom.isEmpty()) {
+                            languageName
+                        } else {
+                            custom.replace("%s", languageName)
                         },
                         fontSize = (11 * fontScale).sp,
                         color = contentColor.copy(alpha = 0.5f),
@@ -3984,6 +4014,8 @@ private fun Modifier.pointerInputKey(
     onLanguageSelect: (InputMode) -> Unit,
     setLanguagePreview: (InputMode?) -> Unit,
     canDelete: () -> Boolean,
+    onDeleteWord: () -> Unit,
+    backspaceSwipeDelete: Boolean,
     scope: kotlinx.coroutines.CoroutineScope,
 ): Modifier = this.then(
     if (key.action == KeyAction.Space &&
@@ -4179,6 +4211,84 @@ private fun Modifier.pointerInputKey(
                         if (selected != currentMode) onLanguageSelect(selected)
                     }
                     else -> {}
+                }
+            }
+        }
+    } else if (key.action == KeyAction.Delete && backspaceSwipeDelete) {
+        // Backspace owns its whole gesture rather than bolting a drag onto
+        // the shared press handler: tap, hold-to-repeat and word-swipe are
+        // one state machine, so a drag can cleanly take over from the repeat
+        // loop mid-press and the move events are consumed while it does.
+        Modifier.pointerInput(key, longPressDelayMs, repeatIntervalMs, hapticOnLongPress,
+            hapticOnLongPressRelease) {
+            val slopPx = 10.dp.toPx()
+            // The first word costs a deliberate drag; later ones get cheaper,
+            // down to a floor, so clearing a sentence is one long pull but a
+            // flick can never take more than a word or two.
+            val firstStepPx = 72.dp.toPx()
+            val nextStepPx = 56.dp.toPx()
+            val stepShrinkPx = 6.dp.toPx()
+            val minStepPx = 28.dp.toPx()
+            fun wordStepPx(deleted: Int): Float = when (deleted) {
+                0 -> firstStepPx
+                else -> (nextStepPx - (deleted - 1) * stepShrinkPx).coerceAtLeast(minStepPx)
+            }
+            awaitEachGesture {
+                val down = awaitFirstDown()
+                setPressed(true)
+                onKeyPress()
+                var swiping = false
+                var deleted = 0
+                // X the next step is measured from: the press point until the
+                // first word goes, then walked left one step at a time.
+                var anchorX = down.position.x
+                var longPressFired = false
+                val repeat = scope.launch {
+                    delay(longPressDelayMs.toLong())
+                    longPressFired = true
+                    while (canDelete()) {
+                        onKeyPress()
+                        onKey(key)
+                        delay(repeatIntervalMs.toLong())
+                    }
+                }
+                while (true) {
+                    val event = awaitPointerEvent()
+                    val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                    if (!change.pressed) {
+                        change.consume()
+                        break
+                    }
+                    if (!swiping && abs(change.position.x - down.position.x) > slopPx) {
+                        swiping = true
+                        repeat.cancel()
+                        anchorX = down.position.x
+                    }
+                    if (swiping) {
+                        // Claim the drag so nothing upstream reinterprets it.
+                        change.consume()
+                        while (anchorX - change.position.x >= wordStepPx(deleted)) {
+                            anchorX -= wordStepPx(deleted)
+                            if (!canDelete()) break
+                            deleted++
+                            onKeyPress()
+                            onDeleteWord()
+                        }
+                        // Dragging back to the right re-anchors and resets the
+                        // acceleration: a reversal stops the run, never replays it.
+                        if (change.position.x > anchorX) {
+                            anchorX = change.position.x
+                            deleted = 0
+                        }
+                    }
+                }
+                repeat.cancel()
+                setPressed(false)
+                when {
+                    // The swipe already did the deleting.
+                    swiping -> Unit
+                    !longPressFired -> onKey(key)
+                    hapticOnLongPressRelease -> onKeyPress()
                 }
             }
         }
@@ -4720,6 +4830,7 @@ private fun EmojiCell(
     onRemove: ((String) -> Unit)? = null,
 ) {
     var showVariants by remember { mutableStateOf(false) }
+    val onHaptic = LocalHapticFeedback.current
     Box {
         Text(
             text = display,
@@ -4727,7 +4838,12 @@ private fun EmojiCell(
                 .pointerInput(base, display) {
                     detectTapGestures(
                         onTap = { onTap(display) },
-                        onLongPress = { showVariants = true },
+                        onLongPress = {
+                            // Haptic only: the key sound would read as "emoji
+                            // inserted", which a long press does not do.
+                            if (state.settings.hapticOnLongPress) onHaptic()
+                            showVariants = true
+                        },
                     )
                 }
                 .padding(6.dp),
@@ -4738,6 +4854,11 @@ private fun EmojiCell(
             EmojiVariantPopup(
                 base = base,
                 display = display,
+                name = if (state.settings.emojiLongPressName) {
+                    EmojiNames.of(state.emojiCatalog, display, base)
+                } else {
+                    null
+                },
                 index = state.emojiVariants,
                 genderVariants = genderVariants,
                 favourite = display in state.emojiFavourites,
@@ -4768,6 +4889,7 @@ private val TONE_SWATCHES = listOf(
 private fun EmojiVariantPopup(
     base: String,
     display: String,
+    name: String?,
     index: EmojiVariantIndex,
     genderVariants: List<String>,
     favourite: Boolean,
@@ -4786,7 +4908,33 @@ private fun EmojiVariantPopup(
             color = kb.popup,
             shadowElevation = 8.dp,
         ) {
-            Column(modifier = Modifier.padding(6.dp)) {
+            // Roomy by design: these rows are the only way to favourite or
+            // forget an emoji, and at the old 26dp height they were easy to
+            // miss with the same finger that just long-pressed.
+            Column(modifier = Modifier.padding(8.dp)) {
+                if (name != null) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = display,
+                            fontSize = 20.sp,
+                            fontFamily = LocalEmojiFontFamily.current,
+                        )
+                        Box(modifier = Modifier.width(10.dp))
+                        // Long names wrap rather than stretch the popup: the
+                        // whole thing is sized by its widest row, and a
+                        // one-line "person with white cane facing right" would
+                        // leave every row below it in empty space.
+                        Text(
+                            text = name.replaceFirstChar { it.uppercase() },
+                            modifier = Modifier.widthIn(max = 180.dp),
+                            fontSize = 14.sp,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f),
+                        )
+                    }
+                }
                 // Favourite pins this emoji to the top of the history tab
                 // and the favourites row.
                 var starred by remember(display) { mutableStateOf(favourite) }
@@ -4796,19 +4944,19 @@ private fun EmojiVariantPopup(
                             starred = !starred
                             onFavourite(display)
                         }
-                        .padding(horizontal = 6.dp, vertical = 4.dp),
+                        .padding(horizontal = 12.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(
                         if (starred) Icons.Outlined.Star else Icons.Outlined.StarBorder,
                         contentDescription = null,
-                        modifier = Modifier.size(18.dp),
+                        modifier = Modifier.size(22.dp),
                         tint = MaterialTheme.colorScheme.primary,
                     )
-                    Box(modifier = Modifier.width(6.dp))
+                    Box(modifier = Modifier.width(10.dp))
                     Text(
                         if (starred) "Favourited" else "Favourite",
-                        fontSize = 13.sp,
+                        fontSize = 15.sp,
                         color = MaterialTheme.colorScheme.onSurface,
                     )
                 }
@@ -4817,19 +4965,19 @@ private fun EmojiVariantPopup(
                     Row(
                         modifier = Modifier
                             .clickable { onRemove() }
-                            .padding(horizontal = 6.dp, vertical = 4.dp),
+                            .padding(horizontal = 12.dp, vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Icon(
                             Icons.Outlined.Delete,
                             contentDescription = null,
-                            modifier = Modifier.size(18.dp),
+                            modifier = Modifier.size(22.dp),
                             tint = MaterialTheme.colorScheme.primary,
                         )
-                        Box(modifier = Modifier.width(6.dp))
+                        Box(modifier = Modifier.width(10.dp))
                         Text(
                             "Remove from recents",
-                            fontSize = 13.sp,
+                            fontSize = 15.sp,
                             color = MaterialTheme.colorScheme.onSurface,
                         )
                     }
@@ -4841,9 +4989,12 @@ private fun EmojiVariantPopup(
                     // One row per gender/role member, six cells when toned;
                     // toneless combination groups (families) just flow.
                     val cells = remember(members) { members.flatMap { index.popupVariants(it) } }
-                    Column(
+                    // A lone cell is the emoji itself — already shown in the
+                    // name header, and a grid of one is just a second way to
+                    // commit what a plain tap commits.
+                    if (cells.size > 1 || name == null) Column(
                         modifier = Modifier
-                            .heightIn(max = 216.dp)
+                            .heightIn(max = 260.dp)
                             .verticalScroll(rememberScrollState()),
                     ) {
                         for (row in cells.chunked(6)) {
@@ -4853,8 +5004,8 @@ private fun EmojiVariantPopup(
                                         text = variant,
                                         modifier = Modifier
                                             .clickable { onPick(variant) }
-                                            .padding(horizontal = 7.dp, vertical = 7.dp),
-                                        fontSize = 24.sp,
+                                            .padding(horizontal = 9.dp, vertical = 9.dp),
+                                        fontSize = 26.sp,
                                         fontFamily = LocalEmojiFontFamily.current,
                                     )
                                 }

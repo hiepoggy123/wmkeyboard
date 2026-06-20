@@ -1168,6 +1168,26 @@ private fun TypingSettings(
                 ) { scope.launch { repository.setSpacebarLanguageArrows(it) } }
             }
         }
+        item {
+            TextFieldSetting(
+                label = "Spacebar text",
+                value = settings.spacebarLabel,
+                hint = "Blank = current language name. %s inserts it, e.g. \"— %s —\".",
+            ) { repository.setSpacebarLabel(it) }
+        }
+    }
+
+    SettingsGroup("Backspace") {
+        item {
+            ToggleSetting(
+                "Swipe to delete words",
+                "Drag sideways on backspace to delete whole words",
+                settings.backspaceSwipeDelete,
+                info = "Press backspace and slide left: each step of travel deletes one more " +
+                    "word instead of one character. A plain tap or hold still deletes " +
+                    "character by character.",
+            ) { scope.launch { repository.setBackspaceSwipeDelete(it) } }
+        }
     }
 
     SettingsGroup("Volume keys") {
@@ -2014,6 +2034,16 @@ private fun EmojiSettings(repository: SettingsRepository, settings: KeyboardSett
                 info = "Adds a \"Clear recents\" button to the emoji panel's Recent tab. " +
                     "Off by default so the tab stays uncluttered.",
             ) { scope.launch { repository.setEmojiClearRecentsButton(it) } }
+        }
+        item {
+            ToggleSetting(
+                "Emoji descriptions",
+                "Name the emoji at the top of its long-press popup",
+                settings.emojiLongPressName,
+                info = "Long-pressing an emoji shows its Unicode name (\"skull and " +
+                    "crossbones\") above the favourite and variant controls, so you can " +
+                    "tell near-identical emojis apart.",
+            ) { scope.launch { repository.setEmojiLongPressName(it) } }
         }
     }
     SettingsGroup("Emoji row") {

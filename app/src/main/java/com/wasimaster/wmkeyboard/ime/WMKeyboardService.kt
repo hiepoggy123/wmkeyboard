@@ -89,6 +89,8 @@ import com.wasimaster.wmkeyboard.core.settings.resolveKeyboardMode
 import com.wasimaster.wmkeyboard.core.snippets.Snippet
 import com.wasimaster.wmkeyboard.core.snippets.SnippetStore
 import com.wasimaster.wmkeyboard.core.settings.GifSourceMode
+import com.wasimaster.wmkeyboard.core.text.EmojiGraphemes
+import com.wasimaster.wmkeyboard.core.text.WordDelete
 import com.wasimaster.wmkeyboard.core.tools.BraveSearchClient
 import com.wasimaster.wmkeyboard.core.tools.DictionaryClient
 import com.wasimaster.wmkeyboard.core.tools.GifItem
@@ -619,6 +621,7 @@ class WMKeyboardService : InputMethodService() {
                 stateFlow = uiState,
                 onKey = ::onKey,
                 onKeyPressed = ::vibrate,
+                onHaptic = ::vibrateOnly,
                 onText = ::onText,
                 onGesture = ::onGesture,
                 onGesturePreview = ::onGesturePreview,
@@ -627,6 +630,7 @@ class WMKeyboardService : InputMethodService() {
                 onClipboardKey = ::onClipboardKey,
                 canDelete = ::canDelete,
                 canDeleteField = ::canDeleteField,
+                onDeleteWord = ::onDeleteWord,
                 onSuggestion = ::onSuggestionTapped,
                 onEmoji = ::onEmojiTapped,
                 onEmojiVariant = ::onEmojiVariantPicked,
@@ -1276,10 +1280,15 @@ class WMKeyboardService : InputMethodService() {
             refreshSuggestions()
         } else {
             // Delete a full surrogate pair / grapheme; optionally a whole
-            // Bengali conjunct cluster as one unit.
-            val before = ic.getTextBeforeCursor(12, 0)
+            // Bengali conjunct cluster as one unit. The lookback has to
+            // outrun the longest emoji ZWJ/tag sequence, not just a pair.
+            val before = ic.getTextBeforeCursor(64, 0)
+            val emojiLength = if (before.isNullOrEmpty()) 0 else EmojiGraphemes.deleteLength(before)
             val deleteLength = when {
                 before.isNullOrEmpty() -> 1
+                // Multi-code-point emoji (☠️, 👍🏽, 👨‍👩‍👧) go in one press
+                // instead of shedding a piece per backspace.
+                emojiLength > 0 -> emojiLength
                 state.settings.conjunctBackspace ->
                     BengaliGraphemes.clusterDeleteLength(before).coerceAtLeast(1)
                 before.length >= 2 &&
@@ -1287,6 +1296,45 @@ class WMKeyboardService : InputMethodService() {
                 else -> 1
             }
             ic.deleteSurroundingText(deleteLength, 0)
+        }
+    }
+
+    /**
+     * Deletes the word before the cursor — one step of the backspace swipe.
+     * Trailing whitespace goes with the word, so repeated steps chew back
+     * through a sentence the way ctrl+backspace does on a desktop.
+     */
+    private fun onDeleteWord() {
+        val state = _uiState.value
+        // A panel search owns the backspace key while it is open; word-deleting
+        // the real field behind it would edit text the user cannot see.
+        if (state.emojiSearchActive || state.dictionarySearchActive ||
+            (state.mediaSearchActive && state.panel.hasMediaSearch) ||
+            (state.panel == PanelMode.HANDWRITING && state.handwriting.strokes.isNotEmpty())
+        ) {
+            onDelete()
+            return
+        }
+        val ic = currentInputConnection ?: return
+        if (hasSelection(ic)) {
+            ic.commitText("", 1)
+            return
+        }
+        // A word in progress lives in the composing buffer, not the field.
+        if (composing.isNotEmpty()) {
+            composing.setLength(0)
+            updateComposingText(ic)
+            refreshSuggestions()
+            return
+        }
+        val before = ic.getTextBeforeCursor(96, 0) ?: return
+        val length = WordDelete.lengthBefore(before)
+        if (length > 0) {
+            ic.deleteSurroundingText(length, 0)
+            lastGestureWord = null
+            lastAutocorrect = null
+            previousWord = null
+            _uiState.update { it.copy(suggestions = emptyList()) }
         }
     }
 
@@ -4390,6 +4438,15 @@ class WMKeyboardService : InputMethodService() {
         // Key sound rides along with every feedback point; it has no
         // interference problem, so it skips the haptic coalescing below.
         playKeySound()
+        vibrateOnly()
+    }
+
+    /**
+     * Haptic without the key sound — for cues that are not a keypress, like
+     * an emoji long-press opening its popup. The click sound there would say
+     * "emoji inserted", which is exactly what did not happen.
+     */
+    private fun vibrateOnly() {
         val now = SystemClock.uptimeMillis()
         val wait = MIN_HAPTIC_GAP_MS - (now - lastVibrateAt)
         if (wait <= 0) {

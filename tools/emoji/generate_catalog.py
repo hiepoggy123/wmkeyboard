@@ -9,8 +9,9 @@ Inputs (downloaded, not committed):
   annotationsDerived_bn.xml CLDR common/annotationsDerived/bn.xml
 
 Outputs (written into app/src/main/assets/emoji/):
-  catalog.tsv   emoji <TAB> category <TAB> en,keywords <TAB> bn,keywords [<TAB> parent]
-                One row per fully-qualified, tone-free emoji. `parent` marks
+  catalog.tsv   emoji <TAB> category <TAB> en,keywords <TAB> bn,keywords <TAB> parent <TAB> name
+                One row per fully-qualified, tone-free emoji. `name` is the
+                Unicode short name, shown in the long-press popup. `parent` marks
                 gender/role variants that the palette grid collapses under
                 their base emoji (they stay searchable).
   variants.tsv  base <TAB> tones <TAB> sequence
@@ -259,7 +260,7 @@ def main() -> int:
     for src, dst in remap.items():
         variants.setdefault(dst, []).extend(variants.pop(src))
 
-    catalog_lines = ["# emoji\tcategory\ten keywords\tbn keywords\tparent"]
+    catalog_lines = ["# emoji\tcategory\ten keywords\tbn keywords\tparent\tname"]
     kept = 0
     for emoji, name, group, subgroup in tone_free:
         category = category_for(group, subgroup)
@@ -285,10 +286,9 @@ def main() -> int:
         parent = find_parent(emoji, name, all_tone_free) or ""
         en_col = ",".join(en_words)
         bn_col = ",".join(bn_words)
-        line = f"{emoji}\t{category}\t{en_col}\t{bn_col}"
-        if parent:
-            line += f"\t{parent}"
-        catalog_lines.append(line)
+        # Six fixed columns: `parent` may be empty, but `name` needs a stable
+        # index so the app can read it.
+        catalog_lines.append(f"{emoji}\t{category}\t{en_col}\t{bn_col}\t{parent}\t{name}")
         kept += 1
 
     variant_lines = ["# base\ttones\tsequence"]
