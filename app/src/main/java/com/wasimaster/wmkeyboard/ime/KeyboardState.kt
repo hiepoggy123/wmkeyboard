@@ -7,6 +7,8 @@ import com.wasimaster.wmkeyboard.core.settings.InputMode
 import com.wasimaster.wmkeyboard.core.transliteration.BengaliGraphemes
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.snippets.Snippet
+import com.wasimaster.wmkeyboard.core.tools.SmartSuggest
+import com.wasimaster.wmkeyboard.core.tools.ToolPrefill
 import com.wasimaster.wmkeyboard.core.tools.TypedWord
 import com.wasimaster.wmkeyboard.core.tools.TypingResult
 import com.wasimaster.wmkeyboard.core.tools.TypingTestMode
@@ -375,6 +377,14 @@ data class KeyboardUiState(
     val emojiVariantPrefs: Map<String, String> = emptyMap(),
     /** Emoji candidates for the suggestion strip (word being typed). */
     val emojiSuggestions: List<String> = emptyList(),
+    /**
+     * The tool answer recognised in the text before the cursor — an inline
+     * sum, currency or unit conversion, or a tool keyword. Rendered as a
+     * chip over the suggestion strip.
+     */
+    val smart: SmartSuggest.SmartHit? = null,
+    /** Input a chip loaded into the tool it is about to open; consumed once. */
+    val toolPrefill: ToolPrefill? = null,
     val emojiCatalog: List<EmojiEntry> = emptyList(),
     /** RGI toned-sequence lookup; loaded once with the catalog. */
     val emojiVariants: EmojiVariantIndex = EmojiVariantIndex.empty(),

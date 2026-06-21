@@ -18,6 +18,7 @@ import com.wasimaster.wmkeyboard.core.theme.DEFAULT_THEME_ID
 import com.wasimaster.wmkeyboard.core.theme.ThemeCodec
 import com.wasimaster.wmkeyboard.core.theme.ThemeSpec
 import com.wasimaster.wmkeyboard.core.tools.BuiltInSymbolSets
+import com.wasimaster.wmkeyboard.core.tools.SmartSuggest
 import com.wasimaster.wmkeyboard.core.tools.SymbolSet
 import com.wasimaster.wmkeyboard.core.tools.SymbolSetCodec
 import com.wasimaster.wmkeyboard.core.tools.TypingTestMode
@@ -628,6 +629,25 @@ data class KeyboardSettings(
     val modeToolOrderHintSeen: Boolean = false,
     /** Keyboard modes (per-app / per-field bundles of overrides). */
     val keyboardModes: List<KeyboardMode> = DefaultKeyboardModes,
+    /**
+     * Master switch for the smart chips on the suggestion strip — the
+     * inline calculator, currency and unit answers plus the tool keywords.
+     * The four flags below refine it; this one turns the lot off.
+     */
+    val smartSuggestions: Boolean = true,
+    /** Offer the result when an arithmetic expression is typed. */
+    val smartCalc: Boolean = true,
+    /** Offer the converted amount when "150 usd" style text is typed. */
+    val smartCurrency: Boolean = true,
+    /** Offer the converted value when "1 ft" style text is typed. */
+    val smartUnits: Boolean = true,
+    /** Offer to open a tool when one of its keywords is typed. */
+    val smartToolKeywords: Boolean = true,
+    /**
+     * Per-tool keyword overrides, "TOOL=a,b;TOOL=c". Tools missing from the
+     * string use [com.wasimaster.wmkeyboard.core.tools.SmartSuggest.defaultKeywords].
+     */
+    val toolKeywords: String = "",
     /** Trig in degrees (off = radians) for the calculator tool. */
     val calcDegrees: Boolean = true,
     /** Decimal places in calculator/converter results. */
@@ -909,6 +929,12 @@ class SettingsRepository(private val context: Context) {
         private val MODE_TOOL_ORDER_HINT = booleanPreferencesKey("mode_tool_order_hint")
         private val KEYBOARD_MODES = stringPreferencesKey("keyboard_modes")
         private val MODE_SEED_VERSION = intPreferencesKey("mode_seed_version")
+        private val SMART_SUGGESTIONS = booleanPreferencesKey("smart_suggestions")
+        private val SMART_CALC = booleanPreferencesKey("smart_calc")
+        private val SMART_CURRENCY = booleanPreferencesKey("smart_currency")
+        private val SMART_UNITS = booleanPreferencesKey("smart_units")
+        private val SMART_TOOL_KEYWORDS = booleanPreferencesKey("smart_tool_keywords")
+        private val TOOL_KEYWORDS = stringPreferencesKey("tool_keywords")
         private val CALC_DEGREES = booleanPreferencesKey("calc_degrees")
         private val CALC_PRECISION = intPreferencesKey("calc_precision")
         private val CURRENCY_FROM = stringPreferencesKey("currency_from")
@@ -1217,6 +1243,12 @@ class SettingsRepository(private val context: Context) {
             modeToolOrderHintSeen = p[MODE_TOOL_ORDER_HINT] ?: defaults.modeToolOrderHintSeen,
             keyboardModes = p[KEYBOARD_MODES]?.let { KeyboardModeCodec.decodeList(it) }
                 ?: defaults.keyboardModes,
+            smartSuggestions = p[SMART_SUGGESTIONS] ?: defaults.smartSuggestions,
+            smartCalc = p[SMART_CALC] ?: defaults.smartCalc,
+            smartCurrency = p[SMART_CURRENCY] ?: defaults.smartCurrency,
+            smartUnits = p[SMART_UNITS] ?: defaults.smartUnits,
+            smartToolKeywords = p[SMART_TOOL_KEYWORDS] ?: defaults.smartToolKeywords,
+            toolKeywords = p[TOOL_KEYWORDS] ?: defaults.toolKeywords,
             calcDegrees = p[CALC_DEGREES] ?: defaults.calcDegrees,
             calcPrecision = p[CALC_PRECISION] ?: defaults.calcPrecision,
             currencyFrom = p[CURRENCY_FROM] ?: defaults.currencyFrom,
@@ -2107,6 +2139,27 @@ class SettingsRepository(private val context: Context) {
             val current = prefs[KEYBOARD_MODES]?.let { KeyboardModeCodec.decodeList(it) }
                 ?: DefaultKeyboardModes
             prefs[KEYBOARD_MODES] = KeyboardModeCodec.encodeList(current.filter { it.id != id })
+        }
+
+    suspend fun setSmartSuggestions(value: Boolean) =
+        context.dataStore.edit { it[SMART_SUGGESTIONS] = value }
+
+    suspend fun setSmartCalc(value: Boolean) =
+        context.dataStore.edit { it[SMART_CALC] = value }
+
+    suspend fun setSmartCurrency(value: Boolean) =
+        context.dataStore.edit { it[SMART_CURRENCY] = value }
+
+    suspend fun setSmartUnits(value: Boolean) =
+        context.dataStore.edit { it[SMART_UNITS] = value }
+
+    suspend fun setSmartToolKeywords(value: Boolean) =
+        context.dataStore.edit { it[SMART_TOOL_KEYWORDS] = value }
+
+    /** Replaces one tool's trigger words; an empty list silences that tool. */
+    suspend fun setToolKeywords(tool: ToolbarTool, words: List<String>) =
+        context.dataStore.edit {
+            it[TOOL_KEYWORDS] = SmartSuggest.withKeywords(it[TOOL_KEYWORDS].orEmpty(), tool, words)
         }
 
     suspend fun setCalcDegrees(value: Boolean) =

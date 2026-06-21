@@ -47,6 +47,7 @@ import androidx.compose.ui.unit.sp
 import com.wasimaster.wmkeyboard.core.tools.CalcEngine
 import com.wasimaster.wmkeyboard.core.tools.CurrencyClient
 import com.wasimaster.wmkeyboard.core.tools.SymbolCatalog
+import com.wasimaster.wmkeyboard.core.tools.ToolPrefill
 import com.wasimaster.wmkeyboard.core.tools.UnitConvert
 import com.wasimaster.wmkeyboard.ime.CurrencyUi
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
@@ -186,9 +187,15 @@ internal fun SymbolsPanel(
 internal fun CalculatorPanel(
     state: KeyboardUiState,
     onInsert: (String) -> Unit,
+    onPrefillConsumed: () -> Unit = {},
 ) {
     val kb = LocalKbTheme.current
-    var expression by rememberSaveable { mutableStateOf("") }
+    // Opened from a strip chip: start on what was typed rather than on the
+    // blank display, so the chip's answer is one keystroke from being
+    // edited. Read once — the service clears the prefill straight after.
+    val prefill = remember { state.toolPrefill as? ToolPrefill.Calc }
+    var expression by rememberSaveable { mutableStateOf(prefill?.expression.orEmpty()) }
+    LaunchedEffect(Unit) { if (prefill != null) onPrefillConsumed() }
     val degrees = state.settings.calcDegrees
     val precision = state.settings.calcPrecision
     val result = remember(expression, degrees, precision) {
@@ -342,6 +349,7 @@ internal fun UnitConverterPanel(
     state: KeyboardUiState,
     onInsert: (String) -> Unit,
     onSelectionChange: (String) -> Unit = {},
+    onPrefillConsumed: () -> Unit = {},
 ) {
     val kb = LocalKbTheme.current
     // "Cat|from|to;Cat|from|to;…" — every category keeps its own unit pair,
@@ -352,9 +360,15 @@ internal fun UnitConverterPanel(
         val parts = entry.split('|')
         if (parts.size == 3) Triple(parts[0], parts[1], parts[2]) else null
     }
+    // Opened from a "1 ft" chip: the category, pair and amount all arrive
+    // together and outrank the remembered selection. Snapshotted at first
+    // composition because the service clears the prefill immediately after.
+    val prefill = remember { state.toolPrefill as? ToolPrefill.Units }
+    LaunchedEffect(Unit) { if (prefill != null) onPrefillConsumed() }
     var categoryIndex by rememberSaveable {
         mutableStateOf(
-            UnitConvert.categories.indexOfFirst { it.name == savedEntries.firstOrNull()?.first }
+            UnitConvert.categories
+                .indexOfFirst { it.name == (prefill?.category ?: savedEntries.firstOrNull()?.first) }
                 .takeIf { it >= 0 } ?: 0
         )
     }
@@ -363,13 +377,18 @@ internal fun UnitConverterPanel(
         savedEntries.firstOrNull { it.first == category.name }?.let { entry ->
             category.units.indexOfFirst { it.symbol == pick(entry) }.takeIf { it >= 0 }
         } ?: fallback
+    /** The prefilled unit, but only while the panel is on its category. */
+    fun prefilledUnit(pick: (ToolPrefill.Units) -> String): Int? =
+        prefill?.takeIf { it.category == category.name }
+            ?.let { category.units.indexOfFirst { unit -> unit.symbol == pick(it) } }
+            ?.takeIf { it >= 0 }
     var fromIndex by rememberSaveable(categoryIndex) {
-        mutableStateOf(savedUnit({ it.second }, 0))
+        mutableStateOf(prefilledUnit { it.from } ?: savedUnit({ it.second }, 0))
     }
     var toIndex by rememberSaveable(categoryIndex) {
-        mutableStateOf(savedUnit({ it.third }, 1))
+        mutableStateOf(prefilledUnit { it.to } ?: savedUnit({ it.third }, 1))
     }
-    var value by rememberSaveable { mutableStateOf("1") }
+    var value by rememberSaveable { mutableStateOf(prefill?.value ?: "1") }
 
     val from = category.units.getOrElse(fromIndex) { category.units.first() }
     val to = category.units.getOrElse(toIndex) { category.units.last() }
@@ -501,9 +520,22 @@ internal fun CurrencyPanel(
     onPairChange: (String, String) -> Unit,
     onRefresh: () -> Unit,
     onInsert: (String) -> Unit,
+    onPrefillConsumed: () -> Unit = {},
 ) {
     val kb = LocalKbTheme.current
-    var amountText by rememberSaveable { mutableStateOf("1") }
+    // Opened from a "150 usd" chip: take its amount, and push its pair into
+    // settings (which is where the panel reads from/to) before the first
+    // conversion is drawn.
+    val prefill = remember { state.toolPrefill as? ToolPrefill.Currency }
+    var amountText by rememberSaveable { mutableStateOf(prefill?.amount ?: "1") }
+    LaunchedEffect(Unit) {
+        prefill?.let {
+            if (it.from != state.settings.currencyFrom || it.to != state.settings.currencyTo) {
+                onPairChange(it.from, it.to)
+            }
+            onPrefillConsumed()
+        }
+    }
     val from = state.settings.currencyFrom
     val to = state.settings.currencyTo
 

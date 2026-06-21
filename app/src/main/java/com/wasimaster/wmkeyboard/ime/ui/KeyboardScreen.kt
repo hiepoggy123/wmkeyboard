@@ -297,6 +297,7 @@ import com.wasimaster.wmkeyboard.ime.hasMediaSearch
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
 import com.wasimaster.wmkeyboard.ime.LayoutMode
 import com.wasimaster.wmkeyboard.ime.PanelMode
+import com.wasimaster.wmkeyboard.core.tools.SmartSuggest
 import com.wasimaster.wmkeyboard.core.tools.SymbolCatalog
 import com.wasimaster.wmkeyboard.core.tools.ToolApiKeys
 import com.wasimaster.wmkeyboard.ime.PwSettingAction
@@ -532,6 +533,12 @@ fun KeyboardScreen(
     onAiToggleStripMarkdown: () -> Unit = {},
     onOpenToolSettings: (ToolbarTool) -> Unit = {},
     onDismissInlineSuggestions: () -> Unit = {},
+    /** Smart chip tapped: type the answer over the text that triggered it. */
+    onSmartAccept: () -> Unit = {},
+    /** Smart chip's tool button: clear the trigger and stage the prefill. */
+    onSmartOpen: () -> Unit = {},
+    /** A tool panel has read [KeyboardUiState.toolPrefill]. */
+    onToolPrefillConsumed: () -> Unit = {},
     onOpenSettings: () -> Unit,
 ) {
     val rawState by stateFlow.collectAsState()
@@ -632,6 +639,9 @@ fun KeyboardScreen(
             KeyboardBody(
                 state = bodyState,
                 onDismissInlineSuggestions = onDismissInlineSuggestions,
+                onSmartAccept = onSmartAccept,
+                onSmartOpen = onSmartOpen,
+                onToolPrefillConsumed = onToolPrefillConsumed,
                 onKey = onKey,
                 onText = onText,
                 onGesture = onGesture,
@@ -1035,13 +1045,19 @@ private fun TopBar(
     onVoiceUndo: () -> Unit = {},
     onVoicePermissionRequest: () -> Unit = {},
     onDismissInlineSuggestions: () -> Unit = {},
+    onSmartAccept: () -> Unit = {},
+    onSmartOpen: () -> Unit = {},
 ) {
     // "Show the toolbar instead" while suggestions are up; resets once the
     // suggestions go away so the bar returns to candidates next time.
     var toolbarOverride by remember { mutableStateOf(false) }
     // Button-mode emoji row: a toolbar toggle swaps the strip for emojis.
     var emojiBarOpen by remember { mutableStateOf(false) }
-    val hasSuggestions = state.suggestions.isNotEmpty() || state.emojiSuggestions.isNotEmpty()
+    // A smart chip counts as strip content: without it the bar would flip
+    // to the toolbar the moment word candidates ran out, taking the answer
+    // to what was just typed with it.
+    val hasSuggestions = state.suggestions.isNotEmpty() ||
+        state.emojiSuggestions.isNotEmpty() || state.smart != null
     // Suggestions-first mode keeps the strip as the resting state (an empty
     // strip plus the chevron into the toolbar); the override then survives
     // idle gaps and instead resets when fresh candidates arrive.
@@ -1212,6 +1228,36 @@ private fun TopBar(
                     )
                 }
             }
+            // A recognised sum/conversion answers the text directly, so it
+            // takes the whole strip the way autofill chips do. A keyword
+            // chip ("wiki" → open Wikipedia) only claims the space it needs,
+            // because the word being typed may simply be that word.
+            val smart = state.smart
+            val keywordChip = smart != null && smart.kind == SmartSuggest.Kind.TOOL
+            if (smart != null) {
+                // Opening runs in two halves: the service clears the trigger
+                // text and stages the prefill, then the tool is tapped the
+                // ordinary way so panel routing stays in one place.
+                val open = {
+                    onSmartOpen()
+                    onToolTap(smart.tool)
+                }
+                SmartSuggestionChip(
+                    hit = smart,
+                    reduceMotion = state.settings.reduceMotion,
+                    icon = toolIcon(smart.tool),
+                    modifier = if (keywordChip) {
+                        Modifier.padding(start = 4.dp)
+                    } else {
+                        Modifier
+                            .weight(1f)
+                            .padding(horizontal = 4.dp)
+                    },
+                    onAccept = { if (keywordChip) open() else onSmartAccept() },
+                    onOpen = open,
+                )
+            }
+            if (smart != null && !keywordChip) return@Row
             // The top candidates split the whole bar evenly (Gboard style),
             // so each one gets the largest possible tap target.
             Row(
@@ -1596,7 +1642,7 @@ private fun ModeRow(
 
 // ---- customizable toolbar & toolbox ----
 
-private fun toolIcon(tool: ToolbarTool): ImageVector = when (tool) {
+internal fun toolIcon(tool: ToolbarTool): ImageVector = when (tool) {
     ToolbarTool.EMOJI -> Icons.Outlined.EmojiEmotions
     ToolbarTool.CLIPBOARD -> Icons.Outlined.ContentPaste
     ToolbarTool.SNIPPETS -> Icons.Outlined.TextSnippet
@@ -1651,7 +1697,7 @@ private fun toolIcon(tool: ToolbarTool): ImageVector = when (tool) {
     ToolbarTool.PAGE_DOWN -> Icons.Outlined.KeyboardDoubleArrowDown
 }
 
-private fun toolLabel(tool: ToolbarTool): String = when (tool) {
+internal fun toolLabel(tool: ToolbarTool): String = when (tool) {
     ToolbarTool.EMOJI -> "Emoji"
     ToolbarTool.CLIPBOARD -> "Clipboard"
     ToolbarTool.SNIPPETS -> "Snippets"
@@ -2765,6 +2811,9 @@ private fun FullBleedTool(
 private fun KeyboardBody(
     state: KeyboardUiState,
     onDismissInlineSuggestions: () -> Unit,
+    onSmartAccept: () -> Unit,
+    onSmartOpen: () -> Unit,
+    onToolPrefillConsumed: () -> Unit,
     onKey: (Key) -> Unit,
     onText: (String) -> Unit,
     onGesture: (List<GesturePoint>, List<KeyCenter>, Float) -> Unit,
@@ -2888,6 +2937,8 @@ private fun KeyboardBody(
                             onVoiceUndo = onVoiceUndo,
                             onVoicePermissionRequest = onVoicePermissionRequest,
                             onDismissInlineSuggestions = onDismissInlineSuggestions,
+                            onSmartAccept = onSmartAccept,
+                            onSmartOpen = onSmartOpen,
                         )
                     }
                     BarRow.EMOJI -> if (emojiRowVisible) {
@@ -3167,12 +3218,12 @@ private fun KeyboardBody(
                 PanelMode.CALCULATOR -> FullBleedTool(
                     state, "Calculator",
                     onClose = { onPanelChange(PanelMode.CALCULATOR) },
-                ) { CalculatorPanel(state, onToolInsert) }
+                ) { CalculatorPanel(state, onToolInsert, onToolPrefillConsumed) }
                 PanelMode.UNIT_CONVERT -> FullBleedTool(
                     state, "Unit converter",
                     onClose = { onPanelChange(PanelMode.UNIT_CONVERT) },
                     extraHeight = 120.dp,
-                ) { UnitConverterPanel(state, onToolInsert, onUnitSelection) }
+                ) { UnitConverterPanel(state, onToolInsert, onUnitSelection, onToolPrefillConsumed) }
                 PanelMode.CURRENCY -> FullBleedTool(
                     state, "Currency",
                     onClose = { onPanelChange(PanelMode.CURRENCY) },
@@ -3183,6 +3234,7 @@ private fun KeyboardBody(
                         onPairChange = onCurrencyPairChange,
                         onRefresh = onCurrencyRefresh,
                         onInsert = onToolInsert,
+                        onPrefillConsumed = onToolPrefillConsumed,
                     )
                 }
                 PanelMode.QR_GEN -> QrGeneratorPanel(state, onQrSend)

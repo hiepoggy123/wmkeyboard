@@ -194,6 +194,7 @@ import com.wasimaster.wmkeyboard.core.settings.QrEccLevel
 import com.wasimaster.wmkeyboard.core.tools.AiClient
 import com.wasimaster.wmkeyboard.core.tools.AiPrompts
 import com.wasimaster.wmkeyboard.core.tools.GeoPlace
+import com.wasimaster.wmkeyboard.core.tools.SmartSuggest
 import com.wasimaster.wmkeyboard.core.tools.ToolApiKeys
 import com.wasimaster.wmkeyboard.core.tools.TypingBests
 import com.wasimaster.wmkeyboard.core.tools.TypingHistory
@@ -1165,6 +1166,56 @@ private fun TypingSettings(
                 "Import your own word lists, per language",
                 onClick = onOpenCustomDictionaries,
             )
+        }
+    }
+
+    SettingsGroup("Smart chips") {
+        item {
+            ToggleSetting(
+                "Smart chips",
+                "Answer sums, conversions and tool keywords in the strip",
+                settings.smartSuggestions,
+                info = "When what you have typed is something a tool can answer, the " +
+                    "suggestion strip offers the answer instead of word candidates — " +
+                    "tap it to type the result, or use the button on its right to open " +
+                    "the full tool with the same numbers already loaded. Everything is " +
+                    "recognised on-device; only exchange rates are fetched, and only " +
+                    "once you type an amount in a currency.",
+            ) { scope.launch { repository.setSmartSuggestions(it) } }
+        }
+        if (settings.smartSuggestions) {
+            item {
+                ToggleSetting(
+                    "Calculate as you type",
+                    "\"12*4\" offers 48",
+                    settings.smartCalc,
+                ) { scope.launch { repository.setSmartCalc(it) } }
+            }
+            item {
+                ToggleSetting(
+                    "Convert currencies",
+                    "\"150 usd\", \"150$\" or \"150 dollars\" offers the amount in ${settings.currencyTo}",
+                    settings.smartCurrency,
+                ) { scope.launch { repository.setSmartCurrency(it) } }
+            }
+            item {
+                ToggleSetting(
+                    "Convert units",
+                    "\"1 ft\" offers the same length in metres",
+                    settings.smartUnits,
+                ) { scope.launch { repository.setSmartUnits(it) } }
+            }
+            item {
+                ToggleSetting(
+                    "Tool keywords",
+                    "Typing \"wiki\" offers to open Wikipedia",
+                    settings.smartToolKeywords,
+                    info = "Each tool answers to a few words; type one on its own and " +
+                        "the strip offers to open that tool, dropping the word you " +
+                        "typed. The words are listed under each tool's own settings, " +
+                        "where you can change or clear them.",
+                ) { scope.launch { repository.setSmartToolKeywords(it) } }
+            }
         }
     }
 
@@ -3172,6 +3223,7 @@ private fun ToolDetailSettings(
             ) { scope.launch { repository.setToolEnabled(tool, it) } }
         }
     }
+    ToolKeywordSetting(repository, settings, tool)
     when (tool) {
         ToolbarTool.EMOJI -> SettingsGroup("Emoji") {
             item {
@@ -3964,6 +4016,18 @@ private fun ToolDetailSettings(
         ToolbarTool.CALCULATOR -> SettingsGroup("Options") {
             item {
                 ToggleSetting(
+                    "Calculate as you type",
+                    "Offer the result on the strip when you type a sum",
+                    settings.smartCalc,
+                    info = "Typing \"12*4\" puts 48 on the suggestion strip; tapping it " +
+                        "replaces the expression with the answer. End with \"=\" and the " +
+                        "answer is appended instead, leaving the sum in place. Ambiguous " +
+                        "runs like dates (12/04) and phone numbers are ignored unless you " +
+                        "type the \"=\" yourself. Needs \"Smart chips\" on, under Typing.",
+                ) { scope.launch { repository.setSmartCalc(it) } }
+            }
+            item {
+                ToggleSetting(
                     "Degrees",
                     "Trig functions use degrees; off = radians",
                     settings.calcDegrees,
@@ -3979,15 +4043,47 @@ private fun ToolDetailSettings(
                 ) { scope.launch { repository.setCalcPrecision(it.roundToInt()) } }
             }
         }
-        ToolbarTool.UNIT_CONVERT -> CaptionText(
-            "14 categories — length, mass, temperature, area, volume, speed, " +
+        ToolbarTool.UNIT_CONVERT -> {
+            SettingsGroup("Options") {
+                item {
+                    ToggleSetting(
+                        "Convert as you type",
+                        "Offer the conversion on the strip when you type a measurement",
+                        settings.smartUnits,
+                        info = "Typing \"1 ft\" (or \"1ft\") puts the same length in metres " +
+                            "on the suggestion strip; the button on the chip opens the " +
+                            "converter on that category with the pair and amount already " +
+                            "filled in. The unit it converts into is whatever you last " +
+                            "paired it with here. One-letter abbreviations only count " +
+                            "when written against the number (\"30c\", not \"30 c\"), so " +
+                            "ordinary sentences are left alone. " +
+                            "Needs \"Smart chips\" on, under Typing.",
+                    ) { scope.launch { repository.setSmartUnits(it) } }
+                }
+            }
+            CaptionText(
+                "14 categories — length, mass, temperature, area, volume, speed, " +
                 "time, data, energy, power, pressure, angle, frequency and fuel " +
                 "economy. All conversions run on-device; result precision " +
                 "follows the calculator's setting. The panel reopens on the " +
-                "category and units you used last.",
-        )
+                    "category and units you used last.",
+            )
+        }
         ToolbarTool.CURRENCY -> {
             SettingsGroup("Options") {
+                item {
+                    ToggleSetting(
+                        "Convert as you type",
+                        "Offer the amount in ${settings.currencyTo} when you type one in another currency",
+                        settings.smartCurrency,
+                        info = "\"150 usd\", \"150usd\", \"150$\" and \"150 dollars\" all put " +
+                            "the converted amount on the suggestion strip. It converts into " +
+                            "the \"to\" currency of the pair below — or the \"from\" one when " +
+                            "you type an amount that is already in the target. Typing an " +
+                            "amount is what triggers the rate fetch; nothing is requested " +
+                            "before that.",
+                    ) { scope.launch { repository.setSmartCurrency(it) } }
+                }
                 item {
                     SliderSetting(
                         "Decimal places",
@@ -4473,6 +4569,68 @@ private fun AiToolSettings(repository: SettingsRepository, settings: KeyboardSet
                 "only when you tap the action. Keys are stored on this device."
         },
     )
+}
+
+/**
+ * The words that make this tool offer itself on the suggestion strip.
+ * Only tools that ship a default get the row — a keyword for "Undo" would
+ * fire on prose and there is nothing to open anyway.
+ */
+@Composable
+private fun ToolKeywordSetting(
+    repository: SettingsRepository,
+    settings: KeyboardSettings,
+    tool: ToolbarTool,
+) {
+    val defaults = SmartSuggest.defaultKeywords[tool] ?: return
+    val scope = rememberCoroutineScope()
+    val saved = SmartSuggest.keywordsFor(tool, settings.toolKeywords)
+    var text by remember(tool) { mutableStateOf(saved.joinToString(", ")) }
+    SettingsGroup("Keyword shortcut") {
+        item {
+            OutlinedTextField(
+                value = text,
+                onValueChange = {
+                    text = it
+                    scope.launch { repository.setToolKeywords(tool, it.split(',')) }
+                },
+                label = { Text("Trigger words") },
+                singleLine = true,
+                supportingText = {
+                    Text(
+                        if (saved.isEmpty()) {
+                            "No trigger words — this tool never offers itself."
+                        } else {
+                            "Type one of these on its own and the suggestion strip " +
+                                "offers to open ${toolTitle(tool)}, dropping the word. " +
+                                "Separate several with commas."
+                        }
+                    )
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+            )
+        }
+        if (saved != defaults) {
+            item {
+                ListItem(
+                    headlineContent = { Text("Reset to default") },
+                    supportingContent = { Text(defaults.joinToString(", ")) },
+                    colors = transparentListColors(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            text = defaults.joinToString(", ")
+                            scope.launch { repository.setToolKeywords(tool, defaults) }
+                        },
+                )
+            }
+        }
+    }
+    if (!settings.smartSuggestions || !settings.smartToolKeywords) {
+        CaptionText("Tool keywords are currently off — turn them back on under Typing → Smart chips.")
+    }
 }
 
 /** A plain saved-as-you-type text setting (same mechanics as ApiKeyField). */

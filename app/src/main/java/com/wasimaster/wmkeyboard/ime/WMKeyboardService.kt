@@ -115,6 +115,7 @@ import com.wasimaster.wmkeyboard.core.tools.AiPrompts
 import com.wasimaster.wmkeyboard.core.tools.AiMarkdown
 import com.wasimaster.wmkeyboard.core.tools.AiThinking
 import com.wasimaster.wmkeyboard.core.tools.CurrencyClient
+import com.wasimaster.wmkeyboard.core.tools.SmartSuggest
 import com.wasimaster.wmkeyboard.core.tools.QrCodeGen
 import com.wasimaster.wmkeyboard.core.tools.ToolApiKeys
 import com.wasimaster.wmkeyboard.core.tools.ToolHttp
@@ -756,6 +757,9 @@ class WMKeyboardService : InputMethodService() {
                 onAiToggleStripMarkdown = ::onAiToggleStripMarkdown,
                 onOpenToolSettings = ::openToolSettings,
                 onDismissInlineSuggestions = ::onDismissInlineSuggestions,
+                onSmartAccept = ::onSmartSuggestionTapped,
+                onSmartOpen = ::onSmartSuggestionOpen,
+                onToolPrefillConsumed = ::onToolPrefillConsumed,
                 onOpenSettings = ::openSettings,
             )
         }
@@ -819,6 +823,7 @@ class WMKeyboardService : InputMethodService() {
         previousWord = null
         lastGestureWord = null
         lastAutocorrect = null
+        smartMutedAfter = null
         // Covers the permission being granted after the setting was on.
         if (_uiState.value.settings.contactSuggestions && contactNames.isEmpty) {
             loadContactNames()
@@ -951,6 +956,10 @@ class WMKeyboardService : InputMethodService() {
         }
         refreshShiftForContext()
         refreshKarContext()
+        // Tool chips read the text around the cursor, so they have to be
+        // re-derived after a cursor jump or an edit made from outside the
+        // keyboard, not only after a keystroke.
+        refreshSmartSuggestion()
         // The grammar strip follows the field: any text or cursor change
         // while it is open re-extracts and re-lints (offline, so cheap).
         // Translate deliberately does NOT — it translates its own typed
@@ -1779,7 +1788,130 @@ class WMKeyboardService : InputMethodService() {
         return if (typed.startsWith(":")) typed.drop(1) else null
     }
 
+    // ---- smart suggestions (inline tool answers) ----
+
+    /**
+     * Re-scans the text before the cursor for something a tool can answer —
+     * a sum, an amount in a currency, a measurement, a tool keyword — and
+     * parks the result in [KeyboardUiState.smart] for the strip to draw.
+     *
+     * Cheap enough to run inline on every keystroke: one short
+     * `getTextBeforeCursor` plus a handful of anchored regexes over at most
+     * [SmartSuggest.LOOKBEHIND] characters. It deliberately does not follow
+     * `settings.suggestions` — someone who turned word prediction off may
+     * still want "12*4" answered — but it does respect the field's own
+     * refusal to take suggestions, and never runs in a password field.
+     */
+    /**
+     * Text before the cursor as it stood right after a chip was accepted.
+     * An inserted answer is often itself a trigger ("18,300.00 BDT" reads as
+     * an amount to convert back), so the chip stays down until the field
+     * changes again — matching on the text rather than a flag means any
+     * edit at all, from anywhere, lifts the mute.
+     */
+    private var smartMutedAfter: String? = null
+
+    private fun refreshSmartSuggestion() {
+        val state = _uiState.value
+        val enabled = state.settings.smartSuggestions &&
+            !state.secureField && !state.fieldNoSuggestions &&
+            state.panel == PanelMode.NONE
+        if (!enabled) {
+            if (state.smart != null) _uiState.update { it.copy(smart = null) }
+            return
+        }
+        val before = currentInputConnection
+            ?.getTextBeforeCursor(SmartSuggest.LOOKBEHIND, 0)
+            ?.toString()
+            .orEmpty()
+        if (before == smartMutedAfter) {
+            if (state.smart != null) _uiState.update { it.copy(smart = null) }
+            return
+        }
+        smartMutedAfter = null
+        val hit = SmartSuggest.detect(before, smartContext(state))
+        if (hit != state.smart) _uiState.update { it.copy(smart = hit) }
+        // An amount was recognised but there are no rates to convert it
+        // with: fetch them, and the collector below redraws the chip.
+        if (hit?.pending == true) refreshCurrencyRates()
+    }
+
+    private fun smartContext(state: KeyboardUiState): SmartSuggest.Context =
+        SmartSuggest.Context(
+            calcEnabled = state.settings.smartCalc,
+            currencyEnabled = state.settings.smartCurrency,
+            unitsEnabled = state.settings.smartUnits,
+            keywordsEnabled = state.settings.smartToolKeywords,
+            degrees = state.settings.calcDegrees,
+            precision = state.settings.calcPrecision,
+            rates = (state.currency as? CurrencyUi.Ready)?.rates,
+            currencyFrom = state.settings.currencyFrom,
+            currencyTo = state.settings.currencyTo,
+            currencyDecimals = state.settings.currencyDecimals,
+            unitLast = state.settings.unitConvertLast,
+            enabledTools = state.settings.enabledTools,
+            keywordOverrides = state.settings.toolKeywords,
+        )
+
+    /**
+     * Chip tapped: swap the recognised text for the answer. The span is
+     * whatever the trigger occupied, so "150usd" is replaced outright while
+     * a trailing "=" keeps what was typed and appends the result.
+     */
+    fun onSmartSuggestionTapped() {
+        val hit = _uiState.value.smart ?: return
+        val insert = hit.insert ?: return
+        stopVoiceForManualInput()
+        vibrate()
+        val ic = currentInputConnection ?: return
+        ic.beginBatchEdit()
+        commitComposing(ic, autocorrect = false)
+        if (hit.replaceSpan > 0) ic.deleteSurroundingText(hit.replaceSpan, 0)
+        ic.commitText(insert, 1)
+        ic.endBatchEdit()
+        smartMutedAfter = ic.getTextBeforeCursor(SmartSuggest.LOOKBEHIND, 0)?.toString()
+        composing = StringBuilder()
+        lastGestureWord = null
+        _uiState.update {
+            it.copy(
+                composingPreview = "", smart = null,
+                suggestions = emptyList(), emojiSuggestions = emptyList(),
+            )
+        }
+        refreshSuggestions()
+    }
+
+    /**
+     * Chip's open button: drop the recognised text (the tool is about to
+     * type its own result there) and load it into the tool as a prefill.
+     * The caller then taps the tool the normal way, so panel routing stays
+     * in one place.
+     */
+    fun onSmartSuggestionOpen() {
+        val hit = _uiState.value.smart ?: return
+        val ic = currentInputConnection
+        if (ic != null) {
+            ic.beginBatchEdit()
+            commitComposing(ic, autocorrect = false)
+            if (hit.replaceSpan > 0) ic.deleteSurroundingText(hit.replaceSpan, 0)
+            ic.endBatchEdit()
+        }
+        composing = StringBuilder()
+        _uiState.update {
+            it.copy(
+                composingPreview = "", smart = null, toolPrefill = hit.prefill,
+                suggestions = emptyList(), emojiSuggestions = emptyList(),
+            )
+        }
+    }
+
+    /** A panel has loaded its prefill; drop it so reopening starts clean. */
+    fun onToolPrefillConsumed() {
+        if (_uiState.value.toolPrefill != null) _uiState.update { it.copy(toolPrefill = null) }
+    }
+
     private fun refreshSuggestions() {
+        refreshSmartSuggestion()
         val engine = suggestionEngine ?: return
         val state = _uiState.value
         if (!state.settings.suggestions || state.secureField || state.fieldNoSuggestions) return
@@ -1991,6 +2123,9 @@ class WMKeyboardService : InputMethodService() {
             val next = if (closing) PanelMode.NONE else panel
             it.copy(
                 panel = next,
+                // The strip is hidden behind the panel; a stale chip would
+                // reappear on close pointing at text that has since moved.
+                smart = null,
                 textEditSelecting = false,
                 emojiSearchActive = false,
                 emojiQuery = "",
@@ -2835,6 +2970,9 @@ class WMKeyboardService : InputMethodService() {
                     ),
                 )
             }
+            // A "150 usd" chip may be sitting on the strip waiting for these
+            // rates to arrive before it can show an amount.
+            if (_uiState.value.smart?.pending == true) refreshSmartSuggestion()
         }
     }
 
