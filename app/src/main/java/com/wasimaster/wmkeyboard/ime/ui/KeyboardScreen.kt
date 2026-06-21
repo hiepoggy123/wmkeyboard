@@ -3499,11 +3499,11 @@ private fun KeyRows(
             // their own digit row, so there it carries brackets and other
             // symbols the layers lack instead of duplicating the digits.
             if (state.settings.numberRow) {
-                val letters = state.layoutMode == LayoutMode.LETTERS
+                val mode = state.layoutMode
                 // Follows the same guard as the pad itself, so a search box
                 // opened over a number field gets its digit row back.
                 val kind = if (numericPadActive(state)) state.fieldKind else FieldKind.TEXT
-                val extraRow = remember(letters, kind) {
+                val extraRow = remember(mode, kind) {
                     when {
                         // A keypad already leads with digits, so — like the
                         // symbol layers below — the row carries what the pad
@@ -3514,9 +3514,14 @@ private fun KeyRows(
                         kind.isNumericPad ->
                             listOf("+", "-", "*", "/", "=", "(", ")", "%", ":", ".")
                                 .map { Key(it) }
-                        letters -> "1234567890".map { Key(it.toString()) }
+                        mode == LayoutMode.LETTERS -> "1234567890".map { Key(it.toString()) }
+                        // Each symbol layer gets its own extra row, filling the
+                        // gaps that layer leaves rather than repeating layer
+                        // one's brackets on both.
+                        mode == LayoutMode.SYMBOLS ->
+                            listOf("=", "\\", "<", ">", "[", "]", "{", "}", "|", "~").map { Key(it) }
                         else ->
-                            listOf("!", "\\", "<", ">", "[", "]", "{", "}", "|", "~").map { Key(it) }
+                            listOf("≠", "≈", "≤", "≥", "∞", "∑", "∫", "µ", "¬", "…").map { Key(it) }
                     }
                 }
                 KeyRow(

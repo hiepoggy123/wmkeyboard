@@ -332,7 +332,8 @@ object Layouts {
         rows = listOf(
             listOf(
                 Key("~"), Key("`"), Key("|"), Key("•", longPress = listOf("◦", "‣")), Key("√"),
-                Key("π", longPress = listOf("Π", "℮")), Key("÷"), Key("×"), Key("¶", longPress = listOf("§")), Key("∆"),
+                Key("π", longPress = listOf("Π", "℮")), Key("÷"), Key("×"), Key("¶", longPress = listOf("§")),
+                Key("=", longPress = listOf("≠", "≈", "≤", "≥", "∆")),
             ),
             listOf(
                 Key("৳"), Key("€"), Key("£", longPress = listOf("₺")), Key("¥"), Key("₹"),
