@@ -118,7 +118,19 @@ import com.wasimaster.wmkeyboard.core.tools.CurrencyClient
 import com.wasimaster.wmkeyboard.core.tools.QrCodeGen
 import com.wasimaster.wmkeyboard.core.tools.ToolApiKeys
 import com.wasimaster.wmkeyboard.core.tools.ToolHttp
+import com.wasimaster.wmkeyboard.core.tools.CharState
 import com.wasimaster.wmkeyboard.core.tools.TranslateClient
+import com.wasimaster.wmkeyboard.core.tools.TypedWord
+import com.wasimaster.wmkeyboard.core.tools.TypingBests
+import com.wasimaster.wmkeyboard.core.tools.TypingHistory
+import com.wasimaster.wmkeyboard.core.tools.TypingResult
+import com.wasimaster.wmkeyboard.core.tools.TypingTestMode
+import com.wasimaster.wmkeyboard.core.tools.WpmSample
+import com.wasimaster.wmkeyboard.core.tools.buildTypingPrompt
+import com.wasimaster.wmkeyboard.core.tools.compareWord
+import com.wasimaster.wmkeyboard.core.tools.scoreTypingTest
+import com.wasimaster.wmkeyboard.core.tools.typingConfigKey
+import com.wasimaster.wmkeyboard.core.tools.typingConfigLabel
 import com.wasimaster.wmkeyboard.core.tools.WikipediaClient
 import com.wasimaster.wmkeyboard.core.tools.WeatherClient
 import com.wasimaster.wmkeyboard.core.tools.WebResult
@@ -141,7 +153,9 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
@@ -149,6 +163,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlin.math.roundToInt
 
 /**
  * The WM Keyboard input method service.
@@ -714,6 +729,7 @@ class WMKeyboardService : InputMethodService() {
                 onCurrencyPairChange = ::onCurrencyPairChange,
                 onCurrencyRefresh = { refreshCurrencyRates(force = true) },
                 onPwSetting = ::onPwSetting,
+                onTypingTestAction = ::onTypingTestAction,
                 onQrSend = ::onQrSend,
                 onAiAction = ::onAiAction,
                 onAiReplace = ::onAiReplace,
@@ -840,6 +856,9 @@ class WMKeyboardService : InputMethodService() {
                 mediaSearchActive = false,
                 mediaQuery = "",
                 mediaDownloadingId = null,
+                // A run belongs to the field it was started over; moving to
+                // another one abandons it rather than resuming half-typed.
+                typingTest = TypingTestUi(),
                 translate = TranslateUi(),
                 grammar = GrammarUi(available = GrammarChecker.available),
                 composingPreview = "",
@@ -1078,6 +1097,15 @@ class WMKeyboardService : InputMethodService() {
             }
         }
 
+        // The typing test scores keystrokes instead of committing them, so
+        // it takes the character before any suggestion or field machinery
+        // sees it — nothing typed during a run reaches the user's text.
+        if (state.typingTestActive) {
+            typingTestType(text)
+            consumeShift()
+            return
+        }
+
         if (state.emojiSearchActive) {
             text = fixedLayoutContextualVowel(text, state.emojiQuery.lastOrNull())
             _uiState.update { it.copy(emojiQuery = it.emojiQuery + text) }
@@ -1224,6 +1252,10 @@ class WMKeyboardService : InputMethodService() {
             }
             return
         }
+        if (state.typingTestActive) {
+            typingTestBackspace()
+            return
+        }
         if (state.emojiSearchActive) {
             if (state.emojiQuery.isNotEmpty()) {
                 _uiState.update { it.copy(emojiQuery = it.emojiQuery.dropLast(1)) }
@@ -1365,6 +1397,13 @@ class WMKeyboardService : InputMethodService() {
     }
 
     private fun onSpace() {
+        // Ahead of the input-connection check: a typing test scores space as
+        // the word separator and never touches the field, so it must still
+        // work in a window that has no editor focused.
+        if (_uiState.value.typingTestActive) {
+            typingTestSpace()
+            return
+        }
         val ic = currentInputConnection ?: return
         val state = _uiState.value
         val now = System.currentTimeMillis()
@@ -1438,6 +1477,9 @@ class WMKeyboardService : InputMethodService() {
 
     private fun onEnter() {
         val state = _uiState.value
+        // Enter is not part of a typing test, and letting it through would
+        // put a newline in the field behind the panel.
+        if (state.typingTestActive) return
         if (state.dictionarySearchActive) {
             onDictionaryLookup(state.dictionaryQuery)
             return
@@ -1814,7 +1856,7 @@ class WMKeyboardService : InputMethodService() {
     fun onGesturePreview(points: List<GesturePoint>, keys: List<KeyCenter>, keyWidthPx: Float) {
         val state = _uiState.value
         if (!state.settings.gestureTyping || state.secureField || state.fieldNoSuggestions) return
-        if (!state.inputMode.isEnglish) return
+        if (!state.inputMode.isEnglish || state.typingTestActive) return
         val lexicon = gestureLexicon
         if (lexicon.isEmpty() || keys.isEmpty()) return
         previewJob?.cancel()
@@ -1844,7 +1886,7 @@ class WMKeyboardService : InputMethodService() {
         stopVoiceForManualInput()
         val state = _uiState.value
         if (!state.settings.gestureTyping || state.secureField || state.fieldNoSuggestions) return
-        if (!state.inputMode.isEnglish) return
+        if (!state.inputMode.isEnglish || state.typingTestActive) return
         val lexicon = gestureLexicon
         if (lexicon.isEmpty() || keys.isEmpty()) return
 
@@ -1956,8 +1998,16 @@ class WMKeyboardService : InputMethodService() {
                 refreshQrText()
             }
             PanelMode.AI -> _uiState.update { it.copy(ai = aiInitialState(it.settings)) }
+            PanelMode.TYPING_TEST -> {
+                // Flush the half-typed word first: the test swallows every
+                // key from here, so a composing word would otherwise hang
+                // uncommitted until the panel closed.
+                currentInputConnection?.let { commitComposing(it, autocorrect = false) }
+                startTypingTest()
+            }
             else -> {}
         }
+        if (_uiState.value.panel != PanelMode.TYPING_TEST) stopTypingTest()
         if (_uiState.value.panel == PanelMode.HANDWRITING) {
             // Flush any half-typed word so handwriting appends after it.
             currentInputConnection?.let { commitComposing(it, autocorrect = false) }
@@ -2915,6 +2965,271 @@ class WMKeyboardService : InputMethodService() {
                 is PwSettingAction.IncludeDigit -> settingsRepository.setPpIncludeDigit(action.on)
             }
         }
+    }
+
+    // ---- typing speed test ----
+
+    /**
+     * Drives the elapsed clock and the once-a-second sampler while a run is
+     * live. The panel renders [TypingTestUi.elapsedMs] rather than reading
+     * the system clock itself, so a recomposition can never disagree with
+     * the score.
+     */
+    private var typingTestJob: Job? = null
+
+    /** Deals a fresh prompt from the current settings and arms the run. */
+    private fun startTypingTest() {
+        typingTestJob?.cancel()
+        typingTestJob = null
+        val settings = _uiState.value.settings
+        val words = buildTypingPrompt(
+            mode = settings.typingTestMode,
+            duration = settings.typingTestDuration,
+            wordCount = settings.typingTestWordCount,
+            punctuation = settings.typingTestPunctuation,
+            numbers = settings.typingTestNumbers,
+        )
+        _uiState.update { it.copy(typingTest = TypingTestUi(words = words)) }
+    }
+
+    /** Cancels the clock; used when the panel closes mid-run. */
+    private fun stopTypingTest() {
+        typingTestJob?.cancel()
+        typingTestJob = null
+    }
+
+    /**
+     * Starts the clock on the first keystroke — not when the panel opens.
+     * Otherwise the seconds spent reading the prompt would count against
+     * the score.
+     */
+    private fun armTypingClock() {
+        if (typingTestJob != null) return
+        val startedAt = System.currentTimeMillis()
+        _uiState.update { it.copy(typingTest = it.typingTest.copy(startedAtMs = startedAt)) }
+        typingTestJob = serviceScope.launch {
+            var nextSecond = 1
+            while (isActive) {
+                delay(100)
+                val state = _uiState.value
+                val test = state.typingTest
+                if (state.panel != PanelMode.TYPING_TEST || test.result != null) return@launch
+                val elapsed = System.currentTimeMillis() - startedAt
+                val limit = state.settings.typingTestDuration * 1000L
+                val timed = state.settings.typingTestMode == TypingTestMode.TIME
+                val capped = if (timed) elapsed.coerceAtMost(limit) else elapsed
+
+                // One sample per whole second, catching up if a frame was
+                // dropped, so the result graph never has holes in it.
+                val samples = test.samples.toMutableList()
+                while (capped >= nextSecond * 1000L) {
+                    samples += typingSample(test, nextSecond)
+                    nextSecond++
+                }
+                _uiState.update {
+                    it.copy(typingTest = it.typingTest.copy(elapsedMs = capped, samples = samples))
+                }
+                if (timed && elapsed >= limit) {
+                    finishTypingTest()
+                    return@launch
+                }
+            }
+        }
+    }
+
+    /**
+     * A speed reading for the second that just ended: cumulative correct
+     * characters over cumulative time. Cumulative rather than per-interval
+     * because a one-second window is too short to be anything but noise.
+     */
+    private fun typingSample(test: TypingTestUi, second: Int): WpmSample {
+        var correct = 0
+        var typedWrong = 0
+        var missed = 0
+        for (word in test.typedWords) {
+            for (state in compareWord(word.expected, word.typed, live = false)) {
+                when (state) {
+                    CharState.CORRECT -> correct++
+                    CharState.WRONG, CharState.EXTRA -> typedWrong++
+                    CharState.MISSING -> missed++
+                    CharState.PENDING -> Unit
+                }
+            }
+            if (word.typed == word.expected) correct++
+        }
+        val minutes = second / 60.0
+        // Raw counts characters that ended up in the prompt, the same set
+        // scoreTypingTest measures. Using the keystroke counter instead
+        // would include corrected typing and leave the graph disagreeing
+        // with the headline figure it sits under.
+        val typed = correct + typedWrong
+        return WpmSample(
+            second = second,
+            wpm = if (minutes > 0) (correct / 5.0) / minutes else 0.0,
+            raw = if (minutes > 0) (typed / 5.0) / minutes else 0.0,
+            errors = typedWrong + missed,
+        )
+    }
+
+    /** One character key, scored against the letter the prompt expects. */
+    private fun typingTestType(text: String) {
+        if (text.isEmpty()) return
+        armTypingClock()
+        _uiState.update { state ->
+            val test = state.typingTest
+            val expected = test.words.getOrNull(test.wordIndex).orEmpty()
+            // Right first time only if it lands on the position it was typed
+            // at; anything past the end of the word is an overshoot.
+            val hit = expected.getOrNull(test.current.length)?.toString() == text
+            state.copy(
+                typingTest = test.copy(
+                    current = test.current + text,
+                    totalKeystrokes = test.totalKeystrokes + 1,
+                    correctKeystrokes = test.correctKeystrokes + if (hit) 1 else 0,
+                ),
+            )
+        }
+    }
+
+    /**
+     * Backspace inside the current word. It deliberately does not walk back
+     * into a finished word: reopening one would mean re-scoring keystrokes
+     * already counted, and the accuracy figure is meant to remember the
+     * mistakes rather than let them be edited away.
+     */
+    private fun typingTestBackspace() {
+        _uiState.update { state ->
+            val test = state.typingTest
+            if (test.current.isEmpty()) state
+            else state.copy(typingTest = test.copy(current = test.current.dropLast(1)))
+        }
+    }
+
+    /** Space closes the current word and moves the caret to the next one. */
+    private fun typingTestSpace() {
+        val state = _uiState.value
+        val test = state.typingTest
+        // Leading spaces would silently score an empty word as wrong.
+        if (test.current.isEmpty()) return
+        armTypingClock()
+
+        val expected = test.words.getOrNull(test.wordIndex).orEmpty()
+        // The space is a correct keystroke only when it closed a word that
+        // was actually right — matching how scoreTypingTest credits it.
+        // Comparing lengths instead would score "teh" for "the" as a hit.
+        val hit = test.current == expected
+        val typedWords = test.typedWords + TypedWord(expected, test.current)
+        _uiState.update {
+            it.copy(
+                typingTest = it.typingTest.copy(
+                    typedWords = typedWords,
+                    current = "",
+                    totalKeystrokes = it.typingTest.totalKeystrokes + 1,
+                    correctKeystrokes = it.typingTest.correctKeystrokes + if (hit) 1 else 0,
+                ),
+            )
+        }
+        // Word and quote runs end on the last word rather than on a clock.
+        if (state.settings.typingTestMode != TypingTestMode.TIME &&
+            typedWords.size >= test.words.size
+        ) {
+            finishTypingTest()
+        }
+    }
+
+    /**
+     * Scores the run, stores the result, and files it against the personal
+     * bests. A run with no keystrokes is thrown away instead of recorded —
+     * an accidental panel open should not land a zero in the history.
+     */
+    private fun finishTypingTest() {
+        typingTestJob?.cancel()
+        typingTestJob = null
+        val state = _uiState.value
+        val test = state.typingTest
+        if (test.result != null) return
+
+        // Whatever is half-typed still counts; the clock stopped mid-word.
+        val words = if (test.current.isEmpty()) {
+            test.typedWords
+        } else {
+            test.typedWords + TypedWord(test.words.getOrNull(test.wordIndex).orEmpty(), test.current)
+        }
+        val elapsed = test.startedAtMs?.let { test.elapsedMs.coerceAtLeast(1) } ?: 0L
+        if (words.isEmpty() || elapsed <= 0) {
+            _uiState.update { it.copy(panel = PanelMode.NONE, typingTest = TypingTestUi()) }
+            return
+        }
+
+        val settings = state.settings
+        val configKey = typingConfigKey(
+            settings.typingTestMode, settings.typingTestDuration, settings.typingTestWordCount,
+        )
+        val result = scoreTypingTest(
+            words = words,
+            elapsedMs = elapsed,
+            totalKeystrokes = test.totalKeystrokes,
+            correctKeystrokes = test.correctKeystrokes,
+            samples = test.samples,
+            mode = settings.typingTestMode,
+            configKey = configKey,
+        )
+        val improved = TypingBests.improve(settings.typingTestBests, configKey, result.wpm)
+        _uiState.update {
+            it.copy(typingTest = it.typingTest.copy(result = result, personalBest = improved != null))
+        }
+        serviceScope.launch {
+            settingsRepository.recordTypingResult(
+                history = TypingHistory.append(settings.typingTestHistory, result.wpm),
+                bests = improved?.let { TypingBests.encode(it) },
+            )
+        }
+    }
+
+    /** Panel controls. Everything here persists — the panel is the settings. */
+    fun onTypingTestAction(action: TypingTestAction) {
+        vibrate()
+        when (action) {
+            TypingTestAction.Restart -> {
+                startTypingTest()
+                return
+            }
+            TypingTestAction.InsertResult -> {
+                val result = _uiState.value.typingTest.result ?: return
+                onToolTextInsert(typingResultText(result))
+                // Closing the panel puts the user back in the field they
+                // just wrote the score into.
+                onPanelChange(PanelMode.TYPING_TEST)
+                return
+            }
+            else -> Unit
+        }
+        // A settings change invalidates the prompt in front of the user, so
+        // persist first and re-deal from the saved value rather than racing
+        // the settings flow back into the panel.
+        serviceScope.launch {
+            when (action) {
+                is TypingTestAction.Mode -> settingsRepository.setTypingTestMode(action.value)
+                is TypingTestAction.Duration -> settingsRepository.setTypingTestDuration(action.seconds)
+                is TypingTestAction.WordCount -> settingsRepository.setTypingTestWordCount(action.value)
+                is TypingTestAction.Punctuation -> settingsRepository.setTypingTestPunctuation(action.on)
+                is TypingTestAction.Numbers -> settingsRepository.setTypingTestNumbers(action.on)
+                else -> return@launch
+            }
+            // settingsRepository.settings has already pushed the new value
+            // into _uiState by the time the edit completes.
+            settingsRepository.settings.first()
+            startTypingTest()
+        }
+    }
+
+    /** The shareable one-liner the "Insert" chip writes into the field. */
+    private fun typingResultText(result: TypingResult): String {
+        val settings = _uiState.value.settings
+        val config = typingConfigLabel(
+            result.mode, settings.typingTestDuration, settings.typingTestWordCount,
+        )
+        return "${result.wpm.roundToInt()} WPM · ${result.accuracy.roundToInt()}% accuracy ($config)"
     }
 
     // ---- AI tool ----

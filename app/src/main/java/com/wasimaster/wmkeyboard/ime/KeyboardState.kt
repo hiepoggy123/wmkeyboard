@@ -7,7 +7,11 @@ import com.wasimaster.wmkeyboard.core.settings.InputMode
 import com.wasimaster.wmkeyboard.core.transliteration.BengaliGraphemes
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.snippets.Snippet
+import com.wasimaster.wmkeyboard.core.tools.TypedWord
+import com.wasimaster.wmkeyboard.core.tools.TypingResult
+import com.wasimaster.wmkeyboard.core.tools.TypingTestMode
 import com.wasimaster.wmkeyboard.core.tools.WeatherInfo
+import com.wasimaster.wmkeyboard.core.tools.WpmSample
 
 enum class ShiftState { OFF, ON, CAPS_LOCK }
 
@@ -32,7 +36,7 @@ enum class PanelMode {
     TRANSLATE, GIF, STICKER, WEB_SEARCH, IMAGE_SEARCH,
     OCR, QR_SCAN, VOICE, GRAMMAR,
     WIKIPEDIA, SYMBOLS, CALCULATOR, UNIT_CONVERT, CURRENCY, QR_GEN, PASSWORD_GEN, AI,
-    MODES,
+    MODES, TYPING_TEST,
 }
 
 /**
@@ -285,6 +289,53 @@ enum class TextEditAction {
 enum class EnterAction { DEFAULT, SEARCH, SEND, GO, NEXT, PREVIOUS, DONE }
 
 /**
+ * Typing-speed panel state. The prompt and the typed text live here rather
+ * than in the panel so the service can run the clock and the per-second
+ * sampler against them; the panel is a pure rendering of this.
+ *
+ * The run has three phases, told apart without a separate enum: [result]
+ * non-null means finished, otherwise [startedAtMs] non-null means running,
+ * otherwise the test is armed and waiting for the first keystroke.
+ */
+data class TypingTestUi(
+    val words: List<String> = emptyList(),
+    /** Finished words, in prompt order — what the user actually typed for each. */
+    val typedWords: List<TypedWord> = emptyList(),
+    /** The word being typed right now (the caret is at its end). */
+    val current: String = "",
+    /** Elapsed-time clock start; null until the first keystroke arms it. */
+    val startedAtMs: Long? = null,
+    /** Milliseconds elapsed, refreshed by the service's ticker. */
+    val elapsedMs: Long = 0,
+    /** Every character key pressed, corrections included. */
+    val totalKeystrokes: Int = 0,
+    /** …of which landed on the right letter first time. */
+    val correctKeystrokes: Int = 0,
+    val samples: List<WpmSample> = emptyList(),
+    /** Non-null once the run is over; the panel switches to the results view. */
+    val result: TypingResult? = null,
+    /** Set when the finished run beat the stored best for its config. */
+    val personalBest: Boolean = false,
+) {
+    val running: Boolean get() = startedAtMs != null && result == null
+    /** Index of the word the caret is in. */
+    val wordIndex: Int get() = typedWords.size
+}
+
+/** One control on the typing-speed panel. */
+sealed interface TypingTestAction {
+    /** Throw the run away and deal a fresh prompt with the same settings. */
+    data object Restart : TypingTestAction
+    data class Mode(val value: TypingTestMode) : TypingTestAction
+    data class Duration(val seconds: Int) : TypingTestAction
+    data class WordCount(val value: Int) : TypingTestAction
+    data class Punctuation(val on: Boolean) : TypingTestAction
+    data class Numbers(val on: Boolean) : TypingTestAction
+    /** Write the finished run's score into the field the user came from. */
+    data object InsertResult : TypingTestAction
+}
+
+/**
  * Immutable UI state rendered by the Compose keyboard. The service owns a
  * MutableStateFlow of this and mutates it via copy().
  */
@@ -389,6 +440,7 @@ data class KeyboardUiState(
     val ai: AiUi = AiUi.Idle,
     /** Focused field's text, mirrored for the QR-generator panel. */
     val qrText: String = "",
+    val typingTest: TypingTestUi = TypingTestUi(),
 ) {
     /**
      * Whether incognito is in force right now, from either source: the
@@ -396,4 +448,13 @@ data class KeyboardUiState(
      * gate and indicator reads this rather than the setting alone.
      */
     val incognitoOn: Boolean get() = settings.incognito || fieldIncognito
+
+    /**
+     * Whether keystrokes belong to a typing test rather than to the text
+     * field. True from the moment the panel opens — the run is armed before
+     * the first letter — and false again once the result is up, so the
+     * results screen leaves the keyboard usable.
+     */
+    val typingTestActive: Boolean
+        get() = panel == PanelMode.TYPING_TEST && typingTest.result == null
 }

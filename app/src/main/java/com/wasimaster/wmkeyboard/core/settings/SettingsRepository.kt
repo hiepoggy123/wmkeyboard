@@ -20,6 +20,7 @@ import com.wasimaster.wmkeyboard.core.theme.ThemeSpec
 import com.wasimaster.wmkeyboard.core.tools.BuiltInSymbolSets
 import com.wasimaster.wmkeyboard.core.tools.SymbolSet
 import com.wasimaster.wmkeyboard.core.tools.SymbolSetCodec
+import com.wasimaster.wmkeyboard.core.tools.TypingTestMode
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -99,7 +100,7 @@ enum class ToolbarTool {
     DICTIONARY, TRANSLATE, GIF, STICKER, WEB_SEARCH, IMAGE_SEARCH,
     OCR, QR_SCAN, DOC_SCAN, VOICE, GRAMMAR,
     WIKIPEDIA, SYMBOLS, CALCULATOR, UNIT_CONVERT, CURRENCY, QR_GEN, PASSWORD_GEN, AI,
-    MODES,
+    MODES, TYPING_TEST,
     // One-tap cursor moves. The text-edit panel already offers these, but on
     // the toolbar they cost a single tap instead of opening a panel first.
     CURSOR_LEFT, CURSOR_RIGHT, CURSOR_UP, CURSOR_DOWN,
@@ -141,6 +142,7 @@ private val RankedToolOrder: List<ToolbarTool> = listOf(
     ToolbarTool.SOUND_HAPTICS, ToolbarTool.MODES, ToolbarTool.OCR, ToolbarTool.QR_SCAN,
     ToolbarTool.QR_GEN, ToolbarTool.DOC_SCAN, ToolbarTool.CAMERA, ToolbarTool.HANDWRITING,
     ToolbarTool.SYMBOLS, ToolbarTool.UNIT_CONVERT, ToolbarTool.CURRENCY, ToolbarTool.PASSWORD_GEN,
+    ToolbarTool.TYPING_TEST,
     ToolbarTool.WIKIPEDIA, ToolbarTool.CALENDAR, ToolbarTool.WEATHER, ToolbarTool.FLASHLIGHT,
     ToolbarTool.COMPASS, ToolbarTool.LEVEL, ToolbarTool.MOON_PHASE,
     // Eight one-tap cursor moves last: useful, but they would otherwise push
@@ -646,6 +648,18 @@ data class KeyboardSettings(
     val ppSeparator: String = "-",
     val ppCapitalize: Boolean = false,
     val ppIncludeDigit: Boolean = false,
+    // Typing-speed test. The panel edits these live, so they double as the
+    // tool's own settings and as the memory of how the user last left it.
+    val typingTestMode: TypingTestMode = TypingTestMode.TIME,
+    val typingTestDuration: Int = 30,
+    val typingTestWordCount: Int = 25,
+    val typingTestPunctuation: Boolean = false,
+    val typingTestNumbers: Boolean = false,
+    /** Personal bests per config, encoded by [TypingBests]. */
+    val typingTestBests: String = "",
+    /** Recent WPM scores, oldest first, encoded by [TypingHistory]. */
+    val typingTestHistory: String = "",
+    val typingTestsCompleted: Int = 0,
     /** Side length of the QR image the generator inserts. */
     val qrSizePx: Int = 1024,
     val qrEcc: QrEccLevel = QrEccLevel.M,
@@ -909,6 +923,14 @@ class SettingsRepository(private val context: Context) {
         private val PP_SEPARATOR = stringPreferencesKey("pp_separator")
         private val PP_CAPITALIZE = booleanPreferencesKey("pp_capitalize")
         private val PP_INCLUDE_DIGIT = booleanPreferencesKey("pp_include_digit")
+        private val TT_MODE = stringPreferencesKey("tt_mode")
+        private val TT_DURATION = intPreferencesKey("tt_duration")
+        private val TT_WORD_COUNT = intPreferencesKey("tt_word_count")
+        private val TT_PUNCTUATION = booleanPreferencesKey("tt_punctuation")
+        private val TT_NUMBERS = booleanPreferencesKey("tt_numbers")
+        private val TT_BESTS = stringPreferencesKey("tt_bests")
+        private val TT_HISTORY = stringPreferencesKey("tt_history")
+        private val TT_COMPLETED = intPreferencesKey("tt_completed")
         private val QR_SIZE_PX = intPreferencesKey("qr_size_px")
         private val QR_ECC = stringPreferencesKey("qr_ecc")
         private val AI_PROVIDER = stringPreferencesKey("ai_provider")
@@ -1209,6 +1231,15 @@ class SettingsRepository(private val context: Context) {
             ppSeparator = p[PP_SEPARATOR] ?: defaults.ppSeparator,
             ppCapitalize = p[PP_CAPITALIZE] ?: defaults.ppCapitalize,
             ppIncludeDigit = p[PP_INCLUDE_DIGIT] ?: defaults.ppIncludeDigit,
+            typingTestMode = p[TT_MODE]?.let { runCatching { TypingTestMode.valueOf(it) }.getOrNull() }
+                ?: defaults.typingTestMode,
+            typingTestDuration = p[TT_DURATION] ?: defaults.typingTestDuration,
+            typingTestWordCount = p[TT_WORD_COUNT] ?: defaults.typingTestWordCount,
+            typingTestPunctuation = p[TT_PUNCTUATION] ?: defaults.typingTestPunctuation,
+            typingTestNumbers = p[TT_NUMBERS] ?: defaults.typingTestNumbers,
+            typingTestBests = p[TT_BESTS] ?: defaults.typingTestBests,
+            typingTestHistory = p[TT_HISTORY] ?: defaults.typingTestHistory,
+            typingTestsCompleted = p[TT_COMPLETED] ?: defaults.typingTestsCompleted,
             qrSizePx = p[QR_SIZE_PX] ?: defaults.qrSizePx,
             qrEcc = p[QR_ECC]?.let { runCatching { QrEccLevel.valueOf(it) }.getOrNull() }
                 ?: defaults.qrEcc,
@@ -2119,6 +2150,41 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setPpIncludeDigit(value: Boolean) =
         context.dataStore.edit { it[PP_INCLUDE_DIGIT] = value }
+
+    suspend fun setTypingTestMode(value: TypingTestMode) =
+        context.dataStore.edit { it[TT_MODE] = value.name }
+
+    suspend fun setTypingTestDuration(value: Int) =
+        context.dataStore.edit { it[TT_DURATION] = value.coerceIn(5, 600) }
+
+    suspend fun setTypingTestWordCount(value: Int) =
+        context.dataStore.edit { it[TT_WORD_COUNT] = value.coerceIn(5, 500) }
+
+    suspend fun setTypingTestPunctuation(value: Boolean) =
+        context.dataStore.edit { it[TT_PUNCTUATION] = value }
+
+    suspend fun setTypingTestNumbers(value: Boolean) =
+        context.dataStore.edit { it[TT_NUMBERS] = value }
+
+    /**
+     * Files a finished run: appends it to the history, bumps the counter,
+     * and stores a new personal best when [bests] is non-null (the caller
+     * has already checked whether the record fell).
+     */
+    suspend fun recordTypingResult(history: String, bests: String?) =
+        context.dataStore.edit { p ->
+            p[TT_HISTORY] = history
+            if (bests != null) p[TT_BESTS] = bests
+            p[TT_COMPLETED] = (p[TT_COMPLETED] ?: 0) + 1
+        }
+
+    /** Wipes the personal bests and the score history. */
+    suspend fun clearTypingStats() =
+        context.dataStore.edit {
+            it[TT_BESTS] = ""
+            it[TT_HISTORY] = ""
+            it[TT_COMPLETED] = 0
+        }
 
     suspend fun setQrSizePx(value: Int) =
         context.dataStore.edit { it[QR_SIZE_PX] = value.coerceIn(256, 2048) }

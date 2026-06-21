@@ -122,6 +122,7 @@ import androidx.compose.material.icons.outlined.Calculate
 import androidx.compose.material.icons.outlined.CurrencyExchange
 import androidx.compose.material.icons.outlined.Functions
 import androidx.compose.material.icons.outlined.Password
+import androidx.compose.material.icons.outlined.Speed
 import androidx.compose.material.icons.outlined.Psychology
 import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material.icons.outlined.SwapHoriz
@@ -297,6 +298,7 @@ import com.wasimaster.wmkeyboard.ime.PanelMode
 import com.wasimaster.wmkeyboard.core.tools.SymbolCatalog
 import com.wasimaster.wmkeyboard.core.tools.ToolApiKeys
 import com.wasimaster.wmkeyboard.ime.PwSettingAction
+import com.wasimaster.wmkeyboard.ime.TypingTestAction
 import com.wasimaster.wmkeyboard.ime.SoundHapticAction
 import com.wasimaster.wmkeyboard.ime.TextEditAction
 import com.wasimaster.wmkeyboard.ime.ShiftState
@@ -517,6 +519,7 @@ fun KeyboardScreen(
     onCurrencyPairChange: (String, String) -> Unit = { _, _ -> },
     onCurrencyRefresh: () -> Unit = {},
     onPwSetting: (PwSettingAction) -> Unit = {},
+    onTypingTestAction: (TypingTestAction) -> Unit = {},
     onQrSend: () -> Unit = {},
     onAiAction: (com.wasimaster.wmkeyboard.core.settings.AiAction) -> Unit = {},
     onAiReplace: () -> Unit = {},
@@ -596,6 +599,7 @@ fun KeyboardScreen(
             ToolbarTool.CURRENCY -> onPanelChange(PanelMode.CURRENCY)
             ToolbarTool.QR_GEN -> onPanelChange(PanelMode.QR_GEN)
             ToolbarTool.PASSWORD_GEN -> onPanelChange(PanelMode.PASSWORD_GEN)
+            ToolbarTool.TYPING_TEST -> onPanelChange(PanelMode.TYPING_TEST)
             ToolbarTool.AI -> onPanelChange(PanelMode.AI)
             ToolbarTool.MODES -> onPanelChange(PanelMode.MODES)
             // Same moves the text-editing panel offers, one tap deep instead
@@ -694,6 +698,7 @@ fun KeyboardScreen(
                 onCurrencyPairChange = onCurrencyPairChange,
                 onCurrencyRefresh = onCurrencyRefresh,
                 onPwSetting = onPwSetting,
+                onTypingTestAction = onTypingTestAction,
                 onQrSend = onQrSend,
                 onAiAction = onAiAction,
                 onAiReplace = onAiReplace,
@@ -1630,6 +1635,7 @@ private fun toolIcon(tool: ToolbarTool): ImageVector = when (tool) {
     ToolbarTool.CURRENCY -> Icons.Outlined.CurrencyExchange
     ToolbarTool.QR_GEN -> Icons.Outlined.QrCode2
     ToolbarTool.PASSWORD_GEN -> Icons.Outlined.Password
+    ToolbarTool.TYPING_TEST -> Icons.Outlined.Speed
     ToolbarTool.AI -> Icons.Outlined.AutoAwesome
     ToolbarTool.MODES -> Icons.Outlined.Tune
     ToolbarTool.CURSOR_LEFT -> Icons.AutoMirrored.Outlined.KeyboardArrowLeft
@@ -1684,6 +1690,7 @@ private fun toolLabel(tool: ToolbarTool): String = when (tool) {
     ToolbarTool.CURRENCY -> "Currency"
     ToolbarTool.QR_GEN -> "QR code"
     ToolbarTool.PASSWORD_GEN -> "Password"
+    ToolbarTool.TYPING_TEST -> "Typing speed"
     ToolbarTool.AI -> "AI"
     ToolbarTool.MODES -> "Modes"
     ToolbarTool.CURSOR_LEFT -> "Left"
@@ -1738,6 +1745,7 @@ private fun toolActive(tool: ToolbarTool, state: KeyboardUiState): Boolean = whe
     ToolbarTool.CURRENCY -> state.panel == PanelMode.CURRENCY
     ToolbarTool.QR_GEN -> state.panel == PanelMode.QR_GEN
     ToolbarTool.PASSWORD_GEN -> state.panel == PanelMode.PASSWORD_GEN
+    ToolbarTool.TYPING_TEST -> state.panel == PanelMode.TYPING_TEST
     ToolbarTool.AI -> state.panel == PanelMode.AI
     ToolbarTool.MODES -> state.panel == PanelMode.MODES || state.activeModeId != null
     // Stateless one-shot moves, like undo/redo: nothing to stay lit for.
@@ -2823,6 +2831,7 @@ private fun KeyboardBody(
     onCurrencyPairChange: (String, String) -> Unit,
     onCurrencyRefresh: () -> Unit,
     onPwSetting: (PwSettingAction) -> Unit,
+    onTypingTestAction: (TypingTestAction) -> Unit,
     onQrSend: () -> Unit,
     onAiAction: (com.wasimaster.wmkeyboard.core.settings.AiAction) -> Unit,
     onAiReplace: () -> Unit,
@@ -3190,6 +3199,28 @@ private fun KeyboardBody(
                         Spacer(Modifier.weight(1f))
                     },
                 ) { PasswordPanel(state, onPwSetting, onToolInsert) }
+                PanelMode.TYPING_TEST -> FullBleedTool(
+                    state = state,
+                    title = "Typing speed",
+                    onClose = { onPanelChange(PanelMode.TYPING_TEST) },
+                    // A running test shares the window with the key rows —
+                    // the user is typing on them — so the panel collapses
+                    // the way the media search boxes do. The results screen
+                    // needs no keys and takes the full height back.
+                    compact = state.typingTest.result == null,
+                    compactHeight = 156.dp,
+                    headerActions = {
+                        typingHeaderBest(state.settings)?.let { best ->
+                            Text(
+                                best,
+                                color = LocalKbTheme.current.secondaryText,
+                                fontSize = 11.sp,
+                                modifier = Modifier.padding(end = 8.dp),
+                            )
+                        }
+                        ToolPanelChip("Restart") { onTypingTestAction(TypingTestAction.Restart) }
+                    },
+                ) { TypingTestPanel(state, onTypingTestAction) }
                 PanelMode.AI -> FullBleedTool(
                     state = state,
                     title = "AI",
@@ -3244,8 +3275,11 @@ private fun KeyboardBody(
             // Same for a media panel's search box (translate is one now —
             // its query types into the panel), and always under the grammar
             // strip (it follows the field live).
+            // A typing test is nothing but the key rows — they are what the
+            // user is being timed on. They go away on the results screen.
             if ((state.panel.hasMediaSearch && state.mediaSearchActive) ||
-                state.panel == PanelMode.GRAMMAR
+                state.panel == PanelMode.GRAMMAR ||
+                state.typingTestActive
             ) {
                 KeyRows(state, onKey, onText, onGesture, onGesturePreview, onCursorMove, onLanguageSelect)
             }

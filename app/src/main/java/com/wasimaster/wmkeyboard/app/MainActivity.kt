@@ -97,6 +97,7 @@ import androidx.compose.material.icons.outlined.Calculate
 import androidx.compose.material.icons.outlined.CurrencyExchange
 import androidx.compose.material.icons.outlined.Functions
 import androidx.compose.material.icons.outlined.Password
+import androidx.compose.material.icons.outlined.Speed
 import androidx.compose.material.icons.outlined.StickyNote2
 import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material.icons.outlined.QrCode2
@@ -193,6 +194,9 @@ import com.wasimaster.wmkeyboard.core.tools.AiClient
 import com.wasimaster.wmkeyboard.core.tools.AiPrompts
 import com.wasimaster.wmkeyboard.core.tools.GeoPlace
 import com.wasimaster.wmkeyboard.core.tools.ToolApiKeys
+import com.wasimaster.wmkeyboard.core.tools.TypingBests
+import com.wasimaster.wmkeyboard.core.tools.TypingHistory
+import com.wasimaster.wmkeyboard.core.tools.TypingTestMode
 import com.wasimaster.wmkeyboard.core.tools.ToolHttp
 import com.wasimaster.wmkeyboard.core.tools.TranslateClient
 import com.wasimaster.wmkeyboard.core.tools.WeatherClient
@@ -2896,6 +2900,7 @@ internal fun toolTitle(tool: ToolbarTool): String = when (tool) {
     ToolbarTool.CURRENCY -> "Currency converter"
     ToolbarTool.QR_GEN -> "QR code generator"
     ToolbarTool.PASSWORD_GEN -> "Password generator"
+    ToolbarTool.TYPING_TEST -> "Typing speed test"
     ToolbarTool.AI -> "AI writing tools"
     ToolbarTool.MODES -> "Keyboard modes"
     ToolbarTool.CURSOR_LEFT -> "Cursor left"
@@ -2950,6 +2955,7 @@ internal fun toolDescription(tool: ToolbarTool): String = when (tool) {
     ToolbarTool.CURRENCY -> "Live exchange rates from free APIs — no key needed"
     ToolbarTool.QR_GEN -> "Turn the text in the field into a QR code and send it as an image"
     ToolbarTool.PASSWORD_GEN -> "Strong passwords and passphrases, generated on-device"
+    ToolbarTool.TYPING_TEST -> "Time your typing on this keyboard and track your best scores"
     ToolbarTool.AI -> "Rewrite, summarize, translate and more — your own API key or local server"
     ToolbarTool.MODES -> "Switch between per-app setups: emoji row, pinned tools, symbol sets"
     ToolbarTool.CURSOR_LEFT -> "Move the cursor one character left"
@@ -3004,6 +3010,7 @@ internal fun toolIconFor(tool: ToolbarTool): androidx.compose.ui.graphics.vector
     ToolbarTool.CURRENCY -> Icons.Outlined.CurrencyExchange
     ToolbarTool.QR_GEN -> Icons.Outlined.QrCode2
     ToolbarTool.PASSWORD_GEN -> Icons.Outlined.Password
+    ToolbarTool.TYPING_TEST -> Icons.Outlined.Speed
     ToolbarTool.AI -> Icons.Outlined.AutoAwesome
     ToolbarTool.MODES -> Icons.Outlined.Tune
     ToolbarTool.CURSOR_LEFT -> Icons.AutoMirrored.Outlined.KeyboardArrowLeft
@@ -3049,7 +3056,7 @@ private fun ToolsSettings(
         ),
         "Create & convert" to listOf(
             ToolbarTool.SYMBOLS, ToolbarTool.CALCULATOR, ToolbarTool.UNIT_CONVERT,
-            ToolbarTool.QR_GEN, ToolbarTool.PASSWORD_GEN,
+            ToolbarTool.QR_GEN, ToolbarTool.PASSWORD_GEN, ToolbarTool.TYPING_TEST,
         ),
         "Keyboard modes" to listOf(
             ToolbarTool.MODES, ToolbarTool.ONE_HANDED, ToolbarTool.SPLIT, ToolbarTool.FLOATING,
@@ -4102,6 +4109,7 @@ private fun ToolDetailSettings(
                     "from the keyboard's bundled English dictionary.",
             )
         }
+        ToolbarTool.TYPING_TEST -> TypingTestToolSettings(repository, settings)
         ToolbarTool.AI -> AiToolSettings(repository, settings)
         ToolbarTool.MODES -> SettingsGroup("Modes") {
             item {
@@ -4114,6 +4122,140 @@ private fun ToolDetailSettings(
         }
         else -> {}
     }
+}
+
+/**
+ * The typing test's settings. These are the same values the panel's own
+ * chip row edits — this screen is the slower way round to them, plus the
+ * records the panel only shows one config of at a time.
+ */
+@Composable
+private fun TypingTestToolSettings(repository: SettingsRepository, settings: KeyboardSettings) {
+    val scope = rememberCoroutineScope()
+    val bests = remember(settings.typingTestBests) { TypingBests.decode(settings.typingTestBests) }
+    val history = remember(settings.typingTestHistory) {
+        TypingHistory.decode(settings.typingTestHistory)
+    }
+
+    SectionHeader("Default test")
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp),
+    ) {
+        for (mode in TypingTestMode.entries) {
+            FilterChip(
+                selected = settings.typingTestMode == mode,
+                onClick = { scope.launch { repository.setTypingTestMode(mode) } },
+                label = {
+                    Text(
+                        when (mode) {
+                            TypingTestMode.TIME -> "Timed"
+                            TypingTestMode.WORDS -> "Word count"
+                            TypingTestMode.QUOTE -> "Quote"
+                        },
+                    )
+                },
+            )
+        }
+    }
+
+    SettingsGroup("Length") {
+        when (settings.typingTestMode) {
+            TypingTestMode.TIME -> item {
+                SliderSetting(
+                    "Seconds",
+                    value = settings.typingTestDuration.toFloat(),
+                    range = 15f..120f,
+                    display = "${settings.typingTestDuration}s",
+                ) { scope.launch { repository.setTypingTestDuration(it.roundToInt()) } }
+            }
+            TypingTestMode.WORDS -> item {
+                SliderSetting(
+                    "Words",
+                    value = settings.typingTestWordCount.toFloat(),
+                    range = 10f..100f,
+                    display = "${settings.typingTestWordCount}",
+                ) { scope.launch { repository.setTypingTestWordCount(it.roundToInt()) } }
+            }
+            // Quotes come at whatever length they were written.
+            TypingTestMode.QUOTE -> item {
+                CaptionText("Quote tests run to the end of the quotation.")
+            }
+        }
+    }
+
+    if (settings.typingTestMode != TypingTestMode.QUOTE) {
+        SettingsGroup("Difficulty") {
+            item {
+                ToggleSetting(
+                    "Punctuation",
+                    "Capitals, commas and full stops in the prompt",
+                    settings.typingTestPunctuation,
+                ) { scope.launch { repository.setTypingTestPunctuation(it) } }
+            }
+            item {
+                ToggleSetting(
+                    "Numbers",
+                    "Mixes numerals into the word list",
+                    settings.typingTestNumbers,
+                ) { scope.launch { repository.setTypingTestNumbers(it) } }
+            }
+        }
+    }
+
+    SettingsGroup("Records") {
+        item {
+            ListItem(
+                headlineContent = { Text("Tests completed") },
+                trailingContent = { Text("${settings.typingTestsCompleted}") },
+                colors = transparentListColors(),
+            )
+        }
+        if (history.isNotEmpty()) {
+            item {
+                ListItem(
+                    headlineContent = { Text("Recent average") },
+                    supportingContent = { Text("Across the last ${history.size} runs") },
+                    trailingContent = { Text("${history.average().roundToInt()} wpm") },
+                    colors = transparentListColors(),
+                )
+            }
+        }
+        // One row per config the user has actually run, best first.
+        for ((key, wpm) in bests.entries.sortedByDescending { it.value }) {
+            item {
+                ListItem(
+                    headlineContent = { Text(typingBestLabel(key)) },
+                    colors = transparentListColors(),
+                    trailingContent = { Text("${wpm.roundToInt()} wpm") },
+                )
+            }
+        }
+        if (bests.isNotEmpty() || settings.typingTestsCompleted > 0) {
+            item {
+                NavRow("Clear records", "Deletes every best score and the run history") {
+                    scope.launch { repository.clearTypingStats() }
+                }
+            }
+        }
+    }
+
+    CaptionText(
+        "The test runs on the keyboard itself, so it measures the layout, " +
+            "the key sizes and the gestures you actually type with. Nothing " +
+            "you type during a test reaches the text field, and no scores " +
+            "leave the device.",
+    )
+}
+
+/** Turns a stored best's key ("time30", "quote") back into a heading. */
+private fun typingBestLabel(key: String): String = when {
+    key == "quote" -> "Quote"
+    key.startsWith("time") -> "${key.removePrefix("time")} seconds"
+    key.startsWith("words") -> "${key.removePrefix("words")} words"
+    else -> key
 }
 
 /** The AI tool's settings: provider, credentials, output and prompts. */
