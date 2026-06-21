@@ -52,6 +52,7 @@ import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.ContentPaste
 import androidx.compose.material.icons.outlined.DarkMode
 import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.DragHandle
 import androidx.compose.material.icons.outlined.Dialpad
@@ -464,6 +465,25 @@ private fun SettingsNavHost(
                 ModeEditor(repository, settings, modeId) { navController.popBackStack() }
             }
         }
+        composable("about") {
+            SettingsScreen("About", { navController.popBackStack() }) {
+                AboutSettings(
+                    onOpenLicenses = { navController.navigate("licenses") },
+                    onOpenLicenseText = { navController.navigate("license_text/$it") },
+                )
+            }
+        }
+        composable("licenses") {
+            SettingsScreen("Open-source licences", { navController.popBackStack() }) {
+                LicensesScreen { navController.navigate("license_text/$it") }
+            }
+        }
+        composable("license_text/{asset}") { backStackEntry ->
+            val asset = backStackEntry.arguments?.getString("asset").orEmpty()
+            SettingsScreen("Licence", { navController.popBackStack() }) {
+                LicenseTextScreen(asset)
+            }
+        }
     }
 }
 
@@ -570,6 +590,14 @@ private fun HomeScreen(settings: KeyboardSettings, onNavigate: (String) -> Unit)
                         Icons.Outlined.Save, "Backup & restore",
                         "Export your settings to a file, or restore them",
                     ) { onNavigate("backup") }
+                }
+            }
+            SettingsGroup("About") {
+                item {
+                    HomeItem(
+                        Icons.Outlined.Info, "About",
+                        "Version, licence, open-source notices",
+                    ) { onNavigate("about") }
                 }
             }
             Spacer(Modifier.height(24.dp))
