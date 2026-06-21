@@ -596,8 +596,28 @@ data class KeyboardSettings(
     val symbolRowActiveSetId: String = BuiltInSymbolSets.PUNCTUATION_ID,
     /** User-created symbol sets; built-ins live in code (BuiltInSymbolSets). */
     val customSymbolSets: List<SymbolSet> = emptyList(),
-    /** Top-to-bottom order of the rows above the keys. */
-    val barOrder: List<BarRow> = listOf(BarRow.TOPBAR, BarRow.EMOJI, BarRow.SYMBOL),
+    /**
+     * Top-to-bottom order of the rows above the keys. The emoji row sits
+     * above the toolbar by default: it is used far more often than the tool
+     * buttons, so it belongs closest to the suggestion strip.
+     */
+    val barOrder: List<BarRow> = listOf(BarRow.EMOJI, BarRow.TOPBAR, BarRow.SYMBOL),
+    /**
+     * Emoji panel takes over the whole keyboard: the toolbar (and any emoji
+     * or symbol row) hides and the category tabs move up into the reclaimed
+     * row, next to a back button.
+     */
+    val emojiFullBleed: Boolean = true,
+    /** Same treatment for the GIF and sticker panels, with search up top. */
+    val mediaFullBleed: Boolean = true,
+    /**
+     * While a keyboard mode is active, rearranging tools edits that mode's
+     * own tool order instead of the global one — otherwise the change would
+     * look like it did nothing, since the mode's order wins while it is on.
+     */
+    val modeToolOrderEdits: Boolean = true,
+    /** The "tool order is per-mode" notice has been shown once. */
+    val modeToolOrderHintSeen: Boolean = false,
     /** Keyboard modes (per-app / per-field bundles of overrides). */
     val keyboardModes: List<KeyboardMode> = DefaultKeyboardModes,
     /** Trig in degrees (off = radians) for the calculator tool. */
@@ -862,6 +882,10 @@ class SettingsRepository(private val context: Context) {
         private val SYMBOL_ROW_ACTIVE_SET = stringPreferencesKey("symbol_row_active_set")
         private val CUSTOM_SYMBOL_SETS = stringPreferencesKey("custom_symbol_sets")
         private val BAR_ORDER = stringPreferencesKey("bar_order")
+        private val EMOJI_FULL_BLEED = booleanPreferencesKey("emoji_full_bleed")
+        private val MEDIA_FULL_BLEED = booleanPreferencesKey("media_full_bleed")
+        private val MODE_TOOL_ORDER_EDITS = booleanPreferencesKey("mode_tool_order_edits")
+        private val MODE_TOOL_ORDER_HINT = booleanPreferencesKey("mode_tool_order_hint")
         private val KEYBOARD_MODES = stringPreferencesKey("keyboard_modes")
         private val MODE_SEED_VERSION = intPreferencesKey("mode_seed_version")
         private val CALC_DEGREES = booleanPreferencesKey("calc_degrees")
@@ -1157,6 +1181,10 @@ class SettingsRepository(private val context: Context) {
                 } else {
                     defaults.barOrder
                 },
+            emojiFullBleed = p[EMOJI_FULL_BLEED] ?: defaults.emojiFullBleed,
+            mediaFullBleed = p[MEDIA_FULL_BLEED] ?: defaults.mediaFullBleed,
+            modeToolOrderEdits = p[MODE_TOOL_ORDER_EDITS] ?: defaults.modeToolOrderEdits,
+            modeToolOrderHintSeen = p[MODE_TOOL_ORDER_HINT] ?: defaults.modeToolOrderHintSeen,
             keyboardModes = p[KEYBOARD_MODES]?.let { KeyboardModeCodec.decodeList(it) }
                 ?: defaults.keyboardModes,
             calcDegrees = p[CALC_DEGREES] ?: defaults.calcDegrees,
@@ -1922,6 +1950,9 @@ class SettingsRepository(private val context: Context) {
             val current = prefs[CUSTOM_SYMBOL_SETS]?.let { SymbolSetCodec.decodeList(it) }
                 ?: emptyList()
             prefs[CUSTOM_SYMBOL_SETS] = SymbolSetCodec.encodeList(current.filter { it.id != id })
+            // Deleting an edited built-in only drops the override — the
+            // shipped set comes back, so every reference to it stays valid.
+            if (BuiltInSymbolSets.byId(id) != null) return@edit
             prefs[SYMBOL_ROW_SETS]?.let { stored ->
                 prefs[SYMBOL_ROW_SETS] = stored.split('\t').filter { it.isNotEmpty() && it != id }
                     .joinToString("\t")
@@ -1940,6 +1971,56 @@ class SettingsRepository(private val context: Context) {
     suspend fun setBarOrder(rows: List<BarRow>) =
         context.dataStore.edit {
             it[BAR_ORDER] = sanitizeBarOrder(rows).joinToString(",") { row -> row.name }
+        }
+
+    suspend fun setEmojiFullBleed(value: Boolean) =
+        context.dataStore.edit { it[EMOJI_FULL_BLEED] = value }
+
+    suspend fun setMediaFullBleed(value: Boolean) =
+        context.dataStore.edit { it[MEDIA_FULL_BLEED] = value }
+
+    suspend fun setModeToolOrderEdits(value: Boolean) =
+        context.dataStore.edit { it[MODE_TOOL_ORDER_EDITS] = value }
+
+    suspend fun setModeToolOrderHintSeen(value: Boolean) =
+        context.dataStore.edit { it[MODE_TOOL_ORDER_HINT] = value }
+
+    /**
+     * Rewrites one mode's pinned toolbar, so a drag made while that mode is
+     * active lands where it will actually be read back from. Pinning into a
+     * mode that was appending its tools switches it to replacing them: the
+     * dragged arrangement is the whole bar the user just laid out, and
+     * re-appending would shuffle it behind the global pins.
+     */
+    suspend fun setModeToolbarTools(modeId: String, tools: List<ToolbarTool>) =
+        context.dataStore.edit { prefs ->
+            val modes = prefs[KEYBOARD_MODES]?.let { KeyboardModeCodec.decodeList(it) }
+                ?: DefaultKeyboardModes
+            prefs[KEYBOARD_MODES] = KeyboardModeCodec.encodeList(
+                modes.map { mode ->
+                    if (mode.id == modeId) {
+                        mode.copy(toolbarTools = tools.distinct(), toolbarToolsAppend = false)
+                    } else {
+                        mode
+                    }
+                }
+            )
+        }
+
+    /**
+     * Rewrites one mode's toolbox order. A mode stores only the tools it
+     * floats to the front, so the full dragged order is stored as-is and the
+     * global order stays the tiebreaker for anything the mode never names.
+     */
+    suspend fun setModeToolboxOrder(modeId: String, order: List<ToolbarTool>) =
+        context.dataStore.edit { prefs ->
+            val modes = prefs[KEYBOARD_MODES]?.let { KeyboardModeCodec.decodeList(it) }
+                ?: DefaultKeyboardModes
+            prefs[KEYBOARD_MODES] = KeyboardModeCodec.encodeList(
+                modes.map { mode ->
+                    if (mode.id == modeId) mode.copy(toolboxOrder = order.distinct()) else mode
+                }
+            )
         }
 
     /**

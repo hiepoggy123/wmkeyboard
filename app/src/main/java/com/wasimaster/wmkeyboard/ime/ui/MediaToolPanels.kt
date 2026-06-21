@@ -317,6 +317,40 @@ private fun PanelSpinner() {
  * several providers configured, either a chip per source or one
  * evenly-mixed grid, per the tool's settings.
  */
+private fun gifNoun(stickers: Boolean): String = if (stickers) "stickers" else "GIFs"
+
+/** "via Klipy · GIPHY" — whichever providers this grid is actually pulling from. */
+private fun gifAttribution(state: KeyboardUiState): String? {
+    val sources = ToolApiKeys.gifSources(state.settings)
+    return when {
+        sources.isEmpty() -> null
+        state.settings.gifSourceMode == GifSourceMode.TABS -> "via " + GifSources.displayName(
+            state.mediaSource.takeIf { it in sources } ?: sources.first(),
+        )
+        else -> "via " + sources.joinToString(" · ") { GifSources.displayName(it) }
+    }
+}
+
+/** The GIF/sticker search box sized for a [FullBleedTool] header row. */
+@Composable
+internal fun RowScope.GifHeaderSearchBar(
+    state: KeyboardUiState,
+    stickers: Boolean,
+    onQueryTap: () -> Unit,
+) {
+    MediaHeaderSearchBar(
+        state = state,
+        placeholder = "Search ${gifNoun(stickers)}",
+        onQueryTap = onQueryTap,
+        attribution = gifAttribution(state),
+    )
+}
+
+/**
+ * @param fullBleed the panel is inside a [FullBleedTool], which owns the
+ *   height and hosts the search box in its header — so the body draws
+ *   neither.
+ */
 @Composable
 internal fun GifPanel(
     state: KeyboardUiState,
@@ -326,31 +360,30 @@ internal fun GifPanel(
     onSelect: (GifItem) -> Unit,
     onSourceSelect: (GifSource) -> Unit,
     onOpenToolSettings: (ToolbarTool) -> Unit,
+    fullBleed: Boolean = false,
 ) {
-    val height = if (state.mediaSearchActive) MediaSearchHeight else keyRowsHeight(state.settings)
     val ui = if (stickers) state.sticker else state.gif
     val tool = if (stickers) ToolbarTool.STICKER else ToolbarTool.GIF
-    val noun = if (stickers) "stickers" else "GIFs"
+    val noun = gifNoun(stickers)
     val sources = ToolApiKeys.gifSources(state.settings)
     val tabsMode = state.settings.gifSourceMode == GifSourceMode.TABS
-    val attribution = when {
-        sources.isEmpty() -> null
-        tabsMode -> "via " + GifSources.displayName(
-            state.mediaSource.takeIf { it in sources } ?: sources.first(),
-        )
-        else -> "via " + sources.joinToString(" · ") { GifSources.displayName(it) }
-    }
-    Column(
-        modifier = Modifier
+    val sizing = if (fullBleed) {
+        Modifier.fillMaxSize()
+    } else {
+        val height = if (state.mediaSearchActive) MediaSearchHeight else keyRowsHeight(state.settings)
+        Modifier
             .fillMaxWidth()
-            .height(height),
-    ) {
-        MediaSearchBar(
-            state = state,
-            placeholder = "Search $noun",
-            onQueryTap = onQueryTap,
-            attribution = attribution,
-        )
+            .height(height)
+    }
+    Column(modifier = sizing) {
+        if (!fullBleed) {
+            MediaSearchBar(
+                state = state,
+                placeholder = "Search $noun",
+                onQueryTap = onQueryTap,
+                attribution = gifAttribution(state),
+            )
+        }
         if (tabsMode && sources.size > 1 && !state.mediaSearchActive) {
             GifSourceChips(
                 sources = sources,

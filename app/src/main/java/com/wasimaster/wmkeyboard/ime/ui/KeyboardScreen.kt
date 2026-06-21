@@ -183,6 +183,7 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import android.content.res.Configuration
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalConfiguration
 import com.wasimaster.wmkeyboard.core.settings.ScreenVariant
@@ -281,6 +282,7 @@ import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
 import com.wasimaster.wmkeyboard.core.settings.isSupportedTool
 import com.wasimaster.wmkeyboard.core.snippets.Snippet
 import com.wasimaster.wmkeyboard.core.tools.BuiltInSymbolSets
+import com.wasimaster.wmkeyboard.core.tools.resolveSymbolSets
 import com.wasimaster.wmkeyboard.core.tools.GifItem
 import com.wasimaster.wmkeyboard.core.tools.GifSource
 import com.wasimaster.wmkeyboard.core.tools.symbolChipLabel
@@ -1347,7 +1349,9 @@ private fun SymbolRowStrip(
     modifier: Modifier = Modifier,
 ) {
     val settings = state.settings
-    val allSets = BuiltInSymbolSets.sets + settings.customSymbolSets
+    // An edited built-in is stored as a custom set under the built-in's id;
+    // resolveSymbolSets shadows the shipped one rather than listing both.
+    val allSets = resolveSymbolSets(settings.customSymbolSets)
     val enabledSets = settings.symbolRowSetIds
         .mapNotNull { id -> allSets.firstOrNull { it.id == id } }
         .ifEmpty { BuiltInSymbolSets.sets }
@@ -1888,9 +1892,22 @@ private class ToolDragController {
 }
 
 /**
- * Wires long-press-drag onto a tool while customization (toolbox) is open.
- * A hold that never travels past the slop is a distinct gesture: releasing
- * it opens the tool's settings page instead of dropping the tool in place.
+ * Distance a held tool has to travel before the gesture counts as a move
+ * rather than a stationary hold. Generous on purpose: a hold meant to open
+ * the tool's settings drifts a few pixels under any real thumb, and landing
+ * in "moved the tool" because of that is the more annoying misfire.
+ */
+private val ToolDragSlop = 24.dp
+
+/**
+ * Wires long-press-drag onto a tool. Three outcomes from one gesture: a tap
+ * runs [onTap]; a hold that never travels past [ToolDragSlop] opens the
+ * tool's settings page; a hold that does travel picks the tool up and drops
+ * it wherever it lands (reorder, pin, or unpin).
+ *
+ * The tap is dispatched from here rather than from a `clickable` on the tool
+ * itself: a `clickable` sits deeper in the modifier chain, so it saw the
+ * release first and fired its own click on top of every hold.
  */
 @Composable
 private fun DraggableTool(
@@ -1898,11 +1915,16 @@ private fun DraggableTool(
     fromToolbar: Boolean,
     enabled: Boolean,
     drag: ToolDragController,
+    onTap: () -> Unit,
     content: @Composable (Modifier) -> Unit,
 ) {
     var origin by remember { mutableStateOf(Offset.Zero) }
     val feedback = LocalKeyPressFeedback.current
     val scope = rememberCoroutineScope()
+    // Read through a holder rather than keying pointerInput on the lambda:
+    // a fresh lambda every recomposition would restart the handler, and the
+    // drop preview recomposes this row on every frame of a drag.
+    val tapAction by rememberUpdatedState(onTap)
     content(
         Modifier
             .onGloballyPositioned { origin = it.positionInRoot() }
@@ -1913,46 +1935,60 @@ private fun DraggableTool(
                 // fired inside the IME window on device, so tools could not
                 // be dragged at all. An external timer plus a plain event
                 // loop is the pattern already proven by the repeat keys.
-                val dragSlop = 18.dp.toPx()
+                val dragSlop = ToolDragSlop.toPx()
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false)
-                    var last = down.position
-                    // Travel is summed from finger deltas, not node positions —
-                    // the icon animates under a held finger, and node-relative
-                    // math read that as a drag.
-                    var travel = Offset.Zero
+                    // Travel is measured in root coordinates, not from raw
+                    // node-relative deltas: the row reflows around the drop
+                    // preview while the finger is down, and a node that moves
+                    // under a still finger reports deltas of its own.
+                    val downRoot = origin + down.position
+                    var rootPos = downRoot
                     var longPressed = false
                     var dragged = false
+                    var released = false
+                    var scrolled = false
                     val timer = scope.launch {
                         delay(viewConfiguration.longPressTimeoutMillis)
                         // The pick-up is invisible until the first move; the
                         // buzz tells the user the long-press registered.
                         feedback()
                         longPressed = true
-                        drag.start(tool, fromToolbar, origin + last)
+                        drag.start(tool, fromToolbar, rootPos)
                     }
                     try {
                         while (true) {
                             val event = awaitPointerEvent()
                             val change = event.changes.firstOrNull { it.id == down.id } ?: break
-                            if (!change.pressed) break
-                            val delta = change.position - last
-                            last = change.position
-                            travel += delta
+                            if (!change.pressed) {
+                                released = true
+                                // Swallow the release once the hold is ours so
+                                // nothing downstream treats it as a tap too.
+                                if (longPressed) change.consume()
+                                break
+                            }
+                            rootPos = origin + change.position
+                            val travel = (rootPos - downRoot).getDistance()
                             if (!longPressed) {
                                 // Real drift before the hold registers is a
                                 // scroll (toolbox grid) — hand the gesture back.
-                                if (travel.getDistance() > viewConfiguration.touchSlop) break
+                                if (travel > viewConfiguration.touchSlop) {
+                                    scrolled = true
+                                    break
+                                }
                             } else {
                                 change.consume()
-                                if (travel.getDistance() > dragSlop) dragged = true
-                                drag.move(origin + change.position)
+                                if (travel > dragSlop) dragged = true
+                                drag.move(rootPos)
                             }
                         }
                     } finally {
                         timer.cancel()
                         when {
-                            !longPressed -> drag.cancel()
+                            !longPressed -> {
+                                drag.cancel()
+                                if (released && !scrolled) tapAction()
+                            }
                             dragged -> drag.end()
                             // A hold that never travelled past the slop is a
                             // distinct gesture: open the tool's settings page.
@@ -2025,6 +2061,67 @@ private fun Modifier.animatePlacement(anchor: () -> LayoutCoordinates? = { null 
     }
 
 /**
+ * Where an icon that lives in more than one branch of the tree last sat.
+ *
+ * [animatePlacement] can only animate a node that survives the layout
+ * change, and the emoji icon does not: the strip draws its own copy and
+ * the toolbar draws another as a pinned tool, so flipping between them
+ * disposes one node and composes a different one. Parking the last
+ * body-relative position outside both lets the arriving node start from
+ * where the leaving one stood, which is the whole illusion.
+ */
+private class SharedPlacement {
+    var last: IntOffset? = null
+}
+
+/**
+ * Slides this element in from wherever [shared] was last seen, then keeps
+ * [shared] pointing at its own position. The counterpart to
+ * [animatePlacement] for an icon that changes parents rather than moving
+ * within one.
+ */
+private fun Modifier.animateSharedPlacement(
+    shared: SharedPlacement,
+    enabled: Boolean = true,
+    anchor: () -> LayoutCoordinates? = { null },
+): Modifier =
+    composed {
+        val scope = rememberCoroutineScope()
+        val offset = remember { Animatable(IntOffset.Zero, IntOffset.VectorConverter) }
+        var placed by remember { mutableStateOf<IntOffset?>(null) }
+        this
+            .onPlaced { coords ->
+                val anchorCoords = anchor()?.takeIf { it.isAttached }
+                val position = (
+                    anchorCoords?.localPositionOf(coords, Offset.Zero)
+                        ?: coords.positionInParent()
+                    ).round()
+                if (placed == position) return@onPlaced
+                val previous = shared.last
+                placed = position
+                shared.last = position
+                if (!enabled || previous == null) return@onPlaced
+                val delta = previous - position
+                // Same spot, or a jump big enough to be a layout change
+                // rather than the icon moving (panel resize, orientation):
+                // animating those reads as lag, so let them snap.
+                val distance = delta.toOffset().getDistance()
+                if (distance < 1f || distance > 600f) return@onPlaced
+                scope.launch {
+                    offset.snapTo(delta)
+                    offset.animateTo(
+                        IntOffset.Zero,
+                        spring(
+                            stiffness = Spring.StiffnessMediumLow,
+                            visibilityThreshold = IntOffset(1, 1),
+                        ),
+                    )
+                }
+            }
+            .offset { offset.value }
+    }
+
+/**
  * One round tool button; the circle radius comes from the theme (0 = bare
  * icon). With [longPressLabel] set, holding the button pops the tool's name
  * above it — the toolbar shows bare icons, so this is how a user finds out
@@ -2038,6 +2135,9 @@ private fun ToolCircle(
     modifier: Modifier = Modifier,
     longPressLabel: String? = null,
     onLongPress: (() -> Unit)? = null,
+    // False when an ancestor owns the whole gesture (see DraggableTool):
+    // a clickable here would sit deeper in the chain and steal the release.
+    interactive: Boolean = true,
     onClick: () -> Unit,
 ) {
     val kb = LocalKbTheme.current
@@ -2049,7 +2149,9 @@ private fun ToolCircle(
     }
     var showLabel by remember { mutableStateOf(false) }
     val feedback = LocalKeyPressFeedback.current
-    val click = if (longPressLabel == null && onLongPress == null) {
+    val click = if (!interactive) {
+        Modifier
+    } else if (longPressLabel == null && onLongPress == null) {
         Modifier.clickable(onClick = onClick)
     } else {
         Modifier.pointerInput(longPressLabel, onLongPress != null) {
@@ -2149,15 +2251,24 @@ private fun RowScope.ToolbarRow(
     // cell leaves the row and a null entry (the ghost) occupies the slot
     // under the finger, so the pinned icons slide out of the way before
     // anything is committed.
+    // The dragged tool's own cell has to STAY composed: it hosts the pointer
+    // handler driving the drag, and dropping it from the row disposed that
+    // handler the instant the hold registered — which cancelled the gesture
+    // and sent every long-press down the "open settings" path instead. It
+    // renders invisible in place; the ghost marks where the drop would land.
     val dragTool = drag.dragging
     val ghostSlot = drag.barSlot
-    val displayTools: List<ToolbarTool?> = if (dragTool != null) {
-        val without = tools - dragTool
-        ArrayList<ToolbarTool?>(without).apply {
-            if (ghostSlot != null) add(ghostSlot.coerceIn(0, without.size), null)
-        }
-    } else {
-        ArrayList<ToolbarTool?>(tools)
+    val displayTools: List<ToolbarTool?> = ArrayList<ToolbarTool?>(tools).apply {
+        if (dragTool == null || ghostSlot == null) return@apply
+        val source = tools.indexOf(dragTool)
+        val at = ghostSlot.coerceIn(0, (tools - dragTool).size)
+        // Landing back where it started needs no ghost — the held cell's own
+        // gap already marks the spot. Drawing one there would shove the held
+        // cell sideways under a still finger, which reads as a drag.
+        if (at == source) return@apply
+        // The slot indexes the row without the dragged tool, so a slot past
+        // the (still present) source cell shifts one to the right.
+        add(if (source >= 0 && at > source) at + 1 else at, null)
     }
     val panelOpen = state.panel != PanelMode.NONE
 
@@ -2236,7 +2347,13 @@ private fun RowScope.ToolbarRow(
                         // Drag is always live: hold-and-drag reorders the bar
                         // (or unpins into an open toolbox); a hold that never
                         // moves opens the tool's settings page instead.
-                        DraggableTool(tool, fromToolbar = true, enabled = true, drag = drag) { dragModifier ->
+                        DraggableTool(
+                            tool,
+                            fromToolbar = true,
+                            enabled = true,
+                            drag = drag,
+                            onTap = { onToolTap(tool) },
+                        ) { dragModifier ->
                             ToolCircle(
                                 icon = toolIcon(tool),
                                 description = toolLabel(tool),
@@ -2244,9 +2361,15 @@ private fun RowScope.ToolbarRow(
                                 // The icon itself animates, anchored at the
                                 // keyboard body: cells are weighted so their
                                 // widths snap, and only body-relative tracking
-                                // sees the true on-screen motion.
-                                modifier = dragModifier.animatePlacement { drag.bodyCoords },
-                            ) { onToolTap(tool) }
+                                // sees the true on-screen motion. While this is
+                                // the tool being dragged the cell holds its
+                                // place but shows nothing — the floating icon
+                                // under the finger is the one to look at.
+                                modifier = dragModifier
+                                    .animatePlacement { drag.bodyCoords }
+                                    .alpha(if (tool == dragTool) 0f else 1f),
+                                interactive = false,
+                            ) {}
                         }
                     }
                 }
@@ -2346,8 +2469,20 @@ private fun ToolboxPanel(
                     .padding(start = 24.dp, end = 8.dp, top = 4.dp, bottom = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                // With a mode on, the arrangement being edited is that mode's
+                // own — say so, or the same keyboard looking different in the
+                // next app reads as the drag having been lost.
+                val activeMode = state.settings.keyboardModes
+                    .firstOrNull { it.id == state.activeModeId }
+                    ?.takeIf { state.settings.modeToolOrderEdits && it.ownsToolOrder }
                 Text(
-                    "Hold and drag a tool onto the toolbar to pin it, around this grid to reorder — or drag a toolbar tool down here to remove it.",
+                    if (activeMode != null) {
+                        "${activeMode.name} mode is on, so this arrangement is saved for it — " +
+                            "other apps keep their own. Hold and drag a tool onto the toolbar to " +
+                            "pin it, around this grid to reorder, or down here to remove it."
+                    } else {
+                        "Hold and drag a tool onto the toolbar to pin it, around this grid to reorder — or drag a toolbar tool down here to remove it."
+                    },
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,
@@ -2380,15 +2515,18 @@ private fun ToolboxPanel(
         drag.toolboxColumns = columns
         // Drop preview, mirroring the toolbar's: the dragged tool leaves
         // the grid and a null entry marks the slot it would land in.
+        // As in the toolbar: the dragged tool's cell stays composed (invisible)
+        // so the pointer handler running the drag survives the reflow.
         val dragTool = drag.dragging
         val boxSlot = drag.boxSlot
-        val display: List<ToolbarTool?> = if (dragTool != null) {
-            val without = available - dragTool
-            ArrayList<ToolbarTool?>(without).apply {
-                if (boxSlot != null) add(boxSlot.coerceIn(0, without.size), null)
-            }
-        } else {
-            ArrayList<ToolbarTool?>(available)
+        val display: List<ToolbarTool?> = ArrayList<ToolbarTool?>(available).apply {
+            if (dragTool == null || boxSlot == null) return@apply
+            val source = available.indexOf(dragTool)
+            val at = boxSlot.coerceIn(0, (available - dragTool).size)
+            // See ToolbarRow: no ghost on the tool's own slot, so picking one
+            // up never nudges the cell out from under the finger.
+            if (at == source) return@apply
+            add(if (source >= 0 && at > source) at + 1 else at, null)
         }
         if (display.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -2449,7 +2587,13 @@ private fun ToolboxPanel(
                                         )
                                     }
                                 } else {
-                                    DraggableTool(tool, fromToolbar = false, enabled = true, drag = drag) { dragModifier ->
+                                    DraggableTool(
+                                        tool,
+                                        fromToolbar = false,
+                                        enabled = true,
+                                        drag = drag,
+                                        onTap = { onToolTap(tool) },
+                                    ) { dragModifier ->
                                         // Anchored at the scrolling content (see
                                         // gridCoords above), NOT the keyboard body:
                                         // body-relative, every scroll frame moved
@@ -2460,6 +2604,7 @@ private fun ToolboxPanel(
                                         Column(
                                             modifier = dragModifier
                                                 .animatePlacement { gridCoords }
+                                                .alpha(if (tool == dragTool) 0f else 1f)
                                                 .padding(vertical = 10.dp),
                                             horizontalAlignment = Alignment.CenterHorizontally,
                                         ) {
@@ -2467,7 +2612,8 @@ private fun ToolboxPanel(
                                                 icon = toolIcon(tool),
                                                 description = toolLabel(tool),
                                                 active = toolActive(tool, state),
-                                            ) { onToolTap(tool) }
+                                                interactive = false,
+                                            ) {}
                                             Text(
                                                 toolLabel(tool),
                                                 fontSize = 11.sp,
@@ -2502,6 +2648,19 @@ private val FullBleedPanels = setOf(
     PanelMode.TRANSLATE, PanelMode.WEB_SEARCH, PanelMode.IMAGE_SEARCH,
     PanelMode.DICTIONARY, PanelMode.SYMBOLS, PanelMode.PASSWORD_GEN,
 )
+
+/**
+ * Whether [panel] takes the whole keyboard right now. Emoji and the media
+ * panels (GIF, stickers) are full-bleed by choice rather than by nature:
+ * they can pay for the toolbar's row with their own header — category tabs
+ * for emoji, the search box for media — so the setting is on by default but
+ * can be turned off by anyone who wants the toolbar within reach.
+ */
+private fun isFullBleedPanel(panel: PanelMode, settings: KeyboardSettings): Boolean = when (panel) {
+    PanelMode.EMOJI -> settings.emojiFullBleed
+    PanelMode.GIF, PanelMode.STICKER -> settings.mediaFullBleed
+    else -> panel in FullBleedPanels
+}
 
 /**
  * Height of everything a full-bleed panel hides (toolbar plus any emoji or
@@ -2697,7 +2856,7 @@ private fun KeyboardBody(
             // symbol row) too: the tool absorbs those rows' height, so it
             // gets every pixel the keyboard owns. OCR draws its own chrome;
             // the rest get the [FullBleedTool] back-header wrapper.
-            val fullBleed = state.panel in FullBleedPanels
+            val fullBleed = isFullBleedPanel(state.panel, state.settings)
             val emojiRowVisible = !fullBleed &&
                 state.settings.emojiBarMode == EmojiBarMode.ALWAYS && state.panel != PanelMode.EMOJI
             // The symbols panel already is special characters — the row
@@ -2767,10 +2926,12 @@ private fun KeyboardBody(
                     onRefresh = onWeatherRefresh,
                     onOpenSettings = { onToolTap(ToolbarTool.SETTINGS) },
                 )
+                // No extraHeight: the reclaimed toolbar/emoji/symbol rows are
+                // already enough for the grid, and growing the window past
+                // keyboard height pushed the app's content out of view.
                 PanelMode.CALENDAR -> FullBleedTool(
                     state, "Calendar",
                     onClose = { onPanelChange(PanelMode.CALENDAR) },
-                    extraHeight = 120.dp,
                 ) { CalendarPanel(state, onInsert = onText) }
                 PanelMode.THEMES -> ThemesPanel(state, onThemeSelect)
                 PanelMode.SOUND_HAPTICS -> SoundHapticsPanel(state, onSoundHaptic)
@@ -2876,15 +3037,45 @@ private fun KeyboardBody(
                 } else {
                     onPanelChange(PanelMode.SNIPPETS)
                 }
-                PanelMode.GIF, PanelMode.STICKER -> GifPanel(
-                    state = state,
-                    stickers = state.panel == PanelMode.STICKER,
-                    onQueryTap = onMediaQueryTap,
-                    onRetry = onMediaRetry,
-                    onSelect = onGifSelect,
-                    onSourceSelect = onGifSourceSelect,
-                    onOpenToolSettings = onOpenToolSettings,
-                )
+                PanelMode.GIF, PanelMode.STICKER -> {
+                    val stickers = state.panel == PanelMode.STICKER
+                    if (state.settings.mediaFullBleed) {
+                        // Search moves up into the reclaimed toolbar row, next
+                        // to the back button — same shape as the dictionary.
+                        FullBleedTool(
+                            state,
+                            title = "",
+                            onClose = { onPanelChange(state.panel) },
+                            // Search collapses the panel so the key rows fit
+                            // below it, keeping a band of live results up.
+                            compact = state.mediaSearchActive,
+                            headerActions = {
+                                GifHeaderSearchBar(state, stickers, onMediaQueryTap)
+                            },
+                        ) {
+                            GifPanel(
+                                state = state,
+                                stickers = stickers,
+                                onQueryTap = onMediaQueryTap,
+                                onRetry = onMediaRetry,
+                                onSelect = onGifSelect,
+                                onSourceSelect = onGifSourceSelect,
+                                onOpenToolSettings = onOpenToolSettings,
+                                fullBleed = true,
+                            )
+                        }
+                    } else {
+                        GifPanel(
+                            state = state,
+                            stickers = stickers,
+                            onQueryTap = onMediaQueryTap,
+                            onRetry = onMediaRetry,
+                            onSelect = onGifSelect,
+                            onSourceSelect = onGifSourceSelect,
+                            onOpenToolSettings = onOpenToolSettings,
+                        )
+                    }
+                }
                 PanelMode.WEB_SEARCH -> FullBleedTool(
                     state, title = "",
                     onClose = { onPanelChange(PanelMode.WEB_SEARCH) },
@@ -4461,6 +4652,79 @@ private fun RowScope.EmojiTab(
     }
 }
 
+/**
+ * The panel's search box: a tappable pill showing the live query, with a
+ * hold-to-repeat backspace that edits the real text field while search mode
+ * stays up. Shared by the in-panel layout and the full-bleed header.
+ */
+@Composable
+private fun EmojiSearchField(
+    state: KeyboardUiState,
+    onEmojiQueryTap: () -> Unit,
+    onSearchFieldDelete: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val feedback = LocalKeyPressFeedback.current
+    val canDeleteField = LocalCanDeleteField.current
+    val scope = rememberCoroutineScope()
+    Row(
+        modifier = modifier
+            .background(MaterialTheme.colorScheme.surfaceContainer, RoundedCornerShape(20.dp))
+            .clickable { onEmojiQueryTap() }
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            Icons.Outlined.Search,
+            contentDescription = null,
+            modifier = Modifier.size(18.dp),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Box(modifier = Modifier.width(8.dp))
+        SearchQueryText(
+            query = state.emojiQuery,
+            placeholder = "Type to search…",
+            active = state.emojiSearchActive,
+            textColor = MaterialTheme.colorScheme.onSurface,
+            placeholderColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontSize = 14.sp,
+            modifier = Modifier.weight(1f),
+        )
+        // While searching, the keys type into the query — so an emoji just
+        // inserted from the results can't be deleted from the field with
+        // them. This backspace edits the real text field (with
+        // hold-to-repeat), keeping search mode up.
+        if (state.emojiSearchActive) {
+            Icon(
+                Icons.AutoMirrored.Outlined.Backspace,
+                contentDescription = "Delete from text field",
+                modifier = Modifier
+                    .padding(start = 8.dp)
+                    .size(18.dp)
+                    .pointerInput(state.settings.longPressDelayMs, state.settings.keyRepeatIntervalMs) {
+                        detectTapGestures(
+                            onPress = {
+                                feedback()
+                                onSearchFieldDelete()
+                                val repeat = scope.launch {
+                                    delay(state.settings.longPressDelayMs.toLong())
+                                    while (canDeleteField()) {
+                                        feedback()
+                                        onSearchFieldDelete()
+                                        delay(state.settings.keyRepeatIntervalMs.toLong())
+                                    }
+                                }
+                                tryAwaitRelease()
+                                repeat.cancel()
+                            },
+                        )
+                    },
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
 @Composable
 private fun EmojiPanel(
     state: KeyboardUiState,
@@ -4485,84 +4749,116 @@ private fun EmojiPanel(
     // height here keeps the keyboard from resizing on panel switches.
     val barCompensation =
         if (state.settings.emojiBarMode == EmojiBarMode.ALWAYS) EmojiBarHeight else 0.dp
-    // Search mode hides the toolbar row too (see KeyboardBody), so the
-    // panel absorbs its height — the keyboard stays the same size and the
-    // reclaimed row shows more results.
-    val height =
-        (if (state.emojiSearchActive) 120.dp + TopBarHeight else keyRowsHeight(state.settings)) +
-            barCompensation
+    // Full-bleed hides the toolbar and the symbol row as well, and spends
+    // the reclaimed row on a back button plus the category tabs — the panel
+    // absorbs all of it so the keyboard never resizes on a panel switch.
+    // Search mode hides the toolbar row too (see KeyboardBody), so the same
+    // accounting applies with fewer rows to reclaim.
+    val fullBleed = state.settings.emojiFullBleed
+    val height = when {
+        state.emojiSearchActive && fullBleed -> 120.dp + fullBleedHiddenRows(state.settings)
+        state.emojiSearchActive -> 120.dp + TopBarHeight + barCompensation
+        fullBleed -> keyRowsHeight(state.settings) + fullBleedHiddenRows(state.settings)
+        else -> keyRowsHeight(state.settings) + barCompensation
+    }
+    // One category rendered at a time behind tabs: the full catalog in a
+    // single grid was a composition/measure hog. Hoisted above everything
+    // else so the full-bleed header can host the strip.
+    val categories = remember(state.emojiCatalog) {
+        state.emojiCatalog.map { it.category }.distinct()
+    }
+    val hasHistory = history.isNotEmpty()
+    val tabs = remember(categories, hasHistory) {
+        buildList {
+            if (hasHistory) add(RECENT_TAB)
+            addAll(categories)
+        }
+    }
+    var selectedTab by remember { mutableStateOf(tabs.firstOrNull().orEmpty()) }
+    if (selectedTab !in tabs) selectedTab = tabs.firstOrNull().orEmpty()
+    // Compact icon strip: search plus every category, split evenly across
+    // the width so everything fits with no scrolling — Material's Tab has a
+    // 90dp min width that forced a ScrollableTabRow here before.
+    val tabStrip: @Composable RowScope.() -> Unit = {
+        EmojiTab(
+            icon = Icons.Outlined.Search,
+            description = "Search emoji",
+            selected = false,
+            onClick = onEmojiQueryTap,
+        )
+        for (tab in tabs) {
+            EmojiTab(
+                icon = if (tab == RECENT_TAB && historyMode == EmojiTabMode.MOST_USED) {
+                    Icons.Outlined.BarChart
+                } else {
+                    emojiTabIcon(tab)
+                },
+                description = when {
+                    tab != RECENT_TAB -> tab.replaceFirstChar { it.uppercase() }
+                    historyMode == EmojiTabMode.MOST_USED -> "Most used"
+                    else -> "Recent"
+                },
+                selected = tab == selectedTab,
+                onClick = { selectedTab = tab },
+            )
+        }
+    }
+    val searching = state.emojiSearchActive || state.emojiQuery.isNotEmpty()
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .height(height),
     ) {
+        // Full-bleed header, standing in for the toolbar it replaced: back to
+        // the keys, then whichever control the panel is currently driven by.
+        if (fullBleed) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(40.dp)
+                    .padding(horizontal = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                ToolCircle(
+                    icon = Icons.Outlined.ChevronLeft,
+                    description = "Back to keyboard",
+                    active = false,
+                    onClick = onClose,
+                )
+                if (searching) {
+                    EmojiSearchField(
+                        state = state,
+                        onEmojiQueryTap = onEmojiQueryTap,
+                        onSearchFieldDelete = onSearchFieldDelete,
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(start = 6.dp, end = 2.dp),
+                    )
+                } else if (tabs.isNotEmpty()) {
+                    Row(
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(start = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        content = tabStrip,
+                    )
+                }
+            }
+        }
         // The grids fill whatever the bottom control bar leaves over.
         Column(modifier = Modifier.weight(1f)) {
         // The search field only shows while a search is underway; idle, the
         // entry point is the first icon of the tab strip below, so the panel
         // doesn't spend a whole bar of vertical space on it.
-        if (state.emojiSearchActive || state.emojiQuery.isNotEmpty()) {
-            val feedback = LocalKeyPressFeedback.current
-            val canDeleteField = LocalCanDeleteField.current
-            val scope = rememberCoroutineScope()
-            Row(
+        if (!fullBleed && searching) {
+            EmojiSearchField(
+                state = state,
+                onEmojiQueryTap = onEmojiQueryTap,
+                onSearchFieldDelete = onSearchFieldDelete,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 8.dp, vertical = 4.dp)
-                    .background(MaterialTheme.colorScheme.surfaceContainer, RoundedCornerShape(20.dp))
-                    .clickable { onEmojiQueryTap() }
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(
-                    Icons.Outlined.Search,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Box(modifier = Modifier.width(8.dp))
-                SearchQueryText(
-                    query = state.emojiQuery,
-                    placeholder = "Type to search…",
-                    active = state.emojiSearchActive,
-                    textColor = MaterialTheme.colorScheme.onSurface,
-                    placeholderColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 14.sp,
-                    modifier = Modifier.weight(1f),
-                )
-                // While searching, the keys type into the query — so an
-                // emoji just inserted from the results can't be deleted
-                // from the field with them. This backspace edits the real
-                // text field (with hold-to-repeat), keeping search mode up.
-                if (state.emojiSearchActive) {
-                    Icon(
-                        Icons.AutoMirrored.Outlined.Backspace,
-                        contentDescription = "Delete from text field",
-                        modifier = Modifier
-                            .padding(start = 8.dp)
-                            .size(18.dp)
-                            .pointerInput(state.settings.longPressDelayMs, state.settings.keyRepeatIntervalMs) {
-                                detectTapGestures(
-                                    onPress = {
-                                        feedback()
-                                        onSearchFieldDelete()
-                                        val repeat = scope.launch {
-                                            delay(state.settings.longPressDelayMs.toLong())
-                                            while (canDeleteField()) {
-                                                feedback()
-                                                onSearchFieldDelete()
-                                                delay(state.settings.keyRepeatIntervalMs.toLong())
-                                            }
-                                        }
-                                        tryAwaitRelease()
-                                        repeat.cancel()
-                                    },
-                                )
-                            },
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
+            )
         }
 
         if (state.emojiQuery.isNotEmpty()) {
@@ -4586,54 +4882,14 @@ private fun EmojiPanel(
             return@Column
         }
 
-        // One category rendered at a time behind tabs: the full catalog in a
-        // single grid was a composition/measure hog.
-        val categories = remember(state.emojiCatalog) {
-            state.emojiCatalog.map { it.category }.distinct()
-        }
-        val hasHistory = history.isNotEmpty()
-        val tabs = remember(categories, hasHistory) {
-            buildList {
-                if (hasHistory) add(RECENT_TAB)
-                addAll(categories)
-            }
-        }
-        var selectedTab by remember { mutableStateOf(tabs.firstOrNull().orEmpty()) }
-        if (selectedTab !in tabs) selectedTab = tabs.firstOrNull().orEmpty()
-
-        // Compact icon strip: search plus every category, split evenly across
-        // the width so everything fits with no scrolling — Material's Tab has
-        // a 90dp min width that forced a ScrollableTabRow here before.
-        if (!state.emojiSearchActive && tabs.isNotEmpty()) {
+        if (!fullBleed && !state.emojiSearchActive && tabs.isNotEmpty()) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 2.dp),
                 verticalAlignment = Alignment.CenterVertically,
-            ) {
-                EmojiTab(
-                    icon = Icons.Outlined.Search,
-                    description = "Search emoji",
-                    selected = false,
-                    onClick = onEmojiQueryTap,
-                )
-                for (tab in tabs) {
-                    EmojiTab(
-                        icon = if (tab == RECENT_TAB && historyMode == EmojiTabMode.MOST_USED) {
-                            Icons.Outlined.BarChart
-                        } else {
-                            emojiTabIcon(tab)
-                        },
-                        description = when {
-                            tab != RECENT_TAB -> tab.replaceFirstChar { it.uppercase() }
-                            historyMode == EmojiTabMode.MOST_USED -> "Most used"
-                            else -> "Recent"
-                        },
-                        selected = tab == selectedTab,
-                        onClick = { selectedTab = tab },
-                    )
-                }
-            }
+                content = tabStrip,
+            )
         }
 
         if (state.settings.emojiClearRecentsButton &&

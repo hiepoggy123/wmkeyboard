@@ -31,9 +31,10 @@ object SymbolSetCodec {
 }
 
 /**
- * The sets that ship with the keyboard. Users can't edit these in place
- * (ids stay stable so modes can reference them); the editor duplicates one
- * into a custom set instead.
+ * The sets that ship with the keyboard. Their ids stay stable so modes can
+ * reference them; editing one stores a custom set under the *same* id that
+ * shadows the shipped version (see [resolveSymbolSets]), so a mode pinned to
+ * "Coding" keeps working and deleting the edit restores the original.
  */
 object BuiltInSymbolSets {
 
@@ -85,6 +86,18 @@ object BuiltInSymbolSets {
     fun byId(id: String): SymbolSet? = sets.firstOrNull { it.id == id }
 
     val defaultEnabledIds: List<String> = sets.map { it.id }
+}
+
+/**
+ * Every set the user has, built-ins first in their shipped order, then the
+ * user's own. A custom set whose id matches a built-in is an *edit* of that
+ * built-in: it takes the built-in's slot rather than appearing twice.
+ */
+fun resolveSymbolSets(custom: List<SymbolSet>): List<SymbolSet> {
+    val overrides = custom.associateBy { it.id }
+    val builtIns = BuiltInSymbolSets.sets.map { overrides[it.id] ?: it }
+    val builtInIds = BuiltInSymbolSets.sets.mapTo(HashSet()) { it.id }
+    return builtIns + custom.filter { it.id !in builtInIds }
 }
 
 /** Display label for row chips that would otherwise render invisibly. */

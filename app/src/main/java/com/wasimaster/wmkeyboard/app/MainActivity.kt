@@ -52,6 +52,7 @@ import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.ContentPaste
 import androidx.compose.material.icons.outlined.DarkMode
 import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.DragHandle
 import androidx.compose.material.icons.outlined.Dialpad
 import androidx.compose.material.icons.outlined.Draw
@@ -208,6 +209,7 @@ import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.isSupportedTool
 import com.wasimaster.wmkeyboard.core.settings.ModeField
 import com.wasimaster.wmkeyboard.core.tools.BuiltInSymbolSets
+import com.wasimaster.wmkeyboard.core.tools.resolveSymbolSets
 import com.wasimaster.wmkeyboard.core.tools.SymbolSet
 import com.wasimaster.wmkeyboard.core.settings.OneHandedMode
 import com.wasimaster.wmkeyboard.core.settings.ScreenVariant
@@ -1995,6 +1997,17 @@ private fun EmojiSettings(repository: SettingsRepository, settings: KeyboardSett
                     "English and Bengali, and skin-tone variants on long-press.",
             ) { scope.launch { repository.setEmojiToolbar(it) } }
         }
+        item {
+            ToggleSetting(
+                "Full-screen emoji panel",
+                "Hide the toolbar and move the category tabs up next to a back button",
+                settings.emojiFullBleed,
+                info = "The emoji panel takes over the whole keyboard: the toolbar, emoji " +
+                    "row and symbol row step aside and the category tabs move into the row " +
+                    "they leave behind, next to a back button. Turn this off to keep the " +
+                    "toolbar within reach while picking emoji.",
+            ) { scope.launch { repository.setEmojiFullBleed(it) } }
+        }
     }
     SettingsGroup("Suggestions") {
         item {
@@ -3548,6 +3561,19 @@ private fun ToolDetailSettings(
             )
         }
         ToolbarTool.GIF, ToolbarTool.STICKER -> {
+            SettingsGroup("Layout") {
+                item {
+                    ToggleSetting(
+                        "Full-screen picker",
+                        "Hide the toolbar and move search up next to a back button",
+                        settings.mediaFullBleed,
+                        info = "The GIF and sticker panels take over the whole keyboard: " +
+                            "the toolbar, emoji row and symbol row step aside and the search " +
+                            "box moves into the row they leave behind, so the grid gets every " +
+                            "pixel. Applies to both tools.",
+                    ) { scope.launch { repository.setMediaFullBleed(it) } }
+                }
+            }
             SettingsGroup("Sources & API keys") {
                 item {
                     ApiKeyField(
@@ -4948,11 +4974,12 @@ private fun RowsSettings(
     }
     CaptionText("Rows are stacked top to bottom in this order. Hidden rows keep their slot.")
     SettingsGroup("Symbol sets") {
-        val allSets = BuiltInSymbolSets.sets + settings.customSymbolSets
+        val allSets = resolveSymbolSets(settings.customSymbolSets)
         for (set in allSets) {
             item {
                 val enabled = set.id in settings.symbolRowSetIds
-                val custom = settings.customSymbolSets.any { it.id == set.id }
+                val edited = settings.customSymbolSets.any { it.id == set.id }
+                val builtIn = BuiltInSymbolSets.byId(set.id) != null
                 ListItem(
                     headlineContent = { Text(set.name) },
                     supportingContent = {
@@ -4979,13 +5006,21 @@ private fun RowsSettings(
                             },
                         )
                     },
-                    trailingContent = if (custom) {
-                        {
-                            IconButton(onClick = { onNavigate("symbol_set_edit/${set.id}") }) {
-                                Icon(Icons.Outlined.Edit, contentDescription = "Edit set")
-                            }
+                    // Every set is editable now, built-ins included: editing
+                    // one stores an override under the same id, so modes that
+                    // reference it keep working and "Reset" brings it back.
+                    trailingContent = {
+                        IconButton(onClick = { onNavigate("symbol_set_edit/${set.id}") }) {
+                            Icon(
+                                Icons.Outlined.Edit,
+                                contentDescription = if (builtIn && !edited) {
+                                    "Edit built-in set"
+                                } else {
+                                    "Edit set"
+                                },
+                            )
                         }
-                    } else null,
+                    },
                     colors = transparentListColors(),
                 )
             }
@@ -5005,12 +5040,18 @@ private fun RowsSettings(
         }
     }
     CaptionText(
-        "Checked sets appear in the symbol row's picker. Built-in sets can't be " +
-            "edited — make a new set to customize.",
+        "Checked sets appear in the symbol row's picker. Editing a built-in set " +
+            "keeps its name in modes that use it; reset one to get the shipped " +
+            "characters back.",
     )
 }
 
-/** Create or edit one custom symbol set. */
+/**
+ * Create or edit one symbol set, built-ins included. Editing a built-in
+ * saves an override stored under the same id, so anything referencing that
+ * id (a mode's pinned sets, the row's active set) keeps pointing at it and
+ * "Reset" simply drops the override to bring the shipped set back.
+ */
 @Composable
 private fun SymbolSetEditor(
     repository: SettingsRepository,
@@ -5019,9 +5060,17 @@ private fun SymbolSetEditor(
     onDone: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
-    val existing = settings.customSymbolSets.firstOrNull { it.id == setId }
+    val override = settings.customSymbolSets.firstOrNull { it.id == setId }
+    val builtIn = BuiltInSymbolSets.byId(setId)
+    val existing = override ?: builtIn
     var name by remember(setId) { mutableStateOf(existing?.name ?: "") }
     var charsText by remember(setId) { mutableStateOf(existing?.chars?.joinToString(" ") ?: "") }
+    if (builtIn != null) {
+        CaptionText(
+            "This is a built-in set. Your changes shadow it — everything already " +
+                "using “${builtIn.name}” picks them up, and Reset restores the original.",
+        )
+    }
     SettingsGroup {
         item {
             OutlinedTextField(
@@ -5050,16 +5099,22 @@ private fun SymbolSetEditor(
         }
     }
     Row(modifier = Modifier.padding(horizontal = 16.dp)) {
-        if (existing != null) {
+        // Only an existing stored set can be removed — and for a built-in
+        // that removal is a reset, not a delete.
+        if (override != null) {
             TextButton(onClick = {
                 scope.launch {
                     repository.deleteSymbolSet(setId)
                 }
                 onDone()
             }) {
-                Icon(Icons.Outlined.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
+                Icon(
+                    if (builtIn != null) Icons.Outlined.Refresh else Icons.Outlined.Delete,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                )
                 Spacer(Modifier.width(4.dp))
-                Text("Delete set")
+                Text(if (builtIn != null) "Reset set" else "Delete set")
             }
         }
         Spacer(Modifier.weight(1f))
@@ -5069,7 +5124,11 @@ private fun SymbolSetEditor(
                 val chars = charsText.split(Regex("\\s+")).filter { it.isNotEmpty() }
                 scope.launch {
                     repository.upsertSymbolSet(
-                        SymbolSet(setId, name.trim().ifEmpty { "My set" }, chars),
+                        SymbolSet(
+                            setId,
+                            name.trim().ifEmpty { builtIn?.name ?: "My set" },
+                            chars,
+                        ),
                     )
                     // A new set should show up in the row right away.
                     if (setId !in settings.symbolRowSetIds) {
@@ -5330,6 +5389,25 @@ private fun ModesSettings(
             )
         }
     }
+    SettingsGroup("Rearranging tools") {
+        item {
+            ToggleSetting(
+                "Drags edit the active mode",
+                "Hold-and-drag on the keyboard saves into the mode that is on",
+                settings.modeToolOrderEdits,
+                info = "A mode that prescribes its own pinned tools or toolbox order wins " +
+                    "over the global lists while it is active. With this on, rearranging " +
+                    "tools on the keyboard is written back into that mode, so the change " +
+                    "sticks where you made it — and apps on a different mode keep their own " +
+                    "arrangement. With it off, drags always edit the global order and the " +
+                    "mode's list keeps overriding it.",
+            ) { scope.launch { repository.setModeToolOrderEdits(it) } }
+        }
+    }
+    CaptionText(
+        "Tool order can differ per app: whichever mode an app resolves to decides " +
+            "the arrangement you see there.",
+    )
 }
 
 /** Everything one mode overrides, and when it activates. */
@@ -5535,7 +5613,7 @@ private fun ModeEditor(
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    for (set in BuiltInSymbolSets.sets + settings.customSymbolSets) {
+                    for (set in resolveSymbolSets(settings.customSymbolSets)) {
                         FilterChip(
                             selected = set.id in modeSets,
                             onClick = {
@@ -5549,7 +5627,7 @@ private fun ModeEditor(
                 }
             }
             item {
-                val allSets = BuiltInSymbolSets.sets + settings.customSymbolSets
+                val allSets = resolveSymbolSets(settings.customSymbolSets)
                 val setName = { id: String ->
                     allSets.firstOrNull { it.id == id }?.name ?: id
                 }

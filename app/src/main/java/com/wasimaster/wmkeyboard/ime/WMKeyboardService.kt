@@ -75,6 +75,7 @@ import com.wasimaster.wmkeyboard.core.settings.EmojiInsertMode
 import com.wasimaster.wmkeyboard.core.settings.HapticStyle
 import com.wasimaster.wmkeyboard.core.settings.InputMode
 import com.wasimaster.wmkeyboard.core.settings.KeyboardLanguage
+import com.wasimaster.wmkeyboard.core.settings.KeyboardMode
 import com.wasimaster.wmkeyboard.core.settings.language
 import com.wasimaster.wmkeyboard.core.settings.isEnglish
 import com.wasimaster.wmkeyboard.core.settings.isFixedBengali
@@ -4261,14 +4262,53 @@ class WMKeyboardService : InputMethodService() {
         serviceScope.launch { settingsRepository.setSplitKeyboard(!current) }
     }
 
+    /**
+     * The mode whose tool arrangement a drag should be written into, or null
+     * to write the global one. A mode that prescribes its own tools wins over
+     * the global lists while it is active, so storing the drag globally would
+     * be silently overwritten — the tool would spring straight back.
+     */
+    private fun toolOrderOwner(): KeyboardMode? {
+        val settings = _uiState.value.settings
+        if (!settings.modeToolOrderEdits) return null
+        return settings.keyboardModes
+            .firstOrNull { it.id == _uiState.value.activeModeId }
+            ?.takeIf { it.ownsToolOrder }
+    }
+
+    /**
+     * One-off heads-up the first time a drag is stored against a mode: the
+     * same keyboard will look different in an app that resolves to another
+     * mode, and without this that reads as the change having been lost.
+     */
+    private fun noteModeToolOrder(mode: KeyboardMode) {
+        if (_uiState.value.settings.modeToolOrderHintSeen) return
+        Toast.makeText(
+            this,
+            "Saved for ${mode.name} mode — other apps keep their own tool order.",
+            Toast.LENGTH_LONG,
+        ).show()
+        serviceScope.launch { settingsRepository.setModeToolOrderHintSeen(true) }
+    }
+
     fun onToolbarToolsChange(tools: List<ToolbarTool>) {
         vibrate()
-        serviceScope.launch { settingsRepository.setToolbarTools(tools) }
+        val mode = toolOrderOwner()
+        serviceScope.launch {
+            if (mode != null) settingsRepository.setModeToolbarTools(mode.id, tools)
+            else settingsRepository.setToolbarTools(tools)
+        }
+        if (mode != null) noteModeToolOrder(mode)
     }
 
     fun onToolboxOrderChange(order: List<ToolbarTool>) {
         vibrate()
-        serviceScope.launch { settingsRepository.setToolboxOrder(order) }
+        val mode = toolOrderOwner()
+        serviceScope.launch {
+            if (mode != null) settingsRepository.setModeToolboxOrder(mode.id, order)
+            else settingsRepository.setToolboxOrder(order)
+        }
+        if (mode != null) noteModeToolOrder(mode)
     }
 
     /**

@@ -83,7 +83,15 @@ data class KeyboardMode(
     val apps: List<String> = emptyList(),
     /** Input-field kinds this mode activates for automatically. */
     val fieldKinds: List<ModeField> = emptyList(),
-)
+) {
+    /**
+     * Whether this mode prescribes a tool arrangement of its own. When it
+     * does, a drag made while it is active has to be written back into the
+     * mode — stored globally it would be overwritten by the mode's list on
+     * the very next composition and look like it never happened.
+     */
+    val ownsToolOrder: Boolean get() = toolbarTools != null || toolboxOrder != null
+}
 
 private val modeJson = Json {
     ignoreUnknownKeys = true

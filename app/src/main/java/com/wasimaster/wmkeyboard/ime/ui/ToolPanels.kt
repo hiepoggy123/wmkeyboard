@@ -596,9 +596,9 @@ internal fun WeatherPanel(
     onRefresh: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
-    // Taller than the key rows (the window grows upward, like the AI tool)
-    // so the whole stat grid fits without scrolling.
-    val height = keyRowsHeight(state.settings) + 120.dp
+    // Keyboard height, no more: the stat grid scrolls, and growing the
+    // window upward for it shoved the app's own content off screen.
+    val height = keyRowsHeight(state.settings)
     val kb = LocalKbTheme.current
     Box(
         modifier = Modifier
@@ -978,10 +978,9 @@ internal fun CalendarPanel(
             CalendarSystems.bengaliDigits(bengali.year)
         val hijri = CalendarSystems.toHijri(selected.year, selected.month, selected.day, hijriAdjust)
         val hijriText = "${hijri.day} ${CalendarSystems.hijriMonths[hijri.month - 1]} ${hijri.year} AH"
-        // Header: weekday + distance from today, with an ISO chip (the
-        // format forms want). Then one slim row per enabled calendar, each
-        // with its own insert chip — the full-bleed panel has the room the
-        // old single cramped line didn't.
+        // One summary line, not a stack of per-calendar insert rows: the
+        // extra chips were four ways to type nearly the same string, and the
+        // panel paid for them with height the day grid wanted.
         val weekdayText = remember(selected) {
             SimpleDateFormat("EEEE", Locale.getDefault()).format(
                 Calendar.getInstance().apply {
@@ -989,7 +988,6 @@ internal fun CalendarPanel(
                 }.time
             )
         }
-        val isoText = "%04d-%02d-%02d".format(selected.year, selected.month, selected.day)
         val relativeDays =
             (CalendarSystems.gregorianToJdn(selected.year, selected.month, selected.day) -
                 CalendarSystems.gregorianToJdn(today.year, today.month, today.day)).toInt()
@@ -999,42 +997,35 @@ internal fun CalendarPanel(
             -1 -> "Yesterday"
             else -> if (relativeDays > 0) "in $relativeDays days" else "${-relativeDays} days ago"
         }
+        // The alternate calendars ride along as context on the second line
+        // rather than earning an insert chip each.
+        val altText = buildList {
+            if (showBengali) add(bengaliText)
+            if (showHijri) add(hijriText)
+        }.joinToString(" · ")
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 2.dp),
+                .padding(top = 4.dp, bottom = 2.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(
-                "$weekdayText · $relativeText",
-                color = kb.secondaryText,
-                fontSize = 11.sp,
-                maxLines = 1,
-                modifier = Modifier.weight(1f),
-            )
-            InsertChip(isoText) { onInsert(isoText) }
-        }
-        val dateRows = buildList {
-            add(gregorianText to "Insert")
-            if (showBengali) add(bengaliText to "বাং")
-            if (showHijri) add(hijriText to "هـ")
-        }
-        for ((text, chipLabel) in dateRows) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 2.dp, bottom = 2.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text,
+                    gregorianText,
                     color = kb.modifierKeyText,
-                    fontSize = 12.sp,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium,
                     maxLines = 1,
-                    modifier = Modifier.weight(1f),
                 )
-                InsertChip(chipLabel) { onInsert(text) }
+                Text(
+                    if (altText.isEmpty()) "$weekdayText · $relativeText"
+                    else "$weekdayText · $relativeText · $altText",
+                    color = kb.secondaryText,
+                    fontSize = 11.sp,
+                    maxLines = 1,
+                )
             }
+            InsertChip("Insert") { onInsert(gregorianText) }
         }
     }
 }
