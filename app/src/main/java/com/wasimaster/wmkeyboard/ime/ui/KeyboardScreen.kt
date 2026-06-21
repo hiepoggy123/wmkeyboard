@@ -291,6 +291,8 @@ import com.wasimaster.wmkeyboard.core.tools.ImageResult
 import com.wasimaster.wmkeyboard.core.tools.WebResult
 import com.wasimaster.wmkeyboard.ime.AiUi
 import com.wasimaster.wmkeyboard.ime.EnterAction
+import com.wasimaster.wmkeyboard.ime.FieldKind
+import com.wasimaster.wmkeyboard.ime.isNumericPad
 import com.wasimaster.wmkeyboard.ime.hasMediaSearch
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
 import com.wasimaster.wmkeyboard.ime.LayoutMode
@@ -403,6 +405,7 @@ private fun spokenLabel(key: Key, state: KeyboardUiState): String = when (key.ac
         EnterAction.NEXT -> "Next"
         EnterAction.PREVIOUS -> "Previous"
         EnterAction.DONE -> "Done"
+        EnterAction.CUSTOM -> state.enterActionLabel ?: "Enter"
         EnterAction.DEFAULT -> "Enter"
     }
     KeyAction.Shift -> when (state.shiftState) {
@@ -3445,11 +3448,23 @@ private fun KeyRows(
             // symbols the layers lack instead of duplicating the digits.
             if (state.settings.numberRow) {
                 val letters = state.layoutMode == LayoutMode.LETTERS
-                val extraRow = remember(letters) {
-                    if (letters) {
-                        "1234567890".map { Key(it.toString()) }
-                    } else {
-                        listOf("!", "\\", "<", ">", "[", "]", "{", "}", "|", "~").map { Key(it) }
+                // Follows the same guard as the pad itself, so a search box
+                // opened over a number field gets its digit row back.
+                val kind = if (numericPadActive(state)) state.fieldKind else FieldKind.TEXT
+                val extraRow = remember(letters, kind) {
+                    when {
+                        // A keypad already leads with digits, so — like the
+                        // symbol layers below — the row carries what the pad
+                        // lacks rather than a second set of the same numbers.
+                        kind == FieldKind.PHONE ->
+                            listOf("+", "*", "#", ",", ";", "(", ")", "-", "/", ".")
+                                .map { Key(it) }
+                        kind.isNumericPad ->
+                            listOf("+", "-", "*", "/", "=", "(", ")", "%", ":", ".")
+                                .map { Key(it) }
+                        letters -> "1234567890".map { Key(it.toString()) }
+                        else ->
+                            listOf("!", "\\", "<", ">", "[", "]", "{", "}", "|", "~").map { Key(it) }
                     }
                 }
                 KeyRow(
@@ -3649,6 +3664,9 @@ private fun nearLetterKey(position: Offset, centers: Map<Char, Offset>, keyWidth
     centers.values.any { (it - position).getDistance() < keyWidth }
 
 private fun currentLayout(state: KeyboardUiState): KeyboardLayout {
+    if (numericPadActive(state)) {
+        numericLayoutFor(state.fieldKind)?.let { return it }
+    }
     val base = when (state.layoutMode) {
         LayoutMode.SYMBOLS -> Layouts.SYMBOLS
         LayoutMode.SYMBOLS_SHIFTED -> Layouts.SYMBOLS_SHIFTED
@@ -3663,6 +3681,24 @@ private fun currentLayout(state: KeyboardUiState): KeyboardLayout {
             InputMode.JATIYA -> Layouts.JATIYA
             else -> Layouts.QWERTY
         }
+    }
+    // Email and URI fields keep the letter layouts but trade the bottom-row
+    // comma — punctuation neither field uses — for the character they are
+    // full of, and put domain endings on the period key's long press. Both
+    // are otherwise a trip through the symbols layer for every address.
+    val lettersLayer = state.layoutMode == LayoutMode.LETTERS
+    val fieldKey = when {
+        !lettersLayer -> null
+        state.fieldKind == FieldKind.EMAIL -> Key("@")
+        state.fieldKind == FieldKind.URI -> Key("/", longPress = listOf("?", "#", "&", "="))
+        else -> null
+    }
+    val domainAlternates = when {
+        !lettersLayer -> emptyList()
+        state.fieldKind == FieldKind.EMAIL -> listOf(".com", ".net", ".org", ".edu", ".co")
+        state.fieldKind == FieldKind.URI ->
+            listOf(".com", ".org", ".net", "www.", "https://", "/")
+        else -> emptyList()
     }
     // Optional Gboard-style emoji key: the letter layouts' comma key becomes
     // an emoji-panel key, with comma demoted to its long-press alternates.
@@ -3685,12 +3721,27 @@ private fun currentLayout(state: KeyboardUiState): KeyboardLayout {
         } else {
             emptyMap()
         }
-    if (!commaAsEmoji && !globeAsEmoji && !stripDigits && clipboardKeys.isEmpty()) return base
+    if (!commaAsEmoji && !globeAsEmoji && !stripDigits && clipboardKeys.isEmpty() &&
+        fieldKey == null && domainAlternates.isEmpty()
+    ) {
+        return base
+    }
+    // The bottom row is the only place these single-character keys live, and
+    // both transforms below target it; the guard keeps a letter key that
+    // happens to be "." or "," (Dvorak's top row) out of it.
+    val bottom = base.rows.lastIndex
     return KeyboardLayout(
         base.name,
-        base.rows.map { row ->
+        base.rows.mapIndexed { rowIndex, row ->
             row.map { key ->
                 var mapped = when {
+                    // Field adaptation outranks the emoji-key preference: an
+                    // email box needs its @ more than a shortcut to emoji.
+                    fieldKey != null && rowIndex == bottom &&
+                        key.action == KeyAction.Text && key.label == "," -> fieldKey
+                    domainAlternates.isNotEmpty() && rowIndex == bottom &&
+                        key.action == KeyAction.Text && key.label == "." ->
+                        key.copy(longPress = domainAlternates + key.longPress)
                     commaAsEmoji && key.action == KeyAction.Text && key.label == "," ->
                         Key(",", action = KeyAction.Emoji, longPress = listOf(",") + key.longPress)
                     globeAsEmoji && key.action == KeyAction.LanguageSwitch ->
@@ -3707,6 +3758,35 @@ private fun currentLayout(state: KeyboardUiState): KeyboardLayout {
             }
         },
     )
+}
+
+/**
+ * Whether the focused field's keypad should be showing.
+ *
+ * A numeric field gets its keypad whatever the layout mode says — the pads
+ * have no ?123 key to leave by, so the letter/symbol cycle does not apply.
+ * The exception is anything that reroutes keystrokes away from the editor:
+ * emoji, media and dictionary search boxes and the typing test all need
+ * letters, and a digits-only pad would leave them impossible to type in.
+ */
+private fun numericPadActive(state: KeyboardUiState): Boolean =
+    state.fieldKind.isNumericPad &&
+        !state.emojiSearchActive &&
+        !state.dictionarySearchActive &&
+        !(state.mediaSearchActive && state.panel.hasMediaSearch) &&
+        !state.typingTestActive
+
+/**
+ * The keypad a numeric field kind types on, or null for the kinds that keep
+ * the letter layouts (TEXT, EMAIL, URI).
+ */
+private fun numericLayoutFor(kind: FieldKind): KeyboardLayout? = when (kind) {
+    FieldKind.NUMBER -> Layouts.NUMBER
+    FieldKind.PHONE -> Layouts.PHONE
+    FieldKind.DATE -> Layouts.DATE
+    FieldKind.TIME -> Layouts.TIME
+    FieldKind.DATETIME -> Layouts.DATETIME
+    FieldKind.TEXT, FieldKind.EMAIL, FieldKind.URI -> null
 }
 
 private fun String.isSingleDigit(): Boolean = length == 1 && this[0].isDigit()
@@ -4073,19 +4153,39 @@ private fun KeyContent(key: Key, state: KeyboardUiState, contentColor: Color) {
             contentDescription = "Delete",
             tint = contentColor,
         )
-        KeyAction.Enter -> Icon(
-            when (state.enterAction) {
-                EnterAction.SEARCH -> Icons.Outlined.Search
-                EnterAction.SEND -> Icons.AutoMirrored.Outlined.Send
-                EnterAction.GO -> Icons.AutoMirrored.Outlined.ArrowForward
-                EnterAction.NEXT -> Icons.AutoMirrored.Outlined.KeyboardTab
-                EnterAction.PREVIOUS -> Icons.AutoMirrored.Outlined.ArrowBack
-                EnterAction.DONE -> Icons.Outlined.Check
-                EnterAction.DEFAULT -> Icons.AutoMirrored.Outlined.KeyboardReturn
-            },
-            contentDescription = "Enter",
-            tint = contentColor,
-        )
+        // An app-supplied actionLabel is drawn as text — that is the whole
+        // point of it, and no icon can stand in for wording the app chose.
+        // It is clipped to one line so a long label cannot blow up the row.
+        KeyAction.Enter -> if (state.enterAction == EnterAction.CUSTOM &&
+            state.enterActionLabel != null
+        ) {
+            Text(
+                text = state.enterActionLabel,
+                fontSize = (13 * fontScale).sp,
+                color = contentColor,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(horizontal = 4.dp),
+            )
+        } else {
+            Icon(
+                when (state.enterAction) {
+                    EnterAction.SEARCH -> Icons.Outlined.Search
+                    EnterAction.SEND -> Icons.AutoMirrored.Outlined.Send
+                    EnterAction.GO -> Icons.AutoMirrored.Outlined.ArrowForward
+                    EnterAction.NEXT -> Icons.AutoMirrored.Outlined.KeyboardTab
+                    EnterAction.PREVIOUS -> Icons.AutoMirrored.Outlined.ArrowBack
+                    EnterAction.DONE -> Icons.Outlined.Check
+                    // CUSTOM without a usable label falls back to a newline
+                    // glyph, matching what onEnter does with a blank one.
+                    EnterAction.DEFAULT, EnterAction.CUSTOM ->
+                        Icons.AutoMirrored.Outlined.KeyboardReturn
+                },
+                contentDescription = "Enter",
+                tint = contentColor,
+            )
+        }
         KeyAction.LanguageSwitch -> Icon(
             Icons.Outlined.Language,
             contentDescription = "Switch language",

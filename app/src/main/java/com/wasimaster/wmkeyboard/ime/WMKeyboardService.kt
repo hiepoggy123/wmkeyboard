@@ -202,6 +202,15 @@ class WMKeyboardService : InputMethodService() {
     /** Mode-binding kinds of the focused field (password, email, url…). */
     private var currentModeFields: Set<ModeField> = emptySet()
 
+    /**
+     * Input mode the focused field itself asked for — IME_FLAG_FORCE_ASCII
+     * or a hintLocales match. Field-scoped and never persisted: it overrides
+     * the saved mode while the field has focus, and the user's own language
+     * switch (spacebar swipe, 🌐) clears it, because an explicit switch is
+     * always a stronger signal than the app's request.
+     */
+    private var fieldModeOverride: InputMode? = null
+
     private var composing = StringBuilder()
     private var previousWord: String? = null
     private var lastSpaceTime = 0L
@@ -525,19 +534,27 @@ class WMKeyboardService : InputMethodService() {
                 _uiState.update {
                     it.copy(
                         settings = settings.applyMode(mode),
-                        inputMode = settings.inputMode,
+                        // A field-scoped override (FORCE_ASCII, hintLocales)
+                        // outlives settings emissions — otherwise saving any
+                        // unrelated setting would drop the field back to a
+                        // mode it cannot accept.
+                        inputMode = fieldModeOverride ?: settings.inputMode,
                         activeModeId = mode?.id,
                     )
                 }
+                // Everything below keys off the mode actually being typed, so
+                // a field-forced mode gets its own proximity grid and word
+                // lists rather than the saved mode's.
+                val activeInput = fieldModeOverride ?: settings.inputMode
                 // Typo weighting follows the active Latin layout's key grid.
-                suggestionEngine?.proximity = KeyProximity.forMode(settings.inputMode)
+                suggestionEngine?.proximity = KeyProximity.forMode(activeInput)
                 suggestionEngine?.autocorrectConfidence =
                     settings.autocorrectConfidence.toDouble()
                 // Latin languages without a bundled dictionary (French, German,
                 // Spanish) drop the English word list so autocorrect and
                 // completions never offer English for their words.
-                suggestionEngine?.englishSources = !settings.inputMode.isLatinScript ||
-                    settings.inputMode.isEnglish
+                suggestionEngine?.englishSources = !activeInput.isLatinScript ||
+                    activeInput.isEnglish
                 // Imported word lists are per language, so the active one
                 // follows the mode: a French list never reaches English.
                 if (customDictVersion != -1 && settings.customDictVersion != customDictVersion) {
@@ -548,7 +565,7 @@ class WMKeyboardService : InputMethodService() {
                 }
                 customDictVersion = settings.customDictVersion
                 suggestionEngine?.customDictionary =
-                    customDictionaries[settings.inputMode.language] ?: Trie()
+                    customDictionaries[activeInput.language] ?: Trie()
             }
         }
 
@@ -838,9 +855,20 @@ class WMKeyboardService : InputMethodService() {
         val activeMode = base?.let {
             resolveKeyboardMode(it.keyboardModes, currentPackage, currentModeFields, manualModeId)
         }
+        // Language the field asks for. FORCE_ASCII is a hard constraint (the
+        // app cannot store what a Bengali mode types) so it outranks a
+        // hintLocales preference, which is only ever advisory.
+        val savedMode = (base ?: _uiState.value.settings).inputMode
+        val enabledModes = (base ?: _uiState.value.settings).enabledModes
+        fieldModeOverride = when {
+            info.forcesAscii() && !savedMode.isLatinScript ->
+                enabledModes.firstOrNull { it.isLatinScript } ?: InputMode.ENGLISH
+            else -> info.hintedMode(enabledModes)?.takeIf { it != savedMode }
+        }
         _uiState.update {
             it.copy(
                 settings = base?.applyMode(activeMode) ?: it.settings,
+                inputMode = fieldModeOverride ?: savedMode,
                 activeModeId = activeMode?.id,
                 activeSymbolSetId = null,
                 panel = PanelMode.NONE,
@@ -865,9 +893,10 @@ class WMKeyboardService : InputMethodService() {
                 suggestions = emptyList(),
                 emojiSuggestions = emptyList(),
                 secureField = secure,
-                shiftState = if (shouldAutoCapitalize()) ShiftState.ON else ShiftState.OFF,
+                shiftState = autoCapitalizeShift(),
                 clipboardItems = clipboardStore.items(),
                 enterAction = info.enterAction(),
+                enterActionLabel = info?.actionLabel?.toString()?.takeIf { it.isNotBlank() },
                 handwriting = it.handwriting.copy(strokes = emptyList(), recognizing = false),
                 voice = it.voice.copy(
                     status = VoiceStatus.IDLE, partial = "", level = 0f,
@@ -1006,6 +1035,10 @@ class WMKeyboardService : InputMethodService() {
         // privacy indicator must never outlive the keyboard) and keep the
         // partial that was already on screen.
         cancelVoice()
+        // The language the field asked for dies with the field; leaving it
+        // set would apply an ASCII lock or a locale hint to whatever the
+        // user types in next.
+        fieldModeOverride = null
         userLexicon.save()
         emojiUsage.save()
         if (_uiState.value.settings.flashlightAutoOff && _uiState.value.torchOn) {
@@ -1492,10 +1525,11 @@ class WMKeyboardService : InputMethodService() {
         }
         val ic = currentInputConnection ?: return
         commitComposing(ic, autocorrect = false)
-        val info = currentInputEditorInfo
-        val action = info?.imeOptions?.and(EditorInfo.IME_MASK_ACTION) ?: EditorInfo.IME_ACTION_NONE
-        val noEnterAction = info?.imeOptions?.and(EditorInfo.IME_FLAG_NO_ENTER_ACTION) != 0
-        if (action != EditorInfo.IME_ACTION_NONE && action != EditorInfo.IME_ACTION_UNSPECIFIED && !noEnterAction) {
+        // Same decoder that labels the key, so Enter always does what the
+        // key is drawing — including an app's own actionId behind a custom
+        // actionLabel. Null means "no action": type a real newline.
+        val action = currentInputEditorInfo.editorActionId()
+        if (action != null) {
             ic.performEditorAction(action)
         } else {
             ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER))
@@ -1525,6 +1559,10 @@ class WMKeyboardService : InputMethodService() {
     /** Spacebar swipe (or 🌐 cycle): switch to an explicit input mode. */
     fun onLanguageSelected(mode: InputMode) {
         currentInputConnection?.let { commitComposing(it, autocorrect = false) }
+        // An explicit switch beats what the field asked for: the user can
+        // see the box they are typing in, FORCE_ASCII and hintLocales are
+        // only the app's guess.
+        fieldModeOverride = null
         _uiState.update { it.copy(inputMode = mode, layoutMode = LayoutMode.LETTERS) }
         refreshKarContext()
         // The handwriting model follows the input language; a switch while
@@ -4785,34 +4823,58 @@ class WMKeyboardService : InputMethodService() {
      * one. Caps lock is never touched.
      */
     private fun refreshShiftForContext() {
+        val target = autoCapitalizeShift()
         _uiState.update {
             when {
                 it.shiftState == ShiftState.CAPS_LOCK -> it
-                it.shiftState == ShiftState.OFF && shouldAutoCapitalize() ->
-                    it.copy(shiftState = ShiftState.ON)
-                it.shiftState == ShiftState.ON && it.settings.autoCapitalize && !shouldAutoCapitalize() ->
-                    it.copy(shiftState = ShiftState.OFF)
+                it.shiftState == ShiftState.OFF && target != ShiftState.OFF ->
+                    it.copy(shiftState = target)
+                it.shiftState == ShiftState.ON && it.settings.autoCapitalize &&
+                    target == ShiftState.OFF -> it.copy(shiftState = ShiftState.OFF)
                 else -> it
             }
         }
     }
 
-    private fun shouldAutoCapitalize(): Boolean {
+    /**
+     * The shift state the focused field's caps mode calls for right now.
+     *
+     * TYPE_TEXT_FLAG_CAP_CHARACTERS means the whole field is upper case
+     * (licence plates, coupon codes), so it maps to CAPS_LOCK — a one-shot
+     * shift would capitalize the first letter and drop off. The word- and
+     * sentence-level modes are one-shot by nature and come back through
+     * [InputConnection.getCursorCapsMode], which weighs the flags against
+     * the text actually before the cursor.
+     *
+     * EditorInfo.initialCapsMode is the fallback for the window between
+     * onStartInput and a live connection: the framework computed it for
+     * exactly this purpose.
+     */
+    private fun autoCapitalizeShift(): ShiftState {
         val state = _uiState.value
-        if (!state.settings.autoCapitalize) return false
+        if (!state.settings.autoCapitalize) return ShiftState.OFF
         // Sentence capitalization applies to every Latin-script language;
         // Bengali has no letter case.
-        if (!state.inputMode.isLatinScript) return false
-        val ic = currentInputConnection ?: return false
-        val info = currentInputEditorInfo ?: return false
-        if (info.inputType and InputType.TYPE_MASK_CLASS != InputType.TYPE_CLASS_TEXT) return false
-        return ic.getCursorCapsMode(info.inputType) != 0
+        if (!state.inputMode.isLatinScript) return ShiftState.OFF
+        val info = currentInputEditorInfo ?: return ShiftState.OFF
+        if (info.inputType and InputType.TYPE_MASK_CLASS != InputType.TYPE_CLASS_TEXT) {
+            return ShiftState.OFF
+        }
+        if (info.inputType and InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS != 0) {
+            return ShiftState.CAPS_LOCK
+        }
+        val caps = currentInputConnection?.getCursorCapsMode(info.inputType)
+            ?: info.initialCapsMode
+        return if (caps != 0) ShiftState.ON else ShiftState.OFF
     }
 
+    private fun shouldAutoCapitalize(): Boolean = autoCapitalizeShift() != ShiftState.OFF
+
     private fun maybeAutoCapitalize() {
+        val target = autoCapitalizeShift()
         _uiState.update {
-            if (shouldAutoCapitalize() && it.shiftState == ShiftState.OFF) {
-                it.copy(shiftState = ShiftState.ON)
+            if (target != ShiftState.OFF && it.shiftState == ShiftState.OFF) {
+                it.copy(shiftState = target)
             } else it
         }
     }
@@ -4898,9 +4960,22 @@ class WMKeyboardService : InputMethodService() {
         /** Links fetched per panel open, so a history of links isn't a request storm. */
         private const val MAX_LINK_PREVIEWS = 8
 
+        /**
+         * What the enter key should do and show. IME_FLAG_NO_ENTER_ACTION
+         * means the app wants a literal newline no matter what action it
+         * declared, so it wins outright — that is the flag multi-line fields
+         * carry, and honouring it is what keeps Enter from sending a
+         * half-written message.
+         *
+         * A non-null actionLabel is the app asking for its own wording
+         * ("Reply", "Post"); it is paired with [EditorInfo.actionId] rather
+         * than a standard action, so it is reported separately.
+         */
         private fun EditorInfo?.enterAction(): EnterAction {
-            val options = this?.imeOptions ?: return EnterAction.DEFAULT
+            val info = this ?: return EnterAction.DEFAULT
+            val options = info.imeOptions
             if (options and EditorInfo.IME_FLAG_NO_ENTER_ACTION != 0) return EnterAction.DEFAULT
+            if (!info.actionLabel.isNullOrBlank()) return EnterAction.CUSTOM
             return when (options and EditorInfo.IME_MASK_ACTION) {
                 EditorInfo.IME_ACTION_SEARCH -> EnterAction.SEARCH
                 EditorInfo.IME_ACTION_SEND -> EnterAction.SEND
@@ -4910,6 +4985,57 @@ class WMKeyboardService : InputMethodService() {
                 EditorInfo.IME_ACTION_DONE -> EnterAction.DONE
                 else -> EnterAction.DEFAULT
             }
+        }
+
+        /**
+         * The editor action to fire, or null when Enter should type a
+         * newline instead. Mirrors [enterAction] so the key does what it
+         * draws: a custom label fires the app's own [EditorInfo.actionId],
+         * everything else the masked standard action.
+         */
+        private fun EditorInfo?.editorActionId(): Int? {
+            val info = this ?: return null
+            if (info.imeOptions and EditorInfo.IME_FLAG_NO_ENTER_ACTION != 0) return null
+            if (!info.actionLabel.isNullOrBlank()) return info.actionId
+            val action = info.imeOptions and EditorInfo.IME_MASK_ACTION
+            if (action == EditorInfo.IME_ACTION_NONE ||
+                action == EditorInfo.IME_ACTION_UNSPECIFIED
+            ) {
+                return null
+            }
+            return action
+        }
+
+        /**
+         * IME_FLAG_FORCE_ASCII: the field can only take ASCII (a server-side
+         * username, a coupon code). Bengali modes — including Avro, whose
+         * roman keys still commit Bengali — would put characters in it the
+         * app cannot use, so the field is typed in a Latin mode instead.
+         * Prefers one the user actually enabled over hard-coding English.
+         */
+        private fun EditorInfo?.forcesAscii(): Boolean =
+            this != null && imeOptions and EditorInfo.IME_FLAG_FORCE_ASCII != 0
+
+        /**
+         * EditorInfo.hintLocales: the app naming the language it expects
+         * (a "translate to French" box, a per-language form field). Honoured
+         * only when the user has a mode for that language enabled — it is a
+         * hint, not a licence to switch to a layout they never set up.
+         */
+        private fun EditorInfo?.hintedMode(enabled: List<InputMode>): InputMode? {
+            val hints = this?.hintLocales ?: return null
+            for (i in 0 until hints.size()) {
+                val language = when (hints[i].language) {
+                    "en" -> KeyboardLanguage.ENGLISH
+                    "bn" -> KeyboardLanguage.BANGLA
+                    "fr" -> KeyboardLanguage.FRENCH
+                    "de" -> KeyboardLanguage.GERMAN
+                    "es" -> KeyboardLanguage.SPANISH
+                    else -> null
+                } ?: continue
+                enabled.firstOrNull { it.language == language }?.let { return it }
+            }
+            return null
         }
 
         private fun EditorInfo?.fieldKind(): FieldKind {

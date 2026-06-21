@@ -285,8 +285,14 @@ enum class TextEditAction {
     SELECT, SELECT_ALL, COPY, PASTE, BACKSPACE,
 }
 
-/** What the enter key does in the focused field, from EditorInfo.imeOptions. */
-enum class EnterAction { DEFAULT, SEARCH, SEND, GO, NEXT, PREVIOUS, DONE }
+/**
+ * What the enter key does in the focused field, from EditorInfo.imeOptions.
+ *
+ * [CUSTOM] is the app supplying its own [android.view.inputmethod.EditorInfo.actionLabel]
+ * — the key draws that label as text and fires the app's
+ * [android.view.inputmethod.EditorInfo.actionId] rather than a standard action.
+ */
+enum class EnterAction { DEFAULT, SEARCH, SEND, GO, NEXT, PREVIOUS, DONE, CUSTOM }
 
 /**
  * Typing-speed panel state. The prompt and the typed text live here rather
@@ -402,6 +408,12 @@ data class KeyboardUiState(
      */
     val activeSymbolSetId: String? = null,
     val enterAction: EnterAction = EnterAction.DEFAULT,
+    /**
+     * The app's own label for the enter key (EditorInfo.actionLabel), set
+     * only when [enterAction] is [EnterAction.CUSTOM]. Drawn as text on the
+     * key in place of an action icon.
+     */
+    val enterActionLabel: String? = null,
     /** Torch state, mirrored from CameraManager for the flashlight tool. */
     val torchOn: Boolean = false,
     val weather: WeatherUi = WeatherUi.NoLocation,
