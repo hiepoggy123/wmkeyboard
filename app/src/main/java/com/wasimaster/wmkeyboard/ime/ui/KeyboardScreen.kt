@@ -1713,7 +1713,7 @@ private fun toolActive(tool: ToolbarTool, state: KeyboardUiState): Boolean = whe
     ToolbarTool.MOON_PHASE -> state.panel == PanelMode.MOON_PHASE
     ToolbarTool.WEATHER -> state.panel == PanelMode.WEATHER
     ToolbarTool.CALENDAR -> state.panel == PanelMode.CALENDAR
-    ToolbarTool.INCOGNITO -> state.settings.incognito
+    ToolbarTool.INCOGNITO -> state.incognitoOn
     ToolbarTool.THEMES -> state.panel == PanelMode.THEMES
     ToolbarTool.AUTOCORRECT -> state.settings.autocorrect
     ToolbarTool.SOUND_HAPTICS -> state.panel == PanelMode.SOUND_HAPTICS
@@ -2414,7 +2414,7 @@ private fun RowScope.ToolbarRow(
             Spacer(modifier = Modifier.weight(1f))
         }
     }
-    if (state.settings.incognito) {
+    if (state.incognitoOn) {
         Icon(
             KeyboardIcons.Incognito,
             contentDescription = "Incognito is on",

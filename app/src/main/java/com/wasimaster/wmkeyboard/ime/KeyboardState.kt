@@ -333,6 +333,13 @@ data class KeyboardUiState(
      */
     val fieldNoSuggestions: Boolean = false,
     /**
+     * The focused editor asked not to be learned from
+     * (IME_FLAG_NO_PERSONALIZED_LEARNING), which is what a Chrome incognito
+     * tab and most private-browsing modes set. Session-scoped: it follows the
+     * field, never the persisted [KeyboardSettings.incognito] switch.
+     */
+    val fieldIncognito: Boolean = false,
+    /**
      * Id of the keyboard mode currently applied to [settings] (per-app /
      * per-field overrides), null when no mode matched. The Modes panel
      * highlights it; the toolbar's mode tool lights up while set.
@@ -382,4 +389,11 @@ data class KeyboardUiState(
     val ai: AiUi = AiUi.Idle,
     /** Focused field's text, mirrored for the QR-generator panel. */
     val qrText: String = "",
-)
+) {
+    /**
+     * Whether incognito is in force right now, from either source: the
+     * persisted switch the user flips, or a field that asked for it. Every
+     * gate and indicator reads this rather than the setting alone.
+     */
+    val incognitoOn: Boolean get() = settings.incognito || fieldIncognito
+}

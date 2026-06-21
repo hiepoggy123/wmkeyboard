@@ -260,7 +260,7 @@ class WMKeyboardService : InputMethodService() {
     private val clipboardListener = ClipboardManager.OnPrimaryClipChangedListener {
         val state = _uiState.value
         if (!state.settings.clipboardHistory ||
-            (state.settings.incognito && state.settings.incognitoPausesClipboard) ||
+            (state.incognitoOn && state.settings.incognitoPausesClipboard) ||
             state.secureField
         ) return@OnPrimaryClipChangedListener
         val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
@@ -815,6 +815,10 @@ class WMKeyboardService : InputMethodService() {
             }
         }
         val base = baseSettings
+        // Incognito the field asked for, e.g. a Chrome incognito tab. Read
+        // from the base settings so a mode can't switch the detection off.
+        val fieldIncognito = (base ?: _uiState.value.settings).autoIncognito &&
+            info.requestsNoPersonalizedLearning()
         val activeMode = base?.let {
             resolveKeyboardMode(it.keyboardModes, currentPackage, currentModeFields, manualModeId)
         }
@@ -829,6 +833,7 @@ class WMKeyboardService : InputMethodService() {
                 layoutMode = if (restarting) it.layoutMode else LayoutMode.LETTERS,
                 fieldKind = fieldKind,
                 fieldNoSuggestions = fieldNoSuggestions,
+                fieldIncognito = fieldIncognito,
                 emojiSearchActive = false,
                 emojiQuery = "",
                 dictionarySearchActive = false,
@@ -916,10 +921,22 @@ class WMKeyboardService : InputMethodService() {
      * be wrong: the feature switched off, or an incognito session, where the
      * user has asked for this typing not to be remembered or surfaced.
      */
+    /**
+     * Same question as [KeyboardUiState.incognitoOn], asked before the state
+     * exists: the platform builds the autofill request during onStartInput,
+     * ahead of onStartInputView, so the field flag has to come straight off
+     * [currentInputEditorInfo] rather than the cached UI state.
+     */
+    private fun autofillBlockedByIncognito(): Boolean {
+        val settings = _uiState.value.settings
+        return settings.incognito ||
+            (settings.autoIncognito && currentInputEditorInfo.requestsNoPersonalizedLearning())
+    }
+
     override fun onCreateInlineSuggestionsRequest(uiExtras: Bundle): InlineSuggestionsRequest? {
         if (!InlineAutofill.supported) return null
         val settings = _uiState.value.settings
-        if (!settings.inlineAutofill || settings.incognito) return null
+        if (!settings.inlineAutofill || autofillBlockedByIncognito()) return null
         val density = resources.displayMetrics
         val stripHeightPx = (INLINE_CHIP_HEIGHT_DP * density.density).toInt()
         return runCatching {
@@ -939,7 +956,7 @@ class WMKeyboardService : InputMethodService() {
     override fun onInlineSuggestionsResponse(response: InlineSuggestionsResponse): Boolean {
         if (!InlineAutofill.supported) return false
         val settings = _uiState.value.settings
-        if (!settings.inlineAutofill || settings.incognito) return false
+        if (!settings.inlineAutofill || autofillBlockedByIncognito()) return false
         val density = resources.displayMetrics
         InlineAutofill.inflateAll(
             context = this,
@@ -1273,7 +1290,7 @@ class WMKeyboardService : InputMethodService() {
                     ic.deleteSurroundingText(expected.length, 0)
                     ic.commitText("$typed ", 1)
                     if (state.settings.learnFromTyping &&
-                        !(state.settings.incognito && state.settings.incognitoPausesLearning) &&
+                        !(state.incognitoOn && state.settings.incognitoPausesLearning) &&
                         !state.secureField
                     ) {
                         userLexicon.addWord(typed, boost = 5)
@@ -1560,7 +1577,7 @@ class WMKeyboardService : InputMethodService() {
     private fun learn(word: String, reinforcement: Int = 1) {
         val state = _uiState.value
         if (!state.settings.learnFromTyping ||
-            (state.settings.incognito && state.settings.incognitoPausesLearning) ||
+            (state.incognitoOn && state.settings.incognitoPausesLearning) ||
             state.secureField || state.fieldNoSuggestions
         ) {
             previousWord = word
@@ -1588,7 +1605,7 @@ class WMKeyboardService : InputMethodService() {
     private fun learnEmoji(emoji: String) {
         val state = _uiState.value
         if (!state.settings.learnFromTyping ||
-            (state.settings.incognito && state.settings.incognitoPausesLearning) ||
+            (state.incognitoOn && state.settings.incognitoPausesLearning) ||
             state.secureField || state.fieldNoSuggestions
         ) {
             previousWord = emoji
@@ -2496,7 +2513,18 @@ class WMKeyboardService : InputMethodService() {
     /** Incognito tool: pause learning + clipboard capture with one tap. */
     fun onIncognitoToggle() {
         vibrate()
-        val next = !_uiState.value.settings.incognito
+        val state = _uiState.value
+        // The field itself asked for incognito, so the switch has nothing to
+        // turn off — say so instead of leaving the tool looking stuck on.
+        if (state.fieldIncognito) {
+            Toast.makeText(
+                this,
+                "This field is always incognito",
+                Toast.LENGTH_SHORT,
+            ).show()
+            return
+        }
+        val next = !state.settings.incognito
         Toast.makeText(
             this,
             if (next) "Incognito on — typing is not learned" else "Incognito off",
@@ -4597,6 +4625,25 @@ class WMKeyboardService : InputMethodService() {
          * flag, and the variations where corrections only get in the way —
          * emails, URIs, filter boxes and every password style.
          */
+        /**
+         * The field asked the IME not to personalize from it. Chrome sets
+         * this on every input in an incognito tab, and Firefox, Samsung
+         * Internet and a few password managers do the same for their private
+         * surfaces; it is the only signal Android gives us, since an IME
+         * cannot see what tab or mode the host app is in.
+         *
+         * [EditorInfo.privateImeOptions] is checked too because some apps
+         * still only send the pre-Oreo Gboard-era string.
+         */
+        private fun EditorInfo?.requestsNoPersonalizedLearning(): Boolean {
+            val info = this ?: return false
+            if (info.imeOptions and EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING != 0) return true
+            return info.privateImeOptions
+                ?.split(',')
+                ?.any { it.trim().endsWith("noPersonalizedLearning", ignoreCase = true) }
+                ?: false
+        }
+
         private fun EditorInfo?.suppressesSuggestions(): Boolean {
             val inputType = this?.inputType ?: return false
             if (inputType and InputType.TYPE_MASK_CLASS != InputType.TYPE_CLASS_TEXT) return true

@@ -544,6 +544,12 @@ data class KeyboardSettings(
     val incognitoPausesClipboard: Boolean = true,
     /** Incognito stops word and emoji learning. */
     val incognitoPausesLearning: Boolean = true,
+    /**
+     * Turn incognito on by itself for fields that ask not to be learned from
+     * (IME_FLAG_NO_PERSONALIZED_LEARNING) — Chrome incognito tabs, private
+     * browsing in other browsers, and password-manager notes fields.
+     */
+    val autoIncognito: Boolean = true,
     /** Text scanner results start with every word selected (deselect to trim). */
     val ocrAutoSelectWords: Boolean = true,
     /** Vibrate when the QR scanner spots a code. */
@@ -853,6 +859,7 @@ class SettingsRepository(private val context: Context) {
         private val NUMPAD_PHONE_LAYOUT = booleanPreferencesKey("numpad_phone_layout")
         private val INCOGNITO_PAUSES_CLIPBOARD = booleanPreferencesKey("incognito_pauses_clipboard")
         private val INCOGNITO_PAUSES_LEARNING = booleanPreferencesKey("incognito_pauses_learning")
+        private val AUTO_INCOGNITO = booleanPreferencesKey("auto_incognito")
         private val OCR_AUTO_SELECT_WORDS = booleanPreferencesKey("ocr_auto_select_words")
         private val QR_SCAN_HAPTICS = booleanPreferencesKey("qr_scan_haptics")
         private val QR_SCAN_AUTO_INSERT = booleanPreferencesKey("qr_scan_auto_insert")
@@ -1136,6 +1143,7 @@ class SettingsRepository(private val context: Context) {
             numpadPhoneLayout = p[NUMPAD_PHONE_LAYOUT] ?: defaults.numpadPhoneLayout,
             incognitoPausesClipboard = p[INCOGNITO_PAUSES_CLIPBOARD] ?: defaults.incognitoPausesClipboard,
             incognitoPausesLearning = p[INCOGNITO_PAUSES_LEARNING] ?: defaults.incognitoPausesLearning,
+            autoIncognito = p[AUTO_INCOGNITO] ?: defaults.autoIncognito,
             ocrAutoSelectWords = p[OCR_AUTO_SELECT_WORDS] ?: defaults.ocrAutoSelectWords,
             qrScanHaptics = p[QR_SCAN_HAPTICS] ?: defaults.qrScanHaptics,
             qrScanAutoInsert = p[QR_SCAN_AUTO_INSERT] ?: defaults.qrScanAutoInsert,
@@ -1391,6 +1399,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setIncognitoPausesLearning(value: Boolean) =
         context.dataStore.edit { it[INCOGNITO_PAUSES_LEARNING] = value }
+
+    suspend fun setAutoIncognito(value: Boolean) =
+        context.dataStore.edit { it[AUTO_INCOGNITO] = value }
 
     suspend fun setOcrAutoSelectWords(value: Boolean) =
         context.dataStore.edit { it[OCR_AUTO_SELECT_WORDS] = value }

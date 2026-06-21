@@ -3446,6 +3446,16 @@ private fun ToolDetailSettings(
                     ) { scope.launch { repository.setIncognitoPausesClipboard(it) } }
                 }
             }
+            SettingsGroup("Automatic") {
+                item {
+                    ToggleSetting(
+                        "Follow private browsing",
+                        "Switch on by itself in incognito tabs and private fields",
+                        settings.autoIncognito,
+                        info = AUTO_INCOGNITO_INFO,
+                    ) { scope.launch { repository.setAutoIncognito(it) } }
+                }
+            }
             CaptionText(
                 "Tapping the tool turns incognito on; tapping again resumes " +
                     "normal typing. Same switch as Settings → Privacy.",
@@ -4661,6 +4671,14 @@ private fun WeatherLocationSetting(repository: SettingsRepository, settings: Key
 
 // ---- privacy ----
 
+private const val AUTO_INCOGNITO_INFO =
+    "Apps can mark a text field as one the keyboard should not learn from. Chrome does " +
+        "this for every field in an incognito tab, and other browsers and password " +
+        "managers do the same for their private screens. While such a field has focus, " +
+        "incognito switches on for it and the incognito badge appears next to the " +
+        "toolbar; leaving the field restores normal typing. Apps that never send the " +
+        "flag can't be detected, so this can't cover private modes that don't use it."
+
 @Composable
 private fun PrivacySettings(repository: SettingsRepository, settings: KeyboardSettings) {
     val scope = rememberCoroutineScope()
@@ -4685,6 +4703,14 @@ private fun PrivacySettings(repository: SettingsRepository, settings: KeyboardSe
                 info = "While on, the keyboard learns nothing from your typing and clipboard " +
                     "history is not recorded. Existing learned words are untouched.",
             ) { scope.launch { repository.setIncognito(it) } }
+        }
+        item {
+            ToggleSetting(
+                "Follow private browsing",
+                "Turn incognito on by itself in private tabs and fields",
+                settings.autoIncognito,
+                info = AUTO_INCOGNITO_INFO,
+            ) { scope.launch { repository.setAutoIncognito(it) } }
         }
     }
     SettingsGroup("Your data") {
