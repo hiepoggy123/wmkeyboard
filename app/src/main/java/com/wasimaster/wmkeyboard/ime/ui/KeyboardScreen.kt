@@ -4,19 +4,21 @@ import android.graphics.BitmapFactory
 import android.view.WindowManager
 import com.wasimaster.wmkeyboard.BuildConfig
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.AnimationVector2D
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.VectorConverter
+import androidx.compose.animation.core.VisibilityThreshold
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
-import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -32,6 +34,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
@@ -1032,6 +1036,27 @@ private fun OneHandedRail(
 
 // ---- top bar: suggestions or toolbar ----
 
+/**
+ * One duration for every toolbar transition: the strip/toolbar chevron
+ * rotation, the back chevron's enter and exit, and the icon slides.
+ *
+ * They all fire off the same two taps — flip the bar, open a panel — so any
+ * two that disagree read as one animation lagging the other rather than as
+ * two separate animations. The icon slides used to run on a much softer
+ * spring and were still travelling long after the chevron had settled.
+ */
+private const val ToolbarMotionMs = 140
+
+/**
+ * The matching spring for anything that slides within the toolbar. Tuned to
+ * settle in about [ToolbarMotionMs] so it lands with the fades.
+ */
+private val ToolbarSlideSpring = spring(
+    dampingRatio = Spring.DampingRatioNoBouncy,
+    stiffness = Spring.StiffnessMedium,
+    visibilityThreshold = IntOffset(1, 1),
+)
+
 @Composable
 private fun TopBar(
     state: KeyboardUiState,
@@ -1071,19 +1096,34 @@ private fun TopBar(
     }
     // The emoji panel is already all emojis — showing the row too would be
     // redundant, so opening the panel folds the row away.
-    if (state.settings.emojiBarMode != EmojiBarMode.BUTTON || state.panel == PanelMode.EMOJI) {
-        emojiBarOpen = false
+    //
+    // The fold is a derived flag read in the same pass, and the stored one is
+    // cleared in an effect. Assigning to it inline instead wrote state that
+    // this same composable reads further down, which forces a second
+    // composition on the frame the panel opens — the row drew one frame at
+    // its old size before folding, which is the flicker seen when the emoji
+    // panel comes up.
+    val emojiRowSuppressed =
+        state.settings.emojiBarMode != EmojiBarMode.BUTTON || state.panel == PanelMode.EMOJI
+    LaunchedEffect(emojiRowSuppressed) {
+        if (emojiRowSuppressed) emojiBarOpen = false
     }
-    // Committing a word empties the strip for the ~100ms it takes the
+    // Committing a word can empty the strip for the moment it takes the
     // next-word predictions to land; flipping to the toolbar for that gap
     // makes the whole bar flicker on every space. The toolbar only takes
     // over once the strip has stayed empty for a beat.
+    //
+    // A short beat. Most commits now refill the strip in the same frame they
+    // clear it (nextWordStrip, in the service), so this only has to cover a
+    // genuinely empty result — and every millisecond of it is spent showing a
+    // bar with nothing in it, which is what made clearing a field look like
+    // the keyboard had stalled before the toolbar arrived.
     var emptySettled by remember { mutableStateOf(true) }
     LaunchedEffect(hasSuggestions) {
         if (hasSuggestions) {
             emptySettled = false
         } else {
-            delay(250)
+            delay(120)
             emptySettled = true
         }
     }
@@ -1111,7 +1151,7 @@ private fun TopBar(
             )
             return@Row
         }
-        if (emojiBarOpen && !hasSuggestions) {
+        if (emojiBarOpen && !emojiRowSuppressed && !hasSuggestions) {
             EmojiBarStrip(
                 state = state,
                 onEmoji = onEmoji,
@@ -1133,10 +1173,57 @@ private fun TopBar(
             }
             return@Row
         }
+        val motionMs = if (state.settings.reduceMotion) 0 else ToolbarMotionMs
+        // One chevron that spins between the two directions, rather than
+        // two icons swapped instantly: the rotation is what tells the
+        // user the bar flipped, since the strip and the toolbar look
+        // nothing alike and a hard cut reads as a redraw.
+        //
+        // Both the rotation state and the visibility gate live out here,
+        // above the guard. Inside it they were useless: the bar auto-flips
+        // to the toolbar at the moment the strip runs dry, which is the same
+        // moment `hasSuggestions` goes false and the guard drops the button.
+        // The node died on the very frame the rotation was meant to play, so
+        // the chevron vanished mid-turn instead of turning.
+        val chevronTurn by animateFloatAsState(
+            targetValue = if (showToolbar) 180f else 0f,
+            animationSpec = if (state.settings.reduceMotion) snap() else tween(ToolbarMotionMs),
+            label = "chevronTurn",
+        )
         // While any panel is open the toolbar is forced on and shows its own
         // back chevron, so the suggestions-toggle chevron would sit next to
         // it doing nothing — tools don't need suggestions. Hide it.
-        if ((hasSuggestions || suggestionsFirst) && state.panel == PanelMode.NONE) {
+        //
+        // Fade only, never expandHorizontally/shrinkHorizontally. A width
+        // animation here re-measures the whole toolbar on every frame of the
+        // transition, and the pinned icons track their position through
+        // [animatePlacement], which reads its target in onPlaced — so each of
+        // those frames handed every icon a new target and restarted its
+        // spring. That is what made opening the bar look like the icons were
+        // shivering. Fading keeps the layout change atomic: one reflow, one
+        // spring per icon.
+        // The exit releases the slot at once instead of fading. AnimatedVisibility
+        // holds a child's space for the whole exit, so a fade here meant the
+        // strip swapped for the toolbar immediately, the chevron then sat
+        // fading in a 36dp gap, and only 140ms later did that gap close and
+        // shove everything sideways a second time. Two layout jumps around one
+        // decision is the jitter. One jump, and the icons spring into it.
+        //
+        // Tied to the strip being up, not to there being suggestions. Those
+        // are not the same instant: the strip stays for a beat after the last
+        // suggestion goes (see emptySettled), and keying on suggestions alone
+        // pulled the chevron out at the front of that beat. Its 36dp then
+        // vanished from the middle of a strip that was still on screen, so
+        // everything left of it — the emoji icon included — slid across
+        // before the handoff to the toolbar had even begun, and the icon
+        // started its slide from a position it had already been shoved out of.
+        // Now the chevron leaves on the same frame the toolbar arrives.
+        AnimatedVisibility(
+            visible = state.panel == PanelMode.NONE &&
+                (hasSuggestions || suggestionsFirst || !showToolbar),
+            enter = fadeIn(tween(motionMs)),
+            exit = ExitTransition.None,
+        ) {
             IconButton(
                 onClick = {
                     feedback()
@@ -1145,9 +1232,10 @@ private fun TopBar(
                 modifier = Modifier.size(36.dp),
             ) {
                 Icon(
-                    if (showToolbar) Icons.Outlined.ChevronLeft else Icons.Outlined.ChevronRight,
+                    Icons.Outlined.ChevronRight,
                     contentDescription = if (showToolbar) "Show suggestions" else "Show toolbar",
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.graphicsLayer { rotationZ = chevronTurn },
                 )
             }
         }
@@ -1174,6 +1262,12 @@ private fun TopBar(
                     icon = toolIcon(ToolbarTool.EMOJI),
                     description = "Emoji",
                     active = false,
+                    // Same icon the toolbar pins: it slides between the two
+                    // spots instead of vanishing here and reappearing there.
+                    modifier = Modifier.animateSharedPlacement(
+                        drag.emojiPlacement,
+                        enabled = !state.settings.reduceMotion,
+                    ) { drag.bodyCoords },
                     longPressLabel = "Emoji",
                 ) { onToolTap(ToolbarTool.EMOJI) }
             }
@@ -1832,6 +1926,12 @@ private class ToolDragController {
     var toolbarBounds: Rect? = null
     /** Keyboard-body coordinates; the anchor for tool placement animations. */
     var bodyCoords: LayoutCoordinates? = null
+    /**
+     * Shared home of the emoji icon. It rides here rather than in [TopBar]
+     * because the strip's copy and the toolbar's pinned copy are different
+     * nodes: the handoff needs a holder that outlives both.
+     */
+    val emojiPlacement = SharedPlacement()
     var currentTools: List<ToolbarTool> = emptyList()
     var onCommit: (List<ToolbarTool>) -> Unit = {}
     /** Haptic tick when the drop target changes: slot to slot, or on/off the bar. */
@@ -2072,12 +2172,30 @@ private fun DraggableTool(
  * its on-screen position shifts a lot. Anchoring at the body captures the
  * whole motion in one spring, so nothing snaps at animation start. Falls
  * back to parent-relative when no anchor is available.
+ *
+ * [enabled] is the reduce-motion switch. It has to snap rather than skip the
+ * modifier: opening a panel adds the back chevron, which shifts every pinned
+ * icon, so a disabled slide still needs to track the new position or the
+ * icons would sit at their old offsets.
  */
-private fun Modifier.animatePlacement(anchor: () -> LayoutCoordinates? = { null }): Modifier =
+private fun Modifier.animatePlacement(
+    enabled: Boolean = true,
+    anchor: () -> LayoutCoordinates? = { null },
+): Modifier =
     composed {
         val scope = rememberCoroutineScope()
-        var targetOffset by remember { mutableStateOf(IntOffset.Zero) }
-        var animatable by remember { mutableStateOf<Animatable<IntOffset, AnimationVector2D>?>(null) }
+        val animatable = remember { Animatable(IntOffset.Zero, IntOffset.VectorConverter) }
+        // The displacement drawn right now, set synchronously from onPlaced.
+        // Everything below hangs on this: onPlaced runs in the layout phase,
+        // by which point a layout-phase offset for this frame has already
+        // been decided, and the coroutine that starts the spring does not run
+        // until the next one. So the icon was drawn once at its destination,
+        // then jumped back to where it came from and slid in — a one-frame
+        // flash on every icon, every time the bar changed. Draw runs after
+        // layout in the same frame, so a draw-phase displacement written here
+        // lands before the icon is ever painted undisplaced.
+        var immediate by remember { mutableStateOf<IntOffset?>(null) }
+        var lastTarget by remember { mutableStateOf<IntOffset?>(null) }
         this
             .onPlaced { coords ->
                 val anchorCoords = anchor()?.takeIf { it.isAttached }
@@ -2085,35 +2203,39 @@ private fun Modifier.animatePlacement(anchor: () -> LayoutCoordinates? = { null 
                     anchorCoords?.localPositionOf(coords, Offset.Zero)
                         ?: coords.positionInParent()
                     ).round()
-                targetOffset = target
-                val anim = animatable
-                if (anim == null) {
-                    // First placement: settle in place immediately. Creating
-                    // the animatable at zero instead would make every fresh
-                    // icon "arrive" from the anchor's origin.
-                    animatable = Animatable(target, IntOffset.VectorConverter)
-                } else if (anim.targetValue != target) {
-                    // Reorders travel an icon-or-two; anything bigger is a
-                    // layout jump (scroll, panel resize) and animating it
-                    // reads as lag, so snap instead.
-                    val jump = (target - anim.targetValue).toOffset().getDistance()
-                    scope.launch {
-                        if (jump > 160f) {
-                            anim.snapTo(target)
-                        } else {
-                            anim.animateTo(
-                                target,
-                                spring(
-                                    stiffness = Spring.StiffnessMediumLow,
-                                    visibilityThreshold = IntOffset(1, 1),
-                                ),
-                            )
-                        }
-                    }
+                val previous = lastTarget
+                lastTarget = target
+                // First placement settles in place: a fresh icon has nowhere
+                // to have travelled from.
+                if (previous == null || previous == target) return@onPlaced
+                val delta = previous - target
+                val jump = delta.toOffset().getDistance()
+                // Deadband, and the big-jump escape. The toolbar's cells are
+                // weighted, so their widths land on fractions that round
+                // differently between passes; nothing travels a single pixel
+                // on purpose here, so a move that small is rounding, not
+                // motion. Anything over an icon-or-two is a layout jump
+                // (scroll, panel resize) and animating it reads as lag.
+                if (!enabled || jump < 2f || jump > 160f) {
+                    immediate = null
+                    scope.launch { animatable.snapTo(IntOffset.Zero) }
+                    return@onPlaced
+                }
+                // Carry any displacement still in flight, so a change that
+                // lands mid-slide continues from where the icon actually is
+                // rather than restarting from the new delta alone.
+                val start = delta + (immediate ?: animatable.value)
+                immediate = start
+                scope.launch {
+                    animatable.snapTo(start)
+                    immediate = null
+                    animatable.animateTo(IntOffset.Zero, ToolbarSlideSpring)
                 }
             }
-            .offset {
-                animatable?.let { it.value - targetOffset } ?: IntOffset.Zero
+            .graphicsLayer {
+                val shift = immediate ?: animatable.value
+                translationX = shift.x.toFloat()
+                translationY = shift.y.toFloat()
             }
     }
 
@@ -2129,7 +2251,30 @@ private fun Modifier.animatePlacement(anchor: () -> LayoutCoordinates? = { null 
  */
 private class SharedPlacement {
     var last: IntOffset? = null
+
+    /**
+     * When the node holding [last] was disposed, or 0 while one still holds it.
+     *
+     * This is what separates a handoff from a reappearance. A handoff is one
+     * node being disposed and another composed inside a single frame, so the
+     * arriving node finds a stamp a frame or two old. A reappearance — the
+     * icon's whole host went away, because a full-bleed panel takes the top
+     * bar with it, and came back seconds later — finds a stale one, and
+     * sliding in from a position that old is a phantom: the icon flies in
+     * from wherever it happened to sit before the panel opened.
+     *
+     * It has to be dispose time, not the time [last] was written. Writing it
+     * on placement looks equivalent and is not: a node is only re-placed when
+     * layout invalidates, so the strip's emoji icon stamps once when it
+     * appears and then sits untouched for as long as the user types. Every
+     * real handoff then read as ancient and refused to animate, which is
+     * exactly the icon snapping into place instead of sliding.
+     */
+    var vacatedAtNanos: Long = 0L
 }
+
+/** Two frames at 60Hz, the window a real strip/toolbar handoff lands in. */
+private const val SharedPlacementMaxAgeNanos = 33_000_000L
 
 /**
  * Slides this element in from wherever [shared] was last seen, then keeps
@@ -2146,6 +2291,14 @@ private fun Modifier.animateSharedPlacement(
         val scope = rememberCoroutineScope()
         val offset = remember { Animatable(IntOffset.Zero, IntOffset.VectorConverter) }
         var placed by remember { mutableStateOf<IntOffset?>(null) }
+        var immediate by remember { mutableStateOf<IntOffset?>(null) }
+        // Stamp the moment this node leaves, so whichever node replaces it can
+        // tell a handoff from a reappearance. onDispose runs while changes are
+        // applied, ahead of the layout pass that places the arriving node, so
+        // the stamp is always there in time.
+        DisposableEffect(shared) {
+            onDispose { shared.vacatedAtNanos = System.nanoTime() }
+        }
         this
             .onPlaced { coords ->
                 val anchorCoords = anchor()?.takeIf { it.isAttached }
@@ -2155,27 +2308,39 @@ private fun Modifier.animateSharedPlacement(
                     ).round()
                 if (placed == position) return@onPlaced
                 val previous = shared.last
+                val vacatedAt = shared.vacatedAtNanos
+                val first = placed == null
                 placed = position
                 shared.last = position
+                // Claim the slot: while this node lives there is no vacancy.
+                shared.vacatedAtNanos = 0L
                 if (!enabled || previous == null) return@onPlaced
+                // Only the arriving half of a handoff slides. A node that is
+                // merely being re-placed (the row resized under it) has no
+                // vacancy to answer, and the predecessor must have left within
+                // the last frame or two — see [SharedPlacement.vacatedAtNanos].
+                if (!first || vacatedAt == 0L) return@onPlaced
+                if (System.nanoTime() - vacatedAt > SharedPlacementMaxAgeNanos) return@onPlaced
                 val delta = previous - position
-                // Same spot, or a jump big enough to be a layout change
-                // rather than the icon moving (panel resize, orientation):
-                // animating those reads as lag, so let them snap.
-                val distance = delta.toOffset().getDistance()
-                if (distance < 1f || distance > 600f) return@onPlaced
+                // The strip-to-toolbar handoff is a slide along one row, so
+                // it can be arbitrarily wide but never changes height. A
+                // vertical move means the rows themselves shifted (a panel
+                // opened, the emoji row appeared): animating that reads as
+                // lag, so let it snap.
+                if (delta.x == 0 || kotlin.math.abs(delta.y) > 4) return@onPlaced
+                // Drawn this frame, not next; see the note in animatePlacement.
+                immediate = delta
                 scope.launch {
                     offset.snapTo(delta)
-                    offset.animateTo(
-                        IntOffset.Zero,
-                        spring(
-                            stiffness = Spring.StiffnessMediumLow,
-                            visibilityThreshold = IntOffset(1, 1),
-                        ),
-                    )
+                    immediate = null
+                    offset.animateTo(IntOffset.Zero, ToolbarSlideSpring)
                 }
             }
-            .offset { offset.value }
+            .graphicsLayer {
+                val shift = immediate ?: offset.value
+                translationX = shift.x.toFloat()
+                translationY = shift.y.toFloat()
+            }
     }
 
 /**
@@ -2301,8 +2466,12 @@ private fun RowScope.ToolbarRow(
 ) {
     val customizing = state.panel == PanelMode.TOOLBOX
     val greedy = state.settings.toolbarGreedy
-    val enterMs = if (state.settings.reduceMotion) 0 else 140
-    val exitMs = if (state.settings.reduceMotion) 0 else 120
+    val motion = !state.settings.reduceMotion
+    // Enter and exit share one duration so the back chevron takes the same
+    // time to leave as it took to arrive; a shorter exit made closing a panel
+    // finish ahead of the icons still sliding back into the freed slot.
+    val enterMs = if (motion) ToolbarMotionMs else 0
+    val exitMs = enterMs
     val tools = state.settings.toolbarTools.filter { it in state.settings.enabledTools && isSupportedTool(it) }
     // While a drag is live the bar previews the drop: the dragged tool's
     // cell leaves the row and a null entry (the ghost) occupies the slot
@@ -2346,18 +2515,28 @@ private fun RowScope.ToolbarRow(
                 // Reduce motion collapses the durations to zero rather than
                 // dropping AnimatedVisibility: the transition state still has
                 // to run its lifecycle or the weighted cell never releases.
+                // Both branches animate paint only, never measured size. The
+                // greedy one already did (its slot is weighted, so the chevron
+                // scales inside a cell that appears at full width); the other
+                // used to expand/shrink its width, which re-measured the row
+                // on every frame and made the pinned icons chase a target that
+                // moved under them for the whole transition. See the matching
+                // note on the suggestions chevron in TopBar.
                 enter = if (greedy) {
                     // The weighted slot can't grow, so the chevron itself
                     // scales and fades into it.
                     scaleIn(tween(enterMs)) + fadeIn(tween(enterMs))
                 } else {
-                    expandHorizontally(tween(enterMs)) + fadeIn(tween(enterMs))
+                    fadeIn(tween(enterMs))
                 },
-                exit = if (greedy) {
-                    scaleOut(tween(exitMs)) + fadeOut(tween(exitMs))
-                } else {
-                    shrinkHorizontally(tween(enterMs)) + fadeOut(tween(enterMs))
-                },
+                // Instant, for the same reason as the suggestions chevron: an
+                // exit transition holds this cell's width (its whole weighted
+                // slot, in greedy mode) until it finishes, so closing a tool
+                // played the chevron out, paused, and only then let the icons
+                // move — which is why closing felt broken while opening, where
+                // the slot is claimed on the first frame, felt fine. Dropping
+                // it at once makes the icons' spring the closing animation.
+                exit = ExitTransition.None,
             ) {
                 Box(
                     if (greedy) Modifier.fillMaxSize() else cell,
@@ -2377,7 +2556,7 @@ private fun RowScope.ToolbarRow(
                 icon = Icons.Outlined.GridView,
                 description = "Toolbox",
                 active = customizing,
-                modifier = Modifier.animatePlacement { drag.bodyCoords },
+                modifier = Modifier.animatePlacement(enabled = motion) { drag.bodyCoords },
                 longPressLabel = "Toolbox",
             ) { onPanelChange(PanelMode.TOOLBOX) }
         }
@@ -2398,7 +2577,7 @@ private fun RowScope.ToolbarRow(
                         // ghost entry exists.
                         GhostToolCircle(
                             dragTool ?: return@Box,
-                            modifier = Modifier.animatePlacement { drag.bodyCoords },
+                            modifier = Modifier.animatePlacement(enabled = motion) { drag.bodyCoords },
                         )
                     } else {
                         // Drag is always live: hold-and-drag reorders the bar
@@ -2422,8 +2601,21 @@ private fun RowScope.ToolbarRow(
                                 // the tool being dragged the cell holds its
                                 // place but shows nothing — the floating icon
                                 // under the finger is the one to look at.
+                                // The emoji tool also exists on the
+                                // suggestion strip, so it hands its position
+                                // across that swap instead of tracking only
+                                // its own node.
                                 modifier = dragModifier
-                                    .animatePlacement { drag.bodyCoords }
+                                    .then(
+                                        if (tool == ToolbarTool.EMOJI) {
+                                            Modifier.animateSharedPlacement(
+                                                drag.emojiPlacement,
+                                                enabled = motion,
+                                            ) { drag.bodyCoords }
+                                        } else {
+                                            Modifier.animatePlacement(enabled = motion) { drag.bodyCoords }
+                                        },
+                                    )
                                     .alpha(if (tool == dragTool) 0f else 1f),
                                 interactive = false,
                             ) {}
@@ -2490,6 +2682,7 @@ private fun RowScope.ToolbarRow(
  * it up onto the toolbar to pin it, or around the grid to reorder. Toolbar
  * tools drag down here to unpin — at the spot they're dropped.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ToolboxPanel(
     state: KeyboardUiState,
@@ -2570,20 +2763,32 @@ private fun ToolboxPanel(
         drag.toolboxTools = available
         drag.toolboxOrder = state.settings.toolboxOrder
         drag.toolboxColumns = columns
-        // Drop preview, mirroring the toolbar's: the dragged tool leaves
-        // the grid and a null entry marks the slot it would land in.
-        // As in the toolbar: the dragged tool's cell stays composed (invisible)
-        // so the pointer handler running the drag survives the reflow.
+        // Drop preview: the dragged tool LEAVES the list and a ghost marks the
+        // slot it would land in. That is one hole, not two, and — the reason
+        // it has to be done this way — it is a removal plus an insertion.
+        //
+        // A permutation does not work here. Keeping the tool in the list and
+        // moving it to the target slot reads identically in the composition,
+        // but Compose moves the composition groups without re-placing the
+        // laid-out children, so the grid never reflowed: verified on device,
+        // where a whole drag produced exactly one layout pass and every cell
+        // kept its original x. The old code only appeared to shuffle because
+        // inserting a ghost was a structural change.
+        //
+        // Removing the tool means its cell is disposed mid-gesture, which is
+        // why the drag is no longer hosted there — see the pointerInput on the
+        // grid below. The cells are pure visuals now.
         val dragTool = drag.dragging
         val boxSlot = drag.boxSlot
-        val display: List<ToolbarTool?> = ArrayList<ToolbarTool?>(available).apply {
-            if (dragTool == null || boxSlot == null) return@apply
-            val source = available.indexOf(dragTool)
-            val at = boxSlot.coerceIn(0, (available - dragTool).size)
-            // See ToolbarRow: no ghost on the tool's own slot, so picking one
-            // up never nudges the cell out from under the finger.
-            if (at == source) return@apply
-            add(if (source >= 0 && at > source) at + 1 else at, null)
+        val display: List<ToolbarTool?> = if (dragTool != null && boxSlot != null) {
+            // `available - dragTool` is a no-op when the drag came from the
+            // toolbar, so both origins land on one ghost and one hole.
+            val without = available - dragTool
+            ArrayList<ToolbarTool?>(without).apply {
+                add(boxSlot.coerceIn(0, without.size), null)
+            }
+        } else {
+            available
         }
         if (display.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -2601,97 +2806,166 @@ private fun ToolboxPanel(
         // per frame (a coroutine-and-relayout storm that tanked scroll fps).
         // Relative to the content, scrolling is a no-op for the animation.
         var gridCoords by remember { mutableStateOf<LayoutCoordinates?>(null) }
-        Column(
+        var gridOrigin by remember { mutableStateOf(Offset.Zero) }
+        val feedback = LocalKeyPressFeedback.current
+        val scope = rememberCoroutineScope()
+        val tapTool by rememberUpdatedState(onToolTap)
+        // Read through holders, and key the handler on nothing. `available` is
+        // a fresh list on every recomposition and the drop preview recomposes
+        // this panel on every frame of a drag, so keying pointerInput on it
+        // would tear down and restart the very gesture it is running — the
+        // same trap the per-cell handler documented.
+        val toolsNow by rememberUpdatedState(available)
+        val columnsNow by rememberUpdatedState(columns)
+        // One FlowRow, so a part-full last line still lines up with the ones
+        // above it, and one gesture handler for the whole grid rather than one
+        // per cell. Hoisting it is what lets a cell be disposed mid-drag: the
+        // handler outlives any cell, so the dragged tool can leave the list
+        // and the rest can close up behind it.
+        FlowRow(
             modifier = Modifier
                 .verticalScroll(rememberScrollState())
                 .onGloballyPositioned {
                     gridCoords = it
+                    gridOrigin = it.positionInRoot()
                     drag.toolboxContentCoords = it
-                },
-        ) {
-            for (rowTools in display.chunked(columns)) {
-                Row(modifier = Modifier.fillMaxWidth()) {
-                    for (tool in rowTools) {
-                        key(tool ?: "box-ghost") {
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    // Every cell is the same size; whichever
-                                    // reported last feeds the slot math.
-                                    .onGloballyPositioned { drag.toolboxCellSize = it.size.toSize() },
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                if (tool == null) {
-                                    // The drop preview; dragTool is never
-                                    // null when a ghost entry exists.
-                                    val ghostOf = dragTool ?: return@Box
-                                    Column(
-                                        modifier = Modifier
-                                            .animatePlacement { gridCoords }
-                                            .padding(vertical = 10.dp),
-                                        horizontalAlignment = Alignment.CenterHorizontally,
-                                    ) {
-                                        GhostToolCircle(ghostOf)
-                                        Text(
-                                            toolLabel(ghostOf),
-                                            fontSize = 11.sp,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                                .copy(alpha = 0.5f),
-                                            textAlign = TextAlign.Center,
-                                            modifier = Modifier
-                                                .padding(top = 4.dp, start = 2.dp, end = 2.dp)
-                                                .fillMaxWidth(),
-                                        )
+                }
+                .pointerInput(Unit) {
+                    val dragSlop = ToolDragSlop.toPx()
+                    awaitEachGesture {
+                        val down = awaitFirstDown(requireUnconsumed = false)
+                        // Which tool was grabbed is resolved once, from where
+                        // the finger landed. The grid is uniform, so this is
+                        // the same arithmetic the drop target uses. Nothing has
+                        // moved yet at this point: a drag is not live, so the
+                        // list on screen is still the plain one.
+                        val cell = drag.toolboxCellSize
+                        if (cell.width <= 0f || cell.height <= 0f) return@awaitEachGesture
+                        val cols = columnsNow
+                        val col = (down.position.x / cell.width).toInt()
+                        val row = (down.position.y / cell.height).toInt()
+                        val tool = toolsNow
+                            .getOrNull(row * cols + col)
+                            ?.takeIf { col in 0 until cols && down.position.x >= 0f }
+                            ?: return@awaitEachGesture
+                        // Root coordinates throughout: the grid reflows around
+                        // the drop preview while the finger is down, and a
+                        // node that moves under a still finger reports deltas
+                        // of its own.
+                        val downRoot = gridOrigin + down.position
+                        var rootPos = downRoot
+                        var longPressed = false
+                        var dragged = false
+                        var released = false
+                        var scrolled = false
+                        val timer = scope.launch {
+                            delay(viewConfiguration.longPressTimeoutMillis)
+                            feedback()
+                            longPressed = true
+                            drag.start(tool, false, rootPos)
+                        }
+                        try {
+                            while (true) {
+                                val event = awaitPointerEvent()
+                                val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                                if (!change.pressed) {
+                                    released = true
+                                    if (longPressed) change.consume()
+                                    break
+                                }
+                                rootPos = gridOrigin + change.position
+                                val travel = (rootPos - downRoot).getDistance()
+                                if (!longPressed) {
+                                    // Drift before the hold registers is a
+                                    // scroll — hand the gesture back.
+                                    if (travel > viewConfiguration.touchSlop) {
+                                        scrolled = true
+                                        break
                                     }
                                 } else {
-                                    DraggableTool(
-                                        tool,
-                                        fromToolbar = false,
-                                        enabled = true,
-                                        drag = drag,
-                                        onTap = { onToolTap(tool) },
-                                    ) { dragModifier ->
-                                        // Anchored at the scrolling content (see
-                                        // gridCoords above), NOT the keyboard body:
-                                        // body-relative, every scroll frame moved
-                                        // every icon and restarted its spring — a
-                                        // per-frame coroutine storm that tanked
-                                        // scroll fps. Content-relative, scrolling
-                                        // is a no-op; (un)pin reorders still slide.
-                                        Column(
-                                            modifier = dragModifier
-                                                .animatePlacement { gridCoords }
-                                                .alpha(if (tool == dragTool) 0f else 1f)
-                                                .padding(vertical = 10.dp),
-                                            horizontalAlignment = Alignment.CenterHorizontally,
-                                        ) {
-                                            ToolCircle(
-                                                icon = toolIcon(tool),
-                                                description = toolLabel(tool),
-                                                active = toolActive(tool, state),
-                                                interactive = false,
-                                            ) {}
-                                            Text(
-                                                toolLabel(tool),
-                                                fontSize = 11.sp,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                textAlign = TextAlign.Center,
-                                                modifier = Modifier
-                                                    .padding(top = 4.dp, start = 2.dp, end = 2.dp)
-                                                    .fillMaxWidth(),
-                                            )
-                                        }
-                                    }
+                                    change.consume()
+                                    if (travel > dragSlop) dragged = true
+                                    drag.move(rootPos)
+                                }
+                            }
+                        } finally {
+                            timer.cancel()
+                            when {
+                                !longPressed -> {
+                                    drag.cancel()
+                                    if (released && !scrolled) tapTool(tool)
+                                }
+                                dragged -> drag.end()
+                                // A hold that never travelled past the slop is
+                                // a distinct gesture: open the tool's settings.
+                                else -> {
+                                    drag.cancel()
+                                    drag.onOpenSettings(tool)
                                 }
                             }
                         }
                     }
-                    repeat(columns - rowTools.size) { Spacer(modifier = Modifier.weight(1f)) }
+                },
+            maxItemsInEachRow = columns,
+        ) {
+            for (tool in display) {
+                key(tool ?: "box-ghost") {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(1f / columns)
+                            // Every cell is the same size; whichever
+                            // reported last feeds the slot math.
+                            .onGloballyPositioned { drag.toolboxCellSize = it.size.toSize() },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        // Pure visuals — the grid's own pointerInput owns the
+                        // gesture, so nothing here has to survive the dragged
+                        // tool leaving the list.
+                        //
+                        // Anchored at the scrolling content (see gridCoords),
+                        // NOT the keyboard body: body-relative, every scroll
+                        // frame moved every icon and restarted its spring — a
+                        // per-frame coroutine storm that tanked scroll fps.
+                        // Content-relative, scrolling is a no-op; reorders
+                        // still slide.
+                        val ghost = tool == null
+                        // dragTool is never null when a ghost entry exists.
+                        val shown = tool ?: dragTool ?: return@Box
+                        Column(
+                            modifier = Modifier
+                                .animatePlacement(
+                                    enabled = !state.settings.reduceMotion,
+                                ) { gridCoords }
+                                .padding(vertical = 10.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                        ) {
+                            if (ghost) {
+                                GhostToolCircle(shown)
+                            } else {
+                                ToolCircle(
+                                    icon = toolIcon(shown),
+                                    description = toolLabel(shown),
+                                    active = toolActive(shown, state),
+                                    interactive = false,
+                                ) {}
+                            }
+                            Text(
+                                toolLabel(shown),
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    .copy(alpha = if (ghost) 0.5f else 1f),
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier
+                                    .padding(top = 4.dp, start = 2.dp, end = 2.dp)
+                                    .fillMaxWidth(),
+                            )
+                        }
+                    }
                 }
+            }
             }
         }
     }
-}
 
 /**
  * Panels that take over the whole keyboard: the toolbar (plus any emoji or
@@ -2957,7 +3231,15 @@ private fun KeyboardBody(
                     }
                 }
             }
-            when (state.panel) {
+            // Deliberately NOT animated. A fade here was tried and reverted:
+            // an alpha on this subtree covers the key rows as well as the
+            // panels, so every panel close briefly rendered a translucent
+            // keyboard with the app's own text field showing through it, and
+            // the alpha had to be applied a frame after the new content was
+            // already on screen, which flashed it at full strength first.
+            // Animating the swap needs the panels to be layered rather than
+            // exchanged; until then the cut is the honest option.
+        when (state.panel) {
                 PanelMode.EMOJI -> EmojiPanel(
                     state, onEmoji, onEmojiVariant, onEmojiFavourite, onEmojiQueryTap, onEmojiRecentsClear,
                     onRecentRemove = onEmojiRecentRemove,
@@ -2967,7 +3249,10 @@ private fun KeyboardBody(
                     onClose = { onPanelChange(PanelMode.EMOJI) },
                 )
                 PanelMode.CLIPBOARD -> ClipboardPanel(state, onClipboardItem, onClipboardPin, onClipboardDelete)
-                PanelMode.SNIPPETS -> SnippetsPanel(state, onSnippet)
+                PanelMode.SNIPPETS -> SnippetsPanel(
+                    state, onSnippet,
+                    onOpenSettings = { onOpenToolSettings(ToolbarTool.SNIPPETS) },
+                )
                 PanelMode.TEXT_EDIT -> TextEditPanel(state, onTextEdit)
                 PanelMode.TOOLBOX -> ToolboxPanel(state, onToolTap, onToolboxHintDismiss, drag)
                 // Regular panels (toolbar stays visible): the sensors read
@@ -5064,12 +5349,19 @@ private fun EmojiPanel(
         }
 
         if (state.emojiQuery.isNotEmpty()) {
+            // Memoized, and distinct so it is safe to key by: mapping inline
+            // in the items() call rebuilt the list on every recomposition,
+            // and every emoji tap emits fresh state, so the whole result grid
+            // was thrown away and rebuilt on each keystroke.
+            val results = remember(state.emojiResults) {
+                state.emojiResults.map { it.emoji }.distinct()
+            }
             LazyVerticalGrid(
                 columns = GridCells.Adaptive(minSize = 44.dp),
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(8.dp),
             ) {
-                items(state.emojiResults.map { it.emoji }) { emoji ->
+                items(results, key = { it }) { emoji ->
                     EmojiCell(
                         base = emoji,
                         display = state.emojiVariantPrefs[emoji] ?: emoji,
@@ -5122,7 +5414,12 @@ private fun EmojiPanel(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(8.dp),
             ) {
-                items(history) { emoji ->
+                // Keyed by emoji: this list reorders on every tap (the tapped
+                // emoji jumps to the front), so on a positional key a cell's
+                // open popup stayed behind with the slot and reappeared over
+                // a different emoji. EmojiUsage.pinned() is distinct(), so
+                // the key is unique.
+                items(history, key = { it }) { emoji ->
                     // History cells are exact sequences: no variant pref to
                     // remember, taps in the popup commit directly.
                     EmojiCell(
@@ -5143,21 +5440,34 @@ private fun EmojiPanel(
                     .filter { it.category == selectedTab && it.parent == null }
                     .map { it.emoji }
             }
-            LazyVerticalGrid(
-                columns = GridCells.Adaptive(minSize = 44.dp),
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(8.dp),
-            ) {
-                items(emojis) { emoji ->
-                    EmojiCell(
-                        base = emoji,
-                        display = state.emojiVariantPrefs[emoji] ?: emoji,
-                        state = state,
-                        genderVariants = variantChildren[emoji].orEmpty(),
-                        onTap = onEmoji,
-                        onPick = { variant -> onEmojiVariant(emoji, variant) },
-                        onFavourite = onEmojiFavourite,
-                    )
+            // Keyed on the tab so each category gets its own grid, and with
+            // it its own scroll position. One shared grid kept the offset
+            // across tab taps: scrolling deep into people (the largest
+            // category by far) and then tapping a small one opened it
+            // already scrolled past its first rows, or clamped to the
+            // bottom — it looked like the tab had failed to switch.
+            key(selectedTab) {
+                LazyVerticalGrid(
+                    columns = GridCells.Adaptive(minSize = 44.dp),
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(8.dp),
+                ) {
+                    // Keyed by emoji, not by slot: a cell owns the open state
+                    // of its long-press popup, and on a positional key that
+                    // state stays with the slot while the list under it
+                    // changes — the popup jumped to whatever emoji landed in
+                    // that position.
+                    items(emojis, key = { it }) { emoji ->
+                        EmojiCell(
+                            base = emoji,
+                            display = state.emojiVariantPrefs[emoji] ?: emoji,
+                            state = state,
+                            genderVariants = variantChildren[emoji].orEmpty(),
+                            onTap = onEmoji,
+                            onPick = { variant -> onEmojiVariant(emoji, variant) },
+                            onFavourite = onEmojiFavourite,
+                        )
+                    }
                 }
             }
         }
@@ -5408,7 +5718,11 @@ private fun EmojiVariantPopup(
                 }
                 // Favourite pins this emoji to the top of the history tab
                 // and the favourites row.
-                var starred by remember(display) { mutableStateOf(favourite) }
+                // Re-seeded when the real flag changes, not only when the
+                // emoji does: keyed on display alone the local mirror went
+                // stale the moment the store echoed back, so reopening the
+                // popup could show an unstarred emoji as favourited.
+                var starred by remember(display, favourite) { mutableStateOf(favourite) }
                 Row(
                     modifier = Modifier
                         .clickable {
@@ -5582,53 +5896,92 @@ private fun DualTonePicker(
 // ---- snippets panel ----
 
 @Composable
-private fun SnippetsPanel(state: KeyboardUiState, onSnippet: (Snippet) -> Unit) {
+private fun SnippetsPanel(
+    state: KeyboardUiState,
+    onSnippet: (Snippet) -> Unit,
+    onOpenSettings: () -> Unit,
+) {
     val height = keyRowsHeight(state.settings)
-    if (state.snippets.isEmpty()) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(height),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(
-                "No snippets yet.\nAdd them in Settings → Tools → Snippets.\nVariables: {date} {time} {datetime} {clip}",
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        return
-    }
-    LazyVerticalGrid(
-        columns = GridCells.Fixed(2),
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .height(height),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(8.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        items(state.snippets, key = { it.id }) { snippet ->
+        if (state.snippets.isEmpty()) {
             Column(
-                modifier = Modifier
-                    .background(MaterialTheme.colorScheme.surfaceContainer, RoundedCornerShape(12.dp))
-                    .clickable { onSnippet(snippet) }
-                    .padding(10.dp),
+                modifier = Modifier.fillMaxSize(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
             ) {
                 Text(
-                    text = snippet.label,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    color = MaterialTheme.colorScheme.primary,
+                    "No snippets yet.\nVariables: {date} {time} {datetime} {clip}",
+                    textAlign = TextAlign.Center,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                Text(
-                    text = snippet.text,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
+                Spacer(Modifier.height(10.dp))
+                ToolPanelChip("Snippet settings", selected = true, onClick = onOpenSettings)
+            }
+            return@Column
+        }
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 20.dp, end = 8.dp, top = 4.dp, bottom = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                "Variables: {date} {time} {datetime} {clip}",
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.weight(1f),
+            )
+            ToolCircle(
+                icon = Icons.Outlined.Settings,
+                description = "Snippet settings",
+                active = false,
+                onClick = onOpenSettings,
+            )
+        }
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(2),
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            items(state.snippets, key = { it.id }) { snippet ->
+                Column(
+                    modifier = Modifier
+                        .animateItem(
+                            fadeInSpec = tween(160),
+                            placementSpec = spring(
+                                stiffness = Spring.StiffnessMediumLow,
+                                visibilityThreshold = IntOffset.VisibilityThreshold,
+                            ),
+                            fadeOutSpec = tween(140),
+                        )
+                        .background(MaterialTheme.colorScheme.surfaceContainer, RoundedCornerShape(12.dp))
+                        .clickable { onSnippet(snippet) }
+                        .padding(10.dp),
+                ) {
+                    Text(
+                        text = snippet.label,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                    Text(
+                        text = snippet.text,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                }
             }
         }
     }
@@ -5668,7 +6021,20 @@ private fun ClipboardPanel(
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         items(state.clipboardItems, key = { it.id }) { item ->
-            SwipeToDeleteCard(onDelete = { onClipboardDelete(item) }) {
+            // Deleting fades the card out and slides the survivors up into the
+            // gap; pinning re-sorts the list, so the card glides to the front
+            // instead of teleporting there.
+            SwipeToDeleteCard(
+                onDelete = { onClipboardDelete(item) },
+                modifier = Modifier.animateItem(
+                    fadeInSpec = tween(160),
+                    placementSpec = spring(
+                        stiffness = Spring.StiffnessMediumLow,
+                        visibilityThreshold = IntOffset.VisibilityThreshold,
+                    ),
+                    fadeOutSpec = tween(140),
+                ),
+            ) {
                 Column(
                     modifier = Modifier
                         .background(MaterialTheme.colorScheme.surfaceContainer, RoundedCornerShape(12.dp))
@@ -5754,13 +6120,14 @@ private fun ClipActionCircle(
 @Composable
 private fun SwipeToDeleteCard(
     onDelete: () -> Unit,
+    modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
     val offset = remember { Animatable(0f) }
     val scope = rememberCoroutineScope()
     var width by remember { mutableStateOf(0) }
     Box(
-        modifier = Modifier
+        modifier = modifier
             .onGloballyPositioned { width = it.size.width }
             .graphicsLayer {
                 translationX = offset.value

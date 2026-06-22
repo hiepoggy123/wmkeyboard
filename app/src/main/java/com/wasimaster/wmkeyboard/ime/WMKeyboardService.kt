@@ -1346,7 +1346,12 @@ class WMKeyboardService : InputMethodService() {
                 val before = ic.getTextBeforeCursor(word.length, 0)?.toString()
                 if (before == word) {
                     ic.deleteSurroundingText(word.length, 0)
-                    _uiState.update { it.copy(suggestions = emptyList()) }
+                    // Both lists: the bar is up while either has content, so
+                    // clearing only the words left a stale emoji row holding
+                    // it open.
+                    _uiState.update {
+                        it.copy(suggestions = emptyList(), emojiSuggestions = emptyList())
+                    }
                     return
                 }
             }
@@ -1396,6 +1401,37 @@ class WMKeyboardService : InputMethodService() {
                 else -> 1
             }
             ic.deleteSurroundingText(deleteLength, 0)
+            // Backspacing through committed text is the one way the word
+            // behind the cursor changes without passing through learn(), so
+            // the strip used to keep predicting from a word the user had
+            // already erased. In an empty field that left it offering bigrams
+            // for text that was no longer there — and since the bar and its
+            // chevron are shown exactly while the strip has content, neither
+            // would go away. Re-derive the context, then refresh: with no word
+            // behind the cursor the engine returns nothing and the bar folds.
+            syncPreviousWordFromField(ic)
+            refreshSuggestions()
+        }
+    }
+
+    /**
+     * Re-reads the completed word before the cursor and makes it the
+     * prediction context, or clears it when there is none.
+     *
+     * A cursor sitting mid-word has no *completed* previous word, so it
+     * predicts from nothing rather than from the fragment it is inside.
+     */
+    private fun syncPreviousWordFromField(ic: InputConnection) {
+        val before = ic.getTextBeforeCursor(64, 0)
+        previousWord = when {
+            before.isNullOrEmpty() -> null
+            // Still inside a word: the fragment is not a bigram context.
+            before.last().isLetterOrDigit() -> null
+            else -> before.toString()
+                .trim { !it.isLetter() }
+                .takeLastWhile { it.isLetter() }
+                .lowercase()
+                .ifEmpty { null }
         }
     }
 
@@ -1433,8 +1469,15 @@ class WMKeyboardService : InputMethodService() {
             ic.deleteSurroundingText(length, 0)
             lastGestureWord = null
             lastAutocorrect = null
-            previousWord = null
-            _uiState.update { it.copy(suggestions = emptyList()) }
+            // The word that was deleted is gone as context, but whatever now
+            // sits behind the cursor is the real one — nulling it outright
+            // meant a swipe-delete mid-sentence stopped predicting until the
+            // next word was typed.
+            syncPreviousWordFromField(ic)
+            // Both lists; see the gesture-undo path above.
+            _uiState.update {
+                it.copy(suggestions = emptyList(), emojiSuggestions = emptyList())
+            }
         }
     }
 
@@ -1652,8 +1695,36 @@ class WMKeyboardService : InputMethodService() {
         // it earns no personal-dictionary reinforcement, only the bigram.
         learn(output, reinforcement = if (corrected != null) 0 else 1)
         composing = StringBuilder()
-        _uiState.update { it.copy(composingPreview = "", suggestions = emptyList(), emojiSuggestions = emptyList()) }
+        // Refill the strip in the same frame the word commits. Blanking it
+        // and waiting for the async refresh left it empty for a frame or
+        // two after every space, which read as a flicker.
+        val (nextWords, nextEmojis) = nextWordStrip()
+        _uiState.update {
+            it.copy(composingPreview = "", suggestions = nextWords, emojiSuggestions = nextEmojis)
+        }
         return true
+    }
+
+    /**
+     * Next-word predictions for the word just committed, computed inline.
+     *
+     * Only safe because the empty-composing path is a handful of bigram map
+     * lookups — no dictionary completion, no edit-distance search — so it
+     * costs less than the dispatch it replaces. Returns words to emojis,
+     * matching the split [refreshSuggestions] does.
+     */
+    private fun nextWordStrip(): Pair<List<String>, List<String>> {
+        val engine = suggestionEngine
+        val state = _uiState.value
+        if (engine == null || !state.settings.suggestions || state.secureField ||
+            state.fieldNoSuggestions
+        ) {
+            return emptyList<String>() to emptyList()
+        }
+        val (emojis, words) = engine
+            .suggest(composing = "", previousWord = previousWord)
+            .partition { isEmojiCandidate(it) }
+        return words to if (state.settings.emojiPrediction) emojis else emptyList()
     }
 
     /**
