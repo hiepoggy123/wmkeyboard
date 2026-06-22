@@ -309,11 +309,11 @@ import com.wasimaster.wmkeyboard.ime.TypingTestAction
 import com.wasimaster.wmkeyboard.ime.SoundHapticAction
 import com.wasimaster.wmkeyboard.ime.TextEditAction
 import com.wasimaster.wmkeyboard.ime.ShiftState
-import com.wasimaster.wmkeyboard.ime.layout.ClipboardKeyAction
-import com.wasimaster.wmkeyboard.ime.layout.Key
-import com.wasimaster.wmkeyboard.ime.layout.KeyAction
-import com.wasimaster.wmkeyboard.ime.layout.KeyboardLayout
-import com.wasimaster.wmkeyboard.ime.layout.Layouts
+import com.wasimaster.wmkeyboard.core.layout.ClipboardKeyAction
+import com.wasimaster.wmkeyboard.core.layout.Key
+import com.wasimaster.wmkeyboard.core.layout.KeyAction
+import com.wasimaster.wmkeyboard.core.layout.KeyboardLayout
+import com.wasimaster.wmkeyboard.core.layout.Layouts
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay

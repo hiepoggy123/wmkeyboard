@@ -100,8 +100,8 @@ import com.wasimaster.wmkeyboard.core.tools.WeatherClient
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
 import com.wasimaster.wmkeyboard.ime.SoundHapticAction
 import com.wasimaster.wmkeyboard.ime.WeatherUi
-import com.wasimaster.wmkeyboard.ime.layout.Key
-import com.wasimaster.wmkeyboard.ime.layout.KeyAction
+import com.wasimaster.wmkeyboard.core.layout.Key
+import com.wasimaster.wmkeyboard.core.layout.KeyAction
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date

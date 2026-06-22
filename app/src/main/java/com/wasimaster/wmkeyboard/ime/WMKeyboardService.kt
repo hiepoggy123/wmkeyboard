@@ -140,9 +140,9 @@ import com.wasimaster.wmkeyboard.core.voice.VoicePunctuation
 import com.wasimaster.wmkeyboard.core.transliteration.AvroPhonetic
 import com.wasimaster.wmkeyboard.core.transliteration.BengaliGraphemes
 import com.wasimaster.wmkeyboard.core.transliteration.BengaliPhoneticIndex
-import com.wasimaster.wmkeyboard.ime.layout.ClipboardKeyAction
-import com.wasimaster.wmkeyboard.ime.layout.Key
-import com.wasimaster.wmkeyboard.ime.layout.KeyAction
+import com.wasimaster.wmkeyboard.core.layout.ClipboardKeyAction
+import com.wasimaster.wmkeyboard.core.layout.Key
+import com.wasimaster.wmkeyboard.core.layout.KeyAction
 import com.wasimaster.wmkeyboard.ime.ui.KeyboardScreen
 import android.inputmethodservice.InputMethodService
 import java.io.File
@@ -1101,6 +1101,11 @@ class WMKeyboardService : InputMethodService() {
             KeyAction.Letters -> _uiState.update { it.copy(layoutMode = LayoutMode.LETTERS) }
             KeyAction.LanguageSwitch -> switchLanguage()
             KeyAction.Emoji -> onPanelChange(PanelMode.EMOJI)
+            // A deliberate gap in the grid, and a key from a build that knows an
+            // action this one does not. Both swallow the tap: a custom layout is
+            // repaired before it can be enabled, so neither should reach a
+            // keyboard the user is typing on.
+            KeyAction.None, is KeyAction.Unknown -> Unit
         }
     }
 

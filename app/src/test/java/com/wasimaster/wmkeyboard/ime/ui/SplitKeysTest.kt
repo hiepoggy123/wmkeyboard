@@ -1,8 +1,8 @@
 package com.wasimaster.wmkeyboard.ime.ui
 
-import com.wasimaster.wmkeyboard.ime.layout.Key
-import com.wasimaster.wmkeyboard.ime.layout.KeyAction
-import com.wasimaster.wmkeyboard.ime.layout.Layouts
+import com.wasimaster.wmkeyboard.core.layout.Key
+import com.wasimaster.wmkeyboard.core.layout.KeyAction
+import com.wasimaster.wmkeyboard.core.layout.Layouts
 import org.junit.Assert.assertEquals
 import org.junit.Test
 

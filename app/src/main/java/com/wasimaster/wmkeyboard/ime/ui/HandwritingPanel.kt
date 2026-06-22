@@ -59,8 +59,8 @@ import com.wasimaster.wmkeyboard.core.handwriting.HwStroke
 import com.wasimaster.wmkeyboard.core.settings.InputMode
 import com.wasimaster.wmkeyboard.ime.HandwritingStatus
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
-import com.wasimaster.wmkeyboard.ime.layout.Key
-import com.wasimaster.wmkeyboard.ime.layout.KeyAction
+import com.wasimaster.wmkeyboard.core.layout.Key
+import com.wasimaster.wmkeyboard.core.layout.KeyAction
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
