@@ -6,6 +6,8 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -112,15 +114,22 @@ private fun TypingRunView(state: KeyboardUiState, onAction: (TypingTestAction) -
             windowStart = max(0, test.wordIndex - 4)
         }
 
-        val blink by rememberInfiniteTransition(label = "caret").animateFloat(
-            initialValue = 1f,
-            targetValue = 0f,
-            animationSpec = infiniteRepeatable(
-                animation = tween(620, easing = LinearEasing),
-                repeatMode = RepeatMode.Reverse,
-            ),
-            label = "caretAlpha",
-        )
+        // Reduce motion holds the caret solid: no infinite transition is
+        // started at all, rather than one running against a zero duration.
+        val blink = if (kb.reduceMotion) {
+            1f
+        } else {
+            val animated by rememberInfiniteTransition(label = "caret").animateFloat(
+                initialValue = 1f,
+                targetValue = 0f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(620, easing = LinearEasing),
+                    repeatMode = RepeatMode.Reverse,
+                ),
+                label = "caretAlpha",
+            )
+            animated
+        }
 
         Box(modifier = Modifier.weight(1f)) {
             FlowRow(
@@ -306,7 +315,13 @@ private fun InlineStat(label: String, value: String) {
 private fun ProgressBar(progress: Float) {
     val kb = LocalKbTheme.current
     // Animated so the time bar glides instead of stepping with the ticker.
-    val width by animateFloatAsState(progress, label = "typingProgress")
+    // Reduce motion takes the stepping: a progress bar advancing in ticks is
+    // still legible, and the glide is the part that is motion.
+    val width by animateFloatAsState(
+        progress,
+        animationSpec = if (kb.reduceMotion) snap() else spring(),
+        label = "typingProgress",
+    )
     Box(
         modifier = Modifier
             .fillMaxWidth()

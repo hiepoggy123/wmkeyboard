@@ -123,9 +123,16 @@ internal fun SearchQueryText(
 /** The blinking bar itself. [restartKey] resets the phase on each keystroke. */
 @Composable
 private fun SearchCaret(color: Color, fontSize: TextUnit, restartKey: Any?) {
+    // Reduce motion holds it solid. The caret still has to be drawn — it is
+    // the only thing marking where typing lands — so this is a branch on the
+    // loop rather than on an animation spec: with the blink gone there is no
+    // spec left to slow down, and a caret that snapped between visible and
+    // hidden would be the same flicker at a harder edge.
+    val reduceMotion = LocalKbTheme.current.reduceMotion
     var visible by remember { mutableStateOf(true) }
-    LaunchedEffect(restartKey) {
+    LaunchedEffect(restartKey, reduceMotion) {
         visible = true
+        if (reduceMotion) return@LaunchedEffect
         while (true) {
             delay(500)
             visible = !visible

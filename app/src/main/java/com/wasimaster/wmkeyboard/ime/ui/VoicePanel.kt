@@ -1,6 +1,7 @@
 package com.wasimaster.wmkeyboard.ime.ui
 
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -276,9 +277,18 @@ private fun MicContent(
     ) {
         Box(contentAlignment = Alignment.Center) {
             // Pulse ring behind the button, breathing with the mic level.
+            // Reduce motion parks it at a fixed size rather than snapping to
+            // the level: the target is live mic amplitude, so a snap spec
+            // would restate it several times a second and strobe the ring —
+            // more motion than the spring it replaced, not less. Held static
+            // it still marks that the mic is open, which is its real job.
             val ringScale by animateFloatAsState(
-                targetValue = if (listening) 1f + voice.level * 0.45f else 0f,
-                animationSpec = spring(stiffness = 220f),
+                targetValue = when {
+                    !listening -> 0f
+                    kb.reduceMotion -> 1.15f
+                    else -> 1f + voice.level * 0.45f
+                },
+                animationSpec = if (kb.reduceMotion) snap() else spring(stiffness = 220f),
                 label = "voicePulse",
             )
             if (listening) {
@@ -422,9 +432,15 @@ internal fun VoiceStripBar(
             contentAlignment = Alignment.Center,
             modifier = Modifier.padding(start = 6.dp),
         ) {
+            // Static under reduce motion, for the same reason as the panel's
+            // ring above.
             val ringScale by animateFloatAsState(
-                targetValue = if (listening) 1f + voice.level * 0.5f else 0f,
-                animationSpec = spring(stiffness = 220f),
+                targetValue = when {
+                    !listening -> 0f
+                    kb.reduceMotion -> 1.15f
+                    else -> 1f + voice.level * 0.5f
+                },
+                animationSpec = if (kb.reduceMotion) snap() else spring(stiffness = 220f),
                 label = "voiceStripPulse",
             )
             if (listening) {

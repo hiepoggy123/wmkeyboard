@@ -97,6 +97,16 @@ data class KbTheme(
     val toolRadiusDp: Int,
     val animation: ThemeAnimation,
     val animationSpeed: Float,
+    /**
+     * The accessibility setting, carried on the theme rather than threaded
+     * through every composable that animates. It is not a colour, but neither
+     * are the radii or [animation] beside it — this object is already the
+     * "how the keyboard presents itself" bundle, and it is the one thing
+     * every drawing composable can reach through [LocalKbTheme]. The blinking
+     * carets in particular sit four call sites deep in panels that never
+     * otherwise see settings.
+     */
+    val reduceMotion: Boolean,
 )
 
 /** The resolved outline every key draws with. */
@@ -228,6 +238,7 @@ private fun defaultKbTheme(
         toolRadiusDp = settings.toolCircleRadiusDp,
         animation = ThemeAnimation.NONE,
         animationSpeed = 1f,
+        reduceMotion = settings.reduceMotion,
     )
 }
 
@@ -281,6 +292,7 @@ private fun specKbTheme(spec: ThemeSpec, settings: KeyboardSettings): KbTheme {
         toolRadiusDp = spec.toolCircleRadiusDp ?: settings.toolCircleRadiusDp,
         animation = spec.animation,
         animationSpeed = spec.animationSpeed,
+        reduceMotion = settings.reduceMotion,
     )
 }
 
@@ -492,11 +504,14 @@ fun autoKbTheme(settings: KeyboardSettings): KbTheme {
 
 /**
  * The animation clock: 0..1 phase looping while the keyboard is composed.
- * Returns a static 0 for NONE so no infinite transition runs at all.
+ * Returns a static 0 for NONE, and for reduce-motion, so no infinite
+ * transition runs at all — this one loops for as long as the keyboard is on
+ * screen, so leaving it running was the single largest thing the setting
+ * failed to stop.
  */
 @Composable
-fun themeAnimationPhase(animation: ThemeAnimation, speed: Float): Float {
-    if (animation == ThemeAnimation.NONE) return 0f
+fun themeAnimationPhase(animation: ThemeAnimation, speed: Float, reduceMotion: Boolean): Float {
+    if (animation == ThemeAnimation.NONE || reduceMotion) return 0f
     val transition = rememberInfiniteTransition(label = "themeAnim")
     val phase by transition.animateFloat(
         initialValue = 0f,
@@ -545,7 +560,7 @@ fun BoxScope.BoardBackground(kb: KbTheme) {
             contentScale = ContentScale.Crop,
         )
     }
-    val phase = themeAnimationPhase(kb.animation, kb.animationSpeed)
+    val phase = themeAnimationPhase(kb.animation, kb.animationSpeed, kb.reduceMotion)
     val gradient = kb.boardGradient
     if (gradient != null) {
         Box(

@@ -125,11 +125,14 @@ internal fun AccessibilitySettings(
                 "Reduce motion",
                 "Remove non-essential animation",
                 settings.reduceMotion,
-                info = "Turns off the sliding and scaling transitions in the keyboard toolbar " +
-                    "and this settings app, for motion sensitivity.\n\n" +
+                info = "Turns off the sliding and scaling transitions in the keyboard toolbar, " +
+                    "the animated theme backgrounds, blinking cursors and the microphone's " +
+                    "pulse ring, and the transitions in this settings app, for motion " +
+                    "sensitivity.\n\n" +
                     "Feedback that tells you something — the key preview bubble, the pressed-key " +
                     "colour, the gesture trail — is deliberately kept, since removing it would " +
-                    "make the keyboard harder to use, not easier.",
+                    "make the keyboard harder to use, not easier. Cursors and the microphone " +
+                    "ring stay visible; they just hold still.",
             ) { scope.launch { repository.setReduceMotion(it) } }
         }
     }
