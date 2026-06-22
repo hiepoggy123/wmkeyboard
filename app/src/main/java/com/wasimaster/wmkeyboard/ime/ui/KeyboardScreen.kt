@@ -313,6 +313,8 @@ import com.wasimaster.wmkeyboard.core.layout.ClipboardKeyAction
 import com.wasimaster.wmkeyboard.core.layout.Key
 import com.wasimaster.wmkeyboard.core.layout.KeyAction
 import com.wasimaster.wmkeyboard.core.layout.KeyboardLayout
+import com.wasimaster.wmkeyboard.core.layout.gridWeightOf
+import com.wasimaster.wmkeyboard.core.layout.sidePadFor
 import com.wasimaster.wmkeyboard.core.layout.Layouts
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -1596,7 +1598,7 @@ private fun ModesPanel(
     onModeSelect: (String?) -> Unit,
     onOpenSettings: () -> Unit,
 ) {
-    val height = keyRowsHeight(state.settings)
+    val height = keyRowsHeight(state)
     val modes = state.settings.keyboardModes
     Column(
         modifier = Modifier
@@ -2690,7 +2692,7 @@ private fun ToolboxPanel(
     onHintDismiss: () -> Unit,
     drag: ToolDragController,
 ) {
-    val height = keyRowsHeight(state.settings)
+    val height = keyRowsHeight(state)
     // First open: always show the drag hint. After it was dismissed once,
     // resurface it only rarely as a reminder. Rolled once per panel open.
     val rareReminder = remember { Random.nextFloat() < 0.03f }
@@ -3035,7 +3037,7 @@ private fun FullBleedTool(
     val height = if (compact) {
         compactHeight
     } else {
-        keyRowsHeight(state.settings) + fullBleedHiddenRows(state.settings) + extraHeight
+        keyRowsHeight(state) + fullBleedHiddenRows(state.settings) + extraHeight
     }
     Column(
         modifier = Modifier
@@ -3261,12 +3263,12 @@ private fun KeyboardBody(
                 PanelMode.COMPASS -> Box(
                     Modifier
                         .fillMaxWidth()
-                        .height(keyRowsHeight(state.settings)),
+                        .height(keyRowsHeight(state)),
                 ) { CompassPanel(state) }
                 PanelMode.LEVEL -> Box(
                     Modifier
                         .fillMaxWidth()
-                        .height(keyRowsHeight(state.settings)),
+                        .height(keyRowsHeight(state)),
                 ) { LevelPanel(state) }
                 PanelMode.MOON_PHASE -> MoonPhasePanel(state)
                 PanelMode.WEATHER -> WeatherPanel(
@@ -3675,13 +3677,45 @@ private fun KeyRows(
     val gestureEnabled = state.settings.gestureTyping &&
         state.layoutMode == LayoutMode.LETTERS &&
         state.inputMode.isEnglish &&
-        state.panel == PanelMode.NONE
+        state.panel == PanelMode.NONE &&
+        // A layout missing letters would still satisfy every check above, and
+        // the decoder scores against whatever centres it has — so it would
+        // return confident nonsense rather than nothing. Switch it off instead.
+        state.layouts.lettersHaveFullAlphabet
 
     // Letter-key centres and width, captured from layout in this Box's space.
-    val keyCenters = remember { mutableStateMapOf<Char, Offset>() }
-    var keyWidthPx by remember { mutableStateOf(0f) }
+    // Keyed on the layout: the map is written by onGloballyPositioned per key,
+    // so a layout with fewer letters than the last one would otherwise keep the
+    // previous grid's centres and anchor swipes on keys that are not on screen.
+    // A LaunchedEffect that cleared it would race those positioning callbacks.
+    val keyCenters = remember(layout) { mutableStateMapOf<Char, Offset>() }
     var boxOrigin by remember { mutableStateOf(Offset.Zero) }
     var boxSize by remember { mutableStateOf(IntSize.Zero) }
+    // Rows narrower than the top row (e.g. the 9-key QWERTY home row) keep the
+    // top row's key width and are centred with side gaps, instead of stretching
+    // their keys to fill the full width.
+    //
+    // Deliberately the first row's width rather than the widest row's: Dvorak's
+    // third row is already 12 units against a grid weight of 10 and renders
+    // squeezed on purpose, and taking the maximum would put side padding on its
+    // top row and move a layout users already know.
+    //
+    // A layout can arrive with no rows at all — the editor allows deleting them
+    // and an imported file is untrusted — so this cannot be `first()`.
+    val gridWeight = gridWeightOf(layout.rows).takeIf { it > 0f } ?: 10f
+    // One key's width, for the gesture decoder's distance normalisation.
+    // Derived from the grid rather than recorded by whichever letter key
+    // happened to measure last, which made decoding depend on where a wide key
+    // sat in the layout. The column's own horizontal padding is taken off first
+    // so this is the real cell width rather than an approximation of it.
+    //
+    // Held in a State because the gesture detector below is keyed on
+    // `gestureEnabled` and would otherwise capture the first frame's value,
+    // before the box has been measured at all.
+    val rowInsetPx = with(LocalDensity.current) { KeyRowsPadHorizontal.toPx() * 2 }
+    val keyWidth = rememberUpdatedState(
+        if (boxSize.width > 0) ((boxSize.width - rowInsetPx) / gridWeight).coerceAtLeast(0f) else 0f,
+    )
     var trail by remember { mutableStateOf<List<TrailPoint>>(emptyList()) }
     var trailReleased by remember { mutableStateOf(false) }
     // Frame clock driving the fade; points older than GLIDE_TRAIL_MS vanish.
@@ -3725,9 +3759,9 @@ private fun KeyRows(
                             break
                         }
                         points.add(change.position)
-                        if (!isGesture && keyWidthPx > 0f &&
+                        if (!isGesture && keyWidth.value > 0f &&
                             (change.position - down.position).getDistance() > slop * 2 &&
-                            nearLetterKey(down.position, keyCenters, keyWidthPx)
+                            nearLetterKey(down.position, keyCenters, keyWidth.value)
                         ) {
                             isGesture = true
                             trailReleased = false
@@ -3748,7 +3782,7 @@ private fun KeyRows(
                                 onGesturePreview(
                                     points.map { GesturePoint(it.x, it.y) },
                                     keyCenters.map { (char, center) -> KeyCenter(char, center.x, center.y) },
-                                    keyWidthPx,
+                                    keyWidth.value,
                                 )
                             }
                         }
@@ -3757,7 +3791,7 @@ private fun KeyRows(
                         onGesture(
                             points.map { GesturePoint(it.x, it.y) },
                             keyCenters.map { (char, center) -> KeyCenter(char, center.x, center.y) },
-                            keyWidthPx,
+                            keyWidth.value,
                         )
                     }
                     trailReleased = true
@@ -3771,7 +3805,7 @@ private fun KeyRows(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 1.5.dp, vertical = KeyRowsPadVertical),
+                .padding(horizontal = KeyRowsPadHorizontal, vertical = KeyRowsPadVertical),
         ) {
             val onLetterPositioned: (Char, LayoutCoordinates) -> Unit = { letter, coords ->
                 val topLeft = coords.positionInRoot() - boxOrigin
@@ -3779,12 +3813,7 @@ private fun KeyRows(
                     topLeft.x + coords.size.width / 2f,
                     topLeft.y + coords.size.height / 2f,
                 )
-                keyWidthPx = coords.size.width.toFloat()
             }
-            // Rows narrower than the top row (e.g. the 9-key QWERTY home row)
-            // keep the top row's key width and are centered with side gaps,
-            // instead of stretching their keys to fill the full width.
-            val gridWeight = layout.rows.first().map { it.width }.sum()
             val split = state.settings.splitKeyboard
             val splitGapPercent = state.settings.splitGapPercent
             val mode = state.layoutMode
@@ -3794,7 +3823,14 @@ private fun KeyRows(
             // copy directly underneath — `bodyRows` swaps that one out for
             // the symbols the layer otherwise has no room for.
             val bodyRows = remember(layout, mode, state.settings.numberRow) {
-                if (state.settings.numberRow && mode == LayoutMode.SYMBOLS) {
+                // Only when that first row really is the digits. A custom
+                // symbols layer that leads with something else would otherwise
+                // lose its top row outright, with nothing on screen to explain
+                // where it went.
+                val leadsWithDigits = layout.rows.firstOrNull()
+                    ?.all { it.action == KeyAction.Text && (it.output ?: it.label).isSingleDigit() }
+                    ?: false
+                if (state.settings.numberRow && mode == LayoutMode.SYMBOLS && leadsWithDigits) {
                     listOf(SymbolsFillRow) + layout.rows.drop(1)
                 } else {
                     layout.rows
@@ -3832,6 +3868,20 @@ private fun KeyRows(
                     onCursorMove = onCursorMove,
                     onLanguageSelect = onLanguageSelect,
                     onLetterPositioned = onLetterPositioned,
+                )
+            }
+            // Layers shorter than the reserved span pad at the top rather than
+            // stretching. The bottom row — space and enter — has to stay under
+            // the thumb at the same height on every layer, and growing the keys
+            // to fill instead would change a target size the user has learned,
+            // mid-sentence. Without this the panels, sized to rowSpan, would be
+            // taller than the keys.
+            val padRows = state.layouts.rowSpan - bodyRows.size
+            if (padRows > 0) {
+                Spacer(
+                    modifier = Modifier.height(
+                        (state.settings.keyHeightDp.dp + KeyGapVertical * 2) * padRows,
+                    ),
                 )
             }
             for (row in bodyRows) {
@@ -3932,7 +3982,7 @@ private fun KeyRow(
     onLanguageSelect: (InputMode) -> Unit,
     onLetterPositioned: (Char, LayoutCoordinates) -> Unit,
 ) {
-    val sidePad = (gridWeight - keys.map { it.width }.sum()) / 2f
+    val sidePad = sidePadFor(keys, gridWeight)
     Row {
         if (sidePad > 0.01f) Spacer(modifier = Modifier.weight(sidePad))
         if (split) {
@@ -3992,6 +4042,10 @@ private fun RowScope.KeyCell(
  * the midpoint, with ties going right so QWERTY splits asdfg | hjkl.
  */
 internal fun splitKeys(keys: List<Key>): Pair<List<Key>, List<Key>> {
+    // A custom layout can hand us an empty or one-key row: the cut search below
+    // starts at index 1, and subList would throw on an empty one — a deleted row
+    // would take the whole keyboard down in split mode.
+    if (keys.size < 2) return keys to emptyList()
     val boundaries = FloatArray(keys.size + 1)
     for (i in keys.indices) boundaries[i + 1] = boundaries[i] + keys[i].width
     val mid = boundaries[keys.size] / 2f
@@ -4018,22 +4072,12 @@ private fun nearLetterKey(position: Offset, centers: Map<Char, Offset>, keyWidth
 
 private fun currentLayout(state: KeyboardUiState): KeyboardLayout {
     if (numericPadActive(state)) {
-        numericLayoutFor(state.fieldKind)?.let { return it }
+        state.layouts.numeric?.let { return it }
     }
     val base = when (state.layoutMode) {
-        LayoutMode.SYMBOLS -> Layouts.SYMBOLS
-        LayoutMode.SYMBOLS_SHIFTED -> Layouts.SYMBOLS_SHIFTED
-        LayoutMode.LETTERS -> when (state.inputMode) {
-            // French shares the AZERTY key grid with the English AZERTY
-            // mode; the modes differ in language behavior, not key layout.
-            InputMode.AZERTY, InputMode.FRENCH -> Layouts.AZERTY
-            InputMode.DVORAK -> Layouts.DVORAK
-            InputMode.GERMAN -> Layouts.QWERTZ
-            InputMode.SPANISH -> Layouts.SPANISH_QWERTY
-            InputMode.PROBHAT -> Layouts.PROBHAT
-            InputMode.JATIYA -> Layouts.JATIYA
-            else -> Layouts.QWERTY
-        }
+        LayoutMode.SYMBOLS -> state.layouts.symbols
+        LayoutMode.SYMBOLS_SHIFTED -> state.layouts.symbolsShifted
+        LayoutMode.LETTERS -> state.layouts.letters
     }
     // Email and URI fields keep the letter layouts but trade the bottom-row
     // comma — punctuation neither field uses — for the character they are
@@ -4129,18 +4173,6 @@ private fun numericPadActive(state: KeyboardUiState): Boolean =
         !(state.mediaSearchActive && state.panel.hasMediaSearch) &&
         !state.typingTestActive
 
-/**
- * The keypad a numeric field kind types on, or null for the kinds that keep
- * the letter layouts (TEXT, EMAIL, URI).
- */
-private fun numericLayoutFor(kind: FieldKind): KeyboardLayout? = when (kind) {
-    FieldKind.NUMBER -> Layouts.NUMBER
-    FieldKind.PHONE -> Layouts.PHONE
-    FieldKind.DATE -> Layouts.DATE
-    FieldKind.TIME -> Layouts.TIME
-    FieldKind.DATETIME -> Layouts.DATETIME
-    FieldKind.TEXT, FieldKind.EMAIL, FieldKind.URI -> null
-}
 
 private fun String.isSingleDigit(): Boolean = length == 1 && this[0].isDigit()
 
@@ -4198,19 +4230,33 @@ private val KeyGapVertical = 4.dp
 private val KeyRowsPadVertical = 2.dp
 
 /**
+ * Horizontal padding of the [KeyRows] column. Named because the gesture
+ * decoder's key-width derivation has to subtract it to get the real cell width.
+ */
+private val KeyRowsPadHorizontal = 1.5.dp
+
+/**
  * Height of [TopBar] (suggestions/toolbar row). The OCR panel adds this to
  * [keyRowsHeight] because it replaces the toolbar as well as the keys.
  */
 internal val TopBarHeight = 44.dp
 
 /**
- * Exact height of [KeyRows]: four key rows (each key height plus its
- * vertical gaps), the optional number row, and the column padding. Every
+ * Exact height of [KeyRows]: [LayoutSet.rowSpan] key rows (each key height plus
+ * its vertical gaps), the optional number row, and the column padding. Every
  * panel sizes itself with this so opening a tool or switching layers never
  * changes the keyboard's height under the user's fingers.
+ *
+ * Takes the whole state rather than the settings because the row count is a
+ * property of the active layout set — a custom layout may be three rows or six.
+ * Threading the resolved [LayoutSet] through as its own parameter was the
+ * alternative and was rejected: every call site already has the state in scope,
+ * so it would have touched every panel signature and bought nothing.
  */
-internal fun keyRowsHeight(settings: KeyboardSettings): Dp {
-    var height = (settings.keyHeightDp.dp + KeyGapVertical * 2) * 4 + KeyRowsPadVertical * 2
+internal fun keyRowsHeight(state: KeyboardUiState): Dp {
+    val settings = state.settings
+    var height = (settings.keyHeightDp.dp + KeyGapVertical * 2) * state.layouts.rowSpan +
+        KeyRowsPadVertical * 2
     if (settings.numberRow) {
         height += settings.numberRowHeightDp.dp + KeyGapVertical * 2
     }
@@ -5245,8 +5291,8 @@ private fun EmojiPanel(
     val height = when {
         state.emojiSearchActive && fullBleed -> 120.dp + fullBleedHiddenRows(state.settings)
         state.emojiSearchActive -> 120.dp + TopBarHeight + barCompensation
-        fullBleed -> keyRowsHeight(state.settings) + fullBleedHiddenRows(state.settings)
-        else -> keyRowsHeight(state.settings) + barCompensation
+        fullBleed -> keyRowsHeight(state) + fullBleedHiddenRows(state.settings)
+        else -> keyRowsHeight(state) + barCompensation
     }
     // One category rendered at a time behind tabs: the full catalog in a
     // single grid was a composition/measure hog. Hoisted above everything
@@ -5901,7 +5947,7 @@ private fun SnippetsPanel(
     onSnippet: (Snippet) -> Unit,
     onOpenSettings: () -> Unit,
 ) {
-    val height = keyRowsHeight(state.settings)
+    val height = keyRowsHeight(state)
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -5996,7 +6042,7 @@ private fun ClipboardPanel(
     onClipboardPin: (ClipItem) -> Unit,
     onClipboardDelete: (ClipItem) -> Unit,
 ) {
-    val height = keyRowsHeight(state.settings)
+    val height = keyRowsHeight(state)
     if (state.clipboardItems.isEmpty()) {
         Box(
             modifier = Modifier

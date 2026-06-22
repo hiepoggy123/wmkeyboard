@@ -86,7 +86,7 @@ internal fun VoicePanel(
     onClose: () -> Unit,
 ) {
     val kb = LocalKbTheme.current
-    val height = keyRowsHeight(state.settings)
+    val height = keyRowsHeight(state)
     val voice = state.voice
     val feedback = LocalKeyPressFeedback.current
     val context = LocalContext.current

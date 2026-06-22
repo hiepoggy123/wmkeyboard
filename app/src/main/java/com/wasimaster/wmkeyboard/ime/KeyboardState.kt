@@ -3,6 +3,10 @@ package com.wasimaster.wmkeyboard.ime
 import com.wasimaster.wmkeyboard.core.clipboard.ClipItem
 import com.wasimaster.wmkeyboard.core.emoji.EmojiEntry
 import com.wasimaster.wmkeyboard.core.emoji.EmojiVariantIndex
+import com.wasimaster.wmkeyboard.core.layout.KeyAction
+import com.wasimaster.wmkeyboard.core.layout.KeyboardLayout
+import com.wasimaster.wmkeyboard.core.layout.LayoutLayer
+import com.wasimaster.wmkeyboard.core.layout.Layouts
 import com.wasimaster.wmkeyboard.core.settings.InputMode
 import com.wasimaster.wmkeyboard.core.transliteration.BengaliGraphemes
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
@@ -20,6 +24,63 @@ enum class ShiftState { OFF, ON, CAPS_LOCK }
 enum class LayoutMode { LETTERS, SYMBOLS, SYMBOLS_SHIFTED }
 
 /**
+ * The layouts reachable from the focused field without a new `onStartInput`:
+ * the layers the ?123 / ABC keys cycle between, plus the numeric pad when the
+ * field has one.
+ *
+ * Resolved by the service — it owns the layout store — and handed over already
+ * compiled, so the rendering code never touches storage and [keyRowsHeight] can
+ * stay a pure function of state. The service caches instances by resolution key
+ * rather than rebuilding per emission: [KeyboardUiState]'s generated `equals`
+ * walks its fields, and a stable instance keeps that comparison cheap instead of
+ * walking every key on every recomposition.
+ */
+data class LayoutSet(
+    val letters: KeyboardLayout,
+    val symbols: KeyboardLayout,
+    val symbolsShifted: KeyboardLayout,
+    /** Keypad for the focused field kind; null for TEXT/EMAIL/URI. */
+    val numeric: KeyboardLayout? = null,
+) {
+    /**
+     * Rows the key grid reserves.
+     *
+     * The tallest reachable layer wins, so pressing ?123 never resizes the
+     * keyboard under the user's fingers; the shorter layers pad instead. Sizing
+     * each layer to its own row count was the alternative and was rejected for
+     * exactly that reason — the layer key is pressed mid-word, constantly, and a
+     * resize there reflows the whole host app.
+     *
+     * Not a constructor property, so it stays out of equals/hashCode/copy.
+     */
+    val rowSpan: Int = maxOf(
+        letters.rows.size,
+        symbols.rows.size,
+        symbolsShifted.rows.size,
+        numeric?.rows?.size ?: 0,
+    ).coerceAtLeast(1)
+
+    /**
+     * Whether every a-z key is present on the letter layer. The gesture decoder
+     * scores candidates against key centres, so a layout missing letters would
+     * produce confident nonsense rather than nothing.
+     */
+    val lettersHaveFullAlphabet: Boolean = ('a'..'z').all { char ->
+        letters.rows.any { row ->
+            row.any {
+                it.action == KeyAction.Text &&
+                    (it.output ?: it.label).singleOrNull()?.lowercaseChar() == char
+            }
+        }
+    }
+
+    companion object {
+        /** The shipped grids, for a state built before the first resolution. */
+        val Default = LayoutSet(Layouts.QWERTY, Layouts.SYMBOLS, Layouts.SYMBOLS_SHIFTED)
+    }
+}
+
+/**
  * What kind of field is focused, from EditorInfo.inputType. The numeric
  * kinds lock the keyboard to a purpose-built keypad; EMAIL/URI keep the
  * letter layouts but adapt the bottom row (@ or / key, .com long-press).
@@ -30,6 +91,22 @@ enum class FieldKind { TEXT, EMAIL, URI, NUMBER, PHONE, DATE, TIME, DATETIME }
 val FieldKind.isNumericPad: Boolean
     get() = this == FieldKind.NUMBER || this == FieldKind.PHONE ||
         this == FieldKind.DATE || this == FieldKind.TIME || this == FieldKind.DATETIME
+
+/**
+ * The layer a numeric field kind types on, or null for the kinds that keep the
+ * letter layouts (TEXT, EMAIL, URI). The mapping lives here rather than in
+ * `core/layout` because [FieldKind] is an IME concept — the layout package has
+ * no business knowing what an EditorInfo is.
+ */
+val FieldKind.numericLayer: LayoutLayer?
+    get() = when (this) {
+        FieldKind.NUMBER -> LayoutLayer.NUMBER
+        FieldKind.PHONE -> LayoutLayer.PHONE
+        FieldKind.DATE -> LayoutLayer.DATE
+        FieldKind.TIME -> LayoutLayer.TIME
+        FieldKind.DATETIME -> LayoutLayer.DATETIME
+        FieldKind.TEXT, FieldKind.EMAIL, FieldKind.URI -> null
+    }
 
 enum class PanelMode {
     NONE, EMOJI, CLIPBOARD, SNIPPETS, TOOLBOX, TEXT_EDIT,
@@ -350,6 +427,12 @@ sealed interface TypingTestAction {
 data class KeyboardUiState(
     val settings: KeyboardSettings = KeyboardSettings(),
     val inputMode: InputMode = InputMode.ENGLISH,
+    /**
+     * Key grids for the focused field, resolved from the user's layout choice.
+     * Defaults to the shipped grids so a state built before the first resolution
+     * — unit tests, the very first frame — still renders a working keyboard.
+     */
+    val layouts: LayoutSet = LayoutSet.Default,
     val layoutMode: LayoutMode = LayoutMode.LETTERS,
     val shiftState: ShiftState = ShiftState.OFF,
     val panel: PanelMode = PanelMode.NONE,

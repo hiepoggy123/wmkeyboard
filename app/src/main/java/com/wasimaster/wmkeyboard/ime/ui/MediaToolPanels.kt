@@ -377,7 +377,7 @@ internal fun GifPanel(
     val sizing = if (fullBleed) {
         Modifier.fillMaxSize()
     } else {
-        val height = if (state.mediaSearchActive) MediaSearchHeight else keyRowsHeight(state.settings)
+        val height = if (state.mediaSearchActive) MediaSearchHeight else keyRowsHeight(state)
         Modifier
             .fillMaxWidth()
             .height(height)

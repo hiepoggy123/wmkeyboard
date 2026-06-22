@@ -135,7 +135,7 @@ internal fun CameraPanel(
     onRequestPermission: () -> Unit,
     onClose: () -> Unit,
 ) {
-    val height = keyRowsHeight(state.settings)
+    val height = keyRowsHeight(state)
     val kb = LocalKbTheme.current
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current

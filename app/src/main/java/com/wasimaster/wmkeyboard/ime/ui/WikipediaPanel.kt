@@ -60,7 +60,7 @@ internal fun WikipediaPanel(
 ) {
     val kb = LocalKbTheme.current
     // Search mode: only the query bar shows, keys underneath type into it.
-    val height = if (state.mediaSearchActive) 56.dp else keyRowsHeight(state.settings)
+    val height = if (state.mediaSearchActive) 56.dp else keyRowsHeight(state)
 
     Column(
         modifier = Modifier

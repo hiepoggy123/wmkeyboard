@@ -36,7 +36,7 @@ private fun UnavailablePanel(state: KeyboardUiState, message: String) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(keyRowsHeight(state.settings)),
+            .height(keyRowsHeight(state)),
         contentAlignment = Alignment.Center,
     ) {
         Text(message, color = MaterialTheme.colorScheme.onSurfaceVariant)

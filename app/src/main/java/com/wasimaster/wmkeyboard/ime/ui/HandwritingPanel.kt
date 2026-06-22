@@ -89,7 +89,7 @@ internal fun HandwritingPanel(
     onClose: () -> Unit,
 ) {
     val kb = LocalKbTheme.current
-    val height = keyRowsHeight(state.settings)
+    val height = keyRowsHeight(state)
     val hw = state.handwriting
     val feedback = LocalKeyPressFeedback.current
 

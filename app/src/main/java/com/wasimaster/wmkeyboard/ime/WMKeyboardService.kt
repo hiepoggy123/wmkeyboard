@@ -140,9 +140,12 @@ import com.wasimaster.wmkeyboard.core.voice.VoicePunctuation
 import com.wasimaster.wmkeyboard.core.transliteration.AvroPhonetic
 import com.wasimaster.wmkeyboard.core.transliteration.BengaliGraphemes
 import com.wasimaster.wmkeyboard.core.transliteration.BengaliPhoneticIndex
+import com.wasimaster.wmkeyboard.core.layout.BuiltInLayouts
 import com.wasimaster.wmkeyboard.core.layout.ClipboardKeyAction
 import com.wasimaster.wmkeyboard.core.layout.Key
 import com.wasimaster.wmkeyboard.core.layout.KeyAction
+import com.wasimaster.wmkeyboard.core.layout.LayoutLayer
+import com.wasimaster.wmkeyboard.core.layout.compile
 import com.wasimaster.wmkeyboard.ime.ui.KeyboardScreen
 import android.inputmethodservice.InputMethodService
 import java.io.File
@@ -540,6 +543,10 @@ class WMKeyboardService : InputMethodService() {
                         // unrelated setting would drop the field back to a
                         // mode it cannot accept.
                         inputMode = fieldModeOverride ?: settings.inputMode,
+                        layouts = resolveLayoutSet(
+                            fieldModeOverride ?: settings.inputMode,
+                            it.fieldKind,
+                        ),
                         activeModeId = mode?.id,
                     )
                 }
@@ -874,6 +881,7 @@ class WMKeyboardService : InputMethodService() {
             it.copy(
                 settings = base?.applyMode(activeMode) ?: it.settings,
                 inputMode = fieldModeOverride ?: savedMode,
+                layouts = resolveLayoutSet(fieldModeOverride ?: savedMode, fieldKind),
                 activeModeId = activeMode?.id,
                 activeSymbolSetId = null,
                 panel = PanelMode.NONE,
@@ -1607,6 +1615,36 @@ class WMKeyboardService : InputMethodService() {
         }
     }
 
+    /**
+     * The grids reachable from the focused field, compiled once here rather than
+     * per recomposition.
+     *
+     * Resolution lives in the service because it is the side that owns the
+     * layout store, and because [keyRowsHeight] has to be a pure function of
+     * state: the reserved row span is the maximum over *every* reachable layer,
+     * which the rendering code — looking at one layer at a time — could never
+     * compute for itself.
+     *
+     * The result is memoised so the returned instance is reference-stable.
+     * [KeyboardUiState]'s generated `equals` walks its fields, so handing out a
+     * fresh set per emission would make every state comparison walk every key.
+     */
+    private fun resolveLayoutSet(mode: InputMode, fieldKind: FieldKind): LayoutSet {
+        val spec = BuiltInLayouts.forMode(mode)
+        val key = spec.id to fieldKind
+        layoutSetCache[key]?.let { return it }
+        val set = LayoutSet(
+            letters = spec.compile(LayoutLayer.LETTERS),
+            symbols = spec.compile(LayoutLayer.SYMBOLS),
+            symbolsShifted = spec.compile(LayoutLayer.SYMBOLS_SHIFTED),
+            numeric = fieldKind.numericLayer?.let(spec::compile),
+        )
+        layoutSetCache[key] = set
+        return set
+    }
+
+    private val layoutSetCache = HashMap<Pair<String, FieldKind>, LayoutSet>()
+
     private fun switchLanguage() {
         val state = _uiState.value
         val modes = state.settings.enabledModes.ifEmpty { listOf(InputMode.ENGLISH) }
@@ -1620,7 +1658,13 @@ class WMKeyboardService : InputMethodService() {
         // see the box they are typing in, FORCE_ASCII and hintLocales are
         // only the app's guess.
         fieldModeOverride = null
-        _uiState.update { it.copy(inputMode = mode, layoutMode = LayoutMode.LETTERS) }
+        _uiState.update {
+            it.copy(
+                inputMode = mode,
+                layouts = resolveLayoutSet(mode, it.fieldKind),
+                layoutMode = LayoutMode.LETTERS,
+            )
+        }
         refreshKarContext()
         // The handwriting model follows the input language; a switch while
         // the panel is open re-checks the new model and drops pending ink.

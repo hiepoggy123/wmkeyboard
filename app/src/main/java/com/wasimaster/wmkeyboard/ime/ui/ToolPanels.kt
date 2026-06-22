@@ -484,7 +484,7 @@ internal fun LevelPanel(state: KeyboardUiState) {
 /** Current moon phase, drawn from arithmetic — nothing fetched. */
 @Composable
 internal fun MoonPhasePanel(state: KeyboardUiState) {
-    val height = keyRowsHeight(state.settings)
+    val height = keyRowsHeight(state)
     val kb = LocalKbTheme.current
     val info = remember { MoonPhase.at(System.currentTimeMillis()) }
     val dateFormat = remember { SimpleDateFormat("EEE, d MMM", Locale.getDefault()) }
@@ -598,7 +598,7 @@ internal fun WeatherPanel(
 ) {
     // Keyboard height, no more: the stat grid scrolls, and growing the
     // window upward for it shoved the app's own content off screen.
-    val height = keyRowsHeight(state.settings)
+    val height = keyRowsHeight(state)
     val kb = LocalKbTheme.current
     Box(
         modifier = Modifier
@@ -1060,7 +1060,7 @@ internal fun ThemesPanel(
     state: KeyboardUiState,
     onThemeSelect: (String) -> Unit,
 ) {
-    val height = keyRowsHeight(state.settings)
+    val height = keyRowsHeight(state)
     val kb = LocalKbTheme.current
     val selectedId = state.settings.keyboardThemeId
     val auto = autoKbTheme(state.settings)
@@ -1243,7 +1243,7 @@ internal fun SoundHapticsPanel(
     state: KeyboardUiState,
     onAction: (SoundHapticAction) -> Unit,
 ) {
-    val height = keyRowsHeight(state.settings)
+    val height = keyRowsHeight(state)
     val kb = LocalKbTheme.current
     val settings = state.settings
     val context = LocalContext.current
@@ -1393,7 +1393,7 @@ internal fun NumpadPanel(
     onText: (String) -> Unit,
     onKey: (Key) -> Unit,
 ) {
-    val height = keyRowsHeight(state.settings)
+    val height = keyRowsHeight(state)
     Column(
         modifier = Modifier
             .fillMaxWidth()

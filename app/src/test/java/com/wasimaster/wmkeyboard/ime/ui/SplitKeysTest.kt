@@ -46,6 +46,26 @@ class SplitKeysTest {
         assertEquals(total / 2f, right.map { it.width }.sum(), 0.001f)
     }
 
+    /**
+     * A custom layout can hand us a row the shipped ones never do. The cut
+     * search indexes from 1, so an empty row used to throw out of the whole
+     * keyboard in split mode — a deleted row taking typing down with it.
+     */
+    @Test
+    fun `an empty row splits without throwing`() {
+        val (left, right) = splitKeys(emptyList())
+        assertEquals(emptyList<Key>(), left)
+        assertEquals(emptyList<Key>(), right)
+    }
+
+    @Test
+    fun `a one key row keeps its key on the left`() {
+        val row = listOf(Key("a"))
+        val (left, right) = splitKeys(row)
+        assertEquals(row, left)
+        assertEquals(emptyList<Key>(), right)
+    }
+
     @Test
     fun `every layout row splits into non-empty halves preserving total width`() {
         val layouts = listOf(Layouts.QWERTY, Layouts.PROBHAT, Layouts.JATIYA, Layouts.SYMBOLS, Layouts.SYMBOLS_SHIFTED)

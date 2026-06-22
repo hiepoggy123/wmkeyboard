@@ -262,7 +262,7 @@ internal fun QrGeneratorPanel(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(keyRowsHeight(state.settings))
+            .height(keyRowsHeight(state))
             .padding(horizontal = 10.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

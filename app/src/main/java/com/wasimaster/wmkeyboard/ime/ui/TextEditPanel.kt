@@ -53,7 +53,7 @@ internal fun TextEditPanel(
     state: KeyboardUiState,
     onAction: (TextEditAction) -> Unit,
 ) {
-    val height = keyRowsHeight(state.settings)
+    val height = keyRowsHeight(state)
     val rowHeight = state.settings.keyHeightDp.dp
     val repeatMs = state.settings.textEditRepeatMs.toLong()
     Column(
