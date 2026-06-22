@@ -74,6 +74,7 @@ import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material.icons.outlined.PhotoCamera
 import androidx.compose.material.icons.outlined.Save
+import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Security
 import androidx.compose.material.icons.outlined.PictureInPictureAlt
 import androidx.compose.material.icons.outlined.Settings
@@ -142,6 +143,7 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -344,6 +346,20 @@ private fun SettingsNavHost(
                 onNavigate = { navController.navigate(it) },
             )
         }
+        composable("search") {
+            SettingsSearchScreen(
+                onBack = { navController.popBackStack() },
+                onOpen = { result ->
+                    // Arm the flash before navigating: the destination's rows
+                    // read it during their first composition.
+                    SettingsHighlight.request(result.title)
+                    // The search screen itself is dropped from the back stack,
+                    // so backing out of the setting lands on the home list.
+                    navController.popBackStack()
+                    navController.navigate(result.route)
+                },
+            )
+        }
         composable("typing") {
             SettingsScreen("Typing", { navController.popBackStack() }) {
                 TypingSettings(
@@ -498,7 +514,15 @@ private fun HomeScreen(settings: KeyboardSettings, onNavigate: (String) -> Unit)
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
-            LargeTopAppBar(title = { Text("WM Keyboard") }, scrollBehavior = scrollBehavior)
+            LargeTopAppBar(
+                title = { Text("WM Keyboard") },
+                actions = {
+                    IconButton(onClick = { onNavigate("search") }) {
+                        Icon(Icons.Outlined.Search, contentDescription = "Search settings")
+                    }
+                },
+                scrollBehavior = scrollBehavior,
+            )
         },
     ) { padding ->
         Column(
@@ -702,6 +726,10 @@ private fun SettingsScreen(
     onBack: () -> Unit,
     content: @Composable () -> Unit,
 ) {
+    // A highlight that found no matching row on this screen (the searched
+    // entry was the screen itself, or its row is conditionally hidden) must
+    // not survive to flash something unrelated on the next screen.
+    DisposableEffect(title) { onDispose { SettingsHighlight.clear() } }
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -834,31 +862,33 @@ internal fun NavRow(
     value: String? = null,
     onClick: () -> Unit,
 ) {
-    ListItem(
-        headlineContent = { Text(title) },
-        supportingContent = subtitle?.let { { Text(it) } },
-        trailingContent = {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                if (value != null) {
-                    Text(
-                        value,
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    HighlightableRow(title) {
+        ListItem(
+            headlineContent = { Text(title) },
+            supportingContent = subtitle?.let { { Text(it) } },
+            trailingContent = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (value != null) {
+                        Text(
+                            value,
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Spacer(Modifier.width(4.dp))
+                    }
+                    Icon(
+                        Icons.AutoMirrored.Outlined.KeyboardArrowRight,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    Spacer(Modifier.width(4.dp))
                 }
-                Icon(
-                    Icons.AutoMirrored.Outlined.KeyboardArrowRight,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        },
-        colors = transparentListColors(),
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
-    )
+            },
+            colors = transparentListColors(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onClick),
+        )
+    }
 }
 
 @Composable
@@ -869,17 +899,19 @@ internal fun ToggleSetting(
     info: String? = null,
     onChange: (Boolean) -> Unit,
 ) {
-    ListItem(
-        headlineContent = { Text(title) },
-        supportingContent = subtitle?.let { { Text(it) } },
-        trailingContent = {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                if (info != null) InfoButton(title, info)
-                Switch(checked = checked, onCheckedChange = onChange)
-            }
-        },
-        colors = transparentListColors(),
-    )
+    HighlightableRow(title) {
+        ListItem(
+            headlineContent = { Text(title) },
+            supportingContent = subtitle?.let { { Text(it) } },
+            trailingContent = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (info != null) InfoButton(title, info)
+                    Switch(checked = checked, onCheckedChange = onChange)
+                }
+            },
+            colors = transparentListColors(),
+        )
+    }
 }
 
 @Composable
@@ -892,21 +924,23 @@ internal fun SliderSetting(
     info: String? = null,
     onChange: (Float) -> Unit,
 ) {
-    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text(title, style = MaterialTheme.typography.bodyLarge)
-            if (info != null) InfoButton(title, info)
-            Spacer(Modifier.weight(1f))
-            Text(display, style = MaterialTheme.typography.labelLarge)
+    HighlightableRow(title) {
+        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(title, style = MaterialTheme.typography.bodyLarge)
+                if (info != null) InfoButton(title, info)
+                Spacer(Modifier.weight(1f))
+                Text(display, style = MaterialTheme.typography.labelLarge)
+            }
+            if (subtitle != null) {
+                Text(
+                    subtitle,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Slider(value = value, onValueChange = onChange, valueRange = range)
         }
-        if (subtitle != null) {
-            Text(
-                subtitle,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        Slider(value = value, onValueChange = onChange, valueRange = range)
     }
 }
 
@@ -920,28 +954,30 @@ internal fun <T> ChoiceSetting(
     selected: T,
     onChange: (T) -> Unit,
 ) {
-    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(title, style = MaterialTheme.typography.bodyLarge)
-            if (info != null) InfoButton(title, info)
-        }
-        if (subtitle != null) {
-            Text(
-                subtitle,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        SingleChoiceSegmentedButtonRow(modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 8.dp)) {
-            options.forEachIndexed { index, (option, label) ->
-                SegmentedButton(
-                    selected = selected == option,
-                    onClick = { onChange(option) },
-                    shape = SegmentedButtonDefaults.itemShape(index, options.size),
-                ) {
-                    Text(label, maxLines = 1)
+    HighlightableRow(title) {
+        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(title, style = MaterialTheme.typography.bodyLarge)
+                if (info != null) InfoButton(title, info)
+            }
+            if (subtitle != null) {
+                Text(
+                    subtitle,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            SingleChoiceSegmentedButtonRow(modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 8.dp)) {
+                options.forEachIndexed { index, (option, label) ->
+                    SegmentedButton(
+                        selected = selected == option,
+                        onClick = { onChange(option) },
+                        shape = SegmentedButtonDefaults.itemShape(index, options.size),
+                    ) {
+                        Text(label, maxLines = 1)
+                    }
                 }
             }
         }
@@ -4643,19 +4679,21 @@ private fun TextFieldSetting(
 ) {
     val scope = rememberCoroutineScope()
     var text by remember(label) { mutableStateOf(value) }
-    OutlinedTextField(
-        value = text,
-        onValueChange = {
-            text = it
-            scope.launch { onSave(it) }
-        },
-        label = { Text(label) },
-        singleLine = true,
-        supportingText = { Text(hint) },
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp),
-    )
+    HighlightableRow(label) {
+        OutlinedTextField(
+            value = text,
+            onValueChange = {
+                text = it
+                scope.launch { onSave(it) }
+            },
+            label = { Text(label) },
+            singleLine = true,
+            supportingText = { Text(hint) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 4.dp),
+        )
+    }
 }
 
 /** Multi-line prompt override; the built-in prompt shows as the hint. */
@@ -4710,27 +4748,29 @@ internal fun ApiKeyField(
 ) {
     val scope = rememberCoroutineScope()
     var text by remember(label) { mutableStateOf(value) }
-    OutlinedTextField(
-        value = text,
-        onValueChange = {
-            text = it
-            scope.launch { onSave(it) }
-        },
-        label = { Text(label) },
-        singleLine = true,
-        supportingText = {
-            Text(
-                when {
-                    text.isNotBlank() -> "Using your key"
-                    builtInAvailable -> "Blank — using the key built into this app"
-                    else -> emptyHint
-                },
-            )
-        },
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp),
-    )
+    HighlightableRow(label) {
+        OutlinedTextField(
+            value = text,
+            onValueChange = {
+                text = it
+                scope.launch { onSave(it) }
+            },
+            label = { Text(label) },
+            singleLine = true,
+            supportingText = {
+                Text(
+                    when {
+                        text.isNotBlank() -> "Using your key"
+                        builtInAvailable -> "Blank — using the key built into this app"
+                        else -> emptyHint
+                    },
+                )
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 4.dp),
+        )
+    }
 }
 
 /** "Translate into" row with a full-language-list dialog. */
