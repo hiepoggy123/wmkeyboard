@@ -3368,6 +3368,14 @@ private data class TrailPoint(val position: Offset, val timeMs: Long)
 /** How long a trail point stays visible; also the release fade-out time. */
 private const val GLIDE_TRAIL_MS = 350L
 
+/**
+ * Takes the place of the `?123` layer's own digit row when the number row is
+ * on and already supplies those digits one row above. Carries the symbols
+ * that layer has nowhere else to put.
+ */
+private val SymbolsFillRow = listOf("=", "\\", "<", ">", "[", "]", "{", "}", "|", "~")
+    .map { Key(it) }
+
 @Composable
 private fun KeyRows(
     state: KeyboardUiState,
@@ -3494,34 +3502,37 @@ private fun KeyRows(
             val gridWeight = layout.rows.first().map { it.width }.sum()
             val split = state.settings.splitKeyboard
             val splitGapPercent = state.settings.splitGapPercent
-            // The extra row stays on every layer so switching layers never
-            // changes the height — but the symbol layers already lead with
-            // their own digit row, so there it carries brackets and other
-            // symbols the layers lack instead of duplicating the digits.
+            val mode = state.layoutMode
+            // The digits keep the same slot on every layer, so switching
+            // layers moves neither the row nor the pad below it. The `?123`
+            // layer leads with its own digit row, which would be a second
+            // copy directly underneath — `bodyRows` swaps that one out for
+            // the symbols the layer otherwise has no room for.
+            val bodyRows = remember(layout, mode, state.settings.numberRow) {
+                if (state.settings.numberRow && mode == LayoutMode.SYMBOLS) {
+                    listOf(SymbolsFillRow) + layout.rows.drop(1)
+                } else {
+                    layout.rows
+                }
+            }
             if (state.settings.numberRow) {
-                val mode = state.layoutMode
                 // Follows the same guard as the pad itself, so a search box
                 // opened over a number field gets its digit row back.
                 val kind = if (numericPadActive(state)) state.fieldKind else FieldKind.TEXT
-                val extraRow = remember(mode, kind) {
+                val extraRow = remember(kind) {
                     when {
-                        // A keypad already leads with digits, so — like the
-                        // symbol layers below — the row carries what the pad
-                        // lacks rather than a second set of the same numbers.
+                        // A keypad already leads with digits, so the row
+                        // carries what the pad lacks rather than a second set
+                        // of the same numbers.
                         kind == FieldKind.PHONE ->
                             listOf("+", "*", "#", ",", ";", "(", ")", "-", "/", ".")
                                 .map { Key(it) }
                         kind.isNumericPad ->
                             listOf("+", "-", "*", "/", "=", "(", ")", "%", ":", ".")
                                 .map { Key(it) }
-                        mode == LayoutMode.LETTERS -> "1234567890".map { Key(it.toString()) }
-                        // Each symbol layer gets its own extra row, filling the
-                        // gaps that layer leaves rather than repeating layer
-                        // one's brackets on both.
-                        mode == LayoutMode.SYMBOLS ->
-                            listOf("=", "\\", "<", ">", "[", "]", "{", "}", "|", "~").map { Key(it) }
-                        else ->
-                            listOf("≠", "≈", "≤", "≥", "∞", "∑", "∫", "µ", "¬", "…").map { Key(it) }
+                        // Borrowed from the symbol layer so the digits carry
+                        // their fraction and superscript long-presses here too.
+                        else -> Layouts.SYMBOLS.rows.first()
                     }
                 }
                 KeyRow(
@@ -3538,7 +3549,7 @@ private fun KeyRows(
                     onLetterPositioned = onLetterPositioned,
                 )
             }
-            for (row in layout.rows) {
+            for (row in bodyRows) {
                 KeyRow(
                     keys = row,
                     gridWeight = gridWeight,
