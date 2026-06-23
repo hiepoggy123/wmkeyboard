@@ -300,6 +300,7 @@ import com.wasimaster.wmkeyboard.ime.isNumericPad
 import com.wasimaster.wmkeyboard.ime.hasMediaSearch
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
 import com.wasimaster.wmkeyboard.ime.ModifierState
+import com.wasimaster.wmkeyboard.ime.authoredNumberRow
 import com.wasimaster.wmkeyboard.ime.LayoutMode
 import com.wasimaster.wmkeyboard.ime.PanelMode
 import com.wasimaster.wmkeyboard.core.tools.SmartSuggest
@@ -3857,8 +3858,11 @@ private fun KeyRows(
                 // Follows the same guard as the pad itself, so a search box
                 // opened over a number field gets its digit row back.
                 val kind = if (numericPadActive(state)) state.fieldKind else FieldKind.TEXT
-                val extraRow = remember(kind) {
-                    when {
+                // A layout can supply its own row for this layer; the built-in
+                // choices below are the fallback rather than the rule.
+                val authored = state.authoredNumberRow(state.layoutMode)
+                val extraRow = remember(kind, authored) {
+                    authored ?: when {
                         // A keypad already leads with digits, so the row
                         // carries what the pad lacks rather than a second set
                         // of the same numbers.
@@ -4094,6 +4098,10 @@ internal fun currentLayout(state: KeyboardUiState): KeyboardLayout {
     val base = when (state.layoutMode) {
         LayoutMode.SYMBOLS -> state.layouts.symbols
         LayoutMode.SYMBOLS_SHIFTED -> state.layouts.symbolsShifted
+        // Falls back to the letters when the layout has no Fn layer: a stored
+        // Fn key can outlive the layer it points at, and onFn already refuses to
+        // switch, so this only ever fires on a state built out of order.
+        LayoutMode.FN -> state.layouts.fn ?: state.layouts.letters
         LayoutMode.LETTERS -> state.layouts.letters
     }
     // Email and URI fields keep the letter layouts but trade the bottom-row

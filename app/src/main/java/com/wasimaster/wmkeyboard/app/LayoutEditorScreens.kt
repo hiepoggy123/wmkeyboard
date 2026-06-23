@@ -21,6 +21,20 @@ import androidx.compose.material3.Slider
 import com.wasimaster.wmkeyboard.core.layout.KeyRole
 import com.wasimaster.wmkeyboard.core.layout.LayerSpec
 import kotlin.math.roundToInt
+import androidx.compose.material3.Button
+import com.wasimaster.wmkeyboard.core.layout.LayoutCodec
+import com.wasimaster.wmkeyboard.core.layout.repair
+import android.content.Context
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.material.icons.outlined.FileOpen
+import androidx.compose.material.icons.outlined.Share
+import androidx.compose.ui.platform.LocalContext
+import com.wasimaster.wmkeyboard.BuildConfig
+import com.wasimaster.wmkeyboard.core.layout.ImportedLayout
+import com.wasimaster.wmkeyboard.core.layout.LayoutFile
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -110,7 +124,60 @@ internal fun KeyLayoutsScreen(
     onNavigate: (String) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     var confirmDelete by remember { mutableStateOf<LayoutSpec?>(null) }
+    var confirmImport by remember { mutableStateOf<ImportedLayout?>(null) }
+    var message by remember { mutableStateOf<String?>(null) }
+
+    // CreateDocument cannot carry a payload, so the layout waiting to be written
+    // is parked here between launching the picker and its result.
+    var pendingExport by remember { mutableStateOf<LayoutSpec?>(null) }
+    val exportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument(LayoutFile.MIME_TYPE),
+    ) { uri ->
+        val layout = pendingExport
+        pendingExport = null
+        if (uri == null || layout == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            val ok = runCatching {
+                val text = LayoutFile.encode(
+                    layout,
+                    appVersion = BuildConfig.VERSION_CODE,
+                    appVersionName = BuildConfig.VERSION_NAME,
+                )
+                withContext(Dispatchers.IO) {
+                    context.contentResolver.openOutputStream(uri)?.use {
+                        it.write(text.toByteArray())
+                    } ?: error("no stream")
+                }
+            }.isSuccess
+            // Reported either way. The theme export swallows its failures, and
+            // the exported file may be the only copy of an hour's work.
+            message = if (ok) "Saved ${layout.name}." else "Could not write that file."
+        }
+    }
+
+    val importLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            val text = withContext(Dispatchers.IO) {
+                runCatching {
+                    context.contentResolver.openInputStream(uri)!!
+                        .use { it.readBytes().decodeToString() }
+                }.getOrNull()
+            }
+            val parsed = text?.let { LayoutFile.decode(it) }
+            if (parsed == null) {
+                message = "That file is not a WMKeyboard layout."
+                return@launch
+            }
+            // Read first, ask, then write. Importing a layout is not something
+            // to discover you have done — and it never activates it either.
+            confirmImport = parsed
+        }
+    }
 
     val layouts = resolveLayouts(settings.customLayouts)
     val customIds = settings.customLayouts.map { it.id }.toSet()
@@ -156,11 +223,29 @@ internal fun KeyLayoutsScreen(
                     layout = layout,
                     enabled = layout.id in settings.enabledLayoutIds,
                     onEdit = { onNavigate("keymap_edit/${layout.id}") },
+                    onExport = {
+                        pendingExport = layout
+                        exportLauncher.launch(LayoutFile.fileName(layout))
+                    },
                     onDuplicate = { duplicateAndEdit(layout) },
                     onDelete = { confirmDelete = layout },
                     deleteIsReset = false,
                 )
             }
+        }
+    }
+
+    SettingsGroup {
+        item {
+            ListItem(
+                colors = transparentListColors(),
+                modifier = Modifier.clickable {
+                    importLauncher.launch(LayoutFile.IMPORT_MIME_TYPES)
+                },
+                leadingContent = { Icon(Icons.Outlined.FileOpen, contentDescription = null) },
+                headlineContent = { Text("Import a layout") },
+                supportingContent = { Text("Opens a .wmlayout.json file someone shared") },
+            )
         }
     }
 
@@ -171,6 +256,10 @@ internal fun KeyLayoutsScreen(
                     layout = layout,
                     enabled = layout.id in settings.enabledLayoutIds,
                     onEdit = { onNavigate("keymap_edit/${layout.id}") },
+                    onExport = {
+                        pendingExport = layout
+                        exportLauncher.launch(LayoutFile.fileName(layout))
+                    },
                     onDuplicate = { duplicateAndEdit(layout) },
                     // An edited built-in is stored as an override under the same
                     // id, so removing it restores the shipped grid rather than
@@ -184,6 +273,47 @@ internal fun KeyLayoutsScreen(
                 )
             }
         }
+    }
+
+    confirmImport?.let { imported ->
+        AlertDialog(
+            onDismissRequest = { confirmImport = null },
+            title = { Text("Import ${imported.layout.name}?") },
+            text = {
+                Column {
+                    Text(
+                        "It is added to your layouts but not switched on — turn it on " +
+                            "under Languages when you are ready to type with it.",
+                    )
+                    if (imported.repairs.isNotEmpty()) {
+                        Spacer(Modifier.height(8.dp))
+                        Text("Changed on the way in:", fontWeight = FontWeight.Medium)
+                        for (line in imported.repairs) Text("• $line")
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val id = "custom_${System.currentTimeMillis()}"
+                    scope.launch {
+                        repository.upsertCustomLayout(imported.layout.copy(id = id))
+                        message = "Imported ${imported.layout.name}."
+                    }
+                    confirmImport = null
+                }) { Text("Import") }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmImport = null }) { Text("Cancel") }
+            },
+        )
+    }
+
+    message?.let { text ->
+        AlertDialog(
+            onDismissRequest = { message = null },
+            text = { Text(text) },
+            confirmButton = { TextButton(onClick = { message = null }) { Text("OK") } },
+        )
     }
 
     confirmDelete?.let { layout ->
@@ -220,6 +350,7 @@ private fun LayoutRow(
     layout: LayoutSpec,
     enabled: Boolean,
     onEdit: () -> Unit,
+    onExport: () -> Unit,
     onDuplicate: () -> Unit,
     onDelete: (() -> Unit)?,
     deleteIsReset: Boolean,
@@ -231,6 +362,9 @@ private fun LayoutRow(
         supportingContent = { Text(layoutSummary(layout, enabled)) },
         trailingContent = {
             Row {
+                IconButton(onClick = onExport) {
+                    Icon(Icons.Outlined.Share, contentDescription = "Export ${layout.name}")
+                }
                 IconButton(onClick = onDuplicate) {
                     Icon(Icons.Outlined.ContentCopy, contentDescription = "Duplicate ${layout.name}")
                 }
@@ -379,10 +513,34 @@ internal fun KeyLayoutEditorScreen(
     LayerChips(layout, layer) { layer = it; selection = null }
 
     if (layout.layer(layer) == null) {
-        CaptionText(
-            "Showing the built-in ${layerTitle(layer).lowercase()} grid. Changing " +
-                "anything here makes this layout's own copy of it.",
-        )
+        if (layer == LayoutLayer.FN) {
+            // Nothing ships an Fn layer, so there is no built-in to inherit and
+            // the grid above is a stand-in. Offer the template instead.
+            CaptionText(
+                "This layout has no Fn layer yet. Add one and put an Fn key on " +
+                    "another layer to reach it.",
+            )
+            SettingsGroup {
+                item {
+                    ListItem(
+                        colors = transparentListColors(),
+                        modifier = Modifier.clickable {
+                            edit { it.copy(layers = it.layers + (layer.key to BuiltInLayouts.FN_DEFAULT)) }
+                        },
+                        leadingContent = { Icon(Icons.Outlined.Add, contentDescription = null) },
+                        headlineContent = { Text("Add an Fn layer") },
+                        supportingContent = {
+                            Text("Starts from Esc, F1–F12, Tab, the arrows and Home/End")
+                        },
+                    )
+                }
+            }
+        } else {
+            CaptionText(
+                "Showing the built-in ${layerTitle(layer).lowercase()} grid. Changing " +
+                    "anything here makes this layout's own copy of it.",
+            )
+        }
     }
 
     Row(
@@ -495,6 +653,12 @@ internal fun KeyLayoutEditorScreen(
                 "Draw each key as it appears with shift held",
                 showShift,
             ) { showShift = it }
+        }
+        item {
+            NavRow(
+                "Edit as JSON",
+                subtitle = "Reach anything this screen has no control for",
+            ) { onNavigate("keymap_json/$layoutId") }
         }
         if (layout.layer(layer) != null) {
             item {
@@ -943,10 +1107,53 @@ internal val KeyActionCatalog: List<KeyActionOption> = listOf(
         { it is KeyAction.Mod && it.key == ModifierKey.META },
     ),
     KeyActionOption(
+        "Fn layer", "Layers", "Switches to this layout's Fn grid for one key",
+        { KeyAction.Fn }, { it == KeyAction.Fn },
+    ),
+    KeyActionOption(
+        "Tab", "Keys apps understand", "Sends a real Tab key press",
+        { KeyAction.SendKey(KEYCODE_TAB) },
+        { it is KeyAction.SendKey && it.keyCode == KEYCODE_TAB },
+    ),
+    KeyActionOption(
+        "Escape", "Keys apps understand", "Sends a real Esc key press",
+        { KeyAction.SendKey(KEYCODE_ESCAPE) },
+        { it is KeyAction.SendKey && it.keyCode == KEYCODE_ESCAPE },
+    ),
+    KeyActionOption(
+        "Arrow up", "Keys apps understand", "Moves the cursor up a line",
+        { KeyAction.SendKey(KEYCODE_DPAD_UP) },
+        { it is KeyAction.SendKey && it.keyCode == KEYCODE_DPAD_UP },
+    ),
+    KeyActionOption(
+        "Arrow down", "Keys apps understand", "Moves the cursor down a line",
+        { KeyAction.SendKey(KEYCODE_DPAD_DOWN) },
+        { it is KeyAction.SendKey && it.keyCode == KEYCODE_DPAD_DOWN },
+    ),
+    KeyActionOption(
+        "Arrow left", "Keys apps understand", "Moves the cursor left",
+        { KeyAction.SendKey(KEYCODE_DPAD_LEFT) },
+        { it is KeyAction.SendKey && it.keyCode == KEYCODE_DPAD_LEFT },
+    ),
+    KeyActionOption(
+        "Arrow right", "Keys apps understand", "Moves the cursor right",
+        { KeyAction.SendKey(KEYCODE_DPAD_RIGHT) },
+        { it is KeyAction.SendKey && it.keyCode == KEYCODE_DPAD_RIGHT },
+    ),
+    KeyActionOption(
         "Nothing", "Other", "A deliberate gap: drawn as empty space, swallows taps",
         { KeyAction.None }, { it == KeyAction.None },
     ),
 )
+
+// Written as numbers rather than KeyEvent.KEYCODE_* so this file, which is
+// otherwise pure settings UI, needs no android.view import.
+private const val KEYCODE_TAB = 61
+private const val KEYCODE_ESCAPE = 111
+private const val KEYCODE_DPAD_UP = 19
+private const val KEYCODE_DPAD_DOWN = 20
+private const val KEYCODE_DPAD_LEFT = 21
+private const val KEYCODE_DPAD_RIGHT = 22
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -1210,4 +1417,91 @@ private fun KeyActionPickerDialog(
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } },
     )
+}
+
+// ---------------------------------------------------------------------------
+// Raw JSON
+// ---------------------------------------------------------------------------
+
+/**
+ * The escape hatch: the layout as text, for pasting one in or fixing something
+ * the grid editor has no control for.
+ *
+ * Draft plus an explicit Apply, unlike the grid editor's auto-save — half-typed
+ * JSON is not a layout, so saving as you go is not merely undesirable, it is
+ * impossible. Applying runs the same repair the import path does, and says what
+ * it changed rather than rewriting the text silently.
+ */
+@Composable
+internal fun KeyLayoutJsonScreen(
+    repository: SettingsRepository,
+    settings: KeyboardSettings,
+    layoutId: String,
+    onDone: () -> Unit,
+) {
+    val scope = rememberCoroutineScope()
+    val layout = resolveLayouts(settings.customLayouts).firstOrNull { it.id == layoutId }
+    if (layout == null) {
+        Text(
+            "This layout no longer exists.",
+            modifier = Modifier.padding(16.dp),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        return
+    }
+
+    var text by rememberSaveable(layoutId) { mutableStateOf(LayoutCodec.encode(layout)) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var repairs by remember { mutableStateOf<List<String>>(emptyList()) }
+
+    CaptionText(
+        "The layout as it is stored. Editing here is the way to reach anything the " +
+            "grid editor has no control for. Re-opening this screen reformats what you " +
+            "wrote — values that match the default are left out, and spacing is not kept.",
+    )
+
+    OutlinedTextField(
+        value = text,
+        onValueChange = { text = it; error = null },
+        label = { Text("Layout JSON") },
+        isError = error != null,
+        supportingText = error?.let { { Text(it) } },
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 240.dp)
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+    )
+
+    if (repairs.isNotEmpty()) {
+        SettingsGroup("Applied, with changes") {
+            for (line in repairs) {
+                item {
+                    ListItem(colors = transparentListColors(), headlineContent = { Text(line) })
+                }
+            }
+        }
+    }
+
+    Row(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+        Spacer(Modifier.weight(1f))
+        Button(
+            enabled = text.isNotBlank(),
+            onClick = {
+                val parsed = LayoutCodec.decode(text)
+                if (parsed == null) {
+                    error = "That is not valid layout JSON."
+                    return@Button
+                }
+                // The id in the text is ignored: this screen edits one layout,
+                // and honouring a pasted id would silently overwrite a different
+                // one — or create a second layout the user never asked for.
+                val repaired = parsed.copy(id = layoutId).repair()
+                repairs = repaired.repairs
+                scope.launch {
+                    repository.upsertCustomLayout(repaired.spec)
+                    if (repaired.repairs.isEmpty()) onDone()
+                }
+            },
+        ) { Text("Apply") }
+    }
 }

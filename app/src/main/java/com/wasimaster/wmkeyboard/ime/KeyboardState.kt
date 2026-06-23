@@ -5,6 +5,7 @@ import com.wasimaster.wmkeyboard.core.clipboard.ClipItem
 import com.wasimaster.wmkeyboard.core.emoji.EmojiEntry
 import com.wasimaster.wmkeyboard.core.emoji.EmojiVariantIndex
 import com.wasimaster.wmkeyboard.core.layout.BuiltInLayouts
+import com.wasimaster.wmkeyboard.core.layout.Key
 import com.wasimaster.wmkeyboard.core.layout.KeyAction
 import com.wasimaster.wmkeyboard.core.layout.ModifierKey
 import com.wasimaster.wmkeyboard.core.layout.KeyboardLayout
@@ -93,7 +94,11 @@ data class Modifiers(
     companion object { val None = Modifiers() }
 }
 
-enum class LayoutMode { LETTERS, SYMBOLS, SYMBOLS_SHIFTED }
+/**
+ * Which key map is showing. FN is the layout's own extra layer, reached from a
+ * [KeyAction.Fn] key and absent from layouts that do not define one.
+ */
+enum class LayoutMode { LETTERS, SYMBOLS, SYMBOLS_SHIFTED, FN }
 
 /**
  * The layouts reachable from the focused field without a new `onStartInput`:
@@ -111,8 +116,15 @@ data class LayoutSet(
     val letters: KeyboardLayout,
     val symbols: KeyboardLayout,
     val symbolsShifted: KeyboardLayout,
+    /** The layout's own extra layer; null when it defines none. */
+    val fn: KeyboardLayout? = null,
     /** Keypad for the focused field kind; null for TEXT/EMAIL/URI. */
     val numeric: KeyboardLayout? = null,
+    /**
+     * Number rows this layout authored, by the layer they belong to. Absent
+     * entries take the digits the layer has always shown.
+     */
+    val numberRows: Map<LayoutMode, List<Key>> = emptyMap(),
 ) {
     /**
      * Rows the key grid reserves.
@@ -129,6 +141,7 @@ data class LayoutSet(
         letters.rows.size,
         symbols.rows.size,
         symbolsShifted.rows.size,
+        fn?.rows?.size ?: 0,
         numeric?.rows?.size ?: 0,
     ).coerceAtLeast(1)
 
@@ -151,6 +164,13 @@ data class LayoutSet(
         val Default = LayoutSet(Layouts.QWERTY, Layouts.SYMBOLS, Layouts.SYMBOLS_SHIFTED)
     }
 }
+
+/**
+ * The number row this layout authored for [mode], or null to use the built-in
+ * digits. Read off the resolved set so the rendering code stays clear of the
+ * layout store.
+ */
+fun KeyboardUiState.authoredNumberRow(mode: LayoutMode): List<Key>? = layouts.numberRows[mode]
 
 /**
  * What kind of field is focused, from EditorInfo.inputType. The numeric
@@ -522,6 +542,13 @@ data class KeyboardUiState(
      * follow the user into the next one and turn their typing into shortcuts.
      */
     val modifiers: Modifiers = Modifiers.None,
+    /**
+     * Layer the Fn key was pressed from, so a one-shot Fn springs back to where
+     * the user was rather than always to the letters. Null off the Fn layer.
+     */
+    val fnReturn: LayoutMode? = null,
+    /** Fn was double-tapped: the layer holds until Fn or ABC is tapped. */
+    val fnLocked: Boolean = false,
     val panel: PanelMode = PanelMode.NONE,
     val suggestions: List<String> = emptyList(),
     /** Spacing form of the dead-key accent waiting for a letter, if any. */

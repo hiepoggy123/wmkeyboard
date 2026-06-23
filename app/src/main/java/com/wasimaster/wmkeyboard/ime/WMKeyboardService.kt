@@ -147,6 +147,7 @@ import com.wasimaster.wmkeyboard.core.layout.Key
 import com.wasimaster.wmkeyboard.core.layout.KeyAction
 import com.wasimaster.wmkeyboard.core.layout.LayoutLayer
 import com.wasimaster.wmkeyboard.core.layout.ModifierKey
+import com.wasimaster.wmkeyboard.core.layout.numberRowFor
 import com.wasimaster.wmkeyboard.core.layout.LayoutSpec
 import com.wasimaster.wmkeyboard.core.layout.resolveLayout
 import com.wasimaster.wmkeyboard.core.layout.compile
@@ -1147,10 +1148,13 @@ class WMKeyboardService : InputMethodService() {
             KeyAction.Space -> onSpace()
             KeyAction.Enter -> onEnter()
             KeyAction.Symbols -> toggleSymbols()
-            KeyAction.Letters -> _uiState.update { it.copy(layoutMode = LayoutMode.LETTERS) }
+            KeyAction.Letters -> _uiState.update {
+                it.copy(layoutMode = LayoutMode.LETTERS, fnLocked = false, fnReturn = null)
+            }
             KeyAction.LanguageSwitch -> switchLanguage()
             KeyAction.Emoji -> onPanelChange(PanelMode.EMOJI)
             is KeyAction.Mod -> onModifier((key.action as KeyAction.Mod).key)
+            KeyAction.Fn -> onFn()
             // A key carrying its own modifiers, so it fires with no latch.
             is KeyAction.SendKey -> sendShortcut(key, Modifiers.None)
             // A deliberate gap in the grid, and a key from a build that knows an
@@ -1158,6 +1162,52 @@ class WMKeyboardService : InputMethodService() {
             // repaired before it can be enabled, so neither should reach a
             // keyboard the user is typing on.
             KeyAction.None, is KeyAction.Unknown -> Unit
+        }
+        // A one-shot Fn springs back after the key it modified, the same way an
+        // armed shift is spent. After dispatch, not before, so the key that
+        // fires is the Fn layer's key and not the one it replaced.
+        if (key.action != KeyAction.Fn) consumeFn()
+    }
+
+    private var lastFnTapTime = 0L
+
+    /**
+     * Tap switches to the Fn layer for one key and springs back; a quick second
+     * tap sticks. Springing back is what makes a one-off Esc or F5 cheap — the
+     * common case is a single function key, not a run of them.
+     */
+    private fun onFn() {
+        val now = System.currentTimeMillis()
+        val doubleTap = now - lastFnTapTime < SHIFT_DOUBLE_TAP_MS
+        lastFnTapTime = now
+        _uiState.update {
+            when {
+                // A layout can be shared without its Fn layer, or the layer
+                // deleted while a key pointing at it survives. Do nothing rather
+                // than switch to a grid that is really a copy of the letters.
+                it.layouts.fn == null -> it
+                it.layoutMode == LayoutMode.FN && doubleTap -> it.copy(fnLocked = true)
+                it.layoutMode == LayoutMode.FN -> it.copy(
+                    layoutMode = it.fnReturn ?: LayoutMode.LETTERS,
+                    fnLocked = false,
+                    fnReturn = null,
+                )
+                else -> it.copy(
+                    layoutMode = LayoutMode.FN,
+                    fnReturn = it.layoutMode,
+                    fnLocked = false,
+                )
+            }
+        }
+    }
+
+    private fun consumeFn() {
+        _uiState.update {
+            if (it.layoutMode != LayoutMode.FN || it.fnLocked) {
+                it
+            } else {
+                it.copy(layoutMode = it.fnReturn ?: LayoutMode.LETTERS, fnReturn = null)
+            }
         }
     }
 
@@ -1809,7 +1859,12 @@ class WMKeyboardService : InputMethodService() {
                     LayoutMode.LETTERS -> LayoutMode.SYMBOLS
                     LayoutMode.SYMBOLS -> LayoutMode.SYMBOLS_SHIFTED
                     LayoutMode.SYMBOLS_SHIFTED -> LayoutMode.SYMBOLS
+                    // ?123 from the Fn layer leaves it, lock and all: the user
+                    // asked for a different grid, not for Fn to persist under it.
+                    LayoutMode.FN -> LayoutMode.SYMBOLS
                 },
+                fnLocked = false,
+                fnReturn = null,
             )
         }
     }
@@ -1843,7 +1898,18 @@ class WMKeyboardService : InputMethodService() {
             letters = spec.compile(LayoutLayer.LETTERS),
             symbols = spec.compile(LayoutLayer.SYMBOLS),
             symbolsShifted = spec.compile(LayoutLayer.SYMBOLS_SHIFTED),
+            // Only when the layout actually defines one: compile() falls back
+            // to the shipped grid for a missing layer, which would give every
+            // layout an Fn layer that is really a second copy of the letters.
+            fn = spec.layer(LayoutLayer.FN)?.let { spec.compile(LayoutLayer.FN) },
             numeric = fieldKind.numericLayer?.let(spec::compile),
+            numberRows = buildMap {
+                spec.numberRowFor(LayoutLayer.LETTERS)?.let { put(LayoutMode.LETTERS, it) }
+                spec.numberRowFor(LayoutLayer.SYMBOLS)?.let { put(LayoutMode.SYMBOLS, it) }
+                spec.numberRowFor(LayoutLayer.SYMBOLS_SHIFTED)
+                    ?.let { put(LayoutMode.SYMBOLS_SHIFTED, it) }
+                spec.numberRowFor(LayoutLayer.FN)?.let { put(LayoutMode.FN, it) }
+            },
         )
         layoutSetCache[key] = set
         return set

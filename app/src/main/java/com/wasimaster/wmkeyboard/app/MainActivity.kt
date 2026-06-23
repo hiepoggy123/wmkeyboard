@@ -433,6 +433,12 @@ private fun SettingsNavHost(
                 }
             }
         }
+        composable("keymap_json/{layoutId}") { backStackEntry ->
+            val layoutId = backStackEntry.arguments?.getString("layoutId").orEmpty()
+            SettingsScreen("Layout JSON", { navController.popBackStack() }) {
+                KeyLayoutJsonScreen(repository, settings, layoutId) { navController.popBackStack() }
+            }
+        }
         composable("languages") {
             SettingsScreen("Languages", { navController.popBackStack() }) {
                 LanguageSettings(repository, settings) { route -> navController.navigate(route) }

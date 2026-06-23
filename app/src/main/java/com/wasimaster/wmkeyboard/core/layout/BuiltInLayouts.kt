@@ -188,6 +188,39 @@ object BuiltInLayouts {
         InputMode.SPANISH -> SPANISH
     }
 
+    /**
+     * A starting Fn layer, for a layout that wants one.
+     *
+     * Not attached to any built-in — nothing ships with an Fn key — but offered
+     * by the editor as a template, and it doubles as the proof that
+     * [KeyAction.SendKey] works end to end. Deliberately four rows, so enabling
+     * it never inflates the row budget the panels are sized against.
+     */
+    val FN_DEFAULT: LayerSpec = LayerSpec(
+        rows = listOf(
+            listOf(
+                fnKey("Esc", 111), fnKey("F1", 131), fnKey("F2", 132), fnKey("F3", 133),
+                fnKey("F4", 134), fnKey("F5", 135), fnKey("F6", 136),
+            ),
+            listOf(
+                fnKey("Tab", 61), fnKey("F7", 137), fnKey("F8", 138), fnKey("F9", 139),
+                fnKey("F10", 140), fnKey("F11", 141), fnKey("F12", 142),
+            ),
+            listOf(
+                fnKey("Home", 122), fnKey("↑", 19), fnKey("End", 123),
+                fnKey("PgUp", 92), fnKey("Ins", 124), fnKey("Del", 112),
+                Key("⌫", action = KeyAction.Delete),
+            ),
+            listOf(
+                fnKey("←", 21), fnKey("↓", 20), fnKey("→", 22),
+                fnKey("PgDn", 93),
+                Key("ABC", action = KeyAction.Letters, width = 1.5f),
+                Key(" ", action = KeyAction.Space, width = 1.5f),
+                Key("⏎", action = KeyAction.Enter),
+            ),
+        ),
+    )
+
     /** Matches the enabled modes a fresh install used to start with. */
     val defaultEnabledIds: List<String> =
         listOf(QWERTY_ID, AVRO_ID, PROBHAT_ID, JATIYA_ID)
@@ -540,3 +573,10 @@ private val dateTimeRows = numpad(
     bottomLeft = Key("-"),
     bottomRight = padSpace(),
 )
+
+/**
+ * A key that injects a raw key code. Written with the numeric code rather than
+ * `KeyEvent.KEYCODE_*` so this file stays free of an Android import — it is
+ * pure data, and the unit tests read it without a device.
+ */
+private fun fnKey(label: String, code: Int) = Key(label, action = KeyAction.SendKey(code))

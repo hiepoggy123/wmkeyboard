@@ -88,6 +88,18 @@ sealed interface KeyAction {
         val meta: Int = 0,
     ) : KeyAction
 
+    /**
+     * Switches to the layout's Fn layer for one key, springing back after it; a
+     * quick second tap sticks. Springing back is what makes a one-off Esc or F5
+     * cheap — the common case is a single function key, not a run of them.
+     *
+     * A layer rather than a modifier because Android's `META_FUNCTION_ON` exists
+     * but nothing in the framework or in any app reads it, so an Fn flag would
+     * be inert everywhere. A layer is also what Fn physically is on a real
+     * keyboard: a shift into a different key map.
+     */
+    @Serializable @SerialName("fn") data object Fn : KeyAction
+
     /** A deliberate gap in the grid: drawn as empty space, swallows its taps. */
     @Serializable @SerialName("none") data object None : KeyAction
 
