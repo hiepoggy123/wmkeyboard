@@ -225,19 +225,21 @@ private fun LanguagesPage(repository: SettingsRepository, settings: KeyboardSett
             modifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 4.dp),
         )
         for (option in language.layouts) {
-            val mode = option.mode
+            val layoutId = option.layoutId
             ListItem(
                 headlineContent = { Text(option.title) },
                 supportingContent = { Text(option.subtitle) },
                 trailingContent = {
                     Switch(
-                        checked = mode in settings.enabledModes,
+                        checked = layoutId in settings.enabledLayoutIds,
                         onCheckedChange = { enable ->
                             scope.launch {
                                 val next =
-                                    if (enable) settings.enabledModes + mode
-                                    else settings.enabledModes - mode
-                                if (next.isNotEmpty()) repository.setEnabledModes(next.distinct())
+                                    if (enable) settings.enabledLayoutIds + layoutId
+                                    else settings.enabledLayoutIds - layoutId
+                                if (next.isNotEmpty()) {
+                                    repository.setEnabledLayoutIds(next.distinct())
+                                }
                             }
                         },
                     )

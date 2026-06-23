@@ -3,6 +3,7 @@ package com.wasimaster.wmkeyboard.ime
 import com.wasimaster.wmkeyboard.core.clipboard.ClipItem
 import com.wasimaster.wmkeyboard.core.emoji.EmojiEntry
 import com.wasimaster.wmkeyboard.core.emoji.EmojiVariantIndex
+import com.wasimaster.wmkeyboard.core.layout.BuiltInLayouts
 import com.wasimaster.wmkeyboard.core.layout.KeyAction
 import com.wasimaster.wmkeyboard.core.layout.KeyboardLayout
 import com.wasimaster.wmkeyboard.core.layout.LayoutLayer
@@ -427,6 +428,15 @@ sealed interface TypingTestAction {
 data class KeyboardUiState(
     val settings: KeyboardSettings = KeyboardSettings(),
     val inputMode: InputMode = InputMode.ENGLISH,
+    /** The layout being typed on; what the 🌐 cycle steps through. */
+    val layoutId: String = BuiltInLayouts.DEFAULT_ID,
+    /**
+     * The layout's display name, for the spacebar label. Carried on the state
+     * rather than looked up, because a custom layout has no [InputMode] of its
+     * own to name it by — two layouts can share a base mode and still deserve
+     * different labels.
+     */
+    val layoutName: String = "",
     /**
      * Key grids for the focused field, resolved from the user's layout choice.
      * Defaults to the shipped grids so a state built before the first resolution

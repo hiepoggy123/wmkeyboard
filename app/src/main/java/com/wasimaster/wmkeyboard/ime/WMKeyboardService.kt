@@ -145,6 +145,8 @@ import com.wasimaster.wmkeyboard.core.layout.ClipboardKeyAction
 import com.wasimaster.wmkeyboard.core.layout.Key
 import com.wasimaster.wmkeyboard.core.layout.KeyAction
 import com.wasimaster.wmkeyboard.core.layout.LayoutLayer
+import com.wasimaster.wmkeyboard.core.layout.LayoutSpec
+import com.wasimaster.wmkeyboard.core.layout.resolveLayout
 import com.wasimaster.wmkeyboard.core.layout.compile
 import com.wasimaster.wmkeyboard.ime.ui.KeyboardScreen
 import android.inputmethodservice.InputMethodService
@@ -213,7 +215,7 @@ class WMKeyboardService : InputMethodService() {
      * switch (spacebar swipe, 🌐) clears it, because an explicit switch is
      * always a stronger signal than the app's request.
      */
-    private var fieldModeOverride: InputMode? = null
+    private var fieldLayoutOverride: String? = null
 
     private var composing = StringBuilder()
     private var previousWord: String? = null
@@ -535,27 +537,27 @@ class WMKeyboardService : InputMethodService() {
                 val mode = resolveKeyboardMode(
                     settings.keyboardModes, currentPackage, currentModeFields, manualModeId,
                 )
+                // A field-scoped override (FORCE_ASCII, hintLocales) outlives
+                // settings emissions — otherwise saving any unrelated setting
+                // would drop the field back to a layout it cannot accept.
+                val activeSpec = activeLayoutSpec(settings)
                 _uiState.update {
                     it.copy(
                         settings = settings.applyMode(mode),
-                        // A field-scoped override (FORCE_ASCII, hintLocales)
-                        // outlives settings emissions — otherwise saving any
-                        // unrelated setting would drop the field back to a
-                        // mode it cannot accept.
-                        inputMode = fieldModeOverride ?: settings.inputMode,
-                        layouts = resolveLayoutSet(
-                            fieldModeOverride ?: settings.inputMode,
-                            it.fieldKind,
-                        ),
+                        inputMode = activeSpec.baseMode,
+                        layoutId = activeSpec.id,
+                        layoutName = activeSpec.name,
+                        layouts = resolveLayoutSet(activeSpec, it.fieldKind),
                         activeModeId = mode?.id,
                     )
                 }
                 // Everything below keys off the mode actually being typed, so
                 // a field-forced mode gets its own proximity grid and word
                 // lists rather than the saved mode's.
-                val activeInput = fieldModeOverride ?: settings.inputMode
-                // Typo weighting follows the active Latin layout's key grid.
-                suggestionEngine?.proximity = KeyProximity.forMode(activeInput)
+                val activeInput = activeSpec.baseMode
+                // Typo weighting follows the grid actually on screen, so a
+                // rearranged custom layout weights its own neighbours.
+                suggestionEngine?.proximity = KeyProximity.forLayout(activeSpec)
                 suggestionEngine?.autocorrectConfidence =
                     settings.autocorrectConfidence.toDouble()
                 // Latin languages without a bundled dictionary (French, German,
@@ -870,18 +872,30 @@ class WMKeyboardService : InputMethodService() {
         // Language the field asks for. FORCE_ASCII is a hard constraint (the
         // app cannot store what a Bengali mode types) so it outranks a
         // hintLocales preference, which is only ever advisory.
-        val savedMode = (base ?: _uiState.value.settings).inputMode
-        val enabledModes = (base ?: _uiState.value.settings).enabledModes
-        fieldModeOverride = when {
+        val current = base ?: _uiState.value.settings
+        val savedMode = current.inputMode
+        fieldLayoutOverride = when {
             info.forcesAscii() && !savedMode.isLatinScript ->
-                enabledModes.firstOrNull { it.isLatinScript } ?: InputMode.ENGLISH
-            else -> info.hintedMode(enabledModes)?.takeIf { it != savedMode }
+                current.enabledLayoutIds.firstOrNull {
+                    resolveLayout(current.customLayouts, it).baseMode.isLatinScript
+                } ?: BuiltInLayouts.DEFAULT_ID
+            // hintLocales names a language, not a layout, so it picks the first
+            // enabled layout that types that language.
+            else -> info.hintedMode(current.enabledModes)?.takeIf { it != savedMode }
+                ?.let { hinted ->
+                    current.enabledLayoutIds.firstOrNull {
+                        resolveLayout(current.customLayouts, it).baseMode == hinted
+                    }
+                }
         }
+        val fieldSpec = activeLayoutSpec(current)
         _uiState.update {
             it.copy(
                 settings = base?.applyMode(activeMode) ?: it.settings,
-                inputMode = fieldModeOverride ?: savedMode,
-                layouts = resolveLayoutSet(fieldModeOverride ?: savedMode, fieldKind),
+                inputMode = fieldSpec.baseMode,
+                layoutId = fieldSpec.id,
+                layoutName = fieldSpec.name,
+                layouts = resolveLayoutSet(fieldSpec, fieldKind),
                 activeModeId = activeMode?.id,
                 activeSymbolSetId = null,
                 panel = PanelMode.NONE,
@@ -1055,7 +1069,7 @@ class WMKeyboardService : InputMethodService() {
         // The language the field asked for dies with the field; leaving it
         // set would apply an ASCII lock or a locale hint to whatever the
         // user types in next.
-        fieldModeOverride = null
+        fieldLayoutOverride = null
         userLexicon.save()
         emojiUsage.save()
         if (_uiState.value.settings.flashlightAutoOff && _uiState.value.torchOn) {
@@ -1629,8 +1643,15 @@ class WMKeyboardService : InputMethodService() {
      * [KeyboardUiState]'s generated `equals` walks its fields, so handing out a
      * fresh set per emission would make every state comparison walk every key.
      */
-    private fun resolveLayoutSet(mode: InputMode, fieldKind: FieldKind): LayoutSet {
-        val spec = BuiltInLayouts.forMode(mode)
+    /**
+     * The layout being typed on: the field's override if it asked for one,
+     * otherwise the user's choice. Resolved rather than raw, so an id whose
+     * layout was deleted heals to the default instead of selecting nothing.
+     */
+    private fun activeLayoutSpec(settings: KeyboardSettings): LayoutSpec =
+        resolveLayout(settings.customLayouts, fieldLayoutOverride ?: settings.activeLayoutId)
+
+    private fun resolveLayoutSet(spec: LayoutSpec, fieldKind: FieldKind): LayoutSet {
         val key = spec.id to fieldKind
         layoutSetCache[key]?.let { return it }
         val set = LayoutSet(
@@ -1647,21 +1668,36 @@ class WMKeyboardService : InputMethodService() {
 
     private fun switchLanguage() {
         val state = _uiState.value
-        val modes = state.settings.enabledModes.ifEmpty { listOf(InputMode.ENGLISH) }
-        onLanguageSelected(modes[(modes.indexOf(state.inputMode) + 1).mod(modes.size)])
+        // Cycles layout ids, not modes: three custom layouts all based on
+        // English are three distinct stops, where cycling modes would collapse
+        // them into one and make them unreachable from the keyboard.
+        val ids = state.settings.enabledLayoutIds.ifEmpty { listOf(BuiltInLayouts.DEFAULT_ID) }
+        onLayoutSelected(ids[(ids.indexOf(state.layoutId) + 1).mod(ids.size)])
     }
 
-    /** Spacebar swipe (or 🌐 cycle): switch to an explicit input mode. */
+    /** Picks the built-in layout for [mode]. The picker still speaks languages. */
     fun onLanguageSelected(mode: InputMode) {
+        val settings = _uiState.value.settings
+        val id = settings.enabledLayoutIds.firstOrNull {
+            resolveLayout(settings.customLayouts, it).baseMode == mode
+        } ?: BuiltInLayouts.forMode(mode).id
+        onLayoutSelected(id)
+    }
+
+    /** Spacebar swipe (or 🌐 cycle): switch to an explicit layout. */
+    fun onLayoutSelected(layoutId: String) {
+        val spec = resolveLayout(_uiState.value.settings.customLayouts, layoutId)
         currentInputConnection?.let { commitComposing(it, autocorrect = false) }
         // An explicit switch beats what the field asked for: the user can
         // see the box they are typing in, FORCE_ASCII and hintLocales are
         // only the app's guess.
-        fieldModeOverride = null
+        fieldLayoutOverride = null
         _uiState.update {
             it.copy(
-                inputMode = mode,
-                layouts = resolveLayoutSet(mode, it.fieldKind),
+                inputMode = spec.baseMode,
+                layoutId = spec.id,
+                layoutName = spec.name,
+                layouts = resolveLayoutSet(spec, it.fieldKind),
                 layoutMode = LayoutMode.LETTERS,
             )
         }
@@ -1671,7 +1707,7 @@ class WMKeyboardService : InputMethodService() {
         if (_uiState.value.panel == PanelMode.HANDWRITING) refreshHandwritingStatus()
         // Same for dictation: restart the session in the new language.
         if (_uiState.value.panel == PanelMode.VOICE) startVoice()
-        serviceScope.launch { settingsRepository.setInputMode(mode) }
+        serviceScope.launch { settingsRepository.setActiveLayoutId(spec.id) }
     }
 
     // ---- composing & suggestions ----

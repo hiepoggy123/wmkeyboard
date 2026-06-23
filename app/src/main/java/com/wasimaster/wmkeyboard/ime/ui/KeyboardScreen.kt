@@ -309,6 +309,7 @@ import com.wasimaster.wmkeyboard.ime.TypingTestAction
 import com.wasimaster.wmkeyboard.ime.SoundHapticAction
 import com.wasimaster.wmkeyboard.ime.TextEditAction
 import com.wasimaster.wmkeyboard.ime.ShiftState
+import com.wasimaster.wmkeyboard.core.layout.BuiltInLayouts
 import com.wasimaster.wmkeyboard.core.layout.ClipboardKeyAction
 import com.wasimaster.wmkeyboard.core.layout.Key
 import com.wasimaster.wmkeyboard.core.layout.KeyAction
@@ -4647,7 +4648,10 @@ private fun KeyContent(key: Key, state: KeyboardUiState, contentColor: Color) {
                         fontSize = (8 * fontScale).sp,
                         color = contentColor.copy(alpha = 0.35f),
                     )
-                    val languageName = when (state.inputMode) {
+                    // A custom layout carries its own name: two layouts can
+                    // share a base mode, so the mode cannot tell them apart on
+                    // the spacebar. Built-ins keep their language-shaped labels.
+                    val builtInName = when (state.inputMode) {
                         InputMode.ENGLISH -> "English"
                         InputMode.AZERTY -> "English · AZERTY"
                         InputMode.DVORAK -> "English · Dvorak"
@@ -4657,6 +4661,11 @@ private fun KeyContent(key: Key, state: KeyboardUiState, contentColor: Color) {
                         InputMode.FRENCH -> "Français"
                         InputMode.GERMAN -> "Deutsch"
                         InputMode.SPANISH -> "Español"
+                    }
+                    val languageName = if (BuiltInLayouts.byId(state.layoutId) != null) {
+                        builtInName
+                    } else {
+                        state.layoutName.ifBlank { builtInName }
                     }
                     // A custom label replaces the language name; %s inside it
                     // puts the name back, so "— %s —" keeps tracking the mode.

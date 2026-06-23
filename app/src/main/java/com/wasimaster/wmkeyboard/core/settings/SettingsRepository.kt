@@ -14,6 +14,12 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.wasimaster.wmkeyboard.BuildConfig
+import com.wasimaster.wmkeyboard.core.layout.BuiltInLayouts
+import com.wasimaster.wmkeyboard.core.layout.LayoutCodec
+import com.wasimaster.wmkeyboard.core.layout.LayoutSpec
+import com.wasimaster.wmkeyboard.core.layout.repair
+import com.wasimaster.wmkeyboard.core.layout.resolveLayoutSelection
+import com.wasimaster.wmkeyboard.core.layout.resolveLayout
 import com.wasimaster.wmkeyboard.core.theme.DEFAULT_THEME_ID
 import com.wasimaster.wmkeyboard.core.theme.ThemeCodec
 import com.wasimaster.wmkeyboard.core.theme.ThemeSpec
@@ -281,7 +287,26 @@ enum class ColorVisionFilter { NONE, DEUTERANOPIA, PROTANOPIA, TRITANOPIA, GRAYS
 enum class ScreenReaderMode { OFF, LABELS, EXPLORE }
 
 data class KeyboardSettings(
+    /**
+     * The layout being typed on: a [BuiltInLayouts] id, or a custom one. This is
+     * the stored choice; [inputMode] below is read off it.
+     */
+    val activeLayoutId: String = BuiltInLayouts.DEFAULT_ID,
+    /** Layouts the 🌐 key and the spacebar swipe cycle between, in order. */
+    val enabledLayoutIds: List<String> = BuiltInLayouts.defaultEnabledIds,
+    /** User-created layouts, and edits shadowing a built-in by reusing its id. */
+    val customLayouts: List<LayoutSpec> = emptyList(),
+    /**
+     * The language behaviour of [activeLayoutId]: dictionary, autocorrect
+     * sources, script rules, dictation and handwriting model.
+     *
+     * Derived rather than stored — a layout names its base mode and everything
+     * language-shaped keys off that. It stays a field on the settings, rather
+     * than becoming a lookup at each call site, so the forty-odd readers that
+     * predate custom layouts are untouched by them.
+     */
     val inputMode: InputMode = InputMode.ENGLISH,
+    /** Base modes of [enabledLayoutIds], deduplicated. Derived like [inputMode]. */
     val enabledModes: List<InputMode> =
         listOf(InputMode.ENGLISH, InputMode.AVRO, InputMode.PROBHAT, InputMode.JATIYA),
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
@@ -735,8 +760,14 @@ class SettingsRepository(private val context: Context) {
     companion object {
         private val Context.dataStore by preferencesDataStore(name = "keyboard_settings")
 
+        // input_mode and enabled_modes are kept as the compatibility mirror of
+        // the two keys below: they are written alongside, never read except by
+        // an install that predates the layout registry.
         private val INPUT_MODE = stringPreferencesKey("input_mode")
         private val ENABLED_MODES = stringPreferencesKey("enabled_modes")
+        private val ACTIVE_LAYOUT_ID = stringPreferencesKey("active_layout_id")
+        private val ENABLED_LAYOUT_IDS = stringPreferencesKey("enabled_layout_ids")
+        private val CUSTOM_LAYOUTS = stringPreferencesKey("custom_layouts")
         private val THEME_MODE = stringPreferencesKey("theme_mode")
         private val DYNAMIC_COLOR = booleanPreferencesKey("dynamic_color")
         private val KEYBOARD_THEME_ID = stringPreferencesKey("keyboard_theme_id")
@@ -988,14 +1019,26 @@ class SettingsRepository(private val context: Context) {
 
     val settings: Flow<KeyboardSettings> = context.dataStore.data.map { p ->
         val defaults = KeyboardSettings()
+        // Layouts resolve first: the input mode is read off the active layout,
+        // so it has to be known before the settings object is built. The
+        // pre-registry migration lives in resolveLayoutSelection.
+        val customLayouts = p[CUSTOM_LAYOUTS]?.let { LayoutCodec.decodeList(it) }
+            ?: defaults.customLayouts
+        val layoutSelection = resolveLayoutSelection(
+            storedLayoutId = p[ACTIVE_LAYOUT_ID],
+            storedInputMode = p[INPUT_MODE],
+            storedEnabledLayoutIds = p[ENABLED_LAYOUT_IDS],
+            storedEnabledModes = p[ENABLED_MODES],
+            customLayouts = customLayouts,
+            defaultActiveId = defaults.activeLayoutId,
+            defaultEnabledIds = defaults.enabledLayoutIds,
+        )
         KeyboardSettings(
-            inputMode = p[INPUT_MODE]?.let { runCatching { InputMode.valueOf(it) }.getOrNull() }
-                ?: defaults.inputMode,
-            enabledModes = p[ENABLED_MODES]
-                ?.split(',')
-                ?.mapNotNull { runCatching { InputMode.valueOf(it) }.getOrNull() }
-                ?.ifEmpty { null }
-                ?: defaults.enabledModes,
+            activeLayoutId = layoutSelection.active.id,
+            enabledLayoutIds = layoutSelection.enabledLayoutIds,
+            customLayouts = customLayouts,
+            inputMode = layoutSelection.active.baseMode,
+            enabledModes = layoutSelection.enabledModes,
             themeMode = p[THEME_MODE]?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() }
                 ?: defaults.themeMode,
             dynamicColor = p[DYNAMIC_COLOR] ?: defaults.dynamicColor,
@@ -1525,11 +1568,97 @@ class SettingsRepository(private val context: Context) {
             }
         }
 
+    /** Selects the built-in layout bound to [mode]. Kept for the 🌐 cycle. */
     suspend fun setInputMode(mode: InputMode) =
-        context.dataStore.edit { it[INPUT_MODE] = mode.name }
+        setActiveLayoutId(BuiltInLayouts.forMode(mode).id)
 
     suspend fun setEnabledModes(modes: List<InputMode>) =
-        context.dataStore.edit { it[ENABLED_MODES] = modes.joinToString(",") { m -> m.name } }
+        setEnabledLayoutIds(modes.map { BuiltInLayouts.forMode(it).id })
+
+    /**
+     * Switches the active layout.
+     *
+     * Repairs it on the way in — the one place that has to, along with import.
+     * Ordinary saves deliberately do not, so the editor can hold a half-built
+     * grid; but the moment a layout becomes the thing you type on it must have
+     * a delete key, because you cannot fix the typo that lost you the key.
+     *
+     * The old input_mode preference is written alongside so a build without the
+     * registry — an older APK, or this settings file restored onto one — still
+     * lands on the right language.
+     */
+    suspend fun setActiveLayoutId(id: String) =
+        context.dataStore.edit { prefs ->
+            val custom = prefs[CUSTOM_LAYOUTS]?.let { LayoutCodec.decodeList(it) } ?: emptyList()
+            val stored = custom.firstOrNull { it.id == id }
+            // resolveLayout falls back to the default, so an id whose layout was
+            // deleted heals here rather than selecting nothing.
+            val repaired = resolveLayout(custom, id).repair().spec
+            // Only write back when there was a stored layout and the repair
+            // actually changed it; an untouched built-in needs no write.
+            if (stored != null && repaired != stored) {
+                prefs[CUSTOM_LAYOUTS] =
+                    LayoutCodec.encodeList(custom.filter { it.id != id } + repaired)
+            }
+            prefs[ACTIVE_LAYOUT_ID] = repaired.id
+            prefs[INPUT_MODE] = repaired.baseMode.name
+        }
+
+    /** The layouts the 🌐 key cycles; an empty pick falls back to the default. */
+    suspend fun setEnabledLayoutIds(ids: List<String>) =
+        context.dataStore.edit { prefs ->
+            val next = ids.distinct().ifEmpty { listOf(BuiltInLayouts.DEFAULT_ID) }
+            val custom = prefs[CUSTOM_LAYOUTS]?.let { LayoutCodec.decodeList(it) } ?: emptyList()
+            prefs[ENABLED_LAYOUT_IDS] = next.joinToString(",")
+            prefs[ENABLED_MODES] = next
+                .map { resolveLayout(custom, it).baseMode }
+                .distinct()
+                .joinToString(",") { it.name }
+        }
+
+    /**
+     * Adds a layout, or replaces the stored one with the same id.
+     *
+     * Deliberately does *not* repair. The editor saves on every keystroke, so
+     * repairing here would re-add a delete key the instant the user removed a
+     * row, and the undo stack would record the repaired grid rather than the one
+     * being built. Repair belongs at the two moments the layout leaves the
+     * user's hands: import, and [setActiveLayoutId].
+     */
+    suspend fun upsertCustomLayout(layout: LayoutSpec) =
+        context.dataStore.edit { prefs ->
+            val current = prefs[CUSTOM_LAYOUTS]?.let { LayoutCodec.decodeList(it) } ?: emptyList()
+            prefs[CUSTOM_LAYOUTS] =
+                LayoutCodec.encodeList(current.filter { it.id != layout.id } + layout)
+        }
+
+    /**
+     * Deletes a custom layout and drops every reference to it.
+     *
+     * Deleting an *edited built-in* only removes the override — the shipped grid
+     * comes back under the same id, so every reference to it stays valid, which
+     * is why the reference cleanup below is skipped for those.
+     */
+    suspend fun deleteCustomLayout(id: String) =
+        context.dataStore.edit { prefs ->
+            val current = prefs[CUSTOM_LAYOUTS]?.let { LayoutCodec.decodeList(it) } ?: emptyList()
+            prefs[CUSTOM_LAYOUTS] = LayoutCodec.encodeList(current.filter { it.id != id })
+            if (BuiltInLayouts.byId(id) != null) return@edit
+            prefs[ENABLED_LAYOUT_IDS]?.let { stored ->
+                val kept = stored.split(',')
+                    .filter { it.isNotEmpty() && it != id }
+                    .ifEmpty { listOf(BuiltInLayouts.DEFAULT_ID) }
+                prefs[ENABLED_LAYOUT_IDS] = kept.joinToString(",")
+                prefs[ENABLED_MODES] = kept
+                    .map { resolveLayout(emptyList(), it).baseMode }
+                    .distinct()
+                    .joinToString(",") { it.name }
+            }
+            if (prefs[ACTIVE_LAYOUT_ID] == id) {
+                prefs[ACTIVE_LAYOUT_ID] = BuiltInLayouts.DEFAULT_ID
+                prefs[INPUT_MODE] = BuiltInLayouts.default.baseMode.name
+            }
+        }
 
     suspend fun setThemeMode(mode: ThemeMode) =
         context.dataStore.edit { it[THEME_MODE] = mode.name }

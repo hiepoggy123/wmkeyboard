@@ -2071,15 +2071,15 @@ private fun LanguageSettings(repository: SettingsRepository, settings: KeyboardS
                 item {
                     ToggleSetting(
                         option.title, option.subtitle,
-                        option.mode in settings.enabledModes,
+                        option.layoutId in settings.enabledLayoutIds,
                         info = option.info,
                     ) { enable ->
                         scope.launch {
                             val next =
-                                if (enable) settings.enabledModes + option.mode
-                                else settings.enabledModes - option.mode
-                            // At least one mode must stay enabled.
-                            if (next.isNotEmpty()) repository.setEnabledModes(next.distinct())
+                                if (enable) settings.enabledLayoutIds + option.layoutId
+                                else settings.enabledLayoutIds - option.layoutId
+                            // At least one layout must stay enabled.
+                            if (next.isNotEmpty()) repository.setEnabledLayoutIds(next.distinct())
                         }
                     }
                 }
