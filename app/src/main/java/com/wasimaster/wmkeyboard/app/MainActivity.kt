@@ -5630,7 +5630,7 @@ private val ReorderRowHeight = 52.dp
  * leaves the stored order alone.
  */
 @Composable
-private fun <T> ReorderDialog(
+internal fun <T> ReorderDialog(
     title: String,
     items: List<T>,
     label: (T) -> String,
@@ -5733,7 +5733,7 @@ private fun <T> ReorderDialog(
  * there is nothing to reorder yet.
  */
 @Composable
-private fun <T> ReorderSetting(
+internal fun <T> ReorderSetting(
     title: String,
     dialogTitle: String,
     items: List<T>,

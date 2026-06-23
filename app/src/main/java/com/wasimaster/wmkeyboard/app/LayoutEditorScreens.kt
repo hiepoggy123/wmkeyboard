@@ -1,5 +1,26 @@
 package com.wasimaster.wmkeyboard.app
 
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.outlined.Redo
+import androidx.compose.material.icons.automirrored.outlined.Undo
+import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Slider
+import com.wasimaster.wmkeyboard.core.layout.KeyRole
+import com.wasimaster.wmkeyboard.core.layout.LayerSpec
+import kotlin.math.roundToInt
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -257,6 +278,15 @@ internal fun baseModeTitle(mode: InputMode): String {
 /** Row and column address of one key in the layer being edited. */
 internal data class KeyRef(val row: Int, val col: Int)
 
+/**
+ * Undo holds whole layouts rather than diffs. A layout is a few kB of data
+ * classes, thirty of them cost nothing, and a diff type would need an inverse
+ * for every edit the sheet can make — which is exactly the list that keeps
+ * growing as actions gain payloads.
+ */
+private const val UndoDepth = 30
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun KeyLayoutEditorScreen(
     repository: SettingsRepository,
@@ -264,6 +294,7 @@ internal fun KeyLayoutEditorScreen(
     layoutId: String,
     onNavigate: (String) -> Unit,
 ) {
+    val scope = rememberCoroutineScope()
     val layout = resolveLayouts(settings.customLayouts).firstOrNull { it.id == layoutId }
     if (layout == null) {
         Text(
@@ -277,6 +308,70 @@ internal fun KeyLayoutEditorScreen(
     var layer by rememberSaveable(layoutId) { mutableStateOf(LayoutLayer.LETTERS) }
     var selection by remember(layoutId, layer) { mutableStateOf<KeyRef?>(null) }
     var showShift by rememberSaveable(layoutId) { mutableStateOf(false) }
+    var sheetOpen by remember(layoutId, layer) { mutableStateOf(false) }
+
+    // Session-scoped on purpose. Persisting it would mean a second serialized
+    // document per layout, for a benefit — "undo what I did last Tuesday" —
+    // that nobody expects from an editor.
+    var undo by remember(layoutId) { mutableStateOf(emptyList<LayoutSpec>()) }
+    var redo by remember(layoutId) { mutableStateOf(emptyList<LayoutSpec>()) }
+    var stepPushed by remember(layoutId) { mutableStateOf(false) }
+
+    // Editing an inherited layer authors this layout's own copy of it. Until
+    // then the grid shows the built-in, which is what makes "replaces
+    // everything" survivable: moving one letter must not cost you a phone pad.
+    fun withLayerRows(spec: LayoutSpec, rows: List<List<Key>>): LayoutSpec {
+        val existing = spec.layer(layer) ?: LayerSpec(rows)
+        return spec.copy(layers = spec.layers + (layer.key to existing.copy(rows = rows)))
+    }
+
+    fun push() {
+        undo = (undo + layout).takeLast(UndoDepth)
+        redo = emptyList()
+    }
+
+    /** Restores a whole layout, for undo and redo. */
+    fun save(next: LayoutSpec) {
+        scope.launch { repository.upsertCustomLayout(next) }
+    }
+
+    /**
+     * Applies an edit through the repository rather than to the layout held
+     * here. This screen saves on every keystroke and its copy of the layout
+     * comes from the settings flow, which lags the write it just made — so two
+     * edits landing within a frame would see the same stale copy and the second
+     * would undo the first.
+     */
+    fun apply(transform: (LayoutSpec) -> LayoutSpec) {
+        scope.launch { repository.updateCustomLayout(layoutId, transform) }
+    }
+
+    /** One discrete edit: one undo step. */
+    fun edit(transform: (LayoutSpec) -> LayoutSpec) {
+        push()
+        stepPushed = true
+        apply(transform)
+    }
+
+    /**
+     * An edit inside one key-sheet session. Pushing per keystroke would flush
+     * thirty slots typing "https://", and "undo my edit to that key" is the step
+     * users actually have in mind.
+     */
+    fun editCoalesced(transform: (LayoutSpec) -> LayoutSpec) {
+        if (!stepPushed) push()
+        stepPushed = true
+        apply(transform)
+    }
+
+    // Every transform below derives its rows from the spec it is handed, never
+    // from the copy this composition is holding, for the staleness reason above.
+    fun editRows(transform: (List<List<Key>>) -> List<List<Key>>) {
+        edit { spec -> withLayerRows(spec, transform(spec.compile(layer).rows)) }
+    }
+
+    val rows = layout.compile(layer).rows
+    val selectedKey = selection?.let { rows.getOrNull(it.row)?.getOrNull(it.col) }
 
     SectionHeaderPublic(layout.name)
 
@@ -284,8 +379,40 @@ internal fun KeyLayoutEditorScreen(
 
     if (layout.layer(layer) == null) {
         CaptionText(
-            "Showing the built-in ${layerTitle(layer).lowercase()} grid. This layout " +
-                "does not change it yet.",
+            "Showing the built-in ${layerTitle(layer).lowercase()} grid. Changing " +
+                "anything here makes this layout's own copy of it.",
+        )
+    }
+
+    Row(
+        modifier = Modifier.padding(horizontal = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        IconButton(
+            enabled = undo.isNotEmpty(),
+            onClick = {
+                val previous = undo.last()
+                undo = undo.dropLast(1)
+                redo = redo + layout
+                stepPushed = false
+                save(previous)
+            },
+        ) { Icon(Icons.AutoMirrored.Outlined.Undo, contentDescription = "Undo") }
+        IconButton(
+            enabled = redo.isNotEmpty(),
+            onClick = {
+                val next = redo.last()
+                redo = redo.dropLast(1)
+                undo = undo + layout
+                stepPushed = false
+                save(next)
+            },
+        ) { Icon(Icons.AutoMirrored.Outlined.Redo, contentDescription = "Redo") }
+        Spacer(Modifier.weight(1f))
+        Text(
+            "Saved automatically",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 
@@ -294,16 +421,95 @@ internal fun KeyLayoutEditorScreen(
         settings = settings,
         selection = selection,
         showShift = showShift,
-        onSelect = { selection = if (selection == it) null else it },
+        onSelect = { ref ->
+            selection = ref
+            stepPushed = false
+            sheetOpen = true
+        },
     )
 
+    selection?.let { ref ->
+        if (ref.row in rows.indices) {
+            RowActionBar(
+                rowIndex = ref.row,
+                rowCount = rows.size,
+                rowWidth = rows[ref.row].sumOf { it.width.toDouble() }.toFloat(),
+                gridWeight = gridWeightOf(rows),
+                onAddKey = {
+                    editRows { r ->
+                        r.mapIndexed { i, row ->
+                            if (i == ref.row) row + Key("new") else row
+                        }
+                    }
+                },
+                onDuplicateRow = {
+                    editRows { r -> r.subList(0, ref.row + 1) + listOf(r[ref.row]) + r.drop(ref.row + 1) }
+                },
+                onDeleteRow = {
+                    editRows { r -> r.filterIndexed { i, _ -> i != ref.row } }
+                    selection = null
+                },
+            )
+        }
+    }
+
     SettingsGroup {
+        item {
+            ListItem(
+                colors = transparentListColors(),
+                modifier = Modifier.clickable {
+                    editRows { it + listOf(listOf(Key("new"))) }
+                },
+                leadingContent = { Icon(Icons.Outlined.Add, contentDescription = null) },
+                headlineContent = { Text("Add a row") },
+                supportingContent = { Text("Appends an empty row to this layer") },
+            )
+        }
+        item {
+            ReorderSetting(
+                title = "Reorder rows",
+                dialogTitle = "Row order",
+                items = rows.indices.toList(),
+                label = { i -> "Row ${i + 1} · ${rows[i].size} keys" },
+            ) { order -> editRows { r -> order.map { r[it] } } }
+        }
+        selection?.let { ref ->
+            if (ref.row in rows.indices && rows[ref.row].size > 1) {
+                item {
+                    ReorderSetting(
+                        title = "Reorder keys in row ${ref.row + 1}",
+                        dialogTitle = "Key order",
+                        items = rows[ref.row],
+                        label = { keyReorderLabel(it) },
+                    ) { order ->
+                        editRows { r -> r.mapIndexed { i, row -> if (i == ref.row) order else row } }
+                        selection = null
+                    }
+                }
+            }
+        }
         item {
             ToggleSetting(
                 "Show the shift plane",
                 "Draw each key as it appears with shift held",
                 showShift,
             ) { showShift = it }
+        }
+        if (layout.layer(layer) != null) {
+            item {
+                ListItem(
+                    colors = transparentListColors(),
+                    modifier = Modifier.clickable {
+                        edit { it.copy(layers = it.layers - layer.key) }
+                        selection = null
+                    },
+                    leadingContent = { Icon(Icons.Outlined.Refresh, contentDescription = null) },
+                    headlineContent = { Text("Reset this layer") },
+                    supportingContent = {
+                        Text("Drops your ${layerTitle(layer).lowercase()} grid and uses the built-in one")
+                    },
+                )
+            }
         }
     }
 
@@ -331,9 +537,119 @@ internal fun KeyLayoutEditorScreen(
     }
 
     CaptionText(
-        "Editing keys lands next. Nothing you change here affects typing until the " +
-            "layout is switched on under Languages.",
+        "Nothing you change here affects typing until the layout is switched on " +
+            "under Languages.",
     )
+
+    if (sheetOpen && selection != null && selectedKey != null) {
+        val ref = selection!!
+        KeyEditSheet(
+            key = selectedKey,
+            ref = ref,
+            rowSize = rows[ref.row].size,
+            gridWeight = gridWeightOf(rows),
+            otherWidthsInRow = rows[ref.row]
+                .filterIndexed { i, _ -> i != ref.col }
+                .sumOf { it.width.toDouble() }
+                .toFloat(),
+            onChange = { updated ->
+                editCoalesced { spec ->
+                    withLayerRows(
+                        spec,
+                        spec.compile(layer).rows.mapIndexed { r, row ->
+                            if (r != ref.row) {
+                                row
+                            } else {
+                                row.mapIndexed { c, k -> if (c == ref.col) updated else k }
+                            }
+                        },
+                    )
+                }
+            },
+            onMove = { delta ->
+                val target = ref.col + delta
+                if (target in rows[ref.row].indices) {
+                    editRows { r ->
+                        r.mapIndexed { i, row ->
+                            if (i != ref.row) {
+                                row
+                            } else {
+                                row.toMutableList().apply { add(target, removeAt(ref.col)) }
+                            }
+                        }
+                    }
+                    selection = ref.copy(col = target)
+                }
+            },
+            onDuplicate = {
+                editRows { r ->
+                    r.mapIndexed { i, row ->
+                        if (i != ref.row) {
+                            row
+                        } else {
+                            row.subList(0, ref.col + 1) + row[ref.col] + row.drop(ref.col + 1)
+                        }
+                    }
+                }
+            },
+            onDelete = {
+                editRows { r ->
+                    r.mapIndexed { i, row ->
+                        if (i != ref.row) row else row.filterIndexed { c, _ -> c != ref.col }
+                    }
+                }
+                selection = null
+                sheetOpen = false
+            },
+            onDismiss = { sheetOpen = false },
+        )
+    }
+}
+
+/** How a key reads in the reorder dialog, where there is no grid to look at. */
+private fun keyReorderLabel(key: Key): String = when {
+    key.label.isNotBlank() -> key.label
+    else -> KeyActionCatalog.firstOrNull { it.matches(key.action) }?.title ?: "Key"
+}
+
+/** Contextual actions for the row the selected key sits in. */
+@Composable
+private fun RowActionBar(
+    rowIndex: Int,
+    rowCount: Int,
+    rowWidth: Float,
+    gridWeight: Float,
+    onAddKey: () -> Unit,
+    onDuplicateRow: () -> Unit,
+    onDeleteRow: () -> Unit,
+) {
+    Row(
+        modifier = Modifier.padding(horizontal = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text("Row ${rowIndex + 1}", style = MaterialTheme.typography.labelLarge)
+        Spacer(Modifier.width(8.dp))
+        // Only worth saying when it disagrees with row 1, which is the row the
+        // keyboard measures every other row against. Printed on every row it
+        // would be five numbers that are correct and identical almost always.
+        if (kotlin.math.abs(rowWidth - gridWeight) > 0.01f) {
+            Text(
+                "%.2f wide, row 1 is %.2f".format(rowWidth, gridWeight),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+            )
+        }
+        Spacer(Modifier.weight(1f))
+        IconButton(onClick = onAddKey) {
+            Icon(Icons.Outlined.Add, contentDescription = "Add key to row ${rowIndex + 1}")
+        }
+        IconButton(onClick = onDuplicateRow) {
+            Icon(Icons.Outlined.ContentCopy, contentDescription = "Duplicate row ${rowIndex + 1}")
+        }
+        IconButton(enabled = rowCount > 1, onClick = onDeleteRow) {
+            Icon(Icons.Outlined.Delete, contentDescription = "Delete row ${rowIndex + 1}")
+        }
+    }
 }
 
 /** Layer tabs. The pencil marks a layer this layout has actually authored. */
@@ -551,3 +867,331 @@ private fun actionGlyph(action: KeyAction): String = when (action) {
     else -> "·"
 }
 
+
+// ---------------------------------------------------------------------------
+// Key edit sheet
+// ---------------------------------------------------------------------------
+
+/**
+ * One pickable action, with whatever extra input it needs.
+ *
+ * The picker renders from this list rather than from `KeyAction`'s members, so
+ * an action that ships later — a keycode sender, a tool launcher — is one entry
+ * here plus its serialization, and no change to the editor at all. Building it
+ * off an enum's entries would bake in "an action is a bare value" and break the
+ * moment payloads land.
+ */
+internal data class KeyActionOption(
+    val title: String,
+    val group: String,
+    val detail: String,
+    val build: () -> KeyAction,
+    val matches: (KeyAction) -> Boolean,
+)
+
+internal val KeyActionCatalog: List<KeyActionOption> = listOf(
+    KeyActionOption(
+        "Types text", "Typing", "The label, or the output if you set one",
+        { KeyAction.Text }, { it == KeyAction.Text },
+    ),
+    KeyActionOption(
+        "Shift", "Typing", "Tap for one capital, double-tap for caps lock",
+        { KeyAction.Shift }, { it == KeyAction.Shift },
+    ),
+    KeyActionOption(
+        "Delete", "Typing", "Backspace; repeats while held",
+        { KeyAction.Delete }, { it == KeyAction.Delete },
+    ),
+    KeyActionOption(
+        "Space", "Typing", "Swipes on it move the cursor or switch layout",
+        { KeyAction.Space }, { it == KeyAction.Space },
+    ),
+    KeyActionOption(
+        "Enter", "Typing", "Takes the app's own action — send, search, done",
+        { KeyAction.Enter }, { it == KeyAction.Enter },
+    ),
+    KeyActionOption(
+        "Symbols page", "Layers", "Cycles ?123 and =\\<",
+        { KeyAction.Symbols }, { it == KeyAction.Symbols },
+    ),
+    KeyActionOption(
+        "Letters page", "Layers", "Back to the letter grid",
+        { KeyAction.Letters }, { it == KeyAction.Letters },
+    ),
+    KeyActionOption(
+        "Emoji panel", "Layers", "Opens the emoji picker",
+        { KeyAction.Emoji }, { it == KeyAction.Emoji },
+    ),
+    KeyActionOption(
+        "Switch layout", "Layers", "Cycles the layouts you have switched on",
+        { KeyAction.LanguageSwitch }, { it == KeyAction.LanguageSwitch },
+    ),
+    KeyActionOption(
+        "Nothing", "Other", "A deliberate gap: drawn as empty space, swallows taps",
+        { KeyAction.None }, { it == KeyAction.None },
+    ),
+)
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun KeyEditSheet(
+    key: Key,
+    ref: KeyRef,
+    rowSize: Int,
+    gridWeight: Float,
+    otherWidthsInRow: Float,
+    onChange: (Key) -> Unit,
+    onMove: (Int) -> Unit,
+    onDuplicate: () -> Unit,
+    onDelete: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var pickingAction by remember { mutableStateOf(false) }
+    // Held as text so a half-typed entry survives; parsed on every change.
+    var alternates by remember(ref) { mutableStateOf(key.longPress.joinToString(" ")) }
+
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .verticalScroll(rememberScrollState())
+                .padding(bottom = 24.dp),
+        ) {
+            SectionHeaderPublic("Row ${ref.row + 1}, key ${ref.col + 1}")
+
+            SheetField(
+                label = "Label",
+                value = key.label,
+                supporting = "What is drawn on the key",
+            ) { onChange(key.copy(label = it)) }
+
+            SheetField(
+                label = "Output",
+                value = key.output.orEmpty(),
+                supporting = "Blank — types the label",
+            ) { onChange(key.copy(output = it.ifBlank { null })) }
+
+            SheetField(
+                label = "Shift label",
+                value = key.shiftLabel.orEmpty(),
+                supporting = "Blank — shift types the uppercase of the label",
+            ) { onChange(key.copy(shiftLabel = it.ifBlank { null })) }
+
+            val option = KeyActionCatalog.firstOrNull { it.matches(key.action) }
+            NavRow(
+                title = "Action",
+                subtitle = option?.detail,
+                value = option?.title ?: "Unknown",
+            ) { pickingAction = true }
+
+            KeyWidthRow(
+                width = key.width,
+                gridWeight = gridWeight,
+                otherWidthsInRow = otherWidthsInRow,
+            ) { onChange(key.copy(width = it)) }
+
+            if (key.action == KeyAction.Text) {
+                SheetField(
+                    label = "Long-press alternates",
+                    value = alternates,
+                    supporting = "Separate with spaces, so an alternate cannot itself be a " +
+                        "space. Multi-character entries like .com are fine. The first is " +
+                        "also printed in the key's corner.",
+                ) { text ->
+                    alternates = text
+                    onChange(key.copy(longPress = parseAlternates(text)))
+                }
+                AlternatePreview(parseAlternates(alternates))
+
+                RoleRow(key.role) { onChange(key.copy(role = it)) }
+            }
+
+            Row(
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                TextButton(onClick = onDelete) {
+                    Icon(
+                        Icons.Outlined.Delete,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(Modifier.width(4.dp))
+                    Text("Delete key")
+                }
+                Spacer(Modifier.weight(1f))
+                IconButton(enabled = ref.col > 0, onClick = { onMove(-1) }) {
+                    Icon(
+                        Icons.AutoMirrored.Outlined.KeyboardArrowLeft,
+                        contentDescription = "Move left",
+                    )
+                }
+                IconButton(enabled = ref.col < rowSize - 1, onClick = { onMove(+1) }) {
+                    Icon(
+                        Icons.AutoMirrored.Outlined.KeyboardArrowRight,
+                        contentDescription = "Move right",
+                    )
+                }
+                IconButton(onClick = onDuplicate) {
+                    Icon(Icons.Outlined.ContentCopy, contentDescription = "Duplicate key")
+                }
+            }
+        }
+    }
+
+    if (pickingAction) {
+        KeyActionPickerDialog(
+            current = key.action,
+            onPick = {
+                onChange(key.copy(action = it))
+                pickingAction = false
+            },
+            onDismiss = { pickingAction = false },
+        )
+    }
+}
+
+/**
+ * Space-separated, exactly as the symbol-set editor parses its characters, so a
+ * user meets the convention once. A chip-per-entry editor was the alternative
+ * and fails on ".com" and "https://" — multi-character alternates the built-ins
+ * already ship.
+ */
+private fun parseAlternates(text: String): List<String> =
+    text.split(Regex("\\s+")).filter { it.isNotEmpty() }
+
+/** The first alternate is also the corner hint, and a flat string cannot say so. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun AlternatePreview(alternates: List<String>) {
+    if (alternates.isEmpty()) return
+    FlowRow(
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        alternates.forEachIndexed { index, alternate ->
+            AssistChip(
+                onClick = {},
+                label = { Text(alternate) },
+                leadingIcon = if (index == 0) {
+                    { Text("hint", style = MaterialTheme.typography.labelSmall) }
+                } else {
+                    null
+                },
+            )
+        }
+    }
+}
+
+@Composable
+private fun SheetField(
+    label: String,
+    value: String,
+    supporting: String,
+    onChange: (String) -> Unit,
+) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onChange,
+        label = { Text(label) },
+        supportingText = { Text(supporting) },
+        singleLine = true,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp),
+    )
+}
+
+/** Which slot this key fills for field adaptation, or none. */
+@Composable
+private fun RoleRow(role: KeyRole?, onChange: (KeyRole?) -> Unit) {
+    ChoiceSetting(
+        title = "Field adaptation",
+        subtitle = "Email and web fields swap these two slots for @ and /",
+        options = listOf(
+            null to "None",
+            KeyRole.Comma to "Comma slot",
+            KeyRole.Period to "Period slot",
+        ),
+        selected = role,
+        onChange = onChange,
+    )
+}
+
+@Composable
+private fun KeyWidthRow(
+    width: Float,
+    gridWeight: Float,
+    otherWidthsInRow: Float,
+    onChange: (Float) -> Unit,
+) {
+    val remaining = gridWeight - otherWidthsInRow
+    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+        Text("Width  %.2f".format(width), style = MaterialTheme.typography.bodyLarge)
+        // Quarter steps. Every built-in width (1, 1.2, 1.3, 1.5, 4) lands on or
+        // beside a step, and a free slider would write 1.0374 into a file people
+        // are invited to hand-edit.
+        Slider(
+            value = width.coerceIn(0.5f, 5f),
+            onValueChange = { onChange((it * 4f).roundToInt() / 4f) },
+            valueRange = 0.5f..5f,
+            steps = 17,
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            for (preset in listOf(1f, 1.25f, 1.5f, 2f, 4f)) {
+                FilterChip(
+                    selected = kotlin.math.abs(width - preset) < 0.01f,
+                    onClick = { onChange(preset) },
+                    label = { Text("%.2f".format(preset).trimEnd('0').trimEnd('.')) },
+                )
+            }
+        }
+        // The one-tap fix for a row left 0.75 short after an edit: hand this key
+        // whatever row 1's width is not already spoken for.
+        if (remaining >= 0.5f && kotlin.math.abs(remaining - width) > 0.01f) {
+            OutlinedButton(
+                onClick = { onChange((remaining * 4f).roundToInt() / 4f) },
+                modifier = Modifier.padding(top = 4.dp),
+            ) { Text("Fill the row (%.2f)".format(remaining)) }
+        }
+    }
+}
+
+@Composable
+private fun KeyActionPickerDialog(
+    current: KeyAction,
+    onPick: (KeyAction) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("What this key does") },
+        text = {
+            Column(
+                modifier = Modifier
+                    .heightIn(max = 380.dp)
+                    .verticalScroll(rememberScrollState()),
+            ) {
+                var lastGroup: String? = null
+                for (option in KeyActionCatalog) {
+                    if (option.group != lastGroup) {
+                        SectionHeaderPublic(option.group)
+                        lastGroup = option.group
+                    }
+                    ListItem(
+                        colors = transparentListColors(),
+                        modifier = Modifier.clickable { onPick(option.build()) },
+                        leadingContent = {
+                            RadioButton(
+                                selected = option.matches(current),
+                                onClick = { onPick(option.build()) },
+                            )
+                        },
+                        headlineContent = { Text(option.title) },
+                        supportingContent = { Text(option.detail) },
+                    )
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } },
+    )
+}

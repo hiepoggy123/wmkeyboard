@@ -1633,6 +1633,28 @@ class SettingsRepository(private val context: Context) {
         }
 
     /**
+     * Applies [transform] to the stored layout, reading it inside the same edit.
+     *
+     * The editor saves on every keystroke, and the layout it holds comes from
+     * the settings flow, which lags the write it just made. Handing back a whole
+     * layout built from that stale copy loses the previous edit whenever two land
+     * within a frame of each other — type a label, nudge a width, and the label
+     * comes back. Reading inside the edit makes each change apply to what is
+     * actually stored.
+     *
+     * An id with no stored layout resolves to the built-in of that id, so the
+     * first edit to an inherited built-in writes the override rather than
+     * silently doing nothing.
+     */
+    suspend fun updateCustomLayout(id: String, transform: (LayoutSpec) -> LayoutSpec) =
+        context.dataStore.edit { prefs ->
+            val current = prefs[CUSTOM_LAYOUTS]?.let { LayoutCodec.decodeList(it) } ?: emptyList()
+            val next = transform(resolveLayout(current, id))
+            prefs[CUSTOM_LAYOUTS] =
+                LayoutCodec.encodeList(current.filter { it.id != next.id } + next)
+        }
+
+    /**
      * Deletes a custom layout and drops every reference to it.
      *
      * Deleting an *edited built-in* only removes the override — the shipped grid
