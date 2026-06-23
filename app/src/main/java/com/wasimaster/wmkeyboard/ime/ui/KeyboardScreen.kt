@@ -312,6 +312,7 @@ import com.wasimaster.wmkeyboard.ime.ShiftState
 import com.wasimaster.wmkeyboard.core.layout.ClipboardKeyAction
 import com.wasimaster.wmkeyboard.core.layout.Key
 import com.wasimaster.wmkeyboard.core.layout.KeyAction
+import com.wasimaster.wmkeyboard.core.layout.KeyRole
 import com.wasimaster.wmkeyboard.core.layout.KeyboardLayout
 import com.wasimaster.wmkeyboard.core.layout.gridWeightOf
 import com.wasimaster.wmkeyboard.core.layout.sidePadFor
@@ -4070,7 +4071,7 @@ internal fun splitKeys(keys: List<Key>): Pair<List<Key>, List<Key>> {
 private fun nearLetterKey(position: Offset, centers: Map<Char, Offset>, keyWidth: Float): Boolean =
     centers.values.any { (it - position).getDistance() < keyWidth }
 
-private fun currentLayout(state: KeyboardUiState): KeyboardLayout {
+internal fun currentLayout(state: KeyboardUiState): KeyboardLayout {
     if (numericPadActive(state)) {
         state.layouts.numeric?.let { return it }
     }
@@ -4123,24 +4124,27 @@ private fun currentLayout(state: KeyboardUiState): KeyboardLayout {
     ) {
         return base
     }
-    // The bottom row is the only place these single-character keys live, and
-    // both transforms below target it; the guard keeps a letter key that
-    // happens to be "." or "," (Dvorak's top row) out of it.
     val bottom = base.rows.lastIndex
-    return KeyboardLayout(
-        base.name,
-        base.rows.mapIndexed { rowIndex, row ->
+    // copy rather than KeyboardLayout(name, rows): a positional rebuild
+    // silently drops any field later added to the class.
+    return base.copy(
+        rows = base.rows.mapIndexed { rowIndex, row ->
             row.map { key ->
+                val role = key.roleIn(rowIndex, bottom)
                 var mapped = when {
                     // Field adaptation outranks the emoji-key preference: an
                     // email box needs its @ more than a shortcut to emoji.
-                    fieldKey != null && rowIndex == bottom &&
-                        key.action == KeyAction.Text && key.label == "," -> fieldKey
-                    domainAlternates.isNotEmpty() && rowIndex == bottom &&
-                        key.action == KeyAction.Text && key.label == "." ->
+                    fieldKey != null && role == KeyRole.Comma -> fieldKey
+                    domainAlternates.isNotEmpty() && role == KeyRole.Period ->
                         key.copy(longPress = domainAlternates + key.longPress)
-                    commaAsEmoji && key.action == KeyAction.Text && key.label == "," ->
-                        Key(",", action = KeyAction.Emoji, longPress = listOf(",") + key.longPress)
+                    commaAsEmoji && role == KeyRole.Comma ->
+                        // copy, not a fresh Key: building one from scratch here
+                        // discarded a custom width, so the bottom row jumped
+                        // whenever the preference was on.
+                        key.copy(
+                            action = KeyAction.Emoji,
+                            longPress = listOf(key.output ?: key.label) + key.longPress,
+                        )
                     globeAsEmoji && key.action == KeyAction.LanguageSwitch ->
                         key.copy(action = KeyAction.Emoji)
                     else -> key
@@ -4148,13 +4152,37 @@ private fun currentLayout(state: KeyboardUiState): KeyboardLayout {
                 if (stripDigits && mapped.longPress.any { it.isSingleDigit() }) {
                     mapped = mapped.copy(longPress = mapped.longPress.filterNot { it.isSingleDigit() })
                 }
-                if (mapped.action == KeyAction.Text) {
-                    clipboardKeys[mapped.label]?.let { mapped = mapped.copy(clipboardAction = it) }
+                // Keyed on what the key types, not what it is labelled: a layout
+                // that shows "A" and outputs "a" was silently skipped. A value
+                // already set on the key wins, so a layout can put a clipboard
+                // shortcut somewhere other than a/c/v/x.
+                if (mapped.action == KeyAction.Text && mapped.clipboardAction == null) {
+                    clipboardKeys[mapped.output ?: mapped.label]?.let {
+                        mapped = mapped.copy(clipboardAction = it)
+                    }
                 }
                 mapped
             }
         },
     )
+}
+
+/**
+ * What a key means to field adaptation: its explicit tag, or the old label match
+ * as a fallback.
+ *
+ * The fallback stays rather than being dropped so layouts written before roles
+ * existed — and anything imported from a build that predates them — keep their
+ * email and URI adaptation instead of silently losing it. It remains scoped to
+ * the bottom row for the reason it always was: Dvorak's *top* row has real "."
+ * and "," letter keys, which must not be rewritten into an @ key.
+ */
+internal fun Key.roleIn(rowIndex: Int, lastRow: Int): KeyRole? = when {
+    role != null -> role
+    action != KeyAction.Text || rowIndex != lastRow -> null
+    label == "," -> KeyRole.Comma
+    label == "." -> KeyRole.Period
+    else -> null
 }
 
 /**
