@@ -74,6 +74,7 @@ import com.wasimaster.wmkeyboard.core.layout.KeyAction
 import com.wasimaster.wmkeyboard.core.layout.KeyboardLayout
 import com.wasimaster.wmkeyboard.core.layout.LayoutLayer
 import com.wasimaster.wmkeyboard.core.layout.LayoutSpec
+import com.wasimaster.wmkeyboard.core.layout.ModifierKey
 import com.wasimaster.wmkeyboard.core.layout.LayoutSeverity
 import com.wasimaster.wmkeyboard.core.layout.compile
 import com.wasimaster.wmkeyboard.core.layout.gridWeightOf
@@ -925,6 +926,21 @@ internal val KeyActionCatalog: List<KeyActionOption> = listOf(
     KeyActionOption(
         "Switch layout", "Layers", "Cycles the layouts you have switched on",
         { KeyAction.LanguageSwitch }, { it == KeyAction.LanguageSwitch },
+    ),
+    KeyActionOption(
+        "Ctrl", "Modifiers", "Held for the next key — tap twice to lock it",
+        { KeyAction.Mod(ModifierKey.CTRL) },
+        { it is KeyAction.Mod && it.key == ModifierKey.CTRL },
+    ),
+    KeyActionOption(
+        "Alt", "Modifiers", "Held for the next key — tap twice to lock it",
+        { KeyAction.Mod(ModifierKey.ALT) },
+        { it is KeyAction.Mod && it.key == ModifierKey.ALT },
+    ),
+    KeyActionOption(
+        "Meta", "Modifiers", "The ⌘ or Windows modifier",
+        { KeyAction.Mod(ModifierKey.META) },
+        { it is KeyAction.Mod && it.key == ModifierKey.META },
     ),
     KeyActionOption(
         "Nothing", "Other", "A deliberate gap: drawn as empty space, swallows taps",

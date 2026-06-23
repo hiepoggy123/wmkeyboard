@@ -1,10 +1,12 @@
 package com.wasimaster.wmkeyboard.ime
 
+import android.view.KeyEvent
 import com.wasimaster.wmkeyboard.core.clipboard.ClipItem
 import com.wasimaster.wmkeyboard.core.emoji.EmojiEntry
 import com.wasimaster.wmkeyboard.core.emoji.EmojiVariantIndex
 import com.wasimaster.wmkeyboard.core.layout.BuiltInLayouts
 import com.wasimaster.wmkeyboard.core.layout.KeyAction
+import com.wasimaster.wmkeyboard.core.layout.ModifierKey
 import com.wasimaster.wmkeyboard.core.layout.KeyboardLayout
 import com.wasimaster.wmkeyboard.core.layout.LayoutLayer
 import com.wasimaster.wmkeyboard.core.layout.Layouts
@@ -21,6 +23,75 @@ import com.wasimaster.wmkeyboard.core.tools.WeatherInfo
 import com.wasimaster.wmkeyboard.core.tools.WpmSample
 
 enum class ShiftState { OFF, ON, CAPS_LOCK }
+
+/**
+ * A Ctrl/Alt/Meta latch.
+ *
+ * Mirrors [ShiftState] deliberately — tap arms for one key, a quick second tap
+ * locks, anything after that clears — so the modifier keys need no explanation
+ * beyond the shift key the user already knows.
+ */
+enum class ModifierState { OFF, ARMED, LOCKED }
+
+/**
+ * Modifier latches pending for the next key.
+ *
+ * Three flat fields rather than a `Map<ModifierKey, ModifierState>`: the map
+ * allocates on every keystroke that clears a latch, and makes the "nothing is
+ * pending" test — which runs on literally every key press — a hash lookup
+ * instead of three comparisons.
+ */
+data class Modifiers(
+    val ctrl: ModifierState = ModifierState.OFF,
+    val alt: ModifierState = ModifierState.OFF,
+    val meta: ModifierState = ModifierState.OFF,
+) {
+    operator fun get(key: ModifierKey): ModifierState = when (key) {
+        ModifierKey.CTRL -> ctrl
+        ModifierKey.ALT -> alt
+        ModifierKey.META -> meta
+    }
+
+    fun with(key: ModifierKey, value: ModifierState): Modifiers = when (key) {
+        ModifierKey.CTRL -> copy(ctrl = value)
+        ModifierKey.ALT -> copy(alt = value)
+        ModifierKey.META -> copy(meta = value)
+    }
+
+    val isEmpty: Boolean
+        get() = ctrl == ModifierState.OFF && alt == ModifierState.OFF && meta == ModifierState.OFF
+
+    /**
+     * Drops the one-shot latches after a key has spent them. Locked modifiers
+     * survive, which is the entire point of locking them.
+     */
+    fun consumed(): Modifiers = Modifiers(
+        ctrl = if (ctrl == ModifierState.ARMED) ModifierState.OFF else ctrl,
+        alt = if (alt == ModifierState.ARMED) ModifierState.OFF else alt,
+        meta = if (meta == ModifierState.ARMED) ModifierState.OFF else meta,
+    )
+
+    /**
+     * The `KeyEvent.META_*` mask for these latches. Both the generic and the
+     * left-hand bit for each, because editors test either one and a real
+     * keyboard reports both.
+     */
+    fun metaFlags(): Int {
+        var flags = 0
+        if (ctrl != ModifierState.OFF) {
+            flags = flags or KeyEvent.META_CTRL_ON or KeyEvent.META_CTRL_LEFT_ON
+        }
+        if (alt != ModifierState.OFF) {
+            flags = flags or KeyEvent.META_ALT_ON or KeyEvent.META_ALT_LEFT_ON
+        }
+        if (meta != ModifierState.OFF) {
+            flags = flags or KeyEvent.META_META_ON or KeyEvent.META_META_LEFT_ON
+        }
+        return flags
+    }
+
+    companion object { val None = Modifiers() }
+}
 
 enum class LayoutMode { LETTERS, SYMBOLS, SYMBOLS_SHIFTED }
 
@@ -445,6 +516,12 @@ data class KeyboardUiState(
     val layouts: LayoutSet = LayoutSet.Default,
     val layoutMode: LayoutMode = LayoutMode.LETTERS,
     val shiftState: ShiftState = ShiftState.OFF,
+    /**
+     * Ctrl/Alt/Meta latches waiting to be folded into the next key event.
+     * Session state, never persisted: a Ctrl left locked in one app must not
+     * follow the user into the next one and turn their typing into shortcuts.
+     */
+    val modifiers: Modifiers = Modifiers.None,
     val panel: PanelMode = PanelMode.NONE,
     val suggestions: List<String> = emptyList(),
     /** Spacing form of the dead-key accent waiting for a letter, if any. */

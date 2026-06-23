@@ -475,6 +475,17 @@ data class KeyboardSettings(
     /** Small corner label on each key showing its first long-press character. */
     val longPressHints: Boolean = true,
     /** Long-pressing A selects all text in the field. */
+    /**
+     * Send Ctrl+A/C/V/X to the app as raw key events instead of using the
+     * clipboard actions.
+     *
+     * Off by default because performContextMenuAction works in WebViews and
+     * Compose text fields, where a raw Ctrl+C reaches nothing at all. A terminal
+     * is the opposite case — it needs Ctrl+C to arrive as an interrupt — so this
+     * is a setting rather than a guess: EditorInfo cannot tell a terminal from a
+     * code editor or a password box.
+     */
+    val rawClipboardShortcuts: Boolean = false,
     val longPressASelectAll: Boolean = true,
     /** Long-pressing C copies the selection (selects all first when nothing is selected). */
     val longPressCCopy: Boolean = true,
@@ -768,6 +779,7 @@ class SettingsRepository(private val context: Context) {
         private val ACTIVE_LAYOUT_ID = stringPreferencesKey("active_layout_id")
         private val ENABLED_LAYOUT_IDS = stringPreferencesKey("enabled_layout_ids")
         private val CUSTOM_LAYOUTS = stringPreferencesKey("custom_layouts")
+        private val RAW_CLIPBOARD_SHORTCUTS = booleanPreferencesKey("raw_clipboard_shortcuts")
         private val THEME_MODE = stringPreferencesKey("theme_mode")
         private val DYNAMIC_COLOR = booleanPreferencesKey("dynamic_color")
         private val KEYBOARD_THEME_ID = stringPreferencesKey("keyboard_theme_id")
@@ -1159,6 +1171,7 @@ class SettingsRepository(private val context: Context) {
             longPressDelayMs = p[LONG_PRESS_DELAY] ?: defaults.longPressDelayMs,
             keyRepeatIntervalMs = p[KEY_REPEAT_INTERVAL] ?: defaults.keyRepeatIntervalMs,
             longPressHints = p[LONG_PRESS_HINTS] ?: defaults.longPressHints,
+            rawClipboardShortcuts = p[RAW_CLIPBOARD_SHORTCUTS] ?: defaults.rawClipboardShortcuts,
             longPressASelectAll = p[LONG_PRESS_A_SELECT_ALL] ?: defaults.longPressASelectAll,
             longPressCCopy = p[LONG_PRESS_C_COPY] ?: defaults.longPressCCopy,
             longPressVPaste = p[LONG_PRESS_V_PASTE] ?: defaults.longPressVPaste,
@@ -1603,6 +1616,9 @@ class SettingsRepository(private val context: Context) {
             prefs[ACTIVE_LAYOUT_ID] = repaired.id
             prefs[INPUT_MODE] = repaired.baseMode.name
         }
+
+    suspend fun setRawClipboardShortcuts(value: Boolean) =
+        context.dataStore.edit { it[RAW_CLIPBOARD_SHORTCUTS] = value }
 
     /** The layouts the 🌐 key cycles; an empty pick falls back to the default. */
     suspend fun setEnabledLayoutIds(ids: List<String>) =

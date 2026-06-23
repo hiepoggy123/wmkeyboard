@@ -11,6 +11,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.SystemClock
 import android.text.InputType
+import android.view.KeyCharacterMap
 import android.view.KeyEvent
 import android.view.View
 import android.net.Uri
@@ -145,6 +146,7 @@ import com.wasimaster.wmkeyboard.core.layout.ClipboardKeyAction
 import com.wasimaster.wmkeyboard.core.layout.Key
 import com.wasimaster.wmkeyboard.core.layout.KeyAction
 import com.wasimaster.wmkeyboard.core.layout.LayoutLayer
+import com.wasimaster.wmkeyboard.core.layout.ModifierKey
 import com.wasimaster.wmkeyboard.core.layout.LayoutSpec
 import com.wasimaster.wmkeyboard.core.layout.resolveLayout
 import com.wasimaster.wmkeyboard.core.layout.compile
@@ -170,6 +172,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
+import java.util.EnumMap
 
 /**
  * The WM Keyboard input method service.
@@ -893,6 +896,10 @@ class WMKeyboardService : InputMethodService() {
             it.copy(
                 settings = base?.applyMode(activeMode) ?: it.settings,
                 inputMode = fieldSpec.baseMode,
+                // A locked Ctrl crossing an app boundary is the worst failure
+                // this feature can have: every letter after it becomes a
+                // shortcut in an app the user never armed it for.
+                modifiers = Modifiers.None,
                 layoutId = fieldSpec.id,
                 layoutName = fieldSpec.name,
                 layouts = resolveLayoutSet(fieldSpec, fieldKind),
@@ -1057,6 +1064,8 @@ class WMKeyboardService : InputMethodService() {
     override fun onFinishInputView(finishingInput: Boolean) {
         super.onFinishInputView(finishingInput)
         lifecycleOwner.onPause()
+        // Latches die with the keyboard, locked ones included.
+        clearModifiers()
         // Credentials for the field just left must not linger over the next
         // one, which may belong to another app entirely.
         if (_uiState.value.inlineSuggestions.isNotEmpty()) {
@@ -1113,6 +1122,24 @@ class WMKeyboardService : InputMethodService() {
         if (key.action != KeyAction.Shift && key.action != KeyAction.Delete) {
             lastGestureWord = null
         }
+        // A pending Ctrl/Alt/Meta turns the next key into a shortcut, so it is
+        // intercepted ahead of the normal dispatch: KeyAction.Text would
+        // otherwise push the letter through the composing buffer and Ctrl+C
+        // would type a "c". Modifier keys fall through so Ctrl and Alt can be
+        // latched together, and so does Shift, which composes rather than fires.
+        val modifiers = _uiState.value.modifiers
+        val isShortcut = !modifiers.isEmpty &&
+            key.action !is KeyAction.Mod &&
+            key.action != KeyAction.Shift
+        if (isShortcut) {
+            // The result is deliberately ignored: a character with no keycode
+            // has no event to send, and the latch is spent either way so the
+            // user can see the modifier was used up rather than left armed.
+            sendShortcut(key, modifiers)
+            consumeModifiers()
+            consumeShift()
+            return
+        }
         when (key.action) {
             KeyAction.Text -> onTextKey(key)
             KeyAction.Shift -> onShift()
@@ -1123,6 +1150,9 @@ class WMKeyboardService : InputMethodService() {
             KeyAction.Letters -> _uiState.update { it.copy(layoutMode = LayoutMode.LETTERS) }
             KeyAction.LanguageSwitch -> switchLanguage()
             KeyAction.Emoji -> onPanelChange(PanelMode.EMOJI)
+            is KeyAction.Mod -> onModifier((key.action as KeyAction.Mod).key)
+            // A key carrying its own modifiers, so it fires with no latch.
+            is KeyAction.SendKey -> sendShortcut(key, Modifiers.None)
             // A deliberate gap in the grid, and a key from a build that knows an
             // action this one does not. Both swallow the tap: a custom layout is
             // repaired before it can be enabled, so neither should reach a
@@ -1131,11 +1161,166 @@ class WMKeyboardService : InputMethodService() {
         }
     }
 
-    /** Called from the popup with an alternate character. */
+    private val modifierTapTimes = EnumMap<ModifierKey, Long>(ModifierKey::class.java)
+
+    /**
+     * The same three-state gesture as [onShift], reusing its double-tap window.
+     *
+     * A timer-free OFF → ARMED → LOCKED → OFF cycle was the alternative and was
+     * rejected: arming Ctrl and immediately changing your mind would leave it
+     * *locked*, which is the one state where every following letter silently
+     * becomes a shortcut.
+     */
+    private fun onModifier(key: ModifierKey) {
+        val now = System.currentTimeMillis()
+        val doubleTap = now - (modifierTapTimes[key] ?: 0L) < SHIFT_DOUBLE_TAP_MS
+        modifierTapTimes[key] = now
+        _uiState.update { state ->
+            val current = state.modifiers[key]
+            val next = when {
+                doubleTap && current != ModifierState.LOCKED -> ModifierState.LOCKED
+                current == ModifierState.OFF -> ModifierState.ARMED
+                else -> ModifierState.OFF
+            }
+            state.copy(modifiers = state.modifiers.with(key, next))
+        }
+    }
+
+    /** Twin of [consumeShift]: drops the armed latches, keeps the locked ones. */
+    private fun consumeModifiers() {
+        _uiState.update {
+            if (it.modifiers.isEmpty) it else it.copy(modifiers = it.modifiers.consumed())
+        }
+    }
+
+    /** Clears every latch, locked ones included. */
+    private fun clearModifiers() {
+        modifierTapTimes.clear()
+        _uiState.update {
+            if (it.modifiers == Modifiers.None) it else it.copy(modifiers = Modifiers.None)
+        }
+    }
+
+    /**
+     * Sends [key] as a hardware-style key event with [modifiers] and any pending
+     * shift folded in. Returns false when the key has no keycode to send, so the
+     * caller decides what to do with the keystroke rather than this guessing.
+     *
+     * Modifiers are wrapped as real KEYCODE_CTRL_LEFT down/up pairs rather than
+     * sent as bare meta flags — the same lesson [sendEditorKey] already learned
+     * for shift, since TextView reads modifier state off the modifier key's own
+     * events rather than off getMetaState().
+     */
+    private fun sendShortcut(key: Key, modifiers: Modifiers): Boolean {
+        val ic = currentInputConnection ?: return false
+        val state = _uiState.value
+        val shift = state.shiftState != ShiftState.OFF
+
+        // Ctrl+A/C/V/X have a first-class InputConnection route that works in
+        // WebViews and Compose text fields, where a raw Ctrl+C reaches nothing.
+        // The choice has to be made here rather than after the send:
+        // InputConnection.sendKeyEvent reports that an event was queued, never
+        // that anything acted on it, so "send it and check" cannot be written.
+        if (modifiers.ctrl != ModifierState.OFF && !state.settings.rawClipboardShortcuts) {
+            clipboardShortcutFor(key)?.let { onClipboardKey(it); return true }
+        }
+
+        val action = key.action
+        val explicit = action as? KeyAction.SendKey
+        val code = explicit?.keyCode ?: keyCodeForChar(
+            (key.output ?: key.label).singleOrNull() ?: return false,
+        ) ?: return false
+
+        commitComposing(ic, autocorrect = false)
+        lastGestureWord = null
+        var meta = modifiers.metaFlags() or (explicit?.meta ?: 0)
+        if (shift) meta = meta or KeyEvent.META_SHIFT_ON or KeyEvent.META_SHIFT_LEFT_ON
+
+        // Press order mirrors a hardware keyboard: modifiers down outermost and
+        // released in reverse, so an editor that pairs down and up events never
+        // ends up with a modifier still held after the shortcut.
+        val holds = buildList {
+            if (meta and KeyEvent.META_CTRL_ON != 0) add(KeyEvent.KEYCODE_CTRL_LEFT)
+            if (meta and KeyEvent.META_ALT_ON != 0) add(KeyEvent.KEYCODE_ALT_LEFT)
+            if (meta and KeyEvent.META_META_ON != 0) add(KeyEvent.KEYCODE_META_LEFT)
+            if (meta and KeyEvent.META_SHIFT_ON != 0) add(KeyEvent.KEYCODE_SHIFT_LEFT)
+        }
+        val time = SystemClock.uptimeMillis()
+        for (hold in holds) ic.sendKeyEvent(shortcutEvent(time, KeyEvent.ACTION_DOWN, hold, meta))
+        ic.sendKeyEvent(shortcutEvent(time, KeyEvent.ACTION_DOWN, code, meta))
+        ic.sendKeyEvent(shortcutEvent(time, KeyEvent.ACTION_UP, code, meta))
+        for (hold in holds.asReversed()) {
+            ic.sendKeyEvent(shortcutEvent(time, KeyEvent.ACTION_UP, hold, meta))
+        }
+        return true
+    }
+
+    /** The clipboard action Ctrl plus this key stands for, if any. */
+    private fun clipboardShortcutFor(key: Key): ClipboardKeyAction? =
+        when ((key.output ?: key.label).lowercase()) {
+            "a" -> ClipboardKeyAction.SELECT_ALL
+            "c" -> ClipboardKeyAction.COPY
+            "v" -> ClipboardKeyAction.PASTE
+            "x" -> ClipboardKeyAction.CUT
+            else -> null
+        }
+
+    /**
+     * FLAG_SOFT_KEYBOARD keeps apps from dropping out of touch mode — which
+     * moves focus and hides the caret — the way a hardware keypress does, and
+     * the virtual device id matches the character map the keycodes came from.
+     * The two older senders ([onUndoRedo], [sendEditorKey]) omit these and are
+     * deliberately left alone rather than changed as a side effect of this.
+     */
+    private fun shortcutEvent(time: Long, action: Int, code: Int, meta: Int) = KeyEvent(
+        time, time, action, code, 0, meta,
+        KeyCharacterMap.VIRTUAL_KEYBOARD, 0,
+        KeyEvent.FLAG_SOFT_KEYBOARD or KeyEvent.FLAG_KEEP_TOUCH_MODE,
+    )
+
+    /**
+     * Keycode for a character, or null when the virtual keyboard's map has none.
+     *
+     * ASCII letters and digits are answered by arithmetic — KEYCODE_A..Z and
+     * KEYCODE_0..9 are contiguous blocks, and they cover essentially every real
+     * shortcut — which keeps a JNI call off the keystroke path. Everything else
+     * goes through KeyCharacterMap, whose getEvents() documents itself as
+     * unsuitable for text entry; it is used here purely as a character-to-keycode
+     * lookup, which is what it is actually good at.
+     *
+     * Characters it cannot map (Bengali letters, ৳, the combining accents) return
+     * null and the keystroke is dropped. Committing the text anyway was the
+     * alternative and was rejected: a Ctrl press that quietly types "ব" into a
+     * document is worse than one that visibly does nothing.
+     */
+    private fun keyCodeForChar(char: Char): Int? {
+        val lower = char.lowercaseChar()
+        if (lower in 'a'..'z') return KeyEvent.KEYCODE_A + (lower - 'a')
+        if (lower in '0'..'9') return KeyEvent.KEYCODE_0 + (lower - '0')
+        val events = runCatching { virtualKeyMap.getEvents(charArrayOf(lower)) }
+            .getOrNull() ?: return null
+        return events.firstOrNull {
+            it.action == KeyEvent.ACTION_DOWN && !KeyEvent.isModifierKey(it.keyCode)
+        }?.keyCode
+    }
+
+    /**
+     * Loaded once: KeyCharacterMap.load crosses into native code, and the
+     * BUILT_IN_KEYBOARD device's map can legitimately be empty — which is the
+     * case the virtual device id exists to avoid.
+     */
+    private val virtualKeyMap: KeyCharacterMap by lazy {
+        KeyCharacterMap.load(KeyCharacterMap.VIRTUAL_KEYBOARD)
+    }
+
+    /**
+     * Called from the popup with an alternate character. Routed through [onKey]
+     * rather than straight to [onTextKey] so an alternate picked under a latched
+     * Ctrl behaves like the base key instead of typing itself.
+     */
     fun onText(text: String) {
-        stopVoiceForManualInput()
         vibrate()
-        onTextKey(Key(label = text))
+        onKey(Key(label = text))
     }
 
     private fun onTextKey(key: Key) {
@@ -2270,6 +2455,9 @@ class WMKeyboardService : InputMethodService() {
         }
         // Opening anything else dismisses the dictation strip.
         if (_uiState.value.voice.strip) closeVoiceStrip()
+        // Panels have their own key semantics — the panel would eat the
+        // modified key — so a pending latch does not survive opening one.
+        clearModifiers()
         vibrate()
         // The settings app edits snippets in the same file; re-read on open.
         if (panel == PanelMode.SNIPPETS) snippetStore.reload()

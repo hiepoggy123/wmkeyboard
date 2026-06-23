@@ -1684,6 +1684,19 @@ private fun KeyPressSettings(repository: SettingsRepository, settings: KeyboardS
         }
         item {
             ToggleSetting(
+                "Ctrl shortcuts as raw key events",
+                "For terminals; off means Ctrl+A/C/V/X use the clipboard directly",
+                settings.rawClipboardShortcuts,
+                info = "A Ctrl key on a custom layout normally runs A, C, V and X through " +
+                    "Android's own clipboard actions, which work everywhere including web " +
+                    "pages and apps built with Compose. A terminal needs the raw key event " +
+                    "instead — Ctrl+C there means interrupt, not copy. There is no way for " +
+                    "the keyboard to tell the two apart, so this is a switch rather than a " +
+                    "guess.",
+            ) { scope.launch { repository.setRawClipboardShortcuts(it) } }
+        }
+        item {
+            ToggleSetting(
                 "Hold A to select all", "Long-pressing A selects all text",
                 settings.longPressASelectAll,
                 info = "Replaces the A key's accent popup with a select-all shortcut. Turn it " +

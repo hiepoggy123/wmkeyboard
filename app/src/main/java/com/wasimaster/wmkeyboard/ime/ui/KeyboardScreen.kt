@@ -299,6 +299,7 @@ import com.wasimaster.wmkeyboard.ime.FieldKind
 import com.wasimaster.wmkeyboard.ime.isNumericPad
 import com.wasimaster.wmkeyboard.ime.hasMediaSearch
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
+import com.wasimaster.wmkeyboard.ime.ModifierState
 import com.wasimaster.wmkeyboard.ime.LayoutMode
 import com.wasimaster.wmkeyboard.ime.PanelMode
 import com.wasimaster.wmkeyboard.core.tools.SmartSuggest
@@ -314,6 +315,7 @@ import com.wasimaster.wmkeyboard.core.layout.ClipboardKeyAction
 import com.wasimaster.wmkeyboard.core.layout.Key
 import com.wasimaster.wmkeyboard.core.layout.KeyAction
 import com.wasimaster.wmkeyboard.core.layout.KeyRole
+import com.wasimaster.wmkeyboard.core.layout.ModifierKey
 import com.wasimaster.wmkeyboard.core.layout.KeyboardLayout
 import com.wasimaster.wmkeyboard.core.layout.gridWeightOf
 import com.wasimaster.wmkeyboard.core.layout.sidePadFor
@@ -424,6 +426,19 @@ private fun spokenLabel(key: Key, state: KeyboardUiState): String = when (key.ac
     }
     KeyAction.LanguageSwitch -> "Switch language"
     KeyAction.Emoji -> "Emoji"
+    is KeyAction.Mod -> {
+        val name = when ((key.action as KeyAction.Mod).key) {
+            ModifierKey.CTRL -> "Control"
+            ModifierKey.ALT -> "Alt"
+            ModifierKey.META -> "Meta"
+        }
+        when (state.modifiers[(key.action as KeyAction.Mod).key]) {
+            ModifierState.LOCKED -> "$name locked"
+            ModifierState.ARMED -> "$name on"
+            ModifierState.OFF -> name
+        }
+    }
+    is KeyAction.SendKey -> key.label.ifBlank { "Key" }
     else -> {
         val label = displayLabel(key, state)
         punctuationNames[label] ?: label
@@ -4335,8 +4350,13 @@ private fun KeyButton(
     // Samsung-style contrast: letter keys clearly lighter than the board,
     // modifier keys a shade darker than the letters.
     val kb = LocalKbTheme.current
+    // A latched modifier has to look held: it changes what the *next* key
+    // does, so with no visible state the user finds out by pressing one.
+    val latch = (key.action as? KeyAction.Mod)?.let { state.modifiers[it.key] }
     val background = when {
         pressed -> kb.pressedKey
+        latch == ModifierState.LOCKED -> kb.accent
+        latch == ModifierState.ARMED -> kb.pressedKey
         key.action == KeyAction.Enter -> kb.enterKey
         key.action != KeyAction.Text -> kb.modifierKey
         else -> kb.key

@@ -60,6 +60,34 @@ sealed interface KeyAction {
 
     @Serializable @SerialName("emoji") data object Emoji : KeyAction
 
+    /**
+     * Latches a modifier for the next key, the way [Shift] latches case: tap to
+     * arm, tap again to lock, a third tap to clear.
+     *
+     * Locking matters more here than it does for shift — Ctrl+Shift+arrow to
+     * grow a selection is a sequence, not a single chord.
+     *
+     * Named [Mod] rather than Modifier because `androidx.compose.ui.Modifier` is
+     * on nearly every line of the keyboard view, and every `is KeyAction.Modifier`
+     * branch would have sat next to one and needed qualifying.
+     */
+    @Serializable @SerialName("mod") data class Mod(val key: ModifierKey) : KeyAction
+
+    /**
+     * Injects a raw key event instead of committing text: Tab, the arrow
+     * cluster, Escape, or a fixed combo like Ctrl+Z.
+     *
+     * [meta] is a mask of `KeyEvent.META_*` flags, so a key can carry its own
+     * modifiers without a latch first. A mask rather than the runtime latch type
+     * because a spec must not depend on the IME package, and because a stored
+     * shortcut can only ever mean "held" — there is no armed-versus-locked
+     * distinction to preserve on disk.
+     */
+    @Serializable @SerialName("send_key") data class SendKey(
+        val keyCode: Int,
+        val meta: Int = 0,
+    ) : KeyAction
+
     /** A deliberate gap in the grid: drawn as empty space, swallows its taps. */
     @Serializable @SerialName("none") data object None : KeyAction
 
@@ -77,6 +105,17 @@ sealed interface KeyAction {
      */
     @Serializable @SerialName("unknown") data class Unknown(val tag: String) : KeyAction
 }
+
+/**
+ * A modifier a [KeyAction.Mod] key latches.
+ *
+ * Shift is deliberately absent: it has its own action, its own three-state latch
+ * and its own glyph, and folding it in here would leave two ways to spell the
+ * same key. Fn is absent too — it is a layer rather than a modifier, because
+ * `META_FUNCTION_ON` exists but nothing in the framework or in apps consumes it,
+ * so an Fn flag would be an inert no-op everywhere.
+ */
+enum class ModifierKey { CTRL, ALT, META }
 
 /** Clipboard shortcut a letter key can perform on long press (A/C/V/X). */
 enum class ClipboardKeyAction { SELECT_ALL, COPY, PASTE, CUT }
