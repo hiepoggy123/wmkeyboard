@@ -70,6 +70,7 @@ import androidx.compose.material.icons.outlined.KeyboardDoubleArrowDown
 import androidx.compose.material.icons.outlined.KeyboardDoubleArrowUp
 import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.LastPage
+import androidx.compose.material.icons.outlined.GridOn
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material.icons.outlined.PhotoCamera
@@ -419,9 +420,22 @@ private fun SettingsNavHost(
                 ThemeEditorScreen(repository, settings, themeId)
             }
         }
+        composable("keymaps") {
+            SettingsScreen("Key layouts", { navController.popBackStack() }) {
+                KeyLayoutsScreen(repository, settings) { route -> navController.navigate(route) }
+            }
+        }
+        composable("keymap_edit/{layoutId}") { backStackEntry ->
+            val layoutId = backStackEntry.arguments?.getString("layoutId").orEmpty()
+            SettingsScreen("Edit layout", { navController.popBackStack() }) {
+                KeyLayoutEditorScreen(repository, settings, layoutId) { route ->
+                    navController.navigate(route)
+                }
+            }
+        }
         composable("languages") {
             SettingsScreen("Languages", { navController.popBackStack() }) {
-                LanguageSettings(repository, settings)
+                LanguageSettings(repository, settings) { route -> navController.navigate(route) }
             }
         }
         composable("emoji") {
@@ -567,6 +581,12 @@ private fun HomeScreen(settings: KeyboardSettings, onNavigate: (String) -> Unit)
                         Icons.Outlined.AspectRatio, "Layout & size",
                         "Key size, number row, one-handed, split & floating",
                     ) { onNavigate("layout") }
+                }
+                item {
+                    HomeItem(
+                        Icons.Outlined.GridOn, "Key layouts",
+                        "Design your own key grid, or start from a built-in one",
+                    ) { onNavigate("keymaps") }
                 }
                 item {
                     HomeItem(
@@ -2059,7 +2079,11 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
 // ---- languages ----
 
 @Composable
-private fun LanguageSettings(repository: SettingsRepository, settings: KeyboardSettings) {
+private fun LanguageSettings(
+    repository: SettingsRepository,
+    settings: KeyboardSettings,
+    onNavigate: (String) -> Unit,
+) {
     val scope = rememberCoroutineScope()
     CaptionText(
         "Every enabled layout is its own input mode; cycle between them with " +
@@ -2084,6 +2108,41 @@ private fun LanguageSettings(repository: SettingsRepository, settings: KeyboardS
                     }
                 }
             }
+        }
+    }
+    // Custom layouts sit after the catalog rather than inside it: LanguageCatalog
+    // is a static list onboarding also renders, and threading settings through it
+    // would make a fresh install ask DataStore a question whose answer is always
+    // "none".
+    val customs = settings.customLayouts
+        .filter { com.wasimaster.wmkeyboard.core.layout.BuiltInLayouts.byId(it.id) == null }
+        .sortedBy { it.name.lowercase() }
+    SettingsGroup("Your layouts") {
+        for (layout in customs) {
+            item {
+                ToggleSetting(
+                    layout.name,
+                    "Types with the ${baseModeTitle(layout.baseMode)} dictionary",
+                    layout.id in settings.enabledLayoutIds,
+                ) { enable ->
+                    scope.launch {
+                        val next =
+                            if (enable) settings.enabledLayoutIds + layout.id
+                            else settings.enabledLayoutIds - layout.id
+                        if (next.isNotEmpty()) repository.setEnabledLayoutIds(next.distinct())
+                    }
+                }
+            }
+        }
+        item {
+            NavRow(
+                "Key layouts",
+                subtitle = if (customs.isEmpty()) {
+                    "Design your own key grid, or start from a built-in one"
+                } else {
+                    "Edit, add and remove layouts"
+                },
+            ) { onNavigate("keymaps") }
         }
     }
     SettingsGroup("Bengali") {
