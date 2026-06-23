@@ -52,6 +52,7 @@ class SmartSuggestTest {
         assertEquals("SmartSuggest should read € as EUR", "150 EUR", hit("150€")?.query)
         assertEquals("150 GBP", hit("£150")?.query)
         assertEquals("150 INR", hit("₹150")?.query)
+        assertEquals("150 BDT", hit("150 tk")?.query)
     }
 
     @Test

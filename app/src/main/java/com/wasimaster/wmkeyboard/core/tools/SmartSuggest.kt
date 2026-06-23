@@ -186,7 +186,7 @@ object SmartSuggest {
         "dollar" to "USD", "dollars" to "USD", "buck" to "USD", "bucks" to "USD",
         "euro" to "EUR", "euros" to "EUR",
         "quid" to "GBP", "sterling" to "GBP",
-        "taka" to "BDT", "takas" to "BDT",
+        "tk" to "BDT", "taka" to "BDT", "takas" to "BDT",
         "rupee" to "INR", "rupees" to "INR",
         "yen" to "JPY", "yuan" to "CNY", "rmb" to "CNY",
         "ringgit" to "MYR", "riyal" to "SAR", "riyals" to "SAR",
