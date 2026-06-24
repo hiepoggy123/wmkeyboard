@@ -16,6 +16,13 @@
          are read into memory for the suggestion strip, never stored. -->
     <uses-permission android:name="android.permission.READ_CONTACTS" />
 
+    <!-- Only used by the optional "Show source app" clipboard setting; lets the
+         keyboard note which app a clip was copied from. The user grants it
+         explicitly in system Settings (Usage Access); off by default. -->
+    <uses-permission
+        android:name="android.permission.PACKAGE_USAGE_STATS"
+        tools:ignore="ProtectedPermissions" />
+
     <!-- Save-to-gallery on API 24-28 only. From API 29 scoped storage lets an
          app write its own media without any permission, so this is capped. -->
     <uses-permission

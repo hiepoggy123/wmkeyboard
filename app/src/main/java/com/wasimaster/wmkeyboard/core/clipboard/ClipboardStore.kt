@@ -51,6 +51,12 @@ data class ClipItem(
     val fileSize: Long = -1,
     /** Fetched metadata for a [ClipKind.LINK] clip; null until fetched. */
     val linkPreview: LinkPreview? = null,
+    /**
+     * Human-readable label of the app the clip was copied from (falling back to
+     * its package name when the label can't be resolved). Null when source
+     * tracking is off, unavailable, or the source couldn't be determined.
+     */
+    val sourceApp: String? = null,
 )
 
 /** Recognises clips that are a bare URL, so they can be shown as links. */
@@ -128,20 +134,29 @@ class ClipboardStore(
     }
 
     @Synchronized
-    fun add(text: String, now: Long = System.currentTimeMillis()): ClipItem? =
-        addTextual(text, html = null, now = now)
+    fun add(text: String, sourceApp: String? = null, now: Long = System.currentTimeMillis()): ClipItem? =
+        addTextual(text, html = null, sourceApp = sourceApp, now = now)
 
     /** Styled text: [html] is the markup, [text] the plain-text rendering. */
     @Synchronized
-    fun addHtml(text: String, html: String, now: Long = System.currentTimeMillis()): ClipItem? =
-        addTextual(text, html = html, now = now)
+    fun addHtml(
+        text: String,
+        html: String,
+        sourceApp: String? = null,
+        now: Long = System.currentTimeMillis(),
+    ): ClipItem? = addTextual(text, html = html, sourceApp = sourceApp, now = now)
 
     /**
      * Registers an image already copied to [imageFile] (inside [imagesDir]).
      * The store takes ownership of the file.
      */
     @Synchronized
-    fun addImage(imageFile: File, mimeType: String, now: Long = System.currentTimeMillis()): ClipItem? {
+    fun addImage(
+        imageFile: File,
+        mimeType: String,
+        sourceApp: String? = null,
+        now: Long = System.currentTimeMillis(),
+    ): ClipItem? {
         if (!imageFile.exists()) return null
         val item = ClipItem(
             id = nextId++,
@@ -150,6 +165,7 @@ class ClipboardStore(
             kind = ClipKind.IMAGE,
             imagePath = imageFile.absolutePath,
             mimeType = mimeType,
+            sourceApp = sourceApp,
         )
         items.add(0, item)
         prune(now)
@@ -168,13 +184,14 @@ class ClipboardStore(
         mimeType: String,
         isDirectory: Boolean,
         size: Long = -1,
+        sourceApp: String? = null,
         now: Long = System.currentTimeMillis(),
     ): ClipItem? {
         if (uriString.isBlank()) return null
         // Re-copying the same file moves it to the top instead of duplicating.
         items.firstOrNull { it.uriString == uriString }?.let { existing ->
             items.remove(existing)
-            val refreshed = existing.copy(timestamp = now)
+            val refreshed = existing.copy(timestamp = now, sourceApp = sourceApp ?: existing.sourceApp)
             items.add(0, refreshed)
             return refreshed
         }
@@ -187,13 +204,14 @@ class ClipboardStore(
             uriString = uriString,
             fileName = displayName,
             fileSize = if (isDirectory) -1 else size,
+            sourceApp = sourceApp,
         )
         items.add(0, item)
         prune(now)
         return item
     }
 
-    private fun addTextual(text: String, html: String?, now: Long): ClipItem? {
+    private fun addTextual(text: String, html: String?, sourceApp: String?, now: Long): ClipItem? {
         val trimmed = text.trim()
         if (trimmed.isEmpty()) return null
         val isLink = html == null && ClipLinks.asUrl(trimmed) != null
@@ -209,6 +227,7 @@ class ClipboardStore(
                     else -> existing.kind
                 },
                 htmlText = html ?: existing.htmlText,
+                sourceApp = sourceApp ?: existing.sourceApp,
             )
             items.add(0, refreshed)
             return refreshed
@@ -224,6 +243,7 @@ class ClipboardStore(
             },
             htmlText = html,
             mimeType = if (html != null) "text/html" else "text/plain",
+            sourceApp = sourceApp,
         )
         items.add(0, item)
         prune(now)

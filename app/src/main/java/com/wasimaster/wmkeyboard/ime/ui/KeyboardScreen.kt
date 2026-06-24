@@ -6152,12 +6152,21 @@ private fun ClipboardPanel(
                     fadeOutSpec = tween(140),
                 ),
             ) {
+                var showInfo by remember { mutableStateOf(false) }
                 Column(
                     modifier = Modifier
                         .background(MaterialTheme.colorScheme.surfaceContainer, RoundedCornerShape(12.dp))
-                        .clickable { onClipboardItem(item) }
+                        .pointerInput(item.id) {
+                            detectTapGestures(
+                                onTap = { onClipboardItem(item) },
+                                onLongPress = { showInfo = true },
+                            )
+                        }
                         .padding(10.dp),
                 ) {
+                    if (showInfo) {
+                        ClipInfoPopup(item, onDismiss = { showInfo = false })
+                    }
                     when (item.kind) {
                         ClipKind.IMAGE -> ClipThumbnail(item)
                         ClipKind.FILE, ClipKind.FOLDER -> ClipFileBody(item)
@@ -6224,6 +6233,83 @@ private fun ClipActionCircle(
             contentDescription = description,
             modifier = Modifier.size(15.dp),
             tint = tint,
+        )
+    }
+}
+
+/**
+ * Press-and-hold details for a clip: when it was copied (relative + exact),
+ * which app it came from (when source tracking is on), its type, and a size or
+ * length. Anchored above the card; dismissed by tapping elsewhere.
+ */
+@Composable
+private fun ClipInfoPopup(item: ClipItem, onDismiss: () -> Unit) {
+    val kb = LocalKbTheme.current
+    val now = System.currentTimeMillis()
+    val relative = android.text.format.DateUtils.getRelativeTimeSpanString(
+        item.timestamp, now, android.text.format.DateUtils.MINUTE_IN_MILLIS,
+    ).toString()
+    val exact = remember(item.timestamp) {
+        java.text.SimpleDateFormat("MMM d, yyyy · h:mm a", java.util.Locale.getDefault())
+            .format(java.util.Date(item.timestamp))
+    }
+    val typeLabel = when (item.kind) {
+        ClipKind.TEXT -> "Text"
+        ClipKind.HTML -> "Rich text"
+        ClipKind.LINK -> "Link"
+        ClipKind.IMAGE -> "Image"
+        ClipKind.FILE -> "File"
+        ClipKind.FOLDER -> "Folder"
+    }
+    val sizeLabel = when (item.kind) {
+        ClipKind.IMAGE -> item.mimeType.substringAfterLast('/').takeIf { it.isNotBlank() }?.uppercase()
+        ClipKind.FILE -> formatFileSize(item.fileSize)
+        ClipKind.FOLDER -> null
+        else -> {
+            val chars = item.text.length
+            "$chars character" + if (chars == 1) "" else "s"
+        }
+    }
+    Popup(
+        popupPositionProvider = rememberAboveAnchorPopup(),
+        onDismissRequest = onDismiss,
+    ) {
+        Surface(
+            shape = RoundedCornerShape(kb.popupRadiusDp.dp),
+            color = kb.popup,
+            shadowElevation = 6.dp,
+        ) {
+            Column(
+                modifier = Modifier
+                    .widthIn(min = 160.dp, max = 240.dp)
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                ClipInfoRow("Copied", "$relative\n$exact", kb.popupText)
+                item.sourceApp?.let { ClipInfoRow("From", it, kb.popupText) }
+                ClipInfoRow("Type", typeLabel, kb.popupText)
+                sizeLabel?.let { ClipInfoRow("Size", it, kb.popupText) }
+            }
+        }
+    }
+}
+
+/** One "Label: value" line in the clipboard info popup. */
+@Composable
+private fun ClipInfoRow(label: String, value: String, textColor: Color) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            label,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Medium,
+            color = textColor.copy(alpha = 0.6f),
+            modifier = Modifier.width(44.dp),
+        )
+        Text(
+            value,
+            fontSize = 11.sp,
+            color = textColor,
+            modifier = Modifier.weight(1f),
         )
     }
 }

@@ -3391,6 +3391,44 @@ private fun ToolDetailSettings(
                     settings.clipboardLinkPreviews,
                 ) { scope.launch { repository.setClipboardLinkPreviews(it) } }
             }
+            item {
+                val context = LocalContext.current
+                ToggleSetting(
+                    "Show source app",
+                    "Record which app a clip was copied from, shown when you press " +
+                        "and hold an entry. Needs Usage Access permission.",
+                    settings.clipboardTrackSource,
+                    info = "Best-effort: it reads the foreground app at copy time via " +
+                        "Usage Access. Some copies (e.g. from background sync) may have no " +
+                        "source. Nothing about your app usage leaves the device.",
+                ) { on ->
+                    scope.launch { repository.setClipboardTrackSource(on) }
+                    // Sending the user to grant the permission the first time they
+                    // switch it on; the OS screen no-ops if already granted.
+                    if (on) runCatching {
+                        context.startActivity(
+                            Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)
+                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                        )
+                    }
+                }
+            }
+            if (settings.clipboardTrackSource) {
+                item {
+                    val context = LocalContext.current
+                    NavRow(
+                        "Usage Access permission",
+                        "Open system settings to grant or revoke it",
+                    ) {
+                        runCatching {
+                            context.startActivity(
+                                Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)
+                                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                            )
+                        }
+                    }
+                }
+            }
         }
         ToolbarTool.SPLIT -> SettingsGroup("Options") {
             item {

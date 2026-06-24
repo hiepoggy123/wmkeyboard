@@ -1,5 +1,7 @@
 package com.wasimaster.wmkeyboard.ime
 
+import android.app.AppOpsManager
+import android.app.usage.UsageStatsManager
 import android.content.ClipboardManager
 import android.content.ComponentCallbacks2
 import android.content.Context
@@ -9,6 +11,7 @@ import android.hardware.camera2.CameraManager
 import android.media.AudioManager
 import android.os.Build
 import android.os.Bundle
+import android.os.Process
 import android.os.SystemClock
 import android.text.InputType
 import android.view.KeyCharacterMap
@@ -306,6 +309,10 @@ class WMKeyboardService : InputMethodService() {
         // system clipboard as a fallback); re-adding would duplicate it.
         if (uri != null && uri.authority == clipboardFileProviderAuthority) return@OnPrimaryClipChangedListener
 
+        // Which app the user copied from, resolved now while it's still the
+        // foreground app (best-effort; null unless opted in and permitted).
+        val source = if (state.settings.clipboardTrackSource) resolveClipSource() else null
+
         val imageMime = uri?.let { u ->
             runCatching { contentResolver.getType(u) }.getOrNull()?.takeIf { it.startsWith("image/") }
         }
@@ -314,7 +321,7 @@ class WMKeyboardService : InputMethodService() {
         if (uri != null && imageMime == null && item.text == null) {
             val uris = (0 until clip.itemCount).mapNotNull { clip.getItemAt(it)?.uri }
             if (uris.isNotEmpty()) {
-                serviceScope.launch(Dispatchers.IO) { addFileClips(uris) }
+                serviceScope.launch(Dispatchers.IO) { addFileClips(uris, source) }
                 return@OnPrimaryClipChangedListener
             }
         }
@@ -337,7 +344,7 @@ class WMKeyboardService : InputMethodService() {
                     target
                 }.getOrNull()
                 if (copied != null) {
-                    clipboardStore.addImage(copied, imageMime)
+                    clipboardStore.addImage(copied, imageMime, source)
                     clipboardStore.save()
                     _uiState.update { it.copy(clipboardItems = clipboardStore.items()) }
                 }
@@ -347,7 +354,7 @@ class WMKeyboardService : InputMethodService() {
 
         val text = item.coerceToText(this)?.toString() ?: return@OnPrimaryClipChangedListener
         val html = item.htmlText
-        val added = if (html != null) clipboardStore.addHtml(text, html) else clipboardStore.add(text)
+        val added = if (html != null) clipboardStore.addHtml(text, html, source) else clipboardStore.add(text, source)
         clipboardStore.save()
         _uiState.update { it.copy(clipboardItems = clipboardStore.items()) }
         if (added?.kind == ClipKind.LINK) fetchLinkPreviews()
@@ -355,6 +362,52 @@ class WMKeyboardService : InputMethodService() {
 
     private val clipboardFileProviderAuthority: String
         get() = "$packageName.clipboard"
+
+    /**
+     * Best-effort label of the app that produced the current clip: the app that
+     * was in the foreground in the moments before the clipboard changed, per
+     * [UsageStatsManager]. Returns null when the Usage Access permission isn't
+     * granted or no recent foreground app can be found — the copy still lands in
+     * history, just without a source. Own package is treated as "no source".
+     */
+    private fun resolveClipSource(): String? {
+        if (!hasUsageAccess()) return null
+        val usage = getSystemService(Context.USAGE_STATS_SERVICE) as? UsageStatsManager ?: return null
+        val now = System.currentTimeMillis()
+        val pkg = runCatching {
+            val events = usage.queryEvents(now - 10_000L, now)
+            val event = android.app.usage.UsageEvents.Event()
+            var last: String? = null
+            while (events.hasNextEvent()) {
+                events.getNextEvent(event)
+                if (event.eventType == android.app.usage.UsageEvents.Event.MOVE_TO_FOREGROUND) {
+                    last = event.packageName
+                }
+            }
+            last
+        }.getOrNull()
+        if (pkg == null || pkg == packageName) return null
+        return runCatching {
+            val info = packageManager.getApplicationInfo(pkg, 0)
+            packageManager.getApplicationLabel(info).toString()
+        }.getOrDefault(pkg)
+    }
+
+    /** Whether the user granted the Usage Access special permission. */
+    private fun hasUsageAccess(): Boolean {
+        val appOps = getSystemService(Context.APP_OPS_SERVICE) as? AppOpsManager ?: return false
+        val mode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            appOps.unsafeCheckOpNoThrow(
+                AppOpsManager.OPSTR_GET_USAGE_STATS, Process.myUid(), packageName,
+            )
+        } else {
+            @Suppress("DEPRECATION")
+            appOps.checkOpNoThrow(
+                AppOpsManager.OPSTR_GET_USAGE_STATS, Process.myUid(), packageName,
+            )
+        }
+        return mode == AppOpsManager.MODE_ALLOWED
+    }
 
     /**
      * Records copied files and folders as clips. Only the URI, display name
@@ -365,7 +418,7 @@ class WMKeyboardService : InputMethodService() {
      * providers refuse, in which case inserting later falls back to putting
      * the URI back on the system clipboard.
      */
-    private fun addFileClips(uris: List<Uri>) {
+    private fun addFileClips(uris: List<Uri>, sourceApp: String? = null) {
         var added = false
         for (uri in uris.take(MAX_FILE_CLIPS_PER_COPY)) {
             val info = resolveClipFile(uri) ?: continue
@@ -378,6 +431,7 @@ class WMKeyboardService : InputMethodService() {
                 mimeType = info.mimeType,
                 isDirectory = info.isDirectory,
                 size = info.size,
+                sourceApp = sourceApp,
             )
             added = true
         }

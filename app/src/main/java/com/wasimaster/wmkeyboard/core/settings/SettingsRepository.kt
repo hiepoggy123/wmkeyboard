@@ -469,6 +469,12 @@ data class KeyboardSettings(
     val clipboardExpiryHours: Int = 24,
     /** Fetch page titles for copied links and show them in the clipboard panel. */
     val clipboardLinkPreviews: Boolean = false,
+    /**
+     * Record which app a clip was copied from (shown in the press-and-hold info
+     * popup). Off by default: needs the Usage Access special permission and is a
+     * best-effort guess of the foreground app at copy time.
+     */
+    val clipboardTrackSource: Boolean = false,
     val longPressDelayMs: Int = 300,
     val keyRepeatIntervalMs: Int = 50,
     /** Small corner label on each key showing its first long-press character. */
@@ -876,6 +882,7 @@ class SettingsRepository(private val context: Context) {
         private val CLIPBOARD_HISTORY = booleanPreferencesKey("clipboard_history")
         private val CLIPBOARD_EXPIRY_HOURS = intPreferencesKey("clipboard_expiry_hours")
         private val CLIPBOARD_LINK_PREVIEWS = booleanPreferencesKey("clipboard_link_previews")
+        private val CLIPBOARD_TRACK_SOURCE = booleanPreferencesKey("clipboard_track_source")
         private val LONG_PRESS_DELAY = intPreferencesKey("long_press_delay")
         private val KEY_REPEAT_INTERVAL = intPreferencesKey("key_repeat_interval")
         private val LONG_PRESS_HINTS = booleanPreferencesKey("long_press_hints")
@@ -1170,6 +1177,7 @@ class SettingsRepository(private val context: Context) {
             clipboardHistory = p[CLIPBOARD_HISTORY] ?: defaults.clipboardHistory,
             clipboardExpiryHours = p[CLIPBOARD_EXPIRY_HOURS] ?: defaults.clipboardExpiryHours,
             clipboardLinkPreviews = p[CLIPBOARD_LINK_PREVIEWS] ?: defaults.clipboardLinkPreviews,
+            clipboardTrackSource = p[CLIPBOARD_TRACK_SOURCE] ?: defaults.clipboardTrackSource,
             longPressDelayMs = p[LONG_PRESS_DELAY] ?: defaults.longPressDelayMs,
             keyRepeatIntervalMs = p[KEY_REPEAT_INTERVAL] ?: defaults.keyRepeatIntervalMs,
             longPressHints = p[LONG_PRESS_HINTS] ?: defaults.longPressHints,
@@ -2072,6 +2080,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setClipboardLinkPreviews(value: Boolean) =
         context.dataStore.edit { it[CLIPBOARD_LINK_PREVIEWS] = value }
+
+    suspend fun setClipboardTrackSource(value: Boolean) =
+        context.dataStore.edit { it[CLIPBOARD_TRACK_SOURCE] = value }
 
     suspend fun setLongPressDelayMs(value: Int) =
         context.dataStore.edit { it[LONG_PRESS_DELAY] = value.coerceIn(150, 700) }
