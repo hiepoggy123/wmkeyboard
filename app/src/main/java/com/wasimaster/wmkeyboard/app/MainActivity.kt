@@ -1,6 +1,7 @@
 package com.wasimaster.wmkeyboard.app
 
 import android.Manifest
+import android.content.ComponentName
 import android.content.Context
 import android.content.pm.PackageManager
 import android.content.Intent
@@ -4055,16 +4056,7 @@ private fun ToolDetailSettings(
                         NavRow(
                             "Use Harper everywhere",
                             "Set WM Keyboard as Android's spell checker",
-                            onClick = {
-                                // No direct action for the spell-checker screen
-                                // exists on every version; the input-method
-                                // settings page is its reliable parent.
-                                runCatching {
-                                    context.startActivity(
-                                        Intent(Settings.ACTION_INPUT_METHOD_SETTINGS)
-                                    )
-                                }
-                            },
+                            onClick = { openSpellCheckerSettings(context) },
                         )
                     }
                 }
@@ -4077,8 +4069,10 @@ private fun ToolDetailSettings(
                     "switches dialects too.\n\n" +
                     "Harper can also act as Android's system spell checker, so " +
                     "the underlines and correction menus inside other apps come " +
-                    "from it as well. Pick it under Spell checker in the system " +
-                    "input settings; it follows the dialect chosen above.",
+                    "from it as well. The button above opens the system Spell " +
+                    "checker screen — pick WM Keyboard there; it follows the " +
+                    "dialect chosen above. If your device hides that screen, it " +
+                    "falls back to the input-method settings.",
             )
         }
         ToolbarTool.WIKIPEDIA -> {
@@ -4886,6 +4880,32 @@ private fun TranslateLanguageSetting(repository: SettingsRepository, settings: K
                 TextButton(onClick = { dialogOpen = false }) { Text("Close") }
             },
         )
+    }
+}
+
+/**
+ * Open Android's Spell checker settings screen — where WM Keyboard's Harper
+ * service can be picked as the system checker.
+ *
+ * There is no public [Settings] action for this screen, so we aim the direct
+ * AOSP Settings component first and only fall back to the input-method
+ * settings page (its parent) when that component is missing or hidden, as it
+ * is on some OEM builds. Resolving before launching keeps a stock ROM that
+ * renamed the activity from throwing an [android.content.ActivityNotFoundException].
+ */
+private fun openSpellCheckerSettings(context: Context) {
+    val direct = Intent(Intent.ACTION_MAIN).setComponent(
+        ComponentName(
+            "com.android.settings",
+            "com.android.settings.Settings\$SpellCheckersSettingsActivity",
+        )
+    )
+    val resolves = context.packageManager.resolveActivity(direct, 0) != null
+    val launched = resolves && runCatching { context.startActivity(direct) }.isSuccess
+    if (!launched) {
+        runCatching {
+            context.startActivity(Intent(Settings.ACTION_INPUT_METHOD_SETTINGS))
+        }
     }
 }
 
