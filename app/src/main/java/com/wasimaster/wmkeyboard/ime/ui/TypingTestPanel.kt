@@ -25,12 +25,14 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -64,7 +66,6 @@ import com.wasimaster.wmkeyboard.core.tools.typingConfigLabel
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
 import com.wasimaster.wmkeyboard.ime.TypingTestAction
 import com.wasimaster.wmkeyboard.ime.TypingTestUi
-import kotlin.math.max
 import kotlin.math.roundToInt
 
 /**
@@ -106,14 +107,6 @@ private fun TypingRunView(state: KeyboardUiState, onAction: (TypingTestAction) -
         TypingRunStats(state)
         Spacer(Modifier.height(4.dp))
 
-        // The prompt scrolls a page at a time rather than a word at a time:
-        // re-anchoring on every space would slide the whole paragraph under
-        // the reader's eye and make the text impossible to follow.
-        var windowStart by remember(test.words) { mutableIntStateOf(0) }
-        if (test.wordIndex - windowStart > WordsPerPage) {
-            windowStart = max(0, test.wordIndex - 4)
-        }
-
         // Reduce motion holds the caret solid: no infinite transition is
         // started at all, rather than one running against a zero duration.
         val blink = if (kb.reduceMotion) {
@@ -132,13 +125,26 @@ private fun TypingRunView(state: KeyboardUiState, onAction: (TypingTestAction) -
         }
 
         Box(modifier = Modifier.weight(1f)) {
+            val scrollState = rememberScrollState()
+            val caretRequester = remember(test.words) { BringIntoViewRequester() }
+            // The caret's word drags the scroll state to follow it as the
+            // user types past the bottom of the visible prompt.
+            LaunchedEffect(test.wordIndex, test.words) {
+                caretRequester.bringIntoView()
+            }
             FlowRow(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(scrollState),
                 horizontalArrangement = Arrangement.spacedBy(7.dp),
                 verticalArrangement = Arrangement.spacedBy(1.dp),
             ) {
-                val end = minOf(test.words.size, windowStart + WordsPerPage + 8)
-                for (index in windowStart until end) {
+                for (index in test.words.indices) {
+                    val wordModifier = if (index == test.wordIndex) {
+                        Modifier.bringIntoViewRequester(caretRequester)
+                    } else {
+                        Modifier
+                    }
                     Text(
                         promptWord(test, index, kb, blink),
                         fontSize = 17.sp,
@@ -146,6 +152,7 @@ private fun TypingRunView(state: KeyboardUiState, onAction: (TypingTestAction) -
                         // Untyped text is the resting colour; the spans in
                         // the annotated string override it as the user goes.
                         color = kb.secondaryText.copy(alpha = 0.45f),
+                        modifier = wordModifier,
                     )
                 }
             }
@@ -154,9 +161,6 @@ private fun TypingRunView(state: KeyboardUiState, onAction: (TypingTestAction) -
         TypingConfigRow(settings, onAction, compact = true)
     }
 }
-
-/** How many words are on screen before the prompt turns the page. */
-private const val WordsPerPage = 22
 
 /**
  * Mistake red. Matches the grammar panel's "correctness" colour rather
