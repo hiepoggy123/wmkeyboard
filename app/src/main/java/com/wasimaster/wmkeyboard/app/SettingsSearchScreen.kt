@@ -22,6 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
@@ -110,6 +111,7 @@ internal fun HighlightableRow(title: String, content: @Composable () -> Unit) {
  * Full-screen search over every setting. Results carry their breadcrumb, and
  * tapping one opens the owning screen with the row flashed.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun SettingsSearchScreen(
     onBack: () -> Unit,

@@ -79,6 +79,7 @@ private val SettingRows: List<SettingsSearchEntry> = listOf(
     entry("Long-press delay", "Hold time before alternate characters appear", "Key press", "keypress"),
     entry("Key repeat interval", "Speed of repeated delete while held", "Key press", "keypress"),
     entry("Long-press hints", "Show each key's long-press character in its corner", "Key press", "keypress"),
+    entry("Ctrl shortcuts as raw key events", "For terminals; off means Ctrl+A/C/V/X use the clipboard", "Key press", "keypress"),
     entry("Hold A to select all", "Long-pressing A selects all text", "Key press", "keypress"),
     entry("Hold C to copy", "Copies the selection, or everything if nothing is selected", "Key press", "keypress"),
     entry("Hold X to cut", "Cuts the selection, or everything if nothing is selected", "Key press", "keypress"),
@@ -106,6 +107,7 @@ private val SettingRows: List<SettingsSearchEntry> = listOf(
     entry("Floating keyboard width", "Also adjustable by dragging the panel's corner grip", "Layout & size", "layout"),
     entry("Comma key opens emoji", "Replace the comma key with an emoji key", "Layout & size", "layout"),
     entry("Emoji key instead of 🌐", "Replace the language key with an emoji key", "Layout & size", "layout"),
+    entry("Import a layout", "Open a .wmlayout.json file someone shared", "Key layouts", "keymaps"),
     entry("Conjunct-aware backspace", "Delete a whole যুক্তবর্ণ (like ক্ষ or স্ত্রী) as one unit", "Languages", "languages"),
     entry("Emoji button in toolbar", "One-tap emoji access from the top bar", "Emoji", "emoji"),
     entry("Full-screen emoji panel", "Hide the toolbar and move the category tabs up next to a back button", "Emoji", "emoji"),
@@ -149,7 +151,9 @@ private val SettingRows: List<SettingsSearchEntry> = listOf(
     entry("Pause learning", "No words or emoji habits are learned from typing", tool = ToolbarTool.INCOGNITO),
     entry("Pause clipboard capture", "Copies don't join the clipboard tool's history", tool = ToolbarTool.INCOGNITO),
     entry("Follow private browsing", "Switch on by itself in incognito tabs and private fields", tool = ToolbarTool.INCOGNITO),
-    entry("Autocorrect", "The tool flips this same switch (also under Typing)", tool = ToolbarTool.AUTOCORRECT),
+    // The tool screen's own "Autocorrect" toggle is not listed: ToolRows
+    // already indexes the tool under that title and route. A row named after
+    // the tool holding it is always a duplicate result, never a second one.
     entry("All typing settings", "Suggestions, autocorrect, capitalization and more", tool = ToolbarTool.AUTOCORRECT),
     entry("All key press settings", "Haptic style and strength, key preview, long-press", tool = ToolbarTool.SOUND_HAPTICS),
     entry("Stylus only", "Only an S Pen or other stylus draws; finger touches are ignored", tool = ToolbarTool.HANDWRITING),
@@ -263,6 +267,7 @@ private val SectionRows: List<SettingsSearchEntry> = listOf(
     entry("Languages", "English, বাংলা (Avro phonetic, প্রভাত, জাতীয়)", "Settings", "languages"),
     entry("Appearance", "Themes, fonts, toolbar style", "Settings", "appearance"),
     entry("Layout & size", "Key size, number row, one-handed, split & floating", "Settings", "layout"),
+    entry("Key layouts", "Design your own key grid, Ctrl/Alt keys, import & export", "Settings", "keymaps"),
     entry("Rows & bars", "Symbol row, emoji row, row order & symbol sets", "Settings", "rows"),
     entry("Keyboard modes", "Per-app setups: email, browser, coding, passwords", "Settings", "modes"),
     entry("Emoji", "Suggestions, emoji row, emoji style, favourites", "Settings", "emoji"),
