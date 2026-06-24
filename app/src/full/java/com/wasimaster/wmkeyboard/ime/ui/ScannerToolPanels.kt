@@ -22,6 +22,7 @@ import androidx.camera.view.PreviewView
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -40,6 +41,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.automirrored.outlined.Send
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Deselect
@@ -52,6 +54,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -79,6 +82,9 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.google.android.gms.tasks.Task
+import com.wasimaster.wmkeyboard.core.clipboard.ClipLinks
+import com.wasimaster.wmkeyboard.core.clipboard.LinkPreview
+import com.wasimaster.wmkeyboard.core.tools.LinkPreviewClient
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.common.InputImage
@@ -532,6 +538,7 @@ private class ScannedCode(val value: String, val formatLabel: String)
 internal fun QrScanPanel(
     state: KeyboardUiState,
     onInsert: (String) -> Unit,
+    onOpenUrl: (String) -> Unit,
     onRequestPermission: () -> Unit,
     onClose: () -> Unit,
 ) {
@@ -552,8 +559,10 @@ internal fun QrScanPanel(
         if (hasPermission) {
             QrScanContent(
                 onInsert = onInsert,
+                onOpenUrl = onOpenUrl,
                 haptics = state.settings.qrScanHaptics,
                 autoInsert = state.settings.qrScanAutoInsert,
+                linkPreviews = state.settings.qrScanLinkPreviews,
             )
         } else {
             CameraPermissionPrompt(
@@ -579,8 +588,10 @@ internal fun QrScanPanel(
 @Composable
 private fun QrScanContent(
     onInsert: (String) -> Unit,
+    onOpenUrl: (String) -> Unit,
     haptics: Boolean,
     autoInsert: Boolean,
+    linkPreviews: Boolean,
 ) {
     val kb = LocalKbTheme.current
     val context = LocalContext.current
@@ -678,6 +689,15 @@ private fun QrScanContent(
     Box(modifier = Modifier.fillMaxSize()) {
         val code = result
         if (code != null) {
+            // A scanned code that is a bare URL gets an Open button and,
+            // when link previews are on, its page title/description below.
+            val url = remember(code) { ClipLinks.asUrl(code.value) }
+            var preview by remember(code) { mutableStateOf<LinkPreview?>(null) }
+            if (linkPreviews && url != null) {
+                LaunchedEffect(url) {
+                    preview = withContext(Dispatchers.IO) { LinkPreviewClient.fetch(url) }
+                }
+            }
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -685,6 +705,7 @@ private fun QrScanContent(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center,
             ) {
+                LinkPreviewCard(linkPreviews && url != null, preview)
                 Text(
                     code.value,
                     color = kb.suggestionText,
@@ -697,7 +718,14 @@ private fun QrScanContent(
                 Spacer(Modifier.height(4.dp))
                 Text(code.formatLabel, color = kb.secondaryText, fontSize = 12.sp)
                 Spacer(Modifier.height(12.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(
+                        12.dp, Alignment.CenterHorizontally,
+                    ),
+                ) {
                     CaptureActionButton(
                         icon = Icons.Outlined.Refresh,
                         label = "Rescan",
@@ -705,6 +733,16 @@ private fun QrScanContent(
                     ) {
                         feedback()
                         result = null
+                    }
+                    if (url != null) {
+                        CaptureActionButton(
+                            icon = Icons.AutoMirrored.Outlined.OpenInNew,
+                            label = "Open",
+                            accent = false,
+                        ) {
+                            feedback()
+                            onOpenUrl(url)
+                        }
                     }
                     CaptureActionButton(
                         icon = Icons.Outlined.ContentCopy,
@@ -757,6 +795,62 @@ private fun QrScanContent(
                 }
             }
         }
+    }
+}
+
+/**
+ * The fetched page title/site/description for a scanned link, shown above
+ * the raw URL. A small spinner stands in while the fetch is in flight;
+ * a failed or empty fetch renders nothing (the URL alone still shows).
+ */
+@Composable
+private fun LinkPreviewCard(enabled: Boolean, preview: LinkPreview?) {
+    if (!enabled) return
+    val kb = LocalKbTheme.current
+    if (preview == null) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            CircularProgressIndicator(
+                color = kb.secondaryText,
+                strokeWidth = 2.dp,
+                modifier = Modifier.size(14.dp),
+            )
+            Text("Loading link…", color = kb.secondaryText, fontSize = 12.sp)
+        }
+        Spacer(Modifier.height(10.dp))
+        return
+    }
+    if (preview.failed || preview.isEmpty) return
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        if (preview.title.isNotBlank()) {
+            Text(
+                preview.title,
+                color = kb.suggestionText,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium,
+                textAlign = TextAlign.Center,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        if (preview.siteName.isNotBlank()) {
+            Spacer(Modifier.height(2.dp))
+            Text(preview.siteName, color = kb.secondaryText, fontSize = 11.sp)
+        }
+        if (preview.description.isNotBlank()) {
+            Spacer(Modifier.height(4.dp))
+            Text(
+                preview.description,
+                color = kb.secondaryText,
+                fontSize = 12.sp,
+                textAlign = TextAlign.Center,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        Spacer(Modifier.height(10.dp))
     }
 }
 

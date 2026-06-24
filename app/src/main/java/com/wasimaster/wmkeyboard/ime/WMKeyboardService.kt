@@ -769,6 +769,7 @@ class WMKeyboardService : InputMethodService() {
                 onCameraSend = ::onCameraSend,
                 onCameraPermissionRequest = ::onCameraPermissionRequest,
                 onScannedInsert = ::onScannedTextInsert,
+                onScannedUrlOpen = ::onScannedUrlOpen,
                 onDocScan = ::onDocScanStart,
                 onVoiceToggle = ::onVoiceToggle,
                 onVoicePermissionRequest = ::onVoicePermissionRequest,
@@ -981,6 +982,11 @@ class WMKeyboardService : InputMethodService() {
                 composingPreview = "",
                 suggestions = emptyList(),
                 emojiSuggestions = emptyList(),
+                // A tool-keyword chip ("wiki") belongs to the field it was
+                // typed in; a fresh (often empty) field must not inherit it.
+                // onUpdateSelection re-derives it once the new field settles,
+                // but that can lag the switch, leaving a stale chip up.
+                smart = null,
                 secureField = secure,
                 shiftState = autoCapitalizeShift(),
                 clipboardItems = clipboardStore.items(),
@@ -4245,6 +4251,18 @@ class WMKeyboardService : InputMethodService() {
         val ic = currentInputConnection ?: return
         commitComposing(ic, autocorrect = false)
         ic.commitText(text, 1)
+    }
+
+    /** Open a scanned QR/barcode URL in the browser (leaves the keyboard). */
+    fun onScannedUrlOpen(url: String) {
+        vibrate()
+        runCatching {
+            startActivity(
+                Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                },
+            )
+        }
     }
 
     // ---- translate / gif / sticker / web & image search tools ----

@@ -161,6 +161,13 @@ val DefaultToolOrder: List<ToolbarTool> =
     RankedToolOrder + (ToolbarTool.entries - RankedToolOrder.toSet())
 
 /**
+ * The tools pinned to the toolbar out of the box, and what "Reset pinned
+ * tools" restores — global or, when a mode owns the tool order, for that mode.
+ */
+val DefaultToolbarTools: List<ToolbarTool> =
+    listOf(ToolbarTool.EMOJI, ToolbarTool.CLIPBOARD, ToolbarTool.SNIPPETS, ToolbarTool.SETTINGS)
+
+/**
  * The onboarding wizard's starting selection: the everyday tools most people
  * actually use, leaving the specialty ones (sensors, scanners, generators)
  * off until asked for. Only a default — the wizard page and the Tools
@@ -502,9 +509,20 @@ data class KeyboardSettings(
     /** Tint each tool icon its own accent colour in Settings and the toolbox. */
     val coloredToolIcons: Boolean = true,
     val incognito: Boolean = false,
-    val toolbarTools: List<ToolbarTool> =
-        listOf(ToolbarTool.EMOJI, ToolbarTool.CLIPBOARD, ToolbarTool.SNIPPETS, ToolbarTool.SETTINGS),
+    val toolbarTools: List<ToolbarTool> = DefaultToolbarTools,
     val toolbarGreedy: Boolean = true,
+    /** Height of the top toolbar/suggestion strip, in dp. */
+    val toolbarHeightDp: Int = 44,
+    /**
+     * Let the pinned tools scroll horizontally instead of packing into the
+     * bar width — for people who pin more tools than fit at a tappable size.
+     * Forces the packed (non-greedy) layout while on.
+     */
+    val toolbarScrollable: Boolean = false,
+    /** Draw each tool's name under its icon on the toolbar. */
+    val toolbarLabels: Boolean = false,
+    /** Font size of those toolbar labels, in sp. */
+    val toolbarLabelSize: Int = 9,
     val toolCircleRadiusDp: Int = 20,
     val commaAsEmoji: Boolean = false,
     /** History tab of the emoji panel: recently used vs most used. */
@@ -602,6 +620,8 @@ data class KeyboardSettings(
     val qrScanHaptics: Boolean = true,
     /** Insert a scanned code into the field the moment it is spotted. */
     val qrScanAutoInsert: Boolean = false,
+    /** Fetch the page title/description for a scanned link, like clipboard link previews. */
+    val qrScanLinkPreviews: Boolean = false,
     /** Decimal places on currency conversion results. */
     val currencyDecimals: Int = 2,
     /** Hours exchange rates stay fresh before the panel refetches on open. */
@@ -895,6 +915,10 @@ class SettingsRepository(private val context: Context) {
         private val INCOGNITO = booleanPreferencesKey("incognito")
         private val TOOLBAR_TOOLS = stringPreferencesKey("toolbar_tools")
         private val TOOLBAR_GREEDY = booleanPreferencesKey("toolbar_greedy")
+        private val TOOLBAR_HEIGHT = intPreferencesKey("toolbar_height")
+        private val TOOLBAR_SCROLLABLE = booleanPreferencesKey("toolbar_scrollable")
+        private val TOOLBAR_LABELS = booleanPreferencesKey("toolbar_labels")
+        private val TOOLBAR_LABEL_SIZE = intPreferencesKey("toolbar_label_size")
         private val TOOL_CIRCLE_RADIUS = intPreferencesKey("tool_circle_radius")
         private val COMMA_AS_EMOJI = booleanPreferencesKey("comma_as_emoji")
         private val EMOJI_TAB_MODE = stringPreferencesKey("emoji_tab_mode")
@@ -949,6 +973,7 @@ class SettingsRepository(private val context: Context) {
         private val OCR_AUTO_SELECT_WORDS = booleanPreferencesKey("ocr_auto_select_words")
         private val QR_SCAN_HAPTICS = booleanPreferencesKey("qr_scan_haptics")
         private val QR_SCAN_AUTO_INSERT = booleanPreferencesKey("qr_scan_auto_insert")
+        private val QR_SCAN_LINK_PREVIEWS = booleanPreferencesKey("qr_scan_link_previews")
         private val CURRENCY_DECIMALS = intPreferencesKey("currency_decimals")
         private val CURRENCY_CACHE_HOURS = intPreferencesKey("currency_cache_hours")
         private val GRAMMAR_DEBOUNCE_MS = intPreferencesKey("grammar_debounce_ms")
@@ -1196,6 +1221,10 @@ class SettingsRepository(private val context: Context) {
                 else csv.split(',').mapNotNull { runCatching { ToolbarTool.valueOf(it) }.getOrNull() }
             } ?: defaults.toolbarTools,
             toolbarGreedy = p[TOOLBAR_GREEDY] ?: defaults.toolbarGreedy,
+            toolbarHeightDp = p[TOOLBAR_HEIGHT] ?: defaults.toolbarHeightDp,
+            toolbarScrollable = p[TOOLBAR_SCROLLABLE] ?: defaults.toolbarScrollable,
+            toolbarLabels = p[TOOLBAR_LABELS] ?: defaults.toolbarLabels,
+            toolbarLabelSize = p[TOOLBAR_LABEL_SIZE] ?: defaults.toolbarLabelSize,
             toolCircleRadiusDp = p[TOOL_CIRCLE_RADIUS] ?: defaults.toolCircleRadiusDp,
             commaAsEmoji = p[COMMA_AS_EMOJI] ?: defaults.commaAsEmoji,
             emojiTabMode = p[EMOJI_TAB_MODE]
@@ -1262,6 +1291,7 @@ class SettingsRepository(private val context: Context) {
             ocrAutoSelectWords = p[OCR_AUTO_SELECT_WORDS] ?: defaults.ocrAutoSelectWords,
             qrScanHaptics = p[QR_SCAN_HAPTICS] ?: defaults.qrScanHaptics,
             qrScanAutoInsert = p[QR_SCAN_AUTO_INSERT] ?: defaults.qrScanAutoInsert,
+            qrScanLinkPreviews = p[QR_SCAN_LINK_PREVIEWS] ?: defaults.qrScanLinkPreviews,
             currencyDecimals = p[CURRENCY_DECIMALS] ?: defaults.currencyDecimals,
             currencyCacheHours = p[CURRENCY_CACHE_HOURS] ?: defaults.currencyCacheHours,
             grammarDebounceMs = p[GRAMMAR_DEBOUNCE_MS] ?: defaults.grammarDebounceMs,
@@ -1542,6 +1572,9 @@ class SettingsRepository(private val context: Context) {
     suspend fun setQrScanAutoInsert(value: Boolean) =
         context.dataStore.edit { it[QR_SCAN_AUTO_INSERT] = value }
 
+    suspend fun setQrScanLinkPreviews(value: Boolean) =
+        context.dataStore.edit { it[QR_SCAN_LINK_PREVIEWS] = value }
+
     suspend fun setCurrencyDecimals(value: Int) =
         context.dataStore.edit { it[CURRENCY_DECIMALS] = value.coerceIn(0, 6) }
 
@@ -1570,6 +1603,18 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setToolbarGreedy(value: Boolean) =
         context.dataStore.edit { it[TOOLBAR_GREEDY] = value }
+
+    suspend fun setToolbarHeightDp(value: Int) =
+        context.dataStore.edit { it[TOOLBAR_HEIGHT] = value.coerceIn(32, 80) }
+
+    suspend fun setToolbarScrollable(value: Boolean) =
+        context.dataStore.edit { it[TOOLBAR_SCROLLABLE] = value }
+
+    suspend fun setToolbarLabels(value: Boolean) =
+        context.dataStore.edit { it[TOOLBAR_LABELS] = value }
+
+    suspend fun setToolbarLabelSize(value: Int) =
+        context.dataStore.edit { it[TOOLBAR_LABEL_SIZE] = value.coerceIn(7, 14) }
 
     suspend fun setToolCircleRadiusDp(value: Int) =
         context.dataStore.edit { it[TOOL_CIRCLE_RADIUS] = value.coerceIn(0, 20) }

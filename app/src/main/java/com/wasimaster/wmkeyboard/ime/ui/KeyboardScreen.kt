@@ -113,6 +113,7 @@ import androidx.compose.material.icons.outlined.EmojiSymbols
 import androidx.compose.material.icons.outlined.Fastfood
 import androidx.compose.material.icons.outlined.Fullscreen
 import androidx.compose.material.icons.outlined.GridView
+import androidx.compose.material.icons.outlined.RestartAlt
 import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.VerticalAlignBottom
 import androidx.compose.material.icons.outlined.Palette
@@ -270,6 +271,7 @@ import com.wasimaster.wmkeyboard.core.grammar.GrammarLint
 import com.wasimaster.wmkeyboard.core.gesture.KeyCenter
 import com.wasimaster.wmkeyboard.core.handwriting.HwStroke
 import com.wasimaster.wmkeyboard.core.settings.BarRow
+import com.wasimaster.wmkeyboard.core.settings.DefaultToolbarTools
 import com.wasimaster.wmkeyboard.core.settings.EmojiBarContent
 import com.wasimaster.wmkeyboard.core.settings.GrammarDialect
 import com.wasimaster.wmkeyboard.core.settings.KeyboardMode
@@ -506,6 +508,7 @@ fun KeyboardScreen(
     onCameraSend: (java.io.File) -> Unit = {},
     onCameraPermissionRequest: () -> Unit = {},
     onScannedInsert: (String) -> Unit = {},
+    onScannedUrlOpen: (String) -> Unit = {},
     onDocScan: () -> Unit = {},
     onVoiceToggle: () -> Unit = {},
     onVoicePermissionRequest: () -> Unit = {},
@@ -697,6 +700,7 @@ fun KeyboardScreen(
                 onCameraSend = onCameraSend,
                 onCameraPermissionRequest = onCameraPermissionRequest,
                 onScannedInsert = onScannedInsert,
+                onScannedUrlOpen = onScannedUrlOpen,
                 onVoiceToggle = onVoiceToggle,
                 onVoicePermissionRequest = onVoicePermissionRequest,
                 onVoiceUndo = onVoiceUndo,
@@ -1154,7 +1158,7 @@ private fun TopBar(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(TopBarHeight),
+            .height(topBarHeight(state.settings)),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         val feedback = LocalKeyPressFeedback.current
@@ -2384,6 +2388,10 @@ private fun ToolCircle(
     // Inactive-icon tint override (the tool's accent colour). Null keeps the
     // theme's toolbar-icon colour; the active state always wins over this.
     tint: Color? = null,
+    // When set, the tool's name is drawn under the icon (toolbar labels). The
+    // long-press tooltip is then redundant and suppressed.
+    label: String? = null,
+    labelSizeSp: Int = 9,
     onClick: () -> Unit,
 ) {
     val kb = LocalKbTheme.current
@@ -2410,6 +2418,40 @@ private fun ToolCircle(
             )
         }
     }
+    val iconTint = if (active) kb.toolCircleActiveIcon else (tint ?: kb.toolbarIcon)
+    if (label != null) {
+        // Labelled variant (toolbar labels): icon in its circle, name beneath.
+        Column(
+            modifier = modifier.then(click),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(30.dp)
+                    .clip(shape)
+                    .background(background, shape),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    icon,
+                    contentDescription = description,
+                    modifier = Modifier.size(20.dp),
+                    tint = iconTint,
+                )
+            }
+            Text(
+                label,
+                fontSize = labelSizeSp.sp,
+                lineHeight = (labelSizeSp + 1).sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                color = iconTint,
+                modifier = Modifier.padding(top = 1.dp, start = 1.dp, end = 1.dp),
+            )
+        }
+        return
+    }
     Box(
         modifier = modifier
             .size(38.dp)
@@ -2422,7 +2464,7 @@ private fun ToolCircle(
             icon,
             contentDescription = description,
             modifier = Modifier.size(20.dp),
-            tint = if (active) kb.toolCircleActiveIcon else (tint ?: kb.toolbarIcon),
+            tint = iconTint,
         )
         if (showLabel && longPressLabel != null) {
             LaunchedEffect(Unit) {
@@ -2489,7 +2531,12 @@ private fun RowScope.ToolbarRow(
     drag: ToolDragController,
 ) {
     val customizing = state.panel == PanelMode.TOOLBOX
-    val greedy = state.settings.toolbarGreedy
+    // Scrolling wants the tools at their natural width, so it overrides the
+    // greedy even-spread (which would keep them all on screen and shrinking).
+    val scrollable = state.settings.toolbarScrollable
+    val greedy = state.settings.toolbarGreedy && !scrollable
+    val labels = state.settings.toolbarLabels
+    val labelSize = state.settings.toolbarLabelSize
     val motion = !state.settings.reduceMotion
     // Enter and exit share one duration so the back chevron takes the same
     // time to leave as it took to arrive; a shorter exit made closing a panel
@@ -2618,6 +2665,8 @@ private fun RowScope.ToolbarRow(
                                 icon = toolIcon(tool),
                                 description = toolLabel(tool),
                                 active = toolActive(tool, state),
+                                label = if (labels) toolLabel(tool) else null,
+                                labelSizeSp = labelSize,
                                 // The icon itself animates, anchored at the
                                 // keyboard body: cells are weighted so their
                                 // widths snap, and only body-relative tracking
@@ -2680,11 +2729,18 @@ private fun RowScope.ToolbarRow(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxHeight()
+                // Weighted so it claims exactly the free width; the scroll then
+                // lets the pinned tools overflow that width instead of packing
+                // to fit. Reordering by drag still works — the toolbox is the
+                // simpler place to rearrange a long, scrolling bar.
+                .then(if (scrollable) Modifier.horizontalScroll(rememberScrollState()) else Modifier)
                 .onGloballyPositioned { drag.toolbarBounds = it.boundsInRoot() },
             verticalAlignment = Alignment.CenterVertically,
         ) {
             toolCells()
-            Spacer(modifier = Modifier.weight(1f))
+            // A weighted spacer can't live inside a horizontal scroll (infinite
+            // width); packed-to-fit mode still needs it to left-align the tools.
+            if (!scrollable) Spacer(modifier = Modifier.weight(1f))
         }
     }
     if (state.incognitoOn) {
@@ -2736,45 +2792,69 @@ private fun ToolboxPanel(
             .height(height)
             .onGloballyPositioned { drag.toolboxViewport = it.boundsInRoot() },
     ) {
-        if (hintVisible) {
+        // A slim always-present header: the hint (until dismissed) plus a
+        // reset that restores the default pins. Reset routes through the same
+        // commit as a drag, so with a mode owning the tool order it resets that
+        // mode's toolbar, otherwise the global one — matching the hint's text.
+        run {
+            val resetFeedback = LocalKeyPressFeedback.current
+            val activeMode = state.settings.keyboardModes
+                .firstOrNull { it.id == state.activeModeId }
+                ?.takeIf { state.settings.modeToolOrderEdits && it.ownsToolOrder }
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(start = 24.dp, end = 8.dp, top = 4.dp, bottom = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                // With a mode on, the arrangement being edited is that mode's
-                // own — say so, or the same keyboard looking different in the
-                // next app reads as the drag having been lost.
-                val activeMode = state.settings.keyboardModes
-                    .firstOrNull { it.id == state.activeModeId }
-                    ?.takeIf { state.settings.modeToolOrderEdits && it.ownsToolOrder }
-                Text(
-                    if (activeMode != null) {
-                        "${activeMode.name} mode is on, so this arrangement is saved for it — " +
-                            "other apps keep their own. Hold and drag a tool onto the toolbar to " +
-                            "pin it, around this grid to reorder, or down here to remove it."
-                    } else {
-                        "Hold and drag a tool onto the toolbar to pin it, around this grid to reorder — or drag a toolbar tool down here to remove it."
-                    },
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.weight(1f),
-                )
-                IconButton(
-                    onClick = {
-                        hintVisible = false
-                        onHintDismiss()
-                    },
-                    modifier = Modifier.size(28.dp),
-                ) {
-                    Icon(
-                        Icons.Outlined.Close,
-                        contentDescription = "Dismiss hint",
-                        modifier = Modifier.size(16.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                if (hintVisible) {
+                    // With a mode on, the arrangement being edited is that
+                    // mode's own — say so, or the same keyboard looking
+                    // different in the next app reads as the drag being lost.
+                    Text(
+                        if (activeMode != null) {
+                            "${activeMode.name} mode is on, so this arrangement is saved for it — " +
+                                "other apps keep their own. Hold and drag a tool onto the toolbar to " +
+                                "pin it, around this grid to reorder, or down here to remove it."
+                        } else {
+                            "Hold and drag a tool onto the toolbar to pin it, around this grid to reorder — or drag a toolbar tool down here to remove it."
+                        },
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.weight(1f),
                     )
+                } else {
+                    Spacer(Modifier.weight(1f))
+                }
+                ToolCircle(
+                    icon = Icons.Outlined.RestartAlt,
+                    description = if (activeMode != null) {
+                        "Reset ${activeMode.name} toolbar to default tools"
+                    } else {
+                        "Reset toolbar to default tools"
+                    },
+                    active = false,
+                    longPressLabel = "Reset pinned tools",
+                ) {
+                    resetFeedback()
+                    drag.onCommit(DefaultToolbarTools)
+                }
+                if (hintVisible) {
+                    IconButton(
+                        onClick = {
+                            hintVisible = false
+                            onHintDismiss()
+                        },
+                        modifier = Modifier.size(28.dp),
+                    ) {
+                        Icon(
+                            Icons.Outlined.Close,
+                            contentDescription = "Dismiss hint",
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
             }
         }
@@ -3026,7 +3106,7 @@ private fun isFullBleedPanel(panel: PanelMode, settings: KeyboardSettings): Bool
  * chrome instead of using [FullBleedTool].
  */
 internal fun fullBleedHiddenRows(settings: KeyboardSettings): Dp =
-    TopBarHeight +
+    topBarHeight(settings) +
         (if (settings.emojiBarMode == EmojiBarMode.ALWAYS) EmojiBarHeight else 0.dp) +
         (if (settings.symbolRowEnabled) SymbolRowHeight else 0.dp)
 
@@ -3144,6 +3224,7 @@ private fun KeyboardBody(
     onCameraSend: (java.io.File) -> Unit,
     onCameraPermissionRequest: () -> Unit,
     onScannedInsert: (String) -> Unit,
+    onScannedUrlOpen: (String) -> Unit,
     onVoiceToggle: () -> Unit,
     onVoicePermissionRequest: () -> Unit,
     onVoiceUndo: () -> Unit,
@@ -3344,6 +3425,7 @@ private fun KeyboardBody(
                     QrScanPanel(
                         state = state,
                         onInsert = onScannedInsert,
+                        onOpenUrl = onScannedUrlOpen,
                         onRequestPermission = onCameraPermissionRequest,
                         onClose = { onPanelChange(PanelMode.QR_SCAN) },
                     )
@@ -4294,10 +4376,15 @@ private val KeyRowsPadVertical = 2.dp
 private val KeyRowsPadHorizontal = 1.5.dp
 
 /**
- * Height of [TopBar] (suggestions/toolbar row). The OCR panel adds this to
- * [keyRowsHeight] because it replaces the toolbar as well as the keys.
+ * Default height of [TopBar] (suggestions/toolbar row), and the fallback when
+ * no settings are on hand. The live height is [topBarHeight], which honours
+ * the user's `toolbarHeightDp` — prefer it wherever settings are available so
+ * a taller bar and its full-bleed accounting stay in step.
  */
 internal val TopBarHeight = 44.dp
+
+/** The top strip's height for the current settings (see [TopBarHeight]). */
+internal fun topBarHeight(settings: KeyboardSettings): Dp = settings.toolbarHeightDp.dp
 
 /**
  * Exact height of [KeyRows]: [LayoutSet.rowSpan] key rows (each key height plus
@@ -5361,7 +5448,7 @@ private fun EmojiPanel(
     val fullBleed = state.settings.emojiFullBleed
     val height = when {
         state.emojiSearchActive && fullBleed -> 120.dp + fullBleedHiddenRows(state.settings)
-        state.emojiSearchActive -> 120.dp + TopBarHeight + barCompensation
+        state.emojiSearchActive -> 120.dp + topBarHeight(state.settings) + barCompensation
         fullBleed -> keyRowsHeight(state) + fullBleedHiddenRows(state.settings)
         else -> keyRowsHeight(state) + barCompensation
     }

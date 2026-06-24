@@ -216,6 +216,7 @@ import com.wasimaster.wmkeyboard.core.settings.KeyboardAlignment
 import com.wasimaster.wmkeyboard.core.settings.KeyboardLanguage
 import com.wasimaster.wmkeyboard.core.settings.SettingsBackup
 import com.wasimaster.wmkeyboard.core.settings.KeyboardMode
+import com.wasimaster.wmkeyboard.core.settings.DefaultToolbarTools
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.isSupportedTool
 import com.wasimaster.wmkeyboard.core.settings.ModeField
@@ -230,6 +231,7 @@ import com.wasimaster.wmkeyboard.core.settings.SpaceSwipeAction
 import com.wasimaster.wmkeyboard.core.settings.ThemeMode
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
 import kotlin.math.roundToInt
+import kotlinx.coroutines.CoroutineScope
 import com.wasimaster.wmkeyboard.core.prediction.CustomDictionaries
 import com.wasimaster.wmkeyboard.core.prediction.DictionaryLoader
 import com.wasimaster.wmkeyboard.core.prediction.UserLexicon
@@ -969,6 +971,47 @@ internal fun SliderSetting(
             }
             Slider(value = value, onValueChange = onChange, valueRange = range)
         }
+    }
+}
+
+/**
+ * Restores the toolbar's default pins ([DefaultToolbarTools]) from Settings —
+ * the global set. A mode's own pinned toolbar is reset from the keyboard
+ * itself (toolbox → reset), which knows which mode is live. Confirms first,
+ * since it discards whatever the user dragged onto the bar.
+ */
+@Composable
+private fun ResetPinnedToolsSetting(repository: SettingsRepository, scope: CoroutineScope) {
+    var confirm by remember { mutableStateOf(false) }
+    HighlightableRow("Reset pinned tools") {
+        ListItem(
+            headlineContent = { Text("Reset pinned tools") },
+            supportingContent = { Text("Restore the default toolbar tools") },
+            trailingContent = {
+                OutlinedButton(onClick = { confirm = true }) { Text("Reset") }
+            },
+            colors = transparentListColors(),
+        )
+    }
+    if (confirm) {
+        AlertDialog(
+            onDismissRequest = { confirm = false },
+            title = { Text("Reset pinned tools?") },
+            text = {
+                Text(
+                    "The toolbar goes back to its default tools. Tools you pinned or " +
+                        "removed by hand are forgotten. This affects the global toolbar; a " +
+                        "mode's own toolbar is reset from the keyboard's toolbox.",
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirm = false
+                    scope.launch { repository.setToolbarTools(DefaultToolbarTools) }
+                }) { Text("Reset") }
+            },
+            dismissButton = { TextButton(onClick = { confirm = false }) { Text("Cancel") } },
+        )
     }
 }
 
@@ -1807,6 +1850,52 @@ private fun AppearanceSettings(
                     "open the toolbox (grid button on the toolbar), then hold and drag tools " +
                     "between the toolbar and the toolbox.",
             ) { scope.launch { repository.setToolbarGreedy(it) } }
+        }
+        item {
+            SliderSetting(
+                "Toolbar height",
+                subtitle = "Height of the top toolbar / suggestion strip",
+                value = settings.toolbarHeightDp.toFloat(),
+                range = 32f..80f,
+                display = "${settings.toolbarHeightDp} dp",
+                info = "The default is 44 dp. Taller gives bigger tap targets and room for " +
+                    "tool labels; shorter reclaims screen height. This is the strip that " +
+                    "carries both the word suggestions and the toolbar.",
+            ) { scope.launch { repository.setToolbarHeightDp(it.roundToInt()) } }
+        }
+        item {
+            ToggleSetting(
+                "Scroll the toolbar",
+                "Swipe the tools sideways instead of shrinking them to fit",
+                settings.toolbarScrollable,
+                info = "When you pin more tools than fit the bar, this keeps each at a " +
+                    "comfortable size and lets you scroll through them. It packs the tools " +
+                    "to the left (overriding \"Spread tools across the bar\"). Reorder from " +
+                    "the toolbox; dragging within a scrolling bar is fiddly.",
+            ) { scope.launch { repository.setToolbarScrollable(it) } }
+        }
+        item {
+            ToggleSetting(
+                "Tool labels",
+                "Show each tool's name under its icon on the toolbar",
+                settings.toolbarLabels,
+                info = "Draws a small caption beneath every pinned tool. You'll likely want " +
+                    "to raise the toolbar height to give the labels room.",
+            ) { scope.launch { repository.setToolbarLabels(it) } }
+        }
+        if (settings.toolbarLabels) {
+            item {
+                SliderSetting(
+                    "Label text size",
+                    subtitle = "Font size of the toolbar tool labels",
+                    value = settings.toolbarLabelSize.toFloat(),
+                    range = 7f..14f,
+                    display = "${settings.toolbarLabelSize} sp",
+                ) { scope.launch { repository.setToolbarLabelSize(it.roundToInt()) } }
+            }
+        }
+        item {
+            ResetPinnedToolsSetting(repository, scope)
         }
         item {
             SliderSetting(
@@ -4017,12 +4106,20 @@ private fun ToolDetailSettings(
                         settings.qrScanHaptics,
                     ) { scope.launch { repository.setQrScanHaptics(it) } }
                 }
+                item {
+                    ToggleSetting(
+                        "Load link details",
+                        "When a code is a web link, fetch the page title and " +
+                            "description to show above it (needs internet)",
+                        settings.qrScanLinkPreviews,
+                    ) { scope.launch { repository.setQrScanLinkPreviews(it) } }
+                }
             }
             CaptionText(
                 "Decoding runs on this device with ML Kit — offline, nothing is " +
                     "uploaded. Reads QR codes plus the common product barcode " +
                     "formats (EAN, UPC, Code 128 …). Insert types the code's " +
-                    "text at the cursor.",
+                    "text at the cursor; a link also gets an Open button.",
             )
         }
         ToolbarTool.DOC_SCAN -> {

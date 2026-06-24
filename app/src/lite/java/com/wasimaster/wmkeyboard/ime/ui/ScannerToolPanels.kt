@@ -27,6 +27,7 @@ internal fun OcrPanel(
 internal fun QrScanPanel(
     state: KeyboardUiState,
     onInsert: (String) -> Unit,
+    onOpenUrl: (String) -> Unit,
     onRequestPermission: () -> Unit,
     onClose: () -> Unit,
 ) = UnavailablePanel(state, "QR scanning isn't available in this build")
