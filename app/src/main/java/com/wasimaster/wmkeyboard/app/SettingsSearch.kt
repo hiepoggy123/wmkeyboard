@@ -255,6 +255,7 @@ private val SettingRows: List<SettingsSearchEntry> = listOf(
     entry("Source code", "https://", "About", "about"),
     entry("Open-source licences", "Libraries and data bundled in this build", "About", "about"),
     entry("Dictionaries", "The English and Bengali word lists, bigrams and the loanword map are hand-curated for this project and covered by its licence", "About", "about"),
+    entry("Colorful tool icons", "Tint each tool its own accent colour in Settings and the toolbox", "Tools", "tools"),
 )
 
 /**

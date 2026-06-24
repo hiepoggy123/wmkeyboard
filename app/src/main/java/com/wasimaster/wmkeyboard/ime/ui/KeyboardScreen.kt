@@ -264,6 +264,7 @@ import com.wasimaster.wmkeyboard.core.emoji.EmojiNames
 import com.wasimaster.wmkeyboard.core.emoji.EmojiVariantIndex
 import com.wasimaster.wmkeyboard.core.gesture.GesturePoint
 import com.wasimaster.wmkeyboard.core.theme.brush
+import com.wasimaster.wmkeyboard.core.ui.toolAccentColor
 import com.wasimaster.wmkeyboard.core.grammar.GrammarFix
 import com.wasimaster.wmkeyboard.core.grammar.GrammarLint
 import com.wasimaster.wmkeyboard.core.gesture.KeyCenter
@@ -2380,6 +2381,9 @@ private fun ToolCircle(
     // False when an ancestor owns the whole gesture (see DraggableTool):
     // a clickable here would sit deeper in the chain and steal the release.
     interactive: Boolean = true,
+    // Inactive-icon tint override (the tool's accent colour). Null keeps the
+    // theme's toolbar-icon colour; the active state always wins over this.
+    tint: Color? = null,
     onClick: () -> Unit,
 ) {
     val kb = LocalKbTheme.current
@@ -2418,7 +2422,7 @@ private fun ToolCircle(
             icon,
             contentDescription = description,
             modifier = Modifier.size(20.dp),
-            tint = if (active) kb.toolCircleActiveIcon else kb.toolbarIcon,
+            tint = if (active) kb.toolCircleActiveIcon else (tint ?: kb.toolbarIcon),
         )
         if (showLabel && longPressLabel != null) {
             LaunchedEffect(Unit) {
@@ -2967,6 +2971,8 @@ private fun ToolboxPanel(
                                     description = toolLabel(shown),
                                     active = toolActive(shown, state),
                                     interactive = false,
+                                    tint = if (state.settings.coloredToolIcons)
+                                        toolAccentColor(shown) else null,
                                 ) {}
                             }
                             Text(

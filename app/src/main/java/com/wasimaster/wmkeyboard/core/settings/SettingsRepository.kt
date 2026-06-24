@@ -144,12 +144,11 @@ private val RankedToolOrder: List<ToolbarTool> = listOf(
     ToolbarTool.UNDO, ToolbarTool.REDO,
     ToolbarTool.SETTINGS, ToolbarTool.THEMES,
     ToolbarTool.WEB_SEARCH, ToolbarTool.IMAGE_SEARCH, ToolbarTool.DICTIONARY, ToolbarTool.CALCULATOR,
-    ToolbarTool.AI, ToolbarTool.GRAMMAR, ToolbarTool.NUMPAD, ToolbarTool.ONE_HANDED,
+    ToolbarTool.AI, ToolbarTool.GRAMMAR, ToolbarTool.TYPING_TEST, ToolbarTool.NUMPAD, ToolbarTool.ONE_HANDED,
     ToolbarTool.SPLIT, ToolbarTool.FLOATING, ToolbarTool.INCOGNITO, ToolbarTool.AUTOCORRECT,
     ToolbarTool.SOUND_HAPTICS, ToolbarTool.MODES, ToolbarTool.OCR, ToolbarTool.QR_SCAN,
     ToolbarTool.QR_GEN, ToolbarTool.DOC_SCAN, ToolbarTool.CAMERA, ToolbarTool.HANDWRITING,
     ToolbarTool.SYMBOLS, ToolbarTool.UNIT_CONVERT, ToolbarTool.CURRENCY, ToolbarTool.PASSWORD_GEN,
-    ToolbarTool.TYPING_TEST,
     ToolbarTool.WIKIPEDIA, ToolbarTool.CALENDAR, ToolbarTool.WEATHER, ToolbarTool.FLASHLIGHT,
     ToolbarTool.COMPASS, ToolbarTool.LEVEL, ToolbarTool.MOON_PHASE,
     // Eight one-tap cursor moves last: useful, but they would otherwise push
@@ -494,6 +493,8 @@ data class KeyboardSettings(
     /** Long-pressing X cuts the selection (selects all first when nothing is selected). */
     val longPressXCut: Boolean = true,
     val emojiToolbar: Boolean = true,
+    /** Tint each tool icon its own accent colour in Settings and the toolbox. */
+    val coloredToolIcons: Boolean = true,
     val incognito: Boolean = false,
     val toolbarTools: List<ToolbarTool> =
         listOf(ToolbarTool.EMOJI, ToolbarTool.CLIPBOARD, ToolbarTool.SNIPPETS, ToolbarTool.SETTINGS),
@@ -883,6 +884,7 @@ class SettingsRepository(private val context: Context) {
         private val LONG_PRESS_V_PASTE = booleanPreferencesKey("long_press_v_paste")
         private val LONG_PRESS_X_CUT = booleanPreferencesKey("long_press_x_cut")
         private val EMOJI_TOOLBAR = booleanPreferencesKey("emoji_toolbar")
+        private val COLORED_TOOL_ICONS = booleanPreferencesKey("colored_tool_icons")
         private val INCOGNITO = booleanPreferencesKey("incognito")
         private val TOOLBAR_TOOLS = stringPreferencesKey("toolbar_tools")
         private val TOOLBAR_GREEDY = booleanPreferencesKey("toolbar_greedy")
@@ -1177,6 +1179,7 @@ class SettingsRepository(private val context: Context) {
             longPressVPaste = p[LONG_PRESS_V_PASTE] ?: defaults.longPressVPaste,
             longPressXCut = p[LONG_PRESS_X_CUT] ?: defaults.longPressXCut,
             emojiToolbar = p[EMOJI_TOOLBAR] ?: defaults.emojiToolbar,
+            coloredToolIcons = p[COLORED_TOOL_ICONS] ?: defaults.coloredToolIcons,
             incognito = p[INCOGNITO] ?: defaults.incognito,
             // Empty stored string is a valid state (everything in the toolbox),
             // distinct from never-set (defaults apply).
@@ -2093,6 +2096,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setEmojiToolbar(value: Boolean) =
         context.dataStore.edit { it[EMOJI_TOOLBAR] = value }
+
+    suspend fun setColoredToolIcons(value: Boolean) =
+        context.dataStore.edit { it[COLORED_TOOL_ICONS] = value }
 
     suspend fun setEmojiTabMode(value: EmojiTabMode) =
         context.dataStore.edit { it[EMOJI_TAB_MODE] = value.name }

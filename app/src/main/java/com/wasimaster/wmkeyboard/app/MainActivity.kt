@@ -158,6 +158,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import com.wasimaster.wmkeyboard.core.ui.toolAccentColor
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -3233,6 +3234,12 @@ private fun ToolsSettings(
             "the toolbar). The switch enables a tool; tap a row for its settings — " +
             "the ⚙ marks tools with options of their own.",
     )
+    ToggleSetting(
+        title = "Colorful tool icons",
+        subtitle = "Tint each tool its own accent colour here and in the toolbox",
+        checked = settings.coloredToolIcons,
+        onChange = { scope.launch { repository.setColoredToolIcons(it) } },
+    )
     val groups = listOf(
         "Panels" to listOf(
             ToolbarTool.EMOJI, ToolbarTool.CLIPBOARD, ToolbarTool.SNIPPETS,
@@ -3283,7 +3290,9 @@ private fun ToolsSettings(
                             Icon(
                                 toolIconFor(tool),
                                 contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                tint = if (settings.coloredToolIcons)
+                                    toolAccentColor(tool)
+                                else MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         },
                         headlineContent = { Text(toolTitle(tool)) },
