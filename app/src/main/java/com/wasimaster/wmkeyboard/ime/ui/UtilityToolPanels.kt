@@ -59,11 +59,12 @@ import com.wasimaster.wmkeyboard.ime.KeyboardUiState
 internal fun ToolPanelChip(
     label: String,
     selected: Boolean = false,
+    modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
     val kb = LocalKbTheme.current
     Box(
-        modifier = Modifier
+        modifier = modifier
             .clip(RoundedCornerShape(12.dp))
             .background(if (selected) kb.toolCircleActive else kb.chip)
             .clickable(onClick = onClick)

@@ -4476,7 +4476,8 @@ class WMKeyboardService : InputMethodService() {
             setUi(
                 if (successes.isEmpty()) {
                     MediaUi.Error(
-                        results.firstNotNullOfOrNull { it.exceptionOrNull()?.message }
+                        results.firstNotNullOfOrNull { it.exceptionOrNull() }
+                            ?.let { ToolHttp.friendlyMessage(it) }
                             ?: "Couldn't fetch results",
                     )
                 } else {

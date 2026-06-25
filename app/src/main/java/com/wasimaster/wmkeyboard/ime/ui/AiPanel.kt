@@ -15,6 +15,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -313,6 +315,9 @@ private fun grayThinking(text: String, gray: Color): AnnotatedString {
 
 /** One entry in the panel's model picker. */
 private class ModelPick(
+    // Stable identity across reorders so the LazyRow can animate the selected
+    // chip sliding to the front instead of snapping.
+    val key: String,
     val label: String,
     val selected: Boolean,
     val onClick: () -> Unit,
@@ -355,12 +360,14 @@ private fun ModelPickerRow(
 
     val picks = localIds.map { (id, name) ->
         ModelPick(
+            key = "local:$id",
             label = name,
             selected = settings.aiProvider == AiProvider.ON_DEVICE && id == selectedLocalId,
             onClick = { onPickModel(AiProvider.ON_DEVICE, id) },
         )
     } + remote.map { provider ->
         ModelPick(
+            key = "remote:${provider.name}",
             label = provider.label,
             selected = settings.aiProvider == provider,
             onClick = { onPickModel(provider, null) },
@@ -370,17 +377,30 @@ private fun ModelPickerRow(
     // keeps catalog order.
     val ordered = picks.sortedByDescending { it.selected }
 
-    Row(
+    // A LazyRow keyed by model identity so the just-picked chip animates to the
+    // front instead of jumping there.
+    LazyRow(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(bottom = 5.dp)
-            .horizontalScroll(rememberScrollState()),
+            .padding(bottom = 5.dp),
         horizontalArrangement = Arrangement.spacedBy(5.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text("Model:", color = kb.secondaryText, fontSize = 11.sp)
-        for (pick in ordered) {
-            ToolPanelChip(pick.label, selected = pick.selected, onClick = pick.onClick)
+        item(key = "label") {
+            Text(
+                "Model:",
+                color = kb.secondaryText,
+                fontSize = 11.sp,
+                modifier = Modifier.animateItem(),
+            )
+        }
+        items(ordered, key = { it.key }) { pick ->
+            ToolPanelChip(
+                pick.label,
+                selected = pick.selected,
+                modifier = Modifier.animateItem(),
+                onClick = pick.onClick,
+            )
         }
     }
 }

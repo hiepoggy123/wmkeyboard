@@ -116,7 +116,6 @@ import androidx.compose.material.icons.outlined.Fullscreen
 import androidx.compose.material.icons.outlined.GridView
 import androidx.compose.material.icons.outlined.RestartAlt
 import androidx.compose.material.icons.outlined.Language
-import androidx.compose.material.icons.outlined.VerticalAlignBottom
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Pets
 import androidx.compose.material.icons.outlined.DocumentScanner
@@ -956,11 +955,11 @@ private fun FloatingHandleBar(
             .height(30.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // A "send it back down" arrow: CloseFullscreen here read as
-        // "shrink", when docking actually returns the full-width keyboard.
+        // Docking returns the full-width keyboard, so a fullscreen glyph reads
+        // right; the old down-arrow looked like a download button.
         IconButton(onClick = onDock, modifier = Modifier.size(30.dp)) {
             Icon(
-                Icons.Outlined.VerticalAlignBottom,
+                Icons.Outlined.Fullscreen,
                 contentDescription = "Dock keyboard",
                 modifier = Modifier.size(16.dp),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -3553,10 +3552,14 @@ private fun KeyboardBody(
                     state, title = "",
                     onClose = { onPanelChange(PanelMode.TRANSLATE) },
                     compact = state.mediaSearchActive,
+                    // Translations run long; give the result more room to breathe
+                    // than the media panels' default compact height.
+                    compactHeight = 180.dp,
                     headerActions = {
                         MediaHeaderSearchBar(
                             state = state,
                             placeholder = "Type text to translate…",
+                            activePlaceholder = "Type text to translate…",
                             onQueryTap = onMediaQueryTap,
                         )
                     },

@@ -2,9 +2,12 @@ package com.wasimaster.wmkeyboard.core.tools
 
 import java.io.File
 import java.io.IOException
+import java.net.ConnectException
 import java.net.HttpURLConnection
+import java.net.SocketTimeoutException
 import java.net.URL
 import java.net.URLEncoder
+import java.net.UnknownHostException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -133,6 +136,23 @@ internal object ToolHttp {
     }
 
     fun encode(value: String): String = URLEncoder.encode(value, "UTF-8")
+
+    /**
+     * A short, human-facing line for any failure a tool network call can throw.
+     * Connectivity problems (no network, DNS, timeout, refused) get a plain
+     * "you're offline"-style message instead of the raw
+     * `Unable to resolve host "api.giphy.com"…` the OS produces; HTTP errors
+     * already carry [apiErrorMessage] text, so those pass through.
+     */
+    fun friendlyMessage(t: Throwable): String = when (t) {
+        is UnknownHostException ->
+            "No internet connection. Check your network and try again."
+        is SocketTimeoutException ->
+            "The connection timed out. Check your network and try again."
+        is ConnectException ->
+            "Couldn't reach the server. Check your network and try again."
+        else -> t.message?.takeIf { it.isNotBlank() } ?: "Something went wrong. Try again."
+    }
 
     internal fun apiErrorMessage(status: Int, body: String?): String {
         val fromApi = body?.let {

@@ -1480,8 +1480,10 @@ class SettingsRepository(private val context: Context) {
     /**
      * Stored order, made complete: tools the saved CSV doesn't know (added in
      * a later version, or a corrupt entry dropped) rejoin at their default
-     * rank's relative position — appended in default order after the known
-     * ones, so nothing ever vanishes from the toolbox.
+     * rank's relative position — slotted in right after the nearest
+     * earlier-ranked tool the user already has, rather than all piled at the
+     * very end. So a newly shipped tool lands somewhere sensible (e.g. next to
+     * its peers) instead of always dead last, while nothing ever vanishes.
      */
     private fun decodeToolOrder(csv: String?): List<ToolbarTool> {
         val stored = csv?.split(',')
@@ -1489,7 +1491,18 @@ class SettingsRepository(private val context: Context) {
             ?.distinct()
             .orEmpty()
         if (stored.isEmpty()) return DefaultToolOrder
-        return stored + (DefaultToolOrder - stored.toSet())
+        val storedSet = stored.toSet()
+        val result = stored.toMutableList()
+        // Walk the default order so multiple new tools keep their relative rank;
+        // each anchors after the last already-placed tool that outranks it.
+        for (tool in DefaultToolOrder) {
+            if (tool in storedSet) continue
+            val rank = DefaultToolOrder.indexOf(tool)
+            val anchor = DefaultToolOrder.take(rank).lastOrNull { it in result }
+            val at = if (anchor == null) 0 else result.indexOf(anchor) + 1
+            result.add(at, tool)
+        }
+        return result
     }
 
     suspend fun setFlashlightAutoOff(value: Boolean) =

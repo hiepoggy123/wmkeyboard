@@ -176,6 +176,9 @@ internal fun RowScope.MediaHeaderSearchBar(
     placeholder: String,
     onQueryTap: () -> Unit,
     attribution: String? = null,
+    // Prompt shown once the field is being typed into. Defaults to the search
+    // wording; tools that aren't searching (e.g. translate) pass their own.
+    activePlaceholder: String = "Type to search…",
 ) {
     val kb = LocalKbTheme.current
     Row(
@@ -196,7 +199,7 @@ internal fun RowScope.MediaHeaderSearchBar(
         Spacer(Modifier.width(8.dp))
         SearchQueryText(
             query = state.mediaQuery,
-            placeholder = if (state.mediaSearchActive) "Type to search…" else placeholder,
+            placeholder = if (state.mediaSearchActive) activePlaceholder else placeholder,
             active = state.mediaSearchActive,
             textColor = kb.suggestionText,
             placeholderColor = kb.secondaryText,
