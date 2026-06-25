@@ -814,6 +814,7 @@ class WMKeyboardService : InputMethodService() {
                 onGrammarFixAll = ::onGrammarFixAll,
                 onGrammarDismiss = ::onGrammarDismiss,
                 onGrammarDialect = ::onGrammarDialectChange,
+                onGrammarFocus = ::onGrammarFocus,
                 onWikiOpen = ::onWikiOpen,
                 onWikiBack = ::onWikiBack,
                 onWikiLoadLinks = ::onWikiLoadLinks,
@@ -4865,6 +4866,33 @@ class WMKeyboardService : InputMethodService() {
         if (fixed == source) return
         replaceFieldText(fixed)
         relintAfterFix(fixed)
+    }
+
+    /**
+     * Tapped a card body (not a fix chip): jump the field cursor to the issue.
+     * A multi-word span (sentence-level lint) parks the cursor at its start; a
+     * word that needs swapping gets selected ready to overtype; a small fix
+     * (add punctuation, recase) parks the cursor at the word's end. Offsets are
+     * UTF-16 into [GrammarUi.sourceText] = the full field text base 0, so they
+     * map straight onto the InputConnection.
+     */
+    fun onGrammarFocus(lint: GrammarLint) {
+        vibrate()
+        val ic = currentInputConnection ?: return
+        val source = _uiState.value.grammar.sourceText
+        val start = lint.start.coerceIn(0, source.length)
+        val end = lint.end.coerceIn(start, source.length)
+        val span = source.substring(start, end)
+        val hasReplacement = lint.suggestions.any { fix ->
+            fix.kind == "replace" && !fix.text.isNullOrEmpty() &&
+                !fix.text.equals(span, ignoreCase = true)
+        }
+        val multiWord = span.trim().any { it.isWhitespace() }
+        when {
+            multiWord -> ic.setSelection(start, start)
+            hasReplacement -> ic.setSelection(start, end)
+            else -> ic.setSelection(end, end)
+        }
     }
 
     /** Tapped "Fix all": apply every lint's top suggestion. */

@@ -1,6 +1,9 @@
 package com.wasimaster.wmkeyboard.ime.ui
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
+import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -153,6 +156,15 @@ internal fun PasswordPanel(
                     tint = kb.accent,
                     modifier = Modifier.size(18.dp),
                 )
+            }
+            Spacer(Modifier.width(4.dp))
+            ToolPanelChip("Copy") {
+                if (generated.isNotEmpty()) {
+                    val clipboard =
+                        context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                    clipboard.setPrimaryClip(ClipData.newPlainText("Password", generated))
+                    Toast.makeText(context, "Copied", Toast.LENGTH_SHORT).show()
+                }
             }
             Spacer(Modifier.width(4.dp))
             ToolPanelChip("Insert") { if (generated.isNotEmpty()) onInsert(generated) }

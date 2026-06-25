@@ -718,6 +718,19 @@ private fun QrScanContent(
                 Spacer(Modifier.height(4.dp))
                 Text(code.formatLabel, color = kb.secondaryText, fontSize = 12.sp)
                 Spacer(Modifier.height(12.dp))
+                // Open (URLs only) gets its own row above the rest, so the
+                // primary action isn't crowded in with Rescan/Copy/Insert.
+                if (url != null) {
+                    CaptureActionButton(
+                        icon = Icons.AutoMirrored.Outlined.OpenInNew,
+                        label = "Open",
+                        accent = false,
+                    ) {
+                        feedback()
+                        onOpenUrl(url)
+                    }
+                    Spacer(Modifier.height(10.dp))
+                }
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -733,16 +746,6 @@ private fun QrScanContent(
                     ) {
                         feedback()
                         result = null
-                    }
-                    if (url != null) {
-                        CaptureActionButton(
-                            icon = Icons.AutoMirrored.Outlined.OpenInNew,
-                            label = "Open",
-                            accent = false,
-                        ) {
-                            feedback()
-                            onOpenUrl(url)
-                        }
                     }
                     CaptureActionButton(
                         icon = Icons.Outlined.ContentCopy,

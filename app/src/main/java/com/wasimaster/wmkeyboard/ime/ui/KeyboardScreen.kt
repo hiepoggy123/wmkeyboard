@@ -546,6 +546,7 @@ fun KeyboardScreen(
     onGrammarFixAll: () -> Unit = {},
     onGrammarDismiss: (GrammarLint) -> Unit = {},
     onGrammarDialect: (GrammarDialect) -> Unit = {},
+    onGrammarFocus: (GrammarLint) -> Unit = {},
     onWikiOpen: (String) -> Unit = {},
     onWikiBack: () -> Unit = {},
     onWikiLoadLinks: () -> Unit = {},
@@ -737,6 +738,7 @@ fun KeyboardScreen(
                 onGrammarFixAll = onGrammarFixAll,
                 onGrammarDismiss = onGrammarDismiss,
                 onGrammarDialect = onGrammarDialect,
+                onGrammarFocus = onGrammarFocus,
                 onWikiOpen = onWikiOpen,
                 onWikiBack = onWikiBack,
                 onWikiLoadLinks = onWikiLoadLinks,
@@ -3165,7 +3167,7 @@ private val FullBleedPanels = setOf(
     PanelMode.OCR, PanelMode.QR_SCAN, PanelMode.CALCULATOR, PanelMode.CURRENCY,
     PanelMode.UNIT_CONVERT, PanelMode.CALENDAR, PanelMode.AI,
     PanelMode.TRANSLATE, PanelMode.WEB_SEARCH, PanelMode.IMAGE_SEARCH,
-    PanelMode.DICTIONARY, PanelMode.SYMBOLS, PanelMode.PASSWORD_GEN,
+    PanelMode.DICTIONARY, PanelMode.SYMBOLS,
 )
 
 /**
@@ -3336,6 +3338,7 @@ private fun KeyboardBody(
     onGrammarFixAll: () -> Unit,
     onGrammarDismiss: (GrammarLint) -> Unit,
     onGrammarDialect: (GrammarDialect) -> Unit,
+    onGrammarFocus: (GrammarLint) -> Unit,
     onWikiOpen: (String) -> Unit,
     onWikiBack: () -> Unit,
     onWikiLoadLinks: () -> Unit,
@@ -3578,6 +3581,7 @@ private fun KeyboardBody(
                         onFixAll = onGrammarFixAll,
                         onDismiss = onGrammarDismiss,
                         onDialect = onGrammarDialect,
+                        onFocus = onGrammarFocus,
                     )
                 } else {
                     onPanelChange(PanelMode.SNIPPETS)
@@ -3723,6 +3727,11 @@ private fun KeyboardBody(
                 PanelMode.PASSWORD_GEN -> FullBleedTool(
                     state, title = "",
                     onClose = { onPanelChange(PanelMode.PASSWORD_GEN) },
+                    // Not full-bleed: the toolbar stays reachable above the
+                    // panel, so it collapses to the key-rows height instead of
+                    // swallowing the toolbar's rows.
+                    compact = true,
+                    compactHeight = keyRowsHeight(state),
                     headerActions = {
                         val passphraseMode = state.settings.pwPassphraseMode
                         Spacer(Modifier.width(4.dp))

@@ -96,6 +96,7 @@ internal fun GrammarPanel(
     onFixAll: () -> Unit,
     onDismiss: (GrammarLint) -> Unit,
     onDialect: (GrammarDialect) -> Unit,
+    onFocus: (GrammarLint) -> Unit,
 ) {
     val kb = LocalKbTheme.current
     val grammar = state.grammar
@@ -216,7 +217,9 @@ internal fun GrammarPanel(
                     .fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                items(grammar.lints) { lint -> GrammarLintCard(lint, onFix, onDismiss) }
+                items(grammar.lints) { lint ->
+                    GrammarLintCard(lint, onFix, onDismiss, onFocus)
+                }
             }
         }
     }
@@ -243,6 +246,7 @@ private fun GrammarLintCard(
     lint: GrammarLint,
     onFix: (GrammarLint, GrammarFix) -> Unit,
     onDismiss: (GrammarLint) -> Unit,
+    onFocus: (GrammarLint) -> Unit,
 ) {
     val kb = LocalKbTheme.current
     val category = categoryFor(lint.kind)
@@ -251,6 +255,10 @@ private fun GrammarLintCard(
         modifier = Modifier
             .fillMaxWidth()
             .background(kb.chip, RoundedCornerShape(12.dp))
+            // Tapping the card jumps the cursor to the issue in the field —
+            // selecting the word for a swap, or parking at its end for a small
+            // fix. The X and fix chips consume their own taps first.
+            .clickable { onFocus(lint) }
             .padding(horizontal = 10.dp, vertical = 6.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {

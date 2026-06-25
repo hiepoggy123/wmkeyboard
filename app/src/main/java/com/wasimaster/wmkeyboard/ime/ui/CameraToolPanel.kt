@@ -19,6 +19,7 @@ import androidx.camera.view.PreviewView
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -235,6 +236,9 @@ private fun CameraContent(
     var capturing by remember { mutableStateOf(false) }
     var pending by remember { mutableStateOf<PendingCapture?>(null) }
     var camera by remember { mutableStateOf<Camera?>(null) }
+    // Current optical/digital zoom, shown as a pill and driven by pinch. Reset
+    // when the camera rebinds (retake / lens switch both drop back to 1x).
+    var zoomRatio by remember(camera) { mutableStateOf(1f) }
     var geometry by remember { mutableStateOf<PanelGeometry?>(null) }
     val windowHeight = LocalView.current.rootView.height
 
@@ -439,8 +443,39 @@ private fun CameraContent(
                             androidx.camera.core.FocusMeteringAction.Builder(point).build()
                         )
                     }
+                }
+                // Pinch to zoom, clamped to what the lens supports.
+                .pointerInput(camera) {
+                    detectTransformGestures { _, _, gestureZoom, _ ->
+                        val cam = camera ?: return@detectTransformGestures
+                        val info = cam.cameraInfo.zoomState.value
+                        val minZoom = info?.minZoomRatio ?: 1f
+                        val maxZoom = info?.maxZoomRatio ?: 1f
+                        val current = info?.zoomRatio ?: zoomRatio
+                        val next = (current * gestureZoom).coerceIn(minZoom, maxZoom)
+                        cam.cameraControl.setZoomRatio(next)
+                        zoomRatio = next
+                    }
                 },
         )
+
+        if (zoomRatio > 1.05f) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = 10.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Color.Black.copy(alpha = 0.45f))
+                    .padding(horizontal = 10.dp, vertical = 4.dp),
+            ) {
+                Text(
+                    "%.1fx".format(zoomRatio),
+                    color = Color.White,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
+        }
 
         BackChip(offsetY = viewfinderTop, feedback = feedback, onClose = onClose)
 
