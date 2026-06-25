@@ -421,6 +421,15 @@ data class KeyboardSettings(
     /** Double-tapping space inserts a tab character (wins over the period). */
     val doubleSpaceTab: Boolean = false,
     val suggestions: Boolean = true,
+    /**
+     * Show suggestions, autocorrect and phonetic composing even in fields that
+     * ask the IME to stay quiet (the NO_SUGGESTIONS flag, email/URI/filter
+     * boxes). Many apps — Instagram, Google Keep — set that flag on ordinary
+     * text fields, which also breaks Avro composing and autocorrect there.
+     * On, the keyboard overrides the request the way most keyboards quietly
+     * do. Password fields are always excluded regardless.
+     */
+    val showSuggestionsInAllFields: Boolean = false,
     /** Keep the suggestion strip as the default top bar even with nothing typed. */
     val suggestionsFirst: Boolean = false,
     /** Show the primary candidate in the middle slot (Gboard style) instead of the left. */
@@ -878,6 +887,8 @@ class SettingsRepository(private val context: Context) {
         private val DOUBLE_SPACE_PERIOD = booleanPreferencesKey("double_space_period")
         private val DOUBLE_SPACE_TAB = booleanPreferencesKey("double_space_tab")
         private val SUGGESTIONS = booleanPreferencesKey("suggestions")
+        private val SHOW_SUGGESTIONS_ALL_FIELDS =
+            booleanPreferencesKey("show_suggestions_all_fields")
         private val SUGGESTIONS_FIRST = booleanPreferencesKey("suggestions_first")
         private val SUGGESTION_PRIMARY_CENTER = booleanPreferencesKey("suggestion_primary_center")
         private val CONTACT_SUGGESTIONS = booleanPreferencesKey("contact_suggestions")
@@ -1170,6 +1181,8 @@ class SettingsRepository(private val context: Context) {
             doubleSpacePeriod = p[DOUBLE_SPACE_PERIOD] ?: defaults.doubleSpacePeriod,
             doubleSpaceTab = p[DOUBLE_SPACE_TAB] ?: defaults.doubleSpaceTab,
             suggestions = p[SUGGESTIONS] ?: defaults.suggestions,
+            showSuggestionsInAllFields = p[SHOW_SUGGESTIONS_ALL_FIELDS]
+                ?: defaults.showSuggestionsInAllFields,
             suggestionsFirst = p[SUGGESTIONS_FIRST] ?: defaults.suggestionsFirst,
             suggestionPrimaryCenter = p[SUGGESTION_PRIMARY_CENTER]
                 ?: defaults.suggestionPrimaryCenter,
@@ -2059,6 +2072,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setSuggestions(value: Boolean) =
         context.dataStore.edit { it[SUGGESTIONS] = value }
+
+    suspend fun setShowSuggestionsInAllFields(value: Boolean) =
+        context.dataStore.edit { it[SHOW_SUGGESTIONS_ALL_FIELDS] = value }
 
     suspend fun setSuggestionsFirst(value: Boolean) =
         context.dataStore.edit { it[SUGGESTIONS_FIRST] = value }

@@ -900,7 +900,6 @@ class WMKeyboardService : InputMethodService() {
         hwGeneration++
         val secure = info.isSecureField()
         val fieldKind = info.fieldKind()
-        val fieldNoSuggestions = info.suppressesSuggestions()
         // Keyboard-mode resolution: a manual pick from the Modes tool lives
         // as long as the user stays in the same app.
         val pkg = info?.packageName
@@ -921,10 +920,14 @@ class WMKeyboardService : InputMethodService() {
             }
         }
         val base = baseSettings
-        // Incognito the field asked for, e.g. a Chrome incognito tab. Read
-        // from the base settings so a mode can't switch the detection off.
-        val fieldIncognito = (base ?: _uiState.value.settings).autoIncognito &&
+        // Read the field-detection settings from the base so a per-app mode
+        // can't quietly switch either of them off.
+        val fieldSettings = base ?: _uiState.value.settings
+        // Incognito the field asked for, e.g. a Chrome incognito tab.
+        val fieldIncognito = fieldSettings.autoIncognito &&
             info.requestsNoPersonalizedLearning()
+        val fieldNoSuggestions =
+            info.suppressesSuggestions(fieldSettings.showSuggestionsInAllFields)
         val activeMode = base?.let {
             resolveKeyboardMode(it.keyboardModes, currentPackage, currentModeFields, manualModeId)
         }
@@ -5705,18 +5708,32 @@ class WMKeyboardService : InputMethodService() {
                 ?: false
         }
 
-        private fun EditorInfo?.suppressesSuggestions(): Boolean {
+        /**
+         * @param overrideAppRequest the "Suggestions in every field" setting.
+         * When on, the field's plea for silence (the NO_SUGGESTIONS flag,
+         * email/URI/filter variations) is ignored so suggestions, autocorrect
+         * and phonetic composing run anyway. Two things are never overridden:
+         * password variations (always secret) and non-text classes, whose
+         * keypads have no letters to suggest for in the first place.
+         */
+        private fun EditorInfo?.suppressesSuggestions(overrideAppRequest: Boolean): Boolean {
             val inputType = this?.inputType ?: return false
             if (inputType and InputType.TYPE_MASK_CLASS != InputType.TYPE_CLASS_TEXT) return true
+            val isPassword = when (inputType and InputType.TYPE_MASK_VARIATION) {
+                InputType.TYPE_TEXT_VARIATION_PASSWORD,
+                InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD,
+                InputType.TYPE_TEXT_VARIATION_WEB_PASSWORD,
+                -> true
+                else -> false
+            }
+            if (isPassword) return true
+            if (overrideAppRequest) return false
             if (inputType and InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS != 0) return true
             return when (inputType and InputType.TYPE_MASK_VARIATION) {
                 InputType.TYPE_TEXT_VARIATION_URI,
                 InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS,
                 InputType.TYPE_TEXT_VARIATION_WEB_EMAIL_ADDRESS,
                 InputType.TYPE_TEXT_VARIATION_FILTER,
-                InputType.TYPE_TEXT_VARIATION_PASSWORD,
-                InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD,
-                InputType.TYPE_TEXT_VARIATION_WEB_PASSWORD,
                 -> true
                 else -> false
             }
