@@ -197,6 +197,7 @@ import com.wasimaster.wmkeyboard.core.settings.ScreenVariant
 import com.wasimaster.wmkeyboard.core.settings.resolvedFor
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.withFrameMillis
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
@@ -1091,6 +1092,16 @@ private val ToolbarSlideSpring = spring(
     visibilityThreshold = IntOffset(1, 1),
 )
 
+/**
+ * When the strip takes over from the toolbar (the user starts typing), the
+ * emoji icon slides across on [ToolbarSlideSpring] while the suggestions
+ * themselves fade in. Staggering the fade a beat behind the slide — rather
+ * than snapping the words on at full strength the instant the emoji leaves —
+ * lets the icon lead the eye into the strip instead of both landing at once.
+ */
+private const val StripContentStaggerMs = 45
+private const val StripContentFadeMs = 110
+
 @Composable
 private fun TopBar(
     state: KeyboardUiState,
@@ -1163,6 +1174,32 @@ private fun TopBar(
     }
     val showToolbar = state.panel != PanelMode.NONE || toolbarOverride ||
         (!hasSuggestions && emptySettled && !suggestionsFirst)
+
+    // Fade the strip's suggestion content in when it takes over from the
+    // toolbar, staggered a beat behind the emoji icon's slide (see
+    // [StripContentStaggerMs]). Keyed on the strip appearing, so it plays once
+    // on the toolbar→strip flip and not on every keystroke that follows (the
+    // strip stays up, so the effect never re-fires). The emoji icon carries
+    // its own slide and is left out of this alpha.
+    val stripFade = remember { Animatable(1f) }
+    // The effect below snaps the fade to 0 a frame too late — the suggestions
+    // paint once at full opacity before it runs, so they flash on, vanish,
+    // then fade back (the jitter). This flag catches the toolbar→strip edge
+    // during composition and blanks the content on that first frame, so the
+    // effect only ever has to own the fade upward. [SideEffect] advances the
+    // remembered previous state after the frame commits.
+    var prevShowToolbar by remember { mutableStateOf(showToolbar) }
+    val stripJustRevealed = prevShowToolbar && !showToolbar && !state.settings.reduceMotion
+    SideEffect { prevShowToolbar = showToolbar }
+    LaunchedEffect(showToolbar, state.settings.reduceMotion) {
+        if (showToolbar || state.settings.reduceMotion) {
+            stripFade.snapTo(1f)
+        } else {
+            stripFade.snapTo(0f)
+            delay(StripContentStaggerMs.toLong())
+            stripFade.animateTo(1f, tween(StripContentFadeMs))
+        }
+    }
 
     Row(
         modifier = Modifier
@@ -1391,7 +1428,11 @@ private fun TopBar(
             Row(
                 modifier = Modifier
                     .weight(1f)
-                    .fillMaxHeight(),
+                    .fillMaxHeight()
+                    // Fades in a beat behind the emoji's slide on the
+                    // toolbar→strip flip; full strength once the strip settles.
+                    // Blank on the reveal frame so it never flashes on first.
+                    .graphicsLayer { alpha = if (stripJustRevealed) 0f else stripFade.value },
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 val ranked = state.suggestions.take(3)
@@ -1437,6 +1478,7 @@ private fun TopBar(
                 Box(
                     modifier = Modifier
                         .fillMaxHeight()
+                        .graphicsLayer { alpha = if (stripJustRevealed) 0f else stripFade.value }
                         .clickable { onEmojiSuggestion(emoji) }
                         .padding(horizontal = 5.dp),
                     contentAlignment = Alignment.Center,
@@ -2324,7 +2366,6 @@ private fun Modifier.animateSharedPlacement(
     composed {
         val scope = rememberCoroutineScope()
         val offset = remember { Animatable(IntOffset.Zero, IntOffset.VectorConverter) }
-        var placed by remember { mutableStateOf<IntOffset?>(null) }
         var immediate by remember { mutableStateOf<IntOffset?>(null) }
         // Stamp the moment this node leaves, so whichever node replaces it can
         // tell a handoff from a reappearance. onDispose runs while changes are
@@ -2333,6 +2374,11 @@ private fun Modifier.animateSharedPlacement(
         DisposableEffect(shared) {
             onDispose { shared.vacatedAtNanos = System.nanoTime() }
         }
+        // This node's own last position, so a re-placement within one parent
+        // (the bar reflowing under it) animates like [animatePlacement] does,
+        // not just the cross-parent handoff. Without this the emoji snapped
+        // whenever the toolbar reshuffled — every other icon slid but it.
+        var lastTarget by remember { mutableStateOf<IntOffset?>(null) }
         this
             .onPlaced { coords ->
                 val anchorCoords = anchor()?.takeIf { it.isAttached }
@@ -2340,32 +2386,60 @@ private fun Modifier.animateSharedPlacement(
                     anchorCoords?.localPositionOf(coords, Offset.Zero)
                         ?: coords.positionInParent()
                     ).round()
-                if (placed == position) return@onPlaced
-                val previous = shared.last
+                if (lastTarget == position) return@onPlaced
+                val ownPrevious = lastTarget
+                val sharedPrevious = shared.last
                 val vacatedAt = shared.vacatedAtNanos
-                val first = placed == null
-                placed = position
+                val first = ownPrevious == null
+                lastTarget = position
                 shared.last = position
                 // Claim the slot: while this node lives there is no vacancy.
                 shared.vacatedAtNanos = 0L
-                if (!enabled || previous == null) return@onPlaced
-                // Only the arriving half of a handoff slides. A node that is
-                // merely being re-placed (the row resized under it) has no
-                // vacancy to answer, and the predecessor must have left within
-                // the last frame or two — see [SharedPlacement.vacatedAtNanos].
-                if (!first || vacatedAt == 0L) return@onPlaced
-                if (System.nanoTime() - vacatedAt > SharedPlacementMaxAgeNanos) return@onPlaced
+                if (!enabled) return@onPlaced
+                // A cross-parent handoff: this node just appeared and the
+                // sibling it replaces vacated within the last frame or two
+                // (see [SharedPlacement.vacatedAtNanos]). It slides in from
+                // wherever that sibling stood, however far along the row.
+                val handoff = first && sharedPrevious != null && vacatedAt != 0L &&
+                    System.nanoTime() - vacatedAt <= SharedPlacementMaxAgeNanos
+                // Where this placement travelled *from*: the vacated slot for a
+                // handoff, else this node's own previous spot for an ordinary
+                // reflow. A fresh node with neither has nowhere to come from.
+                val previous = when {
+                    handoff -> sharedPrevious!!
+                    !first -> ownPrevious!!
+                    else -> return@onPlaced
+                }
+                if (previous == position) return@onPlaced
                 val delta = previous - position
-                // The strip-to-toolbar handoff is a slide along one row, so
-                // it can be arbitrarily wide but never changes height. A
-                // vertical move means the rows themselves shifted (a panel
-                // opened, the emoji row appeared): animating that reads as
-                // lag, so let it snap.
-                if (delta.x == 0 || kotlin.math.abs(delta.y) > 4) return@onPlaced
+                // A slide along the bar never changes height; a vertical move
+                // means the rows themselves shifted (a panel opened, the emoji
+                // row appeared), which animating reads as lag — snap it.
+                if (delta.x == 0 || kotlin.math.abs(delta.y) > 4) {
+                    immediate = null
+                    scope.launch { offset.snapTo(IntOffset.Zero) }
+                    return@onPlaced
+                }
+                // A reflow nudge is small; a jump of more than an icon or two is
+                // a layout change (scroll, panel resize), not motion. The
+                // handoff is exempt — it is deliberately a long slide.
+                val jump = delta.toOffset().getDistance()
+                if (!handoff && (jump < 2f || jump > 160f)) {
+                    immediate = null
+                    scope.launch { offset.snapTo(IntOffset.Zero) }
+                    return@onPlaced
+                }
+                // Carry any displacement still in flight so a change that lands
+                // mid-slide continues from where the icon actually is. This is
+                // what keeps the drawn position continuous when a handoff is
+                // followed a frame later by the layout settling to its final
+                // slot: the seed offset re-anchors to the new target instead of
+                // snapping the icon out to the row's edge.
+                val start = delta + (immediate ?: offset.value)
                 // Drawn this frame, not next; see the note in animatePlacement.
-                immediate = delta
+                immediate = start
                 scope.launch {
-                    offset.snapTo(delta)
+                    offset.snapTo(start)
                     immediate = null
                     offset.animateTo(IntOffset.Zero, ToolbarSlideSpring)
                 }
