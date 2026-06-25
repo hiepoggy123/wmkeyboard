@@ -101,6 +101,7 @@ import androidx.compose.material.icons.outlined.DarkMode
 import androidx.compose.material.icons.outlined.DeleteSweep
 import androidx.compose.material.icons.outlined.Dialpad
 import androidx.compose.material.icons.outlined.DirectionsCar
+import androidx.compose.material.icons.outlined.DragHandle
 import androidx.compose.material.icons.outlined.Draw
 import androidx.compose.material.icons.outlined.EditNote
 import androidx.compose.material.icons.outlined.Explore
@@ -247,6 +248,7 @@ import androidx.compose.ui.unit.toSize
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
+import androidx.compose.ui.zIndex
 import android.os.Build
 import android.os.SystemClock
 import android.content.Context
@@ -485,6 +487,7 @@ fun KeyboardScreen(
     onEmojiQueryTap: () -> Unit,
     onEmojiRecentsClear: () -> Unit = {},
     onEmojiRecentRemove: (String) -> Unit = {},
+    onEmojiFavouritesReorder: (List<String>) -> Unit = {},
     onEmojiSearchFieldDelete: () -> Unit = {},
     onTextEdit: (TextEditAction) -> Unit = {},
     onPanelChange: (PanelMode) -> Unit,
@@ -684,6 +687,7 @@ fun KeyboardScreen(
                 onEmojiQueryTap = onEmojiQueryTap,
                 onEmojiRecentsClear = onEmojiRecentsClear,
                 onEmojiRecentRemove = onEmojiRecentRemove,
+                onEmojiFavouritesReorder = onEmojiFavouritesReorder,
                 onEmojiSearchFieldDelete = onEmojiSearchFieldDelete,
                 onTextEdit = onTextEdit,
                 onPanelChange = onPanelChange,
@@ -3208,6 +3212,7 @@ private fun KeyboardBody(
     onEmojiQueryTap: () -> Unit,
     onEmojiRecentsClear: () -> Unit,
     onEmojiRecentRemove: (String) -> Unit,
+    onEmojiFavouritesReorder: (List<String>) -> Unit,
     onEmojiSearchFieldDelete: () -> Unit,
     onTextEdit: (TextEditAction) -> Unit,
     onPanelChange: (PanelMode) -> Unit,
@@ -3350,6 +3355,7 @@ private fun KeyboardBody(
                 PanelMode.EMOJI -> EmojiPanel(
                     state, onEmoji, onEmojiVariant, onEmojiFavourite, onEmojiQueryTap, onEmojiRecentsClear,
                     onRecentRemove = onEmojiRecentRemove,
+                    onFavouritesReorder = onEmojiFavouritesReorder,
                     onSearchFieldDelete = onEmojiSearchFieldDelete,
                     onKey = onKey,
                     // Toggling the open panel closes it — back to the keys.
@@ -5425,6 +5431,7 @@ private fun EmojiPanel(
     onEmojiQueryTap: () -> Unit,
     onClearRecents: () -> Unit,
     onRecentRemove: (String) -> Unit,
+    onFavouritesReorder: (List<String>) -> Unit,
     onSearchFieldDelete: () -> Unit,
     onKey: (Key) -> Unit,
     onClose: () -> Unit,
@@ -5436,6 +5443,11 @@ private fun EmojiPanel(
     }
     val historyMode = state.settings.emojiTabMode
     val history = if (historyMode == EmojiTabMode.MOST_USED) state.emojiFrequents else state.emojiRecents
+    // Reorder is reached from any favourited emoji's long-press popup, and is
+    // only meaningful once there are two favourites to shuffle.
+    var reorderOpen by remember { mutableStateOf(false) }
+    val onReorderFavourite: (() -> Unit)? =
+        if (state.emojiFavourites.size >= 2) ({ reorderOpen = true }) else null
     // The always-on emoji row hides while this panel is open; absorbing its
     // height here keeps the keyboard from resizing on panel switches.
     val barCompensation =
@@ -5574,6 +5586,7 @@ private fun EmojiPanel(
                         onTap = onEmoji,
                         onPick = { variant -> onEmojiVariant(emoji, variant) },
                         onFavourite = onEmojiFavourite,
+                        onReorderFavourites = onReorderFavourite,
                     )
                 }
             }
@@ -5634,6 +5647,7 @@ private fun EmojiPanel(
                         onTap = onEmoji,
                         onPick = onEmoji,
                         onFavourite = onEmojiFavourite,
+                        onReorderFavourites = onReorderFavourite,
                         onRemove = onRecentRemove,
                     )
                 }
@@ -5670,6 +5684,7 @@ private fun EmojiPanel(
                             onTap = onEmoji,
                             onPick = { variant -> onEmojiVariant(emoji, variant) },
                             onFavourite = onEmojiFavourite,
+                            onReorderFavourites = onReorderFavourite,
                         )
                     }
                 }
@@ -5681,6 +5696,17 @@ private fun EmojiPanel(
         if (!state.emojiSearchActive) {
             EmojiBottomBar(state = state, onKey = onKey, onClose = onClose)
         }
+    }
+    // A Popup overlay, so opening it never reflows the fixed-height panel.
+    if (reorderOpen) {
+        FavouritesReorderPopup(
+            favourites = state.emojiFavourites,
+            onConfirm = {
+                reorderOpen = false
+                onFavouritesReorder(it)
+            },
+            onDismiss = { reorderOpen = false },
+        )
     }
 }
 
@@ -5812,6 +5838,7 @@ private fun EmojiCell(
     onTap: (String) -> Unit,
     onPick: (String) -> Unit,
     onFavourite: (String) -> Unit,
+    onReorderFavourites: (() -> Unit)? = null,
     onRemove: ((String) -> Unit)? = null,
 ) {
     var showVariants by remember { mutableStateOf(false) }
@@ -5853,6 +5880,12 @@ private fun EmojiCell(
                     onPick(it)
                 },
                 onFavourite = onFavourite,
+                onReorderFavourites = onReorderFavourites?.let { reorder ->
+                    {
+                        showVariants = false
+                        reorder()
+                    }
+                },
                 onRemove = onRemove?.let { remove ->
                     {
                         showVariants = false
@@ -5881,6 +5914,7 @@ private fun EmojiVariantPopup(
     onDismiss: () -> Unit,
     onPick: (String) -> Unit,
     onFavourite: (String) -> Unit,
+    onReorderFavourites: (() -> Unit)? = null,
     onRemove: (() -> Unit)? = null,
 ) {
     val kb = LocalKbTheme.current
@@ -5949,6 +5983,29 @@ private fun EmojiVariantPopup(
                         color = MaterialTheme.colorScheme.onSurface,
                     )
                 }
+                // Only favourites can be reordered, and only when there are at
+                // least two (the caller passes null otherwise).
+                if (favourite && onReorderFavourites != null) {
+                    Row(
+                        modifier = Modifier
+                            .clickable { onReorderFavourites() }
+                            .padding(horizontal = 12.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            Icons.Outlined.DragHandle,
+                            contentDescription = null,
+                            modifier = Modifier.size(22.dp),
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
+                        Box(modifier = Modifier.width(10.dp))
+                        Text(
+                            "Reorder favourites",
+                            fontSize = 15.sp,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                    }
+                }
                 // History cells only: drop this emoji from recents/most-used.
                 if (onRemove != null) {
                     Row(
@@ -6000,6 +6057,158 @@ private fun EmojiVariantPopup(
                                 }
                             }
                         }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** Fixed row height inside [FavouritesReorderPopup], so drags map to slots. */
+private val FavouriteReorderRowHeight = 48.dp
+
+/**
+ * A modal drag-to-reorder list for the favourites, opened from a favourited
+ * emoji's long-press popup. Rendered as a [Popup] over the whole IME window
+ * (a scrim swallows stray taps and doubles as tap-to-dismiss) rather than a
+ * Compose Dialog, which needs a window token the IME does not hand out.
+ *
+ * The drag mechanic mirrors the settings-side ReorderDialog: each row carries
+ * a handle, and dragging one past the next row's height swaps the two so the
+ * item tracks the finger. The working copy only reaches the caller through
+ * [onConfirm]; cancelling leaves the stored order alone.
+ */
+@Composable
+private fun FavouritesReorderPopup(
+    favourites: List<String>,
+    onConfirm: (List<String>) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val kb = LocalKbTheme.current
+    var working by remember { mutableStateOf(favourites) }
+    // -1 = nothing being dragged.
+    var dragIndex by remember { mutableIntStateOf(-1) }
+    var dragOffset by remember { mutableFloatStateOf(0f) }
+    val rowPx = with(LocalDensity.current) { FavouriteReorderRowHeight.toPx() }
+
+    Popup(onDismissRequest = onDismiss) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.5f))
+                // Tap the scrim to dismiss; the surface below swallows its own.
+                .pointerInput(Unit) { detectTapGestures { onDismiss() } },
+            contentAlignment = Alignment.Center,
+        ) {
+            Surface(
+                shape = RoundedCornerShape(kb.popupRadiusDp.dp),
+                color = kb.popup,
+                shadowElevation = 8.dp,
+                modifier = Modifier
+                    .padding(16.dp)
+                    .fillMaxWidth(0.92f)
+                    .fillMaxHeight(0.92f)
+                    // Don't let taps inside the card fall through to the scrim.
+                    .pointerInput(Unit) { detectTapGestures { } },
+            ) {
+                Column(modifier = Modifier.padding(12.dp)) {
+                    Text(
+                        "Reorder favourites",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.padding(bottom = 4.dp),
+                    )
+                    Text(
+                        "Drag the handles. Top of the list comes first.",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(bottom = 8.dp),
+                    )
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .verticalScroll(rememberScrollState()),
+                    ) {
+                        working.forEachIndexed { index, emoji ->
+                            val dragging = index == dragIndex
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(FavouriteReorderRowHeight)
+                                    // The dragged row rides above its neighbours.
+                                    .zIndex(if (dragging) 1f else 0f)
+                                    .graphicsLayer {
+                                        translationY = if (dragging) dragOffset else 0f
+                                    },
+                            ) {
+                                Text(
+                                    "${index + 1}.",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.width(28.dp),
+                                )
+                                Text(
+                                    text = emoji,
+                                    fontSize = 24.sp,
+                                    fontFamily = LocalEmojiFontFamily.current,
+                                    modifier = Modifier.weight(1f),
+                                )
+                                Icon(
+                                    Icons.Outlined.DragHandle,
+                                    contentDescription = "Reorder $emoji",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier
+                                        .padding(start = 8.dp)
+                                        .size(28.dp)
+                                        // Keyed on Unit so a swap mid-drag never
+                                        // restarts the gesture: slot `index` is
+                                        // fixed for the life of the row, only the
+                                        // item in it moves. `dragIndex` is live.
+                                        .pointerInput(Unit) {
+                                            detectDragGestures(
+                                                onDragStart = {
+                                                    dragIndex = index
+                                                    dragOffset = 0f
+                                                },
+                                                onDragEnd = {
+                                                    dragIndex = -1
+                                                    dragOffset = 0f
+                                                },
+                                                onDragCancel = {
+                                                    dragIndex = -1
+                                                    dragOffset = 0f
+                                                },
+                                            ) { change, drag ->
+                                                change.consume()
+                                                dragOffset += drag.y
+                                                val from = dragIndex
+                                                val to = from + (dragOffset / rowPx).roundToInt()
+                                                if (from >= 0 && to != from && to in working.indices) {
+                                                    working = working.toMutableList().apply {
+                                                        add(to, removeAt(from))
+                                                    }
+                                                    dragIndex = to
+                                                    // Keep the offset relative to
+                                                    // the row's new home, or the
+                                                    // item would jump a full row.
+                                                    dragOffset -= (to - from) * rowPx
+                                                }
+                                            }
+                                        },
+                                )
+                            }
+                        }
+                    }
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp),
+                        horizontalArrangement = Arrangement.End,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        TextButton(onClick = onDismiss) { Text("Cancel") }
+                        TextButton(onClick = { onConfirm(working) }) { Text("Save") }
                     }
                 }
             }

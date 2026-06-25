@@ -744,6 +744,7 @@ class WMKeyboardService : InputMethodService() {
                 onEmojiQueryTap = ::onEmojiSearchToggled,
                 onEmojiRecentsClear = ::onEmojiRecentsClear,
                 onEmojiRecentRemove = ::onEmojiRecentRemoved,
+                onEmojiFavouritesReorder = ::onEmojiFavouritesReordered,
                 onEmojiSearchFieldDelete = ::onEmojiSearchFieldDelete,
                 onTextEdit = ::onTextEdit,
                 onPanelChange = ::onPanelChange,
@@ -4967,6 +4968,19 @@ class WMKeyboardService : InputMethodService() {
         }
     }
 
+    fun onEmojiFavouritesReordered(order: List<String>) {
+        vibrate()
+        emojiUsage.reorderFavourites(order)
+        emojiUsage.save()
+        _uiState.update {
+            it.copy(
+                emojiFavourites = emojiUsage.favourites(),
+                emojiRecents = emojiUsage.recents(),
+                emojiFrequents = emojiUsage.frequents(),
+            )
+        }
+    }
+
     fun onEmojiRecentsClear() {
         vibrate()
         emojiUsage.clearRecents()
@@ -5683,13 +5697,6 @@ class WMKeyboardService : InputMethodService() {
         }
 
         /**
-         * The field wants raw input: no suggestion strip, no autocorrect,
-         * no gesture typing, no lexicon learning. True for every non-text
-         * class (they get keypads anyway), the explicit NO_SUGGESTIONS
-         * flag, and the variations where corrections only get in the way —
-         * emails, URIs, filter boxes and every password style.
-         */
-        /**
          * The field asked the IME not to personalize from it. Chrome sets
          * this on every input in an incognito tab, and Firefox, Samsung
          * Internet and a few password managers do the same for their private
@@ -5709,12 +5716,17 @@ class WMKeyboardService : InputMethodService() {
         }
 
         /**
+         * Whether to hide the *suggestion strip* for this field. This governs
+         * the strip only — autocorrect, gesture typing, phonetic composing and
+         * learning are gated separately on the field kind
+         * ([KeyboardUiState.allowsTypingIntelligence]), so silencing the strip
+         * never disables them.
+         *
          * @param overrideAppRequest the "Suggestions in every field" setting.
-         * When on, the field's plea for silence (the NO_SUGGESTIONS flag,
-         * email/URI/filter variations) is ignored so suggestions, autocorrect
-         * and phonetic composing run anyway. Two things are never overridden:
-         * password variations (always secret) and non-text classes, whose
-         * keypads have no letters to suggest for in the first place.
+         * When on, the field's plea for a silent strip (the NO_SUGGESTIONS
+         * flag, email/URI/filter variations) is ignored and the strip shows
+         * anyway. Two things are never overridden: password variations (always
+         * secret) and non-text classes, whose keypads have no words to offer.
          */
         private fun EditorInfo?.suppressesSuggestions(overrideAppRequest: Boolean): Boolean {
             val inputType = this?.inputType ?: return false

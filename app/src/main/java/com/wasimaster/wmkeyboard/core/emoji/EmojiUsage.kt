@@ -94,6 +94,21 @@ class EmojiUsage(private val storageFile: File?) {
         }
     }
 
+    /**
+     * Rewrites the favourites order to [order]. Only current favourites
+     * survive (deduped); any favourite absent from [order] is appended at the
+     * tail, so a stale or partial order can never silently drop a pinned
+     * emoji.
+     */
+    @Synchronized
+    fun reorderFavourites(order: List<String>) {
+        val current = favourites.toHashSet()
+        val next = order.asSequence().filter { it in current }.distinct().toMutableList()
+        for (fav in favourites) if (fav !in next) next.add(fav)
+        favourites.clear()
+        favourites.addAll(next)
+    }
+
     @Synchronized
     fun preferredVariant(base: String): String? = variantPrefs[base]
 
