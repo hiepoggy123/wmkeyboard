@@ -1,5 +1,6 @@
 package com.wasimaster.wmkeyboard.app
 
+import com.wasimaster.wmkeyboard.BuildConfig
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
 import com.wasimaster.wmkeyboard.core.settings.isSupportedTool
 
@@ -38,7 +39,7 @@ private fun entry(
 }
 
 /** Every individual setting row, in screen order. */
-private val SettingRows: List<SettingsSearchEntry> = listOf(
+private val SettingRows: List<SettingsSearchEntry> = listOfNotNull(
     entry("Autocorrect", "Fix typos automatically when you press space", "Typing", "typing"),
     entry("Autocorrect confidence", "How sure a correction must be before it is applied", "Typing", "typing"),
     entry("Undo autocorrect with backspace", "Backspace right after a correction restores what you typed", "Typing", "typing"),
@@ -61,6 +62,12 @@ private val SettingRows: List<SettingsSearchEntry> = listOf(
     entry("Convert units", "\"1 ft\" offers the same length in metres", "Typing", "typing"),
     entry("Tool keywords", "Typing \"wiki\" offers to open Wikipedia", "Typing", "typing"),
     entry("Gesture typing", "Swipe across letters to type a word", "Typing", "typing"),
+    // Full builds only — the handwriting recognizer is an ML Kit feature.
+    if (BuildConfig.ENABLE_ML_KIT_HANDWRITING) {
+        entry("Handwrite with swipes", "Draw letters over the keys instead of gliding", "Typing", "typing")
+    } else {
+        null
+    },
     entry("Arrows on spacebar", "Hint that a swipe switches language", "Typing", "typing"),
     entry("Spacebar text", "Blank = current language name. %s inserts it, e.g. \"— %s —\".", "Typing", "typing"),
     entry("Swipe to delete words", "Drag sideways on backspace to delete whole words", "Typing", "typing"),

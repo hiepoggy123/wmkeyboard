@@ -255,6 +255,13 @@ enum class HapticStyle { CUSTOM, CLICK, HEAVY_CLICK, SHARP }
  */
 enum class SpaceSwipeAction { NONE, LANGUAGE, CURSOR }
 
+/**
+ * What a swipe across the letter keys does. TYPE_WORDS is the classic glide
+ * decoder; HANDWRITE turns the same swipe into a handwriting stroke fed to the
+ * ML Kit recognizer (full builds only — needs a downloaded handwriting model).
+ */
+enum class LetterSwipeAction { TYPE_WORDS, HANDWRITE }
+
 /** What the history tab of the emoji panel shows. */
 enum class EmojiTabMode { RECENTS, MOST_USED }
 
@@ -460,6 +467,11 @@ data class KeyboardSettings(
      */
     val inlineAutofill: Boolean = true,
     val gestureTyping: Boolean = true,
+    /**
+     * What a letter-area swipe does when [gestureTyping] is on: glide-type a
+     * word (default) or draw handwriting recognized on the keyboard itself.
+     */
+    val letterSwipeAction: LetterSwipeAction = LetterSwipeAction.TYPE_WORDS,
     /** Swipe that starts moving before the long-press delay elapses. */
     val spaceShortSwipe: SpaceSwipeAction = SpaceSwipeAction.LANGUAGE,
     /** Swipe that begins after holding the spacebar past the long-press delay. */
@@ -909,6 +921,7 @@ class SettingsRepository(private val context: Context) {
         private val INLINE_EMOJI_SEARCH = booleanPreferencesKey("inline_emoji_search")
         private val INLINE_AUTOFILL = booleanPreferencesKey("inline_autofill")
         private val GESTURE_TYPING = booleanPreferencesKey("gesture_typing")
+        private val LETTER_SWIPE_ACTION = stringPreferencesKey("letter_swipe_action")
         // Legacy boolean, read only to migrate into SPACE_LONG_SWIPE.
         private val SPACEBAR_CURSOR = booleanPreferencesKey("spacebar_cursor")
         private val SPACE_SHORT_SWIPE = stringPreferencesKey("space_short_swipe")
@@ -1204,6 +1217,9 @@ class SettingsRepository(private val context: Context) {
             inlineEmojiSearch = p[INLINE_EMOJI_SEARCH] ?: defaults.inlineEmojiSearch,
             inlineAutofill = p[INLINE_AUTOFILL] ?: defaults.inlineAutofill,
             gestureTyping = p[GESTURE_TYPING] ?: defaults.gestureTyping,
+            letterSwipeAction = p[LETTER_SWIPE_ACTION]
+                ?.let { runCatching { LetterSwipeAction.valueOf(it) }.getOrNull() }
+                ?: defaults.letterSwipeAction,
             spaceShortSwipe = p[SPACE_SHORT_SWIPE]
                 ?.let { runCatching { SpaceSwipeAction.valueOf(it) }.getOrNull() }
                 ?: defaults.spaceShortSwipe,
@@ -2109,6 +2125,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setGestureTyping(value: Boolean) =
         context.dataStore.edit { it[GESTURE_TYPING] = value }
+
+    suspend fun setLetterSwipeAction(value: LetterSwipeAction) =
+        context.dataStore.edit { it[LETTER_SWIPE_ACTION] = value.name }
 
     suspend fun setSpaceShortSwipe(value: SpaceSwipeAction) =
         context.dataStore.edit { it[SPACE_SHORT_SWIPE] = value.name }

@@ -227,6 +227,7 @@ import com.wasimaster.wmkeyboard.core.settings.OneHandedMode
 import com.wasimaster.wmkeyboard.core.settings.ScreenVariant
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import com.wasimaster.wmkeyboard.core.settings.sizingValuesFor
+import com.wasimaster.wmkeyboard.core.settings.LetterSwipeAction
 import com.wasimaster.wmkeyboard.core.settings.SpaceSwipeAction
 import com.wasimaster.wmkeyboard.core.settings.ThemeMode
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
@@ -1347,6 +1348,28 @@ private fun TypingSettings(
                     "committed when you lift. Alternate interpretations appear in the suggestion " +
                     "bar, so a wrong guess is one tap away from fixed. English only for now.",
             ) { scope.launch { repository.setGestureTyping(it) } }
+        }
+        // What a letter swipe does — glide a word or handwrite it. Full builds
+        // only (needs the ML Kit handwriting model), and only relevant once
+        // letter swipes are switched on above.
+        if (BuildConfig.ENABLE_ML_KIT_HANDWRITING && settings.gestureTyping) {
+            item {
+                ChoiceSetting(
+                    title = "Handwrite with swipes",
+                    subtitle = "Draw letters over the keys instead of gliding",
+                    info = "With this set to Handwrite, a swipe across the keys is treated as " +
+                        "handwriting: draw a letter or word and it is recognized on a short " +
+                        "pause and inserted, with other readings offered in the suggestion bar. " +
+                        "Needs a handwriting model (Settings → Handwriting). A plain tap still " +
+                        "types its key.",
+                    options = listOf(
+                        LetterSwipeAction.TYPE_WORDS to "Type words",
+                        LetterSwipeAction.HANDWRITE to "Handwrite",
+                    ),
+                    selected = settings.letterSwipeAction,
+                    onChange = { scope.launch { repository.setLetterSwipeAction(it) } },
+                )
+            }
         }
         item {
             SpaceSwipeSetting(

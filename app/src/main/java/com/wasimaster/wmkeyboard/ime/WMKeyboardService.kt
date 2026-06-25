@@ -80,6 +80,7 @@ import com.wasimaster.wmkeyboard.core.settings.HapticStyle
 import com.wasimaster.wmkeyboard.core.settings.InputMode
 import com.wasimaster.wmkeyboard.core.settings.KeyboardLanguage
 import com.wasimaster.wmkeyboard.core.settings.KeyboardMode
+import com.wasimaster.wmkeyboard.core.settings.LetterSwipeAction
 import com.wasimaster.wmkeyboard.core.settings.language
 import com.wasimaster.wmkeyboard.core.settings.isEnglish
 import com.wasimaster.wmkeyboard.core.settings.isFixedBengali
@@ -294,6 +295,10 @@ class WMKeyboardService : InputMethodService() {
     /** Bumped on every stroke/undo/clear so in-flight recognitions go stale. */
     private var hwGeneration = 0
     private var hwCanvasSize = IntSize.Zero
+    /** True while letter-area swipes are armed for handwriting (full builds). */
+    private var hwKeyboardArmed = false
+    /** Show the "download a model" hint at most once per keyboard session. */
+    private var hwModelHintShown = false
 
     private val clipboardListener = ClipboardManager.OnPrimaryClipChangedListener {
         val state = _uiState.value
@@ -610,6 +615,12 @@ class WMKeyboardService : InputMethodService() {
                         activeModeId = mode?.id,
                     )
                 }
+                // Switching the swipe action to handwriting (or turning the
+                // gesture on) while the keyboard is up checks the model now, so
+                // the first swipe writes rather than nagging.
+                val nowArmed = keyboardHandwriteActive(_uiState.value)
+                if (nowArmed && !hwKeyboardArmed) refreshHandwritingStatus()
+                hwKeyboardArmed = nowArmed
                 // Everything below keys off the mode actually being typed, so
                 // a field-forced mode gets its own proximity grid and word
                 // lists rather than the saved mode's.
@@ -785,6 +796,7 @@ class WMKeyboardService : InputMethodService() {
                 onThemeSelect = ::onThemeSelect,
                 onSoundHaptic = ::onSoundHaptic,
                 onHandwritingStroke = ::onHandwritingStroke,
+                onKeyboardHandwritingStroke = ::onKeyboardHandwritingStroke,
                 onHandwritingUndo = ::onHandwritingUndo,
                 onHandwritingDownload = ::onHandwritingDownload,
                 onMediaQueryTap = ::onMediaQueryTap,
@@ -1017,6 +1029,11 @@ class WMKeyboardService : InputMethodService() {
             )
             commitImageFile(page, MediaMime.JPEG)
         }
+        // Fresh field: re-arm the on-keyboard writing hint and check the model
+        // up front so the first swipe writes rather than nagging.
+        hwModelHintShown = false
+        hwKeyboardArmed = keyboardHandwriteActive(_uiState.value)
+        if (hwKeyboardArmed) refreshHandwritingStatus()
     }
 
     override fun onUpdateSelection(
@@ -1618,8 +1635,11 @@ class WMKeyboardService : InputMethodService() {
         val state = _uiState.value
         // Backspace while handwritten ink is waiting for recognition throws
         // the ink away instead of deleting committed text — the natural
-        // "no, not that" while writing.
-        if (state.panel == PanelMode.HANDWRITING && state.handwriting.strokes.isNotEmpty()) {
+        // "no, not that" while writing. Applies to the panel and to
+        // handwriting drawn straight on the keys.
+        if ((state.panel == PanelMode.HANDWRITING || keyboardHandwriteActive(state)) &&
+            state.handwriting.strokes.isNotEmpty()
+        ) {
             hwJob?.cancel()
             hwGeneration++
             _uiState.update {
@@ -1779,7 +1799,8 @@ class WMKeyboardService : InputMethodService() {
         // the real field behind it would edit text the user cannot see.
         if (state.emojiSearchActive || state.dictionarySearchActive ||
             (state.mediaSearchActive && state.panel.hasMediaSearch) ||
-            (state.panel == PanelMode.HANDWRITING && state.handwriting.strokes.isNotEmpty())
+            ((state.panel == PanelMode.HANDWRITING || keyboardHandwriteActive(state)) &&
+                state.handwriting.strokes.isNotEmpty())
         ) {
             onDelete()
             return
@@ -1924,6 +1945,8 @@ class WMKeyboardService : InputMethodService() {
     }
 
     private fun toggleSymbols() {
+        // Leaving the letter layer ends the on-keyboard writing surface.
+        if (_uiState.value.layoutMode == LayoutMode.LETTERS) dropKeyboardHandwritingInk()
         _uiState.update {
             it.copy(
                 layoutMode = when (it.layoutMode) {
@@ -2025,8 +2048,13 @@ class WMKeyboardService : InputMethodService() {
         }
         refreshKarContext()
         // The handwriting model follows the input language; a switch while
-        // the panel is open re-checks the new model and drops pending ink.
-        if (_uiState.value.panel == PanelMode.HANDWRITING) refreshHandwritingStatus()
+        // the panel is open — or while writing on the keys — re-checks the new
+        // model and drops pending ink.
+        if (_uiState.value.panel == PanelMode.HANDWRITING ||
+            keyboardHandwriteActive(_uiState.value)
+        ) {
+            refreshHandwritingStatus()
+        }
         // Same for dictation: restart the session in the new language.
         if (_uiState.value.panel == PanelMode.VOICE) startVoice()
         serviceScope.launch { settingsRepository.setActiveLayoutId(spec.id) }
@@ -3012,6 +3040,63 @@ class WMKeyboardService : InputMethodService() {
     private fun hwLanguageTag(): String = HandwritingModels.tagForMode(_uiState.value.inputMode)
 
     /**
+     * Letter-area swipes are drawing handwriting (rather than gliding a word):
+     * full build, gesture typing on with the swipe action set to HANDWRITE, on
+     * the letter layer with no panel open. Model readiness is checked
+     * separately so this can also gate the "download the model" hint.
+     */
+    private fun keyboardHandwriteActive(state: KeyboardUiState): Boolean =
+        BuildConfig.ENABLE_ML_KIT_HANDWRITING &&
+            state.settings.gestureTyping &&
+            state.settings.letterSwipeAction == LetterSwipeAction.HANDWRITE &&
+            state.layoutMode == LayoutMode.LETTERS &&
+            state.panel == PanelMode.NONE
+
+    /**
+     * A swipe finished on the key grid while [keyboardHandwriteActive]. With
+     * the model ready it feeds the same pipeline as the handwriting panel;
+     * otherwise it points the user at the model download (once) instead of
+     * silently gliding a word they didn't ask for.
+     */
+    fun onKeyboardHandwritingStroke(stroke: HwStroke, canvasSize: IntSize) {
+        val state = _uiState.value
+        if (!keyboardHandwriteActive(state)) return
+        if (state.handwriting.status != HandwritingStatus.READY) {
+            // CHECKING/DOWNLOADING resolve on their own; only nag once the
+            // absence is confirmed.
+            if (state.handwriting.status == HandwritingStatus.NEED_MODEL ||
+                state.handwriting.status == HandwritingStatus.ERROR
+            ) {
+                if (!hwModelHintShown) {
+                    hwModelHintShown = true
+                    Toast.makeText(
+                        this,
+                        "Download a handwriting model in Settings → Handwriting to write on the keyboard.",
+                        Toast.LENGTH_LONG,
+                    ).show()
+                }
+                refreshHandwritingStatus()
+            }
+            return
+        }
+        onHandwritingStroke(stroke, canvasSize)
+    }
+
+    /**
+     * Throw away handwriting ink drawn on the keys — used when the letter
+     * layer (and with it the on-keyboard writing surface) goes away, so the
+     * strokes don't reappear when the user comes back to the letters.
+     */
+    private fun dropKeyboardHandwritingInk() {
+        if (_uiState.value.handwriting.strokes.isEmpty()) return
+        hwJob?.cancel()
+        hwGeneration++
+        _uiState.update {
+            it.copy(handwriting = it.handwriting.copy(strokes = emptyList(), recognizing = false))
+        }
+    }
+
+    /**
      * Re-checks whether the active language's recognition model is on the
      * device, resetting the panel (ink, errors) in the process.
      */
@@ -3063,7 +3148,11 @@ class WMKeyboardService : InputMethodService() {
     /** A stroke was finished on the canvas; recognize after a short pause. */
     fun onHandwritingStroke(stroke: HwStroke, canvasSize: IntSize) {
         val state = _uiState.value
-        if (state.panel != PanelMode.HANDWRITING || state.handwriting.status != HandwritingStatus.READY) return
+        if ((state.panel != PanelMode.HANDWRITING && !keyboardHandwriteActive(state)) ||
+            state.handwriting.status != HandwritingStatus.READY
+        ) {
+            return
+        }
         hwCanvasSize = canvasSize
         _uiState.update {
             it.copy(
@@ -3121,7 +3210,11 @@ class WMKeyboardService : InputMethodService() {
                 writingAreaHeight = hwCanvasSize.height.toFloat(),
             )
         }
-        if (generation != hwGeneration || _uiState.value.panel != PanelMode.HANDWRITING) return
+        if (generation != hwGeneration ||
+            (_uiState.value.panel != PanelMode.HANDWRITING && !keyboardHandwriteActive(_uiState.value))
+        ) {
+            return
+        }
 
         val candidates = result.getOrNull()
         if (candidates == null) {
@@ -5028,7 +5121,8 @@ class WMKeyboardService : InputMethodService() {
     fun canDelete(): Boolean {
         val state = _uiState.value
         return when {
-            state.panel == PanelMode.HANDWRITING && state.handwriting.strokes.isNotEmpty() -> true
+            (state.panel == PanelMode.HANDWRITING || keyboardHandwriteActive(state)) &&
+                state.handwriting.strokes.isNotEmpty() -> true
             state.emojiSearchActive -> state.emojiQuery.isNotEmpty()
             state.dictionarySearchActive -> state.dictionaryQuery.isNotEmpty()
             state.mediaSearchActive && state.panel.hasMediaSearch -> state.mediaQuery.isNotEmpty()

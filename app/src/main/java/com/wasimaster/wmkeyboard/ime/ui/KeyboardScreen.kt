@@ -271,6 +271,7 @@ import com.wasimaster.wmkeyboard.core.ui.toolAccentColor
 import com.wasimaster.wmkeyboard.core.grammar.GrammarFix
 import com.wasimaster.wmkeyboard.core.grammar.GrammarLint
 import com.wasimaster.wmkeyboard.core.gesture.KeyCenter
+import com.wasimaster.wmkeyboard.core.handwriting.HwPoint
 import com.wasimaster.wmkeyboard.core.handwriting.HwStroke
 import com.wasimaster.wmkeyboard.core.settings.BarRow
 import com.wasimaster.wmkeyboard.core.settings.DefaultToolbarTools
@@ -286,6 +287,7 @@ import com.wasimaster.wmkeyboard.core.settings.isEnglish
 import com.wasimaster.wmkeyboard.core.settings.isFixedBengali
 import com.wasimaster.wmkeyboard.core.transliteration.BengaliGraphemes
 import com.wasimaster.wmkeyboard.core.settings.OneHandedMode
+import com.wasimaster.wmkeyboard.core.settings.LetterSwipeAction
 import com.wasimaster.wmkeyboard.core.settings.SpaceSwipeAction
 import com.wasimaster.wmkeyboard.core.settings.ThemeMode
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
@@ -303,6 +305,7 @@ import com.wasimaster.wmkeyboard.ime.EnterAction
 import com.wasimaster.wmkeyboard.ime.FieldKind
 import com.wasimaster.wmkeyboard.ime.isNumericPad
 import com.wasimaster.wmkeyboard.ime.hasMediaSearch
+import com.wasimaster.wmkeyboard.ime.HandwritingStatus
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
 import com.wasimaster.wmkeyboard.ime.ModifierState
 import com.wasimaster.wmkeyboard.ime.authoredNumberRow
@@ -525,6 +528,7 @@ fun KeyboardScreen(
     onThemeSelect: (String) -> Unit = {},
     onSoundHaptic: (SoundHapticAction) -> Unit = {},
     onHandwritingStroke: (HwStroke, IntSize) -> Unit = { _, _ -> },
+    onKeyboardHandwritingStroke: (HwStroke, IntSize) -> Unit = { _, _ -> },
     onHandwritingUndo: () -> Unit = {},
     onHandwritingDownload: () -> Unit = {},
     onMediaQueryTap: () -> Unit = {},
@@ -715,6 +719,7 @@ fun KeyboardScreen(
                 onThemeSelect = onThemeSelect,
                 onSoundHaptic = onSoundHaptic,
                 onHandwritingStroke = onHandwritingStroke,
+                onKeyboardHandwritingStroke = onKeyboardHandwritingStroke,
                 onHandwritingUndo = onHandwritingUndo,
                 onHandwritingDownload = onHandwritingDownload,
                 onMediaQueryTap = onMediaQueryTap,
@@ -3240,6 +3245,7 @@ private fun KeyboardBody(
     onThemeSelect: (String) -> Unit,
     onSoundHaptic: (SoundHapticAction) -> Unit,
     onHandwritingStroke: (HwStroke, IntSize) -> Unit,
+    onKeyboardHandwritingStroke: (HwStroke, IntSize) -> Unit,
     onHandwritingUndo: () -> Unit,
     onHandwritingDownload: () -> Unit,
     onMediaQueryTap: () -> Unit,
@@ -3716,7 +3722,10 @@ private fun KeyboardBody(
                     state, onModeSelect,
                     onOpenSettings = { onOpenToolSettings(ToolbarTool.MODES) },
                 )
-                PanelMode.NONE -> KeyRows(state, onKey, onText, onGesture, onGesturePreview, onCursorMove, onLanguageSelect)
+                PanelMode.NONE -> KeyRows(
+                    state, onKey, onText, onGesture, onGesturePreview, onCursorMove, onLanguageSelect,
+                    onKeyboardHandwritingStroke = onKeyboardHandwritingStroke,
+                )
             }
             // In emoji search mode the letters stay visible for typing the query.
             if (state.panel == PanelMode.EMOJI && state.emojiSearchActive) {
@@ -3784,9 +3793,19 @@ private fun KeyRows(
     onGesturePreview: (List<GesturePoint>, List<KeyCenter>, Float) -> Unit = { _, _, _ -> },
     onCursorMove: (Int) -> Unit = {},
     onLanguageSelect: (InputMode) -> Unit = {},
+    onKeyboardHandwritingStroke: (HwStroke, IntSize) -> Unit = { _, _ -> },
 ) {
     val layout = currentLayout(state)
-    val gestureEnabled = state.settings.gestureTyping &&
+    // Letter-area swipes are drawing handwriting rather than gliding a word
+    // (full builds only). Capture arms whenever the mode is selected; the
+    // service decides whether the drawn ink recognizes or prompts a download.
+    val handwriteSwipe = BuildConfig.ENABLE_ML_KIT_HANDWRITING &&
+        state.settings.gestureTyping &&
+        state.settings.letterSwipeAction == LetterSwipeAction.HANDWRITE &&
+        state.layoutMode == LayoutMode.LETTERS &&
+        state.panel == PanelMode.NONE
+    val gestureEnabled = !handwriteSwipe &&
+        state.settings.gestureTyping &&
         state.layoutMode == LayoutMode.LETTERS &&
         state.inputMode.isEnglish &&
         state.panel == PanelMode.NONE &&
@@ -3833,6 +3852,9 @@ private fun KeyRows(
     // Frame clock driving the fade; points older than GLIDE_TRAIL_MS vanish.
     var trailNow by remember { mutableLongStateOf(0L) }
     val trailColor = LocalKbTheme.current.accent
+    // Points of the handwriting stroke being drawn right now (box space); the
+    // finished strokes waiting for recognition come back from service state.
+    var hwActiveStroke by remember { mutableStateOf<List<Offset>>(emptyList()) }
 
     LaunchedEffect(trail.isNotEmpty()) {
         while (trail.isNotEmpty()) {
@@ -3907,6 +3929,46 @@ private fun KeyRows(
                         )
                     }
                     trailReleased = true
+                }
+            }
+            // Handwriting: a drag over the keys is one ink stroke instead of a
+            // glide. Only one of the two detectors is ever live — glide's
+            // `gestureEnabled` is false whenever `handwriteSwipe` is true. A
+            // press that never travels past the slop stays unconsumed and
+            // falls through to the key, so taps still type.
+            .pointerInput(handwriteSwipe) {
+                if (!handwriteSwipe) return@pointerInput
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                    val slop = viewConfiguration.touchSlop
+                    var isStroke = false
+                    val pts = ArrayList<HwPoint>()
+                    val live = ArrayList<Offset>()
+                    pts.add(HwPoint(down.position.x, down.position.y, down.uptimeMillis))
+                    live.add(down.position)
+                    while (true) {
+                        val event = awaitPointerEvent(PointerEventPass.Initial)
+                        val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                        if (!change.pressed) {
+                            if (isStroke) change.consume()
+                            break
+                        }
+                        if (!isStroke &&
+                            (change.position - down.position).getDistance() > slop * 2
+                        ) {
+                            isStroke = true
+                        }
+                        if (isStroke) {
+                            change.consume()
+                            pts.add(HwPoint(change.position.x, change.position.y, change.uptimeMillis))
+                            live.add(change.position)
+                            hwActiveStroke = live.toList()
+                        }
+                    }
+                    if (isStroke && pts.size >= 2) {
+                        onKeyboardHandwritingStroke(HwStroke(pts.toList()), boxSize)
+                    }
+                    hwActiveStroke = emptyList()
                 }
             },
     ) {
@@ -4033,6 +4095,38 @@ private fun KeyRows(
                         start = trail[i - 1].position,
                         end = point.position,
                         strokeWidth = tailWidth + (headWidth - tailWidth) * life,
+                        cap = StrokeCap.Round,
+                    )
+                }
+            }
+        }
+
+        // Handwriting ink drawn over the keys: the finished strokes still
+        // waiting to be recognized (service state) plus the one under the
+        // finger. Unlike the glide trail these stay put until they commit,
+        // so the user can see the whole letter or word taking shape.
+        if (handwriteSwipe && state.handwriting.status == HandwritingStatus.READY) {
+            val inkColor = LocalKbTheme.current.accent
+            Canvas(modifier = Modifier.matchParentSize()) {
+                val inkWidth = 5.dp.toPx()
+                for (stroke in state.handwriting.strokes) {
+                    val pts = stroke.points
+                    for (i in 1 until pts.size) {
+                        drawLine(
+                            color = inkColor,
+                            start = Offset(pts[i - 1].x, pts[i - 1].y),
+                            end = Offset(pts[i].x, pts[i].y),
+                            strokeWidth = inkWidth,
+                            cap = StrokeCap.Round,
+                        )
+                    }
+                }
+                for (i in 1 until hwActiveStroke.size) {
+                    drawLine(
+                        color = inkColor,
+                        start = hwActiveStroke[i - 1],
+                        end = hwActiveStroke[i],
+                        strokeWidth = inkWidth,
                         cap = StrokeCap.Round,
                     )
                 }
