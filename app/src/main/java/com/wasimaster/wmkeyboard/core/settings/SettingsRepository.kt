@@ -422,14 +422,16 @@ data class KeyboardSettings(
     val doubleSpaceTab: Boolean = false,
     val suggestions: Boolean = true,
     /**
-     * Show suggestions, autocorrect and phonetic composing even in fields that
-     * ask the IME to stay quiet (the NO_SUGGESTIONS flag, email/URI/filter
-     * boxes). Many apps — Instagram, Google Keep — set that flag on ordinary
-     * text fields, which also breaks Avro composing and autocorrect there.
-     * On, the keyboard overrides the request the way most keyboards quietly
-     * do. Password fields are always excluded regardless.
+     * Show the suggestion strip even in fields that ask the IME to stay quiet
+     * (the NO_SUGGESTIONS flag, email/URI/filter boxes). Many apps — Instagram,
+     * Google Keep — set that flag on ordinary text fields; on (the default),
+     * the keyboard shows suggestions anyway, the way most keyboards quietly do.
+     * Off respects the app and hides the strip. Password fields are always
+     * excluded regardless. Autocorrect, gesture typing and Avro composing are
+     * governed separately (KeyboardUiState.allowsTypingIntelligence) and keep
+     * working whichever way this is set.
      */
-    val showSuggestionsInAllFields: Boolean = false,
+    val showSuggestionsInAllFields: Boolean = true,
     /** Keep the suggestion strip as the default top bar even with nothing typed. */
     val suggestionsFirst: Boolean = false,
     /** Show the primary candidate in the middle slot (Gboard style) instead of the left. */

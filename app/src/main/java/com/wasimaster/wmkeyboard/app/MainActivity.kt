@@ -1177,14 +1177,14 @@ private fun TypingSettings(
         item {
             ToggleSetting(
                 "Suggestions in every field",
-                "Ignore apps that ask the keyboard to stay quiet",
+                "Show the suggestion strip even where apps ask it hidden",
                 settings.showSuggestionsInAllFields,
                 info = "Some apps — Instagram, Google Keep and others — tell the keyboard to " +
-                    "turn off suggestions on ordinary text fields, which also switches off " +
-                    "autocorrect and Bengali (Avro) phonetic composing there. Most keyboards " +
-                    "quietly ignore that request; turn this on to do the same, so predictions, " +
-                    "autocorrect and composing work everywhere. Password fields are always left " +
-                    "alone, and number and PIN pads are unaffected.",
+                    "hide the suggestion strip on ordinary text fields. On (the default), the " +
+                    "strip is shown anyway, the way most keyboards quietly do; turn off to " +
+                    "respect the app and hide it. Either way, autocorrect, gesture typing and " +
+                    "Bengali (Avro) composing keep working — those are no longer tied to the " +
+                    "strip. Password fields and number pads never show suggestions.",
             ) { scope.launch { repository.setShowSuggestionsInAllFields(it) } }
         }
         item {

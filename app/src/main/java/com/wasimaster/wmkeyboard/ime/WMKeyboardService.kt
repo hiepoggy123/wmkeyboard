@@ -1511,8 +1511,8 @@ class WMKeyboardService : InputMethodService() {
         }
 
         val isWordChar = text.length == 1 && (text[0].isLetter() || text[0] == '\'')
-        val composingMode = !state.inputMode.isFixedBengali && !state.secureField &&
-            !state.fieldNoSuggestions && state.settings.suggestions
+        val composingMode = !state.inputMode.isFixedBengali &&
+            state.allowsTypingIntelligence && state.settings.suggestions
 
         // ":" on a word boundary opens inline emoji search: the colon and the
         // letters after it go into the composing buffer, and refreshSuggestions
@@ -2066,7 +2066,7 @@ class WMKeyboardService : InputMethodService() {
         // Apostrophe restoration outranks autocorrect: "dont" is a known
         // contraction slip, not a typo for "font"/"done" to be guessed at.
         val apostrophized =
-            if (fixApostrophes && !state.secureField && !state.fieldNoSuggestions &&
+            if (fixApostrophes && state.allowsTypingIntelligence &&
                 state.inputMode.isEnglish
             ) {
                 Apostrophes.fix(typed)
@@ -2083,7 +2083,7 @@ class WMKeyboardService : InputMethodService() {
                 suggestionEngine?.suggest(typed, previousWord = null, avroMode = true)
                     ?.firstOrNull() ?: AvroPhonetic.transliterate(typed)
             apostrophized != null -> apostrophized
-            autocorrect && !state.secureField && !state.fieldNoSuggestions -> {
+            autocorrect && state.allowsTypingIntelligence -> {
                 corrected = suggestionEngine?.shouldAutocorrect(typed)?.takeIf { it != typed }
                 corrected ?: typed
             }
@@ -2138,7 +2138,7 @@ class WMKeyboardService : InputMethodService() {
         val state = _uiState.value
         if (!state.settings.learnFromTyping ||
             (state.incognitoOn && state.settings.incognitoPausesLearning) ||
-            state.secureField || state.fieldNoSuggestions
+            !state.allowsTypingIntelligence
         ) {
             previousWord = word
             return
@@ -2166,7 +2166,7 @@ class WMKeyboardService : InputMethodService() {
         val state = _uiState.value
         if (!state.settings.learnFromTyping ||
             (state.incognitoOn && state.settings.incognitoPausesLearning) ||
-            state.secureField || state.fieldNoSuggestions
+            !state.allowsTypingIntelligence
         ) {
             previousWord = emoji
             return
@@ -2496,7 +2496,7 @@ class WMKeyboardService : InputMethodService() {
     /** Mid-swipe: show the current best candidates without committing. */
     fun onGesturePreview(points: List<GesturePoint>, keys: List<KeyCenter>, keyWidthPx: Float) {
         val state = _uiState.value
-        if (!state.settings.gestureTyping || state.secureField || state.fieldNoSuggestions) return
+        if (!state.settings.gestureTyping || !state.allowsTypingIntelligence) return
         if (!state.inputMode.isEnglish || state.typingTestActive) return
         val lexicon = gestureLexicon
         if (lexicon.isEmpty() || keys.isEmpty()) return
@@ -2526,7 +2526,7 @@ class WMKeyboardService : InputMethodService() {
     fun onGesture(points: List<GesturePoint>, keys: List<KeyCenter>, keyWidthPx: Float) {
         stopVoiceForManualInput()
         val state = _uiState.value
-        if (!state.settings.gestureTyping || state.secureField || state.fieldNoSuggestions) return
+        if (!state.settings.gestureTyping || !state.allowsTypingIntelligence) return
         if (!state.inputMode.isEnglish || state.typingTestActive) return
         val lexicon = gestureLexicon
         if (lexicon.isEmpty() || keys.isEmpty()) return

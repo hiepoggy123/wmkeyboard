@@ -591,9 +591,12 @@ data class KeyboardUiState(
     /** Field class/variation of the focused editor, from EditorInfo. */
     val fieldKind: FieldKind = FieldKind.TEXT,
     /**
-     * The field asked for no IME intelligence (TYPE_TEXT_FLAG_NO_SUGGESTIONS,
-     * or an email/URI/filter/password variation): suggestions, autocorrect,
-     * gesture typing and lexicon learning all stay off.
+     * The field asked the keyboard to hide the *suggestion strip*
+     * (TYPE_TEXT_FLAG_NO_SUGGESTIONS, or an email/URI/filter/password
+     * variation). Strip visibility only — autocorrect, gesture typing,
+     * phonetic composing and learning are gated on [allowsTypingIntelligence]
+     * instead, so a field that silences the strip keeps all of those. The
+     * "Suggestions in every field" setting can override this for text fields.
      */
     val fieldNoSuggestions: Boolean = false,
     /**
@@ -667,6 +670,19 @@ data class KeyboardUiState(
      * gate and indicator reads this rather than the setting alone.
      */
     val incognitoOn: Boolean get() = settings.incognito || fieldIncognito
+
+    /**
+     * Whether to run the full typing engine — autocorrect, apostrophe fixes,
+     * gesture typing, phonetic (Avro) composing and lexicon learning. These
+     * belong to prose entry, so they apply to plain text fields only and are
+     * deliberately independent of [fieldNoSuggestions]: an app that hides the
+     * suggestion strip (Instagram, Google Keep) must not also lose autocorrect
+     * or the ability to type Bengali. Password fields ([secureField]) and
+     * structured fields (email, URI, number, phone, date) opt out — a keypad
+     * has no words to correct and an address should not be second-guessed.
+     */
+    val allowsTypingIntelligence: Boolean
+        get() = !secureField && fieldKind == FieldKind.TEXT
 
     /**
      * Whether keystrokes belong to a typing test rather than to the text
