@@ -75,6 +75,17 @@ val InputMode.isLatinScript: Boolean
 val InputMode.isFixedBengali: Boolean
     get() = this == InputMode.PROBHAT || this == InputMode.JATIYA
 
+/**
+ * Phonetic modes type roman letters that are transliterated to another
+ * script as a unit on commit (Avro → Bengali). Composing here is the input
+ * method itself, not a suggestion feature: without it the roman keys commit
+ * as-is and no Bengali is produced. So it runs even in password fields and
+ * with the suggestion strip off — unlike English composing, which exists
+ * only to feed suggestions.
+ */
+val InputMode.isPhonetic: Boolean
+    get() = this == InputMode.AVRO
+
 /** Visual theme for the keyboard and settings app. */
 enum class ThemeMode { SYSTEM, LIGHT, DARK, AMOLED }
 

@@ -84,6 +84,7 @@ import com.wasimaster.wmkeyboard.core.settings.language
 import com.wasimaster.wmkeyboard.core.settings.isEnglish
 import com.wasimaster.wmkeyboard.core.settings.isFixedBengali
 import com.wasimaster.wmkeyboard.core.settings.isLatinScript
+import com.wasimaster.wmkeyboard.core.settings.isPhonetic
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.ModeField
 import com.wasimaster.wmkeyboard.core.settings.OneHandedMode
@@ -1511,8 +1512,14 @@ class WMKeyboardService : InputMethodService() {
         }
 
         val isWordChar = text.length == 1 && (text[0].isLetter() || text[0] == '\'')
-        val composingMode = !state.inputMode.isFixedBengali &&
-            state.allowsTypingIntelligence && state.settings.suggestions
+        // Avro is a transliterating input method: its composing must run even
+        // in password fields and with the strip off, or the roman keys commit
+        // untransliterated and no Bengali is produced. English composing only
+        // exists to feed suggestions, so it stays gated on those.
+        val composingMode = !state.inputMode.isFixedBengali && (
+            state.inputMode.isPhonetic ||
+                (state.allowsTypingIntelligence && state.settings.suggestions)
+            )
 
         // ":" on a word boundary opens inline emoji search: the colon and the
         // letters after it go into the composing buffer, and refreshSuggestions
