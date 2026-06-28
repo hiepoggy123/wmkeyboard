@@ -14,6 +14,7 @@ import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.VectorConverter
 import androidx.compose.animation.core.VisibilityThreshold
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -1094,14 +1095,23 @@ private val ToolbarSlideSpring = spring(
 )
 
 /**
- * When the strip takes over from the toolbar (the user starts typing), the
- * emoji icon slides across on [ToolbarSlideSpring] while the suggestions
- * themselves fade in. Staggering the fade a beat behind the slide — rather
- * than snapping the words on at full strength the instant the emoji leaves —
- * lets the icon lead the eye into the strip instead of both landing at once.
+ * The strip's candidates fade in when they arrive and out when they leave,
+ * rather than snapping. The fade-in is held a beat behind the emoji's slide
+ * (the icon leads the eye into the strip) and runs long enough to read as a
+ * fade rather than a flash; the fade-out is quicker, since it has to finish
+ * inside the settle beat before the toolbar takes the row (see emptySettled).
  */
 private const val StripContentStaggerMs = 45
-private const val StripContentFadeMs = 110
+private const val StripContentFadeInMs = 200
+private const val StripContentFadeOutMs = 110
+
+/**
+ * Issue-A tools fade: the toolbox and pinned tools materialise as the toolbar
+ * takes over from the strip. Held back a beat so the emoji — which slides
+ * across rather than fading — clears the toolbox slot first, instead of the
+ * two overlapping mid-animation.
+ */
+private const val ToolbarToolsStaggerMs = 55
 
 @Composable
 private fun TopBar(
@@ -1191,39 +1201,55 @@ private fun TopBar(
     val showToolbar = state.panel != PanelMode.NONE || toolbarOverride ||
         (!hasSuggestions && emptySettled && !suggestionsFirst)
 
-    // Fade the strip's suggestion content in when it takes over from the
-    // toolbar, staggered a beat behind the emoji icon's slide (see
-    // [StripContentStaggerMs]). Keyed on the strip appearing, so it plays once
-    // on the toolbar→strip flip and not on every keystroke that follows (the
-    // strip stays up, so the effect never re-fires). The emoji icon carries
-    // its own slide and is left out of this alpha.
-    val stripFade = remember { Animatable(1f) }
-    // The effect below snaps the fade to 0 a frame too late — the suggestions
-    // paint once at full opacity before it runs, so they flash on, vanish,
-    // then fade back (the jitter). This flag catches the toolbar→strip edge
-    // during composition and blanks the content on that first frame, so the
-    // effect only ever has to own the fade upward. [SideEffect] advances the
-    // remembered previous state after the frame commits.
+    // Previous toolbar state, advanced after each frame commits; drives the
+    // synchronous reveal blank for the tools fade below.
     var prevShowToolbar by remember { mutableStateOf(showToolbar) }
-    val stripJustRevealed = prevShowToolbar && !showToolbar && !state.settings.reduceMotion
     SideEffect { prevShowToolbar = showToolbar }
-    LaunchedEffect(showToolbar, state.settings.reduceMotion) {
-        if (showToolbar || state.settings.reduceMotion) {
-            stripFade.snapTo(1f)
-        } else {
-            stripFade.snapTo(0f)
+
+    // The strip renders [shownSuggestions]/[shownEmojiSuggestions] — the last
+    // non-empty candidates — rather than the live state, so a cleared field
+    // fades the old candidates out over [StripContentFadeOutMs] instead of
+    // blanking them the instant state empties. They refresh whenever real
+    // candidates arrive and are held (behind alpha 0) once they leave.
+    val suggestionsShowing = state.suggestions.isNotEmpty() || state.emojiSuggestions.isNotEmpty()
+    var shownSuggestions by remember { mutableStateOf(state.suggestions) }
+    var shownEmojiSuggestions by remember { mutableStateOf(state.emojiSuggestions) }
+    LaunchedEffect(state.suggestions, state.emojiSuggestions) {
+        if (state.suggestions.isNotEmpty() || state.emojiSuggestions.isNotEmpty()) {
+            shownSuggestions = state.suggestions
+            shownEmojiSuggestions = state.emojiSuggestions
+        }
+    }
+    // Fade in when candidates arrive, out when they go. Keyed on presence, not
+    // on the strip appearing, so the fade tracks the candidates themselves:
+    // it starts when they actually land (after the compute) rather than during
+    // the empty beat before, and it only re-fires when they truly come or go —
+    // never mid-word, since the engine updates in place without emptying first.
+    // Initialised to the current state so a strip that opens with candidates
+    // already up doesn't fade them in from nothing.
+    val stripContentAlpha = remember { Animatable(if (suggestionsShowing) 1f else 0f) }
+    LaunchedEffect(suggestionsShowing, state.settings.reduceMotion) {
+        if (state.settings.reduceMotion) {
+            stripContentAlpha.snapTo(if (suggestionsShowing) 1f else 0f)
+        } else if (suggestionsShowing) {
+            // Let the emoji lead into the strip before the words follow. Linear
+            // rather than the default eased curve, which front-loads the ramp
+            // and made even a long fade read as an instant pop.
             delay(StripContentStaggerMs.toLong())
-            stripFade.animateTo(1f, tween(StripContentFadeMs))
+            stripContentAlpha.animateTo(1f, tween(StripContentFadeInMs, easing = LinearEasing))
+        } else {
+            stripContentAlpha.animateTo(0f, tween(StripContentFadeOutMs, easing = LinearEasing))
         }
     }
 
     // The toolbar's tools are freshly composed when it takes over from the
     // strip, so [animatePlacement] settles them in place with no motion — they
     // pop while the emoji (which hands its position across) slides. Fade the
-    // tools in over the same beat so the arrival reads as one gesture. The
-    // emoji is left out: its slide is the throughline and a fade washes it out.
-    // Blanked synchronously on the reveal frame for the same reason the strip
-    // fade is (see [stripJustRevealed]) — an effect-only snap flashes first.
+    // tools in, held a beat behind the emoji's slide so the icon clears the
+    // toolbox slot first (see [ToolbarToolsStaggerMs]) rather than fading in
+    // over it. The emoji is left out: its slide is the throughline a fade
+    // washes out. Blanked synchronously on the reveal frame ([toolbarJustRevealed])
+    // so the tools don't paint one frame at full opacity before the snap.
     val toolsFade = remember { Animatable(1f) }
     val toolbarJustRevealed = !prevShowToolbar && showToolbar && !state.settings.reduceMotion
     LaunchedEffect(showToolbar, state.settings.reduceMotion) {
@@ -1231,6 +1257,7 @@ private fun TopBar(
             toolsFade.snapTo(1f)
         } else {
             toolsFade.snapTo(0f)
+            delay(ToolbarToolsStaggerMs.toLong())
             toolsFade.animateTo(1f, tween(ToolbarMotionMs))
         }
     }
@@ -1467,13 +1494,14 @@ private fun TopBar(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxHeight()
-                    // Fades in a beat behind the emoji's slide on the
-                    // toolbar→strip flip; full strength once the strip settles.
-                    // Blank on the reveal frame so it never flashes on first.
-                    .graphicsLayer { alpha = if (stripJustRevealed) 0f else stripFade.value },
+                    // Fades in a beat behind the emoji's slide as candidates
+                    // arrive, and out as they leave (see [stripContentAlpha]).
+                    .graphicsLayer { alpha = stripContentAlpha.value },
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                val ranked = state.suggestions.take(3)
+                // The held set, so a cleared field fades the last words out
+                // rather than blanking them; taps are gated to the live ones.
+                val ranked = shownSuggestions.take(3)
                 // Gboard convention: the primary candidate sits in the middle
                 // slot with the runner-up on its left. The commit path still
                 // uses the engine's order — this is display-only.
@@ -1495,7 +1523,7 @@ private fun TopBar(
                         modifier = Modifier
                             .weight(1f)
                             .fillMaxHeight()
-                            .clickable { onSuggestion(suggestion) },
+                            .clickable(enabled = suggestionsShowing) { onSuggestion(suggestion) },
                         contentAlignment = Alignment.Center,
                     ) {
                         Text(
@@ -1511,13 +1539,14 @@ private fun TopBar(
                 }
             }
             // Emoji candidates ride along after the words: typing "birthday"
-            // puts 🎂 🎉 🥳 🎁 one tap away.
-            for (emoji in state.emojiSuggestions.take(4)) {
+            // puts 🎂 🎉 🥳 🎁 one tap away. Held set, so they fade out with
+            // the words rather than vanishing; taps gated to the live ones.
+            for (emoji in shownEmojiSuggestions.take(4)) {
                 Box(
                     modifier = Modifier
                         .fillMaxHeight()
-                        .graphicsLayer { alpha = if (stripJustRevealed) 0f else stripFade.value }
-                        .clickable { onEmojiSuggestion(emoji) }
+                        .graphicsLayer { alpha = stripContentAlpha.value }
+                        .clickable(enabled = suggestionsShowing) { onEmojiSuggestion(emoji) }
                         .padding(horizontal = 5.dp),
                     contentAlignment = Alignment.Center,
                 ) {
