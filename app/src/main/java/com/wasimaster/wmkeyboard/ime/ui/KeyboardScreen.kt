@@ -1133,13 +1133,6 @@ private fun TopBar(
     // strip plus the chevron into the toolbar); the override then survives
     // idle gaps and instead resets when fresh candidates arrive.
     val suggestionsFirst = state.settings.suggestionsFirst && state.settings.suggestions
-    LaunchedEffect(hasSuggestions) {
-        if (suggestionsFirst) {
-            if (hasSuggestions) toolbarOverride = false
-        } else {
-            if (!hasSuggestions) toolbarOverride = false
-        }
-    }
     // The emoji panel is already all emojis — showing the row too would be
     // redundant, so opening the panel folds the row away.
     //
@@ -1165,12 +1158,34 @@ private fun TopBar(
     // bar with nothing in it, which is what made clearing a field look like
     // the keyboard had stalled before the toolbar arrived.
     var emptySettled by remember { mutableStateOf(true) }
+    // One effect owns both the settle beat and the override reset, so the
+    // override's live value can be read before it is cleared — two effects
+    // racing on the same key left showToolbar reading a half-updated pair.
     LaunchedEffect(hasSuggestions) {
         if (hasSuggestions) {
             emptySettled = false
+            // Suggestions-first rests on the strip, so a hand-opened toolbar
+            // override only clears once fresh candidates actually arrive.
+            if (suggestionsFirst) toolbarOverride = false
         } else {
-            delay(120)
-            emptySettled = true
+            // Is the hand-opened toolbar the surface right now? Captured before
+            // the reset just below clears it.
+            val leavingOverrideToolbar = toolbarOverride && !suggestionsFirst
+            // Candidates left: drop the override so the next ones show as
+            // candidates again instead of staying hidden behind the toolbar.
+            if (!suggestionsFirst) toolbarOverride = false
+            if (leavingOverrideToolbar) {
+                // Already on the toolbar the user opened by hand, and with no
+                // suggestions the resting surface is the toolbar too — so hand
+                // straight across, no settle gap. Delaying instead collapsed
+                // the bar to an empty strip for that beat and bounced back: the
+                // flip-flop that flung the emoji out to the row edge and popped
+                // every other tool.
+                emptySettled = true
+            } else {
+                delay(120)
+                emptySettled = true
+            }
         }
     }
     val showToolbar = state.panel != PanelMode.NONE || toolbarOverride ||
@@ -1201,6 +1216,25 @@ private fun TopBar(
             stripFade.animateTo(1f, tween(StripContentFadeMs))
         }
     }
+
+    // The toolbar's tools are freshly composed when it takes over from the
+    // strip, so [animatePlacement] settles them in place with no motion — they
+    // pop while the emoji (which hands its position across) slides. Fade the
+    // tools in over the same beat so the arrival reads as one gesture. The
+    // emoji is left out: its slide is the throughline and a fade washes it out.
+    // Blanked synchronously on the reveal frame for the same reason the strip
+    // fade is (see [stripJustRevealed]) — an effect-only snap flashes first.
+    val toolsFade = remember { Animatable(1f) }
+    val toolbarJustRevealed = !prevShowToolbar && showToolbar && !state.settings.reduceMotion
+    LaunchedEffect(showToolbar, state.settings.reduceMotion) {
+        if (!showToolbar || state.settings.reduceMotion) {
+            toolsFade.snapTo(1f)
+        } else {
+            toolsFade.snapTo(0f)
+            toolsFade.animateTo(1f, tween(ToolbarMotionMs))
+        }
+    }
+    val toolContentAlpha = { if (toolbarJustRevealed) 0f else toolsFade.value }
 
     Row(
         modifier = Modifier
@@ -1312,14 +1346,17 @@ private fun TopBar(
             }
         }
         if (showToolbar) {
-            ToolbarRow(state, onPanelChange, onToolTap, drag)
+            ToolbarRow(state, onPanelChange, onToolTap, drag, toolContentAlpha)
             if (state.settings.emojiBarMode == EmojiBarMode.BUTTON) {
                 IconButton(
                     onClick = {
                         feedback()
                         emojiBarOpen = true
                     },
-                    modifier = Modifier.size(36.dp),
+                    modifier = Modifier
+                        .size(36.dp)
+                        // Fades in with the rest of the tools on strip→toolbar.
+                        .graphicsLayer { alpha = toolContentAlpha() },
                 ) {
                     Icon(
                         Icons.Outlined.EmojiEmotions,
@@ -2613,6 +2650,10 @@ private fun RowScope.ToolbarRow(
     onPanelChange: (PanelMode) -> Unit,
     onToolTap: (ToolbarTool) -> Unit,
     drag: ToolDragController,
+    // Opacity for the tools while the toolbar fades in from the strip. The
+    // emoji is exempt (it hands its position across and slides instead), so
+    // this rides the toolbox launcher and the pinned tools, not that icon.
+    contentAlpha: () -> Float = { 1f },
 ) {
     val customizing = state.panel == PanelMode.TOOLBOX
     // Scrolling wants the tools at their natural width, so it overrides the
@@ -2711,7 +2752,9 @@ private fun RowScope.ToolbarRow(
                 icon = Icons.Outlined.GridView,
                 description = "Toolbox",
                 active = customizing,
-                modifier = Modifier.animatePlacement(enabled = motion) { drag.bodyCoords },
+                modifier = Modifier
+                    .graphicsLayer { alpha = contentAlpha() }
+                    .animatePlacement(enabled = motion) { drag.bodyCoords },
                 longPressLabel = "Toolbox",
             ) { onPanelChange(PanelMode.TOOLBOX) }
         }
@@ -2726,7 +2769,15 @@ private fun RowScope.ToolbarRow(
                 } else {
                     Modifier.padding(horizontal = 3.dp)
                 }
-                Box(cell, contentAlignment = Alignment.Center) {
+                // The emoji slides its position across the strip↔toolbar swap,
+                // so it stays opaque; the rest of the tools fade in with the
+                // toolbar (see [contentAlpha]) instead of popping.
+                val fadedCell = if (tool == ToolbarTool.EMOJI) {
+                    cell
+                } else {
+                    cell.graphicsLayer { alpha = contentAlpha() }
+                }
+                Box(fadedCell, contentAlignment = Alignment.Center) {
                     if (tool == null) {
                         // The drop preview; dragTool is never null when a
                         // ghost entry exists.
