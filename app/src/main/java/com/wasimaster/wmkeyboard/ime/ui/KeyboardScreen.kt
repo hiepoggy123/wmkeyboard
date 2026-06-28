@@ -1106,6 +1106,18 @@ private const val StripContentFadeInMs = 200
 private const val StripContentFadeOutMs = 110
 
 /**
+ * How long the strip waits, after the candidates go empty, before it starts
+ * hiding them. Fast typing empties the strip for a frame or two between
+ * keystrokes (the engine clears then refills across the async compute), and
+ * hiding on the first empty made the candidates pulse out and back in on every
+ * keystroke. The hide is deferred by this beat; a fresh candidate landing
+ * inside it cancels the pending hide, so a continuous typing burst never
+ * flickers. Sized under the space of one relaxed keystroke so a genuine stop
+ * still clears promptly.
+ */
+private const val StripHideDebounceMs = 300
+
+/**
  * Issue-A tools fade: the toolbox and pinned tools materialise as the toolbar
  * takes over from the strip. Held back a beat so the emoji — which slides
  * across rather than fading — clears the toolbox slot first, instead of the
@@ -1162,11 +1174,12 @@ private fun TopBar(
     // makes the whole bar flicker on every space. The toolbar only takes
     // over once the strip has stayed empty for a beat.
     //
-    // A short beat. Most commits now refill the strip in the same frame they
-    // clear it (nextWordStrip, in the service), so this only has to cover a
-    // genuinely empty result — and every millisecond of it is spent showing a
-    // bar with nothing in it, which is what made clearing a field look like
-    // the keyboard had stalled before the toolbar arrived.
+    // The beat is the hide debounce (which absorbs the typing-burst gaps, see
+    // [StripHideDebounceMs]) plus the content fade-out, so the candidates
+    // finish fading before the toolbar takes the row rather than being cut
+    // mid-fade. During the debounce the strip still shows the last candidates
+    // (held behind alpha 1), not an empty bar, so this no longer reads as the
+    // keyboard stalling on a blank strip.
     var emptySettled by remember { mutableStateOf(true) }
     // One effect owns both the settle beat and the override reset, so the
     // override's live value can be read before it is cleared — two effects
@@ -1193,7 +1206,7 @@ private fun TopBar(
                 // every other tool.
                 emptySettled = true
             } else {
-                delay(120)
+                delay((StripHideDebounceMs + StripContentFadeOutMs).toLong())
                 emptySettled = true
             }
         }
@@ -1230,7 +1243,15 @@ private fun TopBar(
     val stripContentAlpha = remember { Animatable(if (suggestionsShowing) 1f else 0f) }
     LaunchedEffect(suggestionsShowing, state.settings.reduceMotion) {
         if (state.settings.reduceMotion) {
-            stripContentAlpha.snapTo(if (suggestionsShowing) 1f else 0f)
+            // No fade, but the hide still debounces so a typing-burst gap
+            // doesn't blink the strip off and back on. Deferring a snap adds no
+            // motion, so reduce-motion is honoured.
+            if (suggestionsShowing) {
+                stripContentAlpha.snapTo(1f)
+            } else {
+                delay(StripHideDebounceMs.toLong())
+                stripContentAlpha.snapTo(0f)
+            }
         } else if (suggestionsShowing) {
             // Let the emoji lead into the strip before the words follow. Linear
             // rather than the default eased curve, which front-loads the ramp
@@ -1238,6 +1259,10 @@ private fun TopBar(
             delay(StripContentStaggerMs.toLong())
             stripContentAlpha.animateTo(1f, tween(StripContentFadeInMs, easing = LinearEasing))
         } else {
+            // Defer the hide: the effect is keyed on presence, so a candidate
+            // landing inside the debounce cancels this and restarts the fade-in
+            // branch (a no-op at alpha 1) — the pulse fast typing used to cause.
+            delay(StripHideDebounceMs.toLong())
             stripContentAlpha.animateTo(0f, tween(StripContentFadeOutMs, easing = LinearEasing))
         }
     }
