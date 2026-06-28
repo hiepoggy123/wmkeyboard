@@ -16,6 +16,10 @@
          are read into memory for the suggestion strip, never stored. -->
     <uses-permission android:name="android.permission.READ_CONTACTS" />
 
+    <!-- Only used by the optional calendar tool to list the day's events;
+         read-only, never written, and only queried while the tool is open. -->
+    <uses-permission android:name="android.permission.READ_CALENDAR" />
+
     <!-- Only used by the optional "Show source app" clipboard setting; lets the
          keyboard note which app a clip was copied from. The user grants it
          explicitly in system Settings (Usage Access); off by default. -->
@@ -92,6 +96,15 @@
              android.permission.WRITE_EXTERNAL_STORAGE (API 24-28 only). -->
         <activity
             android:name="com.wasimaster.wmkeyboard.app.StoragePermissionActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:noHistory="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
+        <!-- Same trampoline pattern for the calendar tool's
+             android.permission.READ_CALENDAR. -->
+        <activity
+            android:name="com.wasimaster.wmkeyboard.app.CalendarPermissionActivity"
             android:excludeFromRecents="true"
             android:exported="false"
             android:noHistory="true"

@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -84,6 +85,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -95,6 +97,8 @@ import com.wasimaster.wmkeyboard.app.ThemePreview
 import com.wasimaster.wmkeyboard.core.theme.BuiltInThemes
 import com.wasimaster.wmkeyboard.core.theme.DEFAULT_THEME_ID
 import com.wasimaster.wmkeyboard.core.tools.CalendarSystems
+import com.wasimaster.wmkeyboard.core.tools.DeviceCalendar
+import com.wasimaster.wmkeyboard.core.tools.DeviceCalendarEvent
 import com.wasimaster.wmkeyboard.core.tools.MoonPhase
 import com.wasimaster.wmkeyboard.core.tools.Qibla
 import com.wasimaster.wmkeyboard.core.tools.WeatherClient
@@ -115,9 +119,14 @@ import kotlin.math.min
 import kotlin.math.roundToInt
 import kotlin.math.sin
 import kotlin.math.sqrt
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 // ---- shared bits ----
 
@@ -819,12 +828,14 @@ internal fun WeatherPanel(
 /**
  * Month calendar: Gregorian grid with the Bengali (revised Bangladeshi)
  * date inside each cell, month spans for the enabled calendars in the
- * header, a Today shortcut, and insert chips for the selected date.
+ * header, and a Today shortcut. Tapping a day shows that day's summary
+ * across the enabled calendars and its events read from the device
+ * calendar (read-only; [onRequestPermission] asks for READ_CALENDAR).
  */
 @Composable
 internal fun CalendarPanel(
     state: KeyboardUiState,
-    onInsert: (String) -> Unit,
+    onRequestPermission: () -> Unit,
 ) {
     val kb = LocalKbTheme.current
     val today = remember {
@@ -1031,7 +1042,7 @@ internal fun CalendarPanel(
                 }
             }
         }
-        // Selected date across the enabled calendars, with insert chips.
+        // Selected date across the enabled calendars, then its events.
         val gregorianText = remember(selected) {
             SimpleDateFormat("d MMMM yyyy", Locale.getDefault()).format(
                 Calendar.getInstance().apply {
@@ -1045,9 +1056,6 @@ internal fun CalendarPanel(
             CalendarSystems.bengaliDigits(bengali.year)
         val hijri = CalendarSystems.toHijri(selected.year, selected.month, selected.day, hijriAdjust)
         val hijriText = "${hijri.day} ${CalendarSystems.hijriMonths[hijri.month - 1]} ${hijri.year} AH"
-        // One summary line, not a stack of per-calendar insert rows: the
-        // extra chips were four ways to type nearly the same string, and the
-        // panel paid for them with height the day grid wanted.
         val weekdayText = remember(selected) {
             SimpleDateFormat("EEEE", Locale.getDefault()).format(
                 Calendar.getInstance().apply {
@@ -1064,53 +1072,173 @@ internal fun CalendarPanel(
             -1 -> "Yesterday"
             else -> if (relativeDays > 0) "in $relativeDays days" else "${-relativeDays} days ago"
         }
-        // The alternate calendars ride along as context on the second line
-        // rather than earning an insert chip each.
+        // The alternate calendars ride along as context on the second line.
         val altText = buildList {
             if (showBengali) add(bengaliText)
             if (showHijri) add(hijriText)
         }.joinToString(" · ")
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 4.dp, bottom = 2.dp),
+                .padding(top = 4.dp),
+        ) {
+            Text(
+                gregorianText,
+                color = kb.modifierKeyText,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Medium,
+                maxLines = 1,
+            )
+            Text(
+                if (altText.isEmpty()) "$weekdayText · $relativeText"
+                else "$weekdayText · $relativeText · $altText",
+                color = kb.secondaryText,
+                fontSize = 11.sp,
+                maxLines = 1,
+            )
+        }
+        CalendarDayEvents(
+            selected = selected,
+            onRequestPermission = onRequestPermission,
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(max = 116.dp),
+        )
+    }
+}
+
+/**
+ * The selected day's events read from the device calendar. Shows a compact
+ * permission prompt until READ_CALENDAR is granted; after that it queries
+ * on a background thread whenever the selected day changes, and re-checks
+ * the grant when the keyboard returns to the foreground (the system dialog
+ * lives in a trampoline activity, like the camera tool).
+ */
+@Composable
+private fun CalendarDayEvents(
+    selected: CalendarSystems.SimpleDate,
+    onRequestPermission: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val kb = LocalKbTheme.current
+    val feedback = LocalKeyPressFeedback.current
+    val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    var hasPermission by remember { mutableStateOf(hasCalendarPermission(context)) }
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) hasPermission = hasCalendarPermission(context)
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    if (!hasPermission) {
+        Row(
+            modifier = modifier.padding(top = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Column(modifier = Modifier.weight(1f)) {
+            Text(
+                "See your calendar events for the day right here.",
+                color = kb.secondaryText,
+                fontSize = 12.sp,
+                modifier = Modifier.weight(1f),
+            )
+            Box(
+                modifier = Modifier
+                    .padding(start = 8.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(kb.toolCircleActive)
+                    .clickable {
+                        feedback()
+                        onRequestPermission()
+                    }
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
+            ) {
                 Text(
-                    gregorianText,
-                    color = kb.modifierKeyText,
-                    fontSize = 13.sp,
+                    "Allow",
+                    color = kb.toolCircleActiveIcon,
+                    fontSize = 12.sp,
                     fontWeight = FontWeight.Medium,
-                    maxLines = 1,
-                )
-                Text(
-                    if (altText.isEmpty()) "$weekdayText · $relativeText"
-                    else "$weekdayText · $relativeText · $altText",
-                    color = kb.secondaryText,
-                    fontSize = 11.sp,
-                    maxLines = 1,
                 )
             }
-            InsertChip("Insert") { onInsert(gregorianText) }
+        }
+        return
+    }
+
+    // null = still loading; empty = queried, nothing scheduled.
+    var events by remember { mutableStateOf<List<DeviceCalendarEvent>?>(null) }
+    LaunchedEffect(selected, hasPermission) {
+        events = null
+        events = withContext(Dispatchers.IO) {
+            DeviceCalendar.eventsForDay(context, selected.year, selected.month, selected.day)
+        }
+    }
+
+    val list = events
+    when {
+        list == null -> Unit
+        list.isEmpty() -> Text(
+            "No events",
+            color = kb.secondaryText,
+            fontSize = 12.sp,
+            modifier = modifier.padding(top = 6.dp),
+        )
+        else -> {
+            val timeFormat = remember { SimpleDateFormat("h:mm a", Locale.getDefault()) }
+            Column(
+                modifier = modifier
+                    .padding(top = 2.dp)
+                    .verticalScroll(rememberScrollState()),
+            ) {
+                for (event in list) EventRow(event, timeFormat)
+            }
         }
     }
 }
 
-/** Small tap target that types a date representation into the editor. */
+/** One event line: a colour dot, the title, and its time (and location). */
 @Composable
-private fun InsertChip(label: String, onClick: () -> Unit) {
+private fun EventRow(event: DeviceCalendarEvent, timeFormat: SimpleDateFormat) {
     val kb = LocalKbTheme.current
-    Box(
+    Row(
         modifier = Modifier
-            .clip(RoundedCornerShape(12.dp))
-            .background(kb.toolCircleActive)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 10.dp, vertical = 5.dp),
+            .fillMaxWidth()
+            .padding(vertical = 3.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(label, color = kb.toolCircleActiveIcon, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+        Box(
+            modifier = Modifier
+                .size(8.dp)
+                .clip(CircleShape)
+                .background(if (event.color != 0) Color(event.color) else kb.accent),
+        )
+        Column(modifier = Modifier.padding(start = 8.dp).weight(1f)) {
+            Text(
+                event.title,
+                color = kb.modifierKeyText,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Medium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            val time = if (event.allDay) "All day" else timeFormat.format(Date(event.begin))
+            Text(
+                event.location?.let { "$time · $it" } ?: time,
+                color = kb.secondaryText,
+                fontSize = 11.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
     }
 }
+
+/** Whether the calendar tool may read the device calendar. */
+internal fun hasCalendarPermission(context: Context): Boolean =
+    ContextCompat.checkSelfPermission(context, android.Manifest.permission.READ_CALENDAR) ==
+        android.content.pm.PackageManager.PERMISSION_GRANTED
 
 // ---- themes ----
 

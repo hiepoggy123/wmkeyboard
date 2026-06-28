@@ -977,9 +977,9 @@ internal fun SliderSetting(
 
 /**
  * Restores the toolbar's default pins ([DefaultToolbarTools]) from Settings —
- * the global set. A mode's own pinned toolbar is reset from the keyboard
- * itself (toolbox → reset), which knows which mode is live. Confirms first,
- * since it discards whatever the user dragged onto the bar.
+ * the global set. A mode's own pinned toolbar is reset from that mode's
+ * editor (Keyboard modes → the mode → turn off "Custom pinned tools").
+ * Confirms first, since it discards whatever the user dragged onto the bar.
  */
 @Composable
 private fun ResetPinnedToolsSetting(repository: SettingsRepository, scope: CoroutineScope) {
@@ -1002,7 +1002,7 @@ private fun ResetPinnedToolsSetting(repository: SettingsRepository, scope: Corou
                 Text(
                     "The toolbar goes back to its default tools. Tools you pinned or " +
                         "removed by hand are forgotten. This affects the global toolbar; a " +
-                        "mode's own toolbar is reset from the keyboard's toolbox.",
+                        "mode's own toolbar is reset from that mode's editor.",
                 )
             },
             confirmButton = {
@@ -3249,7 +3249,7 @@ internal fun toolDescription(tool: ToolbarTool): String = when (tool) {
     ToolbarTool.REDO -> "One tap sends the editor's redo shortcut"
     ToolbarTool.MOON_PHASE -> "Current phase, illumination, next full/new moon"
     ToolbarTool.WEATHER -> "Current conditions for a saved location"
-    ToolbarTool.CALENDAR -> "Month view with Bengali and Hijri dates"
+    ToolbarTool.CALENDAR -> "Month view with your events, Bengali and Hijri dates"
     ToolbarTool.INCOGNITO -> "One tap pauses learning and clipboard capture"
     ToolbarTool.THEMES -> "Quick theme switcher on the keyboard"
     ToolbarTool.AUTOCORRECT -> "One tap turns autocorrect on or off"
@@ -3676,37 +3676,44 @@ private fun ToolDetailSettings(
                     "them — the keyboard makes no other network requests.",
             )
         }
-        ToolbarTool.CALENDAR -> SettingsGroup("Calendars") {
-            item {
-                ToggleSetting(
-                    "Bengali calendar",
-                    "বঙ্গাব্দ (revised Bangladeshi calendar) alongside dates",
-                    settings.calendarShowBengali,
-                ) { scope.launch { repository.setCalendarShowBengali(it) } }
-            }
-            item {
-                ToggleSetting(
-                    "Hijri calendar",
-                    "Islamic (tabular) calendar alongside dates",
-                    settings.calendarShowHijri,
-                ) { scope.launch { repository.setCalendarShowHijri(it) } }
-            }
-            if (settings.calendarShowHijri) {
+        ToolbarTool.CALENDAR -> {
+            SettingsGroup("Calendars") {
                 item {
-                    SliderSetting(
-                        "Hijri day adjustment",
-                        subtitle = "Shift the computed Hijri date to match local moon sighting",
-                        value = settings.hijriAdjustDays.toFloat(),
-                        range = -2f..2f,
-                        display = if (settings.hijriAdjustDays > 0) "+${settings.hijriAdjustDays} d"
-                            else "${settings.hijriAdjustDays} d",
-                        info = "The tool uses the arithmetic (tabular) Hijri calendar. " +
-                            "Real Islamic months begin at the sighting of the crescent, " +
-                            "which can differ from the tables by a day or two either " +
-                            "way — set the offset that matches your local authority.",
-                    ) { scope.launch { repository.setHijriAdjustDays(it.roundToInt()) } }
+                    ToggleSetting(
+                        "Bengali calendar",
+                        "বঙ্গাব্দ (revised Bangladeshi calendar) alongside dates",
+                        settings.calendarShowBengali,
+                    ) { scope.launch { repository.setCalendarShowBengali(it) } }
+                }
+                item {
+                    ToggleSetting(
+                        "Hijri calendar",
+                        "Islamic (tabular) calendar alongside dates",
+                        settings.calendarShowHijri,
+                    ) { scope.launch { repository.setCalendarShowHijri(it) } }
+                }
+                if (settings.calendarShowHijri) {
+                    item {
+                        SliderSetting(
+                            "Hijri day adjustment",
+                            subtitle = "Shift the computed Hijri date to match local moon sighting",
+                            value = settings.hijriAdjustDays.toFloat(),
+                            range = -2f..2f,
+                            display = if (settings.hijriAdjustDays > 0) "+${settings.hijriAdjustDays} d"
+                                else "${settings.hijriAdjustDays} d",
+                            info = "The tool uses the arithmetic (tabular) Hijri calendar. " +
+                                "Real Islamic months begin at the sighting of the crescent, " +
+                                "which can differ from the tables by a day or two either " +
+                                "way — set the offset that matches your local authority.",
+                        ) { scope.launch { repository.setHijriAdjustDays(it.roundToInt()) } }
+                    }
                 }
             }
+            CaptionText(
+                "Tapping a day shows its events from your device calendar. The keyboard " +
+                    "asks for calendar access the first time you open the tool; it only " +
+                    "reads events, never changes them.",
+            )
         }
         ToolbarTool.CAMERA -> {
             SettingsGroup("Options") {

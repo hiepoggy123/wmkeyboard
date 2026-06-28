@@ -115,7 +115,6 @@ import androidx.compose.material.icons.outlined.EmojiSymbols
 import androidx.compose.material.icons.outlined.Fastfood
 import androidx.compose.material.icons.outlined.Fullscreen
 import androidx.compose.material.icons.outlined.GridView
-import androidx.compose.material.icons.outlined.RestartAlt
 import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Pets
@@ -275,7 +274,6 @@ import com.wasimaster.wmkeyboard.core.gesture.KeyCenter
 import com.wasimaster.wmkeyboard.core.handwriting.HwPoint
 import com.wasimaster.wmkeyboard.core.handwriting.HwStroke
 import com.wasimaster.wmkeyboard.core.settings.BarRow
-import com.wasimaster.wmkeyboard.core.settings.DefaultToolbarTools
 import com.wasimaster.wmkeyboard.core.settings.EmojiBarContent
 import com.wasimaster.wmkeyboard.core.settings.GrammarDialect
 import com.wasimaster.wmkeyboard.core.settings.KeyboardMode
@@ -514,6 +512,7 @@ fun KeyboardScreen(
     onWeatherRefresh: () -> Unit = {},
     onCameraSend: (java.io.File) -> Unit = {},
     onCameraPermissionRequest: () -> Unit = {},
+    onCalendarPermissionRequest: () -> Unit = {},
     onScannedInsert: (String) -> Unit = {},
     onScannedUrlOpen: (String) -> Unit = {},
     onDocScan: () -> Unit = {},
@@ -709,6 +708,7 @@ fun KeyboardScreen(
                 onWeatherRefresh = onWeatherRefresh,
                 onCameraSend = onCameraSend,
                 onCameraPermissionRequest = onCameraPermissionRequest,
+                onCalendarPermissionRequest = onCalendarPermissionRequest,
                 onScannedInsert = onScannedInsert,
                 onScannedUrlOpen = onScannedUrlOpen,
                 onVoiceToggle = onVoiceToggle,
@@ -2956,12 +2956,10 @@ private fun ToolboxPanel(
             .height(height)
             .onGloballyPositioned { drag.toolboxViewport = it.boundsInRoot() },
     ) {
-        // A slim always-present header: the hint (until dismissed) plus a
-        // reset that restores the default pins. Reset routes through the same
-        // commit as a drag, so with a mode owning the tool order it resets that
-        // mode's toolbar, otherwise the global one — matching the hint's text.
-        run {
-            val resetFeedback = LocalKeyPressFeedback.current
+        // A slim header carrying the drag hint until it's dismissed. Resetting
+        // the pinned tools now lives in Settings → Appearance ("Reset pinned
+        // tools"), so the toolbox no longer shows its own reset control.
+        if (hintVisible) {
             val activeMode = state.settings.keyboardModes
                 .firstOrNull { it.id == state.activeModeId }
                 ?.takeIf { state.settings.modeToolOrderEdits && it.ownsToolOrder }
@@ -2971,54 +2969,35 @@ private fun ToolboxPanel(
                     .padding(start = 24.dp, end = 8.dp, top = 4.dp, bottom = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                if (hintVisible) {
-                    // With a mode on, the arrangement being edited is that
-                    // mode's own — say so, or the same keyboard looking
-                    // different in the next app reads as the drag being lost.
-                    Text(
-                        if (activeMode != null) {
-                            "${activeMode.name} mode is on, so this arrangement is saved for it — " +
-                                "other apps keep their own. Hold and drag a tool onto the toolbar to " +
-                                "pin it, around this grid to reorder, or down here to remove it."
-                        } else {
-                            "Hold and drag a tool onto the toolbar to pin it, around this grid to reorder — or drag a toolbar tool down here to remove it."
-                        },
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.weight(1f),
-                    )
-                } else {
-                    Spacer(Modifier.weight(1f))
-                }
-                ToolCircle(
-                    icon = Icons.Outlined.RestartAlt,
-                    description = if (activeMode != null) {
-                        "Reset ${activeMode.name} toolbar to default tools"
+                // With a mode on, the arrangement being edited is that mode's
+                // own — say so, or the same keyboard looking different in the
+                // next app reads as the drag being lost.
+                Text(
+                    if (activeMode != null) {
+                        "${activeMode.name} mode is on, so this arrangement is saved for it — " +
+                            "other apps keep their own. Hold and drag a tool onto the toolbar to " +
+                            "pin it, around this grid to reorder, or down here to remove it."
                     } else {
-                        "Reset toolbar to default tools"
+                        "Hold and drag a tool onto the toolbar to pin it, around this grid to reorder — or drag a toolbar tool down here to remove it."
                     },
-                    active = false,
-                    longPressLabel = "Reset pinned tools",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.weight(1f),
+                )
+                IconButton(
+                    onClick = {
+                        hintVisible = false
+                        onHintDismiss()
+                    },
+                    modifier = Modifier.size(28.dp),
                 ) {
-                    resetFeedback()
-                    drag.onCommit(DefaultToolbarTools)
-                }
-                if (hintVisible) {
-                    IconButton(
-                        onClick = {
-                            hintVisible = false
-                            onHintDismiss()
-                        },
-                        modifier = Modifier.size(28.dp),
-                    ) {
-                        Icon(
-                            Icons.Outlined.Close,
-                            contentDescription = "Dismiss hint",
-                            modifier = Modifier.size(16.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
+                    Icon(
+                        Icons.Outlined.Close,
+                        contentDescription = "Dismiss hint",
+                        modifier = Modifier.size(16.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
         }
@@ -3388,6 +3367,7 @@ private fun KeyboardBody(
     onWeatherRefresh: () -> Unit,
     onCameraSend: (java.io.File) -> Unit,
     onCameraPermissionRequest: () -> Unit,
+    onCalendarPermissionRequest: () -> Unit,
     onScannedInsert: (String) -> Unit,
     onScannedUrlOpen: (String) -> Unit,
     onVoiceToggle: () -> Unit,
@@ -3555,7 +3535,7 @@ private fun KeyboardBody(
                 PanelMode.CALENDAR -> FullBleedTool(
                     state, "Calendar",
                     onClose = { onPanelChange(PanelMode.CALENDAR) },
-                ) { CalendarPanel(state, onInsert = onText) }
+                ) { CalendarPanel(state, onRequestPermission = onCalendarPermissionRequest) }
                 PanelMode.THEMES -> ThemesPanel(state, onThemeSelect)
                 PanelMode.SOUND_HAPTICS -> SoundHapticsPanel(state, onSoundHaptic)
                 PanelMode.NUMPAD -> NumpadPanel(state, onText, onKey)

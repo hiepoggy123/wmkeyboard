@@ -34,6 +34,7 @@ import androidx.core.view.inputmethod.EditorInfoCompat
 import androidx.core.view.inputmethod.InputConnectionCompat
 import androidx.core.view.inputmethod.InputContentInfoCompat
 import com.wasimaster.wmkeyboard.BuildConfig
+import com.wasimaster.wmkeyboard.app.CalendarPermissionActivity
 import com.wasimaster.wmkeyboard.app.CameraPermissionActivity
 import com.wasimaster.wmkeyboard.app.DocScanActivity
 import com.wasimaster.wmkeyboard.app.MainActivity
@@ -781,6 +782,7 @@ class WMKeyboardService : InputMethodService() {
                 onWeatherRefresh = { refreshWeather(force = true) },
                 onCameraSend = ::onCameraSend,
                 onCameraPermissionRequest = ::onCameraPermissionRequest,
+                onCalendarPermissionRequest = ::onCalendarPermissionRequest,
                 onScannedInsert = ::onScannedTextInsert,
                 onScannedUrlOpen = ::onScannedUrlOpen,
                 onDocScan = ::onDocScanStart,
@@ -3190,8 +3192,26 @@ class WMKeyboardService : InputMethodService() {
         hwJob?.cancel()
         val generation = ++hwGeneration
         hwJob = serviceScope.launch {
-            delay(_uiState.value.settings.handwritingCommitDelayMs.toLong())
+            delay(handwritingRecognitionDelayMs())
             recognizeAndCommitHandwriting(generation)
+        }
+    }
+
+    /**
+     * Quiet time after the last stroke before recognizing and committing.
+     * Bengali glyphs are built from several strokes — conjuncts, the matra,
+     * vowel signs — and the writer lifts the finger between them; the global
+     * default is short enough that a natural mid-glyph pause commits a
+     * half-written character. Give Bengali a higher floor so a comfortable
+     * inter-stroke pause never triggers an early commit, while still honouring
+     * a longer pause the user set for themselves.
+     */
+    private fun handwritingRecognitionDelayMs(): Long {
+        val base = _uiState.value.settings.handwritingCommitDelayMs.toLong()
+        return if (_uiState.value.handwriting.languageTag == "bn") {
+            maxOf(base, BENGALI_HW_MIN_COMMIT_DELAY_MS)
+        } else {
+            base
         }
     }
 
@@ -4339,6 +4359,15 @@ class WMKeyboardService : InputMethodService() {
     fun onCameraPermissionRequest() {
         startActivity(
             Intent(this, CameraPermissionActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+        )
+    }
+
+    /** Calendar tool's READ_CALENDAR request, via the same trampoline pattern. */
+    fun onCalendarPermissionRequest() {
+        startActivity(
+            Intent(this, CalendarPermissionActivity::class.java).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
         )
@@ -5730,6 +5759,13 @@ class WMKeyboardService : InputMethodService() {
         /** Inline emoji search is a local index lookup — no network wait. */
         private const val EMOJI_SEARCH_DEBOUNCE_MS = 24L
         private const val INLINE_EMOJI_LIMIT = 12
+
+        /**
+         * Floor for the handwriting recognition pause in Bengali. Its
+         * multi-stroke conjuncts need more finger-up time between strokes than
+         * the Latin default, so recognition doesn't fire mid-glyph.
+         */
+        private const val BENGALI_HW_MIN_COMMIT_DELAY_MS = 1200L
         private const val WEATHER_CACHE_MS = 15L * 60 * 1000
         private val SENTENCE_ENDERS = charArrayOf('.', '!', '?', '।')
         private const val SHIFT_DOUBLE_TAP_MS = 350L
