@@ -256,8 +256,11 @@ private fun StepperRow(label: String, value: Int, onChange: (Int) -> Unit) {
 // ---- QR code generator ----
 
 /**
- * Live QR code of whatever is in the focused field (it follows edits like
- * the translate strip). Send commits the code into the chat as a PNG.
+ * QR code of content the user types into the panel itself (keystrokes reroute
+ * into the shared search buffer via [PanelMode.hasMediaSearch], so the key
+ * rows show below). It opens seeded with the field text as a convenience, but
+ * from there it is independent of the focused field. Send commits the code as
+ * a PNG.
  */
 @Composable
 internal fun QrGeneratorPanel(
@@ -265,69 +268,85 @@ internal fun QrGeneratorPanel(
     onSend: () -> Unit,
 ) {
     val kb = LocalKbTheme.current
-    val content = state.qrText
+    val content = state.mediaQuery
     // Preview renders small and cheap; the inserted PNG uses the size setting.
     val bitmap = remember(content, state.settings.qrEcc) {
         QrCodeGen.bitmap(content, sizePx = 384, ecc = state.settings.qrEcc.name)
     }
 
-    Row(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .height(keyRowsHeight(state))
+            .height(148.dp)
             .padding(horizontal = 10.dp, vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (bitmap == null) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text(
-                    if (content.length > QrCodeGen.MAX_CHARS) {
-                        "Too much text for one QR code (${content.length} characters)."
-                    } else {
-                        "Type something in the field first — the QR code follows " +
-                            "whatever the field contains."
-                    },
-                    color = kb.secondaryText,
-                    fontSize = 13.sp,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(horizontal = 24.dp),
-                )
-            }
-        } else {
-            Image(
-                bitmap = bitmap.asImageBitmap(),
-                contentDescription = "QR code",
-                contentScale = ContentScale.Fit,
-                modifier = Modifier
-                    .fillMaxHeight()
-                    .aspectRatio(1f)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(androidx.compose.ui.graphics.Color.White)
-                    .padding(4.dp),
+        // Editable content line with a faked caret — keys reroute into the
+        // buffer, so the platform draws no cursor of its own.
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(18.dp))
+                .background(kb.chip)
+                .padding(horizontal = 12.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            SearchQueryText(
+                query = content.replace("\n", " "),
+                placeholder = "Type QR content on the keys below…",
+                active = state.mediaSearchActive,
+                textColor = kb.suggestionText,
+                placeholderColor = kb.secondaryText,
+                fontSize = 13.sp,
+                modifier = Modifier.weight(1f),
             )
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(start = 12.dp),
-                verticalArrangement = Arrangement.Center,
-            ) {
-                Text(
-                    content,
-                    color = kb.modifierKeyText,
-                    fontSize = 12.sp,
-                    maxLines = 4,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Spacer(Modifier.height(8.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    ToolPanelChip("Send as image") { onSend() }
+        }
+        Spacer(Modifier.height(6.dp))
+        Row(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (bitmap == null) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(
+                        if (content.length > QrCodeGen.MAX_CHARS) {
+                            "Too much text for one QR code (${content.length} characters)."
+                        } else {
+                            "Type on the keys below to build a QR code."
+                        },
+                        color = kb.secondaryText,
+                        fontSize = 13.sp,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                    )
                 }
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    "${content.length} chars · ECC ${state.settings.qrEcc.name}",
-                    color = kb.secondaryText,
-                    fontSize = 10.sp,
+            } else {
+                Image(
+                    bitmap = bitmap.asImageBitmap(),
+                    contentDescription = "QR code",
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .aspectRatio(1f)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(androidx.compose.ui.graphics.Color.White)
+                        .padding(4.dp),
                 )
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(start = 12.dp),
+                    verticalArrangement = Arrangement.Center,
+                ) {
+                    ToolPanelChip("Send as image") { onSend() }
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        "${content.length} chars · ECC ${state.settings.qrEcc.name}",
+                        color = kb.secondaryText,
+                        fontSize = 10.sp,
+                    )
+                }
             }
         }
     }

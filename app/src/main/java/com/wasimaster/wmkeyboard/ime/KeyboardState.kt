@@ -217,7 +217,10 @@ enum class PanelMode {
 val PanelMode.hasMediaSearch: Boolean
     get() = this == PanelMode.GIF || this == PanelMode.STICKER ||
         this == PanelMode.WEB_SEARCH || this == PanelMode.IMAGE_SEARCH ||
-        this == PanelMode.WIKIPEDIA || this == PanelMode.TRANSLATE
+        this == PanelMode.WIKIPEDIA || this == PanelMode.TRANSLATE ||
+        // QR generator reuses the buffer as its own editable content, so it
+        // encodes what the user types rather than the field's text.
+        this == PanelMode.QR_GEN
 
 /** Readiness of the handwriting panel's recognition model. */
 enum class HandwritingStatus { CHECKING, NEED_MODEL, DOWNLOADING, READY, ERROR }
@@ -290,6 +293,7 @@ sealed interface SoundHapticAction {
     data class Haptics(val on: Boolean) : SoundHapticAction
     data class HapticStyleChange(val style: com.wasimaster.wmkeyboard.core.settings.HapticStyle) : SoundHapticAction
     data class HapticAmplitude(val amplitude: Int) : SoundHapticAction
+    data class HapticDuration(val durationMs: Int) : SoundHapticAction
     data class Sound(val on: Boolean) : SoundHapticAction
     data class SoundStyleChange(val style: com.wasimaster.wmkeyboard.core.settings.KeySoundStyle) : SoundHapticAction
     data class SoundVolume(val volume: Float) : SoundHapticAction
@@ -660,8 +664,6 @@ data class KeyboardUiState(
     val wiki: WikiUi = WikiUi.Idle,
     val currency: CurrencyUi = CurrencyUi.Loading,
     val ai: AiUi = AiUi.Idle,
-    /** Focused field's text, mirrored for the QR-generator panel. */
-    val qrText: String = "",
     val typingTest: TypingTestUi = TypingTestUi(),
 ) {
     /**

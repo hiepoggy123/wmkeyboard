@@ -74,6 +74,7 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.scale
@@ -435,36 +436,102 @@ internal fun LevelPanel(state: KeyboardUiState) {
     val roll = Math.toDegrees(atan2(gx.toDouble(), sqrt((gy * gy + gz * gz).toDouble())))
     val flat = abs(pitch) < 1.0 && abs(roll) < 1.0
 
+    // One axis (pitch or roll) is "in the zone" within ~1°; a tube vial turns
+    // accent when its own axis is level, independent of the bullseye's flat.
+    fun axisLevel(g: Float) = abs(g / 9.81f) < 0.02f
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(vertical = 6.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Canvas(
+        Row(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
                 .padding(4.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            val radius = min(size.width, size.height) / 2f - 8.dp.toPx()
-            val center = Offset(size.width / 2f, size.height / 2f)
-            drawCircle(kb.modifierKey, radius, center)
-            drawCircle(kb.toolbarIcon, radius * 0.25f, center, style = Stroke(1.5f))
-            drawCircle(kb.toolbarIcon, radius * 0.65f, center, style = Stroke(1.5f))
-            drawLine(kb.toolbarIcon, center - Offset(radius, 0f), center + Offset(radius, 0f), 1f)
-            drawLine(kb.toolbarIcon, center - Offset(0f, radius), center + Offset(0f, radius), 1f)
-            // The bubble floats toward the raised side, like a real vial.
-            val range = radius - 10.dp.toPx()
-            val bx = (-gx / 9.81f).coerceIn(-1f, 1f) * range
-            val by = (-gy / 9.81f).coerceIn(-1f, 1f) * range
-            val length = sqrt(bx * bx + by * by)
-            val clamped = if (length > range) Offset(bx / length * range, by / length * range)
-                else Offset(bx, by)
+            Canvas(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight(),
+            ) {
+                val radius = min(size.width, size.height) / 2f - 8.dp.toPx()
+                val center = Offset(size.width / 2f, size.height / 2f)
+                drawCircle(kb.modifierKey, radius, center)
+                drawCircle(kb.toolbarIcon, radius * 0.25f, center, style = Stroke(1.5f))
+                drawCircle(kb.toolbarIcon, radius * 0.65f, center, style = Stroke(1.5f))
+                drawLine(kb.toolbarIcon, center - Offset(radius, 0f), center + Offset(radius, 0f), 1f)
+                drawLine(kb.toolbarIcon, center - Offset(0f, radius), center + Offset(0f, radius), 1f)
+                // The bubble floats toward the raised side, like a real vial.
+                val range = radius - 10.dp.toPx()
+                val bx = (-gx / 9.81f).coerceIn(-1f, 1f) * range
+                val by = (-gy / 9.81f).coerceIn(-1f, 1f) * range
+                val length = sqrt(bx * bx + by * by)
+                val clamped = if (length > range) Offset(bx / length * range, by / length * range)
+                    else Offset(bx, by)
+                drawCircle(
+                    if (flat) kb.accent else kb.modifierKeyText,
+                    10.dp.toPx(),
+                    center + Offset(-clamped.x, clamped.y),
+                )
+            }
+            Spacer(Modifier.width(8.dp))
+            // Vertical tube vial: pitch only. Bubble rides toward the raised end.
+            Canvas(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .width(30.dp),
+            ) {
+                val cx = size.width / 2f
+                val pad = 8.dp.toPx()
+                val thickness = (size.width - 6.dp.toPx()).coerceAtLeast(6.dp.toPx())
+                drawLine(
+                    kb.modifierKey, Offset(cx, pad), Offset(cx, size.height - pad),
+                    thickness, cap = StrokeCap.Round,
+                )
+                val bubbleR = (thickness / 2f - 2.dp.toPx()).coerceAtLeast(2f)
+                val markY = size.height / 2f
+                drawLine(kb.toolbarIcon, Offset(cx - thickness / 2f, markY - bubbleR),
+                    Offset(cx + thickness / 2f, markY - bubbleR), 1.5f)
+                drawLine(kb.toolbarIcon, Offset(cx - thickness / 2f, markY + bubbleR),
+                    Offset(cx + thickness / 2f, markY + bubbleR), 1.5f)
+                val range = ((size.height - 2 * pad) / 2f - bubbleR).coerceAtLeast(0f)
+                val off = (-gy / 9.81f).coerceIn(-1f, 1f) * range
+                drawCircle(
+                    if (axisLevel(gy)) kb.accent else kb.modifierKeyText,
+                    bubbleR, Offset(cx, markY + off),
+                )
+            }
+        }
+        Spacer(Modifier.height(6.dp))
+        // Horizontal tube vial: roll only.
+        Canvas(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(30.dp)
+                .padding(horizontal = 6.dp),
+        ) {
+            val cy = size.height / 2f
+            val pad = 8.dp.toPx()
+            val thickness = (size.height - 6.dp.toPx()).coerceAtLeast(6.dp.toPx())
+            drawLine(
+                kb.modifierKey, Offset(pad, cy), Offset(size.width - pad, cy),
+                thickness, cap = StrokeCap.Round,
+            )
+            val bubbleR = (thickness / 2f - 2.dp.toPx()).coerceAtLeast(2f)
+            val markX = size.width / 2f
+            drawLine(kb.toolbarIcon, Offset(markX - bubbleR, cy - thickness / 2f),
+                Offset(markX - bubbleR, cy + thickness / 2f), 1.5f)
+            drawLine(kb.toolbarIcon, Offset(markX + bubbleR, cy - thickness / 2f),
+                Offset(markX + bubbleR, cy + thickness / 2f), 1.5f)
+            val range = ((size.width - 2 * pad) / 2f - bubbleR).coerceAtLeast(0f)
+            val off = (gx / 9.81f).coerceIn(-1f, 1f) * range
             drawCircle(
-                if (flat) kb.accent else kb.modifierKeyText,
-                10.dp.toPx(),
-                center + Offset(-clamped.x, clamped.y),
+                if (axisLevel(gx)) kb.accent else kb.modifierKeyText,
+                bubbleR, Offset(markX + off, cy),
             )
         }
         if (state.settings.levelShowAngles) {
@@ -473,7 +540,7 @@ internal fun LevelPanel(state: KeyboardUiState) {
                 color = if (flat) kb.accent else kb.modifierKeyText,
                 fontSize = 15.sp,
                 fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.padding(bottom = 4.dp),
+                modifier = Modifier.padding(top = 4.dp),
             )
         }
     }
@@ -1335,6 +1402,24 @@ internal fun SoundHapticsPanel(
                     )
                     Text(
                         "${settings.hapticAmplitude * 100 / 255}%",
+                        color = kb.toolbarIcon, fontSize = 11.sp,
+                    )
+                }
+            }
+            // Duration only bites on the custom one-shot path; the predefined
+            // and primitive effects have a HAL-fixed length.
+            if (settings.hapticStyle == HapticStyle.CUSTOM) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Duration", color = kb.toolbarIcon, fontSize = 11.sp,
+                        modifier = Modifier.width(60.dp))
+                    Slider(
+                        value = settings.hapticStrengthMs.toFloat(),
+                        onValueChange = { onAction(SoundHapticAction.HapticDuration(it.toInt())) },
+                        valueRange = 5f..60f,
+                        modifier = Modifier.weight(1f).height(28.dp),
+                    )
+                    Text(
+                        "${settings.hapticStrengthMs} ms",
                         color = kb.toolbarIcon, fontSize = 11.sp,
                     )
                 }

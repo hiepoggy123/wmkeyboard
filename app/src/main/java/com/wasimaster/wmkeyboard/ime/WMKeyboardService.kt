@@ -1078,8 +1078,6 @@ class WMKeyboardService : InputMethodService() {
         // Translate deliberately does NOT — it translates its own typed
         // query, never the field.
         if (_uiState.value.panel == PanelMode.GRAMMAR) scheduleGrammarCheck()
-        // The QR generator mirrors the field text live (local, so cheap).
-        if (_uiState.value.panel == PanelMode.QR_GEN) refreshQrText()
     }
 
     /**
@@ -1504,7 +1502,8 @@ class WMKeyboardService : InputMethodService() {
             text = fixedLayoutContextualVowel(text, state.mediaQuery.lastOrNull())
             _uiState.update { it.copy(mediaQuery = it.mediaQuery + text) }
             refreshKarContext()
-            scheduleMediaLiveSearch()
+            // QR encodes locally as you type — no network search to schedule.
+            if (state.panel != PanelMode.QR_GEN) scheduleMediaLiveSearch()
             return
         }
 
@@ -1855,7 +1854,7 @@ class WMKeyboardService : InputMethodService() {
         }
         if (state.mediaSearchActive && state.panel.hasMediaSearch) {
             _uiState.update { it.copy(mediaQuery = it.mediaQuery + " ") }
-            scheduleMediaLiveSearch()
+            if (state.panel != PanelMode.QR_GEN) scheduleMediaLiveSearch()
             return
         }
 
@@ -1922,6 +1921,12 @@ class WMKeyboardService : InputMethodService() {
         if (state.typingTestActive) return
         if (state.dictionarySearchActive) {
             onDictionaryLookup(state.dictionaryQuery)
+            return
+        }
+        // QR builds its content as you type; Enter adds a newline to the
+        // buffer (WiFi/vCard payloads span lines) rather than searching.
+        if (state.mediaSearchActive && state.panel == PanelMode.QR_GEN) {
+            _uiState.update { it.copy(mediaQuery = it.mediaQuery + "\n") }
             return
         }
         // Enter in a media search box runs the search instead of typing a
@@ -2650,7 +2655,7 @@ class WMKeyboardService : InputMethodService() {
                 // open on trending. Wikipedia keeps a previous
                 // article/results if it has one.
                 mediaSearchActive = next == PanelMode.WEB_SEARCH || next == PanelMode.IMAGE_SEARCH ||
-                    next == PanelMode.TRANSLATE ||
+                    next == PanelMode.TRANSLATE || next == PanelMode.QR_GEN ||
                     (next == PanelMode.WIKIPEDIA && it.wiki !is WikiUi.Article && it.wiki !is WikiUi.SearchResults),
                 mediaDownloadingId = null,
                 translate = TranslateUi(),
@@ -2678,7 +2683,10 @@ class WMKeyboardService : InputMethodService() {
             PanelMode.CURRENCY -> refreshCurrencyRates()
             PanelMode.QR_GEN -> {
                 currentInputConnection?.let { commitComposing(it, autocorrect = false) }
-                refreshQrText()
+                // Seed the editable buffer with the field text as a convenience,
+                // but from here the user edits it freely — the QR no longer
+                // tracks the field.
+                _uiState.update { it.copy(mediaQuery = extractFieldText().trim()) }
             }
             PanelMode.AI -> _uiState.update { it.copy(ai = aiInitialState(it.settings)) }
             PanelMode.TYPING_TEST -> {
@@ -3354,6 +3362,7 @@ class WMKeyboardService : InputMethodService() {
                 is SoundHapticAction.Haptics -> settingsRepository.setHapticFeedback(action.on)
                 is SoundHapticAction.HapticStyleChange -> settingsRepository.setHapticStyle(action.style)
                 is SoundHapticAction.HapticAmplitude -> settingsRepository.setHapticAmplitude(action.amplitude)
+                is SoundHapticAction.HapticDuration -> settingsRepository.setHapticStrengthMs(action.durationMs)
                 is SoundHapticAction.Sound -> settingsRepository.setKeySound(action.on)
                 is SoundHapticAction.SoundStyleChange -> settingsRepository.setKeySoundStyle(action.style)
                 is SoundHapticAction.SoundVolume -> settingsRepository.setKeySoundVolume(action.volume)
@@ -3375,6 +3384,9 @@ class WMKeyboardService : InputMethodService() {
             )
             is SoundHapticAction.HapticAmplitude -> HapticPlayer.preview(
                 this, settings.hapticStyle, action.amplitude, settings.hapticStrengthMs,
+            )
+            is SoundHapticAction.HapticDuration -> HapticPlayer.preview(
+                this, settings.hapticStyle, settings.hapticAmplitude, action.durationMs,
             )
             is SoundHapticAction.Sound -> if (action.on) playKeySound(force = true)
             is SoundHapticAction.SoundStyleChange -> playKeySound(style = action.style, force = true)
@@ -3558,15 +3570,10 @@ class WMKeyboardService : InputMethodService() {
 
     // ---- QR generator tool ----
 
-    /** Mirrors the focused field into [KeyboardUiState.qrText]. */
-    private fun refreshQrText() {
-        _uiState.update { it.copy(qrText = extractFieldText().trim()) }
-    }
-
-    /** Renders the field's QR at the configured size and commits the PNG. */
+    /** Renders the panel's typed QR content at the configured size and commits the PNG. */
     fun onQrSend() {
         val state = _uiState.value
-        val content = state.qrText
+        val content = state.mediaQuery
         if (content.isBlank()) return
         vibrate()
         serviceScope.launch {
@@ -3740,7 +3747,11 @@ class WMKeyboardService : InputMethodService() {
             punctuation = settings.typingTestPunctuation,
             numbers = settings.typingTestNumbers,
         )
-        _uiState.update { it.copy(typingTest = TypingTestUi(words = words)) }
+        // Force shift off: the prompt is lowercase, and a field's auto-cap
+        // would otherwise uppercase the first keystroke into a miss.
+        _uiState.update {
+            it.copy(typingTest = TypingTestUi(words = words), shiftState = ShiftState.OFF)
+        }
     }
 
     /** Cancels the clock; used when the panel closes mid-run. */
