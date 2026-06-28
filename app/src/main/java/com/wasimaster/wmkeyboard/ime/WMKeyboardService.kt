@@ -230,6 +230,8 @@ class WMKeyboardService : InputMethodService() {
     private var composing = StringBuilder()
     private var previousWord: String? = null
     private var lastSpaceTime = 0L
+    /** uptime of the last spacebar/volume caret-scrub step; see [CARET_SCRUB_WINDOW_MS]. */
+    private var lastCaretScrubMs = 0L
     private var lastShiftTapTime = 0L
     private var suggestionJob: Job? = null
 
@@ -1071,10 +1073,18 @@ class WMKeyboardService : InputMethodService() {
         }
         refreshShiftForContext()
         refreshKarContext()
-        // Tool chips read the text around the cursor, so they have to be
-        // re-derived after a cursor jump or an edit made from outside the
-        // keyboard, not only after a keystroke.
-        refreshSmartSuggestion()
+        // Tool chips and the word strip both read the text around the cursor, so
+        // they have to be re-derived after a cursor jump or an edit made from
+        // outside the keyboard, not only after a keystroke. A settled plain
+        // caret re-reads the whole context — the word it landed on and the strip
+        // — via restartSuggestionsAtCursor (which folds in the chip refresh). An
+        // active word still being composed in place, or a range selection being
+        // dragged out, only refreshes the chips.
+        if (composing.isEmpty() && newSelStart == newSelEnd) {
+            currentInputConnection?.let { restartSuggestionsAtCursor(it, newSelStart) }
+        } else {
+            refreshSmartSuggestion()
+        }
         // The grammar strip follows the field: any text or cursor change
         // while it is open re-extracts and re-lints (offline, so cheap).
         // Translate deliberately does NOT — it translates its own typed
@@ -1777,18 +1787,87 @@ class WMKeyboardService : InputMethodService() {
      * predicts from nothing rather than from the fragment it is inside.
      */
     private fun syncPreviousWordFromField(ic: InputConnection) {
-        val before = ic.getTextBeforeCursor(64, 0)
-        previousWord = when {
-            before.isNullOrEmpty() -> null
-            // Still inside a word: the fragment is not a bigram context.
-            before.last().isLetterOrDigit() -> null
-            else -> before.toString()
-                .trim { !it.isLetter() }
-                .takeLastWhile { it.isLetter() }
-                .lowercase()
-                .ifEmpty { null }
-        }
+        previousWord = completedWordBefore(ic.getTextBeforeCursor(64, 0))
     }
+
+    /**
+     * The completed word ending [text] — the bigram context for whatever comes
+     * next — or null when [text] ends inside a word (a fragment is no context)
+     * or holds no word at all.
+     */
+    private fun completedWordBefore(text: CharSequence?): String? = when {
+        text.isNullOrEmpty() -> null
+        // Still inside a word: the fragment is not a bigram context.
+        text.last().isLetterOrDigit() -> null
+        else -> text.toString()
+            .trim { !it.isLetter() }
+            .takeLastWhile { it.isLetter() }
+            .lowercase()
+            .ifEmpty { null }
+    }
+
+    /**
+     * Re-reads the context around a cursor that moved without going through a
+     * keystroke — a tap elsewhere, a selection-handle drag, a spacebar-swipe
+     * caret move, or an edit the app itself made — so the strip reflects where
+     * the caret *now* sits instead of the word last typed.
+     *
+     * When the caret lands at the end of a word, that word is re-entered as the
+     * composing region: the strip offers its completions and corrections, and
+     * typing on extends it, exactly as if it were being typed fresh (with the
+     * word before it restored as the bigram context). Otherwise only the
+     * preceding-word context is re-derived — a caret mid-word or after a
+     * separator has no word to resume, so it predicts the next one (or clears).
+     *
+     * Latin-script layouts only: Avro's composing is the roman source of a
+     * Bengali field that can't be reversed back into it, and the fixed-Bengali
+     * layouts keep no composing buffer to resume. [newSelStart] is the caret
+     * offset the field just reported, used to place the composing region.
+     */
+    private fun restartSuggestionsAtCursor(ic: InputConnection, newSelStart: Int) {
+        val state = _uiState.value
+        val scrubbing = SystemClock.uptimeMillis() - lastCaretScrubMs < CARET_SCRUB_WINDOW_MS
+        val canResume = !scrubbing && state.settings.suggestions &&
+            !state.secureField && !state.fieldNoSuggestions &&
+            state.allowsTypingIntelligence && state.inputMode.isLatinScript &&
+            !state.typingTestActive && !state.emojiSearchActive &&
+            !state.dictionarySearchActive && !state.mediaSearchActive &&
+            state.voice.status != VoiceStatus.LISTENING &&
+            state.voice.status != VoiceStatus.FINISHING
+
+        if (canResume && newSelStart >= 0) {
+            val before = ic.getTextBeforeCursor(64, 0)
+            val after = ic.getTextAfterCursor(1, 0)
+            // A caret at a word's end: a word char behind it, nothing word-like
+            // ahead (end of text, or a separator — not the middle of a token).
+            val caretAtWordEnd = before != null && before.isNotEmpty() &&
+                isComposingWordChar(before.last()) &&
+                (after.isNullOrEmpty() || !after[0].isLetterOrDigit())
+            if (caretAtWordEnd) {
+                val word = before.toString().takeLastWhile { isComposingWordChar(it) }
+                if (word.isNotEmpty()) {
+                    // Mark the existing word as composing without disturbing it,
+                    // then mirror it into the buffer so a keystroke extends it
+                    // and a backspace shortens it. previousWord comes from the
+                    // text ahead of the word, not the caret (which is inside it).
+                    composing = StringBuilder(word)
+                    ic.setComposingRegion(newSelStart - word.length, newSelStart)
+                    previousWord = completedWordBefore(before.subSequence(0, before.length - word.length))
+                    _uiState.update { it.copy(composingPreview = word) }
+                    refreshSuggestions()
+                    return
+                }
+            }
+        }
+        // No word to resume: predict from the completed word behind the caret,
+        // or clear when there is none. refreshSuggestions self-gates on the
+        // field flags, so this stays correct in secure / no-suggestion fields.
+        syncPreviousWordFromField(ic)
+        refreshSuggestions()
+    }
+
+    /** Characters that live in the composing buffer — see [onKey]'s isWordChar. */
+    private fun isComposingWordChar(c: Char): Boolean = c.isLetter() || c == '\''
 
     /**
      * Deletes the word before the cursor — one step of the backspace swipe.
@@ -2513,7 +2592,13 @@ class WMKeyboardService : InputMethodService() {
             return
         }
 
-        ic.commitText("$suggestion ", 1)
+        // Normally the pick lands at the end of the text and earns a trailing
+        // space to start the next word. But a word resumed mid-sentence (the
+        // caret moved back onto it) already has a space after it — appending
+        // another would leave a double gap, so skip it when one is there.
+        val nextChar = ic.getTextAfterCursor(1, 0)
+        val tail = if (nextChar.isNullOrEmpty() || !nextChar[0].isWhitespace()) " " else ""
+        ic.commitText(suggestion + tail, 1)
         // Deliberately picked from the strip — a stronger signal than a
         // word that merely got committed.
         learn(suggestion, reinforcement = 2)
@@ -2527,6 +2612,9 @@ class WMKeyboardService : InputMethodService() {
     fun onCursorMove(delta: Int) {
         val ic = currentInputConnection ?: return
         vibrate()
+        // Mark the scrub so the caret's landing spot doesn't resume-compose the
+        // word under it mid-drag (this same commit would then churn it).
+        lastCaretScrubMs = SystemClock.uptimeMillis()
         commitComposing(ic, autocorrect = false)
         lastGestureWord = null
         sendDownUpKeyEvents(
@@ -5752,6 +5840,16 @@ class WMKeyboardService : InputMethodService() {
     companion object {
         /** Minimum spacing between haptic clicks so rapid presses stay distinct. */
         private const val MIN_HAPTIC_GAP_MS = 45L
+
+        /**
+         * A caret still being dragged along by a spacebar/volume scrub does not
+         * resume the word it passes over: each drag step commits the composing
+         * buffer first, so resuming a word one step only to re-commit it the
+         * next would churn the field (and re-learn the word) on every step.
+         * Longer than the gap between drag steps, so a continuous scrub stays
+         * suppressed; a genuine settle re-reads on the next tap or keystroke.
+         */
+        private const val CARET_SCRUB_WINDOW_MS = 250L
 
         /** Height offered to autofill chips, matching the suggestion strip. */
         private const val INLINE_CHIP_HEIGHT_DP = 44
