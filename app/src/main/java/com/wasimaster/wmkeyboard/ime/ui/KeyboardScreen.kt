@@ -1269,20 +1269,42 @@ private fun TopBar(
 
     // The toolbar's tools are freshly composed when it takes over from the
     // strip, so [animatePlacement] settles them in place with no motion — they
-    // pop while the emoji (which hands its position across) slides. Fade the
-    // tools in, held a beat behind the emoji's slide so the icon clears the
-    // toolbox slot first (see [ToolbarToolsStaggerMs]) rather than fading in
-    // over it. The emoji is left out: its slide is the throughline a fade
-    // washes out. Blanked synchronously on the reveal frame ([toolbarJustRevealed])
-    // so the tools don't paint one frame at full opacity before the snap.
-    val toolsFade = remember { Animatable(1f) }
+    // would pop while the emoji (which hands its position across) slides. So
+    // they fade in instead. Two shapes:
+    //
+    //  - In-place strip→toolbar flip: the emoji slides its position across (its
+    //    throughline), and the other tools fade in held a beat behind so the
+    //    icon clears the toolbox slot first (see [ToolbarToolsStaggerMs]). The
+    //    surviving node keeps its old alpha of 1, so [toolbarJustRevealed]
+    //    blanks its first frame rather than the initial value below.
+    //
+    //  - Fresh mount (returning from a full-bleed gif/emoji panel disposes and
+    //    rebuilds the whole bar): nothing is sliding, everything simply
+    //    appears, so the whole toolbar — emoji included — fades in together, no
+    //    stagger. [toolsFade] starts at 0 so it fades from blank instead of
+    //    painting one frame opaque, snapping to 0, and refading (the jitter).
+    val toolsFade = remember {
+        Animatable(if (showToolbar && !state.settings.reduceMotion) 0f else 1f)
+    }
+    // Whether the emoji joins the tools' fade (fresh mount) or sits it out and
+    // slides (in-place flip). Seeded for a mount that opens on the toolbar.
+    var toolsFadeMounted by remember { mutableStateOf(false) }
+    var emojiFadesWithTools by remember {
+        mutableStateOf(showToolbar && !state.settings.reduceMotion)
+    }
     val toolbarJustRevealed = !prevShowToolbar && showToolbar && !state.settings.reduceMotion
     LaunchedEffect(showToolbar, state.settings.reduceMotion) {
+        val freshMount = !toolsFadeMounted
+        toolsFadeMounted = true
         if (!showToolbar || state.settings.reduceMotion) {
+            emojiFadesWithTools = false
             toolsFade.snapTo(1f)
         } else {
+            // A mount fades the emoji in with the tools; a later in-place flip
+            // lets it slide instead and trails the tools behind it.
+            emojiFadesWithTools = freshMount
             toolsFade.snapTo(0f)
-            delay(ToolbarToolsStaggerMs.toLong())
+            if (!freshMount) delay(ToolbarToolsStaggerMs.toLong())
             toolsFade.animateTo(1f, tween(ToolbarMotionMs))
         }
     }
@@ -1398,7 +1420,7 @@ private fun TopBar(
             }
         }
         if (showToolbar) {
-            ToolbarRow(state, onPanelChange, onToolTap, drag, toolContentAlpha)
+            ToolbarRow(state, onPanelChange, onToolTap, drag, toolContentAlpha, emojiFadesWithTools)
             if (state.settings.emojiBarMode == EmojiBarMode.BUTTON) {
                 IconButton(
                     onClick = {
@@ -2704,10 +2726,13 @@ private fun RowScope.ToolbarRow(
     onPanelChange: (PanelMode) -> Unit,
     onToolTap: (ToolbarTool) -> Unit,
     drag: ToolDragController,
-    // Opacity for the tools while the toolbar fades in from the strip. The
-    // emoji is exempt (it hands its position across and slides instead), so
-    // this rides the toolbox launcher and the pinned tools, not that icon.
+    // Opacity for the tools while the toolbar fades in. On an in-place
+    // strip→toolbar flip the emoji is exempt — it hands its position across and
+    // slides instead of fading — so this rides the toolbox launcher and pinned
+    // tools only. On a fresh mount nothing slides, so [fadeEmoji] folds the
+    // emoji into the same fade and the whole bar comes up together.
     contentAlpha: () -> Float = { 1f },
+    fadeEmoji: Boolean = false,
 ) {
     val customizing = state.panel == PanelMode.TOOLBOX
     // Scrolling wants the tools at their natural width, so it overrides the
@@ -2823,10 +2848,10 @@ private fun RowScope.ToolbarRow(
                 } else {
                     Modifier.padding(horizontal = 3.dp)
                 }
-                // The emoji slides its position across the strip↔toolbar swap,
-                // so it stays opaque; the rest of the tools fade in with the
-                // toolbar (see [contentAlpha]) instead of popping.
-                val fadedCell = if (tool == ToolbarTool.EMOJI) {
+                // On an in-place flip the emoji slides and stays opaque while
+                // the rest fade (see [contentAlpha]); on a fresh mount ([fadeEmoji])
+                // nothing slides, so it fades in with them.
+                val fadedCell = if (tool == ToolbarTool.EMOJI && !fadeEmoji) {
                     cell
                 } else {
                     cell.graphicsLayer { alpha = contentAlpha() }
