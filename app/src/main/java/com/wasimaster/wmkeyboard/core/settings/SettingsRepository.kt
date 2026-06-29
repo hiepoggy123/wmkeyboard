@@ -16,10 +16,18 @@ import androidx.datastore.preferences.preferencesDataStore
 import com.wasimaster.wmkeyboard.BuildConfig
 import com.wasimaster.wmkeyboard.core.layout.BuiltInLayouts
 import com.wasimaster.wmkeyboard.core.layout.LayoutCodec
+import com.wasimaster.wmkeyboard.core.layout.baseMode
 import com.wasimaster.wmkeyboard.core.layout.LayoutSpec
+import com.wasimaster.wmkeyboard.core.layout.language
 import com.wasimaster.wmkeyboard.core.layout.repair
 import com.wasimaster.wmkeyboard.core.layout.resolveLayoutSelection
 import com.wasimaster.wmkeyboard.core.layout.resolveLayout
+import com.wasimaster.wmkeyboard.core.layout.script
+import com.wasimaster.wmkeyboard.core.script.LanguageDef
+import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
+import com.wasimaster.wmkeyboard.core.script.ScriptDef
+import com.wasimaster.wmkeyboard.core.script.ScriptId
+import com.wasimaster.wmkeyboard.core.script.ScriptRegistry
 import com.wasimaster.wmkeyboard.core.theme.DEFAULT_THEME_ID
 import com.wasimaster.wmkeyboard.core.theme.ThemeCodec
 import com.wasimaster.wmkeyboard.core.theme.ThemeSpec
@@ -333,6 +341,15 @@ data class KeyboardSettings(
     /** Base modes of [enabledLayoutIds], deduplicated. Derived like [inputMode]. */
     val enabledModes: List<InputMode> =
         listOf(InputMode.ENGLISH, InputMode.AVRO, InputMode.PROBHAT, InputMode.JATIYA),
+    /**
+     * The language of [activeLayoutId], resolved from its layout's `langId`. The
+     * registry-era replacement for [inputMode]/[KeyboardLanguage]: dictionary,
+     * dictation and handwriting keyed by [LanguageDef.id], and [script] behaviour
+     * (direction, case, composer, font) alongside it.
+     */
+    val language: LanguageDef = LanguageRegistry.byId("en"),
+    /** The script [language] writes in — direction, letter-case, composer, font. */
+    val script: ScriptDef = ScriptRegistry[ScriptId.LATIN],
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val dynamicColor: Boolean = true,
     /** Selected keyboard theme: [DEFAULT_THEME_ID], a built-in id, or a custom id. */
@@ -1137,6 +1154,8 @@ class SettingsRepository(private val context: Context) {
             customLayouts = customLayouts,
             inputMode = layoutSelection.active.baseMode,
             enabledModes = layoutSelection.enabledModes,
+            language = layoutSelection.active.language(),
+            script = layoutSelection.active.script(),
             themeMode = p[THEME_MODE]?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() }
                 ?: defaults.themeMode,
             dynamicColor = p[DYNAMIC_COLOR] ?: defaults.dynamicColor,

@@ -67,7 +67,7 @@ class LayoutSelectionTest {
 
     @Test
     fun `a custom layout supplies its own base mode`() {
-        val mine = LayoutSpec(id = "custom_1", name = "My Bengali", baseMode = InputMode.PROBHAT)
+        val mine = LayoutSpec(id = "custom_1", name = "My Bengali", langId = "bn")
         val s = select(layoutId = "custom_1", custom = listOf(mine))
         assertEquals("custom_1", s.active.id)
         assertEquals(
@@ -90,8 +90,8 @@ class LayoutSelectionTest {
      */
     @Test
     fun `several custom layouts sharing a base mode stay distinct`() {
-        val a = LayoutSpec(id = "custom_a", name = "A", baseMode = InputMode.ENGLISH)
-        val b = LayoutSpec(id = "custom_b", name = "B", baseMode = InputMode.ENGLISH)
+        val a = LayoutSpec(id = "custom_a", name = "A", langId = "en")
+        val b = LayoutSpec(id = "custom_b", name = "B", langId = "en")
         val s = select(enabledIds = "custom_a,custom_b", custom = listOf(a, b))
         assertEquals(listOf("custom_a", "custom_b"), s.enabledLayoutIds)
         assertEquals("but they collapse to one language", listOf(InputMode.ENGLISH), s.enabledModes)

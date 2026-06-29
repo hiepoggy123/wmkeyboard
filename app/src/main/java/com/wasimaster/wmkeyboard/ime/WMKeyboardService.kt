@@ -155,7 +155,10 @@ import com.wasimaster.wmkeyboard.core.layout.LayoutLayer
 import com.wasimaster.wmkeyboard.core.layout.ModifierKey
 import com.wasimaster.wmkeyboard.core.layout.numberRowFor
 import com.wasimaster.wmkeyboard.core.layout.LayoutSpec
+import com.wasimaster.wmkeyboard.core.layout.baseMode
+import com.wasimaster.wmkeyboard.core.layout.language
 import com.wasimaster.wmkeyboard.core.layout.resolveLayout
+import com.wasimaster.wmkeyboard.core.layout.script
 import com.wasimaster.wmkeyboard.core.layout.compile
 import com.wasimaster.wmkeyboard.ime.ui.KeyboardScreen
 import android.inputmethodservice.InputMethodService
@@ -612,6 +615,8 @@ class WMKeyboardService : InputMethodService() {
                     it.copy(
                         settings = settings.applyMode(mode),
                         inputMode = activeSpec.baseMode,
+                        language = activeSpec.language(),
+                        script = activeSpec.script(),
                         layoutId = activeSpec.id,
                         layoutName = activeSpec.name,
                         layouts = resolveLayoutSet(activeSpec, it.fieldKind),
@@ -974,6 +979,8 @@ class WMKeyboardService : InputMethodService() {
             it.copy(
                 settings = base?.applyMode(activeMode) ?: it.settings,
                 inputMode = fieldSpec.baseMode,
+                language = fieldSpec.language(),
+                script = fieldSpec.script(),
                 // A locked Ctrl crossing an app boundary is the worst failure
                 // this feature can have: every letter after it becomes a
                 // shortcut in an app the user never armed it for.
@@ -2127,6 +2134,8 @@ class WMKeyboardService : InputMethodService() {
         _uiState.update {
             it.copy(
                 inputMode = spec.baseMode,
+                language = spec.language(),
+                script = spec.script(),
                 layoutId = spec.id,
                 layoutName = spec.name,
                 layouts = resolveLayoutSet(spec, it.fieldKind),

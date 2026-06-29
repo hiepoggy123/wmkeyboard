@@ -12,7 +12,7 @@ class LayoutCodecTest {
     private fun spec(vararg rows: List<Key>) = LayoutSpec(
         id = "custom_1",
         name = "Test",
-        baseMode = InputMode.ENGLISH,
+        langId = "en",
         layers = mapOf(LayoutLayer.LETTERS.key to LayerSpec(rows.toList())),
     )
 
@@ -90,6 +90,30 @@ class LayoutCodecTest {
              "layers":{"letters":{"rows":[[{"label":"a"}]]}}}
         """.trimIndent()
         assertEquals(InputMode.ENGLISH, LayoutCodec.decode(json)?.baseMode)
+    }
+
+    /**
+     * The registry migration: a layout written before langId existed stored an
+     * `InputMode` name in `baseMode`. Decoding must translate it to a langId and
+     * carry Avro's transliteration onto the composer, or an upgrade silently
+     * turns a Bengali phonetic layout into English.
+     */
+    @Test
+    fun `a pre-registry baseMode migrates to langId and composer`() {
+        val avro = """
+            {"id":"custom_1","name":"Mine","baseMode":"AVRO","version":1,
+             "layers":{"letters":{"rows":[[{"label":"a"}]]}}}
+        """.trimIndent()
+        val decoded = LayoutCodec.decode(avro)!!
+        assertEquals("bn", decoded.langId)
+        assertEquals(com.wasimaster.wmkeyboard.core.script.ComposerType.TRANSLITERATE, decoded.composer)
+        assertNull("the legacy field is cleared once migrated", decoded.legacyBaseMode)
+        assertEquals(CurrentLayoutSpecVersion, decoded.version)
+
+        val probhat = avro.replace("AVRO", "PROBHAT")
+        val fixed = LayoutCodec.decode(probhat)!!
+        assertEquals("bn", fixed.langId)
+        assertNull("fixed Bengali keeps the script-default composer", fixed.composer)
     }
 
     @Test

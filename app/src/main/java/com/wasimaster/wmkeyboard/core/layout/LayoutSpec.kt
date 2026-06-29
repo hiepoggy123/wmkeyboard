@@ -1,6 +1,11 @@
 package com.wasimaster.wmkeyboard.core.layout
 
-import com.wasimaster.wmkeyboard.core.settings.InputMode
+import com.wasimaster.wmkeyboard.core.script.ComposerType
+import com.wasimaster.wmkeyboard.core.script.LanguageDef
+import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
+import com.wasimaster.wmkeyboard.core.script.ScriptDef
+import com.wasimaster.wmkeyboard.core.script.ScriptRegistry
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -61,12 +66,18 @@ data class LayerSpec(
  * A complete keyboard layout as the user owns it: the grids for every layer it
  * overrides, plus the language it types in.
  *
- * A custom layout is not a new input mode — it is an existing one wearing a
- * different key grid. [baseMode] is what makes that work: the dictionary,
- * autocorrect sources, script rules (roman composing, conjunct backspace),
- * handwriting and dictation language and shift behaviour all key off it, so
- * "my own Bengali arrangement" inherits everything Probhat knows without
- * restating any of it.
+ * A custom layout is not a new language — it is an existing one wearing a
+ * different key grid. [langId] is what makes that work: the dictionary,
+ * autocorrect sources, script rules, handwriting and dictation language and
+ * shift behaviour all key off the language (and its script) named here, so
+ * "my own Bengali arrangement" inherits everything Bengali knows without
+ * restating any of it. [composer] optionally overrides how keystrokes compose —
+ * the one thing the language cannot decide alone, since Bengali hosts both the
+ * transliterating Avro and the fixed Probhat/Jatiya on one script.
+ *
+ * [legacyBaseMode] captures the `baseMode` field written by builds before the
+ * language registry (a serialized `InputMode` name); [LayoutCodec] migrates it
+ * into [langId] on the first read and clears it. Nothing else reads it.
  *
  * [layers] is keyed by [LayoutLayer.key] rather than by the enum, because an
  * enum used as a map *key* is not covered by `coerceInputValues` — a layer name
@@ -77,7 +88,11 @@ data class LayerSpec(
 data class LayoutSpec(
     val id: String,
     val name: String,
-    val baseMode: InputMode = InputMode.ENGLISH,
+    /** Language id ([LanguageDef.id], e.g. "en", "bn", "fr"); blank until migrated. */
+    val langId: String = "",
+    /** Keystroke composer override; null inherits the script's default composer. */
+    val composer: ComposerType? = null,
+    @SerialName("baseMode") val legacyBaseMode: String? = null,
     val layers: Map<String, LayerSpec> = emptyMap(),
     /**
      * Typo-proximity rows, one string of committed characters per physical row,
@@ -95,11 +110,31 @@ data class LayoutSpec(
 }
 
 /**
+ * The language this layout types, resolved from [LayoutSpec.langId] against the
+ * registry. An id this build does not know falls back to a generic Latin
+ * language so the keyboard still renders and types.
+ */
+fun LayoutSpec.language(): LanguageDef = LanguageRegistry.byId(langId)
+
+/** The script [language] writes, carrying its direction, case and font behaviour. */
+fun LayoutSpec.script(): ScriptDef = ScriptRegistry[language().script]
+
+/**
+ * The composer that turns keystrokes into text: the layout's explicit
+ * [LayoutSpec.composer] override (Avro's transliteration) when set, otherwise the
+ * script's default (dead keys for Latin, cluster shaping for Indic).
+ */
+fun LayoutSpec.composerType(): ComposerType = composer ?: script().composer
+
+/**
  * How many rounds of format changes [LayoutSpec] has been through. Bump it and
  * add a branch to `LayoutCodec.migrateLayout` whenever a stored field changes
  * shape — the same hook `KeyboardModeCodec.migrateMode` provides.
+ *
+ * v2: `baseMode` (a serialized `InputMode`) became [LayoutSpec.langId] +
+ * [LayoutSpec.composer].
  */
-const val CurrentLayoutSpecVersion: Int = 1
+const val CurrentLayoutSpecVersion: Int = 2
 
 private val layoutJson = Json {
     ignoreUnknownKeys = true
@@ -136,11 +171,31 @@ object LayoutCodec {
             ?.let(::migrateLayout)
 
     /**
-     * Brings a stored layout up to [CurrentLayoutSpecVersion]. Nothing to do
-     * yet — the hook exists so the first format change has an obvious home
-     * instead of being sprinkled across the read path.
+     * Brings a stored layout up to [CurrentLayoutSpecVersion]. The v1→v2 step
+     * converts a pre-registry `baseMode` ([LayoutSpec.legacyBaseMode]) into a
+     * [LayoutSpec.langId], moving Avro's transliteration onto [LayoutSpec.composer]
+     * so the phonetic-vs-fixed Bengali distinction survives. Gated on a blank
+     * langId rather than the version alone, so a hand-written layout that omits
+     * the version field still migrates instead of silently defaulting to English.
      */
-    private fun migrateLayout(spec: LayoutSpec): LayoutSpec = spec
+    private fun migrateLayout(spec: LayoutSpec): LayoutSpec {
+        if (spec.langId.isBlank()) {
+            val langId = spec.legacyBaseMode?.let { LEGACY_MODE_LANG[it] } ?: "en"
+            val composer =
+                if (spec.legacyBaseMode == "AVRO") ComposerType.TRANSLITERATE else spec.composer
+            return spec.copy(
+                langId = langId,
+                composer = composer,
+                legacyBaseMode = null,
+                version = CurrentLayoutSpecVersion,
+            )
+        }
+        return if (spec.version < CurrentLayoutSpecVersion) {
+            spec.copy(version = CurrentLayoutSpecVersion)
+        } else {
+            spec
+        }
+    }
 
     /** Exposed for [LayoutFile], which parses the envelope itself. */
     internal val json: Json get() = layoutJson

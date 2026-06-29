@@ -1,5 +1,6 @@
 package com.wasimaster.wmkeyboard.core.layout
 
+import com.wasimaster.wmkeyboard.core.script.ComposerType
 import com.wasimaster.wmkeyboard.core.settings.InputMode
 
 /**
@@ -53,7 +54,7 @@ object BuiltInLayouts {
     val QWERTY = LayoutSpec(
         id = QWERTY_ID,
         name = "QWERTY",
-        baseMode = InputMode.ENGLISH,
+        langId = "en",
         layers = sharedLayers + (LayoutLayer.LETTERS.key to LayerSpec(qwertyRows)),
     )
 
@@ -67,7 +68,7 @@ object BuiltInLayouts {
     val AZERTY = LayoutSpec(
         id = AZERTY_ID,
         name = "AZERTY",
-        baseMode = InputMode.AZERTY,
+        langId = "en",
         layers = mapOf(LayoutLayer.LETTERS.key to LayerSpec(azertyRows)),
     )
 
@@ -80,7 +81,7 @@ object BuiltInLayouts {
     val DVORAK = LayoutSpec(
         id = DVORAK_ID,
         name = "Dvorak",
-        baseMode = InputMode.DVORAK,
+        langId = "en",
         layers = mapOf(LayoutLayer.LETTERS.key to LayerSpec(dvorakRows)),
     )
 
@@ -88,7 +89,8 @@ object BuiltInLayouts {
     val AVRO = LayoutSpec(
         id = AVRO_ID,
         name = "Avro phonetic",
-        baseMode = InputMode.AVRO,
+        langId = "bn",
+        composer = ComposerType.TRANSLITERATE,
         layers = mapOf(LayoutLayer.LETTERS.key to LayerSpec(qwertyRows)),
     )
 
@@ -104,7 +106,7 @@ object BuiltInLayouts {
     val PROBHAT = LayoutSpec(
         id = PROBHAT_ID,
         name = "প্রভাত (Probhat)",
-        baseMode = InputMode.PROBHAT,
+        langId = "bn",
         layers = mapOf(LayoutLayer.LETTERS.key to LayerSpec(probhatRows)),
     )
 
@@ -118,7 +120,7 @@ object BuiltInLayouts {
     val JATIYA = LayoutSpec(
         id = JATIYA_ID,
         name = "জাতীয় (National)",
-        baseMode = InputMode.JATIYA,
+        langId = "bn",
         layers = mapOf(LayoutLayer.LETTERS.key to LayerSpec(jatiyaRows)),
     )
 
@@ -126,7 +128,7 @@ object BuiltInLayouts {
     val FRENCH = LayoutSpec(
         id = FRENCH_ID,
         name = "AZERTY (French)",
-        baseMode = InputMode.FRENCH,
+        langId = "fr",
         layers = mapOf(LayoutLayer.LETTERS.key to LayerSpec(azertyRows)),
     )
 
@@ -140,7 +142,7 @@ object BuiltInLayouts {
     val GERMAN = LayoutSpec(
         id = GERMAN_ID,
         name = "QWERTZ",
-        baseMode = InputMode.GERMAN,
+        langId = "de",
         layers = mapOf(LayoutLayer.LETTERS.key to LayerSpec(qwertzRows)),
     )
 
@@ -153,7 +155,7 @@ object BuiltInLayouts {
     val SPANISH = LayoutSpec(
         id = SPANISH_ID,
         name = "QWERTY + Ñ",
-        baseMode = InputMode.SPANISH,
+        langId = "es",
         layers = mapOf(LayoutLayer.LETTERS.key to LayerSpec(spanishRows)),
     )
 

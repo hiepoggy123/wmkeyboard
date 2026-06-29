@@ -38,16 +38,13 @@ fun resolveLayoutSelection(
     defaultEnabledIds: List<String> = BuiltInLayouts.defaultEnabledIds,
 ): LayoutSelection {
     val activeId = storedLayoutId
-        ?: storedInputMode
-            ?.let { runCatching { InputMode.valueOf(it) }.getOrNull() }
-            ?.let { BuiltInLayouts.forMode(it).id }
+        ?: storedInputMode?.let { LEGACY_MODE_LAYOUT[it] }
         ?: defaultActiveId
 
     val enabledIds = storedEnabledLayoutIds
         ?.split(',')?.filter { it.isNotEmpty() }?.ifEmpty { null }
         ?: storedEnabledModes?.split(',')
-            ?.mapNotNull { runCatching { InputMode.valueOf(it) }.getOrNull() }
-            ?.map { BuiltInLayouts.forMode(it).id }
+            ?.mapNotNull { LEGACY_MODE_LAYOUT[it] }
             ?.ifEmpty { null }
         ?: defaultEnabledIds
 

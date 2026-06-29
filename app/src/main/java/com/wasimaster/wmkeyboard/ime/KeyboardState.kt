@@ -11,6 +11,11 @@ import com.wasimaster.wmkeyboard.core.layout.ModifierKey
 import com.wasimaster.wmkeyboard.core.layout.KeyboardLayout
 import com.wasimaster.wmkeyboard.core.layout.LayoutLayer
 import com.wasimaster.wmkeyboard.core.layout.Layouts
+import com.wasimaster.wmkeyboard.core.script.LanguageDef
+import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
+import com.wasimaster.wmkeyboard.core.script.ScriptDef
+import com.wasimaster.wmkeyboard.core.script.ScriptId
+import com.wasimaster.wmkeyboard.core.script.ScriptRegistry
 import com.wasimaster.wmkeyboard.core.settings.InputMode
 import com.wasimaster.wmkeyboard.core.transliteration.BengaliGraphemes
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
@@ -523,6 +528,10 @@ sealed interface TypingTestAction {
 data class KeyboardUiState(
     val settings: KeyboardSettings = KeyboardSettings(),
     val inputMode: InputMode = InputMode.ENGLISH,
+    /** The active layout's language; registry-era companion to [inputMode]. */
+    val language: LanguageDef = LanguageRegistry.byId("en"),
+    /** The active language's script — direction, case, composer, font. */
+    val script: ScriptDef = ScriptRegistry[ScriptId.LATIN],
     /** The layout being typed on; what the 🌐 cycle steps through. */
     val layoutId: String = BuiltInLayouts.DEFAULT_ID,
     /**
