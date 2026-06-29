@@ -388,7 +388,21 @@ data class KeyboardSettings(
     /** Sound-effect volume, 0..1 of the system media volume. */
     val keySoundVolume: Float = 0.5f,
     val keyPopup: Boolean = true,
+    /**
+     * How long the bubble lingers *after* release, so a fast tap still leaves
+     * a readable bubble instead of a single-frame flash. This is a comfort
+     * floor: raise it for a slower, more deliberate feel.
+     */
     val keyPopupMinDurationMs: Int = 150,
+    /**
+     * Hard ceiling on the bubble's on-screen life, measured from the press —
+     * a stuck-bubble backstop, not a comfort knob. Normally the bubble clears
+     * on release; if the release is ever dropped under UI-thread lag (e.g. the
+     * InputConnection work on a new line), this cap hides it anyway so it can't
+     * strand. Kept above the long-press timeout so genuine holds still preview
+     * until the alternates popup takes over.
+     */
+    val keyPopupMaxDurationMs: Int = 750,
     val keyPopupOnKey: Boolean = true,
     val popupFontScale: Float = 1.0f,
     val keyPopupHeightDp: Int = 110,
@@ -893,6 +907,7 @@ class SettingsRepository(private val context: Context) {
         private val KEY_SOUND = booleanPreferencesKey("key_sound")
         private val KEY_POPUP = booleanPreferencesKey("key_popup")
         private val KEY_POPUP_MIN_DURATION = intPreferencesKey("key_popup_min_duration")
+        private val KEY_POPUP_MAX_DURATION = intPreferencesKey("key_popup_max_duration")
         private val KEY_POPUP_ON_KEY = booleanPreferencesKey("key_popup_on_key")
         private val POPUP_FONT_SCALE = floatPreferencesKey("popup_font_scale")
         private val KEY_POPUP_HEIGHT = intPreferencesKey("key_popup_height")
@@ -1183,6 +1198,7 @@ class SettingsRepository(private val context: Context) {
             keySoundVolume = p[KEY_SOUND_VOLUME] ?: defaults.keySoundVolume,
             keyPopup = p[KEY_POPUP] ?: defaults.keyPopup,
             keyPopupMinDurationMs = p[KEY_POPUP_MIN_DURATION] ?: defaults.keyPopupMinDurationMs,
+            keyPopupMaxDurationMs = p[KEY_POPUP_MAX_DURATION] ?: defaults.keyPopupMaxDurationMs,
             keyPopupOnKey = p[KEY_POPUP_ON_KEY] ?: defaults.keyPopupOnKey,
             popupFontScale = p[POPUP_FONT_SCALE] ?: defaults.popupFontScale,
             keyPopupHeightDp = p[KEY_POPUP_HEIGHT] ?: defaults.keyPopupHeightDp,
@@ -2057,6 +2073,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setKeyPopupMinDurationMs(value: Int) =
         context.dataStore.edit { it[KEY_POPUP_MIN_DURATION] = value.coerceIn(0, 300) }
+
+    suspend fun setKeyPopupMaxDurationMs(value: Int) =
+        context.dataStore.edit { it[KEY_POPUP_MAX_DURATION] = value.coerceIn(400, 2000) }
 
     suspend fun setKeyPopupOnKey(value: Boolean) =
         context.dataStore.edit { it[KEY_POPUP_ON_KEY] = value }

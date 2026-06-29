@@ -1697,6 +1697,22 @@ private fun KeyPressSettings(repository: SettingsRepository, settings: KeyboardS
                         "you let go.",
                 ) { scope.launch { repository.setKeyPopupMinDurationMs(it.toInt()) } }
             }
+            item {
+                SliderSetting(
+                    "Maximum popup duration",
+                    subtitle = "Safety cap that clears a bubble stuck by lag",
+                    value = settings.keyPopupMaxDurationMs.toFloat(),
+                    range = 400f..2000f,
+                    display = "${settings.keyPopupMaxDurationMs} ms",
+                    info = "The bubble normally disappears when you lift your finger. If the " +
+                        "keyboard lags — most often as a new line is inserted — the release can " +
+                        "be missed and the bubble strands on screen. This is the hard ceiling on " +
+                        "its life, measured from the press: past it the bubble hides no matter " +
+                        "what. Unlike the minimum, this isn't about feel — it only exists to " +
+                        "recover from a dropped release, so leave it high unless you still see a " +
+                        "bubble lingering.",
+                ) { scope.launch { repository.setKeyPopupMaxDurationMs(it.toInt()) } }
+            }
         }
         item {
             ToggleSetting(

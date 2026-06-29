@@ -4736,6 +4736,10 @@ private fun KeyButton(
         if (pressed) {
             previewShownAt = SystemClock.uptimeMillis()
             previewVisible = true
+            // Backstop: if the release is ever dropped under lag, hide the
+            // bubble anyway once the absolute cap elapses so it can't strand.
+            delay(settings.keyPopupMaxDurationMs.toLong())
+            previewVisible = false
         } else if (previewVisible) {
             val remaining = settings.keyPopupMinDurationMs -
                 (SystemClock.uptimeMillis() - previewShownAt)
