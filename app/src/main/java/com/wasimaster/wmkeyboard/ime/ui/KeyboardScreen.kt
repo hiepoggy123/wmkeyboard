@@ -1125,6 +1125,14 @@ private const val StripHideDebounceMs = 180
  */
 private const val ToolbarToolsStaggerMs = 55
 
+/**
+ * Full-bleed return fade: the whole toolbar (emoji included) fades in when a
+ * full-bleed panel closes and rebuilds the bar. Slower than the in-place
+ * [ToolbarMotionMs] slide — nothing is moving to carry the eye, so a brisk
+ * fade reads as an instant pop; a longer one lets the bar settle in.
+ */
+private const val FullBleedReturnFadeMs = 260
+
 @Composable
 private fun TopBar(
     state: KeyboardUiState,
@@ -1225,6 +1233,13 @@ private fun TopBar(
     // blanking them the instant state empties. They refresh whenever real
     // candidates arrive and are held (behind alpha 0) once they leave.
     val suggestionsShowing = state.suggestions.isNotEmpty() || state.emojiSuggestions.isNotEmpty()
+    // Candidates are on screen only while the strip itself holds the row — not
+    // when the toolbar or a panel does. The fade keys on this, not on the
+    // candidates alone: candidates can already exist, hidden behind the
+    // toolbar, so when the strip retakes the row (a toolbox close, the chevron
+    // toggled back) they never "arrive" — a presence-keyed fade wouldn't fire
+    // and they'd snap on at full strength over the still-sliding emoji.
+    val stripContentVisible = !showToolbar && suggestionsShowing
     var shownSuggestions by remember { mutableStateOf(state.suggestions) }
     var shownEmojiSuggestions by remember { mutableStateOf(state.emojiSuggestions) }
     LaunchedEffect(state.suggestions, state.emojiSuggestions) {
@@ -1233,35 +1248,36 @@ private fun TopBar(
             shownEmojiSuggestions = state.emojiSuggestions
         }
     }
-    // Fade in when candidates arrive, out when they go. Keyed on presence, not
-    // on the strip appearing, so the fade tracks the candidates themselves:
-    // it starts when they actually land (after the compute) rather than during
-    // the empty beat before, and it only re-fires when they truly come or go —
-    // never mid-word, since the engine updates in place without emptying first.
-    // Initialised to the current state so a strip that opens with candidates
-    // already up doesn't fade them in from nothing.
-    val stripContentAlpha = remember { Animatable(if (suggestionsShowing) 1f else 0f) }
-    LaunchedEffect(suggestionsShowing, state.settings.reduceMotion) {
+    // Fade in when the strip shows its candidates, out when it stops. Keyed on
+    // strip visibility (see [stripContentVisible]), so it fires both when
+    // candidates land while the strip is up and when the strip retakes the row
+    // from the toolbar with candidates already present — the latter used to
+    // snap them on over the sliding emoji. It never re-fires mid-word, since
+    // the engine updates candidates in place without emptying first. Initialised
+    // to the current state so a strip that opens already showing doesn't fade in
+    // from nothing.
+    val stripContentAlpha = remember { Animatable(if (stripContentVisible) 1f else 0f) }
+    LaunchedEffect(stripContentVisible, state.settings.reduceMotion) {
         if (state.settings.reduceMotion) {
             // No fade, but the hide still debounces so a typing-burst gap
             // doesn't blink the strip off and back on. Deferring a snap adds no
             // motion, so reduce-motion is honoured.
-            if (suggestionsShowing) {
+            if (stripContentVisible) {
                 stripContentAlpha.snapTo(1f)
             } else {
                 delay(StripHideDebounceMs.toLong())
                 stripContentAlpha.snapTo(0f)
             }
-        } else if (suggestionsShowing) {
+        } else if (stripContentVisible) {
             // Let the emoji lead into the strip before the words follow. Linear
             // rather than the default eased curve, which front-loads the ramp
             // and made even a long fade read as an instant pop.
             delay(StripContentStaggerMs.toLong())
             stripContentAlpha.animateTo(1f, tween(StripContentFadeInMs, easing = LinearEasing))
         } else {
-            // Defer the hide: the effect is keyed on presence, so a candidate
-            // landing inside the debounce cancels this and restarts the fade-in
-            // branch (a no-op at alpha 1) — the pulse fast typing used to cause.
+            // Defer the hide: the effect is keyed on visibility, so candidates
+            // landing (or the strip retaking the row) inside the debounce cancel
+            // this and restart the fade-in branch — the pulse fast typing caused.
             delay(StripHideDebounceMs.toLong())
             stripContentAlpha.animateTo(0f, tween(StripContentFadeOutMs, easing = LinearEasing))
         }
@@ -1301,11 +1317,13 @@ private fun TopBar(
             toolsFade.snapTo(1f)
         } else {
             // A mount fades the emoji in with the tools; a later in-place flip
-            // lets it slide instead and trails the tools behind it.
+            // lets it slide instead and trails the tools behind it. The mount
+            // fade is slower ([FullBleedReturnFadeMs]) since nothing slides to
+            // carry the eye; the in-place one matches the emoji's slide.
             emojiFadesWithTools = freshMount
             toolsFade.snapTo(0f)
             if (!freshMount) delay(ToolbarToolsStaggerMs.toLong())
-            toolsFade.animateTo(1f, tween(ToolbarMotionMs))
+            toolsFade.animateTo(1f, tween(if (freshMount) FullBleedReturnFadeMs else ToolbarMotionMs))
         }
     }
     val toolContentAlpha = { if (toolbarJustRevealed) 0f else toolsFade.value }
