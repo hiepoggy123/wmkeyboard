@@ -1115,7 +1115,7 @@ private const val StripContentFadeOutMs = 110
  * flickers. Sized under the space of one relaxed keystroke so a genuine stop
  * still clears promptly.
  */
-private const val StripHideDebounceMs = 300
+private const val StripHideDebounceMs = 180
 
 /**
  * Issue-A tools fade: the toolbox and pinned tools materialise as the toolbar
