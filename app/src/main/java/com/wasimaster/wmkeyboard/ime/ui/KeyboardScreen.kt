@@ -5093,34 +5093,10 @@ private fun KeyContent(key: Key, state: KeyboardUiState, contentColor: Color) {
                         fontSize = (8 * fontScale).sp,
                         color = contentColor.copy(alpha = 0.35f),
                     )
-                    // A custom layout carries its own name: two layouts can
-                    // share a base mode, so the mode cannot tell them apart on
-                    // the spacebar. Built-ins keep their language-shaped labels.
-                    val builtInName = when (state.inputMode) {
-                        InputMode.ENGLISH -> "English"
-                        InputMode.AZERTY -> "English · AZERTY"
-                        InputMode.DVORAK -> "English · Dvorak"
-                        InputMode.AVRO -> "বাংলা · Avro"
-                        InputMode.PROBHAT -> "বাংলা · প্রভাত"
-                        InputMode.JATIYA -> "বাংলা · জাতীয়"
-                        InputMode.FRENCH -> "Français"
-                        InputMode.GERMAN -> "Deutsch"
-                        InputMode.SPANISH -> "Español"
-                    }
-                    val languageName = if (BuiltInLayouts.byId(state.layoutId) != null) {
-                        builtInName
-                    } else {
-                        state.layoutName.ifBlank { builtInName }
-                    }
                     // A custom label replaces the language name; %s inside it
                     // puts the name back, so "— %s —" keeps tracking the mode.
-                    val custom = state.settings.spacebarLabel
                     Text(
-                        text = if (custom.isEmpty()) {
-                            languageName
-                        } else {
-                            custom.replace("%s", languageName)
-                        },
+                        text = spacebarText(state),
                         fontSize = (11 * fontScale).sp,
                         color = contentColor.copy(alpha = 0.5f),
                     )
@@ -5161,6 +5137,36 @@ private fun KeyContent(key: Key, state: KeyboardUiState, contentColor: Color) {
             }
         }
     }
+}
+
+/**
+ * Text drawn on the spacebar: the live language name, or the user's custom
+ * [SettingsRepository.spacebarLabel] with %s standing in for that name.
+ * Shared by the main keyboard's spacebar and the emoji panel's spacebar so
+ * both read the same.
+ */
+private fun spacebarText(state: KeyboardUiState): String {
+    // A custom layout carries its own name: two layouts can share a base
+    // mode, so the mode cannot tell them apart. Built-ins keep their
+    // language-shaped labels.
+    val builtInName = when (state.inputMode) {
+        InputMode.ENGLISH -> "English"
+        InputMode.AZERTY -> "English · AZERTY"
+        InputMode.DVORAK -> "English · Dvorak"
+        InputMode.AVRO -> "বাংলা · Avro"
+        InputMode.PROBHAT -> "বাংলা · প্রভাত"
+        InputMode.JATIYA -> "বাংলা · জাতীয়"
+        InputMode.FRENCH -> "Français"
+        InputMode.GERMAN -> "Deutsch"
+        InputMode.SPANISH -> "Español"
+    }
+    val languageName = if (BuiltInLayouts.byId(state.layoutId) != null) {
+        builtInName
+    } else {
+        state.layoutName.ifBlank { builtInName }
+    }
+    val custom = state.settings.spacebarLabel
+    return if (custom.isEmpty()) languageName else custom.replace("%s", languageName)
 }
 
 private fun displayLabel(key: Key, state: KeyboardUiState): String {
@@ -6098,7 +6104,14 @@ private fun EmojiBottomBar(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(kb.key, shape),
-            )
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = spacebarText(state),
+                    fontSize = 11.sp,
+                    color = kb.keyText.copy(alpha = 0.5f),
+                )
+            }
         }
         cell(
             1.5f,
