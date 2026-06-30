@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
@@ -120,13 +121,17 @@ internal fun SmartSuggestionChip(
                     modifier = Modifier.size(15.dp),
                 )
             } else {
+                // Natural width (not a weighted half): the query is the short
+                // side, so it takes only what it needs and hands the rest of
+                // the row to the result. Capped so a freak-long token still
+                // can't crowd the answer out.
                 Text(
                     text = hit.query,
                     color = kb.secondaryText,
                     fontSize = 13.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f, fill = false),
+                    modifier = Modifier.widthIn(max = 160.dp),
                 )
                 Text("→", color = kb.secondaryText, fontSize = 12.sp)
                 if (hit.result != null) {
