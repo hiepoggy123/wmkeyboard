@@ -140,7 +140,9 @@ object SmartSuggest {
                 pending = true,
             )
         val converted = CurrencyClient.convert(amount, from, to, rates) ?: return null
-        val result = "${money(converted, ctx.currencyDecimals)} $to"
+        // The result side is the user's local currency: show and insert its
+        // name ("Taka") rather than the ISO code ("BDT").
+        val result = "${money(converted, ctx.currencyDecimals)} ${CurrencyClient.unitName(to)}"
         return SmartHit(
             kind = Kind.CURRENCY, query = query, result = result, insert = result,
             replaceSpan = span, tool = ToolbarTool.CURRENCY, prefill = prefill,

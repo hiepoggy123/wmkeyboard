@@ -70,6 +70,13 @@ object CurrencyClient {
         "HKD" to "Hong Kong Dollar", "TWD" to "Taiwan Dollar",
     )
 
+    /**
+     * The bare unit name for compact display — "BDT" → "Taka", "USD" →
+     * "Dollar" — taken as the last word of the full [names] entry. Falls
+     * back to the code for anything without a known name.
+     */
+    fun unitName(code: String): String = names[code]?.substringAfterLast(' ') ?: code
+
     /** Codes the picker pins to the front, in this order. */
     val popular: List<String> = listOf(
         "USD", "EUR", "BDT", "GBP", "INR", "JPY", "CNY", "AUD", "CAD", "SGD",

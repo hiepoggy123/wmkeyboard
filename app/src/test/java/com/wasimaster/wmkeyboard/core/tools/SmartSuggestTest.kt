@@ -34,7 +34,7 @@ class SmartSuggestTest {
             val h = hit(typed)
             assertNotNull("no hit for \"$typed\"", h)
             assertEquals(typed, SmartSuggest.Kind.CURRENCY, h!!.kind)
-            assertEquals(typed, "18,000.00 BDT", h.result)
+            assertEquals(typed, "18,000.00 Taka", h.result)
             assertEquals(typed, typed.length, h.replaceSpan)
         }
     }
@@ -42,7 +42,7 @@ class SmartSuggestTest {
     @Test
     fun currencyKeepsWhatCameBefore() {
         val h = hit("that will be 150 usd")
-        assertEquals("18,000.00 BDT", h?.result)
+        assertEquals("18,000.00 Taka", h?.result)
         // Only "150 usd" is replaced, not the sentence around it.
         assertEquals("150 usd".length, h?.replaceSpan)
     }
@@ -59,7 +59,7 @@ class SmartSuggestTest {
     fun amountAlreadyInTargetConvertsBackToTheOtherSide() {
         val h = hit("120 bdt")
         assertEquals(SmartSuggest.Kind.CURRENCY, h?.kind)
-        assertEquals("1.00 USD", h?.result)
+        assertEquals("1.00 Dollar", h?.result)
     }
 
     @Test

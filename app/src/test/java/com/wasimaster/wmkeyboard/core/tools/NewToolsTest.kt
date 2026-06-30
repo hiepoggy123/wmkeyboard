@@ -242,6 +242,15 @@ class CurrencyClientTest {
         val rates = CurrencyClient.Rates("USD", mapOf("USD" to 1.0))
         assertNull(CurrencyClient.convert(1.0, "USD", "XXX", rates))
     }
+
+    @Test
+    fun unitNameIsTheBareCurrencyNameOrTheCode() {
+        assertEquals("Taka", CurrencyClient.unitName("BDT"))
+        assertEquals("Dollar", CurrencyClient.unitName("USD"))
+        assertEquals("Euro", CurrencyClient.unitName("EUR"))
+        // No known name → the code itself.
+        assertEquals("XAF", CurrencyClient.unitName("XAF"))
+    }
 }
 
 class WikipediaClientTest {
