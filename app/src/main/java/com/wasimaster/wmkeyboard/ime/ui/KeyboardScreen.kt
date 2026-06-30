@@ -6106,8 +6106,12 @@ private fun EmojiBottomBar(
                     .background(kb.key, shape),
                 contentAlignment = Alignment.Center,
             ) {
+                // The emoji panel's spacebar shows "Space", not the language
+                // name: emoji picking is language-agnostic. A custom label
+                // still applies, with %s standing in for "Space".
+                val custom = settings.spacebarLabel
                 Text(
-                    text = spacebarText(state),
+                    text = if (custom.isEmpty()) "Space" else custom.replace("%s", "Space"),
                     fontSize = 11.sp,
                     color = kb.keyText.copy(alpha = 0.5f),
                 )
