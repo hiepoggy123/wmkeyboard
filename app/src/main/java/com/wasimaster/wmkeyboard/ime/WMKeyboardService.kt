@@ -5702,6 +5702,7 @@ class WMKeyboardService : InputMethodService() {
         )
 
     fun openSettings() {
+        vibrate()
         startActivity(
             Intent(this, MainActivity::class.java).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
