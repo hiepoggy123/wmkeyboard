@@ -156,7 +156,9 @@ import com.wasimaster.wmkeyboard.core.layout.ModifierKey
 import com.wasimaster.wmkeyboard.core.layout.numberRowFor
 import com.wasimaster.wmkeyboard.core.layout.LayoutSpec
 import com.wasimaster.wmkeyboard.core.input.composer.composerFor
+import com.wasimaster.wmkeyboard.core.script.LanguageDef
 import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
+import com.wasimaster.wmkeyboard.core.script.ScriptId
 import com.wasimaster.wmkeyboard.core.layout.baseMode
 import com.wasimaster.wmkeyboard.core.layout.composerType
 import com.wasimaster.wmkeyboard.core.layout.language
@@ -963,18 +965,18 @@ class WMKeyboardService : InputMethodService() {
         // app cannot store what a Bengali mode types) so it outranks a
         // hintLocales preference, which is only ever advisory.
         val current = base ?: _uiState.value.settings
-        val savedMode = current.inputMode
         fieldLayoutOverride = when {
-            info.forcesAscii() && !savedMode.isLatinScript ->
+            info.forcesAscii() && current.script.id != ScriptId.LATIN ->
                 current.enabledLayoutIds.firstOrNull {
-                    resolveLayout(current.customLayouts, it).baseMode.isLatinScript
+                    resolveLayout(current.customLayouts, it).script().id == ScriptId.LATIN
                 } ?: BuiltInLayouts.DEFAULT_ID
             // hintLocales names a language, not a layout, so it picks the first
             // enabled layout that types that language.
-            else -> info.hintedMode(current.enabledModes)?.takeIf { it != savedMode }
+            else -> info.hintedLanguage(current.enabledLanguages)
+                ?.takeIf { it.id != current.language.id }
                 ?.let { hinted ->
                     current.enabledLayoutIds.firstOrNull {
-                        resolveLayout(current.customLayouts, it).baseMode == hinted
+                        resolveLayout(current.customLayouts, it).language().id == hinted.id
                     }
                 }
         }
@@ -1837,7 +1839,7 @@ class WMKeyboardService : InputMethodService() {
         val scrubbing = SystemClock.uptimeMillis() - lastCaretScrubMs < CARET_SCRUB_WINDOW_MS
         val canResume = !scrubbing && state.settings.suggestions &&
             !state.secureField && !state.fieldNoSuggestions &&
-            state.allowsTypingIntelligence && state.inputMode.isLatinScript &&
+            state.allowsTypingIntelligence && state.language.gestureLexicon &&
             !state.typingTestActive && !state.emojiSearchActive &&
             !state.dictionarySearchActive && !state.mediaSearchActive &&
             state.voice.status != VoiceStatus.LISTENING &&
@@ -5948,18 +5950,11 @@ class WMKeyboardService : InputMethodService() {
          * only when the user has a mode for that language enabled — it is a
          * hint, not a licence to switch to a layout they never set up.
          */
-        private fun EditorInfo?.hintedMode(enabled: List<InputMode>): InputMode? {
+        private fun EditorInfo?.hintedLanguage(enabled: List<LanguageDef>): LanguageDef? {
             val hints = this?.hintLocales ?: return null
             for (i in 0 until hints.size()) {
-                val language = when (hints[i].language) {
-                    "en" -> KeyboardLanguage.ENGLISH
-                    "bn" -> KeyboardLanguage.BANGLA
-                    "fr" -> KeyboardLanguage.FRENCH
-                    "de" -> KeyboardLanguage.GERMAN
-                    "es" -> KeyboardLanguage.SPANISH
-                    else -> null
-                } ?: continue
-                enabled.firstOrNull { it.language == language }?.let { return it }
+                val lang = LanguageRegistry.byLocale(hints[i].language) ?: continue
+                enabled.firstOrNull { it.id == lang.id }?.let { return it }
             }
             return null
         }

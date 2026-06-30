@@ -41,9 +41,9 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import com.wasimaster.wmkeyboard.core.settings.ColorVisionFilter
+import com.wasimaster.wmkeyboard.core.script.FontHint
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.ThemeMode
-import com.wasimaster.wmkeyboard.core.settings.isLatinScript
 import com.wasimaster.wmkeyboard.core.theme.BuiltInThemes
 import com.wasimaster.wmkeyboard.core.theme.ColorVision
 import com.wasimaster.wmkeyboard.core.theme.DEFAULT_THEME_ID
@@ -454,7 +454,9 @@ fun KeyboardThemeProvider(settings: KeyboardSettings, content: @Composable () ->
     // Latin-script and Bengali modes each have their own font choice. The
     // Bengali faces all carry Latin glyphs too, so Avro's romanized keys
     // and mixed suggestion strips stay in one face while Bengali is active.
-    val fontId = if (settings.inputMode.isLatinScript) {
+    // (Phase 5 fans this out to a per-script font map; for now the two shipped
+    // scripts keep their existing choices.)
+    val fontId = if (settings.script.fontHint == FontHint.LATIN) {
         settings.keyFontId
     } else {
         settings.bengaliFontId
