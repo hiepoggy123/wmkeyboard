@@ -1,21 +1,22 @@
 package com.wasimaster.wmkeyboard.core.prediction
 
-import com.wasimaster.wmkeyboard.core.settings.KeyboardLanguage
 import java.io.File
 import java.io.InputStream
 
 /**
  * User-supplied word lists, one folder per language.
  *
- * The bundled lists only cover English and Bengali; French, German and
- * Spanish ship with no dictionary at all. Rather than wait for a curated
- * list per language, this lets anyone drop in their own — a Hunspell
- * `.dic`, a frequency list, or a plain column of words — and get
- * completions and autocorrect for a language the app knows nothing about.
+ * The bundled lists only cover English and Bengali; every other language
+ * ships with no dictionary at all. Rather than wait for a curated list per
+ * language, this lets anyone drop in their own — a Hunspell `.dic`, a
+ * frequency list, or a plain column of words — and get completions and
+ * autocorrect for a language the app knows nothing about.
  *
- * Lists live in `filesDir/dictionaries/<LANGUAGE>/<name>.txt` and are
- * additive: several lists may sit in one language, and for English and
- * Bengali they stack on top of the bundled list instead of replacing it.
+ * Lists live in `filesDir/dictionaries/<langId>/<name>.txt` (langId = the
+ * [com.wasimaster.wmkeyboard.core.script.LanguageDef.id], e.g. "en", "bn",
+ * "fr") and are additive: several lists may sit in one language, and for
+ * English and Bengali they stack on top of the bundled list instead of
+ * replacing it.
  *
  * Format is [DictionaryLoader]'s: `word<space>frequency`, frequency
  * optional. `#` comments and junk lines are skipped, so most word lists
@@ -26,29 +27,38 @@ object CustomDictionaries {
     /** Refuse absurd files outright rather than spending a minute parsing one. */
     const val MAX_BYTES = 32L * 1024 * 1024
 
+    /**
+     * Folder names written before languages were keyed by id: the old
+     * `KeyboardLanguage.name`. [migrateLegacyFolders] renames them to their
+     * langId once so imported lists survive the upgrade.
+     */
+    private val LEGACY_FOLDER_LANG = mapOf(
+        "ENGLISH" to "en", "BANGLA" to "bn", "FRENCH" to "fr", "GERMAN" to "de", "SPANISH" to "es",
+    )
+
     fun root(filesDir: File): File = File(filesDir, "dictionaries")
 
-    fun languageDir(filesDir: File, language: KeyboardLanguage): File =
-        File(root(filesDir), language.name)
+    fun languageDir(filesDir: File, langId: String): File =
+        File(root(filesDir), langId)
 
     /** Imported lists for one language, oldest first. */
-    fun lists(filesDir: File, language: KeyboardLanguage): List<File> =
-        languageDir(filesDir, language)
+    fun lists(filesDir: File, langId: String): List<File> =
+        languageDir(filesDir, langId)
             .listFiles { f -> f.isFile && f.extension == "txt" }
             ?.sortedBy { it.name }
             ?: emptyList()
 
     /** Every entry across every list for one language, in file order. */
-    fun entries(filesDir: File, language: KeyboardLanguage): List<Pair<String, Int>> {
+    fun entries(filesDir: File, langId: String): List<Pair<String, Int>> {
         val all = ArrayList<Pair<String, Int>>()
-        for (file in lists(filesDir, language)) {
+        for (file in lists(filesDir, langId)) {
             runCatching { file.inputStream().use { all += DictionaryLoader.loadEntries(it) } }
         }
         return all
     }
 
-    fun trie(filesDir: File, language: KeyboardLanguage): Trie =
-        Trie().apply { for ((word, freq) in entries(filesDir, language)) insert(word, freq) }
+    fun trie(filesDir: File, langId: String): Trie =
+        Trie().apply { for ((word, freq) in entries(filesDir, langId)) insert(word, freq) }
 
     /**
      * Copies [stream] in as a list named after [displayName], returning how
@@ -58,11 +68,11 @@ object CustomDictionaries {
      */
     fun import(
         filesDir: File,
-        language: KeyboardLanguage,
+        langId: String,
         displayName: String,
         stream: InputStream,
     ): Int {
-        val dir = languageDir(filesDir, language).apply { mkdirs() }
+        val dir = languageDir(filesDir, langId).apply { mkdirs() }
         val target = uniqueFile(dir, displayName)
         target.outputStream().use { stream.copyTo(it) }
         val count = runCatching {
@@ -73,6 +83,31 @@ object CustomDictionaries {
     }
 
     fun remove(file: File): Boolean = file.delete()
+
+    /**
+     * Renames the pre-registry per-language folders (ENGLISH → en, BANGLA →
+     * bn …) to their langId, so lists imported before the rewrite are not
+     * orphaned. Idempotent: once renamed the old folders are gone and this is
+     * a no-op. Merges into an existing langId folder without clobbering.
+     */
+    fun migrateLegacyFolders(filesDir: File) {
+        val root = root(filesDir)
+        if (!root.isDirectory) return
+        for ((old, new) in LEGACY_FOLDER_LANG) {
+            val oldDir = File(root, old)
+            if (!oldDir.isDirectory) continue
+            val newDir = File(root, new)
+            if (newDir.exists()) {
+                oldDir.listFiles()?.forEach { f ->
+                    val dest = File(newDir, f.name)
+                    if (!dest.exists()) f.renameTo(dest)
+                }
+                oldDir.delete()
+            } else {
+                oldDir.renameTo(newDir)
+            }
+        }
+    }
 
     /**
      * Picked names arrive straight from the document provider, so strip

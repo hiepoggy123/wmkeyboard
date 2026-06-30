@@ -214,7 +214,7 @@ import com.wasimaster.wmkeyboard.core.settings.BarRow
 import com.wasimaster.wmkeyboard.core.settings.CursorTools
 import com.wasimaster.wmkeyboard.BuildConfig
 import com.wasimaster.wmkeyboard.core.settings.KeyboardAlignment
-import com.wasimaster.wmkeyboard.core.settings.KeyboardLanguage
+import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
 import com.wasimaster.wmkeyboard.core.settings.SettingsBackup
 import com.wasimaster.wmkeyboard.core.settings.KeyboardMode
 import com.wasimaster.wmkeyboard.core.settings.DefaultToolbarTools
@@ -2777,14 +2777,9 @@ private fun BackupSettings(repository: SettingsRepository) {
 
 // ---- custom dictionaries ----
 
-/** Human name for a language, used as the word-list group header. */
-private fun languageLabel(language: KeyboardLanguage): String = when (language) {
-    KeyboardLanguage.ENGLISH -> "English"
-    KeyboardLanguage.BANGLA -> "Bengali"
-    KeyboardLanguage.FRENCH -> "French"
-    KeyboardLanguage.GERMAN -> "German"
-    KeyboardLanguage.SPANISH -> "Spanish"
-}
+/** Human name for a language id, used as the word-list group header. */
+private fun languageLabel(langId: String): String =
+    LanguageRegistry.byId(langId).englishName
 
 /** One imported list: the file plus how many words it parsed to. */
 private data class WordListEntry(val file: java.io.File, val words: Int)
@@ -2794,19 +2789,19 @@ private fun CustomDictionarySettings(repository: SettingsRepository) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     var lists by remember {
-        mutableStateOf<Map<KeyboardLanguage, List<WordListEntry>>>(emptyMap())
+        mutableStateOf<Map<String, List<WordListEntry>>>(emptyMap())
     }
-    var pending by remember { mutableStateOf<KeyboardLanguage?>(null) }
+    var pending by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<String?>(null) }
-    var urlDialogFor by remember { mutableStateOf<KeyboardLanguage?>(null) }
+    var urlDialogFor by remember { mutableStateOf<String?>(null) }
 
     // Counting words means reading every list, so it never runs on the main
     // thread — the screen draws empty for a moment and fills in.
     suspend fun refresh() {
         lists = withContext(Dispatchers.IO) {
-            KeyboardLanguage.entries.associateWith { language ->
-                CustomDictionaries.lists(context.filesDir, language).map { file ->
+            LanguageRegistry.all.associate { language ->
+                language.id to CustomDictionaries.lists(context.filesDir, language.id).map { file ->
                     val words = runCatching {
                         file.inputStream().use { DictionaryLoader.loadEntries(it).size }
                     }.getOrDefault(0)
@@ -2818,7 +2813,7 @@ private fun CustomDictionarySettings(repository: SettingsRepository) {
 
     LaunchedEffect(Unit) { refresh() }
 
-    fun importFromUrl(language: KeyboardLanguage, url: String) {
+    fun importFromUrl(langId: String, url: String) {
         busy = true
         scope.launch {
             val result = withContext(Dispatchers.IO) {
@@ -2832,7 +2827,7 @@ private fun CustomDictionarySettings(repository: SettingsRepository) {
                     val temp = java.io.File.createTempFile("dict_url_", ".tmp", context.cacheDir)
                     try {
                         ToolHttp.download(url.trim(), temp, maxBytes = CustomDictionaries.MAX_BYTES)
-                        temp.inputStream().use { CustomDictionaries.import(context.filesDir, language, name, it) }
+                        temp.inputStream().use { CustomDictionaries.import(context.filesDir, langId, name, it) }
                     } finally {
                         temp.delete()
                     }
@@ -2843,7 +2838,7 @@ private fun CustomDictionarySettings(repository: SettingsRepository) {
                 result == -2 -> "Only http:// and https:// links are supported."
                 result < 0 -> "Could not download that list — check the URL and try again."
                 result == 0 -> "No words found in that file — is it a word list?"
-                else -> "Added $result words to ${languageLabel(language)}."
+                else -> "Added $result words to ${languageLabel(langId)}."
             }
             if (result > 0) {
                 refresh()
@@ -2904,9 +2899,9 @@ private fun CustomDictionarySettings(repository: SettingsRepository) {
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
     )
 
-    for (language in KeyboardLanguage.entries) {
-        val entries = lists[language].orEmpty()
-        SettingsGroup(languageLabel(language)) {
+    for (language in LanguageRegistry.all) {
+        val entries = lists[language.id].orEmpty()
+        SettingsGroup(language.englishName) {
             for (entry in entries) {
                 item {
                     ListItem(
@@ -2941,14 +2936,14 @@ private fun CustomDictionarySettings(repository: SettingsRepository) {
                     OutlinedButton(
                         enabled = !busy,
                         onClick = {
-                            pending = language
+                            pending = language.id
                             importList.launch(arrayOf("*/*"))
                         },
                     ) { Text(if (entries.isEmpty()) "Import word list" else "Import another") }
                     Spacer(Modifier.width(8.dp))
                     OutlinedButton(
                         enabled = !busy,
-                        onClick = { urlDialogFor = language },
+                        onClick = { urlDialogFor = language.id },
                     ) { Text("From URL") }
                 }
             }

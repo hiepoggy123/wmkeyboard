@@ -156,6 +156,7 @@ import com.wasimaster.wmkeyboard.core.layout.ModifierKey
 import com.wasimaster.wmkeyboard.core.layout.numberRowFor
 import com.wasimaster.wmkeyboard.core.layout.LayoutSpec
 import com.wasimaster.wmkeyboard.core.input.composer.composerFor
+import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
 import com.wasimaster.wmkeyboard.core.layout.baseMode
 import com.wasimaster.wmkeyboard.core.layout.composerType
 import com.wasimaster.wmkeyboard.core.layout.language
@@ -265,7 +266,7 @@ class WMKeyboardService : InputMethodService() {
     private var gestureLexicon: List<Pair<String, Int>> = emptyList()
 
     /** Word lists the user imported, one trie per language (empty when none). */
-    private var customDictionaries: Map<KeyboardLanguage, Trie> = emptyMap()
+    private var customDictionaries: Map<String, Trie> = emptyMap()
 
     /** Bundled Bengali entries, kept so the phonetic index can be rebuilt. */
     private var bengaliAssetEntries: List<Pair<String, Int>> = emptyList()
@@ -635,17 +636,17 @@ class WMKeyboardService : InputMethodService() {
                 // Everything below keys off the mode actually being typed, so
                 // a field-forced mode gets its own proximity grid and word
                 // lists rather than the saved mode's.
-                val activeInput = activeSpec.baseMode
+                val activeLang = activeSpec.language()
                 // Typo weighting follows the grid actually on screen, so a
                 // rearranged custom layout weights its own neighbours.
                 suggestionEngine?.proximity = KeyProximity.forLayout(activeSpec)
                 suggestionEngine?.autocorrectConfidence =
                     settings.autocorrectConfidence.toDouble()
-                // Latin languages without a bundled dictionary (French, German,
-                // Spanish) drop the English word list so autocorrect and
-                // completions never offer English for their words.
-                suggestionEngine?.englishSources = !activeInput.isLatinScript ||
-                    activeInput.isEnglish
+                // Only English drives the bundled English word list; every other
+                // language (with no bundled dictionary) drops it so autocorrect
+                // and completions never offer English for their words. Bengali
+                // routes through its own transliteration path either way.
+                suggestionEngine?.englishSources = activeLang.isEnglish
                 // Imported word lists are per language, so the active one
                 // follows the mode: a French list never reaches English.
                 if (customDictVersion != -1 && settings.customDictVersion != customDictVersion) {
@@ -656,7 +657,7 @@ class WMKeyboardService : InputMethodService() {
                 }
                 customDictVersion = settings.customDictVersion
                 suggestionEngine?.customDictionary =
-                    customDictionaries[activeInput.language] ?: Trie()
+                    customDictionaries[activeLang.id] ?: Trie()
             }
         }
 
@@ -694,12 +695,12 @@ class WMKeyboardService : InputMethodService() {
             ).apply {
                 contacts = contactNames
                 apps = appNames
-                proximity = KeyProximity.forMode(_uiState.value.inputMode)
+                proximity = KeyProximity.forLayout(activeLayoutSpec(_uiState.value.settings))
                 autocorrectConfidence =
                     _uiState.value.settings.autocorrectConfidence.toDouble()
-                val mode = _uiState.value.inputMode
-                englishSources = !mode.isLatinScript || mode.isEnglish
-                customDictionary = customTries[mode.language] ?: Trie()
+                val lang = _uiState.value.language
+                englishSources = lang.isEnglish
+                customDictionary = customTries[lang.id] ?: Trie()
             }
             emojiEntries = catalog
             emojiSearch = EmojiSearch(catalog)
@@ -5686,8 +5687,10 @@ class WMKeyboardService : InputMethodService() {
     }
 
     /** Re-reads every imported word list from disk into per-language tries. */
-    private fun loadCustomDictionaries(): Map<KeyboardLanguage, Trie> =
-        KeyboardLanguage.entries.associateWith { CustomDictionaries.trie(filesDir, it) }
+    private fun loadCustomDictionaries(): Map<String, Trie> {
+        CustomDictionaries.migrateLegacyFolders(filesDir)
+        return LanguageRegistry.all.associate { it.id to CustomDictionaries.trie(filesDir, it.id) }
+    }
 
     /**
      * Bengali index over the bundled list plus any imported Bengali list, so
@@ -5695,7 +5698,7 @@ class WMKeyboardService : InputMethodService() {
      */
     private fun buildBengaliIndex(): BengaliPhoneticIndex =
         BengaliPhoneticIndex(
-            bengaliAssetEntries + CustomDictionaries.entries(filesDir, KeyboardLanguage.BANGLA),
+            bengaliAssetEntries + CustomDictionaries.entries(filesDir, "bn"),
         )
 
     fun openSettings() {
