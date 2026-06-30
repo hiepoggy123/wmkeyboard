@@ -155,7 +155,9 @@ import com.wasimaster.wmkeyboard.core.layout.LayoutLayer
 import com.wasimaster.wmkeyboard.core.layout.ModifierKey
 import com.wasimaster.wmkeyboard.core.layout.numberRowFor
 import com.wasimaster.wmkeyboard.core.layout.LayoutSpec
+import com.wasimaster.wmkeyboard.core.input.composer.composerFor
 import com.wasimaster.wmkeyboard.core.layout.baseMode
+import com.wasimaster.wmkeyboard.core.layout.composerType
 import com.wasimaster.wmkeyboard.core.layout.language
 import com.wasimaster.wmkeyboard.core.layout.resolveLayout
 import com.wasimaster.wmkeyboard.core.layout.script
@@ -617,6 +619,7 @@ class WMKeyboardService : InputMethodService() {
                         inputMode = activeSpec.baseMode,
                         language = activeSpec.language(),
                         script = activeSpec.script(),
+                        composer = composerFor(activeSpec.script(), activeSpec.composerType()),
                         layoutId = activeSpec.id,
                         layoutName = activeSpec.name,
                         layouts = resolveLayoutSet(activeSpec, it.fieldKind),
@@ -981,6 +984,7 @@ class WMKeyboardService : InputMethodService() {
                 inputMode = fieldSpec.baseMode,
                 language = fieldSpec.language(),
                 script = fieldSpec.script(),
+                composer = composerFor(fieldSpec.script(), fieldSpec.composerType()),
                 // A locked Ctrl crossing an app boundary is the worst failure
                 // this feature can have: every letter after it becomes a
                 // shortcut in an app the user never armed it for.
@@ -1552,8 +1556,8 @@ class WMKeyboardService : InputMethodService() {
         // in password fields and with the strip off, or the roman keys commit
         // untransliterated and no Bengali is produced. English composing only
         // exists to feed suggestions, so it stays gated on those.
-        val composingMode = !state.inputMode.isFixedBengali && (
-            state.inputMode.isPhonetic ||
+        val composingMode = !state.composer.isClusterShaping && (
+            state.composer.isTransliterating ||
                 (state.allowsTypingIntelligence && state.settings.suggestions)
             )
 
@@ -1594,7 +1598,7 @@ class WMKeyboardService : InputMethodService() {
         val base = key.output ?: key.label
         return when {
             state.shiftState != ShiftState.OFF && key.shiftLabel != null -> key.shiftLabel
-            state.shiftState != ShiftState.OFF && !state.inputMode.isFixedBengali ->
+            state.shiftState != ShiftState.OFF && !state.composer.isClusterShaping ->
                 base.uppercase()
             else -> base
         }
@@ -1606,12 +1610,8 @@ class WMKeyboardService : InputMethodService() {
      * (য়া, য়ে) after another vowel — so কা + আ gives কায়া, never the
      * invalid কাআ — and the independent vowel (আ, ই, …) at a word start.
      */
-    private fun fixedLayoutContextualVowel(text: String, previous: Char?): String {
-        if (!_uiState.value.inputMode.isFixedBengali) return text
-        val kar = text.singleOrNull() ?: return text
-        val form = BengaliGraphemes.vowelFormAfter(previous)
-        return BengaliGraphemes.vowelKeyText(kar, form) ?: text
-    }
+    private fun fixedLayoutContextualVowel(text: String, previous: Char?): String =
+        _uiState.value.composer.contextualForm(text, previous)
 
     /**
      * Recomputes [KeyboardUiState.vowelForm] from the character before the
@@ -1619,7 +1619,7 @@ class WMKeyboardService : InputMethodService() {
      * word position both in output and on the key labels.
      */
     private fun refreshKarContext() {
-        if (!_uiState.value.inputMode.isFixedBengali) return
+        if (!_uiState.value.composer.isClusterShaping) return
         val previous = if (_uiState.value.emojiSearchActive) {
             _uiState.value.emojiQuery.lastOrNull()
         } else {
@@ -1767,7 +1767,7 @@ class WMKeyboardService : InputMethodService() {
                 // instead of shedding a piece per backspace.
                 emojiLength > 0 -> emojiLength
                 state.settings.conjunctBackspace ->
-                    BengaliGraphemes.clusterDeleteLength(before).coerceAtLeast(1)
+                    state.composer.deleteLength(before).coerceAtLeast(1)
                 before.length >= 2 &&
                     Character.isSurrogatePair(before[before.length - 2], before[before.length - 1]) -> 2
                 else -> 1
@@ -2136,6 +2136,7 @@ class WMKeyboardService : InputMethodService() {
                 inputMode = spec.baseMode,
                 language = spec.language(),
                 script = spec.script(),
+                composer = composerFor(spec.script(), spec.composerType()),
                 layoutId = spec.id,
                 layoutName = spec.name,
                 layouts = resolveLayoutSet(spec, it.fieldKind),
@@ -2160,8 +2161,8 @@ class WMKeyboardService : InputMethodService() {
 
     private fun updateComposingText(ic: InputConnection) {
         val state = _uiState.value
-        val preview = if (state.inputMode == InputMode.AVRO) {
-            AvroPhonetic.transliterate(composing.toString())
+        val preview = if (state.composer.isTransliterating) {
+            state.composer.composeBuffer(composing.toString())
         } else {
             composing.toString()
         }
@@ -2198,7 +2199,7 @@ class WMKeyboardService : InputMethodService() {
         // contraction slip, not a typo for "font"/"done" to be guessed at.
         val apostrophized =
             if (fixApostrophes && state.allowsTypingIntelligence &&
-                state.inputMode.isEnglish
+                state.language.isEnglish
             ) {
                 Apostrophes.fix(typed)
             } else {
@@ -2210,9 +2211,9 @@ class WMKeyboardService : InputMethodService() {
             // suggestion job may not have caught up with the last keystroke
             // (especially within the debounce window), and a commit must
             // never use stale results.
-            state.inputMode == InputMode.AVRO ->
+            state.composer.isTransliterating ->
                 suggestionEngine?.suggest(typed, previousWord = null, avroMode = true)
-                    ?.firstOrNull() ?: AvroPhonetic.transliterate(typed)
+                    ?.firstOrNull() ?: state.composer.composeBuffer(typed)
             apostrophized != null -> apostrophized
             autocorrect && state.allowsTypingIntelligence -> {
                 corrected = suggestionEngine?.shouldAutocorrect(typed)?.takeIf { it != typed }
@@ -2554,7 +2555,7 @@ class WMKeyboardService : InputMethodService() {
                 val words = engine.suggest(
                     composing = typed,
                     previousWord = previousWord,
-                    avroMode = state.inputMode == InputMode.AVRO,
+                    avroMode = state.composer.isTransliterating,
                 )
                 if (typed.isNotEmpty()) {
                     val emojis = if (state.settings.emojiPrediction) {
@@ -2637,7 +2638,7 @@ class WMKeyboardService : InputMethodService() {
     fun onGesturePreview(points: List<GesturePoint>, keys: List<KeyCenter>, keyWidthPx: Float) {
         val state = _uiState.value
         if (!state.settings.gestureTyping || !state.allowsTypingIntelligence) return
-        if (!state.inputMode.isEnglish || state.typingTestActive) return
+        if (!state.language.isEnglish || state.typingTestActive) return
         val lexicon = gestureLexicon
         if (lexicon.isEmpty() || keys.isEmpty()) return
         previewJob?.cancel()
@@ -2667,7 +2668,7 @@ class WMKeyboardService : InputMethodService() {
         stopVoiceForManualInput()
         val state = _uiState.value
         if (!state.settings.gestureTyping || !state.allowsTypingIntelligence) return
-        if (!state.inputMode.isEnglish || state.typingTestActive) return
+        if (!state.language.isEnglish || state.typingTestActive) return
         val lexicon = gestureLexicon
         if (lexicon.isEmpty() || keys.isEmpty()) return
 
@@ -2823,7 +2824,7 @@ class WMKeyboardService : InputMethodService() {
 
     /** Recognition language follows the input mode, like handwriting. */
     private fun voiceLanguageTag(): String =
-        if (_uiState.value.inputMode.isEnglish) "en-US" else "bn-BD"
+        _uiState.value.language.localeTag
 
     /** Mic button on the voice panel/strip: start, or finish the session. */
     fun onVoiceToggle() {
@@ -5759,7 +5760,7 @@ class WMKeyboardService : InputMethodService() {
         if (!state.settings.autoCapitalize) return ShiftState.OFF
         // Sentence capitalization applies to every Latin-script language;
         // Bengali has no letter case.
-        if (!state.inputMode.isLatinScript) return ShiftState.OFF
+        if (!state.script.hasLetterCase) return ShiftState.OFF
         val info = currentInputEditorInfo ?: return ShiftState.OFF
         if (info.inputType and InputType.TYPE_MASK_CLASS != InputType.TYPE_CLASS_TEXT) {
             return ShiftState.OFF

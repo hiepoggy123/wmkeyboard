@@ -341,6 +341,9 @@ data class KeyboardSettings(
     /** Base modes of [enabledLayoutIds], deduplicated. Derived like [inputMode]. */
     val enabledModes: List<InputMode> =
         listOf(InputMode.ENGLISH, InputMode.AVRO, InputMode.PROBHAT, InputMode.JATIYA),
+    /** Languages of [enabledLayoutIds], deduped — the registry view of [enabledModes]. */
+    val enabledLanguages: List<LanguageDef> =
+        listOf(LanguageRegistry.byId("en"), LanguageRegistry.byId("bn")),
     /**
      * The language of [activeLayoutId], resolved from its layout's `langId`. The
      * registry-era replacement for [inputMode]/[KeyboardLanguage]: dictionary,
@@ -1154,6 +1157,7 @@ class SettingsRepository(private val context: Context) {
             customLayouts = customLayouts,
             inputMode = layoutSelection.active.baseMode,
             enabledModes = layoutSelection.enabledModes,
+            enabledLanguages = layoutSelection.enabledLanguages,
             language = layoutSelection.active.language(),
             script = layoutSelection.active.script(),
             themeMode = p[THEME_MODE]?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() }

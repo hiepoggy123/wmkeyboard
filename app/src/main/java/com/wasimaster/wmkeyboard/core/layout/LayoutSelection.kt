@@ -1,19 +1,22 @@
 package com.wasimaster.wmkeyboard.core.layout
 
+import com.wasimaster.wmkeyboard.core.script.LanguageDef
+import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
 import com.wasimaster.wmkeyboard.core.settings.InputMode
 
 /**
  * Which layout is active and which are enabled, resolved from what is actually
  * on disk.
  *
- * [enabledModes] is derived rather than stored so the forty-odd readers that
- * predate custom layouts keep working: they ask the settings for an [InputMode]
- * and get the base mode of whatever layout is selected.
+ * [enabledLanguages] is the registry-era view of the enabled set (deduped by
+ * language). [enabledModes] is the legacy [InputMode] view kept alongside it
+ * until the last readers move over; both derive from [enabledLayoutIds].
  */
 data class LayoutSelection(
     val active: LayoutSpec,
     val enabledLayoutIds: List<String>,
     val enabledModes: List<InputMode>,
+    val enabledLanguages: List<LanguageDef>,
 )
 
 /**
@@ -60,5 +63,9 @@ fun resolveLayoutSelection(
             .map { resolveLayout(customLayouts, it).baseMode }
             .distinct()
             .ifEmpty { listOf(InputMode.ENGLISH) },
+        enabledLanguages = enabledIds
+            .map { resolveLayout(customLayouts, it).language() }
+            .distinctBy { it.id }
+            .ifEmpty { listOf(LanguageRegistry.byId("en")) },
     )
 }

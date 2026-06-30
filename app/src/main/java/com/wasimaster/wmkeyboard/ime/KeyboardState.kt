@@ -11,6 +11,8 @@ import com.wasimaster.wmkeyboard.core.layout.ModifierKey
 import com.wasimaster.wmkeyboard.core.layout.KeyboardLayout
 import com.wasimaster.wmkeyboard.core.layout.LayoutLayer
 import com.wasimaster.wmkeyboard.core.layout.Layouts
+import com.wasimaster.wmkeyboard.core.input.composer.Composer
+import com.wasimaster.wmkeyboard.core.input.composer.NoComposer
 import com.wasimaster.wmkeyboard.core.script.LanguageDef
 import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
 import com.wasimaster.wmkeyboard.core.script.ScriptDef
@@ -532,6 +534,8 @@ data class KeyboardUiState(
     val language: LanguageDef = LanguageRegistry.byId("en"),
     /** The active language's script — direction, case, composer, font. */
     val script: ScriptDef = ScriptRegistry[ScriptId.LATIN],
+    /** How keystrokes compose for the active layout (Avro transliteration, Indic clusters). */
+    val composer: Composer = NoComposer,
     /** The layout being typed on; what the 🌐 cycle steps through. */
     val layoutId: String = BuiltInLayouts.DEFAULT_ID,
     /**
