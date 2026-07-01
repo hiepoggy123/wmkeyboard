@@ -19,7 +19,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Slider
 import com.wasimaster.wmkeyboard.core.layout.KeyRole
-import com.wasimaster.wmkeyboard.core.layout.baseMode
 import com.wasimaster.wmkeyboard.core.layout.LayerSpec
 import kotlin.math.roundToInt
 import androidx.compose.material3.Button
@@ -89,6 +88,7 @@ import com.wasimaster.wmkeyboard.core.layout.KeyAction
 import com.wasimaster.wmkeyboard.core.layout.KeyboardLayout
 import com.wasimaster.wmkeyboard.core.layout.LayoutLayer
 import com.wasimaster.wmkeyboard.core.layout.LayoutSpec
+import com.wasimaster.wmkeyboard.core.layout.language
 import com.wasimaster.wmkeyboard.core.layout.ModifierKey
 import com.wasimaster.wmkeyboard.core.layout.LayoutSeverity
 import com.wasimaster.wmkeyboard.core.layout.compile
@@ -96,7 +96,6 @@ import com.wasimaster.wmkeyboard.core.layout.gridWeightOf
 import com.wasimaster.wmkeyboard.core.layout.resolveLayouts
 import com.wasimaster.wmkeyboard.core.layout.sidePadFor
 import com.wasimaster.wmkeyboard.core.layout.validateLayout
-import com.wasimaster.wmkeyboard.core.settings.InputMode
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import com.wasimaster.wmkeyboard.ime.ui.KbTheme
@@ -390,22 +389,15 @@ internal fun layoutSummary(layout: LayoutSpec, enabled: Boolean): String {
     val extras = layout.layers.keys.count { it != LayoutLayer.LETTERS.key }
     val layers = if (extras > 0) " · $extras custom layer${if (extras == 1) "" else "s"}" else ""
     val state = if (enabled) "On" else "Off"
-    return "$state · ${baseModeTitle(layout.baseMode)} · $shape$layers"
+    return "$state · ${baseModeTitle(layout)} · $shape$layers"
 }
 
 /**
  * The catalog's name for a mode, so the subtitle tracks a renamed catalog entry
  * rather than duplicating it.
  */
-internal fun baseModeTitle(mode: InputMode): String {
-    for (language in LanguageCatalog) {
-        val option = language.layouts.firstOrNull {
-            BuiltInLayouts.byId(it.layoutId)?.baseMode == mode
-        } ?: continue
-        return "${language.name} · ${option.title}"
-    }
-    return mode.name
-}
+internal fun baseModeTitle(layout: LayoutSpec): String =
+    "${layout.language().displayName} · ${layout.name}"
 
 // ---------------------------------------------------------------------------
 // Editor

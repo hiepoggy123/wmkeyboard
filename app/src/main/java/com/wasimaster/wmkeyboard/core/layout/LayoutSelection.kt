@@ -2,20 +2,15 @@ package com.wasimaster.wmkeyboard.core.layout
 
 import com.wasimaster.wmkeyboard.core.script.LanguageDef
 import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
-import com.wasimaster.wmkeyboard.core.settings.InputMode
 
 /**
  * Which layout is active and which are enabled, resolved from what is actually
- * on disk.
- *
- * [enabledLanguages] is the registry-era view of the enabled set (deduped by
- * language). [enabledModes] is the legacy [InputMode] view kept alongside it
- * until the last readers move over; both derive from [enabledLayoutIds].
+ * on disk. [enabledLanguages] is the enabled set deduped by language; both it
+ * and [active] derive from [enabledLayoutIds].
  */
 data class LayoutSelection(
     val active: LayoutSpec,
     val enabledLayoutIds: List<String>,
-    val enabledModes: List<InputMode>,
     val enabledLanguages: List<LanguageDef>,
 )
 
@@ -56,13 +51,9 @@ fun resolveLayoutSelection(
         // under it heals to the default here instead of at every reader.
         active = resolveLayout(customLayouts, activeId),
         enabledLayoutIds = enabledIds,
-        // switchLanguage already guards with ifEmpty, but hintedMode and the
+        // switchLanguage already guards with ifEmpty, but hintedLanguage and the
         // FORCE_ASCII fallback do not — an empty list there would leave a field
         // with no language to fall back to.
-        enabledModes = enabledIds
-            .map { resolveLayout(customLayouts, it).baseMode }
-            .distinct()
-            .ifEmpty { listOf(InputMode.ENGLISH) },
         enabledLanguages = enabledIds
             .map { resolveLayout(customLayouts, it).language() }
             .distinctBy { it.id }

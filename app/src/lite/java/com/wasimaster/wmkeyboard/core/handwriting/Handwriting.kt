@@ -1,6 +1,5 @@
 package com.wasimaster.wmkeyboard.core.handwriting
 
-import com.wasimaster.wmkeyboard.core.settings.language
 
 /** One sampled point of a handwriting stroke, in canvas pixels. */
 data class HwPoint(val x: Float, val y: Float, val t: Long)

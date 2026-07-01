@@ -158,7 +158,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import com.wasimaster.wmkeyboard.core.layout.baseMode
 import com.wasimaster.wmkeyboard.core.ui.toolAccentColor
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
@@ -2285,7 +2284,7 @@ private fun LanguageSettings(
             item {
                 ToggleSetting(
                     layout.name,
-                    "Types with the ${baseModeTitle(layout.baseMode)} dictionary",
+                    "Types with the ${baseModeTitle(layout)} dictionary",
                     layout.id in settings.enabledLayoutIds,
                 ) { enable ->
                     scope.launch {

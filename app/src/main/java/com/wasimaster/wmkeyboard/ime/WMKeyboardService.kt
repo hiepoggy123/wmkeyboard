@@ -78,15 +78,8 @@ import com.wasimaster.wmkeyboard.core.prediction.Trie
 import com.wasimaster.wmkeyboard.core.prediction.UserLexicon
 import com.wasimaster.wmkeyboard.core.settings.EmojiInsertMode
 import com.wasimaster.wmkeyboard.core.settings.HapticStyle
-import com.wasimaster.wmkeyboard.core.settings.InputMode
-import com.wasimaster.wmkeyboard.core.settings.KeyboardLanguage
 import com.wasimaster.wmkeyboard.core.settings.KeyboardMode
 import com.wasimaster.wmkeyboard.core.settings.LetterSwipeAction
-import com.wasimaster.wmkeyboard.core.settings.language
-import com.wasimaster.wmkeyboard.core.settings.isEnglish
-import com.wasimaster.wmkeyboard.core.settings.isFixedBengali
-import com.wasimaster.wmkeyboard.core.settings.isLatinScript
-import com.wasimaster.wmkeyboard.core.settings.isPhonetic
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.ModeField
 import com.wasimaster.wmkeyboard.core.settings.OneHandedMode
@@ -159,7 +152,6 @@ import com.wasimaster.wmkeyboard.core.input.composer.composerFor
 import com.wasimaster.wmkeyboard.core.script.LanguageDef
 import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
 import com.wasimaster.wmkeyboard.core.script.ScriptId
-import com.wasimaster.wmkeyboard.core.layout.baseMode
 import com.wasimaster.wmkeyboard.core.layout.composerType
 import com.wasimaster.wmkeyboard.core.layout.language
 import com.wasimaster.wmkeyboard.core.layout.resolveLayout
@@ -619,7 +611,6 @@ class WMKeyboardService : InputMethodService() {
                 _uiState.update {
                     it.copy(
                         settings = settings.applyMode(mode),
-                        inputMode = activeSpec.baseMode,
                         language = activeSpec.language(),
                         script = activeSpec.script(),
                         composer = composerFor(activeSpec.script(), activeSpec.composerType()),
@@ -984,7 +975,6 @@ class WMKeyboardService : InputMethodService() {
         _uiState.update {
             it.copy(
                 settings = base?.applyMode(activeMode) ?: it.settings,
-                inputMode = fieldSpec.baseMode,
                 language = fieldSpec.language(),
                 script = fieldSpec.script(),
                 composer = composerFor(fieldSpec.script(), fieldSpec.composerType()),
@@ -2127,7 +2117,6 @@ class WMKeyboardService : InputMethodService() {
         fieldLayoutOverride = null
         _uiState.update {
             it.copy(
-                inputMode = spec.baseMode,
                 language = spec.language(),
                 script = spec.script(),
                 composer = composerFor(spec.script(), spec.composerType()),

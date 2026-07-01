@@ -18,7 +18,6 @@ import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
 import com.wasimaster.wmkeyboard.core.script.ScriptDef
 import com.wasimaster.wmkeyboard.core.script.ScriptId
 import com.wasimaster.wmkeyboard.core.script.ScriptRegistry
-import com.wasimaster.wmkeyboard.core.settings.InputMode
 import com.wasimaster.wmkeyboard.core.transliteration.BengaliGraphemes
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.snippets.Snippet
@@ -529,8 +528,7 @@ sealed interface TypingTestAction {
  */
 data class KeyboardUiState(
     val settings: KeyboardSettings = KeyboardSettings(),
-    val inputMode: InputMode = InputMode.ENGLISH,
-    /** The active layout's language; registry-era companion to [inputMode]. */
+    /** The active layout's language — dictionary, dictation, script behaviour. */
     val language: LanguageDef = LanguageRegistry.byId("en"),
     /** The active language's script — direction, case, composer, font. */
     val script: ScriptDef = ScriptRegistry[ScriptId.LATIN],

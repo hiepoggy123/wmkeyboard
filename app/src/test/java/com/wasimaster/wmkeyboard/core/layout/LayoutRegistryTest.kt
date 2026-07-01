@@ -1,8 +1,9 @@
 package com.wasimaster.wmkeyboard.core.layout
 
-import com.wasimaster.wmkeyboard.core.settings.InputMode
+import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNotSame
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -10,11 +11,14 @@ import org.junit.Test
 class LayoutRegistryTest {
 
     @Test
-    fun `every input mode maps to a built-in`() {
-        for (mode in InputMode.entries) {
-            val spec = BuiltInLayouts.forMode(mode)
-            assertEquals("forMode should return a layout bound to the mode", mode, spec.baseMode)
+    fun `every built-in defines a letters layer and a known language`() {
+        for (spec in BuiltInLayouts.all) {
             assertNotNull("${spec.id} must define a letters layer", spec.layer(LayoutLayer.LETTERS))
+            assertNotSame(
+                "${spec.id} resolves to an unknown language",
+                LanguageRegistry.GENERIC,
+                spec.language(),
+            )
         }
     }
 

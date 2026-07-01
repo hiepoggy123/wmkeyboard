@@ -6,7 +6,6 @@ import com.wasimaster.wmkeyboard.core.layout.KeyAction
 import com.wasimaster.wmkeyboard.core.layout.LayerSpec
 import com.wasimaster.wmkeyboard.core.layout.LayoutLayer
 import com.wasimaster.wmkeyboard.core.layout.LayoutSpec
-import com.wasimaster.wmkeyboard.core.settings.InputMode
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -24,11 +23,11 @@ import org.junit.Test
 class KeyProximityTest {
 
     private val oldTables = mapOf(
-        InputMode.ENGLISH to listOf("qwertyuiop", "asdfghjkl", "zxcvbnm"),
-        InputMode.AZERTY to listOf("azertyuiop", "qsdfghjklm", "wxcvbn'"),
-        InputMode.DVORAK to listOf("',.pyfgcrl", "aoeuidhtns", "qjkxbmwvz"),
-        InputMode.GERMAN to listOf("qwertzuiop", "asdfghjkl", "yxcvbnm"),
-        InputMode.SPANISH to listOf("qwertyuiop", "asdfghjklñ", "zxcvbnm"),
+        BuiltInLayouts.QWERTY_ID to listOf("qwertyuiop", "asdfghjkl", "zxcvbnm"),
+        BuiltInLayouts.AZERTY_ID to listOf("azertyuiop", "qsdfghjklm", "wxcvbn'"),
+        BuiltInLayouts.DVORAK_ID to listOf("',.pyfgcrl", "aoeuidhtns", "qjkxbmwvz"),
+        BuiltInLayouts.GERMAN_ID to listOf("qwertzuiop", "asdfghjkl", "yxcvbnm"),
+        BuiltInLayouts.SPANISH_ID to listOf("qwertyuiop", "asdfghjklñ", "zxcvbnm"),
     )
 
     /** Reimplements the old constructor input so the two can be compared. */
@@ -39,15 +38,15 @@ class KeyProximityTest {
 
     @Test
     fun `derived adjacency matches the old tables for every character pair`() {
-        for ((mode, rows) in oldTables) {
+        for ((layoutId, rows) in oldTables) {
             val expected = reference(rows)
-            val actual = KeyProximity.forLayout(BuiltInLayouts.forMode(mode))
+            val actual = KeyProximity.forLayout(BuiltInLayouts.byId(layoutId)!!)
             val chars = rows.joinToString("").toSet()
 
             for (a in chars) {
                 for (b in chars) {
                     assertEquals(
-                        "$mode: adjacency of '$a' and '$b' changed",
+                        "$layoutId: adjacency of '$a' and '$b' changed",
                         expected.areAdjacent(a, b),
                         actual.areAdjacent(a, b),
                     )
@@ -58,14 +57,14 @@ class KeyProximityTest {
 
     @Test
     fun `the letter rows project exactly as the old tables spelled them`() {
-        for ((mode, rows) in oldTables) {
-            val proximity = KeyProximity.forLayout(BuiltInLayouts.forMode(mode))
+        for ((layoutId, rows) in oldTables) {
+            val proximity = KeyProximity.forLayout(BuiltInLayouts.byId(layoutId)!!)
             // Every character the table names has to be known to the derived map,
             // which catches a row being dropped or shortened rather than merely
             // reordered.
             for (c in rows.joinToString("")) {
                 assertTrue(
-                    "$mode: '$c' is missing from the derived proximity",
+                    "$layoutId: '$c' is missing from the derived proximity",
                     rows.joinToString("").any { other -> other != c && proximity.areAdjacent(c, other) },
                 )
             }

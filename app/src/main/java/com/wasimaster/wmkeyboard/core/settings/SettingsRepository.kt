@@ -16,7 +16,6 @@ import androidx.datastore.preferences.preferencesDataStore
 import com.wasimaster.wmkeyboard.BuildConfig
 import com.wasimaster.wmkeyboard.core.layout.BuiltInLayouts
 import com.wasimaster.wmkeyboard.core.layout.LayoutCodec
-import com.wasimaster.wmkeyboard.core.layout.baseMode
 import com.wasimaster.wmkeyboard.core.layout.LayoutSpec
 import com.wasimaster.wmkeyboard.core.layout.language
 import com.wasimaster.wmkeyboard.core.layout.repair
@@ -39,60 +38,6 @@ import com.wasimaster.wmkeyboard.core.tools.TypingTestMode
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
-
-/**
- * Which script/input method the keyboard is currently in. Each mode is one
- * language+layout pair; [ENGLISH] is the original English QWERTY mode and
- * keeps its stored name for settings compatibility.
- */
-enum class InputMode { ENGLISH, AZERTY, DVORAK, AVRO, PROBHAT, JATIYA, FRENCH, GERMAN, SPANISH }
-
-/**
- * The language a mode types. Modes group under a language in the settings
- * screens and share language-level behavior (dictionaries, autocorrect,
- * handwriting model, fonts); adding a language means adding a value here
- * and tagging its modes below.
- */
-enum class KeyboardLanguage { ENGLISH, BANGLA, FRENCH, GERMAN, SPANISH }
-
-val InputMode.language: KeyboardLanguage
-    get() = when (this) {
-        InputMode.ENGLISH, InputMode.AZERTY, InputMode.DVORAK -> KeyboardLanguage.ENGLISH
-        InputMode.AVRO, InputMode.PROBHAT, InputMode.JATIYA -> KeyboardLanguage.BANGLA
-        InputMode.FRENCH -> KeyboardLanguage.FRENCH
-        InputMode.GERMAN -> KeyboardLanguage.GERMAN
-        InputMode.SPANISH -> KeyboardLanguage.SPANISH
-    }
-
-/** English-language modes: Latin layouts with English suggestions/autocorrect. */
-val InputMode.isEnglish: Boolean
-    get() = language == KeyboardLanguage.ENGLISH
-
-/**
- * Modes typing a Latin-script language (English, French, German, Spanish):
- * these share the Latin font choice, auto-capitalization rules and roman
- * composing, regardless of which dictionary (if any) backs them.
- */
-val InputMode.isLatinScript: Boolean
-    get() = language != KeyboardLanguage.BANGLA
-
-/**
- * Fixed Bengali layouts type Bengali characters directly (no roman
- * composing, no transliteration): Probhat and the National (Jatiya) layout.
- */
-val InputMode.isFixedBengali: Boolean
-    get() = this == InputMode.PROBHAT || this == InputMode.JATIYA
-
-/**
- * Phonetic modes type roman letters that are transliterated to another
- * script as a unit on commit (Avro → Bengali). Composing here is the input
- * method itself, not a suggestion feature: without it the roman keys commit
- * as-is and no Bengali is produced. So it runs even in password fields and
- * with the suggestion strip off — unlike English composing, which exists
- * only to feed suggestions.
- */
-val InputMode.isPhonetic: Boolean
-    get() = this == InputMode.AVRO
 
 /** Visual theme for the keyboard and settings app. */
 enum class ThemeMode { SYSTEM, LIGHT, DARK, AMOLED }
@@ -328,20 +273,7 @@ data class KeyboardSettings(
     val enabledLayoutIds: List<String> = BuiltInLayouts.defaultEnabledIds,
     /** User-created layouts, and edits shadowing a built-in by reusing its id. */
     val customLayouts: List<LayoutSpec> = emptyList(),
-    /**
-     * The language behaviour of [activeLayoutId]: dictionary, autocorrect
-     * sources, script rules, dictation and handwriting model.
-     *
-     * Derived rather than stored — a layout names its base mode and everything
-     * language-shaped keys off that. It stays a field on the settings, rather
-     * than becoming a lookup at each call site, so the forty-odd readers that
-     * predate custom layouts are untouched by them.
-     */
-    val inputMode: InputMode = InputMode.ENGLISH,
-    /** Base modes of [enabledLayoutIds], deduplicated. Derived like [inputMode]. */
-    val enabledModes: List<InputMode> =
-        listOf(InputMode.ENGLISH, InputMode.AVRO, InputMode.PROBHAT, InputMode.JATIYA),
-    /** Languages of [enabledLayoutIds], deduped — the registry view of [enabledModes]. */
+    /** Languages of [enabledLayoutIds], deduped, in switch order. */
     val enabledLanguages: List<LanguageDef> =
         listOf(LanguageRegistry.byId("en"), LanguageRegistry.byId("bn")),
     /**
@@ -1155,8 +1087,6 @@ class SettingsRepository(private val context: Context) {
             activeLayoutId = layoutSelection.active.id,
             enabledLayoutIds = layoutSelection.enabledLayoutIds,
             customLayouts = customLayouts,
-            inputMode = layoutSelection.active.baseMode,
-            enabledModes = layoutSelection.enabledModes,
             enabledLanguages = layoutSelection.enabledLanguages,
             language = layoutSelection.active.language(),
             script = layoutSelection.active.script(),
@@ -1731,13 +1661,6 @@ class SettingsRepository(private val context: Context) {
             }
         }
 
-    /** Selects the built-in layout bound to [mode]. Kept for the 🌐 cycle. */
-    suspend fun setInputMode(mode: InputMode) =
-        setActiveLayoutId(BuiltInLayouts.forMode(mode).id)
-
-    suspend fun setEnabledModes(modes: List<InputMode>) =
-        setEnabledLayoutIds(modes.map { BuiltInLayouts.forMode(it).id })
-
     /**
      * Switches the active layout.
      *
@@ -1745,10 +1668,6 @@ class SettingsRepository(private val context: Context) {
      * Ordinary saves deliberately do not, so the editor can hold a half-built
      * grid; but the moment a layout becomes the thing you type on it must have
      * a delete key, because you cannot fix the typo that lost you the key.
-     *
-     * The old input_mode preference is written alongside so a build without the
-     * registry — an older APK, or this settings file restored onto one — still
-     * lands on the right language.
      */
     suspend fun setActiveLayoutId(id: String) =
         context.dataStore.edit { prefs ->
@@ -1764,7 +1683,6 @@ class SettingsRepository(private val context: Context) {
                     LayoutCodec.encodeList(custom.filter { it.id != id } + repaired)
             }
             prefs[ACTIVE_LAYOUT_ID] = repaired.id
-            prefs[INPUT_MODE] = repaired.baseMode.name
         }
 
     suspend fun setRawClipboardShortcuts(value: Boolean) =
@@ -1774,12 +1692,7 @@ class SettingsRepository(private val context: Context) {
     suspend fun setEnabledLayoutIds(ids: List<String>) =
         context.dataStore.edit { prefs ->
             val next = ids.distinct().ifEmpty { listOf(BuiltInLayouts.DEFAULT_ID) }
-            val custom = prefs[CUSTOM_LAYOUTS]?.let { LayoutCodec.decodeList(it) } ?: emptyList()
             prefs[ENABLED_LAYOUT_IDS] = next.joinToString(",")
-            prefs[ENABLED_MODES] = next
-                .map { resolveLayout(custom, it).baseMode }
-                .distinct()
-                .joinToString(",") { it.name }
         }
 
     /**
@@ -1837,14 +1750,9 @@ class SettingsRepository(private val context: Context) {
                     .filter { it.isNotEmpty() && it != id }
                     .ifEmpty { listOf(BuiltInLayouts.DEFAULT_ID) }
                 prefs[ENABLED_LAYOUT_IDS] = kept.joinToString(",")
-                prefs[ENABLED_MODES] = kept
-                    .map { resolveLayout(emptyList(), it).baseMode }
-                    .distinct()
-                    .joinToString(",") { it.name }
             }
             if (prefs[ACTIVE_LAYOUT_ID] == id) {
                 prefs[ACTIVE_LAYOUT_ID] = BuiltInLayouts.DEFAULT_ID
-                prefs[INPUT_MODE] = BuiltInLayouts.default.baseMode.name
             }
         }
 

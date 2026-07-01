@@ -1,7 +1,6 @@
 package com.wasimaster.wmkeyboard.core.layout
 
 import com.wasimaster.wmkeyboard.core.script.ComposerType
-import com.wasimaster.wmkeyboard.core.settings.InputMode
 
 /**
  * The layouts that ship with the keyboard.
@@ -172,23 +171,6 @@ object BuiltInLayouts {
     fun byId(id: String): LayoutSpec? = all.firstOrNull { it.id == id }
 
     val default: LayoutSpec get() = byId(DEFAULT_ID)!!
-
-    /**
-     * The layout an install from before the registry was rendering for a given
-     * mode. Used on the read path to translate a stored `input_mode` into a
-     * layout id; see `SettingsRepository.settings`.
-     */
-    fun forMode(mode: InputMode): LayoutSpec = when (mode) {
-        InputMode.ENGLISH -> QWERTY
-        InputMode.AZERTY -> AZERTY
-        InputMode.DVORAK -> DVORAK
-        InputMode.AVRO -> AVRO
-        InputMode.PROBHAT -> PROBHAT
-        InputMode.JATIYA -> JATIYA
-        InputMode.FRENCH -> FRENCH
-        InputMode.GERMAN -> GERMAN
-        InputMode.SPANISH -> SPANISH
-    }
 
     /**
      * A starting Fn layer, for a layout that wants one.

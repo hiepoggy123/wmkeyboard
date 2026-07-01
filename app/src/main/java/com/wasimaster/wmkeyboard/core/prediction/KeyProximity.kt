@@ -4,7 +4,6 @@ import com.wasimaster.wmkeyboard.core.layout.BuiltInLayouts
 import com.wasimaster.wmkeyboard.core.layout.KeyAction
 import com.wasimaster.wmkeyboard.core.layout.LayoutLayer
 import com.wasimaster.wmkeyboard.core.layout.LayoutSpec
-import com.wasimaster.wmkeyboard.core.settings.InputMode
 
 /**
  * Physical adjacency on a keyboard layout, used to weight typo corrections:
@@ -54,15 +53,6 @@ class KeyProximity private constructor(rows: List<String>) {
          */
         fun forLayout(spec: LayoutSpec): KeyProximity =
             KeyProximity(spec.proximityRows ?: letterRows(spec))
-
-        /**
-         * The layout a mode renders, as proximity rows.
-         *
-         * Scaffolding: once the service resolves the active layout it passes the
-         * spec to [forLayout] directly, and a custom layout stops being invisible
-         * to typo weighting.
-         */
-        fun forMode(mode: InputMode): KeyProximity = forLayout(BuiltInLayouts.forMode(mode))
 
         /** The default a suggestion engine starts on, before a layout is known. */
         val QWERTY: KeyProximity = forLayout(BuiltInLayouts.QWERTY)

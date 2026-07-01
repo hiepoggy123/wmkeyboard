@@ -7,7 +7,6 @@ import com.wasimaster.wmkeyboard.core.layout.KeyRole
 import com.wasimaster.wmkeyboard.core.layout.KeyboardLayout
 import com.wasimaster.wmkeyboard.core.layout.LayoutLayer
 import com.wasimaster.wmkeyboard.core.layout.compile
-import com.wasimaster.wmkeyboard.core.settings.InputMode
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.ime.FieldKind
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
@@ -36,10 +35,8 @@ class CurrentLayoutTest {
         spec: com.wasimaster.wmkeyboard.core.layout.LayoutSpec = BuiltInLayouts.QWERTY,
         fieldKind: FieldKind = FieldKind.TEXT,
         settings: KeyboardSettings = KeyboardSettings(),
-        inputMode: InputMode = InputMode.ENGLISH,
     ) = KeyboardUiState(
         settings = settings,
-        inputMode = inputMode,
         layouts = setOf(spec),
         fieldKind = fieldKind,
     )

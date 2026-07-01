@@ -1,6 +1,5 @@
 package com.wasimaster.wmkeyboard.core.layout
 
-import com.wasimaster.wmkeyboard.core.settings.InputMode
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -84,12 +83,12 @@ class LayoutCodecTest {
     }
 
     @Test
-    fun `an unknown base mode coerces to the default instead of failing`() {
+    fun `an unknown legacy base mode migrates to the default language`() {
         val json = """
             {"id":"custom_1","name":"T","baseMode":"KLINGON",
              "layers":{"letters":{"rows":[[{"label":"a"}]]}}}
         """.trimIndent()
-        assertEquals(InputMode.ENGLISH, LayoutCodec.decode(json)?.baseMode)
+        assertEquals("en", LayoutCodec.decode(json)?.langId)
     }
 
     /**
