@@ -277,6 +277,12 @@ data class KeyboardSettings(
     val enabledLanguages: List<LanguageDef> =
         listOf(LanguageRegistry.byId("en"), LanguageRegistry.byId("bn")),
     /**
+     * Secondary languages per primary language id: while typing the primary,
+     * these languages' dictionaries also feed suggestions (HeliBoard-style
+     * multilingual typing). Empty for everyone by default.
+     */
+    val secondaryLanguages: Map<String, List<String>> = emptyMap(),
+    /**
      * The language of [activeLayoutId], resolved from its layout's `langId`. The
      * registry-era replacement for [inputMode]/[KeyboardLanguage]: dictionary,
      * dictation and handwriting keyed by [LanguageDef.id], and [script] behaviour
@@ -793,6 +799,23 @@ data class KeyboardSettings(
  * DataStore-backed settings. Every option on the settings screens flows
  * through here; the IME service collects [settings] and re-renders live.
  */
+/** Serializes the secondary-language map to a compact `primary=s1,s2;...` string. */
+private fun encodeSecondaryLanguages(map: Map<String, List<String>>): String =
+    map.entries
+        .filter { it.value.isNotEmpty() }
+        .joinToString(";") { (primary, secs) -> "$primary=${secs.joinToString(",")}" }
+
+private fun decodeSecondaryLanguages(raw: String): Map<String, List<String>> =
+    raw.split(';')
+        .filter { it.isNotEmpty() }
+        .mapNotNull { entry ->
+            val eq = entry.indexOf('=')
+            if (eq <= 0) return@mapNotNull null
+            val secs = entry.substring(eq + 1).split(',').filter { it.isNotEmpty() }
+            if (secs.isEmpty()) null else entry.substring(0, eq) to secs
+        }
+        .toMap()
+
 class SettingsRepository(private val context: Context) {
 
     companion object {
@@ -806,6 +829,7 @@ class SettingsRepository(private val context: Context) {
         private val ACTIVE_LAYOUT_ID = stringPreferencesKey("active_layout_id")
         private val ENABLED_LAYOUT_IDS = stringPreferencesKey("enabled_layout_ids")
         private val CUSTOM_LAYOUTS = stringPreferencesKey("custom_layouts")
+        private val SECONDARY_LANGUAGES = stringPreferencesKey("secondary_languages")
         private val RAW_CLIPBOARD_SHORTCUTS = booleanPreferencesKey("raw_clipboard_shortcuts")
         private val THEME_MODE = stringPreferencesKey("theme_mode")
         private val DYNAMIC_COLOR = booleanPreferencesKey("dynamic_color")
@@ -1088,6 +1112,8 @@ class SettingsRepository(private val context: Context) {
             enabledLayoutIds = layoutSelection.enabledLayoutIds,
             customLayouts = customLayouts,
             enabledLanguages = layoutSelection.enabledLanguages,
+            secondaryLanguages = p[SECONDARY_LANGUAGES]?.let { decodeSecondaryLanguages(it) }
+                ?: defaults.secondaryLanguages,
             language = layoutSelection.active.language(),
             script = layoutSelection.active.script(),
             themeMode = p[THEME_MODE]?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() }
@@ -1687,6 +1713,10 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setRawClipboardShortcuts(value: Boolean) =
         context.dataStore.edit { it[RAW_CLIPBOARD_SHORTCUTS] = value }
+
+    /** Replaces the secondary-language map (primary langId → secondary langIds). */
+    suspend fun setSecondaryLanguages(map: Map<String, List<String>>) =
+        context.dataStore.edit { it[SECONDARY_LANGUAGES] = encodeSecondaryLanguages(map) }
 
     /** The layouts the 🌐 key cycles; an empty pick falls back to the default. */
     suspend fun setEnabledLayoutIds(ids: List<String>) =

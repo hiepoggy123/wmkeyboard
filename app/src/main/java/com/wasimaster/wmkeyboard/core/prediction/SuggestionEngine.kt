@@ -71,6 +71,24 @@ class SuggestionEngine(
     var customDictionary: Trie = Trie()
 
     /**
+     * Dictionaries for the user's secondary languages, consulted alongside the
+     * primary so a bilingual typist gets both without switching. These are the
+     * freq-1 imported lists, weighted below every primary source; a word valid
+     * in one is never autocorrected away.
+     */
+    @Volatile
+    var secondaryDictionaries: List<Trie> = emptyList()
+
+    /**
+     * True when English is a secondary language and the primary is not: the
+     * bundled English list then participates at a fraction of its frequency
+     * (it carries real frequencies, unlike the freq-1 [secondaryDictionaries]),
+     * covering the common "native language + English" pairing.
+     */
+    @Volatile
+    var englishAsSecondary: Boolean = false
+
+    /**
      * Bengali index, rebuilt when an imported Bengali list arrives so its
      * words become reachable by transliteration too.
      */
@@ -92,14 +110,26 @@ class SuggestionEngine(
     private val activeDictionary: Trie
         get() = if (englishSources) dictionary else emptyTrie
 
-    /** Best frequency for a word across the bundled and imported lists. */
+    /** English's bundled frequency when it is a secondary language, else 0. */
+    private fun secondaryEnglishFrequencyOf(word: String): Int =
+        if (englishAsSecondary && !englishSources) {
+            dictionary.frequencyOf(word) / SECONDARY_ENGLISH_DIVISOR
+        } else {
+            0
+        }
+
+    /** Best frequency for a word across the primary and secondary lists. */
     private fun dictionaryFrequencyOf(word: String): Int = maxOf(
         activeDictionary.frequencyOf(word),
         customDictionary.frequencyOf(word) * CUSTOM_WORD_WEIGHT,
+        secondaryEnglishFrequencyOf(word),
+        secondaryDictionaries.maxOfOrNull { it.frequencyOf(word) * SECONDARY_WORD_WEIGHT } ?: 0,
     )
 
     private fun inDictionaries(word: String): Boolean =
-        activeDictionary.contains(word) || customDictionary.contains(word)
+        activeDictionary.contains(word) || customDictionary.contains(word) ||
+            (englishAsSecondary && !englishSources && dictionary.contains(word)) ||
+            secondaryDictionaries.any { it.contains(word) }
 
     companion object {
         private const val ALPHABET = "abcdefghijklmnopqrstuvwxyz"
@@ -113,6 +143,12 @@ class SuggestionEngine(
          * correctable, without outranking words the user actually types.
          */
         private const val CUSTOM_WORD_WEIGHT = 100
+
+        /** Imported secondary-language lists rank below the primary custom list. */
+        private const val SECONDARY_WORD_WEIGHT = 40
+
+        /** English-as-secondary participates at a fraction of its real frequency. */
+        private const val SECONDARY_ENGLISH_DIVISOR = 2
         /** Per-occurrence weight of a contact-name word (counts are tiny). */
         private const val CONTACT_WEIGHT = 3000
 
@@ -184,6 +220,16 @@ class SuggestionEngine(
         }
         for (s in customDictionary.complete(lower, limit * 2)) {
             merged.merge(s.word, s.frequency * CUSTOM_WORD_WEIGHT, ::maxOf)
+        }
+        if (englishAsSecondary && !englishSources) {
+            for (s in dictionary.complete(lower, limit * 2)) {
+                merged.merge(s.word, s.frequency / SECONDARY_ENGLISH_DIVISOR, ::maxOf)
+            }
+        }
+        for (t in secondaryDictionaries) {
+            for (s in t.complete(lower, limit * 2)) {
+                merged.merge(s.word, s.frequency * SECONDARY_WORD_WEIGHT, ::maxOf)
+            }
         }
         for (s in userLexicon.complete(lower, limit)) {
             merged.merge(s.word, s.frequency * USER_WORD_WEIGHT, ::maxOf)

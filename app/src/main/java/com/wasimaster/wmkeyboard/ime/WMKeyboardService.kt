@@ -651,6 +651,14 @@ class WMKeyboardService : InputMethodService() {
                 customDictVersion = settings.customDictVersion
                 suggestionEngine?.customDictionary =
                     customDictionaries[activeLang.id] ?: Trie()
+                // Secondary languages feed the strip alongside the primary. English
+                // rides its bundled list (englishAsSecondary); every other language
+                // its imported list.
+                val secondaryIds = settings.secondaryLanguages[activeLang.id].orEmpty()
+                suggestionEngine?.secondaryDictionaries =
+                    secondaryIds.filter { it != "en" }.mapNotNull { customDictionaries[it] }
+                suggestionEngine?.englishAsSecondary =
+                    "en" in secondaryIds && !activeLang.isEnglish
             }
         }
 
@@ -694,6 +702,9 @@ class WMKeyboardService : InputMethodService() {
                 val lang = _uiState.value.language
                 englishSources = lang.isEnglish
                 customDictionary = customTries[lang.id] ?: Trie()
+                val secondaryIds = _uiState.value.settings.secondaryLanguages[lang.id].orEmpty()
+                secondaryDictionaries = secondaryIds.filter { it != "en" }.mapNotNull { customTries[it] }
+                englishAsSecondary = "en" in secondaryIds && !lang.isEnglish
             }
             emojiEntries = catalog
             emojiSearch = EmojiSearch(catalog)

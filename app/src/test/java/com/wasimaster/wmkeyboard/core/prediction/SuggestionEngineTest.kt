@@ -203,4 +203,30 @@ class SuggestionEngineTest {
         )
         assertEquals(listOf("game", "morning", "night"), e.suggest("", previousWord = "good"))
     }
+
+    @Test fun `secondary dictionary words are suggested alongside the primary`() {
+        val spanish = Trie().apply { insert("gato", 1); insert("gata", 1) }
+        val e = engine().apply {
+            englishSources = false // primary is a non-English language
+            secondaryDictionaries = listOf(spanish)
+        }
+        assertTrue("gato" in e.suggest("gat", previousWord = null))
+    }
+
+    @Test fun `a word in a secondary dictionary is never autocorrected away`() {
+        val secondary = Trie().apply { insert("worl", 1) }
+        val e = engine().apply { secondaryDictionaries = listOf(secondary) }
+        assertNull("worl is a valid secondary word", e.shouldAutocorrect("worl"))
+        // Without the secondary the same string corrects to the bundled word.
+        assertEquals("world", engine().shouldAutocorrect("worl"))
+    }
+
+    @Test fun `english as a secondary contributes the bundled list`() {
+        val e = engine().apply {
+            englishSources = false // primary isn't English
+            englishAsSecondary = true
+        }
+        val s = e.suggest("hel", previousWord = null)
+        assertTrue("hello" in s || "help" in s)
+    }
 }
