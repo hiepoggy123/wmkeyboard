@@ -3609,7 +3609,11 @@ private fun KeyboardBody(
                     state, "Calendar",
                     onClose = { onPanelChange(PanelMode.CALENDAR) },
                 ) { CalendarPanel(state, onRequestPermission = onCalendarPermissionRequest) }
-                PanelMode.THEMES -> ThemesPanel(state, onThemeSelect)
+                PanelMode.THEMES -> ThemesPanel(
+                    state,
+                    onThemeSelect,
+                    onOpenSettings = { onOpenToolSettings(ToolbarTool.THEMES) },
+                )
                 PanelMode.SOUND_HAPTICS -> SoundHapticsPanel(state, onSoundHaptic)
                 PanelMode.NUMPAD -> NumpadPanel(state, onText, onKey)
                 PanelMode.HANDWRITING -> if (BuildConfig.ENABLE_ML_KIT_HANDWRITING) {

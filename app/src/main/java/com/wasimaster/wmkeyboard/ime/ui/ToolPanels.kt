@@ -1254,6 +1254,7 @@ internal fun hasCalendarPermission(context: Context): Boolean =
 internal fun ThemesPanel(
     state: KeyboardUiState,
     onThemeSelect: (String) -> Unit,
+    onOpenSettings: () -> Unit,
 ) {
     val height = keyRowsHeight(state)
     val kb = LocalKbTheme.current
@@ -1266,15 +1267,24 @@ internal fun ThemesPanel(
             .height(height)
             .padding(top = 6.dp),
     ) {
-        Text(
-            "Tap a theme to apply it. Create and edit themes in Settings → Appearance.",
-            color = kb.toolbarIcon,
-            fontSize = 11.sp,
-            textAlign = TextAlign.Center,
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp),
-        )
+                .padding(horizontal = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                "Tap a theme to apply it.",
+                color = kb.toolbarIcon,
+                fontSize = 11.sp,
+                modifier = Modifier.weight(1f),
+            )
+            ToolPanelKey(
+                description = "Create and edit themes in settings",
+                label = "Edit themes",
+                modifier = Modifier.height(32.dp).width(120.dp),
+            ) { onOpenSettings() }
+        }
         LazyVerticalGrid(
             columns = GridCells.Fixed(2),
             modifier = Modifier
