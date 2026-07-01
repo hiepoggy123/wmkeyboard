@@ -757,7 +757,7 @@ class WMKeyboardService : InputMethodService() {
                 onGesture = ::onGesture,
                 onGesturePreview = ::onGesturePreview,
                 onCursorMove = ::onCursorMove,
-                onLanguageSelect = ::onLanguageSelected,
+                onLayoutSelect = ::onLayoutSelected,
                 onClipboardKey = ::onClipboardKey,
                 canDelete = ::canDelete,
                 canDeleteField = ::canDeleteField,
@@ -2117,15 +2117,6 @@ class WMKeyboardService : InputMethodService() {
         onLayoutSelected(ids[(ids.indexOf(state.layoutId) + 1).mod(ids.size)])
     }
 
-    /** Picks the built-in layout for [mode]. The picker still speaks languages. */
-    fun onLanguageSelected(mode: InputMode) {
-        val settings = _uiState.value.settings
-        val id = settings.enabledLayoutIds.firstOrNull {
-            resolveLayout(settings.customLayouts, it).baseMode == mode
-        } ?: BuiltInLayouts.forMode(mode).id
-        onLayoutSelected(id)
-    }
-
     /** Spacebar swipe (or 🌐 cycle): switch to an explicit layout. */
     fun onLayoutSelected(layoutId: String) {
         val spec = resolveLayout(_uiState.value.settings.customLayouts, layoutId)
@@ -3149,7 +3140,7 @@ class WMKeyboardService : InputMethodService() {
 
     // ---- handwriting ----
 
-    private fun hwLanguageTag(): String = HandwritingModels.tagForMode(_uiState.value.inputMode)
+    private fun hwLanguageTag(): String = HandwritingModels.tagForLangId(_uiState.value.language.id)
 
     /**
      * Letter-area swipes are drawing handwriting (rather than gliding a word):

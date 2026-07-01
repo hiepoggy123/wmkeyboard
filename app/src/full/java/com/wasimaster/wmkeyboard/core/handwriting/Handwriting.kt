@@ -11,8 +11,6 @@ import com.google.mlkit.vision.digitalink.recognition.DigitalInkRecognizerOption
 import com.google.mlkit.vision.digitalink.recognition.Ink
 import com.google.mlkit.vision.digitalink.recognition.RecognitionContext
 import com.google.mlkit.vision.digitalink.recognition.WritingArea
-import com.wasimaster.wmkeyboard.core.settings.InputMode
-import com.wasimaster.wmkeyboard.core.settings.KeyboardLanguage
 import com.wasimaster.wmkeyboard.core.settings.language
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
@@ -47,14 +45,8 @@ object HandwritingModels {
         HandwritingLanguage("es", "Español (Spanish)"),
     )
 
-    /** The recognition model tag for an input mode (all Bengali modes share bn). */
-    fun tagForMode(mode: InputMode): String = when (mode.language) {
-        KeyboardLanguage.ENGLISH -> "en-US"
-        KeyboardLanguage.BANGLA -> "bn"
-        KeyboardLanguage.FRENCH -> "fr"
-        KeyboardLanguage.GERMAN -> "de"
-        KeyboardLanguage.SPANISH -> "es"
-    }
+    /** The recognition model tag for a language (ML Kit ink tags are BCP-47; en uses en-US). */
+    fun tagForLangId(langId: String): String = if (langId == "en") "en-US" else langId
 
     /** Compact badge label for the in-panel language toggle. */
     fun shortLabel(tag: String): String = when (tag) {

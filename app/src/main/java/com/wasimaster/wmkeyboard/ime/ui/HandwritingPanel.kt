@@ -56,7 +56,7 @@ import androidx.compose.foundation.gestures.awaitFirstDown
 import com.wasimaster.wmkeyboard.core.handwriting.HandwritingModels
 import com.wasimaster.wmkeyboard.core.handwriting.HwPoint
 import com.wasimaster.wmkeyboard.core.handwriting.HwStroke
-import com.wasimaster.wmkeyboard.core.settings.InputMode
+import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
 import com.wasimaster.wmkeyboard.ime.HandwritingStatus
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
 import com.wasimaster.wmkeyboard.core.layout.Key
@@ -85,7 +85,7 @@ internal fun HandwritingPanel(
     onUndoStroke: () -> Unit,
     onDownloadModel: () -> Unit,
     onKey: (Key) -> Unit,
-    onLanguageSelect: (InputMode) -> Unit,
+    onLayoutSelect: (String) -> Unit,
     onClose: () -> Unit,
 ) {
     val kb = LocalKbTheme.current
@@ -167,8 +167,8 @@ internal fun HandwritingPanel(
 
             // Language chip: shows the active model, tap cycles through the
             // handwriting languages of the enabled modes.
-            val modes = state.settings.enabledModes.ifEmpty { listOf(InputMode.ENGLISH) }
-            val distinctTags = modes.map { HandwritingModels.tagForMode(it) }.distinct()
+            val languages = state.settings.enabledLanguages.ifEmpty { listOf(LanguageRegistry.byId("en")) }
+            val distinctTags = languages.map { HandwritingModels.tagForLangId(it.id) }.distinct()
             if (distinctTags.size > 1) {
                 Text(
                     text = HandwritingModels.shortLabel(hw.languageTag),
@@ -185,9 +185,10 @@ internal fun HandwritingPanel(
                             val next = distinctTags[
                                 (distinctTags.indexOf(hw.languageTag) + 1).mod(distinctTags.size),
                             ]
-                            onLanguageSelect(
-                                modes.first { HandwritingModels.tagForMode(it) == next },
-                            )
+                            val targetLang = languages.first { HandwritingModels.tagForLangId(it.id) == next }
+                            val layoutId = targetLang.layoutIds.firstOrNull { it in state.settings.enabledLayoutIds }
+                                ?: targetLang.layoutIds.firstOrNull()
+                            if (layoutId != null) onLayoutSelect(layoutId)
                         }
                         .padding(horizontal = 12.dp, vertical = 6.dp),
                 )

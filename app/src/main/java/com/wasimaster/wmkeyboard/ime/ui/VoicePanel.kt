@@ -56,8 +56,7 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
-import com.wasimaster.wmkeyboard.core.settings.InputMode
-import com.wasimaster.wmkeyboard.core.settings.isEnglish
+import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
 import com.wasimaster.wmkeyboard.ime.VoiceModelState
 import com.wasimaster.wmkeyboard.ime.VoiceStatus
@@ -82,7 +81,7 @@ internal fun VoicePanel(
     onRequestPermission: () -> Unit,
     onDownloadModel: () -> Unit,
     onKey: (Key) -> Unit,
-    onLanguageSelect: (InputMode) -> Unit,
+    onLayoutSelect: (String) -> Unit,
     onClose: () -> Unit,
 ) {
     val kb = LocalKbTheme.current
@@ -157,9 +156,9 @@ internal fun VoicePanel(
             // Language chip: shows the active recognition language, tap
             // switches between English and Bengali (the enabled input
             // modes decide what is available).
-            val modes = state.settings.enabledModes.ifEmpty { listOf(InputMode.ENGLISH) }
+            val languages = state.settings.enabledLanguages.ifEmpty { listOf(LanguageRegistry.byId("en")) }
             val english = voice.languageTag.startsWith("en")
-            if (modes.any { it.isEnglish } && modes.any { !it.isEnglish }) {
+            if (languages.any { it.isEnglish } && languages.any { !it.isEnglish }) {
                 Text(
                     text = if (english) "EN" else "বাং",
                     color = kb.secondaryText,
@@ -173,11 +172,13 @@ internal fun VoicePanel(
                         .clickable {
                             feedback()
                             val other = if (english) {
-                                modes.first { !it.isEnglish }
+                                languages.first { !it.isEnglish }
                             } else {
-                                modes.firstOrNull { it.isEnglish } ?: InputMode.ENGLISH
+                                languages.firstOrNull { it.isEnglish } ?: LanguageRegistry.byId("en")
                             }
-                            onLanguageSelect(other)
+                            val layoutId = other.layoutIds.firstOrNull { it in state.settings.enabledLayoutIds }
+                                ?: other.layoutIds.firstOrNull()
+                            if (layoutId != null) onLayoutSelect(layoutId)
                         }
                         .padding(horizontal = 12.dp, vertical = 6.dp),
                 )

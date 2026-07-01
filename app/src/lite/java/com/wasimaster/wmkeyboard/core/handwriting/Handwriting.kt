@@ -1,7 +1,5 @@
 package com.wasimaster.wmkeyboard.core.handwriting
 
-import com.wasimaster.wmkeyboard.core.settings.InputMode
-import com.wasimaster.wmkeyboard.core.settings.KeyboardLanguage
 import com.wasimaster.wmkeyboard.core.settings.language
 
 /** One sampled point of a handwriting stroke, in canvas pixels. */
@@ -23,13 +21,7 @@ object HandwritingModels {
     val supported: List<HandwritingLanguage> = emptyList()
 
     /** Same tag mapping as the full flavor, so UI state stays coherent. */
-    fun tagForMode(mode: InputMode): String = when (mode.language) {
-        KeyboardLanguage.ENGLISH -> "en-US"
-        KeyboardLanguage.BANGLA -> "bn"
-        KeyboardLanguage.FRENCH -> "fr"
-        KeyboardLanguage.GERMAN -> "de"
-        KeyboardLanguage.SPANISH -> "es"
-    }
+    fun tagForLangId(langId: String): String = if (langId == "en") "en-US" else langId
 
     fun shortLabel(tag: String): String = when (tag) {
         "en-US" -> "EN"
