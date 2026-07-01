@@ -169,7 +169,16 @@ internal fun LocalLlmModelManager(repository: SettingsRepository, settings: Keyb
         )
     }
 
-    SettingsGroup("Your models") {
+    // Combined size of what's on disk, shown beside the header so "how much
+    // is this costing me?" is answerable at a glance. Sums the same per-row
+    // numbers the user sees (catalog sizes + custom file lengths), unlike the
+    // storage caption below which also counts partial and orphaned files.
+    if (yours.isNotEmpty() || customModels.isNotEmpty()) {
+        val downloadedBytes = yours.sumOf { it.sizeBytes } +
+            customModels.sumOf { it.length() }
+        ModelsSectionHeader("Your models", formatBytes(downloadedBytes))
+    }
+    SettingsGroup {
         for (model in yours) item { catalogRow(model) }
         for (file in customModels.sortedByDescending {
             settings.aiLocalModelId == LocalLlmStore.CUSTOM_PREFIX + it.name
@@ -291,6 +300,33 @@ internal fun LocalLlmModelManager(repository: SettingsRepository, settings: Keyb
             dismissButton = {
                 TextButton(onClick = { meteredPending = null }) { Text("Wait for Wi-Fi") }
             },
+        )
+    }
+}
+
+/**
+ * A section header with a muted, right-aligned trailing value — used to hang
+ * the combined download size off the "Your models" title. Padding mirrors
+ * [SectionHeader] so the label and trailing text line up with row content.
+ */
+@Composable
+private fun ModelsSectionHeader(title: String, trailing: String) {
+    Row(
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 32.dp, end = 32.dp, top = 12.dp, bottom = 8.dp),
+    ) {
+        Text(
+            title,
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.primary,
+        )
+        Text(
+            trailing,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }
