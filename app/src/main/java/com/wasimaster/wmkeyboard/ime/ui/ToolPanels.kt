@@ -141,7 +141,6 @@ private fun ToolPanelKey(
     onAction: () -> Unit,
 ) {
     val kb = LocalKbTheme.current
-    val feedback = LocalKeyPressFeedback.current
     val scope = rememberCoroutineScope()
     val shape = RoundedCornerShape(kb.keyRadiusDp.dp)
     Box(
@@ -151,7 +150,6 @@ private fun ToolPanelKey(
             .pointerInput(repeatable) {
                 detectTapGestures(
                     onPress = {
-                        feedback()
                         onAction()
                         var repeat: Job? = null
                         if (repeatable) {
@@ -1642,6 +1640,7 @@ private fun androidx.compose.foundation.layout.RowScope.NumpadRow(
     onText: (String) -> Unit,
     onKey: (Key) -> Unit,
 ) {
+    val feedback = LocalKeyPressFeedback.current
     for (label in keys) {
         when (label) {
             "⌫" -> ToolPanelKey(
@@ -1650,6 +1649,7 @@ private fun androidx.compose.foundation.layout.RowScope.NumpadRow(
                 repeatable = true,
                 modifier = Modifier.weight(1f).fillMaxHeight().padding(2.dp),
             ) {
+                feedback()
                 onKey(Key("⌫", action = KeyAction.Delete))
             }
             "⏎" -> ToolPanelKey(
@@ -1657,6 +1657,7 @@ private fun androidx.compose.foundation.layout.RowScope.NumpadRow(
                 icon = Icons.AutoMirrored.Outlined.KeyboardReturn,
                 modifier = Modifier.weight(1f).fillMaxHeight().padding(2.dp),
             ) {
+                feedback()
                 onKey(Key("⏎", action = KeyAction.Enter))
             }
             else -> ToolPanelKey(
