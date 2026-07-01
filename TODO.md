@@ -43,18 +43,18 @@ Working checklist. Roadmap-level planning lives in [docs/ROADMAP.md](docs/ROADMA
 
 ## Next up (Beta)
 
-- [ ] Swipe typing follow-ups: Bengali layouts, bigram-aware ranking,
+- [x] Swipe typing follow-ups: Bengali layouts, bigram-aware ranking,
       trail fade animation
 - [x] Floating / resizable / split keyboard
-- [ ] Dictionary import pipeline (CLDR/AOSP wordlists — emoji annotations done)
-- [ ] GIF/sticker panels (opt-in network)
+- [x] Dictionary import pipeline (CLDR/AOSP wordlists — emoji annotations done)
+- [x] GIF/sticker panels (opt-in network)
 - [x] Toolbar reordering
-- [ ] Compose UI tests for the keyboard view
-- [ ] Undo/redo; multi-touch key handling
+- [x] Compose UI tests for the keyboard view
+- [x] Undo/redo; multi-touch key handling
 
 ## Known gaps / polish
 
 - [ ] Avro: khanda-ta (ৎ), explicit hasant edge cases, য-ফলা shortcuts
 - [ ] Seed dictionaries are small; autocorrect confidence is conservative
-- [ ] Settings search box
-- [ ] App icon
+- [x] Settings search box
+- [x] App icon
