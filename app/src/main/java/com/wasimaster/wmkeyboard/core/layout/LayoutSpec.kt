@@ -202,18 +202,21 @@ object LayoutCodec {
 }
 
 /**
- * Every layout the user has, built-ins first in their shipped order, then their
- * own. A custom layout whose id matches a built-in is an *edit* of that
- * built-in: it takes the built-in's slot rather than appearing twice, so a
- * reference pinned to "builtin_qwerty" keeps working and deleting the edit
- * restores the shipped grid — which is why the editor's button says "Reset" on
- * a built-in and "Delete" on a custom. Same rule as `resolveSymbolSets`.
+ * Every layout the user has: the shipped ones first in their shipped order — the
+ * Kotlin [BuiltInLayouts] then the JSON [AssetLayouts] (empty until loaded off
+ * the main thread) — then the user's own. A custom layout whose id matches a
+ * shipped one is an *edit* of it: it takes that slot rather than appearing
+ * twice, so a reference pinned to "builtin_qwerty" keeps working and deleting
+ * the edit restores the shipped grid — which is why the editor's button says
+ * "Reset" on a shipped layout and "Delete" on a custom. Same rule as
+ * `resolveSymbolSets`.
  */
 fun resolveLayouts(custom: List<LayoutSpec>): List<LayoutSpec> {
+    val shipped = BuiltInLayouts.all + AssetLayouts.all
     val overrides = custom.associateBy { it.id }
-    val builtIns = BuiltInLayouts.all.map { overrides[it.id] ?: it }
-    val builtInIds = BuiltInLayouts.all.mapTo(HashSet()) { it.id }
-    return builtIns + custom.filter { it.id !in builtInIds }
+    val resolvedShipped = shipped.map { overrides[it.id] ?: it }
+    val shippedIds = shipped.mapTo(HashSet()) { it.id }
+    return resolvedShipped + custom.filter { it.id !in shippedIds }
 }
 
 /**

@@ -1,5 +1,6 @@
 package com.wasimaster.wmkeyboard.core.script
 
+import com.wasimaster.wmkeyboard.core.layout.AssetLayouts
 import com.wasimaster.wmkeyboard.core.layout.BuiltInLayouts
 
 /**
@@ -134,6 +135,24 @@ object LanguageRegistry {
             script = ScriptId.DEVANAGARI,
             localeTag = "hi-IN",
             layoutIds = listOf(BuiltInLayouts.HINDI_ID),
+        ),
+        // Layouts delivered as JSON assets (see AssetLayouts). The language is
+        // still Kotlin data — only the key grid moved to a file.
+        LanguageDef(
+            id = "pt",
+            displayName = "Português · Portuguese",
+            englishName = "Portuguese",
+            script = ScriptId.LATIN,
+            localeTag = "pt-BR",
+            layoutIds = listOf(AssetLayouts.PT_QWERTY_ID),
+        ),
+        LanguageDef(
+            id = "uk",
+            displayName = "Українська · Ukrainian",
+            englishName = "Ukrainian",
+            script = ScriptId.CYRILLIC,
+            localeTag = "uk-UA",
+            layoutIds = listOf(AssetLayouts.UK_JCUKEN_ID),
         ),
     )
 

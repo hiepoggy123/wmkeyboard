@@ -3,6 +3,8 @@ package com.wasimaster.wmkeyboard.core.script
 import com.wasimaster.wmkeyboard.core.layout.BuiltInLayouts
 import com.wasimaster.wmkeyboard.core.layout.LEGACY_MODE_LANG
 import com.wasimaster.wmkeyboard.core.layout.LEGACY_MODE_LAYOUT
+import com.wasimaster.wmkeyboard.core.layout.LayoutFile
+import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -46,13 +48,15 @@ class LanguageRegistryTest {
     }
 
     @Test
-    fun `every language layout id is a real built-in`() {
-        val builtInIds = BuiltInLayouts.all.mapTo(HashSet()) { it.id }
+    fun `every language layout id is a real built-in or asset layout`() {
+        // Asset layout ids are not compiled in, so read them off disk the way a
+        // unit test reaches the shipped emoji catalog (AssetManager is Android).
+        val known = BuiltInLayouts.all.mapTo(HashSet()) { it.id } + assetLayoutIds()
         for (lang in LanguageRegistry.all) {
             for (layoutId in lang.layoutIds) {
                 assertTrue(
                     "language ${lang.id} lists unknown layout '$layoutId'",
-                    layoutId in builtInIds,
+                    layoutId in known,
                 )
             }
         }
@@ -113,4 +117,12 @@ class LanguageRegistryTest {
             )
         }
     }
+
+    /** The ids of the shipped `.wmlayout.json` files under `assets/layouts`, read from disk. */
+    private fun assetLayoutIds(): Set<String> =
+        File("src/main/assets/layouts")
+            .listFiles { f -> f.name.endsWith(".${LayoutFile.FILE_EXTENSION}") }
+            .orEmpty()
+            .mapNotNull { LayoutFile.decode(it.readText())?.layout?.id }
+            .toHashSet()
 }

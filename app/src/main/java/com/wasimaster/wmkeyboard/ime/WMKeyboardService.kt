@@ -140,6 +140,7 @@ import com.wasimaster.wmkeyboard.core.voice.VoicePunctuation
 import com.wasimaster.wmkeyboard.core.transliteration.AvroPhonetic
 import com.wasimaster.wmkeyboard.core.transliteration.BengaliGraphemes
 import com.wasimaster.wmkeyboard.core.transliteration.BengaliPhoneticIndex
+import com.wasimaster.wmkeyboard.core.layout.AssetLayouts
 import com.wasimaster.wmkeyboard.core.layout.BuiltInLayouts
 import com.wasimaster.wmkeyboard.core.layout.ClipboardKeyAction
 import com.wasimaster.wmkeyboard.core.layout.Key
@@ -663,9 +664,12 @@ class WMKeyboardService : InputMethodService() {
         }
 
         // Dictionaries and the emoji catalog load off the main thread; the
-        // keyboard is usable immediately and suggestions appear when ready.
+        // keyboard is usable immediately and suggestions appear when ready. The
+        // JSON asset layouts load alongside them (idempotent) so a language
+        // whose grid is a file resolves once the user switches to it.
         serviceScope.launch {
             val loaded = withContext(Dispatchers.Default) {
+                AssetLayouts.load(assets)
                 val englishEntries = assets.open("dictionaries/en.txt").use { DictionaryLoader.loadEntries(it) }
                 val bengaliEntries = assets.open("dictionaries/bn.txt").use { DictionaryLoader.loadEntries(it) }
                 val catalog = assets.open("emoji/catalog.tsv").use { EmojiCatalog.load(it) }
