@@ -21,11 +21,18 @@ interface Composer {
     fun deleteLength(before: CharSequence): Int = defaultDeleteLength(before)
 
     /**
-     * A roman-to-script transliterator (Avro): its composing buffer *is* the
-     * input method, so it must run even in password fields and with the
-     * suggestion strip off, where plain suggestion-composing does not.
+     * A transliterator (Avro, Hangul): its composing buffer *is* the input
+     * method, so it must run even in password fields and with the suggestion
+     * strip off, where plain suggestion-composing does not.
      */
     val isTransliterating: Boolean get() = false
+
+    /**
+     * Specifically the Bengali phonetic transliterator (Avro): its commit and
+     * suggestions route through the Bengali dictionary path. Other
+     * transliterators (Hangul) compose but do not, so this stays false for them.
+     */
+    val isBengaliPhonetic: Boolean get() = false
 
     /**
      * A fixed complex-script layout (Probhat, and later Devanagari, Tamil …):

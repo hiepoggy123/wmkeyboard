@@ -16,6 +16,8 @@ object BengaliTransliterateComposer : Composer {
 
     override val isTransliterating: Boolean get() = true
 
+    override val isBengaliPhonetic: Boolean get() = true
+
     override fun composeBuffer(buffer: String): String = AvroPhonetic.transliterate(buffer)
 
     override fun deleteLength(before: CharSequence): Int =

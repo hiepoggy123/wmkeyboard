@@ -107,4 +107,15 @@ val LanguageCatalog: List<LanguageEntry> = listOf(
             ),
         ),
     ),
+    LanguageEntry(
+        name = "한국어 · Korean",
+        layouts = listOf(
+            LayoutOption(
+                BuiltInLayouts.KOREAN_ID, "2-beolsik (두벌식)", "Standard Korean layout",
+                "The standard 2-set Korean layout; jamo compose into syllable blocks as " +
+                    "you type (ㅎ + ㅏ + ㄴ → 한). Shift gives the tense consonants. No " +
+                    "Korean dictionary is bundled.",
+            ),
+        ),
+    ),
 )

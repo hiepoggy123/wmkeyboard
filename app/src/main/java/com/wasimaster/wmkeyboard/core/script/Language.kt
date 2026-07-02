@@ -87,6 +87,14 @@ object LanguageRegistry {
             localeTag = "es-ES",
             layoutIds = listOf(BuiltInLayouts.SPANISH_ID),
         ),
+        LanguageDef(
+            id = "ko",
+            displayName = "한국어 · Korean",
+            englishName = "Korean",
+            script = ScriptId.HANGUL,
+            localeTag = "ko-KR",
+            layoutIds = listOf(BuiltInLayouts.KOREAN_ID),
+        ),
     )
 
     /** The stand-in for an id this build does not recognise. Never surfaced in UI. */

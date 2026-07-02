@@ -32,6 +32,7 @@ object BuiltInLayouts {
     const val FRENCH_ID = "builtin_french"
     const val GERMAN_ID = "builtin_qwertz"
     const val SPANISH_ID = "builtin_spanish"
+    const val KOREAN_ID = "builtin_korean"
 
     const val DEFAULT_ID = QWERTY_ID
 
@@ -159,13 +160,27 @@ object BuiltInLayouts {
     )
 
     /**
+     * Korean (2-set / 두벌식): the standard phone layout. Keys emit compatibility
+     * jamo that [com.wasimaster.wmkeyboard.core.input.composer.HangulComposer]
+     * assembles into syllable blocks; shift gives the tense consonants (ㅃ ㅉ …)
+     * and ㅒ/ㅖ.
+     */
+    val KOREAN = LayoutSpec(
+        id = KOREAN_ID,
+        name = "한국어 (2-beolsik)",
+        langId = "ko",
+        composer = ComposerType.HANGUL,
+        layers = mapOf(LayoutLayer.LETTERS.key to LayerSpec(koreanRows)),
+    )
+
+    /**
      * One entry per [InputMode], even where two share a grid — AZERTY and French
      * are the same keys with different dictionaries, and the entry is what the
      * user picks on the Languages screen, so it carries the name and the base
      * mode. Matches `LanguageCatalog` one for one.
      */
     val all: List<LayoutSpec> = listOf(
-        QWERTY, AZERTY, DVORAK, AVRO, PROBHAT, JATIYA, FRENCH, GERMAN, SPANISH,
+        QWERTY, AZERTY, DVORAK, AVRO, PROBHAT, JATIYA, FRENCH, GERMAN, SPANISH, KOREAN,
     )
 
     fun byId(id: String): LayoutSpec? = all.firstOrNull { it.id == id }
@@ -431,6 +446,27 @@ private val jatiyaRows = listOf(
         Key("র", shiftLabel = "ল"), Key("ন", shiftLabel = "ণ"),
         Key("স", shiftLabel = "ষ"), Key("ম", shiftLabel = "শ"),
         Key("⌫", action = KeyAction.Delete, width = 1.3f),
+    ),
+    bottomRow(),
+)
+
+// Korean 2-beolsik: compatibility jamo in the standard phone arrangement, tense
+// consonants and ㅒ/ㅖ on shift. HangulComposer assembles them into syllables.
+private val koreanRows = listOf(
+    listOf(
+        Key("ㅂ", shiftLabel = "ㅃ"), Key("ㅈ", shiftLabel = "ㅉ"),
+        Key("ㄷ", shiftLabel = "ㄸ"), Key("ㄱ", shiftLabel = "ㄲ"),
+        Key("ㅅ", shiftLabel = "ㅆ"), Key("ㅛ"), Key("ㅕ"), Key("ㅑ"),
+        Key("ㅐ", shiftLabel = "ㅒ"), Key("ㅔ", shiftLabel = "ㅖ"),
+    ),
+    listOf(
+        Key("ㅁ"), Key("ㄴ"), Key("ㅇ"), Key("ㄹ"), Key("ㅎ"),
+        Key("ㅗ"), Key("ㅓ"), Key("ㅏ"), Key("ㅣ"),
+    ),
+    listOf(
+        Key("⇧", action = KeyAction.Shift, width = 1.5f),
+        Key("ㅋ"), Key("ㅌ"), Key("ㅊ"), Key("ㅍ"), Key("ㅠ"), Key("ㅜ"), Key("ㅡ"),
+        Key("⌫", action = KeyAction.Delete, width = 1.5f),
     ),
     bottomRow(),
 )

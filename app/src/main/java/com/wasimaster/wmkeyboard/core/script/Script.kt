@@ -95,6 +95,14 @@ object ScriptRegistry {
             fontHint = FontHint.BENGALI,
             unicodeRange = 0x0980..0x09FF,
         ),
+        ScriptDef(
+            id = ScriptId.HANGUL,
+            direction = TextDirection.LTR,
+            hasLetterCase = false,
+            composer = ComposerType.HANGUL,
+            fontHint = FontHint.HANGUL,
+            unicodeRange = 0xAC00..0xD7A3,
+        ),
     ).associateBy { it.id }
 
     val all: List<ScriptDef> get() = defs.values.toList()

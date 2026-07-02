@@ -2205,9 +2205,12 @@ class WMKeyboardService : InputMethodService() {
             // suggestion job may not have caught up with the last keystroke
             // (especially within the debounce window), and a commit must
             // never use stale results.
-            state.composer.isTransliterating ->
+            state.composer.isBengaliPhonetic ->
                 suggestionEngine?.suggest(typed, previousWord = null, avroMode = true)
                     ?.firstOrNull() ?: state.composer.composeBuffer(typed)
+            // Other transliterators (Hangul) commit the composed text directly,
+            // with no dictionary pass.
+            state.composer.isTransliterating -> state.composer.composeBuffer(typed)
             apostrophized != null -> apostrophized
             autocorrect && state.allowsTypingIntelligence -> {
                 corrected = suggestionEngine?.shouldAutocorrect(typed)?.takeIf { it != typed }
@@ -2549,7 +2552,7 @@ class WMKeyboardService : InputMethodService() {
                 val words = engine.suggest(
                     composing = typed,
                     previousWord = previousWord,
-                    avroMode = state.composer.isTransliterating,
+                    avroMode = state.composer.isBengaliPhonetic,
                 )
                 if (typed.isNotEmpty()) {
                     val emojis = if (state.settings.emojiPrediction) {

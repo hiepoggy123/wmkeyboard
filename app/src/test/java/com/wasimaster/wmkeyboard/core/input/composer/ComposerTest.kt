@@ -1,5 +1,8 @@
 package com.wasimaster.wmkeyboard.core.input.composer
 
+import com.wasimaster.wmkeyboard.core.layout.BuiltInLayouts
+import com.wasimaster.wmkeyboard.core.layout.composerType
+import com.wasimaster.wmkeyboard.core.layout.script
 import com.wasimaster.wmkeyboard.core.script.ComposerType
 import com.wasimaster.wmkeyboard.core.script.ScriptDef
 import com.wasimaster.wmkeyboard.core.script.ScriptId
@@ -67,6 +70,13 @@ class ComposerTest {
         // Vowel key া: kar after a consonant, independent at a word start.
         assertEquals("া", composer.contextualForm("া", 'ক'))
         assertEquals("আ", composer.contextualForm("া", null))
+    }
+
+    @Test
+    fun `the Korean built-in resolves end to end to the Hangul composer`() {
+        val spec = BuiltInLayouts.KOREAN
+        assertEquals(ScriptId.HANGUL, spec.script().id)
+        assertSame(HangulComposer, composerFor(spec.script(), spec.composerType()))
     }
 
     @Test
