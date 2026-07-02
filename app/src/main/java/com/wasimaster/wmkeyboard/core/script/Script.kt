@@ -119,6 +119,32 @@ object ScriptRegistry {
             fontHint = FontHint.ARABIC,
             unicodeRange = 0x0600..0x06FF,
         ),
+        ScriptDef(
+            id = ScriptId.GREEK,
+            direction = TextDirection.LTR,
+            hasLetterCase = true,
+            composer = ComposerType.DEAD_KEY,
+            // Greek rides the Latin faces, which carry the Greek block — as
+            // Cyrillic does — until the per-script font map lands.
+            fontHint = FontHint.LATIN,
+            unicodeRange = 0x0370..0x03FF,
+        ),
+        ScriptDef(
+            id = ScriptId.HEBREW,
+            direction = TextDirection.RTL,
+            hasLetterCase = false,
+            composer = ComposerType.NONE,
+            fontHint = FontHint.HEBREW,
+            unicodeRange = 0x0590..0x05FF,
+        ),
+        ScriptDef(
+            id = ScriptId.DEVANAGARI,
+            direction = TextDirection.LTR,
+            hasLetterCase = false,
+            composer = ComposerType.INDIC_CLUSTER,
+            fontHint = FontHint.DEVANAGARI,
+            unicodeRange = 0x0900..0x097F,
+        ),
     ).associateBy { it.id }
 
     val all: List<ScriptDef> get() = defs.values.toList()

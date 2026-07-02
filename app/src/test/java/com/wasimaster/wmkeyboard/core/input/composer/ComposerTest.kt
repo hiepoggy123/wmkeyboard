@@ -80,6 +80,20 @@ class ComposerTest {
     }
 
     @Test
+    fun `the Hindi built-in inherits the Devanagari cluster composer from its script`() {
+        val spec = BuiltInLayouts.HINDI
+        assertEquals(ScriptId.DEVANAGARI, spec.script().id)
+        // No per-layout composer override — it inherits INDIC_CLUSTER from the
+        // registered Devanagari ScriptDef.
+        assertEquals(ComposerType.INDIC_CLUSTER, spec.composerType())
+        val composer = composerFor(spec.script(), spec.composerType())
+        assertTrue(composer is IndicClusterComposer)
+        assertTrue(composer.isClusterShaping)
+        // क + ि (consonant + spacing vowel sign) deletes as one cluster.
+        assertEquals(2, composer.deleteLength("कि"))
+    }
+
+    @Test
     fun `generic Indic deletion removes a conjunct cluster as one unit`() {
         val composer = IndicClusterComposer(devanagari)
         // क् ष  (ka + virama + ssa) is one cluster क्ष.

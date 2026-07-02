@@ -111,6 +111,30 @@ object LanguageRegistry {
             localeTag = "ar-SA",
             layoutIds = listOf(BuiltInLayouts.ARABIC_ID),
         ),
+        LanguageDef(
+            id = "el",
+            displayName = "Ελληνικά · Greek",
+            englishName = "Greek",
+            script = ScriptId.GREEK,
+            localeTag = "el-GR",
+            layoutIds = listOf(BuiltInLayouts.GREEK_ID),
+        ),
+        LanguageDef(
+            id = "he",
+            displayName = "עברית · Hebrew",
+            englishName = "Hebrew",
+            script = ScriptId.HEBREW,
+            localeTag = "he-IL",
+            layoutIds = listOf(BuiltInLayouts.HEBREW_ID),
+        ),
+        LanguageDef(
+            id = "hi",
+            displayName = "हिन्दी · Hindi",
+            englishName = "Hindi",
+            script = ScriptId.DEVANAGARI,
+            localeTag = "hi-IN",
+            layoutIds = listOf(BuiltInLayouts.HINDI_ID),
+        ),
     )
 
     /** The stand-in for an id this build does not recognise. Never surfaced in UI. */

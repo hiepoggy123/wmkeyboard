@@ -35,6 +35,9 @@ object BuiltInLayouts {
     const val KOREAN_ID = "builtin_korean"
     const val RUSSIAN_ID = "builtin_russian"
     const val ARABIC_ID = "builtin_arabic"
+    const val GREEK_ID = "builtin_greek"
+    const val HEBREW_ID = "builtin_hebrew"
+    const val HINDI_ID = "builtin_hindi"
 
     const val DEFAULT_ID = QWERTY_ID
 
@@ -195,6 +198,38 @@ object BuiltInLayouts {
         layers = mapOf(LayoutLayer.LETTERS.key to LayerSpec(arabicRows)),
     )
 
+    /** Greek: the national layout; shift uppercases, tonos vowels on long-press. */
+    val GREEK = LayoutSpec(
+        id = GREEK_ID,
+        name = "Ελληνικά",
+        langId = "el",
+        layers = mapOf(LayoutLayer.LETTERS.key to LayerSpec(greekRows)),
+    )
+
+    /**
+     * Hebrew: the standard letter arrangement, keys authored in visual (left to
+     * right) order like Arabic — the committed text is logical and the field
+     * renders it right to left, so the grid itself needs no mirroring.
+     */
+    val HEBREW = LayoutSpec(
+        id = HEBREW_ID,
+        name = "עברית",
+        langId = "he",
+        layers = mapOf(LayoutLayer.LETTERS.key to LayerSpec(hebrewRows)),
+    )
+
+    /**
+     * Hindi (Devanagari), the standard InScript keymap. Inherits the script's
+     * [ComposerType.INDIC_CLUSTER] (no per-layout override needed), so backspace
+     * removes a whole consonant-sign cluster.
+     */
+    val HINDI = LayoutSpec(
+        id = HINDI_ID,
+        name = "हिन्दी",
+        langId = "hi",
+        layers = mapOf(LayoutLayer.LETTERS.key to LayerSpec(hindiRows)),
+    )
+
     /**
      * One entry per [InputMode], even where two share a grid — AZERTY and French
      * are the same keys with different dictionaries, and the entry is what the
@@ -203,7 +238,7 @@ object BuiltInLayouts {
      */
     val all: List<LayoutSpec> = listOf(
         QWERTY, AZERTY, DVORAK, AVRO, PROBHAT, JATIYA, FRENCH, GERMAN, SPANISH,
-        KOREAN, RUSSIAN, ARABIC,
+        KOREAN, RUSSIAN, ARABIC, GREEK, HEBREW, HINDI,
     )
 
     fun byId(id: String): LayoutSpec? = all.firstOrNull { it.id == id }
@@ -531,6 +566,79 @@ private val arabicRows = listOf(
         Key("ذ"), Key("د"), Key("ز"), Key("ر"), Key("و", longPress = listOf("ؤ")),
         Key("ة"), Key("ى"), Key("ء"),
         Key("⌫", action = KeyAction.Delete, width = 1.5f),
+    ),
+    bottomRow(),
+)
+
+// Greek national layout. Greek has case, so shift uppercases the labels
+// (ς→Σ, α→Α …) — no per-key shiftLabel — and the accented (tonos/dialytika)
+// vowels ride long-press.
+private val greekRows = listOf(
+    listOf(
+        Key("ς"), Key("ε", longPress = listOf("έ")), Key("ρ"), Key("τ"),
+        Key("υ", longPress = listOf("ύ", "ϋ", "ΰ")), Key("θ"),
+        Key("ι", longPress = listOf("ί", "ϊ", "ΐ")), Key("ο", longPress = listOf("ό")),
+        Key("π"),
+    ),
+    listOf(
+        Key("α", longPress = listOf("ά")), Key("σ"), Key("δ"), Key("φ"), Key("γ"),
+        Key("η", longPress = listOf("ή")), Key("ξ"), Key("κ"), Key("λ"),
+    ),
+    listOf(
+        Key("⇧", action = KeyAction.Shift, width = 1.5f),
+        Key("ζ"), Key("χ"), Key("ψ"), Key("ω", longPress = listOf("ώ")),
+        Key("β"), Key("ν"), Key("μ"),
+        Key("⌫", action = KeyAction.Delete, width = 1.5f),
+    ),
+    bottomRow(),
+)
+
+// Hebrew letters in visual (left-to-right) key order; the field renders the
+// committed text right-to-left, so the grid itself is not mirrored (as Arabic).
+// The five final forms (ן ם ך ף ץ) sit where a Hebrew keyboard places them.
+private val hebrewRows = listOf(
+    listOf(
+        Key("ק"), Key("ר"), Key("א"), Key("ט"), Key("ו"),
+        Key("ן"), Key("ם"), Key("פ"),
+    ),
+    listOf(
+        Key("ש"), Key("ד"), Key("ג"), Key("כ"), Key("ע"), Key("י"),
+        Key("ח"), Key("ל"), Key("ך"), Key("ף"),
+    ),
+    listOf(
+        Key("⇧", action = KeyAction.Shift, width = 1.5f),
+        Key("ז"), Key("ס"), Key("ב"), Key("ה"), Key("נ"), Key("מ"),
+        Key("צ"), Key("ת"), Key("ץ"),
+        Key("⌫", action = KeyAction.Delete, width = 1.5f),
+    ),
+    bottomRow(),
+)
+
+// Hindi (Devanagari), the standard InScript keymap adapted to the 10-column
+// phone grid: vowel signs (मात्रा) and consonants on the base plane, independent
+// vowels and aspirates on shift — the arrangement InScript typists know. Rare
+// desktop-number-row items move to long-press (ञ on ज, the nukta forms on ड).
+// The Indic-cluster composer deletes a full consonant+sign cluster per delete.
+private val hindiRows = listOf(
+    listOf(
+        Key("ौ", shiftLabel = "औ"), Key("ै", shiftLabel = "ऐ"), Key("ा", shiftLabel = "आ"),
+        Key("ी", shiftLabel = "ई"), Key("ू", shiftLabel = "ऊ"), Key("ब", shiftLabel = "भ"),
+        Key("ह", shiftLabel = "ङ"), Key("ग", shiftLabel = "घ"), Key("द", shiftLabel = "ध"),
+        Key("ज", shiftLabel = "झ", longPress = listOf("ञ")),
+        Key("ड", shiftLabel = "ढ", longPress = listOf("ड़", "ढ़", "़")),
+    ),
+    listOf(
+        Key("ो", shiftLabel = "ओ"), Key("े", shiftLabel = "ए"), Key("्", shiftLabel = "अ"),
+        Key("ि", shiftLabel = "इ"), Key("ु", shiftLabel = "उ"), Key("प", shiftLabel = "फ"),
+        Key("र", shiftLabel = "ऱ"), Key("क", shiftLabel = "ख"), Key("त", shiftLabel = "थ"),
+        Key("च", shiftLabel = "छ"), Key("ट", shiftLabel = "ठ"),
+    ),
+    listOf(
+        Key("⇧", action = KeyAction.Shift, width = 1.2f),
+        Key("ृ", shiftLabel = "ऋ"), Key("ं", shiftLabel = "ँ", longPress = listOf("ः", "ॐ")),
+        Key("म", shiftLabel = "ण"), Key("न", shiftLabel = "ऩ"), Key("व"),
+        Key("ल", shiftLabel = "ळ"), Key("स", shiftLabel = "श"), Key("ष"), Key("य"),
+        Key("⌫", action = KeyAction.Delete, width = 1.3f),
     ),
     bottomRow(),
 )

@@ -138,4 +138,36 @@ val LanguageCatalog: List<LanguageEntry> = listOf(
             ),
         ),
     ),
+    LanguageEntry(
+        name = "Ελληνικά · Greek",
+        layouts = listOf(
+            LayoutOption(
+                BuiltInLayouts.GREEK_ID, "Ελληνικά", "Standard Greek layout",
+                "The Greek national layout; shift uppercases, and accented vowels " +
+                    "(ά έ ή ί ό ύ ώ) sit on long-press. No Greek dictionary is bundled yet.",
+            ),
+        ),
+    ),
+    LanguageEntry(
+        name = "עברית · Hebrew",
+        layouts = listOf(
+            LayoutOption(
+                BuiltInLayouts.HEBREW_ID, "עברית", "Standard Hebrew layout",
+                "The standard Hebrew letter arrangement; text is entered right-to-left, " +
+                    "with the final forms (ן ם ך ף ץ) on their own keys. No Hebrew " +
+                    "dictionary is bundled yet.",
+            ),
+        ),
+    ),
+    LanguageEntry(
+        name = "हिन्दी · Hindi",
+        layouts = listOf(
+            LayoutOption(
+                BuiltInLayouts.HINDI_ID, "InScript", "Standard Devanagari layout",
+                "The standard InScript Devanagari layout: vowel signs and consonants on " +
+                    "the base keys, independent vowels and aspirates on shift. Backspace " +
+                    "deletes a full cluster. No Hindi dictionary is bundled yet.",
+            ),
+        ),
+    ),
 )
