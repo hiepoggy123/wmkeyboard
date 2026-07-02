@@ -71,6 +71,5 @@ fun composerFor(script: ScriptDef, type: ComposerType): Composer = when (type) {
         ScriptId.BENGALI -> BengaliTransliterateComposer
         else -> NoComposer
     }
-    // Built in Phase 5 alongside the Korean layout.
-    ComposerType.HANGUL -> NoComposer
+    ComposerType.HANGUL -> HangulComposer
 }
