@@ -2353,10 +2353,7 @@ private fun DraggableTool(
                         when {
                             !longPressed -> {
                                 drag.cancel()
-                                if (released && !scrolled) {
-                                    feedback()
-                                    tapAction()
-                                }
+                                if (released && !scrolled) tapAction()
                             }
                             dragged -> drag.end()
                             // A hold that never travelled past the slop is a
@@ -2625,11 +2622,11 @@ private fun ToolCircle(
     val click = if (!interactive) {
         Modifier
     } else if (longPressLabel == null && onLongPress == null) {
-        Modifier.clickable { feedback(); onClick() }
+        Modifier.clickable(onClick = onClick)
     } else {
         Modifier.pointerInput(longPressLabel, onLongPress != null) {
             detectTapGestures(
-                onTap = { feedback(); onClick() },
+                onTap = { onClick() },
                 onLongPress = {
                     feedback()
                     if (onLongPress != null) onLongPress() else showLabel = true
@@ -3212,10 +3209,7 @@ private fun ToolboxPanel(
                             when {
                                 !longPressed -> {
                                     drag.cancel()
-                                    if (released && !scrolled) {
-                                        feedback()
-                                        tapTool(tool)
-                                    }
+                                    if (released && !scrolled) tapTool(tool)
                                 }
                                 dragged -> drag.end()
                                 // A hold that never travelled past the slop is
