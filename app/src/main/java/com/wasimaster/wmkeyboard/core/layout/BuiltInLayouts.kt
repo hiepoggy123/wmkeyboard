@@ -33,6 +33,8 @@ object BuiltInLayouts {
     const val GERMAN_ID = "builtin_qwertz"
     const val SPANISH_ID = "builtin_spanish"
     const val KOREAN_ID = "builtin_korean"
+    const val RUSSIAN_ID = "builtin_russian"
+    const val ARABIC_ID = "builtin_arabic"
 
     const val DEFAULT_ID = QWERTY_ID
 
@@ -173,6 +175,26 @@ object BuiltInLayouts {
         layers = mapOf(LayoutLayer.LETTERS.key to LayerSpec(koreanRows)),
     )
 
+    /** Russian ЙЦУКЕН: the standard Cyrillic phone layout; shift uppercases. */
+    val RUSSIAN = LayoutSpec(
+        id = RUSSIAN_ID,
+        name = "ЙЦУКЕН",
+        langId = "ru",
+        layers = mapOf(LayoutLayer.LETTERS.key to LayerSpec(russianRows)),
+    )
+
+    /**
+     * Arabic: the standard letter arrangement, keys authored in visual (left to
+     * right) order — the committed text is logical and the field renders it
+     * right to left, so the grid itself needs no mirroring.
+     */
+    val ARABIC = LayoutSpec(
+        id = ARABIC_ID,
+        name = "العربية",
+        langId = "ar",
+        layers = mapOf(LayoutLayer.LETTERS.key to LayerSpec(arabicRows)),
+    )
+
     /**
      * One entry per [InputMode], even where two share a grid — AZERTY and French
      * are the same keys with different dictionaries, and the entry is what the
@@ -180,7 +202,8 @@ object BuiltInLayouts {
      * mode. Matches `LanguageCatalog` one for one.
      */
     val all: List<LayoutSpec> = listOf(
-        QWERTY, AZERTY, DVORAK, AVRO, PROBHAT, JATIYA, FRENCH, GERMAN, SPANISH, KOREAN,
+        QWERTY, AZERTY, DVORAK, AVRO, PROBHAT, JATIYA, FRENCH, GERMAN, SPANISH,
+        KOREAN, RUSSIAN, ARABIC,
     )
 
     fun byId(id: String): LayoutSpec? = all.firstOrNull { it.id == id }
@@ -466,6 +489,47 @@ private val koreanRows = listOf(
     listOf(
         Key("⇧", action = KeyAction.Shift, width = 1.5f),
         Key("ㅋ"), Key("ㅌ"), Key("ㅊ"), Key("ㅍ"), Key("ㅠ"), Key("ㅜ"), Key("ㅡ"),
+        Key("⌫", action = KeyAction.Delete, width = 1.5f),
+    ),
+    bottomRow(),
+)
+
+// Russian ЙЦУКЕН. Cyrillic has case, so shift uppercases the labels (no
+// per-key shiftLabel needed); ё and ъ ride long-press.
+private val russianRows = listOf(
+    listOf(
+        Key("й"), Key("ц"), Key("у"), Key("к"), Key("е", longPress = listOf("ё")),
+        Key("н"), Key("г"), Key("ш"), Key("щ"), Key("з"), Key("х"),
+    ),
+    listOf(
+        Key("ф"), Key("ы"), Key("в"), Key("а"), Key("п"), Key("р"),
+        Key("о"), Key("л"), Key("д"), Key("ж"), Key("э"),
+    ),
+    listOf(
+        Key("⇧", action = KeyAction.Shift, width = 1.5f),
+        Key("я"), Key("ч"), Key("с"), Key("м"), Key("и"), Key("т"),
+        Key("ь", longPress = listOf("ъ")), Key("б"), Key("ю"),
+        Key("⌫", action = KeyAction.Delete, width = 1.5f),
+    ),
+    bottomRow(),
+)
+
+// Arabic letters in visual (left-to-right) key order; the field renders the
+// committed text right-to-left, so the grid itself is not mirrored.
+private val arabicRows = listOf(
+    listOf(
+        Key("ض"), Key("ص"), Key("ث"), Key("ق"), Key("ف"), Key("غ"),
+        Key("ع"), Key("ه"), Key("خ"), Key("ح"), Key("ج"),
+    ),
+    listOf(
+        Key("ش"), Key("س"), Key("ي", longPress = listOf("ئ")), Key("ب"),
+        Key("ل"), Key("ا", longPress = listOf("أ", "إ", "آ")), Key("ت"),
+        Key("ن"), Key("م"), Key("ك"), Key("ط", longPress = listOf("ظ")),
+    ),
+    listOf(
+        Key("⇧", action = KeyAction.Shift, width = 1.5f),
+        Key("ذ"), Key("د"), Key("ز"), Key("ر"), Key("و", longPress = listOf("ؤ")),
+        Key("ة"), Key("ى"), Key("ء"),
         Key("⌫", action = KeyAction.Delete, width = 1.5f),
     ),
     bottomRow(),

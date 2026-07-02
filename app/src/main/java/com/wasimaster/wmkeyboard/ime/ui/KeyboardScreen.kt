@@ -5152,11 +5152,12 @@ private fun spacebarText(state: KeyboardUiState): String {
 private fun displayLabel(key: Key, state: KeyboardUiState): String {
     val raw = when {
         state.shiftState != ShiftState.OFF && key.shiftLabel != null -> key.shiftLabel
-        // Latin letter labels track the live shift state: lowercase normally,
-        // uppercase while shift or caps lock is active.
+        // Cased-script letter labels track the live shift state: lowercase
+        // normally, uppercase while shift or caps lock is active (Latin,
+        // Cyrillic, Greek — not Bengali/Arabic/Hangul, which have no case).
         state.shiftState != ShiftState.OFF && key.action == KeyAction.Text &&
-            !state.composer.isClusterShaping &&
-            key.label.singleOrNull()?.code?.let { it in 'a'.code..'z'.code } == true ->
+            !state.composer.isClusterShaping && state.script.hasLetterCase &&
+            key.label.singleOrNull()?.isLetter() == true ->
             key.label.uppercase()
         else -> key.label
     }

@@ -95,6 +95,22 @@ object LanguageRegistry {
             localeTag = "ko-KR",
             layoutIds = listOf(BuiltInLayouts.KOREAN_ID),
         ),
+        LanguageDef(
+            id = "ru",
+            displayName = "Русский · Russian",
+            englishName = "Russian",
+            script = ScriptId.CYRILLIC,
+            localeTag = "ru-RU",
+            layoutIds = listOf(BuiltInLayouts.RUSSIAN_ID),
+        ),
+        LanguageDef(
+            id = "ar",
+            displayName = "العربية · Arabic",
+            englishName = "Arabic",
+            script = ScriptId.ARABIC,
+            localeTag = "ar-SA",
+            layoutIds = listOf(BuiltInLayouts.ARABIC_ID),
+        ),
     )
 
     /** The stand-in for an id this build does not recognise. Never surfaced in UI. */

@@ -118,4 +118,24 @@ val LanguageCatalog: List<LanguageEntry> = listOf(
             ),
         ),
     ),
+    LanguageEntry(
+        name = "Русский · Russian",
+        layouts = listOf(
+            LayoutOption(
+                BuiltInLayouts.RUSSIAN_ID, "ЙЦУКЕН", "Standard Russian layout",
+                "The standard ЙЦУКЕН Cyrillic arrangement; shift uppercases, ё and ъ on " +
+                    "long-press. No Russian dictionary is bundled yet.",
+            ),
+        ),
+    ),
+    LanguageEntry(
+        name = "العربية · Arabic",
+        layouts = listOf(
+            LayoutOption(
+                BuiltInLayouts.ARABIC_ID, "العربية", "Standard Arabic layout",
+                "The standard Arabic letter arrangement; text is entered right-to-left. " +
+                    "Hamza and alef forms on long-press. No Arabic dictionary is bundled yet.",
+            ),
+        ),
+    ),
 )
