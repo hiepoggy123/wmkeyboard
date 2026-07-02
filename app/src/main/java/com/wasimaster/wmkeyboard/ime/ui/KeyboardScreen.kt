@@ -59,6 +59,8 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items as lazyRowItems
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.ui.viewinterop.AndroidView
@@ -5785,8 +5787,13 @@ private fun EmojiPanel(
             addAll(categories)
         }
     }
-    var selectedTab by remember { mutableStateOf(tabs.firstOrNull().orEmpty()) }
-    if (selectedTab !in tabs) selectedTab = tabs.firstOrNull().orEmpty()
+    val scope = rememberCoroutineScope()
+    // A pager, not a swapped-in single grid: horizontal swipes cross
+    // categories and every tab switch slides across. currentPage drives the
+    // underline, updating live as a drag passes the halfway point; each page
+    // keeps its own scroll offset via the stable key on the pager below.
+    val pagerState = rememberPagerState(pageCount = { tabs.size })
+    val selectedTab = tabs.getOrElse(pagerState.currentPage) { tabs.firstOrNull().orEmpty() }
     // Compact icon strip: search plus every category, split evenly across
     // the width so everything fits with no scrolling — Material's Tab has a
     // 90dp min width that forced a ScrollableTabRow here before.
@@ -5797,7 +5804,7 @@ private fun EmojiPanel(
             selected = false,
             onClick = onEmojiQueryTap,
         )
-        for (tab in tabs) {
+        tabs.forEachIndexed { index, tab ->
             EmojiTab(
                 icon = if (tab == RECENT_TAB && historyMode == EmojiTabMode.MOST_USED) {
                     Icons.Outlined.BarChart
@@ -5810,7 +5817,14 @@ private fun EmojiPanel(
                     else -> "Recent"
                 },
                 selected = tab == selectedTab,
-                onClick = { selectedTab = tab },
+                onClick = {
+                    // Tapping a tab slides there too, matching the swipe;
+                    // reduce-motion jumps instead.
+                    scope.launch {
+                        if (state.settings.reduceMotion) pagerState.scrollToPage(index)
+                        else pagerState.animateScrollToPage(index)
+                    }
+                },
             )
         }
     }
@@ -5911,89 +5925,104 @@ private fun EmojiPanel(
             )
         }
 
-        if (state.settings.emojiClearRecentsButton &&
-            selectedTab == RECENT_TAB && historyMode == EmojiTabMode.RECENTS
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Box(modifier = Modifier.weight(1f))
-                TextButton(onClick = onClearRecents) {
-                    Icon(
-                        Icons.Outlined.DeleteSweep,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp),
-                    )
-                    Box(modifier = Modifier.width(4.dp))
-                    Text("Clear recents", fontSize = 12.sp)
-                }
-            }
-        }
-
-        if (selectedTab == RECENT_TAB) {
-            LazyVerticalGrid(
-                columns = GridCells.Adaptive(minSize = 44.dp),
+        if (tabs.isNotEmpty()) {
+            HorizontalPager(
+                state = pagerState,
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(8.dp),
-            ) {
-                // Keyed by emoji: this list reorders on every tap (the tapped
-                // emoji jumps to the front), so on a positional key a cell's
-                // open popup stayed behind with the slot and reappeared over
-                // a different emoji. EmojiUsage.pinned() is distinct(), so
-                // the key is unique.
-                items(history, key = { it }) { emoji ->
-                    // History cells are exact sequences: no variant pref to
-                    // remember, taps in the popup commit directly.
-                    EmojiCell(
-                        base = emoji,
-                        display = emoji,
-                        state = state,
-                        genderVariants = emptyList(),
-                        onTap = onEmoji,
-                        onPick = onEmoji,
-                        onFavourite = onEmojiFavourite,
-                        onReorderFavourites = onReorderFavourite,
-                        onRemove = onRecentRemove,
-                    )
-                }
-            }
-        } else {
-            val emojis = remember(state.emojiCatalog, selectedTab) {
-                state.emojiCatalog
-                    .filter { it.category == selectedTab && it.parent == null }
-                    .map { it.emoji }
-            }
-            // Keyed on the tab so each category gets its own grid, and with
-            // it its own scroll position. One shared grid kept the offset
-            // across tab taps: scrolling deep into people (the largest
-            // category by far) and then tapping a small one opened it
-            // already scrolled past its first rows, or clamped to the
-            // bottom — it looked like the tab had failed to switch.
-            key(selectedTab) {
-                LazyVerticalGrid(
-                    columns = GridCells.Adaptive(minSize = 44.dp),
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(8.dp),
-                ) {
-                    // Keyed by emoji, not by slot: a cell owns the open state
-                    // of its long-press popup, and on a positional key that
-                    // state stays with the slot while the list under it
-                    // changes — the popup jumped to whatever emoji landed in
-                    // that position.
-                    items(emojis, key = { it }) { emoji ->
-                        EmojiCell(
-                            base = emoji,
-                            display = state.emojiVariantPrefs[emoji] ?: emoji,
-                            state = state,
-                            genderVariants = variantChildren[emoji].orEmpty(),
-                            onTap = onEmoji,
-                            onPick = { variant -> onEmojiVariant(emoji, variant) },
-                            onFavourite = onEmojiFavourite,
-                            onReorderFavourites = onReorderFavourite,
-                        )
+                // The default already limits composition to the visible page
+                // plus whatever a swipe drags into view, so a deep catalog
+                // never all mounts at once — the reason a single grid was too
+                // heavy in the first place.
+                beyondViewportPageCount = 0,
+                // Stable per-tab key: a page keeps its own scroll offset even
+                // as history appears/disappears and shifts the indices, and a
+                // cell's open long-press popup rides with its tab, not a slot.
+                key = { tabs[it] },
+            ) { page ->
+                val tab = tabs[page]
+                if (tab == RECENT_TAB) {
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        // Kept inside the page so the pager height stays fixed
+                        // across a swipe — a row that appeared or vanished
+                        // mid-drag would jolt the grid.
+                        if (state.settings.emojiClearRecentsButton &&
+                            historyMode == EmojiTabMode.RECENTS
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Box(modifier = Modifier.weight(1f))
+                                TextButton(onClick = onClearRecents) {
+                                    Icon(
+                                        Icons.Outlined.DeleteSweep,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp),
+                                    )
+                                    Box(modifier = Modifier.width(4.dp))
+                                    Text("Clear recents", fontSize = 12.sp)
+                                }
+                            }
+                        }
+                        LazyVerticalGrid(
+                            columns = GridCells.Adaptive(minSize = 44.dp),
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(8.dp),
+                        ) {
+                            // Keyed by emoji: this list reorders on every tap
+                            // (the tapped emoji jumps to the front), so on a
+                            // positional key a cell's open popup stayed behind
+                            // with the slot and reappeared over a different
+                            // emoji. EmojiUsage.pinned() is distinct(), so the
+                            // key is unique.
+                            items(history, key = { it }) { emoji ->
+                                // History cells are exact sequences: no variant
+                                // pref to remember, taps in the popup commit
+                                // directly.
+                                EmojiCell(
+                                    base = emoji,
+                                    display = emoji,
+                                    state = state,
+                                    genderVariants = emptyList(),
+                                    onTap = onEmoji,
+                                    onPick = onEmoji,
+                                    onFavourite = onEmojiFavourite,
+                                    onReorderFavourites = onReorderFavourite,
+                                    onRemove = onRecentRemove,
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    val emojis = remember(state.emojiCatalog, tab) {
+                        state.emojiCatalog
+                            .filter { it.category == tab && it.parent == null }
+                            .map { it.emoji }
+                    }
+                    LazyVerticalGrid(
+                        columns = GridCells.Adaptive(minSize = 44.dp),
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(8.dp),
+                    ) {
+                        // Keyed by emoji, not by slot: a cell owns the open
+                        // state of its long-press popup, and on a positional
+                        // key that state stays with the slot while the list
+                        // under it changes — the popup jumped to whatever
+                        // emoji landed in that position.
+                        items(emojis, key = { it }) { emoji ->
+                            EmojiCell(
+                                base = emoji,
+                                display = state.emojiVariantPrefs[emoji] ?: emoji,
+                                state = state,
+                                genderVariants = variantChildren[emoji].orEmpty(),
+                                onTap = onEmoji,
+                                onPick = { variant -> onEmojiVariant(emoji, variant) },
+                                onFavourite = onEmojiFavourite,
+                                onReorderFavourites = onReorderFavourite,
+                            )
+                        }
                     }
                 }
             }
