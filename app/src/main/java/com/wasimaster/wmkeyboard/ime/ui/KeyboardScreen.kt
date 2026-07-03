@@ -4760,16 +4760,29 @@ private fun KeyButton(
         if (pressed) {
             previewShownAt = SystemClock.uptimeMillis()
             previewVisible = true
-            // Backstop: if the release is ever dropped under lag, hide the
-            // bubble anyway once the absolute cap elapses so it can't strand.
-            delay(settings.keyPopupMaxDurationMs.toLong())
-            previewVisible = false
         } else if (previewVisible) {
             val remaining = settings.keyPopupMinDurationMs -
                 (SystemClock.uptimeMillis() - previewShownAt)
             if (remaining > 0) delay(remaining)
             previewVisible = false
         }
+    }
+    // Absolute ceiling on the bubble's life, measured from when it appeared
+    // and re-armed on every press (previewShownAt changes). Kept in its own
+    // effect rather than the pressed branch above: keying it on `pressed`
+    // meant a release cancelled the cap before it could fire, so it only ever
+    // ran when the release never arrived — the rare case. The common strand is
+    // a release delivered late under commit lag (a new line inserting is the
+    // usual cause), which routes through the else branch and never hit the
+    // old cap. Here the cap fires no matter how the press ends, so a dropped
+    // or late release can't strand the bubble and the Maximum popup duration
+    // slider has real effect.
+    LaunchedEffect(previewShownAt) {
+        if (previewShownAt == 0L) return@LaunchedEffect
+        val cap = settings.keyPopupMaxDurationMs -
+            (SystemClock.uptimeMillis() - previewShownAt)
+        if (cap > 0) delay(cap.toLong())
+        previewVisible = false
     }
 
     // Samsung-style contrast: letter keys clearly lighter than the board,
