@@ -88,8 +88,8 @@ class EmojiUsage(private val storageFile: File?) {
         return if (favourites.remove(emoji)) {
             false
         } else {
-            favourites.add(0, emoji)
-            while (favourites.size > MAX_FAVOURITES) favourites.removeAt(favourites.lastIndex)
+            favourites.add(emoji)
+            while (favourites.size > MAX_FAVOURITES) favourites.removeAt(0)
             true
         }
     }
