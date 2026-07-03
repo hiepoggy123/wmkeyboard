@@ -2,6 +2,8 @@ package com.wasimaster.wmkeyboard.ime.ui
 
 import android.graphics.BitmapFactory
 import android.os.Build
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -22,9 +24,12 @@ import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -446,7 +451,7 @@ fun KeyboardThemeProvider(settings: KeyboardSettings, content: @Composable () ->
     } else {
         specKbTheme(spec, settings)
     }
-    val kb = resolved.accessibilityAdjusted(settings)
+    val kb = animatedKbTheme(resolved.accessibilityAdjusted(settings))
     // The chosen font rides in through the Material typography, so every
     // Text on the keyboard — key labels, suggestions, panels — follows it
     // without per-call plumbing. Emojis get their own family via
@@ -479,6 +484,142 @@ fun KeyboardThemeProvider(settings: KeyboardSettings, content: @Composable () ->
             content = content,
         )
     }
+}
+
+/** How long a theme switch eases from the old palette to the new one. */
+private const val THEME_TRANSITION_MS = 320
+
+/**
+ * Crossfades whole themes: whenever the resolved [target] changes while the
+ * keyboard is composed — the user tapping a theme, or the AI theme tool
+ * swapping one in — every colour, gradient and radius eases from what was on
+ * screen to the new values instead of snapping. The first composition and
+ * reduce-motion return [target] outright, so opening the keyboard and
+ * accessibility users see no fade.
+ *
+ * An interrupted switch (tapping a second theme mid-fade) restarts from the
+ * currently blended colours, so rapid taps stay smooth instead of jumping
+ * back to a stale endpoint.
+ */
+@Composable
+fun animatedKbTheme(target: KbTheme): KbTheme {
+    val progress = remember { Animatable(1f) }
+    var from by remember { mutableStateOf(target) }
+    var to by remember { mutableStateOf(target) }
+    LaunchedEffect(target) {
+        if (target == to) return@LaunchedEffect
+        if (target.reduceMotion) {
+            // Accessibility: jump straight to the new theme, no crossfade.
+            from = target
+            to = target
+            progress.snapTo(1f)
+            return@LaunchedEffect
+        }
+        // Snapshot what is on screen now so an interrupted fade continues from
+        // the blend rather than from the previous target.
+        from = lerpKbTheme(from, to, progress.value)
+        to = target
+        progress.snapTo(0f)
+        progress.animateTo(1f, tween(THEME_TRANSITION_MS, easing = FastOutSlowInEasing))
+    }
+    val p = progress.value
+    return if (p >= 1f || from == to) to else lerpKbTheme(from, to, p)
+}
+
+private fun lerpF(a: Float, b: Float, t: Float): Float = a + (b - a) * t
+
+private fun lerpI(a: Int, b: Int, t: Float): Int = Math.round(a + (b - a) * t)
+
+/** Blend two ARGB longs (theme's storage form) through [Color] space. */
+private fun lerpLong(a: Long, b: Long, t: Float): Long =
+    lerp(Color(a.toInt()), Color(b.toInt()), t).toArgb().toLong() and 0xFFFFFFFFL
+
+private fun Color.toArgbLong(): Long = toArgb().toLong() and 0xFFFFFFFFL
+
+private fun lerpColorOrNull(a: Color?, b: Color?, t: Float): Color? {
+    if (a == null && b == null) return null
+    // A null border means "no outline"; fade it in/out via a transparent stand-in.
+    val from = a ?: b!!.copy(alpha = 0f)
+    val to = b ?: a!!.copy(alpha = 0f)
+    return lerp(from, to, t)
+}
+
+/**
+ * Interpolate two gradients. Same type and stop count blend stop-for-stop; a
+ * missing gradient is promoted to a flat gradient of its side's solid colour
+ * ([aSolid]/[bSolid]) so a solid⇆gradient switch still eases. Mismatched
+ * shapes (different type or stop count) can't blend, so they flip at the
+ * midpoint.
+ */
+private fun lerpGradient(
+    a: GradientSpec?,
+    b: GradientSpec?,
+    t: Float,
+    aSolid: Color,
+    bSolid: Color,
+): GradientSpec? {
+    if (a == null && b == null) return null
+    if (a != null && b != null && (a.type != b.type || a.colors.size != b.colors.size)) {
+        return if (t >= 0.5f) b else a
+    }
+    val shape = a ?: b!!
+    val flatSolid = (if (a == null) aSolid else bSolid).toArgbLong()
+    val flat = List(shape.colors.size) { flatSolid }
+    val fromColors = a?.colors ?: flat
+    val toColors = b?.colors ?: flat
+    return GradientSpec(
+        colors = fromColors.indices.map { lerpLong(fromColors[it], toColors[it], t) },
+        type = shape.type,
+        angleDeg = lerpF(a?.angleDeg ?: shape.angleDeg, b?.angleDeg ?: shape.angleDeg, t),
+    )
+}
+
+/**
+ * Every drawable field of two themes blended at [t] (0 = [a], 1 = [b]).
+ * Colours, gradients, radii and widths interpolate; discrete fields (shape
+ * kind, animation, background image, dark flag) flip at the midpoint since
+ * they can't be tweened.
+ */
+private fun lerpKbTheme(a: KbTheme, b: KbTheme, t: Float): KbTheme {
+    if (t <= 0f) return a
+    if (t >= 1f) return b
+    val past = t >= 0.5f
+    return KbTheme(
+        dark = if (past) b.dark else a.dark,
+        board = lerp(a.board, b.board, t),
+        boardGradient = lerpGradient(a.boardGradient, b.boardGradient, t, a.board, b.board),
+        backgroundImage = if (past) b.backgroundImage else a.backgroundImage,
+        backgroundImageOpacity = lerpF(a.backgroundImageOpacity, b.backgroundImageOpacity, t),
+        backgroundImageBlur = lerpF(a.backgroundImageBlur, b.backgroundImageBlur, t),
+        keyShapeKind = if (past) b.keyShapeKind else a.keyShapeKind,
+        keyGradient = lerpGradient(a.keyGradient, b.keyGradient, t, a.key, b.key),
+        key = lerp(a.key, b.key, t),
+        keyText = lerp(a.keyText, b.keyText, t),
+        modifierKey = lerp(a.modifierKey, b.modifierKey, t),
+        modifierKeyText = lerp(a.modifierKeyText, b.modifierKeyText, t),
+        enterKey = lerp(a.enterKey, b.enterKey, t),
+        enterKeyText = lerp(a.enterKeyText, b.enterKeyText, t),
+        pressedKey = lerp(a.pressedKey, b.pressedKey, t),
+        keyBorder = lerpColorOrNull(a.keyBorder, b.keyBorder, t),
+        keyBorderWidthDp = lerpF(a.keyBorderWidthDp, b.keyBorderWidthDp, t),
+        accent = lerp(a.accent, b.accent, t),
+        popup = lerp(a.popup, b.popup, t),
+        popupText = lerp(a.popupText, b.popupText, t),
+        toolbarIcon = lerp(a.toolbarIcon, b.toolbarIcon, t),
+        toolCircle = lerp(a.toolCircle, b.toolCircle, t),
+        toolCircleActive = lerp(a.toolCircleActive, b.toolCircleActive, t),
+        toolCircleActiveIcon = lerp(a.toolCircleActiveIcon, b.toolCircleActiveIcon, t),
+        chip = lerp(a.chip, b.chip, t),
+        suggestionText = lerp(a.suggestionText, b.suggestionText, t),
+        secondaryText = lerp(a.secondaryText, b.secondaryText, t),
+        divider = lerp(a.divider, b.divider, t),
+        keyRadiusDp = lerpI(a.keyRadiusDp, b.keyRadiusDp, t),
+        popupRadiusDp = lerpI(a.popupRadiusDp, b.popupRadiusDp, t),
+        toolRadiusDp = lerpI(a.toolRadiusDp, b.toolRadiusDp, t),
+        animation = if (past) b.animation else a.animation,
+        animationSpeed = lerpF(a.animationSpeed, b.animationSpeed, t),
+        reduceMotion = b.reduceMotion,
+    )
 }
 
 /**
