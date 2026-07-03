@@ -145,6 +145,15 @@ object ScriptRegistry {
             fontHint = FontHint.DEVANAGARI,
             unicodeRange = 0x0900..0x097F,
         ),
+        ScriptDef(
+            id = ScriptId.GEORGIAN,
+            direction = TextDirection.LTR,
+            // Mkhedruli is unicameral; extra letters ride shiftLabel, not case.
+            hasLetterCase = false,
+            composer = ComposerType.NONE,
+            fontHint = FontHint.GENERIC,
+            unicodeRange = 0x10A0..0x10FF,
+        ),
     ).associateBy { it.id }
 
     val all: List<ScriptDef> get() = defs.values.toList()

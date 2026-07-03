@@ -28,6 +28,13 @@ object AssetLayouts {
     /** Stable ids of the shipped asset layouts, for the [LanguageDef]s that group them. */
     const val PT_QWERTY_ID = "asset_pt_qwerty"
     const val UK_JCUKEN_ID = "asset_uk_jcuken"
+    const val IT_QWERTY_ID = "asset_it_qwerty"
+    const val NL_QWERTY_ID = "asset_nl_qwerty"
+    const val PL_QWERTY_ID = "asset_pl_qwerty"
+    const val SV_QWERTY_ID = "asset_sv_qwerty"
+    const val SR_JCUKEN_ID = "asset_sr_jcuken"
+    const val BG_PHONETIC_ID = "asset_bg_phonetic"
+    const val KA_QWERTY_ID = "asset_ka_qwerty"
 
     @Volatile private var cached: List<LayoutSpec> = emptyList()
     @Volatile private var loaded = false
