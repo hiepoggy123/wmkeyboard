@@ -524,6 +524,12 @@ data class KeyboardSettings(
     val emojiToolbar: Boolean = true,
     /** Tint each tool icon its own accent colour in Settings and the toolbox. */
     val coloredToolIcons: Boolean = true,
+    /**
+     * Per-tool accent-colour overrides (ARGB longs), applied when
+     * [coloredToolIcons] is on. A tool absent from the map keeps its built-in
+     * default (see [com.wasimaster.wmkeyboard.core.ui.toolAccentColor]).
+     */
+    val toolColorOverrides: Map<ToolbarTool, Long> = emptyMap(),
     val incognito: Boolean = false,
     val toolbarTools: List<ToolbarTool> = DefaultToolbarTools,
     val toolbarGreedy: Boolean = true,
@@ -950,6 +956,7 @@ class SettingsRepository(private val context: Context) {
         private val LONG_PRESS_X_CUT = booleanPreferencesKey("long_press_x_cut")
         private val EMOJI_TOOLBAR = booleanPreferencesKey("emoji_toolbar")
         private val COLORED_TOOL_ICONS = booleanPreferencesKey("colored_tool_icons")
+        private val TOOL_COLOR_OVERRIDES = stringPreferencesKey("tool_color_overrides")
         private val INCOGNITO = booleanPreferencesKey("incognito")
         private val TOOLBAR_TOOLS = stringPreferencesKey("toolbar_tools")
         private val TOOLBAR_GREEDY = booleanPreferencesKey("toolbar_greedy")
@@ -1260,6 +1267,7 @@ class SettingsRepository(private val context: Context) {
             longPressXCut = p[LONG_PRESS_X_CUT] ?: defaults.longPressXCut,
             emojiToolbar = p[EMOJI_TOOLBAR] ?: defaults.emojiToolbar,
             coloredToolIcons = p[COLORED_TOOL_ICONS] ?: defaults.coloredToolIcons,
+            toolColorOverrides = decodeToolColors(p[TOOL_COLOR_OVERRIDES]),
             incognito = p[INCOGNITO] ?: defaults.incognito,
             // Empty stored string is a valid state (everything in the toolbox),
             // distinct from never-set (defaults apply).
@@ -1481,6 +1489,20 @@ class SettingsRepository(private val context: Context) {
     private fun decodeDisabledTools(csv: String?): List<ToolbarTool> =
         csv?.split(',')?.mapNotNull { runCatching { ToolbarTool.valueOf(it) }.getOrNull() }
             ?: emptyList()
+
+    /** `NAME=AARRGGBB` pairs; entries for unknown tools or bad hex are dropped. */
+    private fun decodeToolColors(csv: String?): Map<ToolbarTool, Long> =
+        csv?.split(',')?.mapNotNull { entry ->
+            val parts = entry.split('=')
+            if (parts.size != 2) return@mapNotNull null
+            val tool = runCatching { ToolbarTool.valueOf(parts[0]) }.getOrNull()
+                ?: return@mapNotNull null
+            val color = parts[1].toULongOrNull(16)?.toLong() ?: return@mapNotNull null
+            tool to color
+        }?.toMap() ?: emptyMap()
+
+    private fun encodeToolColors(map: Map<ToolbarTool, Long>): String =
+        map.entries.joinToString(",") { (tool, color) -> "${tool.name}=%08X".format(color) }
 
     /**
      * Stored order, made complete: tools the saved CSV doesn't know (added in
@@ -2206,6 +2228,18 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setColoredToolIcons(value: Boolean) =
         context.dataStore.edit { it[COLORED_TOOL_ICONS] = value }
+
+    /** Override one tool's accent colour; a null [color] restores its default. */
+    suspend fun setToolColor(tool: ToolbarTool, color: Long?) =
+        context.dataStore.edit { prefs ->
+            val current = decodeToolColors(prefs[TOOL_COLOR_OVERRIDES]).toMutableMap()
+            if (color == null) current.remove(tool) else current[tool] = color
+            prefs[TOOL_COLOR_OVERRIDES] = encodeToolColors(current)
+        }
+
+    /** Drop every per-tool colour override, restoring all built-in defaults. */
+    suspend fun clearToolColors() =
+        context.dataStore.edit { it.remove(TOOL_COLOR_OVERRIDES) }
 
     suspend fun setEmojiTabMode(value: EmojiTabMode) =
         context.dataStore.edit { it[EMOJI_TAB_MODE] = value.name }

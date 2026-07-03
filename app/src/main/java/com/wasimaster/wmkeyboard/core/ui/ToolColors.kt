@@ -1,6 +1,7 @@
 package com.wasimaster.wmkeyboard.core.ui
 
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
 
 /**
@@ -88,3 +89,15 @@ fun toolAccentColor(tool: ToolbarTool): Color = when (tool) {
     ToolbarTool.PAGE_UP,
     ToolbarTool.PAGE_DOWN -> Color(0xFF90A4AE)
 }
+
+/**
+ * The accent colour to actually paint a tool with: the user's per-tool
+ * override from [com.wasimaster.wmkeyboard.core.settings.KeyboardSettings.toolColorOverrides]
+ * when they've set one, otherwise the built-in [toolAccentColor] default.
+ */
+fun toolAccentColor(tool: ToolbarTool, overrides: Map<ToolbarTool, Long>): Color =
+    overrides[tool]?.let { Color(it.toInt()) } ?: toolAccentColor(tool)
+
+/** The default accent colour as a stored ARGB long (for seeding the picker). */
+fun toolAccentColorArgb(tool: ToolbarTool): Long =
+    toolAccentColor(tool).toArgb().toLong() and 0xFFFFFFFFL

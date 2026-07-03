@@ -3264,7 +3264,8 @@ private fun ToolboxPanel(
                                     active = toolActive(shown, state),
                                     interactive = false,
                                     tint = if (state.settings.coloredToolIcons)
-                                        toolAccentColor(shown) else null,
+                                        toolAccentColor(shown, state.settings.toolColorOverrides)
+                                    else null,
                                 ) {}
                             }
                             Text(

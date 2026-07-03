@@ -1276,7 +1276,7 @@ private fun NullableColorRow(
 }
 
 @Composable
-private fun Swatch(color: Long, size: androidx.compose.ui.unit.Dp = 28.dp) {
+internal fun Swatch(color: Long, size: androidx.compose.ui.unit.Dp = 28.dp) {
     // Checkerboard-ish underlay so translucent colors are visibly translucent.
     Box(
         modifier = Modifier

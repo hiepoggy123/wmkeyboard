@@ -159,6 +159,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import com.wasimaster.wmkeyboard.core.ui.toolAccentColor
+import com.wasimaster.wmkeyboard.core.ui.toolAccentColorArgb
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -3382,10 +3383,21 @@ private fun ToolsSettings(
     )
     ToggleSetting(
         title = "Colorful tool icons",
-        subtitle = "Tint each tool its own accent colour here and in the toolbox",
+        subtitle = "Tint each tool its own accent colour here and in the toolbox. " +
+            "Open a tool to recolour just that icon.",
         checked = settings.coloredToolIcons,
         onChange = { scope.launch { repository.setColoredToolIcons(it) } },
     )
+    if (settings.coloredToolIcons && settings.toolColorOverrides.isNotEmpty()) {
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.End,
+        ) {
+            TextButton(onClick = { scope.launch { repository.clearToolColors() } }) {
+                Text("Reset custom colours")
+            }
+        }
+    }
     val groups = listOf(
         "Panels" to listOf(
             ToolbarTool.EMOJI, ToolbarTool.CLIPBOARD, ToolbarTool.SNIPPETS,
@@ -3437,7 +3449,7 @@ private fun ToolsSettings(
                                 toolIconFor(tool),
                                 contentDescription = null,
                                 tint = if (settings.coloredToolIcons)
-                                    toolAccentColor(tool)
+                                    toolAccentColor(tool, settings.toolColorOverrides)
                                 else MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         },
@@ -3491,6 +3503,43 @@ private fun ToolDetailSettings(
                 "Show this tool on the toolbar and in the toolbox",
                 tool in settings.enabledTools,
             ) { scope.launch { repository.setToolEnabled(tool, it) } }
+        }
+        // Recolour just this tool's icon. Only meaningful while the global
+        // "Colorful tool icons" switch is on, since it's what paints them.
+        if (settings.coloredToolIcons) {
+            item {
+                var showPicker by remember { mutableStateOf(false) }
+                val override = settings.toolColorOverrides[tool]
+                val resolved = override ?: toolAccentColorArgb(tool)
+                ListItem(
+                    leadingContent = { Swatch(resolved) },
+                    headlineContent = { Text("Icon colour") },
+                    supportingContent = {
+                        Text(if (override != null) "Custom — tap to change" else "Default — tap to customise")
+                    },
+                    colors = transparentListColors(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { showPicker = true },
+                )
+                if (showPicker) {
+                    ColorPickerDialog(
+                        title = "${toolTitle(tool)} icon colour",
+                        initial = resolved,
+                        supportsAlpha = false,
+                        showReset = override != null,
+                        onPick = {
+                            scope.launch { repository.setToolColor(tool, it) }
+                            showPicker = false
+                        },
+                        onReset = {
+                            scope.launch { repository.setToolColor(tool, null) }
+                            showPicker = false
+                        },
+                        onDismiss = { showPicker = false },
+                    )
+                }
+            }
         }
     }
     ToolKeywordSetting(repository, settings, tool)
