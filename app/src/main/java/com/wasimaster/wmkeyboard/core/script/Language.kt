@@ -274,6 +274,56 @@ object LanguageRegistry {
             localeTag = "hr-HR",
             layoutIds = listOf(AssetLayouts.HR_QWERTZ_ID),
         ),
+        // Persian reuses the Arabic script (RTL, no case) — a different language
+        // on the same ScriptDef, adding the four Perso-Arabic letters پ چ ژ گ.
+        LanguageDef(
+            id = "fa",
+            displayName = "فارسی · Persian",
+            englishName = "Persian",
+            script = ScriptId.ARABIC,
+            localeTag = "fa-IR",
+            layoutIds = listOf(AssetLayouts.FA_STANDARD_ID),
+        ),
+        LanguageDef(
+            id = "be",
+            displayName = "Беларуская · Belarusian",
+            englishName = "Belarusian",
+            script = ScriptId.CYRILLIC,
+            localeTag = "be-BY",
+            layoutIds = listOf(AssetLayouts.BE_JCUKEN_ID),
+        ),
+        LanguageDef(
+            id = "et",
+            displayName = "Eesti · Estonian",
+            englishName = "Estonian",
+            script = ScriptId.LATIN,
+            localeTag = "et-EE",
+            layoutIds = listOf(AssetLayouts.ET_QWERTY_ID),
+        ),
+        LanguageDef(
+            id = "lt",
+            displayName = "Lietuvių · Lithuanian",
+            englishName = "Lithuanian",
+            script = ScriptId.LATIN,
+            localeTag = "lt-LT",
+            layoutIds = listOf(AssetLayouts.LT_QWERTY_ID),
+        ),
+        LanguageDef(
+            id = "lv",
+            displayName = "Latviešu · Latvian",
+            englishName = "Latvian",
+            script = ScriptId.LATIN,
+            localeTag = "lv-LV",
+            layoutIds = listOf(AssetLayouts.LV_QWERTY_ID),
+        ),
+        LanguageDef(
+            id = "sl",
+            displayName = "Slovenščina · Slovenian",
+            englishName = "Slovenian",
+            script = ScriptId.LATIN,
+            localeTag = "sl-SI",
+            layoutIds = listOf(AssetLayouts.SL_QWERTZ_ID),
+        ),
     )
 
     /** The stand-in for an id this build does not recognise. Never surfaced in UI. */
