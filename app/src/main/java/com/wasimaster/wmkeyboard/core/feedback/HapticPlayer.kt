@@ -6,6 +6,8 @@ import android.os.SystemClock
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
+import android.view.HapticFeedbackConstants
+import android.view.View
 import com.wasimaster.wmkeyboard.core.settings.HapticStyle
 
 /**
@@ -25,15 +27,48 @@ object HapticPlayer {
      * being edited (not yet necessarily persisted), at most once per
      * [PREVIEW_GAP_MS].
      */
-    fun preview(context: Context, style: HapticStyle, amplitude: Int, durationMs: Int) {
+    fun preview(
+        context: Context,
+        style: HapticStyle,
+        amplitude: Int,
+        durationMs: Int,
+        view: View? = null,
+    ) {
         val now = SystemClock.uptimeMillis()
         if (now - lastPreviewAt < PREVIEW_GAP_MS) return
         lastPreviewAt = now
-        play(context, style, amplitude, durationMs)
+        play(context, style, amplitude, durationMs, view)
+    }
+
+    /**
+     * Delegates to the platform key haptic. Returns false when the motor was
+     * not driven (no such effect, or the view is detached) so the caller can
+     * fall back to a direct vibrator effect. The IGNORE flags fire the buzz
+     * even when the system-wide "Touch feedback" switch is off — the keyboard
+     * gates haptics with its own toggle — while the OS still scales the
+     * strength by the haptic-intensity setting.
+     */
+    @Suppress("DEPRECATION")
+    private fun playSystem(view: View, style: HapticStyle): Boolean {
+        val constant = when (style) {
+            HapticStyle.SYSTEM_TAP -> HapticFeedbackConstants.KEYBOARD_TAP
+            else -> HapticFeedbackConstants.VIRTUAL_KEY
+        }
+        return view.performHapticFeedback(
+            constant,
+            HapticFeedbackConstants.FLAG_IGNORE_VIEW_SETTING or
+                HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING,
+        )
     }
 
     @Suppress("DEPRECATION")
-    fun play(context: Context, style: HapticStyle, amplitude: Int, durationMs: Int) {
+    fun play(context: Context, style: HapticStyle, amplitude: Int, durationMs: Int, view: View? = null) {
+        // System styles ride the platform's tuned key haptic. If it actually
+        // played we're done; otherwise fall through to a hardware click so
+        // there's always feedback (e.g. preview before the view is attached).
+        if (style == HapticStyle.SYSTEM_KEY || style == HapticStyle.SYSTEM_TAP) {
+            if (view != null && playSystem(view, style)) return
+        }
         val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             val manager =
                 context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager

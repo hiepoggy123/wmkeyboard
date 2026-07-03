@@ -162,6 +162,7 @@ import com.wasimaster.wmkeyboard.core.ui.toolAccentColor
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -1552,6 +1553,8 @@ private fun KeySoundGroup(
 private fun KeyPressSettings(repository: SettingsRepository, settings: KeyboardSettings) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    // Lets the SYSTEM_* preview fire through the real platform key haptic.
+    val view = LocalView.current
     SettingsGroup("Haptic feedback") {
         item {
             ToggleSetting(
@@ -1577,13 +1580,18 @@ private fun KeyPressSettings(repository: SettingsRepository, settings: KeyboardS
                 Text("Haptic style", style = MaterialTheme.typography.bodyLarge)
                 InfoButton(
                     "Haptic style",
-                    "Click and Heavy click use the device's hardware-tuned haptic effects " +
+                    "Key and Tap are the recommended styles: they hand the buzz to the " +
+                        "platform's own key haptic (the same call stock keyboards use), so on " +
+                        "tuned phones you get the vendor's crafted click and it follows the " +
+                        "system haptic-intensity setting. Key asks for the \"virtual key\" feel " +
+                        "(what Gboard and SwiftKey use); Tap asks for the softer \"keyboard tap\" " +
+                        "feel (Samsung's own keyboard). " +
+                        "Click and Heavy click use the device's hardware-tuned haptic effects " +
                         "(Android 10+). Sharp plays the hardware click primitive (Android 11+) — " +
-                        "a short, hard thump whose strength follows the intensity slider; " +
-                        "this is how stock keyboards get a powerful buzz that stays crisp. " +
+                        "a short, hard thump whose strength follows the intensity slider. " +
                         "Custom drives the vibration motor directly using the duration and " +
                         "intensity sliders — without the hardware's overdrive and braking it " +
-                        "feels softer. On devices without these effects, styles fall back to " +
+                        "feels softer. When a style isn't available it falls back to a hardware " +
                         "Click, then Custom.",
                 )
             }
@@ -1598,13 +1606,15 @@ private fun KeyPressSettings(repository: SettingsRepository, settings: KeyboardS
                             // Fire the motor with the freshly picked style so the
                             // user feels the choice immediately.
                             HapticPlayer.preview(
-                                context, style, settings.hapticAmplitude, settings.hapticStrengthMs,
+                                context, style, settings.hapticAmplitude, settings.hapticStrengthMs, view,
                             )
                         },
                         shape = SegmentedButtonDefaults.itemShape(index, HapticStyle.entries.size),
                     ) {
                         Text(
                             when (style) {
+                                HapticStyle.SYSTEM_KEY -> "Key"
+                                HapticStyle.SYSTEM_TAP -> "Tap"
                                 HapticStyle.CUSTOM -> "Custom"
                                 HapticStyle.CLICK -> "Click"
                                 HapticStyle.HEAVY_CLICK -> "Heavy"
@@ -1629,7 +1639,7 @@ private fun KeyPressSettings(repository: SettingsRepository, settings: KeyboardS
                 ) {
                     scope.launch { repository.setHapticStrengthMs(it.toInt()) }
                     // Debounced inside the player, so dragging previews smoothly.
-                    HapticPlayer.preview(context, settings.hapticStyle, settings.hapticAmplitude, it.toInt())
+                    HapticPlayer.preview(context, settings.hapticStyle, settings.hapticAmplitude, it.toInt(), view)
                 }
             }
         }
@@ -1649,7 +1659,7 @@ private fun KeyPressSettings(repository: SettingsRepository, settings: KeyboardS
                         "final strength on top of this.",
                 ) {
                     scope.launch { repository.setHapticAmplitude(it.toInt()) }
-                    HapticPlayer.preview(context, settings.hapticStyle, it.toInt(), settings.hapticStrengthMs)
+                    HapticPlayer.preview(context, settings.hapticStyle, it.toInt(), settings.hapticStrengthMs, view)
                 }
             }
         }

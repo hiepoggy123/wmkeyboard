@@ -449,6 +449,8 @@ private fun FeedbackPage(repository: SettingsRepository, settings: KeyboardSetti
                 ) {
                     Text(
                         when (style) {
+                            HapticStyle.SYSTEM_KEY -> "Key"
+                            HapticStyle.SYSTEM_TAP -> "Tap"
                             HapticStyle.CUSTOM -> "Custom"
                             HapticStyle.CLICK -> "Click"
                             HapticStyle.HEAVY_CLICK -> "Heavy"

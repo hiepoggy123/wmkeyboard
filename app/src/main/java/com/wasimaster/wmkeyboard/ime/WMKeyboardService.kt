@@ -749,8 +749,16 @@ class WMKeyboardService : InputMethodService() {
         }
     }
 
+    /**
+     * The root input view, kept so [doVibrate] can route the SYSTEM_* haptic
+     * styles through `View.performHapticFeedback` (the platform's tuned key
+     * click). Cleared when the input view goes away.
+     */
+    private var inputRootView: View? = null
+
     override fun onCreateInputView(): View {
         val view = ComposeView(this)
+        inputRootView = view
         lifecycleOwner.attachTo(window.window!!.decorView)
         view.setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindow)
         view.setContent {
@@ -3496,16 +3504,17 @@ class WMKeyboardService : InputMethodService() {
             is SoundHapticAction.Haptics -> if (action.on) {
                 HapticPlayer.preview(
                     this, settings.hapticStyle, settings.hapticAmplitude, settings.hapticStrengthMs,
+                    inputRootView,
                 )
             }
             is SoundHapticAction.HapticStyleChange -> HapticPlayer.preview(
-                this, action.style, settings.hapticAmplitude, settings.hapticStrengthMs,
+                this, action.style, settings.hapticAmplitude, settings.hapticStrengthMs, inputRootView,
             )
             is SoundHapticAction.HapticAmplitude -> HapticPlayer.preview(
-                this, settings.hapticStyle, action.amplitude, settings.hapticStrengthMs,
+                this, settings.hapticStyle, action.amplitude, settings.hapticStrengthMs, inputRootView,
             )
             is SoundHapticAction.HapticDuration -> HapticPlayer.preview(
-                this, settings.hapticStyle, settings.hapticAmplitude, action.durationMs,
+                this, settings.hapticStyle, settings.hapticAmplitude, action.durationMs, inputRootView,
             )
             is SoundHapticAction.Sound -> if (action.on) playKeySound(force = true)
             is SoundHapticAction.SoundStyleChange -> playKeySound(style = action.style, force = true)
@@ -5848,6 +5857,7 @@ class WMKeyboardService : InputMethodService() {
             settings.hapticStyle,
             settings.hapticAmplitude,
             settings.hapticStrengthMs,
+            inputRootView,
         )
     }
 

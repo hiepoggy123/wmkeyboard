@@ -1515,10 +1515,15 @@ internal fun SoundHapticsPanel(
             )
         }
         if (settings.hapticFeedback) {
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                modifier = Modifier.horizontalScroll(rememberScrollState()),
+            ) {
                 for (style in HapticStyle.entries) {
                     StyleChip(
                         label = when (style) {
+                            HapticStyle.SYSTEM_KEY -> "Key"
+                            HapticStyle.SYSTEM_TAP -> "Tap"
                             HapticStyle.CUSTOM -> "Custom"
                             HapticStyle.CLICK -> "Click"
                             HapticStyle.HEAVY_CLICK -> "Heavy"
@@ -1527,6 +1532,16 @@ internal fun SoundHapticsPanel(
                         selected = settings.hapticStyle == style,
                     ) { onAction(SoundHapticAction.HapticStyleChange(style)) }
                 }
+            }
+            val hapticNote = when (settings.hapticStyle) {
+                HapticStyle.SYSTEM_KEY ->
+                    "System key haptic — like Gboard/SwiftKey. Follows the phone's haptic-intensity setting."
+                HapticStyle.SYSTEM_TAP ->
+                    "System keyboard-tap — softer, like Samsung's keyboard. Follows the phone's setting."
+                else -> null
+            }
+            if (hapticNote != null) {
+                Text(hapticNote, color = kb.toolbarIcon, fontSize = 11.sp)
             }
             if (settings.hapticStyle == HapticStyle.CUSTOM || settings.hapticStyle == HapticStyle.SHARP) {
                 Row(verticalAlignment = Alignment.CenterVertically) {

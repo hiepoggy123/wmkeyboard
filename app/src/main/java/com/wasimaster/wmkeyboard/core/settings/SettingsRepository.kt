@@ -194,11 +194,21 @@ enum class GifSourceMode { TABS, MIX }
 enum class KeySoundStyle { CLICK, STANDARD, POP, THOCK, CHIME }
 
 /**
- * Key-press haptic waveform: [CUSTOM] drives the motor directly with the
- * duration/amplitude settings; [CLICK] and [HEAVY_CLICK] use the device's
- * hardware-tuned predefined effects (Android 10+, falls back to CUSTOM).
+ * Key-press haptic waveform.
+ *
+ * [SYSTEM_KEY] and [SYSTEM_TAP] delegate to the platform's own key haptic via
+ * `View.performHapticFeedback` — the exact path stock keyboards use, so on
+ * tuned OEMs (Samsung, Pixel) they inherit the vendor's crafted click and
+ * follow the system haptic-intensity setting. [SYSTEM_KEY] asks for
+ * `VIRTUAL_KEY` (what Gboard/SwiftKey/Ridmik use); [SYSTEM_TAP] asks for
+ * `KEYBOARD_TAP` (softer — Samsung's own keyboard). They fall back to a
+ * hardware click when no attached view is available.
+ *
+ * The rest drive the vibrator directly: [CUSTOM] with the duration/amplitude
+ * sliders; [CLICK]/[HEAVY_CLICK] with the device's predefined effects
+ * (Android 10+); [SHARP] with the click primitive (Android 11+).
  */
-enum class HapticStyle { CUSTOM, CLICK, HEAVY_CLICK, SHARP }
+enum class HapticStyle { SYSTEM_KEY, SYSTEM_TAP, CUSTOM, CLICK, HEAVY_CLICK, SHARP }
 
 /**
  * What a horizontal swipe on the spacebar does. "Short" swipes start
@@ -338,7 +348,7 @@ data class KeyboardSettings(
     val hapticFeedback: Boolean = true,
     val hapticStrengthMs: Int = 15,
     val hapticAmplitude: Int = 255,
-    val hapticStyle: HapticStyle = HapticStyle.CUSTOM,
+    val hapticStyle: HapticStyle = HapticStyle.SYSTEM_KEY,
     val hapticOnLongPress: Boolean = true,
     val hapticOnLongPressRelease: Boolean = false,
     val keySound: Boolean = false,
