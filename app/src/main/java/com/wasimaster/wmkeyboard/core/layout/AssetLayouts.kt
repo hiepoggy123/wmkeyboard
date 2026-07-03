@@ -35,6 +35,14 @@ object AssetLayouts {
     const val SR_JCUKEN_ID = "asset_sr_jcuken"
     const val BG_PHONETIC_ID = "asset_bg_phonetic"
     const val KA_QWERTY_ID = "asset_ka_qwerty"
+    const val CS_QWERTZ_ID = "asset_cs_qwertz"
+    const val SK_QWERTZ_ID = "asset_sk_qwertz"
+    const val RO_QWERTY_ID = "asset_ro_qwerty"
+    const val HU_QWERTZ_ID = "asset_hu_qwertz"
+    const val FI_QWERTY_ID = "asset_fi_qwerty"
+    const val DA_QWERTY_ID = "asset_da_qwerty"
+    const val NB_QWERTY_ID = "asset_nb_qwerty"
+    const val HR_QWERTZ_ID = "asset_hr_qwertz"
 
     @Volatile private var cached: List<LayoutSpec> = emptyList()
     @Volatile private var loaded = false
