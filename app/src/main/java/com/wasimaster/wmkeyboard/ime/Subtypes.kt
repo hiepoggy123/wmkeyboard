@@ -60,12 +60,18 @@ internal fun layoutIdFromExtraValue(extraValue: String?): String? {
  * label, the layout id in the extra value so [layoutIdOf] can map a selection
  * back. Both `subtypeLocale` (legacy underscore form) and `languageTag` are set
  * — the tag is the modern field, but some OEM switchers still read the locale.
+ *
+ * [nameResId] chooses the label the switcher shows: 0 (the default) lets the
+ * framework derive it from the locale (the plain language name); a string
+ * resource containing `%s` is formatted with that locale name, e.g. a
+ * "WM Keyboard · %s" resource yields an app-name-first label.
  */
-fun subtypeFor(spec: LayoutSpec): InputMethodSubtype {
+fun subtypeFor(spec: LayoutSpec, nameResId: Int = 0): InputMethodSubtype {
     val lang = spec.language()
     val asciiCapable = spec.script().id == ScriptId.LATIN
     return InputMethodSubtypeBuilder()
         .setSubtypeMode("keyboard")
+        .setSubtypeNameResId(nameResId)
         .setSubtypeLocale(lang.localeTag.replace('-', '_'))
         .setLanguageTag(lang.localeTag)
         .setSubtypeExtraValue(layoutExtraValue(spec.id))

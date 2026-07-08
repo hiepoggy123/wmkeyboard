@@ -484,6 +484,22 @@ data class KeyboardSettings(
     val volumeCursorMediaAware: Boolean = true,
     /** Replace the 🌐 key with an emoji key (language switching moves to spacebar swipes). */
     val globeAsEmoji: Boolean = true,
+    /**
+     * List each enabled layout as an Android input-method subtype, so the
+     * system language switcher (the "Choose input method" sheet) lists them and
+     * can switch between them. Off = the keyboard registers no subtypes and
+     * ignores OS subtype switches; language switching then lives entirely
+     * in-keyboard (globe / spacebar / picker).
+     */
+    val osLanguageSwitcher: Boolean = true,
+    /**
+     * Lead the switcher's subtype label with the app name ("WM Keyboard ·
+     * English") rather than the bare language. The system decides how it styles
+     * the label versus the app name — this only changes what the label itself
+     * reads, so it cannot truly swap which is bold. No effect while
+     * [osLanguageSwitcher] is off.
+     */
+    val subtypeAppNameFirst: Boolean = false,
     val onboardingDone: Boolean = false,
     val conjunctBackspace: Boolean = false,
     val oneHandedMode: OneHandedMode = OneHandedMode.OFF,
@@ -939,6 +955,8 @@ class SettingsRepository(private val context: Context) {
         private val VOLUME_CURSOR = booleanPreferencesKey("volume_cursor")
         private val VOLUME_CURSOR_MEDIA_AWARE = booleanPreferencesKey("volume_cursor_media_aware")
         private val GLOBE_AS_EMOJI = booleanPreferencesKey("globe_as_emoji")
+        private val OS_LANGUAGE_SWITCHER = booleanPreferencesKey("os_language_switcher")
+        private val SUBTYPE_APP_NAME_FIRST = booleanPreferencesKey("subtype_app_name_first")
         private val ONBOARDING_DONE = booleanPreferencesKey("onboarding_done")
         private val CONJUNCT_BACKSPACE = booleanPreferencesKey("conjunct_backspace")
         private val ONE_HANDED_MODE = stringPreferencesKey("one_handed_mode")
@@ -1247,6 +1265,8 @@ class SettingsRepository(private val context: Context) {
             volumeCursor = p[VOLUME_CURSOR] ?: defaults.volumeCursor,
             volumeCursorMediaAware = p[VOLUME_CURSOR_MEDIA_AWARE] ?: defaults.volumeCursorMediaAware,
             globeAsEmoji = p[GLOBE_AS_EMOJI] ?: defaults.globeAsEmoji,
+            osLanguageSwitcher = p[OS_LANGUAGE_SWITCHER] ?: defaults.osLanguageSwitcher,
+            subtypeAppNameFirst = p[SUBTYPE_APP_NAME_FIRST] ?: defaults.subtypeAppNameFirst,
             onboardingDone = p[ONBOARDING_DONE] ?: defaults.onboardingDone,
             conjunctBackspace = p[CONJUNCT_BACKSPACE] ?: defaults.conjunctBackspace,
             oneHandedMode = p[ONE_HANDED_MODE]
@@ -2177,6 +2197,12 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setGlobeAsEmoji(value: Boolean) =
         context.dataStore.edit { it[GLOBE_AS_EMOJI] = value }
+
+    suspend fun setOsLanguageSwitcher(value: Boolean) =
+        context.dataStore.edit { it[OS_LANGUAGE_SWITCHER] = value }
+
+    suspend fun setSubtypeAppNameFirst(value: Boolean) =
+        context.dataStore.edit { it[SUBTYPE_APP_NAME_FIRST] = value }
 
     suspend fun setOnboardingDone(value: Boolean) =
         context.dataStore.edit { it[ONBOARDING_DONE] = value }

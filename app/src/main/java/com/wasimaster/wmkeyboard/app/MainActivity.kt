@@ -2354,6 +2354,33 @@ private fun LanguageSettings(
             ) { onNavigate("keymaps") }
         }
     }
+    SettingsGroup("System language switcher") {
+        item {
+            ToggleSetting(
+                "List languages in Android's switcher",
+                "Add each language to the system input-method switcher",
+                settings.osLanguageSwitcher,
+                info = "Registers every enabled layout as an Android input-method subtype, so " +
+                    "the system's \"Choose input method\" sheet lists them and can switch " +
+                    "between them. Turn this off to keep language switching entirely inside " +
+                    "the keyboard (🌐 key, spacebar swipe, or the picker) and expose no " +
+                    "subtypes to the system.",
+            ) { scope.launch { repository.setOsLanguageSwitcher(it) } }
+        }
+        if (settings.osLanguageSwitcher) {
+            item {
+                ToggleSetting(
+                    "Show app name first",
+                    "Label reads \"WM Keyboard · <language>\"",
+                    settings.subtypeAppNameFirst,
+                    info = "Puts the app name ahead of the language in the switcher's label. " +
+                        "Android itself decides how the label and the app name are styled " +
+                        "(which one is bold or greyed), so this changes only the label text, " +
+                        "not that styling.",
+                ) { scope.launch { repository.setSubtypeAppNameFirst(it) } }
+            }
+        }
+    }
     SettingsGroup("Bengali") {
         item {
             ToggleSetting(
