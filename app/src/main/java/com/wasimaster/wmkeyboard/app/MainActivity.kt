@@ -216,6 +216,9 @@ import com.wasimaster.wmkeyboard.core.settings.CursorTools
 import com.wasimaster.wmkeyboard.BuildConfig
 import com.wasimaster.wmkeyboard.core.settings.KeyboardAlignment
 import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
+import com.wasimaster.wmkeyboard.core.layout.AssetLayouts
+import com.wasimaster.wmkeyboard.core.layout.language
+import com.wasimaster.wmkeyboard.core.layout.resolveLayout
 import com.wasimaster.wmkeyboard.core.settings.SettingsBackup
 import com.wasimaster.wmkeyboard.core.settings.KeyboardMode
 import com.wasimaster.wmkeyboard.core.settings.DefaultToolbarTools
@@ -264,6 +267,10 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         repository = SettingsRepository(applicationContext)
+        // The JSON asset layouts back the tail of the language list; load them
+        // before the first settings emission so an enabled asset layout resolves
+        // to its real language here (a few small files, parsed once).
+        AssetLayouts.load(applicationContext.assets)
         // Modes added since this install was first seeded — the settings
         // screen should list them even if the keyboard has not run yet.
         lifecycleScope.launch { repository.seedNewDefaultModes() }
@@ -449,6 +456,23 @@ private fun SettingsNavHost(
         composable("languages") {
             SettingsScreen("Languages", { navController.popBackStack() }) {
                 LanguageSettings(repository, settings) { route -> navController.navigate(route) }
+            }
+        }
+        composable("add_language") {
+            SettingsScreen("Add language", { navController.popBackStack() }) {
+                AddLanguageScreen(repository, settings) { langId ->
+                    navController.navigate("language/$langId")
+                }
+            }
+        }
+        composable("language/{langId}") { backStackEntry ->
+            val langId = backStackEntry.arguments?.getString("langId").orEmpty()
+            SettingsScreen(LanguageRegistry.byId(langId).displayName, { navController.popBackStack() }) {
+                LanguageDetailScreen(
+                    langId, repository, settings,
+                    onNavigate = { route -> navController.navigate(route) },
+                    onRemoved = { navController.popBackStack() },
+                )
             }
         }
         composable("emoji") {
@@ -2262,31 +2286,43 @@ private fun LanguageSettings(
         "Every enabled layout is its own input mode; cycle between them with " +
             "the 🌐 key or a spacebar swipe.",
     )
-    for (language in LanguageCatalog) {
-        SettingsGroup(language.name) {
-            for (option in language.layouts) {
-                item {
-                    ToggleSetting(
-                        option.title, option.subtitle,
-                        option.layoutId in settings.enabledLayoutIds,
-                        info = option.info,
-                    ) { enable ->
-                        scope.launch {
-                            val next =
-                                if (enable) settings.enabledLayoutIds + option.layoutId
-                                else settings.enabledLayoutIds - option.layoutId
-                            // At least one layout must stay enabled.
-                            if (next.isNotEmpty()) repository.setEnabledLayoutIds(next.distinct())
-                        }
-                    }
+    // "Your languages" is the enabled set (deduped, in switch order); each opens
+    // its detail. Adding one is a search over the whole registry.
+    SettingsGroup("Your languages") {
+        for (language in settings.enabledLanguages) {
+            item {
+                val names = settings.enabledLayoutIds
+                    .filter { resolveLayout(settings.customLayouts, it).language().id == language.id }
+                    .joinToString { resolveLayout(settings.customLayouts, it).name }
+                NavRow(language.displayName, subtitle = names.ifBlank { null }) {
+                    onNavigate("language/${language.id}")
                 }
             }
         }
+        item {
+            NavRow(
+                "Add language",
+                subtitle = "Type in any of ${LanguageRegistry.all.size} languages",
+            ) { onNavigate("add_language") }
+        }
     }
-    // Custom layouts sit after the catalog rather than inside it: LanguageCatalog
-    // is a static list onboarding also renders, and threading settings through it
-    // would make a fresh install ask DataStore a question whose answer is always
-    // "none".
+    // Reorder the switch ring (spacebar swipe / 🌐 cycle) across every enabled
+    // layout, not just languages, so AZERTY and QWERTY keep distinct slots.
+    if (settings.enabledLayoutIds.size > 1) {
+        SettingsGroup {
+            item {
+                ReorderSetting(
+                    "Switch order",
+                    "Reorder input languages",
+                    settings.enabledLayoutIds,
+                    label = { resolveLayout(settings.customLayouts, it).name },
+                    onReordered = { scope.launch { repository.setEnabledLayoutIds(it) } },
+                )
+            }
+        }
+    }
+    // Custom layouts get their own group after the languages: they are the
+    // user's own grids (edited on the Key layouts screen), not a language to add.
     val customs = settings.customLayouts
         .filter { com.wasimaster.wmkeyboard.core.layout.BuiltInLayouts.byId(it.id) == null }
         .sortedBy { it.name.lowercase() }

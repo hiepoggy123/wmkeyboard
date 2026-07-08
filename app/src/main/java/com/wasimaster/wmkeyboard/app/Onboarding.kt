@@ -57,7 +57,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.wasimaster.wmkeyboard.BuildConfig
+import com.wasimaster.wmkeyboard.core.layout.language
+import com.wasimaster.wmkeyboard.core.layout.resolveLayout
 import com.wasimaster.wmkeyboard.core.localllm.LocalLlmCatalog
+import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
 import com.wasimaster.wmkeyboard.core.localllm.LocalLlmDownloadManager
 import com.wasimaster.wmkeyboard.core.settings.AiProvider
 import com.wasimaster.wmkeyboard.core.settings.DefaultToolOrder
@@ -214,21 +217,27 @@ private fun LanguagesPage(repository: SettingsRepository, settings: KeyboardSett
     val scope = rememberCoroutineScope()
     PageHeader(
         "Your languages",
-        "Pick the input modes you type in. You'll switch between them with a " +
-            "quick swipe on the spacebar (or the 🌐 key if you keep it).",
+        "You'll type in these to start — switch between them with a quick swipe " +
+            "on the spacebar (or the 🌐 key). Add any of the " +
+            "${LanguageRegistry.all.size} available languages anytime in " +
+            "Settings → Languages.",
     )
-    for (language in LanguageCatalog) {
+    // The enabled set, grouped by language (deduped, in switch order); toggling
+    // a layout off is how you drop one during setup. Adding new languages lives
+    // in the full Settings screen, which scales past a first-run page.
+    for (language in settings.enabledLanguages) {
         Text(
-            language.name,
+            language.displayName,
             style = MaterialTheme.typography.titleSmall,
             color = MaterialTheme.colorScheme.primary,
             modifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 4.dp),
         )
-        for (option in language.layouts) {
-            val layoutId = option.layoutId
+        val layoutIds = settings.enabledLayoutIds.filter {
+            resolveLayout(settings.customLayouts, it).language().id == language.id
+        }
+        for (layoutId in layoutIds) {
             ListItem(
-                headlineContent = { Text(option.title) },
-                supportingContent = { Text(option.subtitle) },
+                headlineContent = { Text(resolveLayout(settings.customLayouts, layoutId).name) },
                 trailingContent = {
                     Switch(
                         checked = layoutId in settings.enabledLayoutIds,

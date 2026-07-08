@@ -231,10 +231,10 @@ object BuiltInLayouts {
     )
 
     /**
-     * One entry per [InputMode], even where two share a grid — AZERTY and French
-     * are the same keys with different dictionaries, and the entry is what the
-     * user picks on the Languages screen, so it carries the name and the base
-     * mode. Matches `LanguageCatalog` one for one.
+     * Every compiled-in layout, in shipped order — even where two share a grid
+     * (AZERTY and French are the same keys under different languages). This is
+     * the boot-critical set drawn on the first frame; the JSON [AssetLayouts]
+     * add the language tail at runtime, and both feed `resolveLayouts`.
      */
     val all: List<LayoutSpec> = listOf(
         QWERTY, AZERTY, DVORAK, AVRO, PROBHAT, JATIYA, FRENCH, GERMAN, SPANISH,
