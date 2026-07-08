@@ -48,11 +48,12 @@ class EmojiUsageTest {
         assertFalse(u.isFavourite("🎂"))
     }
 
-    @Test fun newestFavouriteComesFirst() {
+    @Test fun newestFavouriteComesLast() {
         val u = usage()
         u.toggleFavourite("🎂")
         u.toggleFavourite("🙏")
-        assertEquals(listOf("🙏", "🎂"), u.favourites())
+        // A new favourite is pinned to the end of the list (see toggleFavourite).
+        assertEquals(listOf("🎂", "🙏"), u.favourites())
     }
 
     @Test fun variantPrefRememberedAndReset() {
