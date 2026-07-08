@@ -136,7 +136,10 @@ private fun TypingRunView(state: KeyboardUiState, onAction: (TypingTestAction) -
                 modifier = Modifier
                     .fillMaxWidth()
                     .verticalScroll(scrollState),
-                horizontalArrangement = Arrangement.spacedBy(7.dp),
+                // No inter-word gap here: each word carries its own trailing
+                // space (see promptWord), so the space between words is a real
+                // character the caret can land on rather than a layout gap.
+                horizontalArrangement = Arrangement.Start,
                 verticalArrangement = Arrangement.spacedBy(1.dp),
             ) {
                 for (index in test.words.indices) {
@@ -158,7 +161,11 @@ private fun TypingRunView(state: KeyboardUiState, onAction: (TypingTestAction) -
             }
         }
 
-        TypingConfigRow(settings, onAction, compact = true)
+        // The settings strip is only useful before the run: once the user
+        // starts typing it is dropped, handing its row of height to the prompt.
+        if (!test.running) {
+            TypingConfigRow(settings, onAction, compact = true)
+        }
     }
 }
 
@@ -193,8 +200,10 @@ private fun promptWord(
     }
 
     // Untouched words are plain text — no spans, no per-character work for
-    // the hundred-odd words still ahead of the caret.
-    if (typed == null) return AnnotatedString(expected)
+    // the hundred-odd words still ahead of the caret. The trailing space is
+    // the gap to the next word, kept even here so a word never changes width
+    // when the caret reaches it.
+    if (typed == null) return AnnotatedString("$expected ")
 
     val states = compareWord(expected, typed, live = live)
     val caretAt = if (live) typed.length else -1
@@ -222,13 +231,17 @@ private fun promptWord(
             }
             withStyleSafe(caret) { append(chars.getOrElse(i) { ' ' }) }
         }
-        // Caret parked past the last letter — the word is fully typed and
-        // the next key is either the space or an overshoot.
-        if (caretAt >= states.size) {
-            withStyleSafe(SpanStyle(background = kb.accent.copy(alpha = 0.55f * blink))) {
-                append(" ")
-            }
+        // The trailing space is always rendered — it is the gap to the next
+        // word, not an extra character. When the caret is parked past the last
+        // letter (word fully typed, or an overshoot) it lands on this space,
+        // so finishing a word never grows the word or shifts the layout.
+        val parked = caretAt >= states.size
+        val spaceStyle = if (parked) {
+            SpanStyle(background = kb.accent.copy(alpha = 0.55f * blink))
+        } else {
+            SpanStyle()
         }
+        withStyleSafe(spaceStyle) { append(" ") }
     }
 }
 

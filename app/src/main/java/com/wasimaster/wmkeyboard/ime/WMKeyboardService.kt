@@ -3979,6 +3979,18 @@ class WMKeyboardService : InputMethodService() {
                 ),
             )
         }
+        // Word and quote runs finish on the last word without waiting for a
+        // trailing space: once its final letter lands and the word matches,
+        // there is nothing left to type. The closing space never counted for
+        // the last word anyway (scoreTypingTest only credits it for earlier
+        // words), so ending here costs the run nothing.
+        val test = _uiState.value.typingTest
+        if (_uiState.value.settings.typingTestMode != TypingTestMode.TIME &&
+            test.wordIndex == test.words.lastIndex &&
+            test.current == test.words.getOrNull(test.wordIndex)
+        ) {
+            finishTypingTest()
+        }
     }
 
     /**
