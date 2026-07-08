@@ -4,6 +4,7 @@ import android.app.AppOpsManager
 import android.app.usage.UsageStatsManager
 import android.content.ClipboardManager
 import android.content.ComponentCallbacks2
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.hardware.camera2.CameraCharacteristics
@@ -23,6 +24,8 @@ import android.view.inputmethod.ExtractedTextRequest
 import android.view.inputmethod.InlineSuggestionsRequest
 import android.view.inputmethod.InlineSuggestionsResponse
 import android.view.inputmethod.InputConnection
+import android.view.inputmethod.InputMethodManager
+import android.view.inputmethod.InputMethodSubtype
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.unit.IntRect
@@ -227,6 +230,11 @@ class WMKeyboardService : InputMethodService() {
      * always a stronger signal than the app's request.
      */
     private var fieldLayoutOverride: String? = null
+
+    /** This IME's framework id, used to register subtypes and mirror OS switches. */
+    private val imeId: String by lazy { ComponentName(this, javaClass).flattenToShortString() }
+    /** enabledLayoutIds last pushed as additional subtypes; skips redundant writes. */
+    private var registeredSubtypeIds: List<String>? = null
 
     private var composing = StringBuilder()
     private var previousWord: String? = null
@@ -621,6 +629,10 @@ class WMKeyboardService : InputMethodService() {
                         activeModeId = mode?.id,
                     )
                 }
+                // Keep the OS switcher's subtype list in step with the enabled
+                // layouts. Diffed inside, so unrelated settings emissions here
+                // don't thrash the framework.
+                registerSubtypes(settings)
                 // Switching the swipe action to handwriting (or turning the
                 // gesture on) while the keyboard is up checks the model now, so
                 // the first swipe writes rather than nagging.
@@ -2161,6 +2173,52 @@ class WMKeyboardService : InputMethodService() {
         // Same for dictation: restart the session in the new language.
         if (_uiState.value.panel == PanelMode.VOICE) startVoice()
         serviceScope.launch { settingsRepository.setActiveLayoutId(spec.id) }
+        mirrorSubtypeToOs(spec)
+    }
+
+    /**
+     * Mirrors the enabled layouts to the OS as additional input-method subtypes,
+     * so the system language switcher lists them and can switch between them.
+     * Diffed against the last write — the settings flow emits on every unrelated
+     * change and re-registering thrashes the switcher (and can drop the user's
+     * current selection).
+     */
+    // The String-id overload is deprecated on new SDKs but is the only one that
+    // exists at minSdk 24 — the typed replacement is API 36+.
+    @Suppress("DEPRECATION")
+    private fun registerSubtypes(settings: KeyboardSettings) {
+        val ids = settings.enabledLayoutIds.ifEmpty { listOf(BuiltInLayouts.DEFAULT_ID) }
+        if (ids == registeredSubtypeIds) return
+        val subtypes = ids
+            .map { subtypeFor(resolveLayout(settings.customLayouts, it)) }
+            .toTypedArray()
+        val imm = getSystemService(InputMethodManager::class.java) ?: return
+        runCatching { imm.setAdditionalInputMethodSubtypes(imeId, subtypes) }
+            .onSuccess { registeredSubtypeIds = ids }
+    }
+
+    /**
+     * Best-effort nudge of the OS switcher to match an in-app language switch so
+     * the system UI's current subtype stays in sync. API 28+ only; on 24–27 the
+     * OS→app direction still works, we just don't push the other way. Swallowed:
+     * the subtype may not be registered yet on a cold switch, and this is
+     * cosmetic — [onLayoutSelected] has already moved the keyboard.
+     */
+    private fun mirrorSubtypeToOs(spec: LayoutSpec) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) return
+        runCatching { switchInputMethod(imeId, subtypeFor(spec)) }
+    }
+
+    /**
+     * The OS switcher (or system language shortcut) picked one of our subtypes:
+     * follow it. Guarded against the echo from [mirrorSubtypeToOs] — when we are
+     * already on that layout there is nothing to do, which also stops the
+     * in-app→OS→in-app loop.
+     */
+    override fun onCurrentInputMethodSubtypeChanged(newSubtype: InputMethodSubtype) {
+        super.onCurrentInputMethodSubtypeChanged(newSubtype)
+        val layoutId = layoutIdOf(newSubtype) ?: return
+        if (layoutId != _uiState.value.layoutId) onLayoutSelected(layoutId)
     }
 
     // ---- composing & suggestions ----
