@@ -1459,6 +1459,7 @@ internal fun KeyLayoutJsonScreen(
         label = { Text("Layout JSON") },
         isError = error != null,
         supportingText = error?.let { { Text(it) } },
+        visualTransformation = rememberJsonSyntaxHighlighter(),
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = 240.dp)
