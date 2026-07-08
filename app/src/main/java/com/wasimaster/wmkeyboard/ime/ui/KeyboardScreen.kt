@@ -4741,6 +4741,10 @@ private fun KeyButton(
 ) {
     var pressed by remember { mutableStateOf(false) }
     var showAlternates by remember { mutableStateOf(false) }
+    // Full tappable language list: opened by a long-press on the globe key or
+    // by holding the spacebar when more than two languages are enabled (a
+    // swipe through a long ring is tedious). Independent of languagePreview.
+    var showLanguagePicker by remember { mutableStateOf(false) }
     // Language the spacebar swipe currently has selected, shown in a tooltip
     // popup above the spacebar while the finger is still down.
     var languagePreview by remember { mutableStateOf<String?>(null) }
@@ -4869,6 +4873,7 @@ private fun KeyButton(
                     onClipboardKey = onClipboardKey,
                     onCursorMove = onCursorMove,
                     onLayoutSelect = onLayoutSelect,
+                    openLanguagePicker = { showLanguagePicker = true },
                     setLanguagePreview = { languagePreview = it },
                     canDelete = canDelete,
                     onDeleteWord = onDeleteWord,
@@ -4999,6 +5004,71 @@ private fun KeyButton(
                             )
                         }
                     }
+                }
+            }
+        }
+
+        if (showLanguagePicker) {
+            LanguagePickerPopup(
+                popupPosition = popupPosition,
+                enabledLayoutIds = settings.enabledLayoutIds.ifEmpty { listOf(BuiltInLayouts.DEFAULT_ID) },
+                currentLayoutId = state.layoutId,
+                customLayouts = settings.customLayouts,
+                onPick = {
+                    showLanguagePicker = false
+                    if (it != state.layoutId) onLayoutSelect(it)
+                },
+                onDismiss = { showLanguagePicker = false },
+            )
+        }
+    }
+}
+
+/**
+ * A tappable list of every enabled layout, current one highlighted. Opened by
+ * a long-press on the globe key or a spacebar hold with more than two
+ * languages enabled; picking one switches to it. Non-focusable like the other
+ * key popups so it never steals the edited field's input connection.
+ */
+@Composable
+private fun LanguagePickerPopup(
+    popupPosition: PopupPositionProvider,
+    enabledLayoutIds: List<String>,
+    currentLayoutId: String,
+    customLayouts: List<LayoutSpec>,
+    onPick: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val kb = LocalKbTheme.current
+    Popup(
+        popupPositionProvider = popupPosition,
+        onDismissRequest = onDismiss,
+    ) {
+        Surface(
+            shape = RoundedCornerShape(kb.popupRadiusDp.dp),
+            color = kb.popup,
+            shadowElevation = 8.dp,
+        ) {
+            Column(
+                modifier = Modifier
+                    .widthIn(min = 160.dp, max = 240.dp)
+                    .heightIn(max = 240.dp)
+                    .verticalScroll(rememberScrollState())
+                    .padding(vertical = 4.dp),
+            ) {
+                for (layoutId in enabledLayoutIds) {
+                    val selected = layoutId == currentLayoutId
+                    Text(
+                        text = layoutSwitchLabel(layoutId, customLayouts),
+                        color = if (selected) kb.accent else kb.popupText,
+                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                        fontSize = 15.sp,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(if (selected) kb.pressedKey else Color.Transparent)
+                            .clickable { onPick(layoutId) }
+                            .padding(horizontal = 16.dp, vertical = 10.dp),
+                    )
                 }
             }
         }
@@ -5234,6 +5304,7 @@ private fun Modifier.pointerInputKey(
     onClipboardKey: (ClipboardKeyAction) -> Unit,
     onCursorMove: (Int) -> Unit,
     onLayoutSelect: (String) -> Unit,
+    openLanguagePicker: () -> Unit,
     setLanguagePreview: (String?) -> Unit,
     canDelete: () -> Boolean,
     onDeleteWord: () -> Unit,
@@ -5280,13 +5351,23 @@ private fun Modifier.pointerInputKey(
                 // long normally, so a hold + swipe cursor action survives —
                 // but a release with the picker up must not type a space.
                 var holdPreviewShown = false
+                // With more than two languages the swipe ring is long, so a
+                // hold opens the full tappable picker instead of the inline
+                // preview. Once open, the picker owns the selection: the rest
+                // of this gesture goes inert and release types nothing.
+                var pickerOpened = false
                 val holdOpensSwitcher = spaceShortSwipe == SpaceSwipeAction.LANGUAGE
                 val holdJob = if (holdOpensSwitcher) {
                     scope.launch {
                         delay(minOf(longPressDelayMs, SpaceHoldPickerMs).toLong())
                         if (action == null) {
-                            holdPreviewShown = true
-                            setLanguagePreview(enabledLayoutIds[langIndex])
+                            if (enabledLayoutIds.size > 2) {
+                                pickerOpened = true
+                                openLanguagePicker()
+                            } else {
+                                holdPreviewShown = true
+                                setLanguagePreview(enabledLayoutIds[langIndex])
+                            }
                             if (hapticOnLongPress) onKeyPress()
                         }
                     }
@@ -5297,6 +5378,8 @@ private fun Modifier.pointerInputKey(
                     val event = awaitPointerEvent()
                     val change = event.changes.firstOrNull { it.id == down.id } ?: break
                     if (!change.pressed) break
+                    // Picker is up: consume everything, resolve nothing.
+                    if (pickerOpened) { change.consume(); continue }
                     if (action == null) {
                         val totalDx = change.position.x - down.position.x
                         if (abs(totalDx) > slopPx) {
@@ -5420,7 +5503,10 @@ private fun Modifier.pointerInputKey(
                 setPressed(false)
                 setLanguagePreview(null)
                 when {
-                    // Releasing with the hold picker up commits whatever it
+                    // The tappable picker is up and owns the choice: release
+                    // just lifts the finger, it must not type a space.
+                    action == null && pickerOpened -> {}
+                    // Releasing with the hold preview up commits whatever it
                     // showed (usually the current language — a no-op) and
                     // must not type a space.
                     action == null && holdPreviewShown -> {
@@ -5565,6 +5651,11 @@ private fun Modifier.pointerInputKey(
                                         // their repeat loop already buzzes per repeat.
                                         if (hapticOnLongPress) onKeyPress()
                                         openAlternates()
+                                    } else if (key.action == KeyAction.LanguageSwitch) {
+                                        // Tap cycles to the next language; the
+                                        // long press opens the full picker.
+                                        if (hapticOnLongPress) onKeyPress()
+                                        openLanguagePicker()
                                     } else {
                                         // No alternates: long press behaves like a tap.
                                         if (hapticOnLongPress) onKeyPress()
