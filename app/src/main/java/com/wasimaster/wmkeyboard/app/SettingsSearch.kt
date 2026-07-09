@@ -60,6 +60,7 @@ private val SettingRows: List<SettingsSearchEntry> = listOfNotNull(
     entry("Password manager suggestions", "Show saved logins from your autofill service in the strip", "Typing", "typing"),
     entry("Personal dictionary", "Words the keyboard has learned — review, remove, add your own", "Typing", "typing"),
     entry("Custom dictionaries", "Import your own word lists, per language", "Typing", "typing"),
+    entry("Suggestion blacklist", "Words to never suggest or autocorrect to", "Typing", "typing"),
     entry("Smart chips", "Answer sums, conversions and tool keywords in the strip", "Typing", "typing"),
     entry("Calculate as you type", "\"12*4\" offers 48", "Typing", "typing"),
     entry("Convert currencies", "", "Typing", "typing"),
@@ -298,6 +299,7 @@ private val SectionRows: List<SettingsSearchEntry> = listOf(
     entry("Keyboard font", "Google Fonts, or import your own font file", "Appearance", "fonts"),
     entry("Personal dictionary", "Words the keyboard has learned", "Typing", "dictionary"),
     entry("Custom dictionaries", "Import your own word lists, per language", "Typing", "customdictionaries"),
+    entry("Suggestion blacklist", "Words to never suggest or autocorrect to", "Typing", "blacklist"),
     entry("Open-source licences", "Libraries and data bundled in this build", "About", "licenses"),
 )
 

@@ -384,6 +384,7 @@ private fun SettingsNavHost(
                     repository, settings,
                     onOpenDictionary = { navController.navigate("dictionary") },
                     onOpenCustomDictionaries = { navController.navigate("customdictionaries") },
+                    onOpenBlacklist = { navController.navigate("blacklist") },
                 )
             }
         }
@@ -405,6 +406,11 @@ private fun SettingsNavHost(
         composable("customdictionaries") {
             SettingsScreen("Custom dictionaries", { navController.popBackStack() }) {
                 CustomDictionarySettings(repository)
+            }
+        }
+        composable("blacklist") {
+            SettingsScreen("Suggestion blacklist", { navController.popBackStack() }) {
+                BlacklistSettings(repository, settings)
             }
         }
         composable("appearance") {
@@ -1118,6 +1124,7 @@ private fun TypingSettings(
     settings: KeyboardSettings,
     onOpenDictionary: () -> Unit,
     onOpenCustomDictionaries: () -> Unit,
+    onOpenBlacklist: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
     SettingsGroup("Automatic corrections") {
@@ -1379,6 +1386,18 @@ private fun TypingSettings(
                 "Custom dictionaries",
                 "Import your own word lists, per language",
                 onClick = onOpenCustomDictionaries,
+            )
+        }
+        item {
+            val count = settings.suggestionBlacklist.size
+            NavRow(
+                "Suggestion blacklist",
+                if (count == 0) {
+                    "Words to never suggest or autocorrect to"
+                } else {
+                    "$count word${if (count == 1) "" else "s"} never suggested"
+                },
+                onClick = onOpenBlacklist,
             )
         }
     }
@@ -2738,6 +2757,81 @@ private fun DictionarySettings(repository: SettingsRepository) {
                     onClick = {
                         lexicon.addWord(input.trim())
                         persist()
+                        showAdd = false
+                    },
+                ) { Text("Add") }
+            },
+            dismissButton = { TextButton(onClick = { showAdd = false }) { Text("Cancel") } },
+        )
+    }
+}
+
+// ---- suggestion blacklist ----
+
+/**
+ * The never-suggest word list, stored in settings. A blacklisted word is kept
+ * out of the suggestion strip and never used as an autocorrect target, but can
+ * still be typed and committed normally. Matched case-insensitively.
+ */
+@Composable
+private fun BlacklistSettings(repository: SettingsRepository, settings: KeyboardSettings) {
+    val scope = rememberCoroutineScope()
+    val words = remember(settings.suggestionBlacklist) {
+        settings.suggestionBlacklist.sorted()
+    }
+    var showAdd by remember { mutableStateOf(false) }
+
+    Text(
+        "Words the keyboard should never suggest or autocorrect to. You can " +
+            "still type and send them — they just stay out of the suggestion " +
+            "strip. Matching ignores capitalization.",
+        style = MaterialTheme.typography.bodyMedium,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+    )
+    Button(
+        onClick = { showAdd = true },
+        modifier = Modifier.padding(horizontal = 16.dp),
+    ) { Text("Add word") }
+    Spacer(Modifier.height(12.dp))
+    if (words.isEmpty()) {
+        CaptionText("Nothing blacklisted yet — add a word above.")
+    }
+    SettingsGroup {
+        for (word in words) {
+            item {
+                ListItem(
+                    headlineContent = { Text(word) },
+                    trailingContent = {
+                        IconButton(onClick = {
+                            scope.launch { repository.removeSuggestionBlacklistWord(word) }
+                        }) {
+                            Icon(Icons.Outlined.Delete, contentDescription = "Remove $word")
+                        }
+                    },
+                    colors = transparentListColors(),
+                )
+            }
+        }
+    }
+
+    if (showAdd) {
+        var input by remember { mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = { showAdd = false },
+            title = { Text("Add word") },
+            text = {
+                OutlinedTextField(
+                    value = input,
+                    onValueChange = { input = it },
+                    label = { Text("Word") },
+                    singleLine = true,
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = input.isNotBlank(),
+                    onClick = {
+                        scope.launch { repository.addSuggestionBlacklistWord(input) }
                         showAdd = false
                     },
                 ) { Text("Add") }

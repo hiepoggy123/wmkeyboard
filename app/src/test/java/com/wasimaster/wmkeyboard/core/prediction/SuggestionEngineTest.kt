@@ -63,6 +63,28 @@ class SuggestionEngineTest {
         assertNull(engine().shouldAutocorrect("helo"))
     }
 
+    @Test fun blacklistedWordNeverSuggested() {
+        val e = engine().apply { blacklist = setOf("they") }
+        val suggestions = e.suggest("th", previousWord = null)
+        assertTrue("they" !in suggestions)
+        // The rest of the completions are untouched.
+        assertTrue("the" in suggestions)
+        assertTrue("them" in suggestions)
+    }
+
+    @Test fun blacklistMatchesCaseInsensitively() {
+        val e = engine().apply { blacklist = setOf("they") }
+        // Capitalized composing still filters the (capitalized) candidate.
+        assertTrue("They" !in e.suggest("Th", previousWord = null))
+    }
+
+    @Test fun blacklistedWordIsNotAnAutocorrectTarget() {
+        // "wprld" would normally autocorrect to "world"; blacklisting it must
+        // stop the silent replacement.
+        val e = engine().apply { blacklist = setOf("world") }
+        assertNull(e.shouldAutocorrect("wprld"))
+    }
+
     @Test fun autocorrectPrefersAdjacentKeySlip() {
         // Equal frequencies: "cst" fixes to "cat" because s sits next to a,
         // while u is across the keyboard.

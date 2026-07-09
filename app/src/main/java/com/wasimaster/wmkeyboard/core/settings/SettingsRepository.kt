@@ -470,6 +470,12 @@ data class KeyboardSettings(
     val contactEmailSuggestionsInEmailFields: Boolean = true,
     /** Suggest the names of installed apps ("sign" → Signal). No permission needed. */
     val appNameSuggestions: Boolean = false,
+    /**
+     * Words the user never wants suggested or autocorrected to. Matched
+     * case-insensitively; the word can still be typed and committed, it is
+     * only kept out of the suggestion strip. Empty by default.
+     */
+    val suggestionBlacklist: Set<String> = emptySet(),
     /** Typing ":" then a word searches emoji in the suggestion strip (:smi → 😄). */
     val inlineEmojiSearch: Boolean = true,
     /**
@@ -1017,6 +1023,7 @@ class SettingsRepository(private val context: Context) {
         private val CONTACT_EMAIL_SUGGESTIONS_IN_EMAIL_FIELDS =
             booleanPreferencesKey("contact_email_suggestions_in_email_fields")
         private val APP_NAME_SUGGESTIONS = booleanPreferencesKey("app_name_suggestions")
+        private val SUGGESTION_BLACKLIST = stringSetPreferencesKey("suggestion_blacklist")
         private val INLINE_EMOJI_SEARCH = booleanPreferencesKey("inline_emoji_search")
         private val INLINE_AUTOFILL = booleanPreferencesKey("inline_autofill")
         private val GESTURE_TYPING = booleanPreferencesKey("gesture_typing")
@@ -1326,6 +1333,7 @@ class SettingsRepository(private val context: Context) {
             contactEmailSuggestionsInEmailFields = p[CONTACT_EMAIL_SUGGESTIONS_IN_EMAIL_FIELDS]
                 ?: defaults.contactEmailSuggestionsInEmailFields,
             appNameSuggestions = p[APP_NAME_SUGGESTIONS] ?: defaults.appNameSuggestions,
+            suggestionBlacklist = p[SUGGESTION_BLACKLIST] ?: defaults.suggestionBlacklist,
             inlineEmojiSearch = p[INLINE_EMOJI_SEARCH] ?: defaults.inlineEmojiSearch,
             inlineAutofill = p[INLINE_AUTOFILL] ?: defaults.inlineAutofill,
             gestureTyping = p[GESTURE_TYPING] ?: defaults.gestureTyping,
@@ -2265,6 +2273,23 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setAppNameSuggestions(value: Boolean) =
         context.dataStore.edit { it[APP_NAME_SUGGESTIONS] = value }
+
+    /** Adds a word to the never-suggest blacklist (lowercased, trimmed). */
+    suspend fun addSuggestionBlacklistWord(word: String) {
+        val normalized = word.trim().lowercase()
+        if (normalized.isEmpty()) return
+        context.dataStore.edit {
+            it[SUGGESTION_BLACKLIST] = (it[SUGGESTION_BLACKLIST].orEmpty() + normalized)
+        }
+    }
+
+    /** Removes a word from the never-suggest blacklist. */
+    suspend fun removeSuggestionBlacklistWord(word: String) {
+        val normalized = word.trim().lowercase()
+        context.dataStore.edit {
+            it[SUGGESTION_BLACKLIST] = (it[SUGGESTION_BLACKLIST].orEmpty() - normalized)
+        }
+    }
 
     suspend fun setInlineEmojiSearch(value: Boolean) =
         context.dataStore.edit { it[INLINE_EMOJI_SEARCH] = value }

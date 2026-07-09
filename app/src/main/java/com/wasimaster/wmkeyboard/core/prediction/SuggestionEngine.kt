@@ -112,7 +112,20 @@ class SuggestionEngine(
     @Volatile
     var autocorrectConfidence: Double = DEFAULT_AUTOCORRECT_CONFIDENCE
 
+    /**
+     * Words the user never wants offered. Stored lowercased; any candidate
+     * whose lowercase form is in here is dropped from the strip and never used
+     * as an autocorrect target. This only suppresses *suggesting* the word —
+     * the user can still type and commit it. Empty by default.
+     */
+    @Volatile
+    var blacklist: Set<String> = emptySet()
+
     private val emptyTrie = Trie()
+
+    /** True when [word] is on the suggestion blacklist (case-insensitive). */
+    private fun blacklisted(word: String): Boolean =
+        blacklist.isNotEmpty() && word.lowercase() in blacklist
 
     /** The bundled dictionary, or an empty one when [englishSources] is off. */
     private val activeDictionary: Trie
@@ -290,8 +303,12 @@ class SuggestionEngine(
         }
         return byLower.values
             .sortedByDescending { it.second }
+            .asSequence()
+            .map { it.first }
+            .filterNot(::blacklisted)
             .take(limit)
-            .map { matchCase(composing, it.first) }
+            .map { matchCase(composing, it) }
+            .toList()
     }
 
     /**
@@ -340,7 +357,7 @@ class SuggestionEngine(
         }
         ordered.addAll(siblings)
         ordered.add(phonetic)
-        return ordered.take(limit).toList()
+        return ordered.asSequence().filterNot(::blacklisted).take(limit).toList()
     }
 
     private fun nextWords(previousWord: String?, limit: Int): List<String> {
@@ -353,7 +370,7 @@ class SuggestionEngine(
         ordered.addAll(contacts.nextWords(prev))
         // Seed bigrams are English pairs; they only cold-start English modes.
         if (englishSources) ordered.addAll(seedBigrams.nextWords(prev))
-        return ordered.take(limit).toList()
+        return ordered.asSequence().filterNot(::blacklisted).take(limit).toList()
     }
 
     /**
@@ -380,6 +397,9 @@ class SuggestionEngine(
         var bestUserScore = 0.0
         val combined = HashMap<String, Double>()
         for ((candidate, weight) in edits1Weighted(lower)) {
+            // A blacklisted word is never offered, so it is never a correction
+            // target either — otherwise it would be forced in silently.
+            if (blacklisted(candidate)) continue
             val dictScore = dictionaryFrequencyOf(candidate) * weight
             val userScore = userLexicon.frequencyOf(candidate) * USER_WORD_WEIGHT * weight
             if (dictScore <= 0 && userScore <= 0) continue

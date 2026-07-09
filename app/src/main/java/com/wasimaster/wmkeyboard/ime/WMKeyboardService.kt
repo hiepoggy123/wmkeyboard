@@ -668,6 +668,7 @@ class WMKeyboardService : InputMethodService() {
                 suggestionEngine?.proximity = KeyProximity.forLayout(activeSpec)
                 suggestionEngine?.autocorrectConfidence =
                     settings.autocorrectConfidence.toDouble()
+                suggestionEngine?.blacklist = settings.suggestionBlacklist
                 // Only English drives the bundled English word list; every other
                 // language (with no bundled dictionary) drops it so autocorrect
                 // and completions never offer English for their words. Bengali
@@ -736,6 +737,7 @@ class WMKeyboardService : InputMethodService() {
                 proximity = KeyProximity.forLayout(activeLayoutSpec(_uiState.value.settings))
                 autocorrectConfidence =
                     _uiState.value.settings.autocorrectConfidence.toDouble()
+                blacklist = _uiState.value.settings.suggestionBlacklist
                 val lang = _uiState.value.language
                 englishSources = lang.isEnglish
                 customDictionary = customTries[lang.id] ?: Trie()
