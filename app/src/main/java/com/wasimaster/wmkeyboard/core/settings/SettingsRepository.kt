@@ -450,6 +450,17 @@ data class KeyboardSettings(
     val suggestionPrimaryCenter: Boolean = true,
     /** Suggest names from the phone's contacts (needs the Contacts permission). */
     val contactSuggestions: Boolean = false,
+    /**
+     * Complete a contact's email address as you type the start of it — "john"
+     * offers john.doe@gmail.com. Needs the Contacts permission.
+     */
+    val contactEmailSuggestions: Boolean = false,
+    /**
+     * Show those email completions inside email fields too, even when the app
+     * has asked for no suggestion strip (which email fields normally do). Only
+     * matters while [contactEmailSuggestions] is on.
+     */
+    val contactEmailSuggestionsInEmailFields: Boolean = true,
     /** Suggest the names of installed apps ("sign" → Signal). No permission needed. */
     val appNameSuggestions: Boolean = false,
     /** Typing ":" then a word searches emoji in the suggestion strip (:smi → 😄). */
@@ -952,6 +963,10 @@ class SettingsRepository(private val context: Context) {
         private val SUGGESTIONS_FIRST = booleanPreferencesKey("suggestions_first")
         private val SUGGESTION_PRIMARY_CENTER = booleanPreferencesKey("suggestion_primary_center")
         private val CONTACT_SUGGESTIONS = booleanPreferencesKey("contact_suggestions")
+        private val CONTACT_EMAIL_SUGGESTIONS =
+            booleanPreferencesKey("contact_email_suggestions")
+        private val CONTACT_EMAIL_SUGGESTIONS_IN_EMAIL_FIELDS =
+            booleanPreferencesKey("contact_email_suggestions_in_email_fields")
         private val APP_NAME_SUGGESTIONS = booleanPreferencesKey("app_name_suggestions")
         private val INLINE_EMOJI_SEARCH = booleanPreferencesKey("inline_emoji_search")
         private val INLINE_AUTOFILL = booleanPreferencesKey("inline_autofill")
@@ -1255,6 +1270,10 @@ class SettingsRepository(private val context: Context) {
             suggestionPrimaryCenter = p[SUGGESTION_PRIMARY_CENTER]
                 ?: defaults.suggestionPrimaryCenter,
             contactSuggestions = p[CONTACT_SUGGESTIONS] ?: defaults.contactSuggestions,
+            contactEmailSuggestions = p[CONTACT_EMAIL_SUGGESTIONS]
+                ?: defaults.contactEmailSuggestions,
+            contactEmailSuggestionsInEmailFields = p[CONTACT_EMAIL_SUGGESTIONS_IN_EMAIL_FIELDS]
+                ?: defaults.contactEmailSuggestionsInEmailFields,
             appNameSuggestions = p[APP_NAME_SUGGESTIONS] ?: defaults.appNameSuggestions,
             inlineEmojiSearch = p[INLINE_EMOJI_SEARCH] ?: defaults.inlineEmojiSearch,
             inlineAutofill = p[INLINE_AUTOFILL] ?: defaults.inlineAutofill,
@@ -2170,6 +2189,12 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setContactSuggestions(value: Boolean) =
         context.dataStore.edit { it[CONTACT_SUGGESTIONS] = value }
+
+    suspend fun setContactEmailSuggestions(value: Boolean) =
+        context.dataStore.edit { it[CONTACT_EMAIL_SUGGESTIONS] = value }
+
+    suspend fun setContactEmailSuggestionsInEmailFields(value: Boolean) =
+        context.dataStore.edit { it[CONTACT_EMAIL_SUGGESTIONS_IN_EMAIL_FIELDS] = value }
 
     suspend fun setAppNameSuggestions(value: Boolean) =
         context.dataStore.edit { it[APP_NAME_SUGGESTIONS] = value }

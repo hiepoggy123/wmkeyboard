@@ -70,6 +70,7 @@ import android.provider.ContactsContract
 import com.wasimaster.wmkeyboard.core.prediction.Apostrophes
 import com.wasimaster.wmkeyboard.core.input.DeadKeys
 import com.wasimaster.wmkeyboard.core.prediction.AppNames
+import com.wasimaster.wmkeyboard.core.prediction.ContactEmails
 import com.wasimaster.wmkeyboard.core.prediction.ContactNames
 import com.wasimaster.wmkeyboard.core.prediction.CustomDictionaries
 import com.wasimaster.wmkeyboard.core.prediction.DictionaryLoader
@@ -260,6 +261,9 @@ class WMKeyboardService : InputMethodService() {
 
     /** Contact-name words for suggestions, when the setting + permission allow. */
     private var contactNames: ContactNames = ContactNames.EMPTY
+
+    /** Contact email addresses for completion, when the setting + permission allow. */
+    private var contactEmails: ContactEmails = ContactEmails.EMPTY
 
     /** Installed-app label words for suggestions, when the setting allows. */
     private var appNames: AppNames = AppNames.EMPTY
@@ -575,6 +579,7 @@ class WMKeyboardService : InputMethodService() {
             var lexiconVersion = -1
             var customDictVersion = -1
             var contactsEnabled: Boolean? = null
+            var contactEmailsEnabled: Boolean? = null
             var appNamesEnabled: Boolean? = null
             var linkPreviewsEnabled: Boolean? = null
             settingsRepository.settings.collect { settings ->
@@ -596,6 +601,15 @@ class WMKeyboardService : InputMethodService() {
                     } else {
                         contactNames = ContactNames.EMPTY
                         suggestionEngine?.contacts = ContactNames.EMPTY
+                    }
+                }
+                if (settings.contactEmailSuggestions != contactEmailsEnabled) {
+                    contactEmailsEnabled = settings.contactEmailSuggestions
+                    if (settings.contactEmailSuggestions) {
+                        loadContactEmails()
+                    } else {
+                        contactEmails = ContactEmails.EMPTY
+                        suggestionEngine?.contactEmails = ContactEmails.EMPTY
                     }
                 }
                 if (settings.appNameSuggestions != appNamesEnabled) {
@@ -716,6 +730,7 @@ class WMKeyboardService : InputMethodService() {
                 seedBigrams,
             ).apply {
                 contacts = contactNames
+                contactEmails = this@WMKeyboardService.contactEmails
                 apps = appNames
                 proximity = KeyProximity.forLayout(activeLayoutSpec(_uiState.value.settings))
                 autocorrectConfidence =
@@ -956,6 +971,9 @@ class WMKeyboardService : InputMethodService() {
         // Covers the permission being granted after the setting was on.
         if (_uiState.value.settings.contactSuggestions && contactNames.isEmpty) {
             loadContactNames()
+        }
+        if (_uiState.value.settings.contactEmailSuggestions && contactEmails.isEmpty) {
+            loadContactEmails()
         }
         hwJob?.cancel()
         hwGeneration++
@@ -1624,6 +1642,9 @@ class WMKeyboardService : InputMethodService() {
             if (text.length == 1 && text[0] in SENTENCE_ENDERS) {
                 maybeAutoCapitalize()
             }
+            // Email fields commit straight through (no composing buffer), so the
+            // contact-email strip has to be refreshed off the committed text.
+            if (emailFieldForceActive(state)) refreshEmailFieldSuggestions()
         }
     }
 
@@ -2431,6 +2452,43 @@ class WMKeyboardService : InputMethodService() {
     }
 
     /**
+     * Reads contact email addresses into [contactEmails] (memory only, never
+     * persisted). No-op without the permission — the settings app requests it,
+     * and [onStartInputView] retries once it has been granted.
+     */
+    private fun loadContactEmails() {
+        if (checkSelfPermission(Manifest.permission.READ_CONTACTS) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            return
+        }
+        serviceScope.launch {
+            val loaded = withContext(Dispatchers.IO) {
+                runCatching {
+                    val emails = ArrayList<String>()
+                    contentResolver.query(
+                        ContactsContract.CommonDataKinds.Email.CONTENT_URI,
+                        arrayOf(ContactsContract.CommonDataKinds.Email.ADDRESS),
+                        null,
+                        null,
+                        null,
+                    )?.use { cursor ->
+                        val addressColumn = cursor.getColumnIndexOrThrow(
+                            ContactsContract.CommonDataKinds.Email.ADDRESS
+                        )
+                        while (cursor.moveToNext()) {
+                            cursor.getString(addressColumn)?.let { emails.add(it) }
+                        }
+                    }
+                    ContactEmails.fromAddresses(emails)
+                }.getOrDefault(ContactEmails.EMPTY)
+            }
+            contactEmails = loaded
+            suggestionEngine?.contactEmails = loaded
+        }
+    }
+
+    /**
      * Reads the labels of launchable apps into [appNames] (memory only,
      * never persisted). Needs no permission: the launcher-intent query is
      * covered by the <queries> manifest entry.
@@ -2599,10 +2657,61 @@ class WMKeyboardService : InputMethodService() {
         if (_uiState.value.toolPrefill != null) _uiState.update { it.copy(toolPrefill = null) }
     }
 
+    /**
+     * True when the email-field contact-email path should drive the strip:
+     * an email field, the feature and its email-field override both on, the
+     * master strip on, not a password box, and some addresses to offer. This
+     * deliberately ignores [KeyboardUiState.fieldNoSuggestions] — the whole
+     * point is to complete addresses even where the field asked for a silent
+     * strip (which email fields do).
+     */
+    private fun emailFieldForceActive(state: KeyboardUiState = _uiState.value): Boolean =
+        state.fieldKind == FieldKind.EMAIL &&
+            !state.secureField &&
+            state.settings.suggestions &&
+            state.settings.contactEmailSuggestions &&
+            state.settings.contactEmailSuggestionsInEmailFields &&
+            !contactEmails.isEmpty
+
+    /** The email-address token immediately before the cursor (may be empty). */
+    private fun emailTokenBeforeCursor(ic: InputConnection): String {
+        val before = ic.getTextBeforeCursor(EMAIL_FIELD_LOOKBEHIND, 0)?.toString() ?: return ""
+        return before.takeLastWhile { it.isLetterOrDigit() || it in EMAIL_TOKEN_EXTRA }
+    }
+
+    /**
+     * Email-field completion: contact emails whose address starts with the
+     * token before the cursor, pushed into the strip even though the field
+     * suppresses the normal one. Email fields keep no composing buffer, so the
+     * token is read straight from the connection.
+     */
+    private fun refreshEmailFieldSuggestions() {
+        suggestionJob?.cancel()
+        val ic = currentInputConnection
+        val token = ic?.let { emailTokenBeforeCursor(it) }.orEmpty().lowercase()
+        if (token.length < EMAIL_FIELD_MIN_PREFIX) {
+            _uiState.update {
+                if (it.suggestions.isEmpty()) it
+                else it.copy(suggestions = emptyList(), emojiSuggestions = emptyList())
+            }
+            return
+        }
+        suggestionJob = serviceScope.launch {
+            val results = withContext(Dispatchers.Default) {
+                contactEmails.complete(token, EMAIL_FIELD_SUGGESTION_LIMIT)
+            }
+            _uiState.update { it.copy(suggestions = results, emojiSuggestions = emptyList()) }
+        }
+    }
+
     private fun refreshSuggestions() {
+        val state = _uiState.value
+        if (emailFieldForceActive(state)) {
+            refreshEmailFieldSuggestions()
+            return
+        }
         refreshSmartSuggestion()
         val engine = suggestionEngine ?: return
-        val state = _uiState.value
         if (!state.settings.suggestions || state.secureField || state.fieldNoSuggestions) return
 
         // Inline emoji search takes over the strip entirely: word suggestions
@@ -2667,6 +2776,25 @@ class WMKeyboardService : InputMethodService() {
         stopVoiceForManualInput()
         vibrate()
         val ic = currentInputConnection ?: return
+        // Email-field completion: no composing region backs the tapped address,
+        // so the partial token the user typed is removed by hand before the full
+        // address is committed. Not learned — an address is not a dictionary word,
+        // and no trailing space, since an email is usually the whole field.
+        if (emailFieldForceActive() && '@' in suggestion) {
+            val token = emailTokenBeforeCursor(ic)
+            if (token.isNotEmpty()) ic.deleteSurroundingText(token.length, 0)
+            ic.commitText(suggestion, 1)
+            lastGestureWord = null
+            lastAutocorrect = null
+            _uiState.update {
+                it.copy(
+                    composingPreview = "",
+                    suggestions = emptyList(),
+                    emojiSuggestions = emptyList(),
+                )
+            }
+            return
+        }
         // After a swipe, the alternates replace the committed gesture word.
         val gestureWord = lastGestureWord
         if (composing.isEmpty() && gestureWord != null) {
@@ -2696,8 +2824,10 @@ class WMKeyboardService : InputMethodService() {
         val tail = if (nextChar.isNullOrEmpty() || !nextChar[0].isWhitespace()) " " else ""
         ic.commitText(suggestion + tail, 1)
         // Deliberately picked from the strip — a stronger signal than a
-        // word that merely got committed.
-        learn(suggestion, reinforcement = 2)
+        // word that merely got committed. A contact email is the exception:
+        // it is never learned, so it stays memory-only and off the disk-backed
+        // personal dictionary even when tapped from an ordinary text field.
+        if ('@' !in suggestion) learn(suggestion, reinforcement = 2)
         composing = StringBuilder()
         _uiState.update { it.copy(composingPreview = "", suggestions = emptyList(), emojiSuggestions = emptyList()) }
         maybeAutoCapitalize()
@@ -5970,6 +6100,18 @@ class WMKeyboardService : InputMethodService() {
         /** Inline emoji search is a local index lookup — no network wait. */
         private const val EMOJI_SEARCH_DEBOUNCE_MS = 24L
         private const val INLINE_EMOJI_LIMIT = 12
+
+        /** How many contact-email completions the email-field strip may show. */
+        private const val EMAIL_FIELD_SUGGESTION_LIMIT = 5
+
+        /** Shortest token before the cursor that triggers an email completion. */
+        private const val EMAIL_FIELD_MIN_PREFIX = 2
+
+        /** How far back to read the token being completed in an email field. */
+        private const val EMAIL_FIELD_LOOKBEHIND = 96
+
+        /** Non-alphanumeric characters that are part of an email token. */
+        private const val EMAIL_TOKEN_EXTRA = "._%+-@"
 
         /**
          * Floor for the handwriting recognition pause in Bengali. Its

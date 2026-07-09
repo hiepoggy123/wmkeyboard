@@ -35,6 +35,15 @@ class SuggestionEngineTest {
         assertTrue("they" in suggestions)
     }
 
+    @Test fun completesContactEmails() {
+        val e = engine().apply {
+            contactEmails = ContactEmails.fromAddresses(listOf("john.doe@gmail.com"))
+        }
+        assertTrue("john.doe@gmail.com" in e.suggest("john", previousWord = null))
+        // A single letter must not list the whole address book.
+        assertTrue("john.doe@gmail.com" !in e.suggest("j", previousWord = null))
+    }
+
     @Test fun capitalizationPreserved() {
         val suggestions = engine().suggest("Th", previousWord = null)
         assertEquals("The", suggestions.first())

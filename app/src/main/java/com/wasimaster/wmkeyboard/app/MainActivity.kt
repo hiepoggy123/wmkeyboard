@@ -1262,6 +1262,46 @@ private fun TypingSettings(
             }
         }
         item {
+            val context = LocalContext.current
+            val emailPermission = rememberLauncherForActivityResult(
+                ActivityResultContracts.RequestPermission()
+            ) { granted ->
+                if (granted) scope.launch { repository.setContactEmailSuggestions(true) }
+            }
+            ToggleSetting(
+                "Suggest contact emails",
+                "Complete a contact's email as you type the start of it",
+                settings.contactEmailSuggestions,
+                info = "Type the start of a contact's email address (\"john\") and their full " +
+                    "address (john.doe@gmail.com) is offered in the strip to complete. " +
+                    "Addresses are read into memory only — nothing is stored or sent " +
+                    "anywhere, and autocorrect will never touch them. Needs the Contacts " +
+                    "permission.",
+            ) { enabled ->
+                when {
+                    !enabled -> scope.launch { repository.setContactEmailSuggestions(false) }
+                    context.checkSelfPermission(Manifest.permission.READ_CONTACTS) ==
+                        PackageManager.PERMISSION_GRANTED ->
+                        scope.launch { repository.setContactEmailSuggestions(true) }
+                    else -> emailPermission.launch(Manifest.permission.READ_CONTACTS)
+                }
+            }
+        }
+        if (settings.contactEmailSuggestions) {
+            item {
+                ToggleSetting(
+                    "…in email fields too",
+                    "Show them even where the app hides suggestions",
+                    settings.contactEmailSuggestionsInEmailFields,
+                    info = "Email fields normally tell the keyboard to hide the suggestion " +
+                        "strip, which would suppress these completions just where they are " +
+                        "most useful. With this on, contact-email completions still appear in " +
+                        "email fields; other suggestions stay hidden there as before. Turn " +
+                        "off to respect the field and only complete emails in ordinary text.",
+                ) { scope.launch { repository.setContactEmailSuggestionsInEmailFields(it) } }
+            }
+        }
+        item {
             ToggleSetting(
                 "Suggest app names",
                 "Complete the names of installed apps as you type",

@@ -33,6 +33,14 @@ class SuggestionEngine(
     var contacts: ContactNames = ContactNames.EMPTY
 
     /**
+     * Contact email addresses, completed as whole tokens ("john" →
+     * john.doe@gmail.com) when the user opts in. Fed from the service on the
+     * same Contacts permission as [contacts]; cleared when the setting is off.
+     */
+    @Volatile
+    var contactEmails: ContactEmails = ContactEmails.EMPTY
+
+    /**
      * Words from the labels of installed apps, so app names complete while
      * typing ("sign" → Signal). Swapped in when the setting allows, cleared
      * when it turns off.
@@ -153,6 +161,18 @@ class SuggestionEngine(
         private const val CONTACT_WEIGHT = 3000
 
         /**
+         * A matched contact email is an exact prefix of one of the user's own
+         * addresses, so it wins strongly over ordinary completions.
+         */
+        private const val CONTACT_EMAIL_WEIGHT = 4000
+
+        /**
+         * Don't offer email completions for a single-letter prefix — that
+         * would list every address the moment a letter is typed.
+         */
+        private const val CONTACT_EMAIL_MIN_PREFIX = 2
+
+        /**
          * App-label words rank below contacts: you type a friend's name far
          * more often than an app's, and app labels contain ordinary words
          * ("Files", "Photos", "Clock") that must not outrank the dictionary.
@@ -236,6 +256,13 @@ class SuggestionEngine(
         }
         for (s in contacts.complete(lower, limit)) {
             merged.merge(s.word, s.frequency * CONTACT_WEIGHT, ::maxOf)
+        }
+        // Whole contact emails complete from their local part; short prefixes
+        // are ignored so a single letter doesn't dump the address book.
+        if (lower.length >= CONTACT_EMAIL_MIN_PREFIX) {
+            for (email in contactEmails.complete(lower, limit)) {
+                merged.merge(email, CONTACT_EMAIL_WEIGHT, ::maxOf)
+            }
         }
         for (s in apps.complete(lower, limit)) {
             merged.merge(s.word, s.frequency * APP_WEIGHT, ::maxOf)
