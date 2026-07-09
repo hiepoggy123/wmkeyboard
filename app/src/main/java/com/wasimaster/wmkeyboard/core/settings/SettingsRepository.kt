@@ -530,6 +530,8 @@ data class KeyboardSettings(
      * [osLanguageSwitcher] is off.
      */
     val subtypeAppNameFirst: Boolean = false,
+    /** Per-app language/subtype memory (see [PerAppLanguageSettings]). */
+    val perAppLanguage: PerAppLanguageSettings = PerAppLanguageSettings(),
     val onboardingDone: Boolean = false,
     val conjunctBackspace: Boolean = false,
     val oneHandedMode: OneHandedMode = OneHandedMode.OFF,
@@ -897,6 +899,22 @@ data class TextEditingSettings(
 )
 
 /**
+ * Per-app language memory, grouped into its own object (see [CameraSettings] for
+ * why). DataStore keys stay flat.
+ *
+ * When [enabled], an explicit language switch while typing in an app is
+ * remembered against that app's package name, and restored the next time a field
+ * in the same app is focused. Apps with no stored pick follow the global
+ * last-used layout ([KeyboardSettings.activeLayoutId]).
+ */
+data class PerAppLanguageSettings(
+    /** Remember and restore the last explicitly-picked layout per app. */
+    val enabled: Boolean = false,
+    /** Package name → last explicitly-selected layout id. */
+    val layoutByPackage: Map<String, String> = emptyMap(),
+)
+
+/**
  * DataStore-backed settings. Every option on the settings screens flows
  * through here; the IME service collects [settings] and re-renders live.
  */
@@ -914,6 +932,22 @@ private fun decodeSecondaryLanguages(raw: String): Map<String, List<String>> =
             if (eq <= 0) return@mapNotNull null
             val secs = entry.substring(eq + 1).split(',').filter { it.isNotEmpty() }
             if (secs.isEmpty()) null else entry.substring(0, eq) to secs
+        }
+        .toMap()
+
+/** Serializes the per-app layout map to a compact `pkg=layoutId;...` string. */
+private fun encodePerAppLayouts(map: Map<String, String>): String =
+    map.entries
+        .filter { it.key.isNotEmpty() && it.value.isNotEmpty() }
+        .joinToString(";") { (pkg, layoutId) -> "$pkg=$layoutId" }
+
+private fun decodePerAppLayouts(raw: String): Map<String, String> =
+    raw.split(';')
+        .filter { it.isNotEmpty() }
+        .mapNotNull { entry ->
+            val eq = entry.indexOf('=')
+            if (eq <= 0 || eq == entry.length - 1) return@mapNotNull null
+            entry.substring(0, eq) to entry.substring(eq + 1)
         }
         .toMap()
 
@@ -1033,6 +1067,8 @@ class SettingsRepository(private val context: Context) {
         private val GLOBE_AS_EMOJI = booleanPreferencesKey("globe_as_emoji")
         private val OS_LANGUAGE_SWITCHER = booleanPreferencesKey("os_language_switcher")
         private val SUBTYPE_APP_NAME_FIRST = booleanPreferencesKey("subtype_app_name_first")
+        private val PER_APP_LANGUAGE_ENABLED = booleanPreferencesKey("per_app_language_enabled")
+        private val PER_APP_LAYOUT_MAP = stringPreferencesKey("per_app_layout_map")
         private val ONBOARDING_DONE = booleanPreferencesKey("onboarding_done")
         private val CONJUNCT_BACKSPACE = booleanPreferencesKey("conjunct_backspace")
         private val ONE_HANDED_MODE = stringPreferencesKey("one_handed_mode")
@@ -1349,6 +1385,11 @@ class SettingsRepository(private val context: Context) {
             globeAsEmoji = p[GLOBE_AS_EMOJI] ?: defaults.globeAsEmoji,
             osLanguageSwitcher = p[OS_LANGUAGE_SWITCHER] ?: defaults.osLanguageSwitcher,
             subtypeAppNameFirst = p[SUBTYPE_APP_NAME_FIRST] ?: defaults.subtypeAppNameFirst,
+            perAppLanguage = PerAppLanguageSettings(
+                enabled = p[PER_APP_LANGUAGE_ENABLED] ?: defaults.perAppLanguage.enabled,
+                layoutByPackage = p[PER_APP_LAYOUT_MAP]?.let { decodePerAppLayouts(it) }
+                    ?: defaults.perAppLanguage.layoutByPackage,
+            ),
             onboardingDone = p[ONBOARDING_DONE] ?: defaults.onboardingDone,
             conjunctBackspace = p[CONJUNCT_BACKSPACE] ?: defaults.conjunctBackspace,
             oneHandedMode = p[ONE_HANDED_MODE]
@@ -2307,6 +2348,17 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setSubtypeAppNameFirst(value: Boolean) =
         context.dataStore.edit { it[SUBTYPE_APP_NAME_FIRST] = value }
+
+    suspend fun setRememberLayoutPerApp(value: Boolean) =
+        context.dataStore.edit { it[PER_APP_LANGUAGE_ENABLED] = value }
+
+    /** Records [layoutId] as the last explicitly-picked layout for [packageName]. */
+    suspend fun setAppLayout(packageName: String, layoutId: String) =
+        context.dataStore.edit { prefs ->
+            val current = prefs[PER_APP_LAYOUT_MAP]?.let { decodePerAppLayouts(it) } ?: emptyMap()
+            if (current[packageName] == layoutId) return@edit
+            prefs[PER_APP_LAYOUT_MAP] = encodePerAppLayouts(current + (packageName to layoutId))
+        }
 
     suspend fun setOnboardingDone(value: Boolean) =
         context.dataStore.edit { it[ONBOARDING_DONE] = value }

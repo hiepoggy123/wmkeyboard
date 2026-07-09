@@ -2414,6 +2414,20 @@ private fun LanguageSettings(
             ) { onNavigate("keymaps") }
         }
     }
+    SettingsGroup("Per-app language") {
+        item {
+            ToggleSetting(
+                "Remember language per app",
+                "Reopen each app in the layout you last used there",
+                settings.perAppLanguage.enabled,
+                info = "When you switch language (🌐 key, spacebar swipe or the picker) while " +
+                    "typing in an app, the keyboard remembers that choice against the app and " +
+                    "restores it the next time you type there. Apps you haven't picked a " +
+                    "language in follow your last-used one. A field that requires Latin (like a " +
+                    "password box) or advertises its own language still overrides this.",
+            ) { scope.launch { repository.setRememberLayoutPerApp(it) } }
+        }
+    }
     SettingsGroup("System language switcher") {
         item {
             ToggleSetting(
