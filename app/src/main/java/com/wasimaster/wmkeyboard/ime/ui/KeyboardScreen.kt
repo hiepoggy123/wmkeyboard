@@ -3225,7 +3225,17 @@ private fun ToolboxPanel(
             maxItemsInEachRow = columns,
         ) {
             for (tool in display) {
-                key(tool ?: "box-ghost") {
+                // The ghost's key encodes its slot so a move is a structural
+                // remove+add, not a same-key reorder. FlowRow re-measures and
+                // re-places its children on a structural change, but on a pure
+                // reorder it moves the composition groups while leaving every
+                // laid-out child at its old position — verified on device, where
+                // the grid reflowed once (the dragged tool leaving) and then
+                // froze for the rest of the drag: the ghost never moved and the
+                // icons never made room. Re-keying per slot forces the reflow on
+                // every step. (The toolbar is a Row, which re-places on reorder,
+                // so its ghost keeps one stable key.)
+                key(tool ?: "box-ghost-$boxSlot") {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth(1f / columns)
