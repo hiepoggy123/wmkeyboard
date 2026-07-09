@@ -1013,19 +1013,22 @@ class WMKeyboardService : InputMethodService() {
         val activeMode = base?.let {
             resolveKeyboardMode(it.keyboardModes, currentPackage, currentModeFields, manualModeId)
         }
-        // Language the field asks for. FORCE_ASCII is a hard constraint (the
-        // app cannot store what a Bengali mode types) so it outranks a
-        // hintLocales preference, which is only ever advisory.
+        // Language the field asks for, layered over the base for this app (the
+        // per-app remembered layout when that is on, else the global pick).
+        // FORCE_ASCII is a hard constraint (the app cannot store what a Bengali
+        // mode types) so it outranks a hintLocales preference, which is only ever
+        // advisory. Both are compared against — and fall back to — that base.
         val current = base ?: _uiState.value.settings
+        val baseSpec = resolveLayout(current.customLayouts, baseLayoutId(current))
         fieldLayoutOverride = when {
-            info.forcesAscii() && current.script.id != ScriptId.LATIN ->
+            info.forcesAscii() && baseSpec.script().id != ScriptId.LATIN ->
                 current.enabledLayoutIds.firstOrNull {
                     resolveLayout(current.customLayouts, it).script().id == ScriptId.LATIN
                 } ?: BuiltInLayouts.DEFAULT_ID
             // hintLocales names a language, not a layout, so it picks the first
             // enabled layout that types that language.
             else -> info.hintedLanguage(current.enabledLanguages)
-                ?.takeIf { it.id != current.language.id }
+                ?.takeIf { it.id != baseSpec.language().id }
                 ?.let { hinted ->
                     current.enabledLayoutIds.firstOrNull {
                         resolveLayout(current.customLayouts, it).language().id == hinted.id
@@ -2210,7 +2213,20 @@ class WMKeyboardService : InputMethodService() {
      * layout was deleted heals to the default instead of selecting nothing.
      */
     private fun activeLayoutSpec(settings: KeyboardSettings): LayoutSpec =
-        resolveLayout(settings.customLayouts, fieldLayoutOverride ?: settings.activeLayoutId)
+        resolveLayout(settings.customLayouts, fieldLayoutOverride ?: baseLayoutId(settings))
+
+    /**
+     * The layout to type on before any field override: the one remembered for the
+     * focused app when per-app memory is on, otherwise the global choice. A
+     * remembered id whose layout has since been deleted heals back to the global
+     * pick rather than snapping to the default.
+     */
+    private fun baseLayoutId(settings: KeyboardSettings): String {
+        if (!settings.perAppLanguage.enabled) return settings.activeLayoutId
+        val remembered = settings.perAppLanguage.layoutByPackage[currentPackage]
+            ?.takeIf { id -> resolveLayout(settings.customLayouts, id).id == id }
+        return remembered ?: settings.activeLayoutId
+    }
 
     private fun resolveLayoutSet(spec: LayoutSpec, fieldKind: FieldKind): LayoutSet {
         val key = spec.id to fieldKind
@@ -2278,6 +2294,14 @@ class WMKeyboardService : InputMethodService() {
         // Same for dictation: restart the session in the new language.
         if (_uiState.value.panel == PanelMode.VOICE) startVoice()
         serviceScope.launch { settingsRepository.setActiveLayoutId(spec.id) }
+        // Per-app memory: an explicit pick is what this app should reopen on.
+        // The global write above still moves, so apps with no stored pick keep
+        // following the last-used layout.
+        if (_uiState.value.settings.perAppLanguage.enabled) {
+            currentPackage?.let { pkg ->
+                serviceScope.launch { settingsRepository.setAppLayout(pkg, spec.id) }
+            }
+        }
         mirrorSubtypeToOs(spec)
     }
 
