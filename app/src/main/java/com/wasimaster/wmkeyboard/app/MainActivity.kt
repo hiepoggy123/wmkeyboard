@@ -65,9 +65,12 @@ import androidx.compose.material.icons.outlined.Explore
 import androidx.compose.material.icons.outlined.FlashlightOn
 import androidx.compose.material.icons.outlined.FirstPage
 import androidx.compose.material.icons.outlined.Keyboard
+import androidx.compose.material.icons.outlined.Highlight
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.KeyboardDoubleArrowDown
+import androidx.compose.material.icons.outlined.KeyboardDoubleArrowLeft
+import androidx.compose.material.icons.outlined.KeyboardDoubleArrowRight
 import androidx.compose.material.icons.outlined.KeyboardDoubleArrowUp
 import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.LastPage
@@ -1189,6 +1192,30 @@ private fun TypingSettings(
                     "character — handy for indentation and forms. While this is on it takes " +
                     "priority over double-space period.",
             ) { scope.launch { repository.setDoubleSpaceTab(it) } }
+        }
+        item {
+            ToggleSetting(
+                "Wrap selection with brackets",
+                "Typing ( [ { < \" ' or ` around selected text wraps it",
+                settings.textEditing.wrapSelectionWithPair,
+                info = "With text selected, pressing a bracket, brace or quote key surrounds " +
+                    "the selection with the pair — select \"foo\", press ( and you get " +
+                    "\"(foo)\" — instead of replacing it. The wrapped text stays selected so " +
+                    "you can wrap it again. Turn off to have those keys always replace the " +
+                    "selection, like any other character.",
+            ) { scope.launch { repository.setWrapSelectionWithPair(it) } }
+        }
+        item {
+            ToggleSetting(
+                "Shift re-cases selection",
+                "Shift with text selected cycles lowercase, Title, UPPERCASE",
+                settings.textEditing.recapitalizeSelectionWithShift,
+                info = "With text selected, tapping shift changes its case instead of arming " +
+                    "shift for the next letter — pressing it repeatedly cycles lowercase → " +
+                    "Title Case → UPPERCASE. Nothing changes for caseless scripts like " +
+                    "Bengali. Turn off to keep shift meaning \"capitalize the next character\" " +
+                    "even while text is selected.",
+            ) { scope.launch { repository.setRecapitalizeSelectionWithShift(it) } }
         }
     }
 
@@ -3343,12 +3370,15 @@ internal fun toolTitle(tool: ToolbarTool): String = when (tool) {
     ToolbarTool.MODES -> "Keyboard modes"
     ToolbarTool.CURSOR_LEFT -> "Cursor left"
     ToolbarTool.CURSOR_RIGHT -> "Cursor right"
+    ToolbarTool.CURSOR_WORD_LEFT -> "Word left"
+    ToolbarTool.CURSOR_WORD_RIGHT -> "Word right"
     ToolbarTool.CURSOR_UP -> "Cursor up"
     ToolbarTool.CURSOR_DOWN -> "Cursor down"
     ToolbarTool.CURSOR_HOME -> "Line start"
     ToolbarTool.CURSOR_END -> "Line end"
     ToolbarTool.PAGE_UP -> "Page up"
     ToolbarTool.PAGE_DOWN -> "Page down"
+    ToolbarTool.SELECT_WORD -> "Select word"
 }
 
 internal fun toolDescription(tool: ToolbarTool): String = when (tool) {
@@ -3398,12 +3428,15 @@ internal fun toolDescription(tool: ToolbarTool): String = when (tool) {
     ToolbarTool.MODES -> "Switch between per-app setups: emoji row, pinned tools, symbol sets"
     ToolbarTool.CURSOR_LEFT -> "Move the cursor one character left"
     ToolbarTool.CURSOR_RIGHT -> "Move the cursor one character right"
+    ToolbarTool.CURSOR_WORD_LEFT -> "Move the cursor one word left"
+    ToolbarTool.CURSOR_WORD_RIGHT -> "Move the cursor one word right"
     ToolbarTool.CURSOR_UP -> "Move the cursor one line up"
     ToolbarTool.CURSOR_DOWN -> "Move the cursor one line down"
     ToolbarTool.CURSOR_HOME -> "Jump to the start of the line"
     ToolbarTool.CURSOR_END -> "Jump to the end of the line"
     ToolbarTool.PAGE_UP -> "Scroll the cursor up a page"
     ToolbarTool.PAGE_DOWN -> "Scroll the cursor down a page"
+    ToolbarTool.SELECT_WORD -> "Select the word at the cursor"
 }
 
 internal fun toolIconFor(tool: ToolbarTool): androidx.compose.ui.graphics.vector.ImageVector = when (tool) {
@@ -3453,12 +3486,15 @@ internal fun toolIconFor(tool: ToolbarTool): androidx.compose.ui.graphics.vector
     ToolbarTool.MODES -> Icons.Outlined.Tune
     ToolbarTool.CURSOR_LEFT -> Icons.AutoMirrored.Outlined.KeyboardArrowLeft
     ToolbarTool.CURSOR_RIGHT -> Icons.AutoMirrored.Outlined.KeyboardArrowRight
+    ToolbarTool.CURSOR_WORD_LEFT -> Icons.Outlined.KeyboardDoubleArrowLeft
+    ToolbarTool.CURSOR_WORD_RIGHT -> Icons.Outlined.KeyboardDoubleArrowRight
     ToolbarTool.CURSOR_UP -> Icons.Outlined.KeyboardArrowUp
     ToolbarTool.CURSOR_DOWN -> Icons.Outlined.KeyboardArrowDown
     ToolbarTool.CURSOR_HOME -> Icons.Outlined.FirstPage
     ToolbarTool.CURSOR_END -> Icons.Outlined.LastPage
     ToolbarTool.PAGE_UP -> Icons.Outlined.KeyboardDoubleArrowUp
     ToolbarTool.PAGE_DOWN -> Icons.Outlined.KeyboardDoubleArrowDown
+    ToolbarTool.SELECT_WORD -> Icons.Outlined.Highlight
 }
 
 /**
@@ -3887,14 +3923,14 @@ private fun ToolDetailSettings(
                     ToggleSetting(
                         "Start with the selfie camera",
                         "Open the tool on the front camera instead of the back one",
-                        settings.cameraPreferFront,
+                        settings.camera.preferFront,
                     ) { scope.launch { repository.setCameraPreferFront(it) } }
                 }
                 item {
                     ToggleSetting(
                         "Mirror selfies",
                         "Save front-camera photos the way the preview shows them",
-                        settings.cameraMirrorFront,
+                        settings.camera.mirrorFront,
                         info = "Camera sensors record selfies un-mirrored (text reads " +
                             "correctly, but the photo looks flipped compared to the " +
                             "preview). On: the saved photo matches what you saw while " +
@@ -3905,7 +3941,7 @@ private fun ToolDetailSettings(
                     ToggleSetting(
                         "Save to gallery",
                         "Also keep captures in Pictures/WM Keyboard",
-                        settings.cameraSaveToGallery,
+                        settings.camera.saveToGallery,
                         info = "Off by default: photos taken here are normally " +
                             "one-shot sends, not keepsakes. On: every capture is " +
                             "copied into the gallery as well as sent.",
@@ -3917,14 +3953,14 @@ private fun ToolDetailSettings(
                     ToggleSetting(
                         "Shutter sound",
                         "Play the camera click when a photo is taken",
-                        settings.cameraShutterSound,
+                        settings.camera.shutterSound,
                     ) { scope.launch { repository.setCameraShutterSound(it) } }
                 }
                 item {
                     ToggleSetting(
                         "Haptics",
                         "Vibrate on the shutter, controls and timer countdown",
-                        settings.cameraHaptics,
+                        settings.camera.haptics,
                         info = "Uses the keyboard's haptic style and strength " +
                             "(Typing → Feedback). If keyboard haptics are off " +
                             "entirely, the camera tool stays silent too.",
@@ -3960,9 +3996,9 @@ private fun ToolDetailSettings(
                     "Key repeat interval",
                     subtitle = "Pause between repeats while holding an arrow or " +
                         "backspace — lower is faster",
-                    value = settings.textEditRepeatMs.toFloat(),
+                    value = settings.textEditing.repeatMs.toFloat(),
                     range = 30f..200f,
-                    display = "${settings.textEditRepeatMs} ms",
+                    display = "${settings.textEditing.repeatMs} ms",
                 ) { scope.launch { repository.setTextEditRepeatMs(it.toInt()) } }
             }
         }
@@ -5513,6 +5549,19 @@ private fun PrivacySettings(repository: SettingsRepository, settings: KeyboardSe
                     "in password fields and while incognito mode is on, and can be wiped below " +
                     "at any time.",
             ) { scope.launch { repository.setLearnFromTyping(it) } }
+        }
+        item {
+            ToggleSetting(
+                "Add words to the system dictionary",
+                "Share learned words with Android's personal dictionary",
+                settings.addWordsToSystemDictionary,
+                info = "Also saves words you type into Android's system personal dictionary, " +
+                    "so other keyboards and the platform spell checker recognize them too — " +
+                    "the same list you can edit under System Settings → Languages & input → " +
+                    "Dictionary. Off by default: this keyboard's own learning already covers " +
+                    "it, and this writes outside the app. Follows \"Learn from typing\" and " +
+                    "incognito, and existing entries are left alone when you turn it off.",
+            ) { scope.launch { repository.setAddWordsToSystemDictionary(it) } }
         }
         item {
             ToggleSetting(

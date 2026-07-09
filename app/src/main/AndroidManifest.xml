@@ -20,6 +20,17 @@
          read-only, never written, and only queried while the tool is open. -->
     <uses-permission android:name="android.permission.READ_CALENDAR" />
 
+    <!-- Only used by the optional "Add words to the system dictionary" setting.
+         Since API 23 the provider grants the active IME access without a
+         grantable permission, so this is a no-op on modern devices; declared
+         for the older behaviour and documentation. Off by default. -->
+    <uses-permission
+        android:name="android.permission.READ_USER_DICTIONARY"
+        tools:ignore="ProtectedPermissions" />
+    <uses-permission
+        android:name="android.permission.WRITE_USER_DICTIONARY"
+        tools:ignore="ProtectedPermissions" />
+
     <!-- Only used by the optional "Show source app" clipboard setting; lets the
          keyboard note which app a clip was copied from. The user grants it
          explicitly in system Settings (Usage Access); off by default. -->

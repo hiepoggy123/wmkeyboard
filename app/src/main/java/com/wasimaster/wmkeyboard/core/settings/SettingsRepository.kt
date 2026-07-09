@@ -76,14 +76,18 @@ enum class ToolbarTool {
     // the toolbar they cost a single tap instead of opening a panel first.
     CURSOR_LEFT, CURSOR_RIGHT, CURSOR_UP, CURSOR_DOWN,
     CURSOR_HOME, CURSOR_END, PAGE_UP, PAGE_DOWN,
+    // Move by whole words (Ctrl+Arrow), and select the word at the cursor.
+    CURSOR_WORD_LEFT, CURSOR_WORD_RIGHT, SELECT_WORD,
 }
 
 /** The cursor tools, in the order they read on the toolbar. */
 val CursorTools: List<ToolbarTool> = listOf(
     ToolbarTool.CURSOR_LEFT, ToolbarTool.CURSOR_RIGHT,
+    ToolbarTool.CURSOR_WORD_LEFT, ToolbarTool.CURSOR_WORD_RIGHT,
     ToolbarTool.CURSOR_UP, ToolbarTool.CURSOR_DOWN,
     ToolbarTool.CURSOR_HOME, ToolbarTool.CURSOR_END,
     ToolbarTool.PAGE_UP, ToolbarTool.PAGE_DOWN,
+    ToolbarTool.SELECT_WORD,
 )
 
 fun isSupportedTool(tool: ToolbarTool): Boolean = when {
@@ -115,10 +119,13 @@ private val RankedToolOrder: List<ToolbarTool> = listOf(
     ToolbarTool.SYMBOLS, ToolbarTool.UNIT_CONVERT, ToolbarTool.CURRENCY, ToolbarTool.PASSWORD_GEN,
     ToolbarTool.WIKIPEDIA, ToolbarTool.CALENDAR, ToolbarTool.WEATHER, ToolbarTool.FLASHLIGHT,
     ToolbarTool.COMPASS, ToolbarTool.LEVEL, ToolbarTool.MOON_PHASE,
-    // Eight one-tap cursor moves last: useful, but they would otherwise push
+    // The one-tap cursor moves last: useful, but they would otherwise push
     // every other tool a full row down in the toolbox.
-    ToolbarTool.CURSOR_LEFT, ToolbarTool.CURSOR_RIGHT, ToolbarTool.CURSOR_UP, ToolbarTool.CURSOR_DOWN,
+    ToolbarTool.CURSOR_LEFT, ToolbarTool.CURSOR_RIGHT,
+    ToolbarTool.CURSOR_WORD_LEFT, ToolbarTool.CURSOR_WORD_RIGHT,
+    ToolbarTool.CURSOR_UP, ToolbarTool.CURSOR_DOWN,
     ToolbarTool.CURSOR_HOME, ToolbarTool.CURSOR_END, ToolbarTool.PAGE_UP, ToolbarTool.PAGE_DOWN,
+    ToolbarTool.SELECT_WORD,
 )
 
 val DefaultToolOrder: List<ToolbarTool> =
@@ -527,6 +534,12 @@ data class KeyboardSettings(
     val conjunctBackspace: Boolean = false,
     val oneHandedMode: OneHandedMode = OneHandedMode.OFF,
     val learnFromTyping: Boolean = true,
+    /**
+     * Also add words the keyboard learns to Android's system personal
+     * dictionary, so other keyboards and spell checkers know them too. Off by
+     * default — the on-device lexicon already covers this keyboard.
+     */
+    val addWordsToSystemDictionary: Boolean = false,
     val clipboardHistory: Boolean = true,
     val clipboardExpiryHours: Int = 24,
     /** Fetch page titles for copied links and show them in the clipboard panel. */
@@ -639,16 +652,8 @@ data class KeyboardSettings(
     val voiceContinuous: Boolean = true,
     /** Saying "comma" / "দাঁড়ি" types the mark instead of the word. */
     val voiceSpokenPunctuation: Boolean = true,
-    /** Camera tool opens on the selfie camera. */
-    val cameraPreferFront: Boolean = false,
-    /** Mirror selfie captures so the photo matches the preview. */
-    val cameraMirrorFront: Boolean = true,
-    /** Play a shutter click when the camera tool takes a photo. */
-    val cameraShutterSound: Boolean = true,
-    /** Vibrate on camera controls, countdown ticks and the shutter. */
-    val cameraHaptics: Boolean = true,
-    /** Copy camera captures into Pictures/WM Keyboard as well as sending them. */
-    val cameraSaveToGallery: Boolean = false,
+    /** Camera tool settings, grouped (see [CameraSettings]). */
+    val camera: CameraSettings = CameraSettings(),
     /** Copy scanned document pages into Pictures/WM Keyboard. */
     val docScanSaveToGallery: Boolean = false,
     /** Copy generated QR codes into Pictures/WM Keyboard. */
@@ -661,8 +666,8 @@ data class KeyboardSettings(
     val qrSendMode: MediaSendMode = MediaSendMode.IMAGE,
     /** Dictionary tool looks up the word at the cursor when it opens. */
     val dictionaryAutoLookup: Boolean = true,
-    /** Auto-repeat interval while holding an arrow/backspace in the text-editing tool. */
-    val textEditRepeatMs: Int = 60,
+    /** Text-editing tool and selection-editing settings (see [TextEditingSettings]). */
+    val textEditing: TextEditingSettings = TextEditingSettings(),
     /** Number pad digits phone-style (123 on top) instead of calculator-style (789 on top). */
     val numpadPhoneLayout: Boolean = false,
     /** Incognito stops the clipboard tool from capturing copies. */
@@ -851,6 +856,47 @@ data class KeyboardSettings(
 )
 
 /**
+ * Camera-tool settings, grouped into their own object.
+ *
+ * Kotlin generates a `copy$default` for a data class that takes every property
+ * as an argument plus bookkeeping slots, and a JVM method descriptor is capped
+ * at 255 argument slots. [KeyboardSettings] had grown to that ceiling, so
+ * cohesive families like this one are split off to keep it loadable — the
+ * DataStore keys stay flat, so this is purely an in-memory grouping.
+ */
+data class CameraSettings(
+    /** Camera tool opens on the selfie camera. */
+    val preferFront: Boolean = false,
+    /** Mirror selfie captures so the photo matches the preview. */
+    val mirrorFront: Boolean = true,
+    /** Play a shutter click when the camera tool takes a photo. */
+    val shutterSound: Boolean = true,
+    /** Vibrate on camera controls, countdown ticks and the shutter. */
+    val haptics: Boolean = true,
+    /** Copy camera captures into Pictures/WM Keyboard as well as sending them. */
+    val saveToGallery: Boolean = false,
+)
+
+/**
+ * Text-editing tool and selection-editing settings, grouped into their own
+ * object (see [CameraSettings] for why). DataStore keys stay flat.
+ */
+data class TextEditingSettings(
+    /** Auto-repeat interval while holding an arrow/backspace in the text-editing tool. */
+    val repeatMs: Int = 60,
+    /**
+     * Typing a bracket, brace or quote with text selected wraps the selection
+     * in the pair (foo → (foo)) instead of replacing it.
+     */
+    val wrapSelectionWithPair: Boolean = true,
+    /**
+     * Pressing shift with text selected cycles its case (lower → Title → UPPER)
+     * instead of arming shift for the next character.
+     */
+    val recapitalizeSelectionWithShift: Boolean = true,
+)
+
+/**
  * DataStore-backed settings. Every option on the settings screens flows
  * through here; the IME service collects [settings] and re-renders live.
  */
@@ -957,6 +1003,9 @@ class SettingsRepository(private val context: Context) {
         private val AUTO_CAPITALIZE = booleanPreferencesKey("auto_capitalize")
         private val DOUBLE_SPACE_PERIOD = booleanPreferencesKey("double_space_period")
         private val DOUBLE_SPACE_TAB = booleanPreferencesKey("double_space_tab")
+        private val WRAP_SELECTION_WITH_PAIR = booleanPreferencesKey("wrap_selection_with_pair")
+        private val RECAPITALIZE_SELECTION_WITH_SHIFT =
+            booleanPreferencesKey("recapitalize_selection_with_shift")
         private val SUGGESTIONS = booleanPreferencesKey("suggestions")
         private val SHOW_SUGGESTIONS_ALL_FIELDS =
             booleanPreferencesKey("show_suggestions_all_fields")
@@ -988,6 +1037,8 @@ class SettingsRepository(private val context: Context) {
         private val CONJUNCT_BACKSPACE = booleanPreferencesKey("conjunct_backspace")
         private val ONE_HANDED_MODE = stringPreferencesKey("one_handed_mode")
         private val LEARN_FROM_TYPING = booleanPreferencesKey("learn_from_typing")
+        private val ADD_WORDS_TO_SYSTEM_DICTIONARY =
+            booleanPreferencesKey("add_words_to_system_dictionary")
         private val CLIPBOARD_HISTORY = booleanPreferencesKey("clipboard_history")
         private val CLIPBOARD_EXPIRY_HOURS = intPreferencesKey("clipboard_expiry_hours")
         private val CLIPBOARD_LINK_PREVIEWS = booleanPreferencesKey("clipboard_link_previews")
@@ -1304,6 +1355,8 @@ class SettingsRepository(private val context: Context) {
                 ?.let { runCatching { OneHandedMode.valueOf(it) }.getOrNull() }
                 ?: defaults.oneHandedMode,
             learnFromTyping = p[LEARN_FROM_TYPING] ?: defaults.learnFromTyping,
+            addWordsToSystemDictionary =
+                p[ADD_WORDS_TO_SYSTEM_DICTIONARY] ?: defaults.addWordsToSystemDictionary,
             clipboardHistory = p[CLIPBOARD_HISTORY] ?: defaults.clipboardHistory,
             clipboardExpiryHours = p[CLIPBOARD_EXPIRY_HOURS] ?: defaults.clipboardExpiryHours,
             clipboardLinkPreviews = p[CLIPBOARD_LINK_PREVIEWS] ?: defaults.clipboardLinkPreviews,
@@ -1372,11 +1425,13 @@ class SettingsRepository(private val context: Context) {
             voiceContinuous = p[VOICE_CONTINUOUS] ?: defaults.voiceContinuous,
             voiceSpokenPunctuation = p[VOICE_SPOKEN_PUNCTUATION]
                 ?: defaults.voiceSpokenPunctuation,
-            cameraPreferFront = p[CAMERA_PREFER_FRONT] ?: defaults.cameraPreferFront,
-            cameraMirrorFront = p[CAMERA_MIRROR_FRONT] ?: defaults.cameraMirrorFront,
-            cameraShutterSound = p[CAMERA_SHUTTER_SOUND] ?: defaults.cameraShutterSound,
-            cameraHaptics = p[CAMERA_HAPTICS] ?: defaults.cameraHaptics,
-            cameraSaveToGallery = p[CAMERA_SAVE_TO_GALLERY] ?: defaults.cameraSaveToGallery,
+            camera = CameraSettings(
+                preferFront = p[CAMERA_PREFER_FRONT] ?: defaults.camera.preferFront,
+                mirrorFront = p[CAMERA_MIRROR_FRONT] ?: defaults.camera.mirrorFront,
+                shutterSound = p[CAMERA_SHUTTER_SOUND] ?: defaults.camera.shutterSound,
+                haptics = p[CAMERA_HAPTICS] ?: defaults.camera.haptics,
+                saveToGallery = p[CAMERA_SAVE_TO_GALLERY] ?: defaults.camera.saveToGallery,
+            ),
             docScanSaveToGallery = p[DOC_SCAN_SAVE_TO_GALLERY] ?: defaults.docScanSaveToGallery,
             qrSaveToGallery = p[QR_SAVE_TO_GALLERY] ?: defaults.qrSaveToGallery,
             stickerSendMode = p[STICKER_SEND_MODE]
@@ -1389,7 +1444,13 @@ class SettingsRepository(private val context: Context) {
                 ?.let { runCatching { MediaSendMode.valueOf(it) }.getOrNull() }
                 ?: defaults.qrSendMode,
             dictionaryAutoLookup = p[DICTIONARY_AUTO_LOOKUP] ?: defaults.dictionaryAutoLookup,
-            textEditRepeatMs = p[TEXT_EDIT_REPEAT_MS] ?: defaults.textEditRepeatMs,
+            textEditing = TextEditingSettings(
+                repeatMs = p[TEXT_EDIT_REPEAT_MS] ?: defaults.textEditing.repeatMs,
+                wrapSelectionWithPair =
+                    p[WRAP_SELECTION_WITH_PAIR] ?: defaults.textEditing.wrapSelectionWithPair,
+                recapitalizeSelectionWithShift = p[RECAPITALIZE_SELECTION_WITH_SHIFT]
+                    ?: defaults.textEditing.recapitalizeSelectionWithShift,
+            ),
             numpadPhoneLayout = p[NUMPAD_PHONE_LAYOUT] ?: defaults.numpadPhoneLayout,
             incognitoPausesClipboard = p[INCOGNITO_PAUSES_CLIPBOARD] ?: defaults.incognitoPausesClipboard,
             incognitoPausesLearning = p[INCOGNITO_PAUSES_LEARNING] ?: defaults.incognitoPausesLearning,
@@ -2175,6 +2236,12 @@ class SettingsRepository(private val context: Context) {
     suspend fun setDoubleSpaceTab(value: Boolean) =
         context.dataStore.edit { it[DOUBLE_SPACE_TAB] = value }
 
+    suspend fun setWrapSelectionWithPair(value: Boolean) =
+        context.dataStore.edit { it[WRAP_SELECTION_WITH_PAIR] = value }
+
+    suspend fun setRecapitalizeSelectionWithShift(value: Boolean) =
+        context.dataStore.edit { it[RECAPITALIZE_SELECTION_WITH_SHIFT] = value }
+
     suspend fun setSuggestions(value: Boolean) =
         context.dataStore.edit { it[SUGGESTIONS] = value }
 
@@ -2252,6 +2319,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setLearnFromTyping(value: Boolean) =
         context.dataStore.edit { it[LEARN_FROM_TYPING] = value }
+
+    suspend fun setAddWordsToSystemDictionary(value: Boolean) =
+        context.dataStore.edit { it[ADD_WORDS_TO_SYSTEM_DICTIONARY] = value }
 
     suspend fun setClipboardHistory(value: Boolean) =
         context.dataStore.edit { it[CLIPBOARD_HISTORY] = value }

@@ -207,7 +207,7 @@ internal fun CameraPanel(
                     description = "Close camera",
                     active = false,
                 ) {
-                    if (state.settings.cameraHaptics) keyFeedback()
+                    if (state.settings.camera.haptics) keyFeedback()
                     onClose()
                 }
             }
@@ -229,7 +229,7 @@ private fun CameraContent(
     val provider by produceState<ProcessCameraProvider?>(null) {
         value = withContext(Dispatchers.IO) { ProcessCameraProvider.getInstance(context).get() }
     }
-    var frontFacing by remember { mutableStateOf(state.settings.cameraPreferFront) }
+    var frontFacing by remember { mutableStateOf(state.settings.camera.preferFront) }
     var flashMode by remember { mutableIntStateOf(ImageCapture.FLASH_MODE_OFF) }
     var timerSeconds by remember { mutableIntStateOf(0) }
     var countdown by remember { mutableIntStateOf(0) }
@@ -245,7 +245,7 @@ private fun CameraContent(
     // Haptics on controls, ticks and shutter — the tool setting gates it;
     // the global haptic settings still shape the actual vibration.
     val keyFeedback = LocalKeyPressFeedback.current
-    val feedback = { if (state.settings.cameraHaptics) keyFeedback() }
+    val feedback = { if (state.settings.camera.haptics) keyFeedback() }
     val shutterSound = remember {
         MediaActionSound().apply { load(MediaActionSound.SHUTTER_CLICK) }
     }
@@ -323,10 +323,10 @@ private fun CameraContent(
                 }
                 countdown = 0
             }
-            if (state.settings.cameraShutterSound) {
+            if (state.settings.camera.shutterSound) {
                 shutterSound.play(MediaActionSound.SHUTTER_CLICK)
             }
-            val mirror = usingFront && state.settings.cameraMirrorFront
+            val mirror = usingFront && state.settings.camera.mirrorFront
             val geo = geometry
             val capture = withContext(Dispatchers.IO) {
                 runCatching {

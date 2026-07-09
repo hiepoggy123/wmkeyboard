@@ -78,6 +78,7 @@ import com.wasimaster.wmkeyboard.core.prediction.EnglishBengaliMap
 import com.wasimaster.wmkeyboard.core.prediction.KeyProximity
 import com.wasimaster.wmkeyboard.core.prediction.SeedBigrams
 import com.wasimaster.wmkeyboard.core.prediction.SuggestionEngine
+import com.wasimaster.wmkeyboard.core.prediction.SystemUserDictionary
 import com.wasimaster.wmkeyboard.core.prediction.Trie
 import com.wasimaster.wmkeyboard.core.prediction.UserLexicon
 import com.wasimaster.wmkeyboard.core.settings.EmojiInsertMode
@@ -1594,6 +1595,32 @@ class WMKeyboardService : InputMethodService() {
         // new character, like every other keyboard. Never route through the
         // composing buffer in that case.
         if (hasSelection(ic)) {
+            // Bracket/brace/quote over a selection wraps it in the pair
+            // ("foo" → "(foo)") instead of replacing it, and leaves the inner
+            // text selected so it can be wrapped or re-cased again.
+            val closer = if (state.settings.textEditing.wrapSelectionWithPair && text.length == 1) {
+                WRAP_PAIRS[text[0]]
+            } else {
+                null
+            }
+            if (closer != null) {
+                val selected = ic.getSelectedText(0)?.toString().orEmpty()
+                composing = StringBuilder()
+                ic.beginBatchEdit()
+                ic.commitText("$text$selected$closer", 1)
+                val end = ic.getExtractedText(ExtractedTextRequest(), 0)?.selectionEnd
+                if (end != null) {
+                    val innerEnd = end - closer.length
+                    val innerStart = innerEnd - selected.length
+                    if (innerStart in 0..innerEnd) ic.setSelection(innerStart, innerEnd)
+                }
+                ic.endBatchEdit()
+                consumeShift()
+                _uiState.update {
+                    it.copy(composingPreview = "", suggestions = emptyList(), emojiSuggestions = emptyList())
+                }
+                return
+            }
             composing = StringBuilder()
             ic.commitText(text, 1)
             consumeShift()
@@ -1684,6 +1711,13 @@ class WMKeyboardService : InputMethodService() {
     }
 
     private fun onShift() {
+        // With a selection, shift re-cases the selected text (lower → Title →
+        // UPPER) rather than arming shift for the next character. Falls through
+        // to normal shift when nothing is selected or the feature is off.
+        if (_uiState.value.settings.textEditing.recapitalizeSelectionWithShift) {
+            val ic = currentInputConnection
+            if (ic != null && hasSelection(ic) && recapitalizeSelection(ic)) return
+        }
         val now = System.currentTimeMillis()
         val doubleTap = now - lastShiftTapTime < SHIFT_DOUBLE_TAP_MS
         lastShiftTapTime = now
@@ -1702,6 +1736,49 @@ class WMKeyboardService : InputMethodService() {
         _uiState.update {
             if (it.shiftState == ShiftState.ON) it.copy(shiftState = ShiftState.OFF) else it
         }
+    }
+
+    /**
+     * Re-cases the current selection to the next form in the cycle
+     * lower → Title → UPPER → lower and keeps it selected, so repeated shift
+     * presses walk the cycle. Returns false (leaving the selection alone) when
+     * there is nothing to change — e.g. a caseless script like Bengali.
+     */
+    private fun recapitalizeSelection(ic: InputConnection): Boolean {
+        val selected = ic.getSelectedText(0)?.toString().orEmpty()
+        if (selected.isEmpty()) return false
+        val next = nextCaseForm(selected)
+        if (next == selected) return false
+        ic.beginBatchEdit()
+        ic.commitText(next, 1)
+        val end = ic.getExtractedText(ExtractedTextRequest(), 0)?.selectionEnd
+        if (end != null) ic.setSelection((end - next.length).coerceAtLeast(0), end)
+        ic.endBatchEdit()
+        return true
+    }
+
+    /** Advances [s] one step through lower → Title → UPPER → lower. */
+    private fun nextCaseForm(s: String): String {
+        val lower = s.lowercase()
+        val upper = s.uppercase()
+        val title = toTitleCase(s)
+        return when {
+            s == lower -> title
+            s == title && title != upper -> upper
+            s == upper -> lower
+            else -> lower // mixed case → normalize to lower to restart the cycle
+        }
+    }
+
+    /** "hELLO wORLD" → "Hello World": first letter of each word up, rest down. */
+    private fun toTitleCase(s: String): String {
+        val sb = StringBuilder(s.length)
+        var prevLetter = false
+        for (c in s) {
+            sb.append(if (!prevLetter && c.isLetter()) c.uppercaseChar() else c.lowercaseChar())
+            prevLetter = c.isLetter()
+        }
+        return sb.toString()
     }
 
     private fun onDelete() {
@@ -2388,6 +2465,14 @@ class WMKeyboardService : InputMethodService() {
             val cleaned = part.trim { !it.isLetter() }
             if (cleaned.isEmpty()) continue
             userLexicon.learnWord(cleaned, reinforcement)
+            // Mirror genuinely typed words (not autocorrect targets, which are
+            // reinforcement 0 and already dictionary words) into Android's
+            // shared personal dictionary when the user has opted in.
+            if (reinforcement > 0 && state.settings.addWordsToSystemDictionary) {
+                serviceScope.launch(Dispatchers.IO) {
+                    SystemUserDictionary.add(applicationContext, cleaned)
+                }
+            }
             previous?.let { userLexicon.learnBigram(it, cleaned) }
             previous = cleaned
             lastLearned = cleaned
@@ -4673,7 +4758,7 @@ class WMKeyboardService : InputMethodService() {
         saveToGalleryIfEnabled(
             file,
             MediaMime.JPEG,
-            _uiState.value.settings.cameraSaveToGallery,
+            _uiState.value.settings.camera.saveToGallery,
             "IMG",
         )
         commitImageFile(file, MediaMime.JPEG)
@@ -5327,6 +5412,13 @@ class WMKeyboardService : InputMethodService() {
             TextEditAction.END -> sendEditorKey(KeyEvent.KEYCODE_MOVE_END, selecting)
             TextEditAction.PAGE_UP -> sendEditorKey(KeyEvent.KEYCODE_PAGE_UP, selecting)
             TextEditAction.PAGE_DOWN -> sendEditorKey(KeyEvent.KEYCODE_PAGE_DOWN, selecting)
+            // Ctrl+Arrow is the editor's move-by-word shortcut; with the panel's
+            // select mode on it carries shift too and extends word by word.
+            TextEditAction.WORD_LEFT ->
+                sendEditorKey(KeyEvent.KEYCODE_DPAD_LEFT, selecting, ctrl = true)
+            TextEditAction.WORD_RIGHT ->
+                sendEditorKey(KeyEvent.KEYCODE_DPAD_RIGHT, selecting, ctrl = true)
+            TextEditAction.SELECT_WORD -> selectWordAtCursor(ic)
             TextEditAction.SELECT ->
                 _uiState.update { it.copy(textEditSelecting = !selecting) }
             TextEditAction.SELECT_ALL -> {
@@ -5371,26 +5463,69 @@ class WMKeyboardService : InputMethodService() {
         }
     }
 
-    /** DPAD/home/end navigation; with [shift] the move extends the selection. */
-    private fun sendEditorKey(code: Int, shift: Boolean) {
-        if (!shift) {
+    /**
+     * DPAD/home/end navigation; with [shift] the move extends the selection,
+     * and with [ctrl] it moves by whole words (the editor's Ctrl+Arrow binding).
+     */
+    private fun sendEditorKey(code: Int, shift: Boolean, ctrl: Boolean = false) {
+        if (!shift && !ctrl) {
             sendDownUpKeyEvents(code)
             return
         }
         val ic = currentInputConnection ?: return
         val time = android.os.SystemClock.uptimeMillis()
-        val meta = KeyEvent.META_SHIFT_ON or KeyEvent.META_SHIFT_LEFT_ON
+        var meta = 0
+        if (shift) meta = meta or KeyEvent.META_SHIFT_ON or KeyEvent.META_SHIFT_LEFT_ON
+        if (ctrl) meta = meta or KeyEvent.META_CTRL_ON or KeyEvent.META_CTRL_LEFT_ON
         // A bare meta flag isn't enough for every editor: TextView tracks
-        // modifier state from the shift key's own down/up events, so wrap
-        // the arrow in a real shift press like a hardware keyboard would.
-        ic.sendKeyEvent(
-            KeyEvent(time, time, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_SHIFT_LEFT, 0, meta)
-        )
+        // modifier state from the modifier keys' own down/up events, so wrap
+        // the arrow in real shift/ctrl presses like a hardware keyboard would.
+        if (shift) {
+            ic.sendKeyEvent(
+                KeyEvent(time, time, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_SHIFT_LEFT, 0, meta)
+            )
+        }
+        if (ctrl) {
+            ic.sendKeyEvent(
+                KeyEvent(time, time, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_CTRL_LEFT, 0, meta)
+            )
+        }
         ic.sendKeyEvent(KeyEvent(time, time, KeyEvent.ACTION_DOWN, code, 0, meta))
         ic.sendKeyEvent(KeyEvent(time, time, KeyEvent.ACTION_UP, code, 0, meta))
-        ic.sendKeyEvent(
-            KeyEvent(time, time, KeyEvent.ACTION_UP, KeyEvent.KEYCODE_SHIFT_LEFT, 0, meta)
-        )
+        if (ctrl) {
+            ic.sendKeyEvent(
+                KeyEvent(time, time, KeyEvent.ACTION_UP, KeyEvent.KEYCODE_CTRL_LEFT, 0, meta)
+            )
+        }
+        if (shift) {
+            ic.sendKeyEvent(
+                KeyEvent(time, time, KeyEvent.ACTION_UP, KeyEvent.KEYCODE_SHIFT_LEFT, 0, meta)
+            )
+        }
+    }
+
+    /**
+     * Selects the word straddling the cursor: walks out to the word boundaries
+     * on either side of the caret and sets the selection to span them. A caret
+     * on whitespace or punctuation (no word to grab) is left untouched. The
+     * offsets from [getExtractedText] are used directly as document positions,
+     * matching how the rest of this service treats them.
+     */
+    private fun selectWordAtCursor(ic: InputConnection) {
+        val et = ic.getExtractedText(ExtractedTextRequest(), 0) ?: return
+        val text = et.text ?: return
+        val n = text.length
+        // Anchor at the caret (selection end); clamp defensively.
+        val caret = et.selectionEnd.let { if (it in 0..n) it else et.selectionStart }
+        if (caret !in 0..n) return
+        fun isWord(c: Char) = c.isLetterOrDigit() || c == '\'' || c == '_'
+        var start = caret
+        var end = caret
+        while (start > 0 && isWord(text[start - 1])) start--
+        while (end < n && isWord(text[end])) end++
+        if (start == end) return
+        ic.setSelection(start, end)
+        _uiState.update { it.copy(textEditSelecting = true) }
     }
 
     fun onSnippetTapped(snippet: Snippet) {
@@ -6122,6 +6257,18 @@ class WMKeyboardService : InputMethodService() {
         private const val WEATHER_CACHE_MS = 15L * 60 * 1000
         private val SENTENCE_ENDERS = charArrayOf('.', '!', '?', '।')
         private const val SHIFT_DOUBLE_TAP_MS = 350L
+
+        /**
+         * Opening bracket/brace/quote → its closer. Typing one of these with a
+         * selection wraps the selected text in the pair. Symmetric quotes map
+         * to themselves; closers are deliberately absent so pressing ")" over a
+         * selection still just replaces it, as every keyboard does.
+         */
+        private val WRAP_PAIRS: Map<Char, String> = mapOf(
+            '(' to ")", '[' to "]", '{' to "}", '<' to ">",
+            '"' to "\"", '\'' to "'", '`' to "`",
+            '“' to "”", '‘' to "’", '«' to "»", '｢' to "｣",
+        )
         /** Cap on files recorded from one multi-select copy. */
         private const val MAX_FILE_CLIPS_PER_COPY = 20
         /** Links fetched per panel open, so a history of links isn't a request storm. */

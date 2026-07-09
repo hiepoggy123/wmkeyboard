@@ -84,9 +84,12 @@ import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.FirstPage
 import androidx.compose.material.icons.outlined.Folder
+import androidx.compose.material.icons.outlined.Highlight
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.KeyboardDoubleArrowDown
+import androidx.compose.material.icons.outlined.KeyboardDoubleArrowLeft
+import androidx.compose.material.icons.outlined.KeyboardDoubleArrowRight
 import androidx.compose.material.icons.outlined.KeyboardDoubleArrowUp
 import androidx.compose.material.icons.outlined.LastPage
 import androidx.compose.material.icons.outlined.Image
@@ -654,12 +657,15 @@ fun KeyboardScreen(
             // on, since onTextEdit reads that state itself.
             ToolbarTool.CURSOR_LEFT -> onTextEdit(TextEditAction.LEFT)
             ToolbarTool.CURSOR_RIGHT -> onTextEdit(TextEditAction.RIGHT)
+            ToolbarTool.CURSOR_WORD_LEFT -> onTextEdit(TextEditAction.WORD_LEFT)
+            ToolbarTool.CURSOR_WORD_RIGHT -> onTextEdit(TextEditAction.WORD_RIGHT)
             ToolbarTool.CURSOR_UP -> onTextEdit(TextEditAction.UP)
             ToolbarTool.CURSOR_DOWN -> onTextEdit(TextEditAction.DOWN)
             ToolbarTool.CURSOR_HOME -> onTextEdit(TextEditAction.HOME)
             ToolbarTool.CURSOR_END -> onTextEdit(TextEditAction.END)
             ToolbarTool.PAGE_UP -> onTextEdit(TextEditAction.PAGE_UP)
             ToolbarTool.PAGE_DOWN -> onTextEdit(TextEditAction.PAGE_DOWN)
+            ToolbarTool.SELECT_WORD -> onTextEdit(TextEditAction.SELECT_WORD)
         }
     }
 
@@ -1992,12 +1998,15 @@ internal fun toolIcon(tool: ToolbarTool): ImageVector = when (tool) {
     ToolbarTool.MODES -> Icons.Outlined.Tune
     ToolbarTool.CURSOR_LEFT -> Icons.AutoMirrored.Outlined.KeyboardArrowLeft
     ToolbarTool.CURSOR_RIGHT -> Icons.AutoMirrored.Outlined.KeyboardArrowRight
+    ToolbarTool.CURSOR_WORD_LEFT -> Icons.Outlined.KeyboardDoubleArrowLeft
+    ToolbarTool.CURSOR_WORD_RIGHT -> Icons.Outlined.KeyboardDoubleArrowRight
     ToolbarTool.CURSOR_UP -> Icons.Outlined.KeyboardArrowUp
     ToolbarTool.CURSOR_DOWN -> Icons.Outlined.KeyboardArrowDown
     ToolbarTool.CURSOR_HOME -> Icons.Outlined.FirstPage
     ToolbarTool.CURSOR_END -> Icons.Outlined.LastPage
     ToolbarTool.PAGE_UP -> Icons.Outlined.KeyboardDoubleArrowUp
     ToolbarTool.PAGE_DOWN -> Icons.Outlined.KeyboardDoubleArrowDown
+    ToolbarTool.SELECT_WORD -> Icons.Outlined.Highlight
 }
 
 internal fun toolLabel(tool: ToolbarTool): String = when (tool) {
@@ -2047,12 +2056,15 @@ internal fun toolLabel(tool: ToolbarTool): String = when (tool) {
     ToolbarTool.MODES -> "Modes"
     ToolbarTool.CURSOR_LEFT -> "Left"
     ToolbarTool.CURSOR_RIGHT -> "Right"
+    ToolbarTool.CURSOR_WORD_LEFT -> "Word left"
+    ToolbarTool.CURSOR_WORD_RIGHT -> "Word right"
     ToolbarTool.CURSOR_UP -> "Up"
     ToolbarTool.CURSOR_DOWN -> "Down"
     ToolbarTool.CURSOR_HOME -> "Line start"
     ToolbarTool.CURSOR_END -> "Line end"
     ToolbarTool.PAGE_UP -> "Page up"
     ToolbarTool.PAGE_DOWN -> "Page down"
+    ToolbarTool.SELECT_WORD -> "Select word"
 }
 
 private fun toolActive(tool: ToolbarTool, state: KeyboardUiState): Boolean = when (tool) {
@@ -2102,9 +2114,11 @@ private fun toolActive(tool: ToolbarTool, state: KeyboardUiState): Boolean = whe
     ToolbarTool.MODES -> state.panel == PanelMode.MODES || state.activeModeId != null
     // Stateless one-shot moves, like undo/redo: nothing to stay lit for.
     ToolbarTool.CURSOR_LEFT, ToolbarTool.CURSOR_RIGHT,
+    ToolbarTool.CURSOR_WORD_LEFT, ToolbarTool.CURSOR_WORD_RIGHT,
     ToolbarTool.CURSOR_UP, ToolbarTool.CURSOR_DOWN,
     ToolbarTool.CURSOR_HOME, ToolbarTool.CURSOR_END,
-    ToolbarTool.PAGE_UP, ToolbarTool.PAGE_DOWN -> false
+    ToolbarTool.PAGE_UP, ToolbarTool.PAGE_DOWN,
+    ToolbarTool.SELECT_WORD -> false
 }
 
 /**

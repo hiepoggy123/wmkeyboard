@@ -82,12 +82,15 @@ fun toolAccentColor(tool: ToolbarTool): Color = when (tool) {
     // Cursor keys — one neutral so they read as a set
     ToolbarTool.CURSOR_LEFT,
     ToolbarTool.CURSOR_RIGHT,
+    ToolbarTool.CURSOR_WORD_LEFT,
+    ToolbarTool.CURSOR_WORD_RIGHT,
     ToolbarTool.CURSOR_UP,
     ToolbarTool.CURSOR_DOWN,
     ToolbarTool.CURSOR_HOME,
     ToolbarTool.CURSOR_END,
     ToolbarTool.PAGE_UP,
-    ToolbarTool.PAGE_DOWN -> Color(0xFF90A4AE)
+    ToolbarTool.PAGE_DOWN,
+    ToolbarTool.SELECT_WORD -> Color(0xFF90A4AE)
 }
 
 /**

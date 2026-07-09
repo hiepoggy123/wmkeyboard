@@ -55,7 +55,7 @@ internal fun TextEditPanel(
 ) {
     val height = keyRowsHeight(state)
     val rowHeight = state.settings.keyHeightDp.dp
-    val repeatMs = state.settings.textEditRepeatMs.toLong()
+    val repeatMs = state.settings.textEditing.repeatMs.toLong()
     Column(
         modifier = Modifier
             .fillMaxWidth()
