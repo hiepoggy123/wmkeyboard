@@ -1521,14 +1521,7 @@ internal fun SoundHapticsPanel(
             ) {
                 for (style in HapticStyle.entries) {
                     StyleChip(
-                        label = when (style) {
-                            HapticStyle.SYSTEM_KEY -> "Key"
-                            HapticStyle.SYSTEM_TAP -> "Tap"
-                            HapticStyle.CUSTOM -> "Custom"
-                            HapticStyle.CLICK -> "Click"
-                            HapticStyle.HEAVY_CLICK -> "Heavy"
-                            HapticStyle.SHARP -> "Sharp"
-                        },
+                        label = style.label,
                         selected = settings.hapticStyle == style,
                     ) { onAction(SoundHapticAction.HapticStyleChange(style)) }
                 }

@@ -208,7 +208,19 @@ enum class KeySoundStyle { CLICK, STANDARD, POP, THOCK, CHIME }
  * sliders; [CLICK]/[HEAVY_CLICK] with the device's predefined effects
  * (Android 10+); [SHARP] with the click primitive (Android 11+).
  */
-enum class HapticStyle { SYSTEM_KEY, SYSTEM_TAP, CUSTOM, CLICK, HEAVY_CLICK, SHARP }
+// Declared best-to-worst: the two recommended platform styles first, then the
+// hardware-tuned effects, then the manual Custom fallback last. UIs iterate
+// `entries`, so this order drives their display. Persistence keys off `.name`,
+// so reordering is storage-safe. [label] is the short chip caption shared by
+// every picker.
+enum class HapticStyle(val label: String) {
+    SYSTEM_KEY("Key"),
+    SYSTEM_TAP("Tap"),
+    CLICK("Click"),
+    HEAVY_CLICK("Heavy"),
+    SHARP("Sharp"),
+    CUSTOM("Custom"),
+}
 
 /**
  * What a horizontal swipe on the spacebar does. "Short" swipes start

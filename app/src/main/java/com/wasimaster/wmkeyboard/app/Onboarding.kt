@@ -447,27 +447,18 @@ private fun FeedbackPage(repository: SettingsRepository, settings: KeyboardSetti
             style = MaterialTheme.typography.bodyLarge,
             modifier = Modifier.padding(start = 16.dp, top = 8.dp),
         )
-        SingleChoiceSegmentedButtonRow(modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp)) {
-            HapticStyle.entries.forEachIndexed { index, style ->
-                SegmentedButton(
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+        ) {
+            HapticStyle.entries.forEach { style ->
+                FilterChip(
                     selected = settings.hapticStyle == style,
                     onClick = { scope.launch { repository.setHapticStyle(style) } },
-                    shape = SegmentedButtonDefaults.itemShape(index, HapticStyle.entries.size),
-                ) {
-                    Text(
-                        when (style) {
-                            HapticStyle.SYSTEM_KEY -> "Key"
-                            HapticStyle.SYSTEM_TAP -> "Tap"
-                            HapticStyle.CUSTOM -> "Custom"
-                            HapticStyle.CLICK -> "Click"
-                            HapticStyle.HEAVY_CLICK -> "Heavy"
-                            HapticStyle.SHARP -> "Sharp"
-                        },
-                        maxLines = 1,
-                    )
-                }
+                    label = { Text(style.label, maxLines = 1) },
+                )
             }
         }
     }

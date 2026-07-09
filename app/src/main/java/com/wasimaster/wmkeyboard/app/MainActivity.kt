@@ -1620,11 +1620,16 @@ private fun KeyPressSettings(repository: SettingsRepository, settings: KeyboardS
                         "Click, then Custom.",
                 )
             }
-            SingleChoiceSegmentedButtonRow(modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp)) {
-                HapticStyle.entries.forEachIndexed { index, style ->
-                    SegmentedButton(
+            // Six styles overflow a segmented row; wrapping chips give each a
+            // full, readable label. Ordered best-to-worst via HapticStyle.entries.
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+            ) {
+                HapticStyle.entries.forEach { style ->
+                    FilterChip(
                         selected = settings.hapticStyle == style,
                         onClick = {
                             scope.launch { repository.setHapticStyle(style) }
@@ -1634,20 +1639,8 @@ private fun KeyPressSettings(repository: SettingsRepository, settings: KeyboardS
                                 context, style, settings.hapticAmplitude, settings.hapticStrengthMs, view,
                             )
                         },
-                        shape = SegmentedButtonDefaults.itemShape(index, HapticStyle.entries.size),
-                    ) {
-                        Text(
-                            when (style) {
-                                HapticStyle.SYSTEM_KEY -> "Key"
-                                HapticStyle.SYSTEM_TAP -> "Tap"
-                                HapticStyle.CUSTOM -> "Custom"
-                                HapticStyle.CLICK -> "Click"
-                                HapticStyle.HEAVY_CLICK -> "Heavy"
-                                HapticStyle.SHARP -> "Sharp"
-                            },
-                            maxLines = 1,
-                        )
-                    }
+                        label = { Text(style.label, maxLines = 1) },
+                    )
                 }
             }
         }
