@@ -30,6 +30,7 @@ import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -86,6 +87,7 @@ import androidx.compose.material.icons.outlined.FirstPage
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.KeyboardArrowUp
+import androidx.compose.material.icons.outlined.KeyboardHide
 import androidx.compose.material.icons.outlined.KeyboardDoubleArrowDown
 import androidx.compose.material.icons.outlined.KeyboardDoubleArrowUp
 import androidx.compose.material.icons.outlined.LastPage
@@ -275,6 +277,7 @@ import com.wasimaster.wmkeyboard.core.grammar.GrammarLint
 import com.wasimaster.wmkeyboard.core.gesture.KeyCenter
 import com.wasimaster.wmkeyboard.core.handwriting.HwPoint
 import com.wasimaster.wmkeyboard.core.handwriting.HwStroke
+import com.wasimaster.wmkeyboard.core.script.TextDirection
 import com.wasimaster.wmkeyboard.core.settings.BarRow
 import com.wasimaster.wmkeyboard.core.settings.EmojiBarContent
 import com.wasimaster.wmkeyboard.core.settings.GrammarDialect
@@ -576,6 +579,8 @@ fun KeyboardScreen(
     onSmartOpen: () -> Unit = {},
     /** A tool panel has read [KeyboardUiState.toolPrefill]. */
     onToolPrefillConsumed: () -> Unit = {},
+    /** Dismiss the keyboard — the hide-keyboard tool and the toolbar swipe-down. */
+    onHideKeyboard: () -> Unit = {},
     onOpenSettings: () -> Unit,
 ) {
     val rawState by stateFlow.collectAsState()
@@ -660,6 +665,7 @@ fun KeyboardScreen(
             ToolbarTool.CURSOR_END -> onTextEdit(TextEditAction.END)
             ToolbarTool.PAGE_UP -> onTextEdit(TextEditAction.PAGE_UP)
             ToolbarTool.PAGE_DOWN -> onTextEdit(TextEditAction.PAGE_DOWN)
+            ToolbarTool.HIDE_KEYBOARD -> onHideKeyboard()
         }
     }
 
@@ -679,6 +685,7 @@ fun KeyboardScreen(
                 onSmartAccept = onSmartAccept,
                 onSmartOpen = onSmartOpen,
                 onToolPrefillConsumed = onToolPrefillConsumed,
+                onHideKeyboard = onHideKeyboard,
                 onKey = onKey,
                 onText = onText,
                 onGesture = onGesture,
@@ -1149,6 +1156,8 @@ private fun TopBar(
     onDismissInlineSuggestions: () -> Unit = {},
     onSmartAccept: () -> Unit = {},
     onSmartOpen: () -> Unit = {},
+    /** Downward flick on the strip: dismiss the keyboard (opt-in). */
+    onSwipeDownHide: () -> Unit = {},
 ) {
     // "Show the toolbar instead" while suggestions are up; resets once the
     // suggestions go away so the bar returns to candidates next time.
@@ -1332,7 +1341,33 @@ private fun TopBar(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(topBarHeight(state.settings)),
+            .height(topBarHeight(state.settings))
+            // A deliberate downward flick anywhere on the strip dismisses the
+            // keyboard. A tool's own reorder is a hold-then-drag, so it fires
+            // its long-press first and never reaches this detector; a quick
+            // flick never trips the long-press, so the two don't collide.
+            .then(
+                if (state.settings.toolbarBehavior.swipeDownHide) {
+                    Modifier.pointerInput(onSwipeDownHide) {
+                        val threshold = ToolbarSwipeHideThreshold.toPx()
+                        var travelled = 0f
+                        var fired = false
+                        detectVerticalDragGestures(
+                            onDragStart = { travelled = 0f; fired = false },
+                            onDragEnd = { travelled = 0f; fired = false },
+                            onDragCancel = { travelled = 0f; fired = false },
+                        ) { _, dragAmount ->
+                            travelled += dragAmount
+                            if (!fired && travelled > threshold) {
+                                fired = true
+                                onSwipeDownHide()
+                            }
+                        }
+                    }
+                } else {
+                    Modifier
+                },
+            ),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         val feedback = LocalKeyPressFeedback.current
@@ -1996,6 +2031,7 @@ internal fun toolIcon(tool: ToolbarTool): ImageVector = when (tool) {
     ToolbarTool.CURSOR_DOWN -> Icons.Outlined.KeyboardArrowDown
     ToolbarTool.CURSOR_HOME -> Icons.Outlined.FirstPage
     ToolbarTool.CURSOR_END -> Icons.Outlined.LastPage
+    ToolbarTool.HIDE_KEYBOARD -> Icons.Outlined.KeyboardHide
     ToolbarTool.PAGE_UP -> Icons.Outlined.KeyboardDoubleArrowUp
     ToolbarTool.PAGE_DOWN -> Icons.Outlined.KeyboardDoubleArrowDown
 }
@@ -2051,6 +2087,7 @@ internal fun toolLabel(tool: ToolbarTool): String = when (tool) {
     ToolbarTool.CURSOR_DOWN -> "Down"
     ToolbarTool.CURSOR_HOME -> "Line start"
     ToolbarTool.CURSOR_END -> "Line end"
+    ToolbarTool.HIDE_KEYBOARD -> "Hide"
     ToolbarTool.PAGE_UP -> "Page up"
     ToolbarTool.PAGE_DOWN -> "Page down"
 }
@@ -2104,7 +2141,9 @@ private fun toolActive(tool: ToolbarTool, state: KeyboardUiState): Boolean = whe
     ToolbarTool.CURSOR_LEFT, ToolbarTool.CURSOR_RIGHT,
     ToolbarTool.CURSOR_UP, ToolbarTool.CURSOR_DOWN,
     ToolbarTool.CURSOR_HOME, ToolbarTool.CURSOR_END,
-    ToolbarTool.PAGE_UP, ToolbarTool.PAGE_DOWN -> false
+    ToolbarTool.PAGE_UP, ToolbarTool.PAGE_DOWN,
+    // A one-shot action too — it hides the keyboard, nothing to keep lit.
+    ToolbarTool.HIDE_KEYBOARD -> false
 }
 
 /**
@@ -2756,8 +2795,8 @@ private fun RowScope.ToolbarRow(
     val customizing = state.panel == PanelMode.TOOLBOX
     // Scrolling wants the tools at their natural width, so it overrides the
     // greedy even-spread (which would keep them all on screen and shrinking).
-    val scrollable = state.settings.toolbarScrollable
-    val greedy = state.settings.toolbarGreedy && !scrollable
+    val scrollable = state.settings.toolbarBehavior.scrollable
+    val greedy = state.settings.toolbarBehavior.greedy && !scrollable
     val labels = state.settings.toolbarLabels
     val labelSize = state.settings.toolbarLabelSize
     val motion = !state.settings.reduceMotion
@@ -2766,7 +2805,12 @@ private fun RowScope.ToolbarRow(
     // finish ahead of the icons still sliding back into the freed slot.
     val enterMs = if (motion) ToolbarMotionMs else 0
     val exitMs = enterMs
-    val tools = state.settings.toolbarTools.filter { it in state.settings.enabledTools && isSupportedTool(it) }
+    // RTL scripts read the bar right-to-left, so the pinned tools mirror. The
+    // drag controller mirrors its copy in lockstep (see KeyboardBody), so slot
+    // hit-testing stays aligned with what's drawn.
+    val tools = state.settings.toolbarTools
+        .filter { it in state.settings.enabledTools && isSupportedTool(it) }
+        .let { if (toolbarReadsRtl(state)) it.reversed() else it }
     // While a drag is live the bar previews the drop: the dragged tool's
     // cell leaves the row and a null entry (the ghost) occupies the slot
     // under the finger, so the pinned icons slide out of the way before
@@ -3417,6 +3461,7 @@ private fun KeyboardBody(
     onSmartAccept: () -> Unit,
     onSmartOpen: () -> Unit,
     onToolPrefillConsumed: () -> Unit,
+    onHideKeyboard: () -> Unit,
     onKey: (Key) -> Unit,
     onText: (String) -> Unit,
     onGesture: (List<GesturePoint>, List<KeyCenter>, Float) -> Unit,
@@ -3502,8 +3547,14 @@ private fun KeyboardBody(
     onOpenToolSettings: (ToolbarTool) -> Unit,
 ) {
     val drag = remember { ToolDragController() }
-    drag.currentTools = state.settings.toolbarTools
-    drag.onCommit = onToolbarToolsChange
+    // Mirror the drag's view of the bar when the tools read RTL, then flip the
+    // committed order back to storage order — the bar is drawn reversed but the
+    // saved list is always left-to-right.
+    val readsRtl = toolbarReadsRtl(state)
+    drag.currentTools =
+        if (readsRtl) state.settings.toolbarTools.reversed() else state.settings.toolbarTools
+    drag.onCommit =
+        if (readsRtl) { tools -> onToolbarToolsChange(tools.reversed()) } else onToolbarToolsChange
     drag.onOrderCommit = onToolboxOrderChange
     drag.onSnap = LocalKeyPressFeedback.current
     drag.onOpenSettings = onToolSettings
@@ -3538,7 +3589,9 @@ private fun KeyboardBody(
             val emojiSearching = state.panel == PanelMode.EMOJI && state.emojiSearchActive
             for (row in state.settings.barOrder) {
                 when (row) {
-                    BarRow.TOPBAR -> if (!fullBleed && !emojiSearching) {
+                    // Disabling the toolbar drops the whole strip — suggestions
+                    // and tools alike — so the keys claim its height.
+                    BarRow.TOPBAR -> if (state.settings.toolbarBehavior.enabled && !fullBleed && !emojiSearching) {
                         TopBar(
                             state, onSuggestion, onEmoji, onEmojiSuggestion, onPanelChange, onToolTap, drag,
                             onVoiceToggle = onVoiceToggle,
@@ -3547,6 +3600,7 @@ private fun KeyboardBody(
                             onDismissInlineSuggestions = onDismissInlineSuggestions,
                             onSmartAccept = onSmartAccept,
                             onSmartOpen = onSmartOpen,
+                            onSwipeDownHide = onHideKeyboard,
                         )
                     }
                     BarRow.EMOJI -> if (emojiRowVisible) {
@@ -3952,10 +4006,17 @@ private fun KeyboardBody(
                     state, onModeSelect,
                     onOpenSettings = { onOpenToolSettings(ToolbarTool.MODES) },
                 )
-                PanelMode.NONE -> KeyRows(
-                    state, onKey, onText, onGesture, onGesturePreview, onCursorMove, onLayoutSelect,
-                    onKeyboardHandwritingStroke = onKeyboardHandwritingStroke,
-                )
+                // With a hardware keyboard and toolbar-only mode on, the keys
+                // step aside and just the toolbar remains — tools stay one tap
+                // away while the physical keyboard does the typing.
+                PanelMode.NONE -> if (
+                    !(state.hardwareKeyboardPresent && state.settings.toolbarBehavior.onlyWithHardwareKeyboard)
+                ) {
+                    KeyRows(
+                        state, onKey, onText, onGesture, onGesturePreview, onCursorMove, onLayoutSelect,
+                        onKeyboardHandwritingStroke = onKeyboardHandwritingStroke,
+                    )
+                }
             }
             // In emoji search mode the letters stay visible for typing the query.
             if (state.panel == PanelMode.EMOJI && state.emojiSearchActive) {
@@ -4713,8 +4774,24 @@ private val KeyRowsPadHorizontal = 1.5.dp
  */
 internal val TopBarHeight = 44.dp
 
-/** The top strip's height for the current settings (see [TopBarHeight]). */
-internal fun topBarHeight(settings: KeyboardSettings): Dp = settings.toolbarHeightDp.dp
+/** Downward travel on the strip that counts as a "hide the keyboard" flick. */
+private val ToolbarSwipeHideThreshold = 48.dp
+
+/**
+ * Whether the pinned tools should read right-to-left: the setting is on and
+ * the active layout's script runs RTL. Both the display order and the drag
+ * hit-testing key off this, so they stay in step during a reorder.
+ */
+private fun toolbarReadsRtl(state: KeyboardUiState): Boolean =
+    state.settings.toolbarBehavior.reverseForRtl && state.script.direction == TextDirection.RTL
+
+/**
+ * The top strip's height for the current settings (see [TopBarHeight]).
+ * Collapses to zero when the toolbar is disabled, so every height-accounting
+ * caller (full-bleed absorption, emoji-search sizing) drops the strip with it.
+ */
+internal fun topBarHeight(settings: KeyboardSettings): Dp =
+    if (settings.toolbarBehavior.enabled) settings.toolbarHeightDp.dp else 0.dp
 
 /**
  * Exact height of [KeyRows]: [LayoutSet.rowSpan] key rows (each key height plus

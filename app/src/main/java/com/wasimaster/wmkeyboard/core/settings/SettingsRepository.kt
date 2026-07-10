@@ -76,6 +76,9 @@ enum class ToolbarTool {
     // the toolbar they cost a single tap instead of opening a panel first.
     CURSOR_LEFT, CURSOR_RIGHT, CURSOR_UP, CURSOR_DOWN,
     CURSOR_HOME, CURSOR_END, PAGE_UP, PAGE_DOWN,
+    // Dismiss the keyboard in one tap. Grouped with the cursor moves in the
+    // toolbox (it belongs beside the caret controls, not a panel it opens).
+    HIDE_KEYBOARD,
 }
 
 /** The cursor tools, in the order they read on the toolbar. */
@@ -119,6 +122,7 @@ private val RankedToolOrder: List<ToolbarTool> = listOf(
     // every other tool a full row down in the toolbox.
     ToolbarTool.CURSOR_LEFT, ToolbarTool.CURSOR_RIGHT, ToolbarTool.CURSOR_UP, ToolbarTool.CURSOR_DOWN,
     ToolbarTool.CURSOR_HOME, ToolbarTool.CURSOR_END, ToolbarTool.PAGE_UP, ToolbarTool.PAGE_DOWN,
+    ToolbarTool.HIDE_KEYBOARD,
 )
 
 val DefaultToolOrder: List<ToolbarTool> =
@@ -284,6 +288,48 @@ enum class ColorVisionFilter { NONE, DEUTERANOPIA, PROTANOPIA, TRITANOPIA, GRAYS
  * lift to type it — and is what TalkBack users expect.
  */
 enum class ScreenReaderMode { OFF, LABELS, EXPLORE }
+
+/**
+ * How the top toolbar behaves and lays out. Grouped into their own class
+ * rather than sitting flat on [KeyboardSettings] because that class's primary
+ * constructor is at the JVM's 255-argument ceiling — new toolbar settings land
+ * here, and existing flat ones are migrated in as room is needed. Each field
+ * still persists under its own DataStore key via the matching setter.
+ */
+data class ToolbarBehavior(
+    /**
+     * Master switch for the whole top strip (suggestions + toolbar). Off
+     * removes it entirely, reclaiming its height for the keys. Guarded by a
+     * warning in Settings because it hides suggestions and every pinned tool.
+     */
+    val enabled: Boolean = true,
+    /**
+     * Swipe down anywhere on the top strip to dismiss the keyboard, the way a
+     * downward flick on the keys does on some keyboards. Off by default so the
+     * gesture never surprises anyone reordering or scrolling the bar.
+     */
+    val swipeDownHide: Boolean = false,
+    /**
+     * With a physical keyboard attached, drop the on-screen keys and keep only
+     * the toolbar strip, so the tools stay one tap away while typing on the
+     * hardware keyboard. Off by default (the platform's usual behaviour stands).
+     */
+    val onlyWithHardwareKeyboard: Boolean = false,
+    /**
+     * Mirror the pinned tool order left-to-right when the active layout's
+     * script runs right-to-left (Arabic, Hebrew …), so the bar reads with the
+     * text. On by default; the toolbox grid is unaffected.
+     */
+    val reverseForRtl: Boolean = true,
+    /** Pinned tools split the bar width evenly instead of packing to the left. */
+    val greedy: Boolean = true,
+    /**
+     * Let the pinned tools scroll horizontally instead of packing into the
+     * bar width — for people who pin more tools than fit at a tappable size.
+     * Forces the packed (non-greedy) layout while on.
+     */
+    val scrollable: Boolean = false,
+)
 
 data class KeyboardSettings(
     /**
@@ -571,15 +617,10 @@ data class KeyboardSettings(
     val toolColorOverrides: Map<ToolbarTool, Long> = emptyMap(),
     val incognito: Boolean = false,
     val toolbarTools: List<ToolbarTool> = DefaultToolbarTools,
-    val toolbarGreedy: Boolean = true,
+    /** Toolbar enable/behaviour/layout switches (see [ToolbarBehavior]). */
+    val toolbarBehavior: ToolbarBehavior = ToolbarBehavior(),
     /** Height of the top toolbar/suggestion strip, in dp. */
     val toolbarHeightDp: Int = 44,
-    /**
-     * Let the pinned tools scroll horizontally instead of packing into the
-     * bar width — for people who pin more tools than fit at a tappable size.
-     * Forces the packed (non-greedy) layout while on.
-     */
-    val toolbarScrollable: Boolean = false,
     /** Draw each tool's name under its icon on the toolbar. */
     val toolbarLabels: Boolean = false,
     /** Font size of those toolbar labels, in sp. */
@@ -1005,6 +1046,10 @@ class SettingsRepository(private val context: Context) {
         private val INCOGNITO = booleanPreferencesKey("incognito")
         private val TOOLBAR_TOOLS = stringPreferencesKey("toolbar_tools")
         private val TOOLBAR_GREEDY = booleanPreferencesKey("toolbar_greedy")
+        private val TOOLBAR_ENABLED = booleanPreferencesKey("toolbar_enabled")
+        private val TOOLBAR_SWIPE_DOWN_HIDE = booleanPreferencesKey("toolbar_swipe_down_hide")
+        private val TOOLBAR_ONLY_HW_KEYBOARD = booleanPreferencesKey("toolbar_only_hw_keyboard")
+        private val REVERSE_TOOLBAR_RTL = booleanPreferencesKey("reverse_toolbar_rtl")
         private val TOOLBAR_HEIGHT = intPreferencesKey("toolbar_height")
         private val TOOLBAR_SCROLLABLE = booleanPreferencesKey("toolbar_scrollable")
         private val TOOLBAR_LABELS = booleanPreferencesKey("toolbar_labels")
@@ -1326,9 +1371,16 @@ class SettingsRepository(private val context: Context) {
                 if (csv.isEmpty()) emptyList()
                 else csv.split(',').mapNotNull { runCatching { ToolbarTool.valueOf(it) }.getOrNull() }
             } ?: defaults.toolbarTools,
-            toolbarGreedy = p[TOOLBAR_GREEDY] ?: defaults.toolbarGreedy,
+            toolbarBehavior = ToolbarBehavior(
+                enabled = p[TOOLBAR_ENABLED] ?: defaults.toolbarBehavior.enabled,
+                swipeDownHide = p[TOOLBAR_SWIPE_DOWN_HIDE] ?: defaults.toolbarBehavior.swipeDownHide,
+                onlyWithHardwareKeyboard =
+                    p[TOOLBAR_ONLY_HW_KEYBOARD] ?: defaults.toolbarBehavior.onlyWithHardwareKeyboard,
+                reverseForRtl = p[REVERSE_TOOLBAR_RTL] ?: defaults.toolbarBehavior.reverseForRtl,
+                greedy = p[TOOLBAR_GREEDY] ?: defaults.toolbarBehavior.greedy,
+                scrollable = p[TOOLBAR_SCROLLABLE] ?: defaults.toolbarBehavior.scrollable,
+            ),
             toolbarHeightDp = p[TOOLBAR_HEIGHT] ?: defaults.toolbarHeightDp,
-            toolbarScrollable = p[TOOLBAR_SCROLLABLE] ?: defaults.toolbarScrollable,
             toolbarLabels = p[TOOLBAR_LABELS] ?: defaults.toolbarLabels,
             toolbarLabelSize = p[TOOLBAR_LABEL_SIZE] ?: defaults.toolbarLabelSize,
             toolCircleRadiusDp = p[TOOL_CIRCLE_RADIUS] ?: defaults.toolCircleRadiusDp,
@@ -1736,6 +1788,18 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setToolbarGreedy(value: Boolean) =
         context.dataStore.edit { it[TOOLBAR_GREEDY] = value }
+
+    suspend fun setToolbarEnabled(value: Boolean) =
+        context.dataStore.edit { it[TOOLBAR_ENABLED] = value }
+
+    suspend fun setToolbarSwipeDownHide(value: Boolean) =
+        context.dataStore.edit { it[TOOLBAR_SWIPE_DOWN_HIDE] = value }
+
+    suspend fun setToolbarOnlyWithHardwareKeyboard(value: Boolean) =
+        context.dataStore.edit { it[TOOLBAR_ONLY_HW_KEYBOARD] = value }
+
+    suspend fun setReverseToolbarForRtl(value: Boolean) =
+        context.dataStore.edit { it[REVERSE_TOOLBAR_RTL] = value }
 
     suspend fun setToolbarHeightDp(value: Int) =
         context.dataStore.edit { it[TOOLBAR_HEIGHT] = value.coerceIn(32, 80) }

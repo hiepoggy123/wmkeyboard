@@ -69,6 +69,7 @@ import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.KeyboardDoubleArrowDown
 import androidx.compose.material.icons.outlined.KeyboardDoubleArrowUp
+import androidx.compose.material.icons.outlined.KeyboardHide
 import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.LastPage
 import androidx.compose.material.icons.outlined.GridOn
@@ -1912,6 +1913,8 @@ private fun AppearanceSettings(
     onOpenFonts: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
+    // Turning the toolbar off is guarded — it hides suggestions and every tool.
+    var confirmDisableToolbar by remember { mutableStateOf(false) }
     SettingsGroup("Style") {
         item {
             val selected = settings.customThemes.find { it.id == settings.keyboardThemeId }
@@ -1961,9 +1964,56 @@ private fun AppearanceSettings(
     SettingsGroup("Toolbar") {
         item {
             ToggleSetting(
+                "Show the toolbar",
+                "The strip above the keys that carries suggestions and tools",
+                settings.toolbarBehavior.enabled,
+                info = "The toolbar is the row above the keys — it shows word suggestions " +
+                    "while you type and your pinned tools (emoji, clipboard, cursor keys …) " +
+                    "otherwise. Turn it off to reclaim its height for the keys; you'll be " +
+                    "asked to confirm, because it also hides suggestions and every tool.",
+            ) { on ->
+                // Enabling is harmless; disabling loses real features, so confirm.
+                if (on) scope.launch { repository.setToolbarEnabled(true) }
+                else confirmDisableToolbar = true
+            }
+        }
+        item {
+            ToggleSetting(
+                "Swipe down to hide",
+                "A downward flick on the toolbar dismisses the keyboard",
+                settings.toolbarBehavior.swipeDownHide,
+                info = "When on, flicking down anywhere on the toolbar strip closes the " +
+                    "keyboard. Off by default so the gesture never fires while you scroll " +
+                    "or rearrange the bar. Reordering a tool is a press-and-hold, so it " +
+                    "won't trigger this.",
+            ) { scope.launch { repository.setToolbarSwipeDownHide(it) } }
+        }
+        item {
+            ToggleSetting(
+                "Only toolbar with hardware keyboard",
+                "When a physical keyboard is attached, show just the toolbar",
+                settings.toolbarBehavior.onlyWithHardwareKeyboard,
+                info = "With a Bluetooth or dock keyboard connected, the on-screen keys step " +
+                    "aside and only the toolbar stays — so emoji, clipboard and the other " +
+                    "tools remain one tap away while you type on the hardware keyboard. Off " +
+                    "by default.",
+            ) { scope.launch { repository.setToolbarOnlyWithHardwareKeyboard(it) } }
+        }
+        item {
+            ToggleSetting(
+                "Reverse order for RTL languages",
+                "Mirror the tool order when typing a right-to-left script",
+                settings.toolbarBehavior.reverseForRtl,
+                info = "For right-to-left scripts (Arabic, Hebrew …) the pinned tools read " +
+                    "right-to-left too, so the bar flows with the text. On by default. The " +
+                    "toolbox grid is unaffected.",
+            ) { scope.launch { repository.setReverseToolbarForRtl(it) } }
+        }
+        item {
+            ToggleSetting(
                 "Spread tools across the bar",
                 "Toolbar tools split the available width evenly",
-                settings.toolbarGreedy,
+                settings.toolbarBehavior.greedy,
                 info = "On: the tools on the top toolbar greedily share the whole bar, like " +
                     "the suggestion candidates do. Off: they pack to the left at a fixed " +
                     "size. Which tools appear there is customized from the keyboard itself: " +
@@ -1987,7 +2037,7 @@ private fun AppearanceSettings(
             ToggleSetting(
                 "Scroll the toolbar",
                 "Swipe the tools sideways instead of shrinking them to fit",
-                settings.toolbarScrollable,
+                settings.toolbarBehavior.scrollable,
                 info = "When you pin more tools than fit the bar, this keeps each at a " +
                     "comfortable size and lets you scroll through them. It packs the tools " +
                     "to the left (overriding \"Spread tools across the bar\"). Reorder from " +
@@ -2041,6 +2091,30 @@ private fun AppearanceSettings(
                     "per row fits more tools without scrolling.",
             ) { scope.launch { repository.setToolboxColumns(it.roundToInt()) } }
         }
+    }
+
+    if (confirmDisableToolbar) {
+        AlertDialog(
+            onDismissRequest = { confirmDisableToolbar = false },
+            title = { Text("Disable the toolbar?") },
+            text = {
+                Text(
+                    "The whole top strip goes away — you'll lose word suggestions and " +
+                        "quick access to every pinned tool (emoji, clipboard, cursor keys, " +
+                        "and the rest). The keys claim the reclaimed height. You can turn " +
+                        "it back on here any time.",
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmDisableToolbar = false
+                    scope.launch { repository.setToolbarEnabled(false) }
+                }) { Text("Disable") }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmDisableToolbar = false }) { Text("Cancel") }
+            },
+        )
     }
 }
 
@@ -3349,6 +3423,7 @@ internal fun toolTitle(tool: ToolbarTool): String = when (tool) {
     ToolbarTool.CURSOR_END -> "Line end"
     ToolbarTool.PAGE_UP -> "Page up"
     ToolbarTool.PAGE_DOWN -> "Page down"
+    ToolbarTool.HIDE_KEYBOARD -> "Hide keyboard"
 }
 
 internal fun toolDescription(tool: ToolbarTool): String = when (tool) {
@@ -3404,6 +3479,7 @@ internal fun toolDescription(tool: ToolbarTool): String = when (tool) {
     ToolbarTool.CURSOR_END -> "Jump to the end of the line"
     ToolbarTool.PAGE_UP -> "Scroll the cursor up a page"
     ToolbarTool.PAGE_DOWN -> "Scroll the cursor down a page"
+    ToolbarTool.HIDE_KEYBOARD -> "Dismiss the keyboard in one tap"
 }
 
 internal fun toolIconFor(tool: ToolbarTool): androidx.compose.ui.graphics.vector.ImageVector = when (tool) {
@@ -3459,6 +3535,7 @@ internal fun toolIconFor(tool: ToolbarTool): androidx.compose.ui.graphics.vector
     ToolbarTool.CURSOR_END -> Icons.Outlined.LastPage
     ToolbarTool.PAGE_UP -> Icons.Outlined.KeyboardDoubleArrowUp
     ToolbarTool.PAGE_DOWN -> Icons.Outlined.KeyboardDoubleArrowDown
+    ToolbarTool.HIDE_KEYBOARD -> Icons.Outlined.KeyboardHide
 }
 
 /**
@@ -3516,7 +3593,7 @@ private fun ToolsSettings(
         "Keyboard modes" to listOf(
             ToolbarTool.MODES, ToolbarTool.ONE_HANDED, ToolbarTool.SPLIT, ToolbarTool.FLOATING,
         ),
-        "Cursor" to CursorTools,
+        "Cursor" to (CursorTools + ToolbarTool.HIDE_KEYBOARD),
         "Quick actions" to listOf(
             ToolbarTool.UNDO, ToolbarTool.REDO, ToolbarTool.AUTOCORRECT,
             ToolbarTool.INCOGNITO, ToolbarTool.SOUND_HAPTICS, ToolbarTool.THEMES,
