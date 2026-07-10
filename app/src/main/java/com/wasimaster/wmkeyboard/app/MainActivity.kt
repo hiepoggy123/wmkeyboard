@@ -3697,25 +3697,48 @@ private fun ToolDetailSettings(
             item {
                 ToggleSetting(
                     "Clipboard history", "Save copied text for quick paste",
-                    settings.clipboardHistory,
+                    settings.clipboard.history,
                 ) { scope.launch { repository.setClipboardHistory(it) } }
+            }
+            item {
+                ToggleSetting(
+                    "Suggest recent copy",
+                    "Show the last copied text as a chip on the suggestion strip, " +
+                        "one tap from pasting it.",
+                    settings.clipboard.suggestRecent,
+                ) { scope.launch { repository.setClipboardSuggestRecent(it) } }
             }
             item {
                 SliderSetting(
                     "Clipboard expiry",
                     subtitle = "Remove unpinned items after this long",
-                    value = settings.clipboardExpiryHours.toFloat(),
+                    value = settings.clipboard.expiryHours.toFloat(),
                     range = 0f..168f,
-                    display = if (settings.clipboardExpiryHours == 0) "never"
-                        else "${settings.clipboardExpiryHours} h",
+                    display = if (settings.clipboard.expiryHours == 0) "never"
+                        else "${settings.clipboard.expiryHours} h",
                 ) { scope.launch { repository.setClipboardExpiryHours(it.toInt()) } }
+            }
+            item {
+                ToggleSetting(
+                    "Bottom control row",
+                    "Show an abc, space and backspace row at the bottom of the " +
+                        "clipboard panel, like the emoji panel.",
+                    settings.clipboard.bottomRow,
+                ) { scope.launch { repository.setClipboardBottomRow(it) } }
+            }
+            item {
+                ToggleSetting(
+                    "Pinned entries last",
+                    "List pinned clips at the end of the panel instead of the top.",
+                    settings.clipboard.pinnedLast,
+                ) { scope.launch { repository.setClipboardPinnedLast(it) } }
             }
             item {
                 ToggleSetting(
                     "Link previews",
                     "Fetch the page title of copied links and show it in the panel. " +
                         "This contacts the linked site.",
-                    settings.clipboardLinkPreviews,
+                    settings.clipboard.linkPreviews,
                 ) { scope.launch { repository.setClipboardLinkPreviews(it) } }
             }
             item {
@@ -3724,7 +3747,7 @@ private fun ToolDetailSettings(
                     "Show source app",
                     "Record which app a clip was copied from, shown when you press " +
                         "and hold an entry. Needs Usage Access permission.",
-                    settings.clipboardTrackSource,
+                    settings.clipboard.trackSource,
                     info = "Best-effort: it reads the foreground app at copy time via " +
                         "Usage Access. Some copies (e.g. from background sync) may have no " +
                         "source. Nothing about your app usage leaves the device.",
@@ -3740,7 +3763,7 @@ private fun ToolDetailSettings(
                     }
                 }
             }
-            if (settings.clipboardTrackSource) {
+            if (settings.clipboard.trackSource) {
                 item {
                     val context = LocalContext.current
                     NavRow(

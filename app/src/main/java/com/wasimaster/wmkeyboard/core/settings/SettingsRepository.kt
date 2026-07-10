@@ -540,16 +540,8 @@ data class KeyboardSettings(
      * default — the on-device lexicon already covers this keyboard.
      */
     val addWordsToSystemDictionary: Boolean = false,
-    val clipboardHistory: Boolean = true,
-    val clipboardExpiryHours: Int = 24,
-    /** Fetch page titles for copied links and show them in the clipboard panel. */
-    val clipboardLinkPreviews: Boolean = false,
-    /**
-     * Record which app a clip was copied from (shown in the press-and-hold info
-     * popup). Off by default: needs the Usage Access special permission and is a
-     * best-effort guess of the foreground app at copy time.
-     */
-    val clipboardTrackSource: Boolean = false,
+    /** Clipboard-tool history, panel and suggestion-strip settings (see [ClipboardSettings]). */
+    val clipboard: ClipboardSettings = ClipboardSettings(),
     val longPressDelayMs: Int = 300,
     val keyRepeatIntervalMs: Int = 50,
     /** Small corner label on each key showing its first long-press character. */
@@ -897,6 +889,38 @@ data class TextEditingSettings(
 )
 
 /**
+ * Clipboard-tool settings — history capture, the panel, and the paste chip on
+ * the suggestion strip — grouped into their own object (see [CameraSettings]
+ * for why). DataStore keys stay flat.
+ */
+data class ClipboardSettings(
+    /** Save copied text/images/files for quick paste from the clipboard tool. */
+    val history: Boolean = true,
+    /** Remove unpinned items after this many hours (0 = never). */
+    val expiryHours: Int = 24,
+    /** Fetch page titles for copied links and show them in the clipboard panel. */
+    val linkPreviews: Boolean = false,
+    /**
+     * Record which app a clip was copied from (shown in the press-and-hold info
+     * popup). Off by default: needs the Usage Access special permission and is a
+     * best-effort guess of the foreground app at copy time.
+     */
+    val trackSource: Boolean = false,
+    /**
+     * Offer the most recently copied text as a paste chip on the suggestion
+     * strip (Gboard style), so a fresh copy is one tap from being pasted.
+     */
+    val suggestRecent: Boolean = true,
+    /**
+     * Show an abc / space / backspace control row at the bottom of the clipboard
+     * panel, like the emoji panel's, so a quick paste needs no detour to the keys.
+     */
+    val bottomRow: Boolean = false,
+    /** List pinned entries at the end instead of the top of the clipboard panel. */
+    val pinnedLast: Boolean = false,
+)
+
+/**
  * DataStore-backed settings. Every option on the settings screens flows
  * through here; the IME service collects [settings] and re-renders live.
  */
@@ -1043,6 +1067,9 @@ class SettingsRepository(private val context: Context) {
         private val CLIPBOARD_EXPIRY_HOURS = intPreferencesKey("clipboard_expiry_hours")
         private val CLIPBOARD_LINK_PREVIEWS = booleanPreferencesKey("clipboard_link_previews")
         private val CLIPBOARD_TRACK_SOURCE = booleanPreferencesKey("clipboard_track_source")
+        private val CLIPBOARD_SUGGEST_RECENT = booleanPreferencesKey("clipboard_suggest_recent")
+        private val CLIPBOARD_BOTTOM_ROW = booleanPreferencesKey("clipboard_bottom_row")
+        private val CLIPBOARD_PINNED_LAST = booleanPreferencesKey("clipboard_pinned_last")
         private val LONG_PRESS_DELAY = intPreferencesKey("long_press_delay")
         private val KEY_REPEAT_INTERVAL = intPreferencesKey("key_repeat_interval")
         private val LONG_PRESS_HINTS = booleanPreferencesKey("long_press_hints")
@@ -1357,10 +1384,15 @@ class SettingsRepository(private val context: Context) {
             learnFromTyping = p[LEARN_FROM_TYPING] ?: defaults.learnFromTyping,
             addWordsToSystemDictionary =
                 p[ADD_WORDS_TO_SYSTEM_DICTIONARY] ?: defaults.addWordsToSystemDictionary,
-            clipboardHistory = p[CLIPBOARD_HISTORY] ?: defaults.clipboardHistory,
-            clipboardExpiryHours = p[CLIPBOARD_EXPIRY_HOURS] ?: defaults.clipboardExpiryHours,
-            clipboardLinkPreviews = p[CLIPBOARD_LINK_PREVIEWS] ?: defaults.clipboardLinkPreviews,
-            clipboardTrackSource = p[CLIPBOARD_TRACK_SOURCE] ?: defaults.clipboardTrackSource,
+            clipboard = ClipboardSettings(
+                history = p[CLIPBOARD_HISTORY] ?: defaults.clipboard.history,
+                expiryHours = p[CLIPBOARD_EXPIRY_HOURS] ?: defaults.clipboard.expiryHours,
+                linkPreviews = p[CLIPBOARD_LINK_PREVIEWS] ?: defaults.clipboard.linkPreviews,
+                trackSource = p[CLIPBOARD_TRACK_SOURCE] ?: defaults.clipboard.trackSource,
+                suggestRecent = p[CLIPBOARD_SUGGEST_RECENT] ?: defaults.clipboard.suggestRecent,
+                bottomRow = p[CLIPBOARD_BOTTOM_ROW] ?: defaults.clipboard.bottomRow,
+                pinnedLast = p[CLIPBOARD_PINNED_LAST] ?: defaults.clipboard.pinnedLast,
+            ),
             longPressDelayMs = p[LONG_PRESS_DELAY] ?: defaults.longPressDelayMs,
             keyRepeatIntervalMs = p[KEY_REPEAT_INTERVAL] ?: defaults.keyRepeatIntervalMs,
             longPressHints = p[LONG_PRESS_HINTS] ?: defaults.longPressHints,
@@ -2334,6 +2366,15 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setClipboardTrackSource(value: Boolean) =
         context.dataStore.edit { it[CLIPBOARD_TRACK_SOURCE] = value }
+
+    suspend fun setClipboardSuggestRecent(value: Boolean) =
+        context.dataStore.edit { it[CLIPBOARD_SUGGEST_RECENT] = value }
+
+    suspend fun setClipboardBottomRow(value: Boolean) =
+        context.dataStore.edit { it[CLIPBOARD_BOTTOM_ROW] = value }
+
+    suspend fun setClipboardPinnedLast(value: Boolean) =
+        context.dataStore.edit { it[CLIPBOARD_PINNED_LAST] = value }
 
     suspend fun setLongPressDelayMs(value: Int) =
         context.dataStore.edit { it[LONG_PRESS_DELAY] = value.coerceIn(150, 700) }

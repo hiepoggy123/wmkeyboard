@@ -214,6 +214,8 @@ class WMKeyboardService : InputMethodService() {
     private lateinit var clipboardStore: ClipboardStore
     /** In-flight link-metadata fetch; one at a time (see [fetchLinkPreviews]). */
     private var linkPreviewJob: Job? = null
+    /** Auto-hide timer for the recently-copied strip chip (see [showClipboardSuggestion]). */
+    private var clipboardSuggestionJob: Job? = null
     private lateinit var snippetStore: SnippetStore
 
     /** Latest settings straight from DataStore, before mode overrides. */
@@ -324,7 +326,7 @@ class WMKeyboardService : InputMethodService() {
 
     private val clipboardListener = ClipboardManager.OnPrimaryClipChangedListener {
         val state = _uiState.value
-        if (!state.settings.clipboardHistory ||
+        if (!state.settings.clipboard.history ||
             (state.incognitoOn && state.settings.incognitoPausesClipboard) ||
             state.secureField
         ) return@OnPrimaryClipChangedListener
@@ -339,7 +341,7 @@ class WMKeyboardService : InputMethodService() {
 
         // Which app the user copied from, resolved now while it's still the
         // foreground app (best-effort; null unless opted in and permitted).
-        val source = if (state.settings.clipboardTrackSource) resolveClipSource() else null
+        val source = if (state.settings.clipboard.trackSource) resolveClipSource() else null
 
         val imageMime = uri?.let { u ->
             runCatching { contentResolver.getType(u) }.getOrNull()?.takeIf { it.startsWith("image/") }
@@ -385,6 +387,9 @@ class WMKeyboardService : InputMethodService() {
         val added = if (html != null) clipboardStore.addHtml(text, html, source) else clipboardStore.add(text, source)
         clipboardStore.save()
         _uiState.update { it.copy(clipboardItems = clipboardStore.items()) }
+        if (added != null && added.kind.isTextual && state.settings.clipboard.suggestRecent) {
+            showClipboardSuggestion(added)
+        }
         if (added?.kind == ClipKind.LINK) fetchLinkPreviews()
     }
 
@@ -541,7 +546,7 @@ class WMKeyboardService : InputMethodService() {
      * links doesn't fire a dozen simultaneous requests.
      */
     private fun fetchLinkPreviews() {
-        if (!_uiState.value.settings.clipboardLinkPreviews) return
+        if (!_uiState.value.settings.clipboard.linkPreviews) return
         if (linkPreviewJob?.isActive == true) return
         val pending = clipboardStore.linksNeedingPreview().take(MAX_LINK_PREVIEWS)
         if (pending.isEmpty()) return
@@ -583,17 +588,27 @@ class WMKeyboardService : InputMethodService() {
             var contactEmailsEnabled: Boolean? = null
             var appNamesEnabled: Boolean? = null
             var linkPreviewsEnabled: Boolean? = null
+            var pinnedLastEnabled: Boolean? = null
             settingsRepository.settings.collect { settings ->
-                clipboardStore.expiryMillis = settings.clipboardExpiryHours * 60L * 60 * 1000
+                clipboardStore.expiryMillis = settings.clipboard.expiryHours * 60L * 60 * 1000
+                // Flipping pinned-first/last re-sorts the store, so refresh the
+                // panel's snapshot when the choice actually changes.
+                if (pinnedLastEnabled != settings.clipboard.pinnedLast) {
+                    clipboardStore.pinnedLast = settings.clipboard.pinnedLast
+                    pinnedLastEnabled = settings.clipboard.pinnedLast
+                    _uiState.update { it.copy(clipboardItems = clipboardStore.items()) }
+                }
+                // Turning the strip chip off hides any chip already showing.
+                if (!settings.clipboard.suggestRecent) clearClipboardSuggestion()
                 // Turning previews off throws away what was already fetched, so
                 // the panel stops showing metadata the user opted out of.
-                if (linkPreviewsEnabled == true && !settings.clipboardLinkPreviews) {
+                if (linkPreviewsEnabled == true && !settings.clipboard.linkPreviews) {
                     linkPreviewJob?.cancel()
                     clipboardStore.clearLinkPreviews()
                     clipboardStore.save()
                     _uiState.update { it.copy(clipboardItems = clipboardStore.items()) }
                 }
-                linkPreviewsEnabled = settings.clipboardLinkPreviews
+                linkPreviewsEnabled = settings.clipboard.linkPreviews
                 if (!settings.floatingKeyboard) floatingPanelBounds = null
                 if (settings.contactSuggestions != contactsEnabled) {
                     contactsEnabled = settings.contactSuggestions
@@ -824,6 +839,7 @@ class WMKeyboardService : InputMethodService() {
                 onClipboardItem = ::onClipboardItemTapped,
                 onClipboardPin = ::onClipboardPin,
                 onClipboardDelete = ::onClipboardDelete,
+                onClipboardSuggestionDismiss = ::onClipboardSuggestionDismiss,
                 onSnippet = ::onSnippetTapped,
                 onOneHanded = ::onOneHandedChange,
                 onFloatingChange = ::onFloatingChange,
@@ -1274,6 +1290,12 @@ class WMKeyboardService : InputMethodService() {
     // callback (onKeyPressed) so feedback lands on touch, not on release.
     fun onKey(key: Key) {
         stopVoiceForManualInput()
+        // Typing real content dismisses the recent-copy strip chip (Gboard
+        // style): once the user is writing, the quick-paste offer has passed —
+        // and clearing it here keeps it from flashing between committed words.
+        if (key.action == KeyAction.Text || key.action == KeyAction.Space) {
+            clearClipboardSuggestion()
+        }
         // Shift keeps the gesture word so alternates can be re-cased;
         // Delete keeps it so one backspace can undo the whole swipe.
         if (key.action != KeyAction.Shift && key.action != KeyAction.Delete) {
@@ -5737,6 +5759,36 @@ class WMKeyboardService : InputMethodService() {
             }
             else -> currentInputConnection?.commitText(item.text, 1)
         }
+        // Whether tapped from the panel or the strip chip, the recent-copy chip
+        // has served its purpose once something was pasted.
+        clearClipboardSuggestion()
+    }
+
+    /**
+     * Shows [item] as the recently-copied paste chip on the suggestion strip and
+     * arms its auto-hide timer, replacing any chip already up.
+     */
+    private fun showClipboardSuggestion(item: com.wasimaster.wmkeyboard.core.clipboard.ClipItem) {
+        clipboardSuggestionJob?.cancel()
+        _uiState.update { it.copy(clipboardSuggestion = item) }
+        clipboardSuggestionJob = serviceScope.launch {
+            delay(CLIPBOARD_SUGGESTION_TIMEOUT_MS)
+            _uiState.update { it.copy(clipboardSuggestion = null) }
+        }
+    }
+
+    /** Drops the recently-copied strip chip (pasted, dismissed, or feature off). */
+    private fun clearClipboardSuggestion() {
+        clipboardSuggestionJob?.cancel()
+        clipboardSuggestionJob = null
+        if (_uiState.value.clipboardSuggestion != null) {
+            _uiState.update { it.copy(clipboardSuggestion = null) }
+        }
+    }
+
+    /** The user swiped away the recently-copied strip chip. */
+    fun onClipboardSuggestionDismiss() {
+        clearClipboardSuggestion()
     }
 
     /**
@@ -6271,6 +6323,8 @@ class WMKeyboardService : InputMethodService() {
         )
         /** Cap on files recorded from one multi-select copy. */
         private const val MAX_FILE_CLIPS_PER_COPY = 20
+        /** How long the recently-copied paste chip lingers on the strip before auto-hiding. */
+        private const val CLIPBOARD_SUGGESTION_TIMEOUT_MS = 60_000L
         /** Links fetched per panel open, so a history of links isn't a request storm. */
         private const val MAX_LINK_PREVIEWS = 8
 
