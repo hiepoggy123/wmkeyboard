@@ -63,6 +63,17 @@ class SuggestionEngineTest {
         assertNull(engine().shouldAutocorrect("helo"))
     }
 
+    @Test fun allCapsWordsAreNotCorrectedWhenSkipEnabled() {
+        // "WPRLD" would correct to "world" if it were lowercase, but an
+        // all-caps word is a deliberate acronym/shout by default.
+        assertNull(engine().apply { skipAllCapsAutocorrect = true }.shouldAutocorrect("WPRLD"))
+        // A mixed-case slip is still corrected — only all-caps is spared. The
+        // leading capital carries through to the correction.
+        assertEquals("World", engine().apply { skipAllCapsAutocorrect = true }.shouldAutocorrect("Wprld"))
+        // Off, an all-caps word corrects like any other (case carried through).
+        assertEquals("WORLD", engine().apply { skipAllCapsAutocorrect = false }.shouldAutocorrect("WPRLD"))
+    }
+
     @Test fun autocorrectPrefersAdjacentKeySlip() {
         // Equal frequencies: "cst" fixes to "cat" because s sits next to a,
         // while u is across the keyboard.

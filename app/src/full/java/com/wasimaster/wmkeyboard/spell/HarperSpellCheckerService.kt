@@ -1,6 +1,9 @@
 package com.wasimaster.wmkeyboard.spell
 
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
+import android.provider.ContactsContract
 import android.service.textservice.SpellCheckerService
 import android.view.textservice.SentenceSuggestionsInfo
 import android.view.textservice.SuggestionsInfo
@@ -8,15 +11,17 @@ import android.view.textservice.TextInfo
 import com.wasimaster.wmkeyboard.core.grammar.GrammarChecker
 import com.wasimaster.wmkeyboard.core.grammar.GrammarFix
 import com.wasimaster.wmkeyboard.core.grammar.GrammarLint
+import com.wasimaster.wmkeyboard.core.prediction.ContactEmails
+import com.wasimaster.wmkeyboard.core.prediction.ContactNames
 import com.wasimaster.wmkeyboard.core.settings.GrammarDialect
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 
 /**
  * Exposes the bundled Harper engine as a system-wide spell checker, so the
@@ -35,6 +40,11 @@ import kotlinx.coroutines.runBlocking
  * per-word [Session.onGetSuggestions] is implemented too, because the
  * framework still falls back to it on some paths, but it can only ever flag
  * the single word it is handed.
+ *
+ * The checker runs in the app's own process, independent of the keyboard: it
+ * loads the user's contacts and warms Harper itself, so underlines and
+ * contact-aware corrections work in every app even when WMKeyboard is not the
+ * active input method.
  */
 /**
  * A Harper fix as the whole-span replacement the spell checker UI needs.
@@ -67,23 +77,106 @@ class HarperSpellCheckerService : SpellCheckerService() {
         @Volatile
         private var dialectOrdinal: Int = GrammarDialect.AMERICAN.ordinal
 
+        /** Whether Harper has been warmed at least once this session. */
+        @Volatile
+        private var warmed = false
+
+        /**
+         * Contact indices, loaded in this process so the checker recognizes
+         * names even when the WMKeyboard IME is not the active keyboard. Empty
+         * until the setting is on and the Contacts permission granted; memory
+         * only, never persisted.
+         */
+        @Volatile
+        private var contactNames: ContactNames = ContactNames.EMPTY
+
+        @Volatile
+        private var contactEmails: ContactEmails = ContactEmails.EMPTY
+
+        /** Latches the setting so contacts load once, not per settings change. */
+        @Volatile
+        private var contactsEnabled = false
+
         override fun onCreate() {
             val repository = SettingsRepository(context)
             scope.launch {
-                repository.settings
-                    .map { it.grammarDialect.ordinal }
-                    .collect { ordinal ->
-                        val changed = ordinal != dialectOrdinal
-                        dialectOrdinal = ordinal
-                        // Building Harper's rule set takes ~100 ms; do it now
-                        // so the first underline in an app is not late.
-                        if (changed) GrammarChecker.warmUp(ordinal)
+                repository.settings.collect { settings ->
+                    val ordinal = settings.grammarDialect.ordinal
+                    val dialectChanged = ordinal != dialectOrdinal
+                    dialectOrdinal = ordinal
+                    // Warm on the first value too, not only on a change:
+                    // building Harper's rule set takes ~100 ms, and the default
+                    // dialect would otherwise leave the first underline late.
+                    if (dialectChanged || !warmed) {
+                        warmed = true
+                        GrammarChecker.warmUp(ordinal)
                     }
+                    if (settings.contactSuggestions) {
+                        if (!contactsEnabled) {
+                            contactsEnabled = true
+                            loadContacts()
+                        }
+                    } else {
+                        contactsEnabled = false
+                        contactNames = ContactNames.EMPTY
+                        contactEmails = ContactEmails.EMPTY
+                    }
+                }
             }
         }
 
         override fun onClose() {
             scope.cancel()
+        }
+
+        /**
+         * Reads contact names and email addresses into the in-memory indices.
+         * No-op without the permission — the settings app requests it, and the
+         * flow reloads once the setting is turned on after a grant.
+         */
+        private fun loadContacts() {
+            if (context.checkSelfPermission(Manifest.permission.READ_CONTACTS)
+                != PackageManager.PERMISSION_GRANTED
+            ) {
+                return
+            }
+            scope.launch {
+                val loaded = withContext(Dispatchers.IO) {
+                    runCatching {
+                        val names = ArrayList<String>()
+                        context.contentResolver.query(
+                            ContactsContract.Contacts.CONTENT_URI,
+                            arrayOf(ContactsContract.Contacts.DISPLAY_NAME_PRIMARY),
+                            null, null, null,
+                        )?.use { cursor ->
+                            val column = cursor.getColumnIndexOrThrow(
+                                ContactsContract.Contacts.DISPLAY_NAME_PRIMARY
+                            )
+                            while (cursor.moveToNext()) {
+                                cursor.getString(column)?.let { names.add(it) }
+                            }
+                        }
+                        val emails = ArrayList<String>()
+                        context.contentResolver.query(
+                            ContactsContract.CommonDataKinds.Email.CONTENT_URI,
+                            arrayOf(ContactsContract.CommonDataKinds.Email.ADDRESS),
+                            null, null, null,
+                        )?.use { cursor ->
+                            val column = cursor.getColumnIndexOrThrow(
+                                ContactsContract.CommonDataKinds.Email.ADDRESS
+                            )
+                            while (cursor.moveToNext()) {
+                                cursor.getString(column)?.let { emails.add(it) }
+                            }
+                        }
+                        ContactNames.fromNames(names) to ContactEmails.fromAddresses(emails)
+                    }.getOrNull()
+                }
+                if (loaded != null) {
+                    contactNames = loaded.first
+                    contactEmails = loaded.second
+                }
+            }
         }
 
         /**
@@ -114,6 +207,9 @@ class HarperSpellCheckerService : SpellCheckerService() {
         ): SuggestionsInfo {
             val word = textInfo?.text.orEmpty()
             if (!GrammarChecker.available || word.isBlank()) return noProblem()
+            // A word that is one of the user's contacts is spelled right by
+            // definition — never flag a name the phone knows.
+            if (isKnownContact(word)) return noProblem()
             val lint = lint(word).firstOrNull { it.start == 0 && it.end == word.length }
                 ?: return noProblem()
             return suggestionsInfo(word, lint, suggestionsLimit)
@@ -125,7 +221,10 @@ class HarperSpellCheckerService : SpellCheckerService() {
         ): SentenceSuggestionsInfo {
             val text = info.text.orEmpty()
             if (text.isBlank()) return emptySentence()
-            val lints = lint(text).filter { it.end > it.start }
+            val lints = lint(text)
+                .filter { it.end > it.start }
+                // Drop lints on a span that is a known contact name/address.
+                .filterNot { isKnownContact(text.substring(it.start, it.end)) }
             if (lints.isEmpty()) return emptySentence()
 
             val infos = ArrayList<SuggestionsInfo>(lints.size)
@@ -154,8 +253,10 @@ class HarperSpellCheckerService : SpellCheckerService() {
             lint: GrammarLint,
             suggestionsLimit: Int,
         ): SuggestionsInfo {
-            val replacements = lint.suggestions
-                .mapNotNull { spellReplacementFor(span, it) }
+            val harper = lint.suggestions.mapNotNull { spellReplacementFor(span, it) }
+            // A contact whose name the typo is close to leads the menu: fixing
+            // a mistyped name to the right contact is the common case here.
+            val replacements = (contactCorrections(span, suggestionsLimit) + harper)
                 .filter { it.isNotBlank() && it != span }
                 .distinct()
                 .take(suggestionsLimit.coerceAtLeast(1))
@@ -166,10 +267,65 @@ class HarperSpellCheckerService : SpellCheckerService() {
             return SuggestionsInfo(flags, replacements.toTypedArray())
         }
 
+        /** True when [span] is a contact name word or a known contact address. */
+        private fun isKnownContact(span: String): Boolean {
+            val s = span.trim().lowercase()
+            if (s.isEmpty()) return false
+            return if ('@' in s) contactEmails.contains(s) else contactNames.contains(s)
+        }
+
+        /**
+         * Contact names close to [span] — a prefix of one, or a single typo
+         * away — kept in their source capitalization for the correction menu.
+         */
+        private fun contactCorrections(span: String, limit: Int): List<String> {
+            if (contactNames.isEmpty || limit <= 0) return emptyList()
+            val s = span.lowercase()
+            if (s.length < 2) return emptyList()
+            val out = LinkedHashSet<String>()
+            for (suggestion in contactNames.complete(s, limit)) {
+                if (!suggestion.word.equals(span, ignoreCase = true)) out.add(suggestion.word)
+            }
+            if (out.size < limit) {
+                for (variant in editsOne(s)) {
+                    val display = contactNames.displayOf(variant) ?: continue
+                    if (!display.equals(span, ignoreCase = true)) out.add(display)
+                    if (out.size >= limit) break
+                }
+            }
+            return out.take(limit).toList()
+        }
+
         private fun noProblem() =
             SuggestionsInfo(SuggestionsInfo.RESULT_ATTR_IN_THE_DICTIONARY, emptyArray())
 
         private fun emptySentence() =
             SentenceSuggestionsInfo(emptyArray(), IntArray(0), IntArray(0))
+
+        companion object {
+            private const val ALPHABET = "abcdefghijklmnopqrstuvwxyz"
+
+            /** Every string one edit (Norvig) from [word]; deletions first. */
+            private fun editsOne(word: String): Sequence<String> = sequence {
+                for (i in word.indices) {
+                    yield(word.substring(0, i) + word.substring(i + 1))
+                }
+                for (i in 0 until word.length - 1) {
+                    yield(
+                        word.substring(0, i) + word[i + 1] + word[i] + word.substring(i + 2)
+                    )
+                }
+                for (i in word.indices) {
+                    for (c in ALPHABET) {
+                        yield(word.substring(0, i) + c + word.substring(i + 1))
+                    }
+                }
+                for (i in 0..word.length) {
+                    for (c in ALPHABET) {
+                        yield(word.substring(0, i) + c + word.substring(i))
+                    }
+                }
+            }
+        }
     }
 }

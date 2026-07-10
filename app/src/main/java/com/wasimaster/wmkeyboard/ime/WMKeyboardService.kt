@@ -260,6 +260,13 @@ class WMKeyboardService : InputMethodService() {
      */
     private var lastAutocorrect: Pair<String, String>? = null
 
+    /**
+     * True when the last keystroke auto-inserted a space right after
+     * punctuation (the double-space ". "), so the very next shift press can
+     * cancel that space instead of arming caps. Any other key clears it.
+     */
+    private var pendingAutoSpace = false
+
     /** Contact-name words for suggestions, when the setting + permission allow. */
     private var contactNames: ContactNames = ContactNames.EMPTY
 
@@ -668,6 +675,7 @@ class WMKeyboardService : InputMethodService() {
                 suggestionEngine?.proximity = KeyProximity.forLayout(activeSpec)
                 suggestionEngine?.autocorrectConfidence =
                     settings.autocorrectConfidence.toDouble()
+                suggestionEngine?.skipAllCapsAutocorrect = settings.autocorrectSkipAllCaps
                 // Only English drives the bundled English word list; every other
                 // language (with no bundled dictionary) drops it so autocorrect
                 // and completions never offer English for their words. Bengali
@@ -736,6 +744,7 @@ class WMKeyboardService : InputMethodService() {
                 proximity = KeyProximity.forLayout(activeLayoutSpec(_uiState.value.settings))
                 autocorrectConfidence =
                     _uiState.value.settings.autocorrectConfidence.toDouble()
+                skipAllCapsAutocorrect = _uiState.value.settings.autocorrectSkipAllCaps
                 val lang = _uiState.value.language
                 englishSources = lang.isEnglish
                 customDictionary = customTries[lang.id] ?: Trie()
@@ -1279,6 +1288,9 @@ class WMKeyboardService : InputMethodService() {
         if (key.action != KeyAction.Shift && key.action != KeyAction.Delete) {
             lastGestureWord = null
         }
+        // The auto-space cancel is a one-shot for the shift press immediately
+        // after the ". " — any other key means the user typed on past it.
+        if (key.action != KeyAction.Shift) pendingAutoSpace = false
         // A pending Ctrl/Alt/Meta turns the next key into a shortcut, so it is
         // intercepted ahead of the normal dispatch: KeyAction.Text would
         // otherwise push the letter through the composing buffer and Ctrl+C
@@ -1718,6 +1730,23 @@ class WMKeyboardService : InputMethodService() {
             val ic = currentInputConnection
             if (ic != null && hasSelection(ic) && recapitalizeSelection(ic)) return
         }
+        // Cancel a just-inserted auto-space after punctuation: the ". " from a
+        // double space leaves a trailing space, and one shift press removes it
+        // rather than arming caps, so a sentence can be continued without it.
+        if (pendingAutoSpace) {
+            pendingAutoSpace = false
+            val ic = currentInputConnection
+            if (ic != null) {
+                val before = ic.getTextBeforeCursor(2, 0)?.toString().orEmpty()
+                if (before.length == 2 && before[1] == ' ' && before[0] in SENTENCE_ENDERS) {
+                    ic.deleteSurroundingText(1, 0)
+                    // The ". " also armed auto-cap for a new sentence; cancelling
+                    // the break cancels that too, so typing continues in case.
+                    consumeShift()
+                    return
+                }
+            }
+        }
         val now = System.currentTimeMillis()
         val doubleTap = now - lastShiftTapTime < SHIFT_DOUBLE_TAP_MS
         lastShiftTapTime = now
@@ -2121,6 +2150,8 @@ class WMKeyboardService : InputMethodService() {
                 ic.deleteSurroundingText(1, 0)
                 ic.commitText(". ", 1)
                 lastSpaceTime = 0
+                // Arm the shift-to-cancel: a shift press now drops this space.
+                pendingAutoSpace = true
                 maybeAutoCapitalize()
                 return
             }
@@ -2907,11 +2938,18 @@ class WMKeyboardService : InputMethodService() {
         // another would leave a double gap, so skip it when one is there.
         val nextChar = ic.getTextAfterCursor(1, 0)
         val tail = if (nextChar.isNullOrEmpty() || !nextChar[0].isWhitespace()) " " else ""
-        ic.commitText(suggestion + tail, 1)
+        // Commit in the case the strip is showing: a shift held over the strip
+        // capitalizes the word the user is about to pick, matching the chip.
+        val committed = displayCaseForShift(suggestion, _uiState.value.shiftState)
+        ic.commitText(committed + tail, 1)
+        // A one-shot shift is spent by the pick, the same as by a typed letter.
+        consumeShift()
         // Deliberately picked from the strip — a stronger signal than a
-        // word that merely got committed. A contact email is the exception:
-        // it is never learned, so it stays memory-only and off the disk-backed
-        // personal dictionary even when tapped from an ordinary text field.
+        // word that merely got committed. Learn the base word, not the
+        // shift-cased form, so caps lock never teaches "HELLO" to the lexicon.
+        // A contact email is the exception: it is never learned, so it stays
+        // memory-only and off the disk-backed personal dictionary even when
+        // tapped from an ordinary text field.
         if ('@' !in suggestion) learn(suggestion, reinforcement = 2)
         composing = StringBuilder()
         _uiState.update { it.copy(composingPreview = "", suggestions = emptyList(), emojiSuggestions = emptyList()) }

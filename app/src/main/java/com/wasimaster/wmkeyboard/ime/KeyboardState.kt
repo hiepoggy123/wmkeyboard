@@ -32,6 +32,22 @@ import com.wasimaster.wmkeyboard.core.tools.WpmSample
 enum class ShiftState { OFF, ON, CAPS_LOCK }
 
 /**
+ * Re-cases a suggestion for display/commit to follow the live [shift] state, so
+ * pressing shift while a word is composing walks the strip through
+ * lower → Title → UPPER the way the keys themselves do. [ShiftState.OFF] leaves
+ * the word as the engine produced it (its casing already mirrors the typed
+ * text). Emails ('@') are left untouched — capitalizing an address is wrong.
+ */
+fun displayCaseForShift(word: String, shift: ShiftState): String {
+    if (word.isEmpty() || '@' in word) return word
+    return when (shift) {
+        ShiftState.CAPS_LOCK -> word.uppercase()
+        ShiftState.ON -> word.replaceFirstChar { it.uppercase() }
+        ShiftState.OFF -> word
+    }
+}
+
+/**
  * A Ctrl/Alt/Meta latch.
  *
  * Mirrors [ShiftState] deliberately — tap arms for one key, a quick second tap

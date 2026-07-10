@@ -433,6 +433,8 @@ data class KeyboardSettings(
     val autocorrectConfidence: Float = 4f,
     /** Backspace right after an autocorrect puts the typed word back. */
     val revertAutocorrectOnBackspace: Boolean = true,
+    /** Never autocorrect a word typed all in capitals (acronyms, shouting). */
+    val autocorrectSkipAllCaps: Boolean = true,
     /** Fix missing apostrophes on commit: arent → aren't, im → I'm. */
     val autoApostrophe: Boolean = true,
     val autoCapitalize: Boolean = true,
@@ -1000,6 +1002,8 @@ class SettingsRepository(private val context: Context) {
         private val AUTOCORRECT_CONFIDENCE = floatPreferencesKey("autocorrect_confidence")
         private val REVERT_AUTOCORRECT_ON_BACKSPACE =
             booleanPreferencesKey("revert_autocorrect_on_backspace")
+        private val AUTOCORRECT_SKIP_ALL_CAPS =
+            booleanPreferencesKey("autocorrect_skip_all_caps")
         private val AUTO_CAPITALIZE = booleanPreferencesKey("auto_capitalize")
         private val DOUBLE_SPACE_PERIOD = booleanPreferencesKey("double_space_period")
         private val DOUBLE_SPACE_TAB = booleanPreferencesKey("double_space_tab")
@@ -1310,6 +1314,8 @@ class SettingsRepository(private val context: Context) {
             autocorrectConfidence = p[AUTOCORRECT_CONFIDENCE] ?: defaults.autocorrectConfidence,
             revertAutocorrectOnBackspace =
                 p[REVERT_AUTOCORRECT_ON_BACKSPACE] ?: defaults.revertAutocorrectOnBackspace,
+            autocorrectSkipAllCaps =
+                p[AUTOCORRECT_SKIP_ALL_CAPS] ?: defaults.autocorrectSkipAllCaps,
             autoApostrophe = p[AUTO_APOSTROPHE] ?: defaults.autoApostrophe,
             autoCapitalize = p[AUTO_CAPITALIZE] ?: defaults.autoCapitalize,
             doubleSpacePeriod = p[DOUBLE_SPACE_PERIOD] ?: defaults.doubleSpacePeriod,
@@ -2226,6 +2232,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setRevertAutocorrectOnBackspace(value: Boolean) =
         context.dataStore.edit { it[REVERT_AUTOCORRECT_ON_BACKSPACE] = value }
+
+    suspend fun setAutocorrectSkipAllCaps(value: Boolean) =
+        context.dataStore.edit { it[AUTOCORRECT_SKIP_ALL_CAPS] = value }
 
     suspend fun setAutoCapitalize(value: Boolean) =
         context.dataStore.edit { it[AUTO_CAPITALIZE] = value }
