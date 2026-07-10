@@ -3,6 +3,7 @@ package com.wasimaster.wmkeyboard.spell
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
+import android.os.Build
 import android.provider.ContactsContract
 import android.service.textservice.SpellCheckerService
 import android.view.textservice.SentenceSuggestionsInfo
@@ -77,6 +78,18 @@ class HarperSpellCheckerService : SpellCheckerService() {
         @Volatile
         private var dialectOrdinal: Int = GrammarDialect.AMERICAN.ordinal
 
+        /**
+         * When true, still flag typos (underline stays) but hand the framework
+         * no replacements and the "mark but don't show suggestions UI" flag, so
+         * the correction popup never appears. Only honoured on Android 12+
+         * (API 31), where [SuggestionsInfo.RESULT_ATTR_DONT_SHOW_UI_FOR_SUGGESTIONS]
+         * exists; older versions ignore the flag, so the toggle does nothing
+         * there. Mirrored through the settings flow for the same reason as
+         * [dialectOrdinal].
+         */
+        @Volatile
+        private var noSuggestionsUi = false
+
         /** Whether Harper has been warmed at least once this session. */
         @Volatile
         private var warmed = false
@@ -104,6 +117,7 @@ class HarperSpellCheckerService : SpellCheckerService() {
                     val ordinal = settings.grammarDialect.ordinal
                     val dialectChanged = ordinal != dialectOrdinal
                     dialectOrdinal = ordinal
+                    noSuggestionsUi = settings.spellCheckerNoSuggestions
                     // Warm on the first value too, not only on a change:
                     // building Harper's rule set takes ~100 ms, and the default
                     // dialect would otherwise leave the first underline late.
@@ -253,6 +267,18 @@ class HarperSpellCheckerService : SpellCheckerService() {
             lint: GrammarLint,
             suggestionsLimit: Int,
         ): SuggestionsInfo {
+            // "Squiggle only" mode: flag the typo so the underline stays, but
+            // return no replacements and set the flag that asks the host to
+            // skip the correction popup. Guarded to API 31 — the flag was added
+            // in Android 12; below that the flag is meaningless and we would
+            // just be dropping fixes the user still wants to see.
+            if (noSuggestionsUi && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                return SuggestionsInfo(
+                    SuggestionsInfo.RESULT_ATTR_LOOKS_LIKE_TYPO or
+                        SuggestionsInfo.RESULT_ATTR_DONT_SHOW_UI_FOR_SUGGESTIONS,
+                    emptyArray(),
+                )
+            }
             val harper = lint.suggestions.mapNotNull { spellReplacementFor(span, it) }
             // A contact whose name the typo is close to leads the menu: fixing
             // a mistyped name to the right contact is the common case here.

@@ -708,6 +708,12 @@ data class KeyboardSettings(
     /** English dialect the offline grammar tool checks against. */
     val grammarDialect: GrammarDialect = GrammarDialect.AMERICAN,
     /**
+     * Squiggle spelling errors but offer no fix popup when Harper acts as the
+     * system spell checker. Only has an effect on Android 12+, where the
+     * framework honours the "mark but don't show suggestions UI" flag.
+     */
+    val spellCheckerNoSuggestions: Boolean = false,
+    /**
      * User-supplied API keys, overriding any key baked into the build.
      * Blank means "use the built-in key" (which may itself be blank).
      */
@@ -1197,6 +1203,8 @@ class SettingsRepository(private val context: Context) {
         private val EMOJI_ROW_ABOVE_TOOLBAR = booleanPreferencesKey("emoji_row_above_toolbar")
         private val TRANSLATE_TARGET_LANG = stringPreferencesKey("translate_target_lang")
         private val GRAMMAR_DIALECT = stringPreferencesKey("grammar_dialect")
+        private val SPELL_CHECKER_NO_SUGGESTIONS =
+            booleanPreferencesKey("spell_checker_no_suggestions")
         private val TRANSLATE_API_KEY = stringPreferencesKey("translate_api_key")
         private val KLIPY_API_KEY = stringPreferencesKey("klipy_api_key")
         private val BRAVE_API_KEY = stringPreferencesKey("brave_api_key")
@@ -1555,6 +1563,8 @@ class SettingsRepository(private val context: Context) {
             grammarDialect = p[GRAMMAR_DIALECT]
                 ?.let { runCatching { GrammarDialect.valueOf(it) }.getOrNull() }
                 ?: defaults.grammarDialect,
+            spellCheckerNoSuggestions = p[SPELL_CHECKER_NO_SUGGESTIONS]
+                ?: defaults.spellCheckerNoSuggestions,
             translateApiKey = p[TRANSLATE_API_KEY] ?: defaults.translateApiKey,
             klipyApiKey = p[KLIPY_API_KEY] ?: defaults.klipyApiKey,
             braveApiKey = p[BRAVE_API_KEY] ?: defaults.braveApiKey,
@@ -2530,6 +2540,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setGrammarDialect(value: GrammarDialect) =
         context.dataStore.edit { it[GRAMMAR_DIALECT] = value.name }
+
+    suspend fun setSpellCheckerNoSuggestions(value: Boolean) =
+        context.dataStore.edit { it[SPELL_CHECKER_NO_SUGGESTIONS] = value }
 
     suspend fun setTranslateApiKey(value: String) =
         context.dataStore.edit { it[TRANSLATE_API_KEY] = value.trim() }

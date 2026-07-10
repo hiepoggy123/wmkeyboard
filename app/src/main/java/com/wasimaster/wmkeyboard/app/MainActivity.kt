@@ -4589,6 +4589,19 @@ private fun ToolDetailSettings(
                             onClick = { openSpellCheckerSettings(context) },
                         )
                     }
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                        item {
+                            ToggleSetting(
+                                "Underline only, no fix popup",
+                                "Mark misspellings but don't offer corrections",
+                                settings.spellCheckerNoSuggestions,
+                            ) {
+                                scope.launch {
+                                    repository.setSpellCheckerNoSuggestions(it)
+                                }
+                            }
+                        }
+                    }
                 }
             }
             CaptionText(
