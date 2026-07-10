@@ -55,7 +55,7 @@ private val SettingRows: List<SettingsSearchEntry> = listOfNotNull(
     entry("Best suggestion in the middle", "Show the top candidate in the center slot", "Typing", "typing"),
     entry("Suggest contact names", "Complete names from your contacts as you type", "Typing", "typing"),
     entry("Suggest contact emails", "Complete a contact's email as you type the start of it", "Typing", "typing"),
-    entry("…in email fields too", "Show contact emails even where the app hides suggestions", "Typing", "typing"),
+    entry("Contact emails in email fields too", "Show contact emails even where the app hides suggestions", "Typing", "typing"),
     entry("Suggest app names", "Complete the names of installed apps as you type", "Typing", "typing"),
     entry("Inline emoji search", "Type \":\" then a word to find emoji — :smi → 😄", "Typing", "typing"),
     entry("Password manager suggestions", "Show saved logins from your autofill service in the strip", "Typing", "typing"),

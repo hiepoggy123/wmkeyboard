@@ -1334,7 +1334,7 @@ private fun TypingSettings(
         if (settings.contactEmailSuggestions) {
             item {
                 ToggleSetting(
-                    "…in email fields too",
+                    "Contact emails in email fields too",
                     "Show them even where the app hides suggestions",
                     settings.contactEmailSuggestionsInEmailFields,
                     info = "Email fields normally tell the keyboard to hide the suggestion " +
