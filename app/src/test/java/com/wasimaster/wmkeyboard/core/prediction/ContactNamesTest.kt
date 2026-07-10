@@ -1,10 +1,19 @@
 package com.wasimaster.wmkeyboard.core.prediction
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ContactNamesTest {
+
+    @Test fun exposesWordKeysAndDisplayCase() {
+        val contacts = ContactNames.fromNames(listOf("Wasi Mollik"))
+        assertEquals(setOf("wasi", "mollik"), contacts.wordKeys)
+        assertEquals("Wasi", contacts.displayOf("wasi"))
+        assertEquals("Mollik", contacts.displayOf("mollik"))
+        assertNull(contacts.displayOf("unknown"))
+    }
 
     @Test fun splitsNamesAndCountsRepeats() {
         val contacts = ContactNames.fromNames(

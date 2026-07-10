@@ -26,6 +26,12 @@ class NameIndex private constructor(
     /** True when [word] (lowercase) is part of some indexed name. */
     fun contains(word: String): Boolean = words.containsKey(word)
 
+    /** Every indexed word, lowercase — the searchable key set. */
+    val wordKeys: Set<String> get() = words.keys
+
+    /** The source capitalization of an indexed [word] (lowercase), or null. */
+    fun displayOf(word: String): String? = words[word]?.display
+
     /** Indexed words starting with [prefix] (lowercase), most common first. */
     fun complete(prefix: String, limit: Int): List<Suggestion> {
         if (prefix.isEmpty()) return emptyList()

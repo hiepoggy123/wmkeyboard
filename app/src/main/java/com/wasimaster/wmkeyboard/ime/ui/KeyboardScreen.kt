@@ -320,6 +320,7 @@ import com.wasimaster.wmkeyboard.ime.TypingTestAction
 import com.wasimaster.wmkeyboard.ime.SoundHapticAction
 import com.wasimaster.wmkeyboard.ime.TextEditAction
 import com.wasimaster.wmkeyboard.ime.ShiftState
+import com.wasimaster.wmkeyboard.ime.displayCaseForShift
 import com.wasimaster.wmkeyboard.core.layout.BuiltInLayouts
 import com.wasimaster.wmkeyboard.core.layout.LayoutSpec
 import com.wasimaster.wmkeyboard.core.layout.resolveLayout
@@ -1618,7 +1619,9 @@ private fun TopBar(
                         contentAlignment = Alignment.Center,
                     ) {
                         Text(
-                            text = suggestion,
+                            // Follows the live shift state, so pressing shift
+                            // re-cases the strip (matching the committed word).
+                            text = displayCaseForShift(suggestion, state.shiftState),
                             modifier = Modifier.padding(horizontal = 6.dp),
                             color = MaterialTheme.colorScheme.onSurface,
                             fontWeight = if (index == primaryIndex) FontWeight.SemiBold else FontWeight.Normal,

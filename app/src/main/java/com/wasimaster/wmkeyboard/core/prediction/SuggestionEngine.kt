@@ -121,6 +121,15 @@ class SuggestionEngine(
     @Volatile
     var blacklist: Set<String> = emptySet()
 
+    /**
+     * When on, a word typed entirely in capitals (SHOUTING, or an acronym like
+     * ASAP, OFC) is never autocorrected — those are deliberate, and "fixing"
+     * them to a lowercase dictionary word is almost always wrong. Off treats
+     * all-caps like any other word. Set from the user's setting.
+     */
+    @Volatile
+    var skipAllCapsAutocorrect: Boolean = true
+
     private val emptyTrie = Trie()
 
     /** True when [word] is on the suggestion blacklist (case-insensitive). */
@@ -387,6 +396,9 @@ class SuggestionEngine(
     fun shouldAutocorrect(word: String): String? {
         val lower = word.lowercase()
         if (lower.length < 3) return null
+        // An all-caps word is a deliberate acronym or shout, not a typo of a
+        // lowercase word — don't "correct" it away when the user asked us not to.
+        if (skipAllCapsAutocorrect && isAllCaps(word)) return null
         if (inDictionaries(lower) || userLexicon.contains(lower)) return null
         // Contact and app names are known words too — never "corrected" away.
         if (contacts.contains(lower) || apps.contains(lower)) return null
@@ -465,6 +477,10 @@ class SuggestionEngine(
         }
         return result
     }
+
+    /** True when [word] has letters and every one of them is uppercase. */
+    private fun isAllCaps(word: String): Boolean =
+        word.length > 1 && word.any { it.isLetter() } && word.all { !it.isLetter() || it.isUpperCase() }
 
     /** Applies the typed word's capitalization pattern to a suggestion. */
     private fun matchCase(typed: String, suggestion: String): String = when {

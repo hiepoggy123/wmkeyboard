@@ -1163,6 +1163,16 @@ private fun TypingSettings(
                         "just delete a character.",
                 ) { scope.launch { repository.setRevertAutocorrectOnBackspace(it) } }
             }
+            item {
+                ToggleSetting(
+                    "Skip all-caps words",
+                    "Leave words typed in capitals alone",
+                    settings.autocorrectSkipAllCaps,
+                    info = "Acronyms and shouting (ASAP, OFC, NOOO) are usually typed in " +
+                        "capitals on purpose, so autocorrect leaves any word in all caps " +
+                        "alone. Turn this off to have such words corrected like any other.",
+                ) { scope.launch { repository.setAutocorrectSkipAllCaps(it) } }
+            }
         }
         item {
             ToggleSetting(
