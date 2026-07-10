@@ -500,6 +500,7 @@ fun KeyboardScreen(
     onClipboardItem: (ClipItem) -> Unit,
     onClipboardPin: (ClipItem) -> Unit,
     onClipboardDelete: (ClipItem) -> Unit,
+    onClipboardSuggestionDismiss: () -> Unit = {},
     onSnippet: (Snippet) -> Unit = {},
     onOneHanded: (OneHandedMode) -> Unit = {},
     onFloatingChange: (Boolean) -> Unit = {},
@@ -706,6 +707,7 @@ fun KeyboardScreen(
                 onClipboardItem = onClipboardItem,
                 onClipboardPin = onClipboardPin,
                 onClipboardDelete = onClipboardDelete,
+                onClipboardSuggestionDismiss = onClipboardSuggestionDismiss,
                 onSnippet = onSnippet,
                 onToolTap = onToolTap,
                 onToolbarToolsChange = onToolbarToolsChange,
@@ -1155,6 +1157,8 @@ private fun TopBar(
     onDismissInlineSuggestions: () -> Unit = {},
     onSmartAccept: () -> Unit = {},
     onSmartOpen: () -> Unit = {},
+    onClipboardSuggestion: (ClipItem) -> Unit = {},
+    onClipboardSuggestionDismiss: () -> Unit = {},
 ) {
     // "Show the toolbar instead" while suggestions are up; resets once the
     // suggestions go away so the bar returns to candidates next time.
@@ -1163,9 +1167,11 @@ private fun TopBar(
     var emojiBarOpen by remember { mutableStateOf(false) }
     // A smart chip counts as strip content: without it the bar would flip
     // to the toolbar the moment word candidates ran out, taking the answer
-    // to what was just typed with it.
+    // to what was just typed with it. The recently-copied paste chip counts
+    // the same way, so an idle strip holds it instead of flipping to the tools.
+    val recentClipChip = state.settings.clipboard.suggestRecent && state.clipboardSuggestion != null
     val hasSuggestions = state.suggestions.isNotEmpty() ||
-        state.emojiSuggestions.isNotEmpty() || state.smart != null
+        state.emojiSuggestions.isNotEmpty() || state.smart != null || recentClipChip
     // Suggestions-first mode keeps the strip as the resting state (an empty
     // strip plus the chevron into the toolbar); the override then survives
     // idle gaps and instead resets when fresh candidates arrive.
@@ -1560,6 +1566,19 @@ private fun TopBar(
                 )
             }
             if (smart != null && !keywordChip) return@Row
+            // Recently-copied paste chip (Gboard style): takes the idle strip
+            // when there are no candidates, one tap from pasting the last copy.
+            // Word candidates always win the row, so it never hides a suggestion.
+            val recentClip = state.clipboardSuggestion
+            if (recentClipChip && recentClip != null && smart == null && !suggestionsShowing) {
+                ClipboardSuggestionChip(
+                    text = recentClip.text,
+                    onPaste = { onClipboardSuggestion(recentClip) },
+                    onDismiss = onClipboardSuggestionDismiss,
+                    modifier = Modifier.weight(1f),
+                )
+                return@Row
+            }
             // The top candidates split the whole bar evenly (Gboard style),
             // so each one gets the largest possible tap target.
             Row(
@@ -1625,6 +1644,87 @@ private fun TopBar(
                     Text(text = emoji, fontSize = 22.sp, fontFamily = LocalEmojiFontFamily.current)
                 }
             }
+        }
+    }
+}
+
+/**
+ * The recently-copied paste chip shown on the suggestion strip: an accent pill
+ * that pastes the last copied text on tap, with a trailing dismiss button. Styled
+ * to match [SmartSuggestionChip] so the two chips read as one family.
+ */
+@Composable
+private fun ClipboardSuggestionChip(
+    text: String,
+    onPaste: () -> Unit,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val kb = LocalKbTheme.current
+    val feedback = LocalKeyPressFeedback.current
+    val tint = kb.accent
+    val fill = tint.copy(alpha = if (kb.dark) 0.20f else 0.11f)
+    Row(
+        modifier = modifier
+            .fillMaxHeight()
+            .padding(vertical = 5.dp)
+            .clip(RoundedCornerShape(50))
+            .background(fill)
+            .border(1.dp, tint.copy(alpha = 0.32f), RoundedCornerShape(50)),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Row(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxHeight()
+                .clickable {
+                    feedback()
+                    onPaste()
+                }
+                .padding(horizontal = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(22.dp)
+                    .clip(CircleShape)
+                    .background(tint.copy(alpha = 0.22f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    Icons.Outlined.ContentPaste,
+                    contentDescription = null,
+                    tint = tint,
+                    modifier = Modifier.size(13.dp),
+                )
+            }
+            Text(
+                text = text,
+                color = kb.keyText,
+                fontSize = 13.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+        }
+        Box(
+            modifier = Modifier
+                .fillMaxHeight()
+                .clip(CircleShape)
+                .clickable {
+                    feedback()
+                    onDismiss()
+                }
+                .padding(horizontal = 8.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                Icons.Outlined.Close,
+                contentDescription = "Dismiss copied text",
+                tint = tint.copy(alpha = 0.7f),
+                modifier = Modifier.size(15.dp),
+            )
         }
     }
 }
@@ -3452,6 +3552,7 @@ private fun KeyboardBody(
     onClipboardItem: (ClipItem) -> Unit,
     onClipboardPin: (ClipItem) -> Unit,
     onClipboardDelete: (ClipItem) -> Unit,
+    onClipboardSuggestionDismiss: () -> Unit,
     onSnippet: (Snippet) -> Unit,
     onToolTap: (ToolbarTool) -> Unit,
     onToolbarToolsChange: (List<ToolbarTool>) -> Unit,
@@ -3561,6 +3662,8 @@ private fun KeyboardBody(
                             onDismissInlineSuggestions = onDismissInlineSuggestions,
                             onSmartAccept = onSmartAccept,
                             onSmartOpen = onSmartOpen,
+                            onClipboardSuggestion = onClipboardItem,
+                            onClipboardSuggestionDismiss = onClipboardSuggestionDismiss,
                         )
                     }
                     BarRow.EMOJI -> if (emojiRowVisible) {
@@ -3597,7 +3700,12 @@ private fun KeyboardBody(
                     // Toggling the open panel closes it — back to the keys.
                     onClose = { onPanelChange(PanelMode.EMOJI) },
                 )
-                PanelMode.CLIPBOARD -> ClipboardPanel(state, onClipboardItem, onClipboardPin, onClipboardDelete)
+                PanelMode.CLIPBOARD -> ClipboardPanel(
+                    state, onClipboardItem, onClipboardPin, onClipboardDelete,
+                    onKey = onKey,
+                    // Toggling the open panel closes it — back to the keys.
+                    onClose = { onPanelChange(PanelMode.CLIPBOARD) },
+                )
                 PanelMode.SNIPPETS -> SnippetsPanel(
                     state, onSnippet,
                     onOpenSettings = { onOpenToolSettings(ToolbarTool.SNIPPETS) },
@@ -6880,8 +6988,34 @@ private fun ClipboardPanel(
     onClipboardItem: (ClipItem) -> Unit,
     onClipboardPin: (ClipItem) -> Unit,
     onClipboardDelete: (ClipItem) -> Unit,
+    onKey: (Key) -> Unit,
+    onClose: () -> Unit,
 ) {
-    val height = keyRowsHeight(state)
+    val showBottomRow = state.settings.clipboard.bottomRow
+    // The control row is carved out of the panel's own height (same size as the
+    // emoji panel's), so the total stays exactly the key area's height and the
+    // keyboard never grows when the row is on.
+    val barHeight = state.settings.keyHeightDp.dp + KeyGapVertical * 2
+    val contentHeight = keyRowsHeight(state) - if (showBottomRow) barHeight else 0.dp
+    Column {
+        ClipboardPanelContent(
+            state, onClipboardItem, onClipboardPin, onClipboardDelete,
+            height = contentHeight,
+        )
+        if (showBottomRow) {
+            EmojiBottomBar(state = state, onKey = onKey, onClose = onClose)
+        }
+    }
+}
+
+@Composable
+private fun ClipboardPanelContent(
+    state: KeyboardUiState,
+    onClipboardItem: (ClipItem) -> Unit,
+    onClipboardPin: (ClipItem) -> Unit,
+    onClipboardDelete: (ClipItem) -> Unit,
+    height: Dp,
+) {
     if (state.clipboardItems.isEmpty()) {
         Box(
             modifier = Modifier

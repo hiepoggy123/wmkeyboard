@@ -96,6 +96,8 @@ class ClipboardStore(
     private val storageFile: File?,
     var expiryMillis: Long = DEFAULT_EXPIRY_MILLIS,
     private val imagesDir: File? = null,
+    /** When true, [items] lists pinned entries last instead of first. */
+    var pinnedLast: Boolean = false,
 ) {
 
     @Serializable
@@ -253,9 +255,15 @@ class ClipboardStore(
     @Synchronized
     fun items(now: Long = System.currentTimeMillis()): List<ClipItem> {
         prune(now)
-        return items.sortedWith(
-            compareByDescending<ClipItem> { it.pinned }.thenByDescending { it.timestamp }
-        )
+        // Within each group (pinned / unpinned) newest-first; [pinnedLast] only
+        // flips which group leads. compareBy puts pinned=false first (pinned
+        // last); compareByDescending puts pinned=true first (pinned first).
+        val byPin = if (pinnedLast) {
+            compareBy<ClipItem> { it.pinned }
+        } else {
+            compareByDescending<ClipItem> { it.pinned }
+        }
+        return items.sortedWith(byPin.thenByDescending { it.timestamp })
     }
 
     /** Most recent textual clip, for snippet {clip} expansion. */

@@ -602,6 +602,12 @@ data class KeyboardUiState(
     /** RGI toned-sequence lookup; loaded once with the catalog. */
     val emojiVariants: EmojiVariantIndex = EmojiVariantIndex.empty(),
     val clipboardItems: List<ClipItem> = emptyList(),
+    /**
+     * Most recently copied text, offered as a paste chip on the suggestion strip
+     * (Gboard style). Null when nothing recent, the chip expired, was dismissed,
+     * or the feature is off. Cleared on paste/dismiss/timeout.
+     */
+    val clipboardSuggestion: ClipItem? = null,
     val snippets: List<Snippet> = emptyList(),
     val secureField: Boolean = false,
     /** Field class/variation of the focused editor, from EditorInfo. */

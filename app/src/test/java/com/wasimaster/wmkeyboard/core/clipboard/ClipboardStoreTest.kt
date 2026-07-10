@@ -37,6 +37,26 @@ class ClipboardStoreTest {
         assertEquals(listOf("keep me", "fresh"), texts)
     }
 
+    @Test fun pinnedLastReversesGroupOrderNotRecency() {
+        val store = ClipboardStore(null, pinnedLast = true)
+        val pin = store.add("pinned", now = 1000)!!
+        store.setPinned(pin.id, true)
+        store.add("older", now = 2000)
+        store.add("newer", now = 3000)
+        // Unpinned group leads (newest-first), pinned trails.
+        assertEquals(listOf("newer", "older", "pinned"), store.items(now = 4000).map { it.text })
+    }
+
+    @Test fun pinnedLastToggleFlipsLiveStore() {
+        val store = ClipboardStore(null)
+        val pin = store.add("pinned", now = 1000)!!
+        store.setPinned(pin.id, true)
+        store.add("fresh", now = 2000)
+        assertEquals(listOf("pinned", "fresh"), store.items(now = 3000).map { it.text })
+        store.pinnedLast = true
+        assertEquals(listOf("fresh", "pinned"), store.items(now = 3000).map { it.text })
+    }
+
     @Test fun unpinnedExpires() {
         val store = ClipboardStore(null, expiryMillis = 100)
         store.add("ephemeral", now = 0)
