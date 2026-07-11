@@ -834,10 +834,15 @@ fun ThemeEditorScreen(
     SectionHeaderPublic("Accent & popups")
     ColorRow("Accent", theme.accent) { update { t -> t.copy(accent = it) } }
     Text(
-        "Shift-on tint, gesture trail, active tools, buttons in the panels.",
+        "Shift-on tint, active tools, buttons in the panels.",
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(horizontal = 16.dp),
+    )
+    NullableColorRow(
+        "Gesture trail", theme.gestureTrailColor, fallback = theme.accent,
+        supportsAlpha = true,
+        onChange = { update { t -> t.copy(gestureTrailColor = it) } },
     )
     NullableColorRow(
         "Popup background", theme.popupBackground, fallback = theme.effectivePopup(),

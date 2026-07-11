@@ -74,6 +74,11 @@ private val SettingRows: List<SettingsSearchEntry> = listOfNotNull(
     } else {
         null
     },
+    entry("Glide across spacebar", "Swipe over space to keep gliding the next word", "Typing", "typing"),
+    entry("Swipe start distance", "How far to move before a glide begins", "Typing", "typing"),
+    entry("Trail width", "Thickness of the glide trail", "Typing", "typing"),
+    entry("Trail length", "How long the trail lingers behind your finger", "Typing", "typing"),
+    entry("Trail opacity", "How solid the glide trail looks", "Typing", "typing"),
     entry("Arrows on spacebar", "Hint that a swipe switches language", "Typing", "typing"),
     entry("Spacebar text", "Blank = current language name. %s inserts it, e.g. \"— %s —\".", "Typing", "typing"),
     entry("Swipe to delete words", "Drag sideways on backspace to delete whole words", "Typing", "typing"),
