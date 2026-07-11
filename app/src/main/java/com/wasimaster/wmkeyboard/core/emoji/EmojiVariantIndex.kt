@@ -50,6 +50,24 @@ class EmojiVariantIndex private constructor(
     }
 
     /**
+     * The face to show for [base] in suggestions and search, given a global
+     * default [tone] (0 = neutral) and, optionally, the tone last picked for
+     * this base. When [overrideWithPreferred] is on and [preferred] is set it
+     * wins; otherwise the default tone is applied. Falls back to [base] when a
+     * tone has no RGI form (an emoji that takes no tones).
+     */
+    fun tonedDisplay(
+        base: String,
+        tone: Int,
+        preferred: String? = null,
+        overrideWithPreferred: Boolean = false,
+    ): String {
+        if (overrideWithPreferred && preferred != null) return preferred
+        if (tone == 0) return base
+        return tonedPair(base, tone) ?: base
+    }
+
+    /**
      * All variants a long-press popup should offer for [base]: the neutral
      * base plus the uniform tone row. (Dual-tone combinations are picked
      * through the two-slot selector, not listed exhaustively.)

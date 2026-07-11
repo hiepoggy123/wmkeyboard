@@ -279,6 +279,15 @@ enum class EmojiFontChoice { SYSTEM, NOTO, CUSTOM }
 enum class EmojiInsertMode { REPLACE, APPEND }
 
 /**
+ * Default Fitzpatrick skin tone applied to toned emoji in the suggestion
+ * strip and emoji search. [NONE] leaves the neutral yellow base; the five
+ * others map to 🏻..🏿, i.e. tone indices 1..5 in [EmojiVariantIndex].
+ */
+enum class EmojiSkinTone(val toneIndex: Int) {
+    NONE(0), LIGHT(1), MEDIUM_LIGHT(2), MEDIUM(3), MEDIUM_DARK(4), DARK(5),
+}
+
+/**
  * Colour-vision correction applied to the whole resolved keyboard palette.
  * The three dichromacies daltonize (redistribute the hues that eye cannot
  * separate); [GRAYSCALE] strips colour entirely, which both helps monochromacy
@@ -704,6 +713,8 @@ data class KeyboardSettings(
     val emojiBarContent: EmojiBarContent = EmojiBarContent.MOST_USED,
     /** Whether an emoji suggestion replaces the typed word or follows it. */
     val emojiInsertMode: EmojiInsertMode = EmojiInsertMode.APPEND,
+    /** Emoji options that didn't fit the flat field list (see [EmojiSettings]). */
+    val emoji: EmojiSettings = EmojiSettings(),
     /** Tools available anywhere on the keyboard; disabled tools are hidden. */
     val enabledTools: List<ToolbarTool> = ToolbarTool.entries.toList(),
     /**
@@ -1043,6 +1054,37 @@ data class ClipboardSettings(
     val pinnedLast: Boolean = false,
 )
 
+/**
+ * Emoji behaviour split off into its own object because [KeyboardSettings]
+ * sits at the JVM copy() slot ceiling (see [CameraSettings]). DataStore keys
+ * stay flat.
+ */
+data class EmojiSettings(
+    /**
+     * Default skin tone shown for toned emoji in the suggestion strip and
+     * emoji search. [EmojiSkinTone.NONE] keeps the neutral yellow base.
+     */
+    val defaultSkinTone: EmojiSkinTone = EmojiSkinTone.NONE,
+    /**
+     * Let the tone last picked for an emoji (from the panel's long-press
+     * popup) override [defaultSkinTone] in suggestions and search. Off (the
+     * default) means the global default always wins in those two places.
+     */
+    val toneOverrideByLastUsed: Boolean = false,
+    /**
+     * Close the emoji panel and return to the keys immediately after a single
+     * emoji is inserted, instead of staying open for a run of emoji.
+     */
+    val closeAfterInsert: Boolean = false,
+    /**
+     * Hide emoji the device's emoji font can't draw (they render as a blank
+     * "tofu" box) from the panel, search and suggestions. Detected per-glyph
+     * against the active emoji font; importing a complete emoji font under
+     * Emoji → Emoji font makes everything renderable again.
+     */
+    val hideUnrenderable: Boolean = false,
+)
+
 /** Glide-typing behaviour and swipe-trail appearance. See [KeyboardSettings.gesture]. */
 data class GestureSettings(
     /**
@@ -1277,6 +1319,11 @@ class SettingsRepository(private val context: Context) {
         private val EMOJI_BAR_MODE = stringPreferencesKey("emoji_bar_mode")
         private val EMOJI_BAR_CONTENT = stringPreferencesKey("emoji_bar_content")
         private val EMOJI_INSERT_MODE = stringPreferencesKey("emoji_insert_mode")
+        private val EMOJI_DEFAULT_SKIN_TONE = stringPreferencesKey("emoji_default_skin_tone")
+        private val EMOJI_TONE_OVERRIDE_LAST_USED =
+            booleanPreferencesKey("emoji_tone_override_last_used")
+        private val EMOJI_CLOSE_AFTER_INSERT = booleanPreferencesKey("emoji_close_after_insert")
+        private val EMOJI_HIDE_UNRENDERABLE = booleanPreferencesKey("emoji_hide_unrenderable")
         // Stored as the DISABLED set so tools added in future versions
         // default to enabled even for users who already toggled some off.
         private val DISABLED_TOOLS = stringPreferencesKey("disabled_tools")
@@ -1647,6 +1694,15 @@ class SettingsRepository(private val context: Context) {
             emojiInsertMode = p[EMOJI_INSERT_MODE]
                 ?.let { runCatching { EmojiInsertMode.valueOf(it) }.getOrNull() }
                 ?: defaults.emojiInsertMode,
+            emoji = EmojiSettings(
+                defaultSkinTone = p[EMOJI_DEFAULT_SKIN_TONE]
+                    ?.let { runCatching { EmojiSkinTone.valueOf(it) }.getOrNull() }
+                    ?: defaults.emoji.defaultSkinTone,
+                toneOverrideByLastUsed = p[EMOJI_TONE_OVERRIDE_LAST_USED]
+                    ?: defaults.emoji.toneOverrideByLastUsed,
+                closeAfterInsert = p[EMOJI_CLOSE_AFTER_INSERT] ?: defaults.emoji.closeAfterInsert,
+                hideUnrenderable = p[EMOJI_HIDE_UNRENDERABLE] ?: defaults.emoji.hideUnrenderable,
+            ),
             enabledTools = ToolbarTool.entries - decodeDisabledTools(p[DISABLED_TOOLS]),
             toolboxOrder = decodeToolOrder(p[TOOLBOX_ORDER]),
             toolboxHintDismissed = p[TOOLBOX_HINT_DISMISSED] ?: defaults.toolboxHintDismissed,
@@ -2724,6 +2780,18 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setEmojiInsertMode(value: EmojiInsertMode) =
         context.dataStore.edit { it[EMOJI_INSERT_MODE] = value.name }
+
+    suspend fun setEmojiDefaultSkinTone(value: EmojiSkinTone) =
+        context.dataStore.edit { it[EMOJI_DEFAULT_SKIN_TONE] = value.name }
+
+    suspend fun setEmojiToneOverrideByLastUsed(value: Boolean) =
+        context.dataStore.edit { it[EMOJI_TONE_OVERRIDE_LAST_USED] = value }
+
+    suspend fun setEmojiCloseAfterInsert(value: Boolean) =
+        context.dataStore.edit { it[EMOJI_CLOSE_AFTER_INSERT] = value }
+
+    suspend fun setHideUnrenderableEmoji(value: Boolean) =
+        context.dataStore.edit { it[EMOJI_HIDE_UNRENDERABLE] = value }
 
     suspend fun setIncognito(value: Boolean) =
         context.dataStore.edit { it[INCOGNITO] = value }

@@ -189,6 +189,7 @@ import com.wasimaster.wmkeyboard.core.handwriting.HandwritingModels
 import com.wasimaster.wmkeyboard.core.settings.EmojiBarContent
 import com.wasimaster.wmkeyboard.core.settings.EmojiBarMode
 import com.wasimaster.wmkeyboard.core.settings.EmojiFontChoice
+import com.wasimaster.wmkeyboard.core.settings.EmojiSkinTone
 import com.wasimaster.wmkeyboard.ime.ui.KeyboardFonts
 import com.wasimaster.wmkeyboard.ime.ui.ModeIcons
 import com.wasimaster.wmkeyboard.core.settings.EmojiInsertMode
@@ -2719,7 +2720,49 @@ private fun EmojiSettings(repository: SettingsRepository, settings: KeyboardSett
             }
         }
     }
+    SettingsGroup("Skin tone") {
+        item {
+            ChoiceSetting(
+                title = "Default skin tone",
+                subtitle = "For toned emoji in suggestions and emoji search",
+                info = "Toned emoji (👍, 🙏, 🧑…) are shown with this Fitzpatrick tone in the " +
+                    "suggestion strip and the emoji search results, and inserted that way. " +
+                    "The emoji panel's own grid still follows the tone you last picked per " +
+                    "emoji. \"None\" keeps the neutral yellow base.",
+                options = listOf(
+                    EmojiSkinTone.NONE to "None (yellow)",
+                    EmojiSkinTone.LIGHT to "Light 🏻",
+                    EmojiSkinTone.MEDIUM_LIGHT to "Medium-light 🏼",
+                    EmojiSkinTone.MEDIUM to "Medium 🏽",
+                    EmojiSkinTone.MEDIUM_DARK to "Medium-dark 🏾",
+                    EmojiSkinTone.DARK to "Dark 🏿",
+                ),
+                selected = settings.emoji.defaultSkinTone,
+            ) { scope.launch { repository.setEmojiDefaultSkinTone(it) } }
+        }
+        item {
+            ToggleSetting(
+                "Override with last used",
+                "Prefer the tone you last picked for an emoji over the default",
+                settings.emoji.toneOverrideByLastUsed,
+                info = "When on, an emoji you have already picked a tone for (from its " +
+                    "long-press popup on the panel) shows that tone in suggestions and search " +
+                    "instead of the default above. Off (the default) means the default skin " +
+                    "tone always wins in those two places.",
+            ) { scope.launch { repository.setEmojiToneOverrideByLastUsed(it) } }
+        }
+    }
     SettingsGroup("Emoji panel") {
+        item {
+            ToggleSetting(
+                "Return to keyboard after emoji",
+                "Close the panel the moment you insert one emoji",
+                settings.emoji.closeAfterInsert,
+                info = "By default the emoji panel stays open so you can pick several emoji in " +
+                    "a row. Turn this on to jump straight back to the keys after inserting a " +
+                    "single emoji.",
+            ) { scope.launch { repository.setEmojiCloseAfterInsert(it) } }
+        }
         item {
             ChoiceSetting(
                 title = "History tab",
@@ -2857,6 +2900,20 @@ private fun EmojiSettings(repository: SettingsRepository, settings: KeyboardSett
                 ) { Text(if (imported) "Replace emoji font file" else "Import emoji font file") }
                 Spacer(Modifier.height(8.dp))
             }
+        }
+        item {
+            ToggleSetting(
+                "Hide emoji this phone can't display",
+                "Skip emoji that show as a blank box in the panel, search and suggestions",
+                settings.emoji.hideUnrenderable,
+                info = "Older phones (and some brands) ship an emoji font that predates the " +
+                    "newest emoji, which then render as an empty \"tofu\" box. This hides any " +
+                    "emoji the current emoji font can't draw. To see them all instead, set " +
+                    "the emoji font above to \"Google\" (Noto Color Emoji), or import a " +
+                    "complete emoji font file (such as a Twemoji or OpenMoji build) under " +
+                    "\"Custom\" — WM Keyboard ships no emoji font of its own, it uses the " +
+                    "one you choose here.",
+            ) { scope.launch { repository.setHideUnrenderableEmoji(it) } }
         }
     }
     CaptionText(
