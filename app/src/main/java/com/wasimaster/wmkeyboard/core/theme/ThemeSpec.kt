@@ -52,12 +52,22 @@ data class ThemeSpec(
     val boardGradient: GradientSpec? = null,
     /** Absolute path of a local background image; never set in exports. */
     val backgroundImage: String? = null,
-    /** Alpha applied to the background image itself. */
+    /**
+     * Absolute path of a separate landscape background image; used only when
+     * the screen is landscape, falling back to [backgroundImage] when null.
+     * Lets a portrait photo and a wide crop each fit their orientation instead
+     * of one image being letterboxed or over-cropped in the other. Never set in
+     * exports (travels as [backgroundImageLandscapeBase64]).
+     */
+    val backgroundImageLandscape: String? = null,
+    /** Alpha applied to the background image itself (shared by both orientations). */
     val backgroundImageOpacity: Float = 1f,
     /** Blur radius applied to the background image (0 = sharp, 25 = heavy). */
     val backgroundImageBlur: Float = 0f,
     /** Image bytes for export/import payloads only; stripped after import. */
     val backgroundImageBase64: String? = null,
+    /** Landscape image bytes for export/import payloads only; stripped after import. */
+    val backgroundImageLandscapeBase64: String? = null,
     // Keys
     val keyShape: KeyShapeKind = KeyShapeKind.ROUNDED,
     /** Painted over letter keys when set (subtle sheen); stops may be translucent. */

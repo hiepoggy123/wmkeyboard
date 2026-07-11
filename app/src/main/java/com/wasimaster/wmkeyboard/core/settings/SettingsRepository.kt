@@ -42,6 +42,23 @@ import kotlinx.coroutines.flow.map
 /** Visual theme for the keyboard and settings app. */
 enum class ThemeMode { SYSTEM, LIGHT, DARK, AMOLED }
 
+/**
+ * A pair of themes that follow the system light/dark setting: [lightThemeId]
+ * while the system is light, [darkThemeId] while it is dark. When [enabled],
+ * this takes over from [KeyboardSettings.keyboardThemeId] entirely — the theme
+ * tool shows the active one but can't change it, since the system does.
+ *
+ * The ids are the same namespace as [KeyboardSettings.keyboardThemeId]:
+ * [DEFAULT_THEME_ID], a built-in id, or a custom id. A nested class rather than
+ * three flat fields because the top-level [KeyboardSettings] count is near the
+ * JVM `copy` ceiling; the DataStore keys stay flat all the same.
+ */
+data class AutoThemeSettings(
+    val enabled: Boolean = false,
+    val lightThemeId: String = DEFAULT_THEME_ID,
+    val darkThemeId: String = DEFAULT_THEME_ID,
+)
+
 /** Shrinks the keyboard toward one edge for thumb reach. */
 enum class OneHandedMode { OFF, LEFT, RIGHT }
 
@@ -372,6 +389,8 @@ data class KeyboardSettings(
     val keyboardThemeId: String = DEFAULT_THEME_ID,
     /** User-created themes; built-ins live in code (BuiltInThemes). */
     val customThemes: List<ThemeSpec> = emptyList(),
+    /** Light+dark theme pair that follows the system setting; see [AutoThemeSettings]. */
+    val autoTheme: AutoThemeSettings = AutoThemeSettings(),
     val keyHeightDp: Int = 48,
     val numberRowHeightDp: Int = 42,
     // Edge-to-edge IME windows (enforced on Android 15+) draw behind the
@@ -387,6 +406,12 @@ data class KeyboardSettings(
     val floatingYFraction: Float = 1.0f,
     val keyboardWidthPercent: Int = 100,
     val keyboardAlignment: KeyboardAlignment = KeyboardAlignment.CENTER,
+    /**
+     * Spacing between keys as a multiple of the built-in gap (1 = default).
+     * Higher spreads the keys apart (and raises the keyboard, since the gap is
+     * part of each row); lower packs them tighter.
+     */
+    val keyGapScale: Float = 1f,
     val keyCornerRadiusDp: Int = 8,
     val fontScale: Float = 1.0f,
     /**
@@ -1049,6 +1074,9 @@ class SettingsRepository(private val context: Context) {
         private val DYNAMIC_COLOR = booleanPreferencesKey("dynamic_color")
         private val KEYBOARD_THEME_ID = stringPreferencesKey("keyboard_theme_id")
         private val CUSTOM_THEMES = stringPreferencesKey("custom_themes")
+        private val AUTO_THEME_ENABLED = booleanPreferencesKey("auto_theme_enabled")
+        private val AUTO_THEME_LIGHT_ID = stringPreferencesKey("auto_theme_light_id")
+        private val AUTO_THEME_DARK_ID = stringPreferencesKey("auto_theme_dark_id")
         private val KEY_HEIGHT = intPreferencesKey("key_height")
         private val NUMBER_ROW_HEIGHT = intPreferencesKey("number_row_height")
         private val BOTTOM_PADDING = intPreferencesKey("bottom_padding")
@@ -1080,6 +1108,9 @@ class SettingsRepository(private val context: Context) {
             stringPreferencesKey(variantKey("keyboard_alignment", v))
         private fun fontScaleKey(v: ScreenVariant) =
             floatPreferencesKey(variantKey("font_scale", v))
+        private fun keyboardScaleKey(v: ScreenVariant) =
+            floatPreferencesKey(variantKey("keyboard_scale", v))
+        private val KEY_GAP_SCALE = floatPreferencesKey("key_gap_scale")
         private val KEY_FONT_ID = stringPreferencesKey("key_font_id")
         private val CUSTOM_FONT_NAME = stringPreferencesKey("custom_font_name")
         private val BENGALI_FONT_ID = stringPreferencesKey("bengali_font_id")
@@ -1362,6 +1393,11 @@ class SettingsRepository(private val context: Context) {
             keyboardThemeId = p[KEYBOARD_THEME_ID] ?: defaults.keyboardThemeId,
             customThemes = p[CUSTOM_THEMES]?.let { ThemeCodec.decodeList(it) }
                 ?: defaults.customThemes,
+            autoTheme = AutoThemeSettings(
+                enabled = p[AUTO_THEME_ENABLED] ?: defaults.autoTheme.enabled,
+                lightThemeId = p[AUTO_THEME_LIGHT_ID] ?: defaults.autoTheme.lightThemeId,
+                darkThemeId = p[AUTO_THEME_DARK_ID] ?: defaults.autoTheme.darkThemeId,
+            ),
             keyHeightDp = p[KEY_HEIGHT] ?: defaults.keyHeightDp,
             numberRowHeightDp = p[NUMBER_ROW_HEIGHT] ?: p[KEY_HEIGHT] ?: defaults.numberRowHeightDp,
             bottomPaddingDp = p[BOTTOM_PADDING] ?: defaults.bottomPaddingDp,
@@ -1376,6 +1412,7 @@ class SettingsRepository(private val context: Context) {
             keyboardAlignment = p[KEYBOARD_ALIGNMENT]
                 ?.let { runCatching { KeyboardAlignment.valueOf(it) }.getOrNull() }
                 ?: defaults.keyboardAlignment,
+            keyGapScale = p[KEY_GAP_SCALE] ?: defaults.keyGapScale,
             keyCornerRadiusDp = p[KEY_CORNER_RADIUS] ?: defaults.keyCornerRadiusDp,
             fontScale = p[FONT_SCALE] ?: defaults.fontScale,
             sizingOverrides = ScreenVariant.entries
@@ -1389,6 +1426,7 @@ class SettingsRepository(private val context: Context) {
                         fontScale = p[fontScaleKey(v)],
                         keyboardAlignment = p[alignmentKey(v)]
                             ?.let { name -> runCatching { KeyboardAlignment.valueOf(name) }.getOrNull() },
+                        keyboardScale = p[keyboardScaleKey(v)],
                     )
                 }
                 .filterValues { !it.isEmpty },
@@ -2100,6 +2138,15 @@ class SettingsRepository(private val context: Context) {
     suspend fun setKeyboardThemeId(id: String) =
         context.dataStore.edit { it[KEYBOARD_THEME_ID] = id }
 
+    suspend fun setAutoThemeEnabled(value: Boolean) =
+        context.dataStore.edit { it[AUTO_THEME_ENABLED] = value }
+
+    suspend fun setAutoThemeLightId(id: String) =
+        context.dataStore.edit { it[AUTO_THEME_LIGHT_ID] = id }
+
+    suspend fun setAutoThemeDarkId(id: String) =
+        context.dataStore.edit { it[AUTO_THEME_DARK_ID] = id }
+
     /** Adds the theme or replaces the stored theme with the same id. */
     suspend fun upsertCustomTheme(theme: ThemeSpec) =
         context.dataStore.edit { prefs ->
@@ -2176,6 +2223,19 @@ class SettingsRepository(private val context: Context) {
     suspend fun setVariantAlignment(variant: ScreenVariant, value: KeyboardAlignment?) =
         editVariant(variant, KEYBOARD_ALIGNMENT, alignmentKey(variant), value?.name)
 
+    /**
+     * Whole-keyboard size multiplier for [variant] (folded vs unfolded etc.).
+     * There is no base/portrait key — portrait is sized by its plain key-height
+     * slider — so this only ever writes the per-variant override key.
+     */
+    suspend fun setVariantKeyboardScale(variant: ScreenVariant, value: Float?) {
+        if (!variant.isOverride) return
+        context.dataStore.edit {
+            val v = value?.coerceIn(0.5f, 1.5f)
+            if (v == null) it.remove(keyboardScaleKey(variant)) else it[keyboardScaleKey(variant)] = v
+        }
+    }
+
     /** Clears every override on [variant], returning it to the portrait values. */
     suspend fun clearVariantSizing(variant: ScreenVariant) {
         if (!variant.isOverride) return
@@ -2186,6 +2246,7 @@ class SettingsRepository(private val context: Context) {
             it.remove(widthPercentKey(variant))
             it.remove(fontScaleKey(variant))
             it.remove(alignmentKey(variant))
+            it.remove(keyboardScaleKey(variant))
         }
     }
 
@@ -2210,6 +2271,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setKeyCornerRadiusDp(value: Int) =
         context.dataStore.edit { it[KEY_CORNER_RADIUS] = value.coerceIn(0, 28) }
+
+    suspend fun setKeyGapScale(value: Float) =
+        context.dataStore.edit { it[KEY_GAP_SCALE] = value.coerceIn(0f, 2f) }
 
     suspend fun setFontScale(value: Float) =
         context.dataStore.edit { it[FONT_SCALE] = value.coerceIn(0.7f, 1.5f) }

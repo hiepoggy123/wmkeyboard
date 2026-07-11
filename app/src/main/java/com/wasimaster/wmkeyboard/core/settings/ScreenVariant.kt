@@ -1,5 +1,7 @@
 package com.wasimaster.wmkeyboard.core.settings
 
+import kotlin.math.roundToInt
+
 /**
  * The screen shapes a keyboard has to fit, each of which can carry its own
  * sizing.
@@ -53,11 +55,18 @@ data class SizingOverride(
     val keyboardWidthPercent: Int? = null,
     val fontScale: Float? = null,
     val keyboardAlignment: KeyboardAlignment? = null,
+    /**
+     * Whole-keyboard size multiplier for this screen shape: it scales the key
+     * and number-row heights together, so a foldable's roomy inner display can
+     * run a smaller keyboard than its cramped cover screen (or the reverse)
+     * without re-dialling each height by hand. null = 1× (portrait size).
+     */
+    val keyboardScale: Float? = null,
 ) {
     val isEmpty: Boolean
         get() = keyHeightDp == null && numberRowHeightDp == null &&
             bottomPaddingDp == null && keyboardWidthPercent == null &&
-            fontScale == null && keyboardAlignment == null
+            fontScale == null && keyboardAlignment == null && keyboardScale == null
 }
 
 /**
@@ -72,9 +81,12 @@ data class SizingOverride(
 fun KeyboardSettings.resolvedFor(variant: ScreenVariant): KeyboardSettings {
     val override = sizingOverrides[variant] ?: return this
     if (override.isEmpty) return this
+    // The scale rides on the resolved heights, so every `settings.keyHeightDp`
+    // downstream is already scaled and no render code learns it exists.
+    val scale = override.keyboardScale ?: 1f
     return copy(
-        keyHeightDp = override.keyHeightDp ?: keyHeightDp,
-        numberRowHeightDp = override.numberRowHeightDp ?: numberRowHeightDp,
+        keyHeightDp = ((override.keyHeightDp ?: keyHeightDp) * scale).roundToInt(),
+        numberRowHeightDp = ((override.numberRowHeightDp ?: numberRowHeightDp) * scale).roundToInt(),
         bottomPaddingDp = override.bottomPaddingDp ?: bottomPaddingDp,
         keyboardWidthPercent = override.keyboardWidthPercent ?: keyboardWidthPercent,
         fontScale = override.fontScale ?: fontScale,
@@ -82,15 +94,22 @@ fun KeyboardSettings.resolvedFor(variant: ScreenVariant): KeyboardSettings {
     )
 }
 
-/** The values [variant] currently resolves to, for showing in its editor. */
+/**
+ * The values [variant] currently resolves to, for showing in its editor.
+ *
+ * Deliberately built from the raw base + override rather than [resolvedFor]:
+ * the editor shows the stored key height and the scale as separate numbers, so
+ * it must not fold the scale into the height the way the render path does.
+ */
 fun KeyboardSettings.sizingValuesFor(variant: ScreenVariant): SizingOverride {
-    val resolved = resolvedFor(variant)
+    val override = sizingOverrides[variant]
     return SizingOverride(
-        keyHeightDp = resolved.keyHeightDp,
-        numberRowHeightDp = resolved.numberRowHeightDp,
-        bottomPaddingDp = resolved.bottomPaddingDp,
-        keyboardWidthPercent = resolved.keyboardWidthPercent,
-        fontScale = resolved.fontScale,
-        keyboardAlignment = resolved.keyboardAlignment,
+        keyHeightDp = override?.keyHeightDp ?: keyHeightDp,
+        numberRowHeightDp = override?.numberRowHeightDp ?: numberRowHeightDp,
+        bottomPaddingDp = override?.bottomPaddingDp ?: bottomPaddingDp,
+        keyboardWidthPercent = override?.keyboardWidthPercent ?: keyboardWidthPercent,
+        fontScale = override?.fontScale ?: fontScale,
+        keyboardAlignment = override?.keyboardAlignment ?: keyboardAlignment,
+        keyboardScale = override?.keyboardScale ?: 1f,
     )
 }
