@@ -53,6 +53,7 @@ import com.wasimaster.wmkeyboard.core.clipboard.ClipLinks
 import com.wasimaster.wmkeyboard.core.clipboard.ClipboardStore
 import com.wasimaster.wmkeyboard.core.emoji.EmojiCatalog
 import com.wasimaster.wmkeyboard.core.emoji.EmojiEntry
+import com.wasimaster.wmkeyboard.core.emoji.EmojiRenderCheck
 import com.wasimaster.wmkeyboard.core.emoji.EmojiSearch
 import com.wasimaster.wmkeyboard.core.emoji.EmojiSuggester
 import com.wasimaster.wmkeyboard.core.emoji.EmojiUsage
@@ -82,6 +83,7 @@ import com.wasimaster.wmkeyboard.core.prediction.SuggestionEngine
 import com.wasimaster.wmkeyboard.core.prediction.SystemUserDictionary
 import com.wasimaster.wmkeyboard.core.prediction.Trie
 import com.wasimaster.wmkeyboard.core.prediction.UserLexicon
+import com.wasimaster.wmkeyboard.core.settings.EmojiFontChoice
 import com.wasimaster.wmkeyboard.core.settings.EmojiInsertMode
 import com.wasimaster.wmkeyboard.core.settings.HapticStyle
 import com.wasimaster.wmkeyboard.core.settings.KeyboardMode
@@ -165,6 +167,7 @@ import com.wasimaster.wmkeyboard.core.layout.language
 import com.wasimaster.wmkeyboard.core.layout.resolveLayout
 import com.wasimaster.wmkeyboard.core.layout.script
 import com.wasimaster.wmkeyboard.core.layout.compile
+import com.wasimaster.wmkeyboard.ime.ui.KeyboardFonts
 import com.wasimaster.wmkeyboard.ime.ui.KeyboardScreen
 import android.inputmethodservice.InputMethodService
 import java.io.File
@@ -597,7 +600,15 @@ class WMKeyboardService : InputMethodService() {
             var appNamesEnabled: Boolean? = null
             var linkPreviewsEnabled: Boolean? = null
             var pinnedLastEnabled: Boolean? = null
+            // Recompute the hidden-emoji set only when the toggle or the font
+            // behind it actually changes, not on every unrelated settings save.
+            var hiddenEmojiKey: Pair<Boolean, EmojiFontChoice>? = null
             settingsRepository.settings.collect { settings ->
+                val nextHiddenKey = settings.emoji.hideUnrenderable to settings.emojiFont
+                if (hiddenEmojiKey != nextHiddenKey) {
+                    hiddenEmojiKey = nextHiddenKey
+                    recomputeHiddenEmoji(settings)
+                }
                 clipboardStore.expiryMillis = settings.clipboard.expiryHours * 60L * 60 * 1000
                 // Flipping pinned-first/last re-sorts the store, so refresh the
                 // panel's snapshot when the choice actually changes.
@@ -783,6 +794,9 @@ class WMKeyboardService : InputMethodService() {
                     emojiVariants = variants,
                 )
             }
+            // The catalog is what the hidden-emoji check runs over; now that it
+            // is loaded, populate the set if the feature is already on.
+            recomputeHiddenEmoji(_uiState.value.settings)
         }
 
         (getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager)
@@ -2977,7 +2991,13 @@ class WMKeyboardService : InputMethodService() {
                 }
             }
             suggestionCostMs = (suggestionCostMs + (SystemClock.uptimeMillis() - started)) / 2
-            _uiState.update { it.copy(suggestions = results, emojiSuggestions = emojis) }
+            // Drop emoji the device can't draw, then apply the default skin tone
+            // (filter first — the hidden set is keyed by the neutral base).
+            val hidden = _uiState.value.hiddenEmoji
+            val shownEmojis = emojis
+                .let { list -> if (hidden.isEmpty()) list else list.filterNot { it in hidden } }
+                .map { applyEmojiTone(it) }
+            _uiState.update { it.copy(suggestions = results, emojiSuggestions = shownEmojis) }
         }
     }
 
@@ -5755,13 +5775,65 @@ class WMKeyboardService : InputMethodService() {
         packageManager.getApplicationLabel(info).toString()
     }.getOrDefault(pkg)
 
+    /**
+     * Resolves the face to show for a suggested/searched emoji: the global
+     * default skin tone, unless the "override with last used" option is on and
+     * a variant was picked for this base (see [KeyboardSettings.emoji]).
+     */
+    private fun applyEmojiTone(emoji: String): String {
+        val emojiSettings = _uiState.value.settings.emoji
+        return _uiState.value.emojiVariants.tonedDisplay(
+            base = emoji,
+            tone = emojiSettings.defaultSkinTone.toneIndex,
+            preferred = if (emojiSettings.toneOverrideByLastUsed) {
+                emojiUsage.preferredVariant(emoji)
+            } else {
+                null
+            },
+            overrideWithPreferred = emojiSettings.toneOverrideByLastUsed,
+        )
+    }
+
+    /**
+     * Recomputes [KeyboardUiState.hiddenEmoji] — the emoji the active font
+     * can't draw — for the current font and toggle. A no-op that just clears
+     * the set when the feature is off or the catalog hasn't loaded yet.
+     */
+    private fun recomputeHiddenEmoji(settings: KeyboardSettings) {
+        val catalog = emojiEntries
+        if (!settings.emoji.hideUnrenderable || catalog.isEmpty()) {
+            if (_uiState.value.hiddenEmoji.isNotEmpty()) {
+                _uiState.update { it.copy(hiddenEmoji = emptySet()) }
+            }
+            return
+        }
+        serviceScope.launch {
+            val hidden = withContext(Dispatchers.Default) {
+                val typeface = KeyboardFonts.emojiTypeface(this@WMKeyboardService, settings.emojiFont)
+                EmojiRenderCheck.unrenderable(catalog.map { it.emoji }, typeface)
+            }
+            _uiState.update { it.copy(hiddenEmoji = hidden) }
+        }
+    }
+
     fun onEmojiTapped(emoji: String) {
         vibrate()
         currentInputConnection?.commitText(emoji, 1)
         learnEmoji(emoji)
         emojiUsage.record(emoji)
+        // "Return to keyboard after emoji": one insertion from the panel drops
+        // straight back to the keys instead of keeping the panel open for a run.
+        val closeAfter = _uiState.value.settings.emoji.closeAfterInsert &&
+            _uiState.value.panel == PanelMode.EMOJI
         _uiState.update {
-            it.copy(emojiRecents = emojiUsage.recents(), emojiFrequents = emojiUsage.frequents())
+            it.copy(
+                emojiRecents = emojiUsage.recents(),
+                emojiFrequents = emojiUsage.frequents(),
+                panel = if (closeAfter) PanelMode.NONE else it.panel,
+                emojiSearchActive = if (closeAfter) false else it.emojiSearchActive,
+                emojiQuery = if (closeAfter) "" else it.emojiQuery,
+                emojiResults = if (closeAfter) emptyList() else it.emojiResults,
+            )
         }
     }
 
@@ -5903,8 +5975,10 @@ class WMKeyboardService : InputMethodService() {
         val search = emojiSearch ?: return
         val query = _uiState.value.emojiQuery
         serviceScope.launch {
+            val hidden = _uiState.value.hiddenEmoji
             val results = withContext(Dispatchers.Default) { search.search(query) }
-            _uiState.update { it.copy(emojiResults = results) }
+            val shown = if (hidden.isEmpty()) results else results.filterNot { it.emoji in hidden }
+            _uiState.update { it.copy(emojiResults = shown) }
         }
     }
 

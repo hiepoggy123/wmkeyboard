@@ -57,6 +57,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.wasimaster.wmkeyboard.BuildConfig
+import com.wasimaster.wmkeyboard.core.emoji.EmojiCatalog
+import com.wasimaster.wmkeyboard.core.emoji.EmojiRenderCheck
 import com.wasimaster.wmkeyboard.core.layout.language
 import com.wasimaster.wmkeyboard.core.layout.resolveLayout
 import com.wasimaster.wmkeyboard.core.localllm.LocalLlmCatalog
@@ -75,7 +77,9 @@ import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
 import com.wasimaster.wmkeyboard.core.settings.isSupportedTool
 import com.wasimaster.wmkeyboard.core.theme.BuiltInThemes
 import com.wasimaster.wmkeyboard.core.theme.DEFAULT_THEME_ID
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * First-run wizard: enable the keyboard, then walk through the choices that
@@ -95,7 +99,7 @@ internal fun OnboardingScreen(
     // enabled (the tools page right before it decides that), so the wizard
     // length adapts live.
     val toolSetupVisible = settings.enabledTools.any { it in ToolSetupTools }
-    val pageCount = if (toolSetupVisible) 7 else 6
+    val pageCount = if (toolSetupVisible) 8 else 7
     // Whether the tools page has applied its recommended starting selection.
     // Hoisted here (not in the page) so leaving and revisiting the page
     // can't re-apply it over the user's choices.
@@ -131,14 +135,15 @@ internal fun OnboardingScreen(
                     0 -> WelcomePage()
                     1 -> LanguagesPage(repository, settings)
                     2 -> LookPage(repository, settings)
-                    3 -> FeedbackPage(repository, settings)
-                    4 -> GesturesPage(repository, settings)
-                    5 -> ToolsPage(
+                    3 -> EmojiPage(repository, settings)
+                    4 -> FeedbackPage(repository, settings)
+                    5 -> GesturesPage(repository, settings)
+                    6 -> ToolsPage(
                         repository, settings,
                         seeded = toolsSeeded,
                         onSeeded = { toolsSeeded = true },
                     )
-                    6 -> ToolSetupPage(repository, settings)
+                    7 -> ToolSetupPage(repository, settings)
                 }
             }
             Row(
@@ -421,6 +426,62 @@ private fun OnboardingThemeCard(
             .clickable(onClick = onSelect),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) { content() }
+}
+
+@Composable
+private fun EmojiPage(repository: SettingsRepository, settings: KeyboardSettings) {
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    // How many catalog emoji the phone's own font can't draw. Counted off the
+    // main thread; null while still counting.
+    var missingCount by remember { mutableStateOf<Int?>(null) }
+    LaunchedEffect(Unit) {
+        missingCount = withContext(Dispatchers.Default) {
+            val catalog = runCatching {
+                context.assets.open("emoji/catalog.tsv").use { EmojiCatalog.load(it) }
+            }.getOrDefault(emptyList())
+            EmojiRenderCheck.unrenderable(catalog.map { it.emoji }, null).size
+        }
+    }
+    PageHeader(
+        "Emoji",
+        "Every phone ships its own emoji drawings, and older ones can't draw the " +
+            "newest emoji — those show up as an empty box.",
+    )
+    val count = missingCount
+    Text(
+        when {
+            count == null -> "Checking which emoji this phone can display…"
+            count == 0 -> "Good news — this phone can display every emoji in the catalog, " +
+                "so there's nothing to hide."
+            else -> "This phone can't display $count of the emoji in the catalog. They'd " +
+                "show up as empty boxes."
+        },
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+    )
+    ListItem(
+        headlineContent = { Text("Hide emoji this phone can't display") },
+        supportingContent = {
+            Text("Skip the empty boxes in the emoji panel, search and suggestions")
+        },
+        trailingContent = {
+            Switch(
+                checked = settings.emoji.hideUnrenderable,
+                onCheckedChange = { scope.launch { repository.setHideUnrenderableEmoji(it) } },
+            )
+        },
+    )
+    Text(
+        "To see them all instead, use a complete emoji font: pick \"Google\" (Noto " +
+            "Color Emoji) or import an emoji font file (like Twemoji or OpenMoji) under " +
+            "Emoji → Emoji font. WM Keyboard uses this phone's emoji font by default and " +
+            "ships none of its own. You can change all of this later in Settings → Emoji.",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(16.dp),
+    )
 }
 
 @Composable

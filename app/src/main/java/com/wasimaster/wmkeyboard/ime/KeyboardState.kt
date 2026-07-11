@@ -623,6 +623,12 @@ data class KeyboardUiState(
     val emojiCatalog: List<EmojiEntry> = emptyList(),
     /** RGI toned-sequence lookup; loaded once with the catalog. */
     val emojiVariants: EmojiVariantIndex = EmojiVariantIndex.empty(),
+    /**
+     * Emoji the active font can't draw, hidden from the panel, search and
+     * suggestions while [KeyboardSettings.emoji] hideUnrenderable is on. Empty
+     * when the feature is off (nothing is filtered).
+     */
+    val hiddenEmoji: Set<String> = emptySet(),
     val clipboardItems: List<ClipItem> = emptyList(),
     /**
      * Most recently copied text, offered as a paste chip on the suggestion strip

@@ -6101,6 +6101,21 @@ private fun EmojiSearchField(
     }
 }
 
+/**
+ * The face to show for a searched emoji [base]: the global default skin tone,
+ * or the last-used variant when that override is enabled. Mirrors the IME's
+ * `applyEmojiTone`, so what search shows is what a tap commits.
+ */
+private fun emojiSearchDisplay(state: KeyboardUiState, base: String): String {
+    val emoji = state.settings.emoji
+    return state.emojiVariants.tonedDisplay(
+        base = base,
+        tone = emoji.defaultSkinTone.toneIndex,
+        preferred = state.emojiVariantPrefs[base],
+        overrideWithPreferred = emoji.toneOverrideByLastUsed,
+    )
+}
+
 @Composable
 private fun EmojiPanel(
     state: KeyboardUiState,
@@ -6121,7 +6136,8 @@ private fun EmojiPanel(
         state.emojiCatalog.filter { it.parent != null }.groupBy({ it.parent!! }, { it.emoji })
     }
     val historyMode = state.settings.emojiTabMode
-    val history = if (historyMode == EmojiTabMode.MOST_USED) state.emojiFrequents else state.emojiRecents
+    val history = (if (historyMode == EmojiTabMode.MOST_USED) state.emojiFrequents else state.emojiRecents)
+        .let { if (state.hiddenEmoji.isEmpty()) it else it.filterNot { e -> e in state.hiddenEmoji } }
     // Reorder is reached from any favourited emoji's long-press popup, and is
     // only meaningful once there are two favourites to shuffle.
     var reorderOpen by remember { mutableStateOf(false) }
@@ -6271,7 +6287,9 @@ private fun EmojiPanel(
                 items(results, key = { it }) { emoji ->
                     EmojiCell(
                         base = emoji,
-                        display = state.emojiVariantPrefs[emoji] ?: emoji,
+                        // Search honours the global default skin tone (and the
+                        // last-used variant when that override is on).
+                        display = emojiSearchDisplay(state, emoji),
                         state = state,
                         genderVariants = variantChildren[emoji].orEmpty(),
                         onTap = onEmoji,
@@ -6365,9 +6383,12 @@ private fun EmojiPanel(
                         }
                     }
                 } else {
-                    val emojis = remember(state.emojiCatalog, tab) {
+                    val emojis = remember(state.emojiCatalog, tab, state.hiddenEmoji) {
                         state.emojiCatalog
-                            .filter { it.category == tab && it.parent == null }
+                            .filter {
+                                it.category == tab && it.parent == null &&
+                                    it.emoji !in state.hiddenEmoji
+                            }
                             .map { it.emoji }
                     }
                     LazyVerticalGrid(

@@ -94,6 +94,23 @@ object KeyboardFonts {
         EmojiFontChoice.CUSTOM -> fileFamily(customEmojiFontFile(context))
     }
 
+    /**
+     * The [android.graphics.Typeface] to test emoji glyph coverage against for
+     * the "hide unrenderable emoji" feature. Only a [EmojiFontChoice.CUSTOM]
+     * font resolves to a concrete typeface here; [EmojiFontChoice.SYSTEM] and
+     * [EmojiFontChoice.NOTO] return null so the caller tests against the system
+     * emoji font — Noto is fetched asynchronously and can't be loaded as a
+     * blocking typeface, and it exists precisely to fill the system font's gaps.
+     */
+    fun emojiTypeface(context: Context, choice: EmojiFontChoice): android.graphics.Typeface? =
+        when (choice) {
+            EmojiFontChoice.SYSTEM, EmojiFontChoice.NOTO -> null
+            EmojiFontChoice.CUSTOM -> customEmojiFontFile(context)
+                .takeIf { it.exists() }
+                ?.let { runCatching { android.graphics.Typeface.createFromFile(it) }.getOrNull() }
+                ?.takeIf { it != android.graphics.Typeface.DEFAULT }
+        }
+
     /** Family for any Google Fonts name (also used directly by tool panels). */
     fun googleFamily(name: String): FontFamily = cache.getOrPut("google:$name") {
         val font = GoogleFont(name)
