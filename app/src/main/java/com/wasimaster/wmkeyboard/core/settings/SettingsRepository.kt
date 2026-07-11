@@ -538,6 +538,12 @@ data class KeyboardSettings(
      * word (default) or draw handwriting recognized on the keyboard itself.
      */
     val letterSwipeAction: LetterSwipeAction = LetterSwipeAction.TYPE_WORDS,
+    /**
+     * Glide-typing behaviour and trail appearance, grouped (see [GestureSettings]).
+     * Nested rather than flattened onto [KeyboardSettings] because the top-level
+     * data class is near the JVM's copy() slot ceiling.
+     */
+    val gesture: GestureSettings = GestureSettings(),
     /** Swipe that starts moving before the long-press delay elapses. */
     val spaceShortSwipe: SpaceSwipeAction = SpaceSwipeAction.LANGUAGE,
     /** Swipe that begins after holding the spacebar past the long-press delay. */
@@ -993,6 +999,29 @@ data class ClipboardSettings(
     val pinnedLast: Boolean = false,
 )
 
+/** Glide-typing behaviour and swipe-trail appearance. See [KeyboardSettings.gesture]. */
+data class GestureSettings(
+    /**
+     * Swiping over the spacebar mid-glide commits the current word and starts a
+     * new one, so several words can be glided in one unbroken stroke. On by
+     * default; off makes a swipe that crosses the spacebar decode as one word.
+     */
+    val spaceGlideMultiWord: Boolean = true,
+    /**
+     * How far the finger must travel before a press turns into a glide, as a
+     * multiple of the system touch slop. Lower is more sensitive (a glide
+     * starts sooner); higher needs a more deliberate swipe before it takes over
+     * from a tap. Default 2×.
+     */
+    val startThresholdSlop: Float = 2f,
+    /** Head width of the comet trail, in dp. The tail thins to ~30% of this. */
+    val trailWidthDp: Float = 10f,
+    /** How long each trail point stays on screen, in ms. Longer = a longer tail. */
+    val trailDurationMs: Int = 350,
+    /** Peak opacity of the trail, 0..1. */
+    val trailOpacity: Float = 0.55f,
+)
+
 /**
  * DataStore-backed settings. Every option on the settings screens flows
  * through here; the IME service collects [settings] and re-renders live.
@@ -1137,6 +1166,11 @@ class SettingsRepository(private val context: Context) {
         private val INLINE_AUTOFILL = booleanPreferencesKey("inline_autofill")
         private val GESTURE_TYPING = booleanPreferencesKey("gesture_typing")
         private val LETTER_SWIPE_ACTION = stringPreferencesKey("letter_swipe_action")
+        private val GESTURE_SPACE_MULTI_WORD = booleanPreferencesKey("gesture_space_multi_word")
+        private val GESTURE_START_THRESHOLD_SLOP = floatPreferencesKey("gesture_start_threshold_slop")
+        private val GESTURE_TRAIL_WIDTH_DP = floatPreferencesKey("gesture_trail_width_dp")
+        private val GESTURE_TRAIL_DURATION_MS = intPreferencesKey("gesture_trail_duration_ms")
+        private val GESTURE_TRAIL_OPACITY = floatPreferencesKey("gesture_trail_opacity")
         // Legacy boolean, read only to migrate into SPACE_LONG_SWIPE.
         private val SPACEBAR_CURSOR = booleanPreferencesKey("spacebar_cursor")
         private val SPACE_SHORT_SWIPE = stringPreferencesKey("space_short_swipe")
@@ -1462,6 +1496,13 @@ class SettingsRepository(private val context: Context) {
             letterSwipeAction = p[LETTER_SWIPE_ACTION]
                 ?.let { runCatching { LetterSwipeAction.valueOf(it) }.getOrNull() }
                 ?: defaults.letterSwipeAction,
+            gesture = GestureSettings(
+                spaceGlideMultiWord = p[GESTURE_SPACE_MULTI_WORD] ?: defaults.gesture.spaceGlideMultiWord,
+                startThresholdSlop = p[GESTURE_START_THRESHOLD_SLOP] ?: defaults.gesture.startThresholdSlop,
+                trailWidthDp = p[GESTURE_TRAIL_WIDTH_DP] ?: defaults.gesture.trailWidthDp,
+                trailDurationMs = p[GESTURE_TRAIL_DURATION_MS] ?: defaults.gesture.trailDurationMs,
+                trailOpacity = p[GESTURE_TRAIL_OPACITY] ?: defaults.gesture.trailOpacity,
+            ),
             spaceShortSwipe = p[SPACE_SHORT_SWIPE]
                 ?.let { runCatching { SpaceSwipeAction.valueOf(it) }.getOrNull() }
                 ?: defaults.spaceShortSwipe,
@@ -2458,6 +2499,21 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setLetterSwipeAction(value: LetterSwipeAction) =
         context.dataStore.edit { it[LETTER_SWIPE_ACTION] = value.name }
+
+    suspend fun setGestureSpaceMultiWord(value: Boolean) =
+        context.dataStore.edit { it[GESTURE_SPACE_MULTI_WORD] = value }
+
+    suspend fun setGestureStartThresholdSlop(value: Float) =
+        context.dataStore.edit { it[GESTURE_START_THRESHOLD_SLOP] = value.coerceIn(0.5f, 4f) }
+
+    suspend fun setGestureTrailWidthDp(value: Float) =
+        context.dataStore.edit { it[GESTURE_TRAIL_WIDTH_DP] = value.coerceIn(2f, 24f) }
+
+    suspend fun setGestureTrailDurationMs(value: Int) =
+        context.dataStore.edit { it[GESTURE_TRAIL_DURATION_MS] = value.coerceIn(100, 1200) }
+
+    suspend fun setGestureTrailOpacity(value: Float) =
+        context.dataStore.edit { it[GESTURE_TRAIL_OPACITY] = value.coerceIn(0.1f, 1f) }
 
     suspend fun setSpaceShortSwipe(value: SpaceSwipeAction) =
         context.dataStore.edit { it[SPACE_SHORT_SWIPE] = value.name }

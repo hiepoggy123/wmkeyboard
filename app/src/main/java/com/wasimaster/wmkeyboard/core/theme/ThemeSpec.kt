@@ -73,6 +73,11 @@ data class ThemeSpec(
     val keyBorderWidthDp: Float = 0f,
     // Accent (shift-on tint, gesture trail, active tools, links/buttons in panels)
     val accent: Long = 0xFF8AB4F8,
+    /**
+     * Colour of the glide-typing trail. Null follows [accent]; set it to give
+     * the swipe trail its own colour independent of the accent tint.
+     */
+    val gestureTrailColor: Long? = null,
     // Popups (key preview bubble + long-press alternates)
     val popupBackground: Long? = null,
     val popupText: Long? = null,

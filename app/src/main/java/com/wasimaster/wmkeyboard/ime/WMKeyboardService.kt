@@ -830,6 +830,7 @@ class WMKeyboardService : InputMethodService() {
                 onText = ::onText,
                 onGesture = ::onGesture,
                 onGesturePreview = ::onGesturePreview,
+                onGestureWords = ::onGestureWords,
                 onCursorMove = ::onCursorMove,
                 onLayoutSelect = ::onLayoutSelected,
                 onClipboardKey = ::onClipboardKey,
@@ -3139,6 +3140,65 @@ class WMKeyboardService : InputMethodService() {
             consumeShift()
             _uiState.update {
                 it.copy(suggestions = candidates.map { candidate -> candidate.word })
+            }
+        }
+    }
+
+    /**
+     * Multi-word glide: one continuous stroke that crossed the spacebar was
+     * split into a word segment per crossing. Decodes and commits them in
+     * order, spacing between them, so the whole phrase lands from one swipe.
+     * Only the first word honours a held shift; the alternates of the last
+     * word go to the suggestion bar, so tapping one fixes the final word — the
+     * same as a single glide.
+     */
+    fun onGestureWords(segments: List<List<GesturePoint>>, keys: List<KeyCenter>, keyWidthPx: Float) {
+        stopVoiceForManualInput()
+        val state = _uiState.value
+        if (!state.settings.gestureTyping || !state.allowsTypingIntelligence) return
+        if (!state.language.isEnglish || state.typingTestActive) return
+        val lexicon = gestureLexicon
+        if (lexicon.isEmpty() || keys.isEmpty() || segments.isEmpty()) return
+
+        val shiftAtGesture = state.shiftState
+        previewJob?.cancel()
+        suggestionJob?.cancel()
+        _uiState.update { it.copy(glideWord = null) }
+        suggestionJob = serviceScope.launch {
+            val decoder = GestureDecoder(keys, keyWidthPx)
+            val personal = userLexicon.allWords().map { (word, count) -> word to count * 500 }
+            val lex = lexicon + personal
+            val ic = currentInputConnection ?: return@launch
+            // Flush any composing text before the first glided word.
+            commitComposing(ic, autocorrect = false)
+            var lastWords: List<String> = emptyList()
+            var committedAny = false
+            segments.forEachIndexed { index, segment ->
+                val candidates = withContext(Dispatchers.Default) { decoder.decode(segment, lex) }
+                if (candidates.isEmpty()) return@forEachIndexed
+                val word = if (index == 0) {
+                    when (shiftAtGesture) {
+                        ShiftState.CAPS_LOCK -> candidates.first().word.uppercase()
+                        ShiftState.ON -> candidates.first().word.replaceFirstChar { it.uppercase() }
+                        ShiftState.OFF -> candidates.first().word
+                    }
+                } else {
+                    candidates.first().word
+                }
+                // Auto-space between consecutive words.
+                val before = ic.getTextBeforeCursor(1, 0)?.toString().orEmpty()
+                if (before.isNotEmpty() && !before.last().isWhitespace()) {
+                    ic.commitText(" ", 1)
+                }
+                ic.commitText(word, 1)
+                learn(word)
+                lastGestureWord = word
+                lastWords = candidates.map { it.word }
+                committedAny = true
+            }
+            if (committedAny) {
+                consumeShift()
+                _uiState.update { it.copy(suggestions = lastWords) }
             }
         }
     }

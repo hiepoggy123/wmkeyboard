@@ -483,6 +483,7 @@ fun KeyboardScreen(
     onText: (String) -> Unit = {},
     onGesture: (List<GesturePoint>, List<KeyCenter>, Float) -> Unit = { _, _, _ -> },
     onGesturePreview: (List<GesturePoint>, List<KeyCenter>, Float) -> Unit = { _, _, _ -> },
+    onGestureWords: (List<List<GesturePoint>>, List<KeyCenter>, Float) -> Unit = { _, _, _ -> },
     onCursorMove: (Int) -> Unit = {},
     onLayoutSelect: (String) -> Unit = {},
     onClipboardKey: (ClipboardKeyAction) -> Unit = {},
@@ -698,6 +699,7 @@ fun KeyboardScreen(
                 onText = onText,
                 onGesture = onGesture,
                 onGesturePreview = onGesturePreview,
+                onGestureWords = onGestureWords,
                 onCursorMove = onCursorMove,
                 onLayoutSelect = onLayoutSelect,
                 onSuggestion = onSuggestion,
@@ -3583,6 +3585,7 @@ private fun KeyboardBody(
     onText: (String) -> Unit,
     onGesture: (List<GesturePoint>, List<KeyCenter>, Float) -> Unit,
     onGesturePreview: (List<GesturePoint>, List<KeyCenter>, Float) -> Unit,
+    onGestureWords: (List<List<GesturePoint>>, List<KeyCenter>, Float) -> Unit,
     onCursorMove: (Int) -> Unit,
     onLayoutSelect: (String) -> Unit,
     onSuggestion: (String) -> Unit,
@@ -4139,6 +4142,7 @@ private fun KeyboardBody(
                 ) {
                     KeyRows(
                         state, onKey, onText, onGesture, onGesturePreview, onCursorMove, onLayoutSelect,
+                        onGestureWords = onGestureWords,
                         onKeyboardHandwritingStroke = onKeyboardHandwritingStroke,
                     )
                 }
@@ -4189,9 +4193,6 @@ private fun KeyboardBody(
 /** One sampled point of the glide trail, timestamped for age-based fading. */
 private data class TrailPoint(val position: Offset, val timeMs: Long)
 
-/** How long a trail point stays visible; also the release fade-out time. */
-private const val GLIDE_TRAIL_MS = 350L
-
 /**
  * Takes the place of the `?123` layer's own digit row when the number row is
  * on and already supplies those digits one row above. Carries the symbols
@@ -4209,6 +4210,7 @@ private fun KeyRows(
     onGesturePreview: (List<GesturePoint>, List<KeyCenter>, Float) -> Unit = { _, _, _ -> },
     onCursorMove: (Int) -> Unit = {},
     onLayoutSelect: (String) -> Unit = {},
+    onGestureWords: (List<List<GesturePoint>>, List<KeyCenter>, Float) -> Unit = { _, _, _ -> },
     onKeyboardHandwritingStroke: (HwStroke, IntSize) -> Unit = { _, _ -> },
 ) {
     val layout = currentLayout(state)
@@ -4236,6 +4238,11 @@ private fun KeyRows(
     // previous grid's centres and anchor swipes on keys that are not on screen.
     // A LaunchedEffect that cleared it would race those positioning callbacks.
     val keyCenters = remember(layout) { mutableStateMapOf<Char, Offset>() }
+    // Spacebar bounds in this Box's space, for the multi-word glide split.
+    // Reset per layout alongside the key centres. A split keyboard positions
+    // two half-spacebars into this one slot; the last one measured wins, which
+    // covers the common (non-split) case and degrades to one half for split.
+    val spaceRect = remember(layout) { mutableStateOf<Rect?>(null) }
     var boxOrigin by remember { mutableStateOf(Offset.Zero) }
     var boxSize by remember { mutableStateOf(IntSize.Zero) }
     // Rows narrower than the top row (e.g. the 9-key QWERTY home row) keep the
@@ -4265,9 +4272,16 @@ private fun KeyRows(
     )
     var trail by remember { mutableStateOf<List<TrailPoint>>(emptyList()) }
     var trailReleased by remember { mutableStateOf(false) }
-    // Frame clock driving the fade; points older than GLIDE_TRAIL_MS vanish.
+    // Frame clock driving the fade; points older than trailMs vanish.
     var trailNow by remember { mutableLongStateOf(0L) }
-    val trailColor = LocalKbTheme.current.accent
+    val trailColor = LocalKbTheme.current.gestureTrail
+    // Customisable glide-trail + start-sensitivity knobs (Settings → Gestures).
+    val gesture = state.settings.gesture
+    val trailMs = gesture.trailDurationMs.toLong()
+    val trailOpacity = gesture.trailOpacity
+    val trailHeadWidth = gesture.trailWidthDp
+    val startSlop = gesture.startThresholdSlop
+    val spaceGlide = gesture.spaceGlideMultiWord
     // Points of the handwriting stroke being drawn right now (box space); the
     // finished strokes waiting for recognition come back from service state.
     var hwActiveStroke by remember { mutableStateOf<List<Offset>>(emptyList()) }
@@ -4278,7 +4292,7 @@ private fun KeyRows(
                 trailNow = now
                 // After finger-up the trail is left in place to fade out on
                 // its own; drop it once every point has expired.
-                if (trailReleased && trail.all { now - it.timeMs > GLIDE_TRAIL_MS }) {
+                if (trailReleased && trail.all { now - it.timeMs > trailMs }) {
                     trail = emptyList()
                 }
             }
@@ -4292,15 +4306,21 @@ private fun KeyRows(
                 boxOrigin = it.positionInRoot()
                 boxSize = it.size
             }
-            .pointerInput(gestureEnabled) {
+            .pointerInput(gestureEnabled, spaceGlide, startSlop, trailMs) {
                 if (!gestureEnabled) return@pointerInput
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
                     val slop = viewConfiguration.touchSlop
                     var isGesture = false
-                    val points = ArrayList<Offset>()
+                    // Completed word segments (multi-word glide) plus the one
+                    // being drawn now. With spaceGlide off there is only ever
+                    // one segment — the whole stroke, spacebar points included.
+                    val segments = ArrayList<List<GesturePoint>>()
+                    var seg = ArrayList<GesturePoint>()
+                    var wasOverSpace = false
+                    var samples = 0
                     val trailPoints = ArrayList<TrailPoint>()
-                    points.add(down.position)
+                    seg.add(GesturePoint(down.position.x, down.position.y))
                     while (true) {
                         val event = awaitPointerEvent(PointerEventPass.Initial)
                         val change = event.changes.firstOrNull { it.id == down.id } ?: break
@@ -4308,9 +4328,8 @@ private fun KeyRows(
                             if (isGesture) change.consume()
                             break
                         }
-                        points.add(change.position)
                         if (!isGesture && keyWidth.value > 0f &&
-                            (change.position - down.position).getDistance() > slop * 2 &&
+                            (change.position - down.position).getDistance() > slop * startSlop &&
                             nearLetterKey(down.position, keyCenters, keyWidth.value)
                         ) {
                             isGesture = true
@@ -4318,31 +4337,56 @@ private fun KeyRows(
                         }
                         if (isGesture) {
                             change.consume()
+                            samples++
+                            // Crossing the spacebar ends the current word and
+                            // begins the next, so a stroke can chain words
+                            // without lifting. Spacebar points anchor no letter,
+                            // so they are dropped from the word's shape rather
+                            // than added to either side.
+                            val overSpace = spaceGlide &&
+                                spaceRect.value?.contains(change.position) == true
+                            if (overSpace) {
+                                if (!wasOverSpace && seg.size >= 3) {
+                                    segments.add(seg)
+                                    seg = ArrayList()
+                                }
+                            } else {
+                                seg.add(GesturePoint(change.position.x, change.position.y))
+                            }
+                            wasOverSpace = overSpace
                             trailPoints.add(TrailPoint(change.position, change.uptimeMillis))
                             // Long swipes keep only the still-visible tail.
                             while (trailPoints.size > 1 &&
-                                change.uptimeMillis - trailPoints.first().timeMs > GLIDE_TRAIL_MS
+                                change.uptimeMillis - trailPoints.first().timeMs > trailMs
                             ) {
                                 trailPoints.removeAt(0)
                             }
                             trailNow = change.uptimeMillis
                             trail = trailPoints.toList()
-                            // Live preview: decode every few samples.
-                            if (points.size % 6 == 0) {
+                            // Live preview of the word being drawn now, every
+                            // few samples.
+                            if (samples % 6 == 0 && seg.size >= 3) {
                                 onGesturePreview(
-                                    points.map { GesturePoint(it.x, it.y) },
+                                    seg.toList(),
                                     keyCenters.map { (char, center) -> KeyCenter(char, center.x, center.y) },
                                     keyWidth.value,
                                 )
                             }
                         }
                     }
-                    if (isGesture && points.size >= 4) {
-                        onGesture(
-                            points.map { GesturePoint(it.x, it.y) },
-                            keyCenters.map { (char, center) -> KeyCenter(char, center.x, center.y) },
-                            keyWidth.value,
-                        )
+                    if (isGesture) {
+                        if (seg.size >= 4) segments.add(seg)
+                        val words = segments.filter { it.size >= 4 }
+                        if (words.isNotEmpty()) {
+                            val keyList = keyCenters.map { (char, center) ->
+                                KeyCenter(char, center.x, center.y)
+                            }
+                            if (words.size > 1) {
+                                onGestureWords(words, keyList, keyWidth.value)
+                            } else {
+                                onGesture(words.first(), keyList, keyWidth.value)
+                            }
+                        }
                     }
                     trailReleased = true
                 }
@@ -4403,6 +4447,11 @@ private fun KeyRows(
                     topLeft.x + coords.size.width / 2f,
                     topLeft.y + coords.size.height / 2f,
                 )
+            }
+            // Records the spacebar's box-space rect for the multi-word split.
+            val onSpacePositioned: (LayoutCoordinates) -> Unit = { coords ->
+                val topLeft = coords.positionInRoot() - boxOrigin
+                spaceRect.value = Rect(topLeft, coords.size.toSize())
             }
             val split = state.settings.splitKeyboard
             val splitGapPercent = state.settings.splitGapPercent
@@ -4490,6 +4539,7 @@ private fun KeyRows(
                     onCursorMove = onCursorMove,
                     onLayoutSelect = onLayoutSelect,
                     onLetterPositioned = onLetterPositioned,
+                    onSpacePositioned = onSpacePositioned,
                 )
             }
         }
@@ -4498,16 +4548,17 @@ private fun KeyRows(
             Canvas(modifier = Modifier.matchParentSize()) {
                 // Comet-style trail: each segment fades and thins with age,
                 // so the tail dissolves behind the finger instead of leaving
-                // the whole path on screen.
-                val headWidth = 10.dp.toPx()
-                val tailWidth = 3.dp.toPx()
+                // the whole path on screen. Head width, life span and peak
+                // opacity all come from the gesture settings.
+                val headWidth = trailHeadWidth.dp.toPx()
+                val tailWidth = headWidth * 0.3f
                 for (i in 1 until trail.size) {
                     val point = trail[i]
                     val life =
-                        (1f - (trailNow - point.timeMs) / GLIDE_TRAIL_MS.toFloat()).coerceIn(0f, 1f)
+                        (1f - (trailNow - point.timeMs) / trailMs.toFloat()).coerceIn(0f, 1f)
                     if (life == 0f) continue
                     drawLine(
-                        color = trailColor.copy(alpha = 0.55f * life),
+                        color = trailColor.copy(alpha = trailOpacity * life),
                         start = trail[i - 1].position,
                         end = point.position,
                         strokeWidth = tailWidth + (headWidth - tailWidth) * life,
@@ -4606,6 +4657,7 @@ private fun KeyRow(
     onCursorMove: (Int) -> Unit,
     onLayoutSelect: (String) -> Unit,
     onLetterPositioned: (Char, LayoutCoordinates) -> Unit,
+    onSpacePositioned: (LayoutCoordinates) -> Unit = {},
 ) {
     val sidePad = sidePadFor(keys, gridWeight)
     Row {
@@ -4613,15 +4665,15 @@ private fun KeyRow(
         if (split) {
             val (left, right) = remember(keys) { splitKeys(keys) }
             for (key in left) {
-                KeyCell(key, keyHeightDp, state, onKey, onText, onCursorMove, onLayoutSelect, onLetterPositioned)
+                KeyCell(key, keyHeightDp, state, onKey, onText, onCursorMove, onLayoutSelect, onLetterPositioned, onSpacePositioned)
             }
             Spacer(modifier = Modifier.weight(gridWeight * splitGapPercent / 100f))
             for (key in right) {
-                KeyCell(key, keyHeightDp, state, onKey, onText, onCursorMove, onLayoutSelect, onLetterPositioned)
+                KeyCell(key, keyHeightDp, state, onKey, onText, onCursorMove, onLayoutSelect, onLetterPositioned, onSpacePositioned)
             }
         } else {
             for (key in keys) {
-                KeyCell(key, keyHeightDp, state, onKey, onText, onCursorMove, onLayoutSelect, onLetterPositioned)
+                KeyCell(key, keyHeightDp, state, onKey, onText, onCursorMove, onLayoutSelect, onLetterPositioned, onSpacePositioned)
             }
         }
         if (sidePad > 0.01f) Spacer(modifier = Modifier.weight(sidePad))
@@ -4638,6 +4690,7 @@ private fun RowScope.KeyCell(
     onCursorMove: (Int) -> Unit,
     onLayoutSelect: (String) -> Unit,
     onLetterPositioned: (Char, LayoutCoordinates) -> Unit,
+    onSpacePositioned: (LayoutCoordinates) -> Unit = {},
 ) {
     val letter = key.label.singleOrNull()?.takeIf {
         key.action == KeyAction.Text && it.isLetter()
@@ -4649,6 +4702,10 @@ private fun RowScope.KeyCell(
             Modifier
                 .weight(key.width)
                 .onGloballyPositioned { onLetterPositioned(letter.lowercaseChar(), it) }
+        } else if (key.action == KeyAction.Space) {
+            Modifier
+                .weight(key.width)
+                .onGloballyPositioned { onSpacePositioned(it) }
         } else {
             Modifier.weight(key.width)
         },

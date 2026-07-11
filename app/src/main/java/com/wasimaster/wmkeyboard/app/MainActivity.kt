@@ -1494,6 +1494,57 @@ private fun TypingSettings(
                 )
             }
         }
+        if (settings.gestureTyping) {
+            item {
+                ToggleSetting(
+                    "Glide across spacebar",
+                    "Swipe over space to keep gliding the next word",
+                    settings.gesture.spaceGlideMultiWord,
+                    info = "Without lifting your finger, glide a word, slide across the spacebar, " +
+                        "then glide the next — each crossing commits the word so far and a space, " +
+                        "so a whole phrase lands in one stroke. Off treats a swipe that crosses " +
+                        "the spacebar as a single word.",
+                ) { scope.launch { repository.setGestureSpaceMultiWord(it) } }
+            }
+            item {
+                SliderSetting(
+                    "Swipe start distance",
+                    subtitle = "How far to move before a glide begins — lower is more sensitive",
+                    value = settings.gesture.startThresholdSlop,
+                    range = 0.5f..4f,
+                    display = "${"%.1f".format(settings.gesture.startThresholdSlop)}×",
+                    info = "The finger travel that turns a press into a glide, as a multiple of " +
+                        "the system's touch slop. Lower starts gliding sooner (more sensitive) but " +
+                        "can trip on a stationary tap; higher needs a more deliberate swipe.",
+                ) { scope.launch { repository.setGestureStartThresholdSlop(it) } }
+            }
+            item {
+                SliderSetting(
+                    "Trail width",
+                    subtitle = "Thickness of the glide trail",
+                    value = settings.gesture.trailWidthDp,
+                    range = 2f..24f,
+                    display = "${settings.gesture.trailWidthDp.roundToInt()} dp",
+                ) { scope.launch { repository.setGestureTrailWidthDp(it) } }
+            }
+            item {
+                SliderSetting(
+                    "Trail length",
+                    subtitle = "How long the trail lingers behind your finger",
+                    value = settings.gesture.trailDurationMs.toFloat(),
+                    range = 100f..1200f,
+                    display = "${settings.gesture.trailDurationMs} ms",
+                ) { scope.launch { repository.setGestureTrailDurationMs(it.roundToInt()) } }
+            }
+            item {
+                SliderSetting(
+                    "Trail opacity",
+                    value = settings.gesture.trailOpacity,
+                    range = 0.1f..1f,
+                    display = "${(settings.gesture.trailOpacity * 100).roundToInt()}%",
+                ) { scope.launch { repository.setGestureTrailOpacity(it) } }
+            }
+        }
         item {
             SpaceSwipeSetting(
                 title = "Quick swipe on spacebar",
