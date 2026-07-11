@@ -338,6 +338,47 @@ data class ToolbarBehavior(
     val scrollable: Boolean = false,
 )
 
+/**
+ * Fine-grained feedback gates that don't fit the master haptic/sound toggles:
+ * which key events buzz, whether a copy shows a toast, and whether Do Not
+ * Disturb mutes haptics. Grouped into their own class rather than sitting flat
+ * on [KeyboardSettings] because that class's primary constructor is at the
+ * JVM's 255-argument ceiling (see the class doc). Each field still persists
+ * under its own DataStore key via the matching setter. Read as
+ * `settings.feedback.vibrateOnSpace`, etc.
+ */
+data class FeedbackSettings(
+    /**
+     * Buzz on space-bar presses. Off lets heavy space users silence just that
+     * key while every other key still vibrates. The key sound (if on) still
+     * plays. On by default.
+     */
+    val vibrateOnSpace: Boolean = true,
+    /**
+     * Buzz on each word removed by a swipe-to-delete on the backspace key. Off
+     * makes clearing a sentence one smooth pull with no per-word buzz-saw. The
+     * plain backspace tap and its hold-to-repeat are unaffected. On by default.
+     */
+    val vibrateOnDeleteSwipe: Boolean = true,
+    /**
+     * Buzz on every auto-repeat while a key is held (backspace/space repeat).
+     * Off keeps only the first press buzzing; the repeats stay silent (their
+     * key sound, if on, still plays). On by default.
+     */
+    val vibrateOnRepeat: Boolean = true,
+    /**
+     * Show a short toast confirming text was copied to the clipboard, for
+     * fields that give no visual copy feedback of their own. Off by default.
+     */
+    val toastOnCopy: Boolean = false,
+    /**
+     * Suppress all keyboard haptics while the system is in Do Not Disturb, so a
+     * silenced phone stays fully quiet in the pocket. Off by default (DND
+     * targets notifications, not touch feedback, so haptics keep firing).
+     */
+    val hapticsRespectDnd: Boolean = false,
+)
+
 data class KeyboardSettings(
     /**
      * The layout being typed on: a [BuiltInLayouts] id, or a custom one. This is
@@ -416,6 +457,9 @@ data class KeyboardSettings(
     val hapticStyle: HapticStyle = HapticStyle.SYSTEM_KEY,
     val hapticOnLongPress: Boolean = true,
     val hapticOnLongPressRelease: Boolean = false,
+    /** Per-event haptic gates + copy toast (see [FeedbackSettings]); nested to
+     *  stay under the primary-constructor field ceiling. */
+    val feedback: FeedbackSettings = FeedbackSettings(),
     val keySound: Boolean = false,
     val keySoundStyle: KeySoundStyle = KeySoundStyle.CLICK,
     /** Sound-effect volume, 0..1 of the system media volume. */
@@ -1123,6 +1167,11 @@ class SettingsRepository(private val context: Context) {
         private val HAPTIC_STYLE = stringPreferencesKey("haptic_style")
         private val HAPTIC_ON_LONG_PRESS = booleanPreferencesKey("haptic_on_long_press")
         private val HAPTIC_ON_LONG_PRESS_RELEASE = booleanPreferencesKey("haptic_on_long_press_release")
+        private val FEEDBACK_VIBRATE_SPACE = booleanPreferencesKey("feedback_vibrate_space")
+        private val FEEDBACK_VIBRATE_DELETE_SWIPE = booleanPreferencesKey("feedback_vibrate_delete_swipe")
+        private val FEEDBACK_VIBRATE_REPEAT = booleanPreferencesKey("feedback_vibrate_repeat")
+        private val FEEDBACK_TOAST_ON_COPY = booleanPreferencesKey("feedback_toast_on_copy")
+        private val FEEDBACK_HAPTICS_RESPECT_DND = booleanPreferencesKey("feedback_haptics_respect_dnd")
         private val KEY_SOUND = booleanPreferencesKey("key_sound")
         private val KEY_POPUP = booleanPreferencesKey("key_popup")
         private val KEY_POPUP_MIN_DURATION = intPreferencesKey("key_popup_min_duration")
@@ -1444,6 +1493,15 @@ class SettingsRepository(private val context: Context) {
             hapticOnLongPress = p[HAPTIC_ON_LONG_PRESS] ?: defaults.hapticOnLongPress,
             hapticOnLongPressRelease = p[HAPTIC_ON_LONG_PRESS_RELEASE]
                 ?: defaults.hapticOnLongPressRelease,
+            feedback = FeedbackSettings(
+                vibrateOnSpace = p[FEEDBACK_VIBRATE_SPACE] ?: defaults.feedback.vibrateOnSpace,
+                vibrateOnDeleteSwipe = p[FEEDBACK_VIBRATE_DELETE_SWIPE]
+                    ?: defaults.feedback.vibrateOnDeleteSwipe,
+                vibrateOnRepeat = p[FEEDBACK_VIBRATE_REPEAT] ?: defaults.feedback.vibrateOnRepeat,
+                toastOnCopy = p[FEEDBACK_TOAST_ON_COPY] ?: defaults.feedback.toastOnCopy,
+                hapticsRespectDnd = p[FEEDBACK_HAPTICS_RESPECT_DND]
+                    ?: defaults.feedback.hapticsRespectDnd,
+            ),
             keySound = p[KEY_SOUND] ?: defaults.keySound,
             keySoundStyle = p[KEY_SOUND_STYLE]
                 ?.let { runCatching { KeySoundStyle.valueOf(it) }.getOrNull() }
@@ -2371,6 +2429,21 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setHapticOnLongPressRelease(value: Boolean) =
         context.dataStore.edit { it[HAPTIC_ON_LONG_PRESS_RELEASE] = value }
+
+    suspend fun setVibrateOnSpace(value: Boolean) =
+        context.dataStore.edit { it[FEEDBACK_VIBRATE_SPACE] = value }
+
+    suspend fun setVibrateOnDeleteSwipe(value: Boolean) =
+        context.dataStore.edit { it[FEEDBACK_VIBRATE_DELETE_SWIPE] = value }
+
+    suspend fun setVibrateOnRepeat(value: Boolean) =
+        context.dataStore.edit { it[FEEDBACK_VIBRATE_REPEAT] = value }
+
+    suspend fun setToastOnCopy(value: Boolean) =
+        context.dataStore.edit { it[FEEDBACK_TOAST_ON_COPY] = value }
+
+    suspend fun setHapticsRespectDnd(value: Boolean) =
+        context.dataStore.edit { it[FEEDBACK_HAPTICS_RESPECT_DND] = value }
 
     suspend fun setKeySound(value: Boolean) =
         context.dataStore.edit { it[KEY_SOUND] = value }

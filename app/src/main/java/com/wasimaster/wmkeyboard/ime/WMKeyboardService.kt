@@ -1,6 +1,7 @@
 package com.wasimaster.wmkeyboard.ime
 
 import android.app.AppOpsManager
+import android.app.NotificationManager
 import android.app.usage.UsageStatsManager
 import android.content.ClipboardManager
 import android.content.ComponentCallbacks2
@@ -827,6 +828,7 @@ class WMKeyboardService : InputMethodService() {
                 onKey = ::onKey,
                 onKeyPressed = ::vibrate,
                 onHaptic = ::vibrateOnly,
+                onKeySound = { playKeySound() },
                 onText = ::onText,
                 onGesture = ::onGesture,
                 onGesturePreview = ::onGesturePreview,
@@ -5617,10 +5619,21 @@ class WMKeyboardService : InputMethodService() {
             }
             TextEditAction.COPY -> {
                 ic.performContextMenuAction(android.R.id.copy)
+                maybeToastCopied()
                 _uiState.update { it.copy(textEditSelecting = false) }
             }
             TextEditAction.PASTE -> ic.performContextMenuAction(android.R.id.paste)
             TextEditAction.BACKSPACE -> sendDownUpKeyEvents(KeyEvent.KEYCODE_DEL)
+        }
+    }
+
+    /**
+     * Toast confirming text landed on the clipboard, for the users who opt in
+     * (some fields give no copy feedback of their own). Off by default.
+     */
+    private fun maybeToastCopied() {
+        if (_uiState.value.settings.feedback.toastOnCopy) {
+            Toast.makeText(this, "Copied", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -5642,6 +5655,7 @@ class WMKeyboardService : InputMethodService() {
             ClipboardKeyAction.COPY -> {
                 if (!hasSelection) ic.performContextMenuAction(android.R.id.selectAll)
                 ic.performContextMenuAction(android.R.id.copy)
+                maybeToastCopied()
                 _uiState.update { it.copy(textEditSelecting = false) }
             }
             ClipboardKeyAction.CUT -> {
@@ -6426,6 +6440,7 @@ class WMKeyboardService : InputMethodService() {
     private fun doVibrate() {
         val settings = _uiState.value.settings
         if (!settings.hapticFeedback) return
+        if (settings.feedback.hapticsRespectDnd && isDndActive()) return
         HapticPlayer.play(
             this,
             settings.hapticStyle,
@@ -6433,6 +6448,27 @@ class WMKeyboardService : InputMethodService() {
             settings.hapticStrengthMs,
             inputRootView,
         )
+    }
+
+    /**
+     * Whether the system is currently in Do Not Disturb. Reads the `zen_mode`
+     * global first — it's non-zero for every DND flavour and needs no
+     * permission, unlike [NotificationManager.getCurrentInterruptionFilter]
+     * which reports UNKNOWN without notification-policy access on some OEMs.
+     * Falls back to the interruption filter where the global is unreadable.
+     */
+    private fun isDndActive(): Boolean {
+        val zen = runCatching {
+            android.provider.Settings.Global.getInt(contentResolver, "zen_mode", 0)
+        }.getOrDefault(0)
+        if (zen != 0) return true
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            val filter = nm.currentInterruptionFilter
+            return filter != NotificationManager.INTERRUPTION_FILTER_ALL &&
+                filter != NotificationManager.INTERRUPTION_FILTER_UNKNOWN
+        }
+        return false
     }
 
     companion object {

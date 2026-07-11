@@ -1847,6 +1847,47 @@ private fun KeyPressSettings(repository: SettingsRepository, settings: KeyboardS
                     "vibration excessive.",
             ) { scope.launch { repository.setHapticOnLongPressRelease(it) } }
         }
+        // Per-event gates: only meaningful while the master switch above is on,
+        // so they fold away when it is off.
+        if (settings.hapticFeedback) {
+            item {
+                ToggleSetting(
+                    "Vibrate on space", "Buzz when you press the space bar",
+                    settings.feedback.vibrateOnSpace,
+                    info = "Silences the space bar's press buzz on its own — useful if the long " +
+                        "space bar feels heavy under the thumb — while every other key keeps " +
+                        "vibrating. The key press sound, if on, still plays. On by default.",
+                ) { scope.launch { repository.setVibrateOnSpace(it) } }
+            }
+            item {
+                ToggleSetting(
+                    "Vibrate on delete swipe", "Buzz on each word a backspace swipe removes",
+                    settings.feedback.vibrateOnDeleteSwipe,
+                    info = "When you swipe left on the backspace key to delete word by word, each " +
+                        "word buzzes. Off makes clearing a sentence one smooth pull with no " +
+                        "buzz-saw. The plain backspace tap is unaffected. On by default.",
+                ) { scope.launch { repository.setVibrateOnDeleteSwipe(it) } }
+            }
+            item {
+                ToggleSetting(
+                    "Vibrate on key repeat", "Buzz on every auto-repeat while a key is held",
+                    settings.feedback.vibrateOnRepeat,
+                    info = "Holding backspace or space auto-repeats; by default every repeat buzzes. " +
+                        "Off keeps only the first press buzzing and lets the repeats run silent " +
+                        "(their key sound, if on, still plays). On by default.",
+                ) { scope.launch { repository.setVibrateOnRepeat(it) } }
+            }
+            item {
+                ToggleSetting(
+                    "Mute haptics in Do Not Disturb",
+                    "Stop all keyboard vibration while Do Not Disturb is on",
+                    settings.feedback.hapticsRespectDnd,
+                    info = "By default the keyboard keeps buzzing in Do Not Disturb — DND targets " +
+                        "notifications, not touch feedback. Turn this on to fall fully silent " +
+                        "while DND is active. Off by default.",
+                ) { scope.launch { repository.setHapticsRespectDnd(it) } }
+            }
+        }
     }
 
     KeySoundGroup(repository, settings)
@@ -3953,6 +3994,16 @@ private fun ToolDetailSettings(
                         "one tap from pasting it.",
                     settings.clipboard.suggestRecent,
                 ) { scope.launch { repository.setClipboardSuggestRecent(it) } }
+            }
+            item {
+                ToggleSetting(
+                    "Toast on copy",
+                    "Show a brief \"Copied\" pop-up when you copy or cut text from the keyboard.",
+                    settings.feedback.toastOnCopy,
+                    info = "Fires for the keyboard's own copy actions — the A/C/V/X clipboard " +
+                        "shortcuts and the text-editing panel's copy button — for fields that " +
+                        "give no copy feedback of their own. Off by default.",
+                ) { scope.launch { repository.setToastOnCopy(it) } }
             }
             item {
                 SliderSetting(

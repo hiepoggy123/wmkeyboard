@@ -360,6 +360,14 @@ internal val LocalKeyPressFeedback = staticCompositionLocalOf<() -> Unit> { {} }
 internal val LocalHapticFeedback = staticCompositionLocalOf<() -> Unit> { {} }
 
 /**
+ * Key sound only, no haptic — the sound-preserving fallback for events whose
+ * vibration a fine-grained toggle has turned off (space press, backspace-swipe
+ * word delete, held-key repeat). Firing this instead of the full press feedback
+ * keeps the click sound while dropping just the buzz.
+ */
+internal val LocalKeySound = staticCompositionLocalOf<() -> Unit> { {} }
+
+/**
  * Sink for the A/C/V/X clipboard long-press shortcuts, provided once at the
  * root so it does not have to thread through every key-grid layer.
  */
@@ -480,6 +488,7 @@ fun KeyboardScreen(
     onKey: (Key) -> Unit,
     onKeyPressed: () -> Unit = {},
     onHaptic: () -> Unit = onKeyPressed,
+    onKeySound: () -> Unit = {},
     onText: (String) -> Unit = {},
     onGesture: (List<GesturePoint>, List<KeyCenter>, Float) -> Unit = { _, _, _ -> },
     onGesturePreview: (List<GesturePoint>, List<KeyCenter>, Float) -> Unit = { _, _, _ -> },
@@ -682,6 +691,7 @@ fun KeyboardScreen(
         CompositionLocalProvider(
             LocalKeyPressFeedback provides onKeyPressed,
             LocalHapticFeedback provides onHaptic,
+            LocalKeySound provides onKeySound,
             LocalClipboardKeyAction provides onClipboardKey,
             LocalCanDelete provides canDelete,
             LocalCanDeleteField provides canDeleteField,
@@ -5020,6 +5030,7 @@ private fun KeyButton(
     val scope = rememberCoroutineScope()
     val settings = state.settings
     val onKeyPress = LocalKeyPressFeedback.current
+    val onKeySound = LocalKeySound.current
     val onClipboardKey = LocalClipboardKeyAction.current
     val canDelete = LocalCanDelete.current
     val onDeleteWord = LocalDeleteWord.current
@@ -5135,6 +5146,10 @@ private fun KeyButton(
                     currentLayoutId = state.layoutId,
                     setPressed = { pressed = it },
                     onKeyPress = onKeyPress,
+                    onKeySound = onKeySound,
+                    vibrateOnSpace = settings.feedback.vibrateOnSpace,
+                    vibrateOnDeleteSwipe = settings.feedback.vibrateOnDeleteSwipe,
+                    vibrateOnRepeat = settings.feedback.vibrateOnRepeat,
                     hapticOnLongPress = settings.hapticOnLongPress,
                     hapticOnLongPressRelease = settings.hapticOnLongPressRelease,
                     openAlternates = { showAlternates = true },
@@ -5566,6 +5581,10 @@ private fun Modifier.pointerInputKey(
     currentLayoutId: String,
     setPressed: (Boolean) -> Unit,
     onKeyPress: () -> Unit,
+    onKeySound: () -> Unit,
+    vibrateOnSpace: Boolean,
+    vibrateOnDeleteSwipe: Boolean,
+    vibrateOnRepeat: Boolean,
     hapticOnLongPress: Boolean,
     hapticOnLongPressRelease: Boolean,
     openAlternates: () -> Unit,
@@ -5585,7 +5604,7 @@ private fun Modifier.pointerInputKey(
     ) {
         Modifier.pointerInput(
             key, spaceShortSwipe, spaceLongSwipe, enabledLayoutIds, currentLayoutId, longPressDelayMs,
-            hapticOnLongPress,
+            hapticOnLongPress, vibrateOnSpace,
         ) {
             val slopPx = 12.dp.toPx()
             val cursorStepPx = 16.dp.toPx()
@@ -5596,7 +5615,8 @@ private fun Modifier.pointerInputKey(
             awaitEachGesture {
                 val down = awaitFirstDown()
                 setPressed(true)
-                onKeyPress()
+                // Space press feedback: sound stays, buzz is gated on its toggle.
+                if (vibrateOnSpace) onKeyPress() else onKeySound()
                 // Resolved on the first movement past the slop; null until
                 // then (and forever for a plain tap).
                 var action: SpaceSwipeAction? = null
@@ -5797,7 +5817,7 @@ private fun Modifier.pointerInputKey(
         // one state machine, so a drag can cleanly take over from the repeat
         // loop mid-press and the move events are consumed while it does.
         Modifier.pointerInput(key, longPressDelayMs, repeatIntervalMs, hapticOnLongPress,
-            hapticOnLongPressRelease) {
+            hapticOnLongPressRelease, vibrateOnRepeat, vibrateOnDeleteSwipe) {
             val slopPx = 10.dp.toPx()
             // The first word costs a deliberate drag; later ones get cheaper,
             // down to a floor, so clearing a sentence is one long pull but a
@@ -5824,7 +5844,7 @@ private fun Modifier.pointerInputKey(
                     delay(longPressDelayMs.toLong())
                     longPressFired = true
                     while (canDelete()) {
-                        onKeyPress()
+                        if (vibrateOnRepeat) onKeyPress() else onKeySound()
                         onKey(key)
                         delay(repeatIntervalMs.toLong())
                     }
@@ -5848,7 +5868,7 @@ private fun Modifier.pointerInputKey(
                             anchorX -= wordStepPx(deleted)
                             if (!canDelete()) break
                             deleted++
-                            onKeyPress()
+                            if (vibrateOnDeleteSwipe) onKeyPress() else onKeySound()
                             onDeleteWord()
                         }
                         // Dragging back to the right re-anchors and resets the
@@ -5875,7 +5895,7 @@ private fun Modifier.pointerInputKey(
         // stale closure alive (e.g. release haptics still firing after the
         // toggle was turned off).
         Modifier.pointerInput(key, spaceShortSwipe, spaceLongSwipe, longPressDelayMs, repeatIntervalMs,
-            hapticOnLongPress, hapticOnLongPressRelease) {
+            hapticOnLongPress, hapticOnLongPressRelease, vibrateOnSpace, vibrateOnRepeat) {
             // Raw per-pointer tracking rather than detectTapGestures, which
             // handles one gesture at a time per key: a second finger landing
             // on the same key before the first lifts (burst double-taps) was
@@ -5895,7 +5915,13 @@ private fun Modifier.pointerInputKey(
                                 val p = Press()
                                 presses[change.id] = p
                                 setPressed(true)
-                                onKeyPress()
+                                // Space press buzz is gated on its own toggle;
+                                // the key sound (if on) still plays either way.
+                                if (key.action == KeyAction.Space && !vibrateOnSpace) {
+                                    onKeySound()
+                                } else {
+                                    onKeyPress()
+                                }
                                 p.job = scope.launch {
                                     delay(longPressDelayMs.toLong())
                                     p.longPressFired = true
@@ -5904,7 +5930,7 @@ private fun Modifier.pointerInputKey(
                                         // nothing left to delete — no point
                                         // buzzing against an empty field.
                                         while (key.action != KeyAction.Delete || canDelete()) {
-                                            onKeyPress()
+                                            if (vibrateOnRepeat) onKeyPress() else onKeySound()
                                             onKey(key)
                                             delay(repeatIntervalMs.toLong())
                                         }
@@ -6041,8 +6067,10 @@ private fun EmojiSearchField(
     modifier: Modifier = Modifier,
 ) {
     val feedback = LocalKeyPressFeedback.current
+    val keySound = LocalKeySound.current
     val canDeleteField = LocalCanDeleteField.current
     val scope = rememberCoroutineScope()
+    val vibrateOnRepeat = state.settings.feedback.vibrateOnRepeat
     Row(
         modifier = modifier
             .background(MaterialTheme.colorScheme.surfaceContainer, RoundedCornerShape(20.dp))
@@ -6077,7 +6105,11 @@ private fun EmojiSearchField(
                 modifier = Modifier
                     .padding(start = 8.dp)
                     .size(18.dp)
-                    .pointerInput(state.settings.longPressDelayMs, state.settings.keyRepeatIntervalMs) {
+                    .pointerInput(
+                        state.settings.longPressDelayMs,
+                        state.settings.keyRepeatIntervalMs,
+                        vibrateOnRepeat,
+                    ) {
                         detectTapGestures(
                             onPress = {
                                 feedback()
@@ -6085,7 +6117,7 @@ private fun EmojiSearchField(
                                 val repeat = scope.launch {
                                     delay(state.settings.longPressDelayMs.toLong())
                                     while (canDeleteField()) {
-                                        feedback()
+                                        if (vibrateOnRepeat) feedback() else keySound()
                                         onSearchFieldDelete()
                                         delay(state.settings.keyRepeatIntervalMs.toLong())
                                     }
@@ -6431,6 +6463,7 @@ private fun EmojiBottomBar(
 ) {
     val kb = LocalKbTheme.current
     val feedback = LocalKeyPressFeedback.current
+    val keySound = LocalKeySound.current
     val canDelete = LocalCanDelete.current
     val scope = rememberCoroutineScope()
     val settings = state.settings
@@ -6478,7 +6511,7 @@ private fun EmojiBottomBar(
         cell(
             7f,
             Modifier.clickable {
-                feedback()
+                if (settings.feedback.vibrateOnSpace) feedback() else keySound()
                 onKey(Key(" ", action = KeyAction.Space))
             },
         ) {
@@ -6501,7 +6534,11 @@ private fun EmojiBottomBar(
         }
         cell(
             1.5f,
-            Modifier.pointerInput(settings.longPressDelayMs, settings.keyRepeatIntervalMs) {
+            Modifier.pointerInput(
+                settings.longPressDelayMs,
+                settings.keyRepeatIntervalMs,
+                settings.feedback.vibrateOnRepeat,
+            ) {
                 detectTapGestures(
                     onPress = {
                         feedback()
@@ -6512,7 +6549,7 @@ private fun EmojiBottomBar(
                         val repeat = scope.launch {
                             delay(settings.longPressDelayMs.toLong())
                             while (canDelete()) {
-                                feedback()
+                                if (settings.feedback.vibrateOnRepeat) feedback() else keySound()
                                 onKey(Key("⌫", action = KeyAction.Delete))
                                 delay(settings.keyRepeatIntervalMs.toLong())
                             }
