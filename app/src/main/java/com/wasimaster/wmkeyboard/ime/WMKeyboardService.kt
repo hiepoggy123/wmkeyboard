@@ -7,6 +7,7 @@ import android.content.ComponentCallbacks2
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.res.Configuration
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraManager
 import android.media.AudioManager
@@ -932,6 +933,7 @@ class WMKeyboardService : InputMethodService() {
                 onSmartAccept = ::onSmartSuggestionTapped,
                 onSmartOpen = ::onSmartSuggestionOpen,
                 onToolPrefillConsumed = ::onToolPrefillConsumed,
+                onHideKeyboard = ::onHideKeyboard,
                 onOpenSettings = ::openSettings,
             )
         }
@@ -988,9 +990,46 @@ class WMKeyboardService : InputMethodService() {
     override fun onEvaluateFullscreenMode(): Boolean =
         if (_uiState.value.settings.floatingKeyboard) false else super.onEvaluateFullscreenMode()
 
+    /** A physical keyboard is attached and not folded away. */
+    private fun hasHardwareKeyboard(): Boolean {
+        val config = resources.configuration
+        return config.keyboard == Configuration.KEYBOARD_QWERTY &&
+            config.hardKeyboardHidden != Configuration.HARDKEYBOARDHIDDEN_YES
+    }
+
+    /**
+     * Keep the input view on screen even with a hardware keyboard when the
+     * user wants the toolbar-only view — otherwise the platform hides it, and
+     * the toolbar (with the keys gated off in Compose) would never show.
+     */
+    override fun onEvaluateInputViewShown(): Boolean {
+        val toolbar = _uiState.value.settings.toolbarBehavior
+        // Nothing to force-show when the toolbar itself is off — that would be a
+        // blank sliver (no toolbar, and the keys are gated off too).
+        if (toolbar.enabled && toolbar.onlyWithHardwareKeyboard && hasHardwareKeyboard()) {
+            return true
+        }
+        return super.onEvaluateInputViewShown()
+    }
+
+    /** Docking or undocking a hardware keyboard flips the toolbar-only view. */
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        refreshHardwareKeyboardState()
+    }
+
+    /** Push the current hardware-keyboard presence into the UI state. */
+    private fun refreshHardwareKeyboardState() {
+        val present = hasHardwareKeyboard()
+        if (present != _uiState.value.hardwareKeyboardPresent) {
+            _uiState.update { it.copy(hardwareKeyboardPresent = present) }
+        }
+    }
+
     override fun onStartInputView(info: EditorInfo?, restarting: Boolean) {
         super.onStartInputView(info, restarting)
         lifecycleOwner.onResume()
+        refreshHardwareKeyboardState()
         composing = StringBuilder()
         previousWord = null
         lastGestureWord = null
@@ -1246,6 +1285,11 @@ class WMKeyboardService : InputMethodService() {
     fun onDismissInlineSuggestions() {
         vibrate()
         _uiState.update { it.copy(inlineSuggestions = emptyList()) }
+    }
+
+    /** The hide-keyboard tool and the toolbar swipe-down: close the keyboard. */
+    fun onHideKeyboard() {
+        requestHideSelf(0)
     }
 
     override fun onFinishInputView(finishingInput: Boolean) {

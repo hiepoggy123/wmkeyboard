@@ -545,6 +545,12 @@ sealed interface TypingTestAction {
  */
 data class KeyboardUiState(
     val settings: KeyboardSettings = KeyboardSettings(),
+    /**
+     * A physical keyboard is attached and not folded away. Drives the
+     * toolbar-only view when [ToolbarBehavior.onlyWithHardwareKeyboard]
+     * is on; updated from the service's configuration.
+     */
+    val hardwareKeyboardPresent: Boolean = false,
     /** The active layout's language — dictionary, dictation, script behaviour. */
     val language: LanguageDef = LanguageRegistry.byId("en"),
     /** The active language's script — direction, case, composer, font. */
