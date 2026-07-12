@@ -26,6 +26,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -46,6 +48,7 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
@@ -126,6 +129,52 @@ private fun ThemeSpec.effectiveToolCircle(): Long =
     toolCircleBackground ?: colorOf(keyText).copy(alpha = 0.14f)
         .compositeOver(colorOf(boardBackground)).argb()
 
+/** The display name for a theme id in the same namespace as keyboardThemeId. */
+private fun themeDisplayName(settings: KeyboardSettings, id: String): String = when (id) {
+    DEFAULT_THEME_ID -> "Default (system)"
+    else -> settings.customThemes.find { it.id == id }?.name
+        ?: BuiltInThemes.find { it.id == id }?.name
+        ?: "Default (system)"
+}
+
+/** Radio-list of every selectable theme, for choosing an auto light/dark slot. */
+@Composable
+private fun ThemePickerDialog(
+    title: String,
+    settings: KeyboardSettings,
+    selectedId: String,
+    onPick: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val options = buildList {
+        add(DEFAULT_THEME_ID to "Default (system)")
+        BuiltInThemes.forEach { add(it.id to it.name) }
+        settings.customThemes.sortedBy { it.name.lowercase() }.forEach { add(it.id to it.name) }
+    }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                for ((id, name) in options) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onPick(id) }
+                            .padding(vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        RadioButton(selected = id == selectedId, onClick = { onPick(id) })
+                        Spacer(Modifier.width(8.dp))
+                        Text(name)
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Done") } },
+    )
+}
+
 // ---- theme gallery ----
 
 @Composable
@@ -165,18 +214,21 @@ fun ThemesScreen(
                         .use { it.readBytes().decodeToString() }
                     val parsed = ThemeCodec.decode(text) ?: return@runCatching
                     val id = "custom_${System.currentTimeMillis()}"
-                    val imagePath = parsed.backgroundImageBase64?.let { b64 ->
-                        runCatching {
-                            val file = File(themeImagesDir(context), "$id.img")
-                            file.writeBytes(Base64.decode(b64, Base64.DEFAULT))
-                            file.absolutePath
-                        }.getOrNull()
-                    }
+                    fun writeImage(name: String, b64: String): String? = runCatching {
+                        val file = File(themeImagesDir(context), name)
+                        file.writeBytes(Base64.decode(b64, Base64.DEFAULT))
+                        file.absolutePath
+                    }.getOrNull()
+                    val imagePath = parsed.backgroundImageBase64?.let { writeImage("$id.img", it) }
+                    val landPath = parsed.backgroundImageLandscapeBase64
+                        ?.let { writeImage("${id}_land.img", it) }
                     repository.upsertCustomTheme(
                         parsed.copy(
                             id = id,
                             backgroundImage = imagePath,
                             backgroundImageBase64 = null,
+                            backgroundImageLandscape = landPath,
+                            backgroundImageLandscapeBase64 = null,
                         )
                     )
                     repository.setKeyboardThemeId(id)
@@ -230,7 +282,65 @@ fun ThemesScreen(
         },
     )
 
+    // null = closed; true = choosing the light theme; false = the dark theme.
+    var pickerForLight by remember { mutableStateOf<Boolean?>(null) }
+    val auto = settings.autoTheme
+    SectionHeaderPublic("Auto (light + dark)")
+    Text(
+        "Switch themes automatically with the system light/dark setting. While this is on, " +
+            "the theme tool on the keyboard just previews — the system picks the active theme.",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(horizontal = 16.dp),
+    )
+    ListItem(
+        headlineContent = { Text("Auto theme") },
+        supportingContent = { Text("Use a light theme in day mode and a dark theme at night") },
+        trailingContent = {
+            Switch(
+                checked = auto.enabled,
+                onCheckedChange = { scope.launch { repository.setAutoThemeEnabled(it) } },
+            )
+        },
+    )
+    if (auto.enabled) {
+        ListItem(
+            headlineContent = { Text("Light theme") },
+            supportingContent = { Text(themeDisplayName(settings, auto.lightThemeId)) },
+            modifier = Modifier.clickable { pickerForLight = true },
+        )
+        ListItem(
+            headlineContent = { Text("Dark theme") },
+            supportingContent = { Text(themeDisplayName(settings, auto.darkThemeId)) },
+            modifier = Modifier.clickable { pickerForLight = false },
+        )
+    }
+    pickerForLight?.let { forLight ->
+        ThemePickerDialog(
+            title = if (forLight) "Light theme" else "Dark theme",
+            settings = settings,
+            selectedId = if (forLight) auto.lightThemeId else auto.darkThemeId,
+            onPick = { id ->
+                scope.launch {
+                    if (forLight) repository.setAutoThemeLightId(id)
+                    else repository.setAutoThemeDarkId(id)
+                }
+                pickerForLight = null
+            },
+            onDismiss = { pickerForLight = null },
+        )
+    }
+
     SectionHeaderPublic("Themes")
+    if (auto.enabled) {
+        Text(
+            "Auto theme is on, so this selection is inactive. Turn it off above to pick a single " +
+                "theme by hand.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
+        )
+    }
     Row(modifier = Modifier.padding(horizontal = 16.dp)) {
         Button(onClick = {
             scope.launch {
@@ -275,6 +385,7 @@ fun ThemesScreen(
                         onDelete = {
                             scope.launch {
                                 theme.backgroundImage?.let { File(it).delete() }
+                                theme.backgroundImageLandscape?.let { File(it).delete() }
                                 repository.deleteCustomTheme(theme.id)
                             }
                         },
@@ -311,12 +422,17 @@ fun ThemesScreen(
     Spacer(Modifier.height(24.dp))
 }
 
-/** Strips local paths and embeds the image so the file works on any device. */
+/** Strips local paths and embeds the images so the file works on any device. */
 private fun ThemeSpec.forExport(): ThemeSpec {
-    val b64 = backgroundImage?.let { path ->
-        runCatching { Base64.encodeToString(File(path).readBytes(), Base64.NO_WRAP) }.getOrNull()
+    fun encode(path: String?) = path?.let {
+        runCatching { Base64.encodeToString(File(it).readBytes(), Base64.NO_WRAP) }.getOrNull()
     }
-    return copy(backgroundImage = null, backgroundImageBase64 = b64)
+    return copy(
+        backgroundImage = null,
+        backgroundImageBase64 = encode(backgroundImage),
+        backgroundImageLandscape = null,
+        backgroundImageLandscapeBase64 = encode(backgroundImageLandscape),
+    )
 }
 
 @Composable
@@ -603,7 +719,31 @@ fun ThemeEditorScreen(
             }
         }
     }
+    // Separate picker for the landscape image: it only swaps that path, and
+    // leaves the board alpha alone (the portrait picker already set the scrim).
+    val imagePickerLandscape = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickVisualMedia()
+    ) { uri ->
+        if (uri != null) {
+            scope.launch(Dispatchers.IO) {
+                runCatching {
+                    val file = File(
+                        themeImagesDir(context),
+                        "${theme.id}_land_${System.currentTimeMillis()}.img",
+                    )
+                    context.contentResolver.openInputStream(uri)!!.use { input ->
+                        file.outputStream().use { input.copyTo(it) }
+                    }
+                    theme.backgroundImageLandscape?.let { File(it).delete() }
+                    repository.upsertCustomTheme(
+                        theme.copy(backgroundImageLandscape = file.absolutePath),
+                    )
+                }
+            }
+        }
+    }
     var cropOpen by rememberSaveable(theme.id) { mutableStateOf(false) }
+    var cropLandscapeOpen by rememberSaveable(theme.id) { mutableStateOf(false) }
 
     // Live preview pinned on top.
     Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
@@ -641,6 +781,7 @@ fun ThemeEditorScreen(
                     update { t ->
                         themeFromSeed(t.id, t.name, t.enterKeyBackground, dark).copy(
                             backgroundImage = t.backgroundImage,
+                            backgroundImageLandscape = t.backgroundImageLandscape,
                             backgroundImageOpacity = t.backgroundImageOpacity,
                             keyCornerRadiusDp = t.keyCornerRadiusDp,
                             popupCornerRadiusDp = t.popupCornerRadiusDp,
@@ -666,6 +807,7 @@ fun ThemeEditorScreen(
                         update { t ->
                             themeFromSeed(t.id, t.name, seed, t.dark).copy(
                                 backgroundImage = t.backgroundImage,
+                                backgroundImageLandscape = t.backgroundImageLandscape,
                                 backgroundImageOpacity = t.backgroundImageOpacity,
                                 keyCornerRadiusDp = t.keyCornerRadiusDp,
                                 popupCornerRadiusDp = t.popupCornerRadiusDp,
@@ -760,6 +902,54 @@ fun ThemeEditorScreen(
                 cropOpen = false
             },
             onDismiss = { cropOpen = false },
+        )
+    }
+
+    ListItem(
+        headlineContent = { Text("Landscape background image") },
+        supportingContent = {
+            Text(
+                if (theme.backgroundImageLandscape == null) {
+                    "Optional — shown in landscape; falls back to the image above"
+                } else {
+                    "Tap to replace"
+                },
+            )
+        },
+        leadingContent = { Icon(Icons.Outlined.Image, contentDescription = null) },
+        trailingContent = {
+            if (theme.backgroundImageLandscape != null) {
+                TextButton(onClick = {
+                    theme.backgroundImageLandscape?.let { File(it).delete() }
+                    update { t -> t.copy(backgroundImageLandscape = null) }
+                }) { Text("Remove") }
+            }
+        },
+        modifier = Modifier.clickable {
+            imagePickerLandscape.launch(
+                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
+            )
+        },
+    )
+    if (theme.backgroundImageLandscape != null) {
+        ListItem(
+            headlineContent = { Text("Crop landscape image") },
+            supportingContent = { Text("Pinch to zoom, drag to reposition") },
+            leadingContent = { Icon(Icons.Outlined.Crop, contentDescription = null) },
+            modifier = Modifier.clickable { cropLandscapeOpen = true },
+        )
+    }
+    if (cropLandscapeOpen && theme.backgroundImageLandscape != null) {
+        CropImageDialog(
+            path = theme.backgroundImageLandscape!!,
+            onCropped = { newPath ->
+                scope.launch {
+                    theme.backgroundImageLandscape?.let { File(it).delete() }
+                    repository.upsertCustomTheme(theme.copy(backgroundImageLandscape = newPath))
+                }
+                cropLandscapeOpen = false
+            },
+            onDismiss = { cropLandscapeOpen = false },
         )
     }
 

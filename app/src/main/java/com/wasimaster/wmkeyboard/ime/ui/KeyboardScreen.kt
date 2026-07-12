@@ -4532,7 +4532,7 @@ private fun KeyRows(
             if (padRows > 0) {
                 Spacer(
                     modifier = Modifier.height(
-                        (state.settings.keyHeightDp.dp + KeyGapVertical * 2) * padRows,
+                        (state.settings.keyHeightDp.dp + keyGapV(state.settings) * 2) * padRows,
                     ),
                 )
             }
@@ -4949,6 +4949,15 @@ private object OnKeyPopupPositionProvider : PopupPositionProvider {
 private val KeyGapHorizontal = 2.5.dp
 private val KeyGapVertical = 4.dp
 
+/**
+ * The gaps above, scaled by the user's key-spacing setting. Every gap-consuming
+ * site reads these so the touch-cell padding and the height math in
+ * [keyRowsHeight] scale together — the keyboard's height and the panels that
+ * mirror it stay in step when the spacing changes.
+ */
+private fun keyGapH(settings: KeyboardSettings): Dp = KeyGapHorizontal * settings.keyGapScale
+private fun keyGapV(settings: KeyboardSettings): Dp = KeyGapVertical * settings.keyGapScale
+
 /** Vertical padding of the [KeyRows] column, mirrored into [keyRowsHeight]. */
 private val KeyRowsPadVertical = 2.dp
 
@@ -4999,10 +5008,10 @@ internal fun topBarHeight(settings: KeyboardSettings): Dp =
  */
 internal fun keyRowsHeight(state: KeyboardUiState): Dp {
     val settings = state.settings
-    var height = (settings.keyHeightDp.dp + KeyGapVertical * 2) * state.layouts.rowSpan +
+    var height = (settings.keyHeightDp.dp + keyGapV(settings) * 2) * state.layouts.rowSpan +
         KeyRowsPadVertical * 2
     if (settings.numberRow) {
-        height += settings.numberRowHeightDp.dp + KeyGapVertical * 2
+        height += settings.numberRowHeightDp.dp + keyGapV(settings) * 2
     }
     return height
 }
@@ -5122,7 +5131,7 @@ private fun KeyButton(
 
     Box(
         modifier = modifier
-            .height((heightDp ?: settings.keyHeightDp).dp + KeyGapVertical * 2)
+            .height((heightDp ?: settings.keyHeightDp).dp + keyGapV(settings) * 2)
             .then(
                 if (screenReaderKeys) {
                     Modifier.semantics {
@@ -5165,7 +5174,7 @@ private fun KeyButton(
                     scope = scope,
                 )
             )
-            .padding(horizontal = KeyGapHorizontal, vertical = KeyGapVertical)
+            .padding(horizontal = keyGapH(settings), vertical = keyGapV(settings))
             .background(background, keyShape)
             .then(
                 // Sheen over letter keys only; pressed/enter/modifier states
@@ -6498,14 +6507,14 @@ private fun EmojiBottomBar(
                     .weight(weight)
                     .fillMaxHeight()
                     .then(input)
-                    .padding(horizontal = KeyGapHorizontal, vertical = KeyGapVertical),
+                    .padding(horizontal = keyGapH(settings), vertical = keyGapV(settings)),
                 contentAlignment = Alignment.Center,
             ) { content() }
         }
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(settings.keyHeightDp.dp + KeyGapVertical * 2)
+            .height(settings.keyHeightDp.dp + keyGapV(settings) * 2)
             .padding(horizontal = 1.5.dp),
     ) {
         cell(
@@ -7190,7 +7199,7 @@ private fun ClipboardPanel(
     // The control row is carved out of the panel's own height (same size as the
     // emoji panel's), so the total stays exactly the key area's height and the
     // keyboard never grows when the row is on.
-    val barHeight = state.settings.keyHeightDp.dp + KeyGapVertical * 2
+    val barHeight = state.settings.keyHeightDp.dp + keyGapV(state.settings) * 2
     val contentHeight = keyRowsHeight(state) - if (showBottomRow) barHeight else 0.dp
     Column {
         ClipboardPanelContent(

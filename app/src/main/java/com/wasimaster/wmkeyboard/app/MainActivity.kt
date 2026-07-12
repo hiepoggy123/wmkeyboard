@@ -2310,6 +2310,18 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
         }
         item {
             SliderSetting(
+                "Key spacing",
+                subtitle = "Gap between the keys",
+                value = settings.keyGapScale,
+                range = 0f..2f,
+                display = "${(settings.keyGapScale * 100).toInt()}%",
+                info = "Adjusts the space around every key. Higher spreads the keys apart (and " +
+                    "makes the keyboard a little taller, since the gap is part of each row); " +
+                    "lower packs them tighter. 100% is the default.",
+            ) { scope.launch { repository.setKeyGapScale(it) } }
+        }
+        item {
+            SliderSetting(
                 "Bottom padding",
                 subtitle = "Extra space below the keys, above the navigation bar",
                 value = settings.bottomPaddingDp.toFloat(),
@@ -2351,10 +2363,11 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
     SettingsGroup("Per-screen sizing") {
         item {
             CaptionText(
-                "The sizes above are your portrait sizes. Landscape and unfolded screens can " +
-                    "override any of them — a key height that suits an upright phone is often " +
-                    "too tall in landscape, where vertical space is scarce. Anything you leave " +
-                    "untouched follows portrait.",
+                "The sizes above are your portrait (folded) sizes. Landscape and unfolded " +
+                    "screens can override any of them, or scale the whole keyboard at once — " +
+                    "handy on a foldable, where the roomy inner display often wants a smaller " +
+                    "keyboard than the cover screen. Anything you leave untouched follows " +
+                    "portrait.",
             )
         }
         for (variant in ScreenVariant.entries.filter { it.isOverride }) {
@@ -2374,6 +2387,15 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
                 )
             }
             if (expandedVariant == variant) {
+                item {
+                    SliderSetting(
+                        "Keyboard scale",
+                        subtitle = "Shrink or grow the whole keyboard for this screen",
+                        value = values.keyboardScale ?: 1f,
+                        range = 0.5f..1.5f,
+                        display = "${((values.keyboardScale ?: 1f) * 100).toInt()}%",
+                    ) { scope.launch { repository.setVariantKeyboardScale(variant, it) } }
+                }
                 item {
                     SliderSetting(
                         "Key height",

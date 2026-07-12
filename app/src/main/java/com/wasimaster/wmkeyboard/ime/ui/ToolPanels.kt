@@ -11,6 +11,7 @@ import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -1258,7 +1259,15 @@ internal fun ThemesPanel(
 ) {
     val height = keyRowsHeight(state)
     val kb = LocalKbTheme.current
-    val selectedId = state.settings.keyboardThemeId
+    // With auto-theme on, the system light/dark setting owns the active theme:
+    // the panel shows which one is live but taps do nothing (it's read-only).
+    val autoOn = state.settings.autoTheme.enabled
+    val systemDark = isSystemInDarkTheme()
+    val selectedId = if (autoOn) {
+        if (systemDark) state.settings.autoTheme.darkThemeId else state.settings.autoTheme.lightThemeId
+    } else {
+        state.settings.keyboardThemeId
+    }
     val auto = autoKbTheme(state.settings)
     val themes = BuiltInThemes + state.settings.customThemes
     Column(
@@ -1274,7 +1283,8 @@ internal fun ThemesPanel(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                "Tap a theme to apply it.",
+                if (autoOn) "Auto theme is on — it follows your system light/dark setting."
+                else "Tap a theme to apply it.",
                 color = kb.toolbarIcon,
                 fontSize = 11.sp,
                 modifier = Modifier.weight(1f),
@@ -1299,7 +1309,7 @@ internal fun ThemesPanel(
                     name = "Auto",
                     selected = selectedId == DEFAULT_THEME_ID,
                     nameOnDark = auto.board.luminance() < 0.5f,
-                    onClick = { onThemeSelect(DEFAULT_THEME_ID) },
+                    onClick = { if (!autoOn) onThemeSelect(DEFAULT_THEME_ID) },
                 ) { AutoThemePreview(auto) }
             }
             items(themes, key = { it.id }) { theme ->
@@ -1307,7 +1317,7 @@ internal fun ThemesPanel(
                     name = theme.name,
                     selected = selectedId == theme.id,
                     nameOnDark = Color(theme.boardBackground.toInt()).luminance() < 0.5f,
-                    onClick = { onThemeSelect(theme.id) },
+                    onClick = { if (!autoOn) onThemeSelect(theme.id) },
                 ) { ThemePreview(theme) }
             }
         }

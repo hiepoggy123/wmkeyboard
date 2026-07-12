@@ -43,6 +43,8 @@ import androidx.compose.ui.graphics.toArgb
 import kotlin.math.max
 import kotlin.math.min
 import androidx.compose.ui.layout.ContentScale
+import android.content.res.Configuration
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import com.wasimaster.wmkeyboard.core.settings.ColorVisionFilter
@@ -73,6 +75,8 @@ data class KbTheme(
     val board: Color,
     val boardGradient: GradientSpec?,
     val backgroundImage: String?,
+    /** Landscape override for [backgroundImage]; null falls back to it. */
+    val backgroundImageLandscape: String?,
     val backgroundImageOpacity: Float,
     val backgroundImageBlur: Float,
     val keyShapeKind: KeyShapeKind,
@@ -210,6 +214,7 @@ private fun defaultKbTheme(
         board = board,
         boardGradient = null,
         backgroundImage = null,
+        backgroundImageLandscape = null,
         backgroundImageOpacity = 1f,
         backgroundImageBlur = 0f,
         keyShapeKind = KeyShapeKind.ROUNDED,
@@ -266,6 +271,7 @@ private fun specKbTheme(spec: ThemeSpec, settings: KeyboardSettings): KbTheme {
         board = board,
         boardGradient = spec.boardGradient,
         backgroundImage = spec.backgroundImage,
+        backgroundImageLandscape = spec.backgroundImageLandscape,
         backgroundImageOpacity = spec.backgroundImageOpacity,
         backgroundImageBlur = spec.backgroundImageBlur,
         keyShapeKind = spec.keyShape,
@@ -400,6 +406,7 @@ private fun KbTheme.accessibilityAdjusted(settings: KeyboardSettings): KbTheme {
             boardGradient = null,
             keyGradient = null,
             backgroundImage = null,
+            backgroundImageLandscape = null,
             animation = ThemeAnimation.NONE,
             key = key,
             modifierKey = modifier,
@@ -433,18 +440,32 @@ private fun KbTheme.accessibilityAdjusted(settings: KeyboardSettings): KbTheme {
 fun KeyboardThemeProvider(settings: KeyboardSettings, content: @Composable () -> Unit) {
     val context = LocalContext.current
     val systemDark = isSystemInDarkTheme()
-    val spec = if (settings.keyboardThemeId == DEFAULT_THEME_ID) {
+    // Auto-theme, when on, picks the id from the system light/dark setting and
+    // ignores the manually-selected keyboardThemeId (the theme tool is read-only
+    // while it's active). Off, the selected id wins as before.
+    val auto = settings.autoTheme
+    val effectiveId = if (auto.enabled) {
+        if (systemDark) auto.darkThemeId else auto.lightThemeId
+    } else {
+        settings.keyboardThemeId
+    }
+    val spec = if (effectiveId == DEFAULT_THEME_ID) {
         null
     } else {
-        settings.customThemes.find { it.id == settings.keyboardThemeId }
-            ?: BuiltInThemes.find { it.id == settings.keyboardThemeId }
+        settings.customThemes.find { it.id == effectiveId }
+            ?: BuiltInThemes.find { it.id == effectiveId }
     }
     val resolved = if (spec == null) {
-        val dark = when (settings.themeMode) {
+        // Under auto-theme the chosen slot decides light vs dark directly;
+        // otherwise the theme mode does.
+        val dark = if (auto.enabled) systemDark else when (settings.themeMode) {
             ThemeMode.SYSTEM -> systemDark
             ThemeMode.LIGHT -> false
             ThemeMode.DARK, ThemeMode.AMOLED -> true
         }
+        // AMOLED is a dark-only variant; gating on `dark` keeps a light slot
+        // (or Light mode) from turning the board black.
+        val amoled = dark && settings.themeMode == ThemeMode.AMOLED
         val supportsDynamic = settings.dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
         val scheme = when {
             supportsDynamic && dark -> dynamicDarkColorScheme(context)
@@ -452,7 +473,7 @@ fun KeyboardThemeProvider(settings: KeyboardSettings, content: @Composable () ->
             dark -> darkColorScheme()
             else -> lightColorScheme()
         }
-        defaultKbTheme(scheme, dark, amoled = settings.themeMode == ThemeMode.AMOLED, settings)
+        defaultKbTheme(scheme, dark, amoled = amoled, settings)
     } else {
         specKbTheme(spec, settings)
     }
@@ -594,6 +615,7 @@ private fun lerpKbTheme(a: KbTheme, b: KbTheme, t: Float): KbTheme {
         board = lerp(a.board, b.board, t),
         boardGradient = lerpGradient(a.boardGradient, b.boardGradient, t, a.board, b.board),
         backgroundImage = if (past) b.backgroundImage else a.backgroundImage,
+        backgroundImageLandscape = if (past) b.backgroundImageLandscape else a.backgroundImageLandscape,
         backgroundImageOpacity = lerpF(a.backgroundImageOpacity, b.backgroundImageOpacity, t),
         backgroundImageBlur = lerpF(a.backgroundImageBlur, b.backgroundImageBlur, t),
         keyShapeKind = if (past) b.keyShapeKind else a.keyShapeKind,
@@ -688,11 +710,16 @@ fun themeAnimationPhase(animation: ThemeAnimation, speed: Float, reduceMotion: B
  */
 @Composable
 fun BoxScope.BoardBackground(kb: KbTheme) {
+    // In landscape prefer the theme's landscape image, falling back to the
+    // portrait one when it has none — so a theme with a single image still
+    // shows it in both orientations, exactly as before this split existed.
+    val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val imagePath = if (landscape) kb.backgroundImageLandscape ?: kb.backgroundImage else kb.backgroundImage
     val bitmap by produceState<ImageBitmap?>(
-        initialValue = null, kb.backgroundImage, kb.backgroundImageBlur,
+        initialValue = null, imagePath, kb.backgroundImageBlur,
     ) {
         value = withContext(Dispatchers.IO) {
-            kb.backgroundImage?.let { path ->
+            imagePath?.let { path ->
                 runCatching {
                     BitmapFactory.decodeFile(path)
                         ?.blurredBy(kb.backgroundImageBlur)
