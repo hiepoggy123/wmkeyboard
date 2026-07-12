@@ -90,6 +90,52 @@ data class KeyPopupSettings(
 /** Shrinks the keyboard toward one edge for thumb reach. */
 enum class OneHandedMode { OFF, LEFT, RIGHT }
 
+/** Which edge a one-handed keyboard docks to. */
+enum class OneHandedSide {
+    LEFT, RIGHT;
+
+    /** The live [OneHandedMode] that renders on this side. */
+    fun toMode(): OneHandedMode = if (this == LEFT) OneHandedMode.LEFT else OneHandedMode.RIGHT
+
+    companion object {
+        /** The side a live [OneHandedMode] renders on, or null when OFF. */
+        fun of(mode: OneHandedMode): OneHandedSide? = when (mode) {
+            OneHandedMode.LEFT -> LEFT
+            OneHandedMode.RIGHT -> RIGHT
+            OneHandedMode.OFF -> null
+        }
+    }
+}
+
+/**
+ * One-handed geometry for a single screen orientation.
+ *
+ * [widthPercent] is the keyboard's share of the screen width while
+ * one-handed is active (the rail and any leftover fill the rest).
+ * [heightScale] shrinks the keys vertically as a percent of their normal
+ * height, bringing the top rows into thumb reach. [side] is the edge the
+ * keyboard docks to when one-handed is enabled in this orientation; the
+ * in-keyboard rail's flip button updates it live.
+ */
+data class OneHandedProfile(
+    val widthPercent: Int = 78,
+    val heightScale: Int = 100,
+    val side: OneHandedSide = OneHandedSide.RIGHT,
+)
+
+/**
+ * Per-orientation one-handed tuning. Landscape defaults narrower because a
+ * landscape keyboard is very wide, so 78% would barely help thumb reach.
+ */
+data class OneHandedSettings(
+    val portrait: OneHandedProfile = OneHandedProfile(),
+    val landscape: OneHandedProfile = OneHandedProfile(widthPercent = 55),
+) {
+    /** The profile that applies for the current orientation. */
+    fun forLandscape(landscape: Boolean): OneHandedProfile =
+        if (landscape) this.landscape else portrait
+}
+
 /** Where a width-reduced keyboard sits horizontally. */
 enum class KeyboardAlignment { LEFT, CENTER, RIGHT }
 
@@ -684,6 +730,8 @@ data class KeyboardSettings(
     val onboardingDone: Boolean = false,
     val conjunctBackspace: Boolean = false,
     val oneHandedMode: OneHandedMode = OneHandedMode.OFF,
+    /** Per-orientation one-handed width, height scale and dock side. */
+    val oneHanded: OneHandedSettings = OneHandedSettings(),
     val learnFromTyping: Boolean = true,
     /**
      * Also add words the keyboard learns to Android's system personal
@@ -1363,6 +1411,20 @@ class SettingsRepository(private val context: Context) {
         private val ONBOARDING_DONE = booleanPreferencesKey("onboarding_done")
         private val CONJUNCT_BACKSPACE = booleanPreferencesKey("conjunct_backspace")
         private val ONE_HANDED_MODE = stringPreferencesKey("one_handed_mode")
+        // One-handed width leaves room for the rail on the inner edge, so it is
+        // capped below 100%. Height scale never grows the keys, only shrinks.
+        const val ONE_HANDED_WIDTH_MIN = 40
+        const val ONE_HANDED_WIDTH_MAX = 85
+        const val ONE_HANDED_HEIGHT_SCALE_MIN = 60
+        const val ONE_HANDED_HEIGHT_SCALE_MAX = 100
+        // Per-orientation one-handed geometry. `portrait` = false suffix keeps
+        // the two orientations in step by construction.
+        private fun oneHandedWidthKey(landscape: Boolean) =
+            intPreferencesKey("one_handed_width_${if (landscape) "landscape" else "portrait"}")
+        private fun oneHandedHeightScaleKey(landscape: Boolean) =
+            intPreferencesKey("one_handed_height_scale_${if (landscape) "landscape" else "portrait"}")
+        private fun oneHandedSideKey(landscape: Boolean) =
+            stringPreferencesKey("one_handed_side_${if (landscape) "landscape" else "portrait"}")
         private val LEARN_FROM_TYPING = booleanPreferencesKey("learn_from_typing")
         private val ADD_WORDS_TO_SYSTEM_DICTIONARY =
             booleanPreferencesKey("add_words_to_system_dictionary")
@@ -1728,6 +1790,10 @@ class SettingsRepository(private val context: Context) {
             oneHandedMode = p[ONE_HANDED_MODE]
                 ?.let { runCatching { OneHandedMode.valueOf(it) }.getOrNull() }
                 ?: defaults.oneHandedMode,
+            oneHanded = OneHandedSettings(
+                portrait = readOneHandedProfile(p, landscape = false, defaults.oneHanded.portrait),
+                landscape = readOneHandedProfile(p, landscape = true, defaults.oneHanded.landscape),
+            ),
             learnFromTyping = p[LEARN_FROM_TYPING] ?: defaults.learnFromTyping,
             addWordsToSystemDictionary =
                 p[ADD_WORDS_TO_SYSTEM_DICTIONARY] ?: defaults.addWordsToSystemDictionary,
@@ -2832,6 +2898,44 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setOneHandedMode(value: OneHandedMode) =
         context.dataStore.edit { it[ONE_HANDED_MODE] = value.name }
+
+    suspend fun setOneHandedWidthPercent(landscape: Boolean, value: Int) =
+        context.dataStore.edit {
+            it[oneHandedWidthKey(landscape)] =
+                value.coerceIn(ONE_HANDED_WIDTH_MIN, ONE_HANDED_WIDTH_MAX)
+        }
+
+    suspend fun setOneHandedHeightScale(landscape: Boolean, value: Int) =
+        context.dataStore.edit {
+            it[oneHandedHeightScaleKey(landscape)] =
+                value.coerceIn(ONE_HANDED_HEIGHT_SCALE_MIN, ONE_HANDED_HEIGHT_SCALE_MAX)
+        }
+
+    suspend fun setOneHandedSide(landscape: Boolean, value: OneHandedSide) =
+        context.dataStore.edit { it[oneHandedSideKey(landscape)] = value.name }
+
+    /**
+     * Reads one orientation's one-handed profile. A missing dock side falls
+     * back to the legacy global [ONE_HANDED_MODE] so users who had picked
+     * LEFT/RIGHT before this feature keep that side as their default.
+     */
+    private fun readOneHandedProfile(
+        p: Preferences,
+        landscape: Boolean,
+        default: OneHandedProfile,
+    ): OneHandedProfile {
+        val legacySide = p[ONE_HANDED_MODE]
+            ?.let { runCatching { OneHandedMode.valueOf(it) }.getOrNull() }
+            ?.let { OneHandedSide.of(it) }
+        val side = p[oneHandedSideKey(landscape)]
+            ?.let { runCatching { OneHandedSide.valueOf(it) }.getOrNull() }
+            ?: legacySide ?: default.side
+        return OneHandedProfile(
+            widthPercent = p[oneHandedWidthKey(landscape)] ?: default.widthPercent,
+            heightScale = p[oneHandedHeightScaleKey(landscape)] ?: default.heightScale,
+            side = side,
+        )
+    }
 
     suspend fun setLearnFromTyping(value: Boolean) =
         context.dataStore.edit { it[LEARN_FROM_TYPING] = value }

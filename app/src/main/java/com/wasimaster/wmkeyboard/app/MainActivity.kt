@@ -234,6 +234,7 @@ import com.wasimaster.wmkeyboard.core.tools.BuiltInSymbolSets
 import com.wasimaster.wmkeyboard.core.tools.resolveSymbolSets
 import com.wasimaster.wmkeyboard.core.tools.SymbolSet
 import com.wasimaster.wmkeyboard.core.settings.OneHandedMode
+import com.wasimaster.wmkeyboard.core.settings.OneHandedSide
 import com.wasimaster.wmkeyboard.core.settings.ScreenVariant
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import com.wasimaster.wmkeyboard.core.settings.sizingValuesFor
@@ -2526,6 +2527,49 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
                 },
                 selected = settings.oneHandedMode,
             ) { scope.launch { repository.setOneHandedMode(it) } }
+        }
+        item {
+            CaptionText(
+                "Tune one-handed mode separately for each orientation. In the keyboard, the " +
+                    "rail's arrow flips the side and remembers it here for that orientation.",
+            )
+        }
+        for ((landscape, orientationLabel) in listOf(false to "Portrait", true to "Landscape")) {
+            val profile = settings.oneHanded.forLandscape(landscape)
+            item {
+                SliderSetting(
+                    "$orientationLabel · width",
+                    subtitle = "How wide the keyboard is in $orientationLabel",
+                    value = profile.widthPercent.toFloat(),
+                    range = SettingsRepository.ONE_HANDED_WIDTH_MIN.toFloat()..
+                        SettingsRepository.ONE_HANDED_WIDTH_MAX.toFloat(),
+                    display = "${profile.widthPercent}%",
+                    info = "The keyboard's share of the screen width while one-handed is active. " +
+                        "The rest holds the rail and empty space toward the centre.",
+                ) { scope.launch { repository.setOneHandedWidthPercent(landscape, it.toInt()) } }
+            }
+            item {
+                SliderSetting(
+                    "$orientationLabel · height",
+                    subtitle = "Shrink the keys vertically for reach",
+                    value = profile.heightScale.toFloat(),
+                    range = SettingsRepository.ONE_HANDED_HEIGHT_SCALE_MIN.toFloat()..
+                        SettingsRepository.ONE_HANDED_HEIGHT_SCALE_MAX.toFloat(),
+                    display = "${profile.heightScale}%",
+                    info = "Scales the key height while one-handed is active, bringing the top " +
+                        "rows down into thumb reach. 100% keeps the normal height.",
+                ) { scope.launch { repository.setOneHandedHeightScale(landscape, it.toInt()) } }
+            }
+            item {
+                ChoiceSetting(
+                    title = "$orientationLabel · side",
+                    subtitle = "Which edge it docks to in $orientationLabel",
+                    options = OneHandedSide.entries.map { side ->
+                        side to side.name.lowercase().replaceFirstChar { it.uppercase() }
+                    },
+                    selected = profile.side,
+                ) { scope.launch { repository.setOneHandedSide(landscape, it) } }
+            }
         }
         item {
             ToggleSetting(
