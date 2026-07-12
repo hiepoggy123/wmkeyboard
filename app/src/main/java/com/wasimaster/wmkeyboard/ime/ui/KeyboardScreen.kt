@@ -291,6 +291,7 @@ import com.wasimaster.wmkeyboard.core.settings.KeyboardAlignment
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.transliteration.BengaliGraphemes
 import com.wasimaster.wmkeyboard.core.settings.OneHandedMode
+import com.wasimaster.wmkeyboard.core.settings.OneHandedSide
 import com.wasimaster.wmkeyboard.core.settings.LetterSwipeAction
 import com.wasimaster.wmkeyboard.core.settings.SpaceSwipeAction
 import com.wasimaster.wmkeyboard.core.settings.ThemeMode
@@ -508,6 +509,8 @@ fun KeyboardScreen(
     onClipboardSuggestionDismiss: () -> Unit = {},
     onSnippet: (Snippet) -> Unit = {},
     onOneHanded: (OneHandedMode) -> Unit = {},
+    /** Persists the dock side for one orientation (landscape flag, side). */
+    onOneHandedSide: (Boolean, OneHandedSide) -> Unit = { _, _ -> },
     onFloatingChange: (Boolean) -> Unit = {},
     onFloatingMoved: (Float, Float) -> Unit = { _, _ -> },
     onFloatingResized: (Int, Float) -> Unit = { _, _ -> },
@@ -617,8 +620,11 @@ fun KeyboardScreen(
             ToolbarTool.TEXT_EDIT -> onPanelChange(PanelMode.TEXT_EDIT)
             ToolbarTool.SETTINGS -> onOpenSettings()
             ToolbarTool.ONE_HANDED -> onOneHanded(
-                if (state.settings.oneHandedMode == OneHandedMode.OFF) OneHandedMode.RIGHT
-                else OneHandedMode.OFF
+                if (state.settings.oneHandedMode == OneHandedMode.OFF) {
+                    // Enable on this orientation's preferred side.
+                    val landscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+                    state.settings.oneHanded.forLandscape(landscape).side.toMode()
+                } else OneHandedMode.OFF
             )
             ToolbarTool.SPLIT -> onToggleSplit()
             ToolbarTool.FLOATING -> onFloatingChange(!state.settings.floatingKeyboard)
@@ -814,6 +820,8 @@ fun KeyboardScreen(
             // navigationBarsPadding keeps the bottom key row clear of the
             // gesture-navigation bar on edge-to-edge (SDK 35+) IME windows.
             val oneHanded = state.settings.oneHandedMode
+            val landscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+            val ohProfile = state.settings.oneHanded.forLandscape(landscape)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -823,29 +831,63 @@ fun KeyboardScreen(
                     .padding(bottom = state.settings.bottomPaddingDp.dp),
                 verticalAlignment = Alignment.Bottom,
             ) {
-                if (oneHanded == OneHandedMode.RIGHT) {
-                    OneHandedRail(current = oneHanded, onOneHanded = onOneHanded, modifier = Modifier.weight(0.22f))
+                // Flip to the other side: update the live mode and remember the
+                // new side as this orientation's default.
+                val flipSide: () -> Unit = {
+                    val next =
+                        if (oneHanded == OneHandedMode.LEFT) OneHandedSide.RIGHT
+                        else OneHandedSide.LEFT
+                    onOneHandedSide(landscape, next)
+                    onOneHanded(next.toMode())
                 }
-                // Resizable width: below 100% the keyboard shrinks and sits at
-                // the chosen edge (or centered). One-handed mode has its own
-                // fixed 78% width, so the two never compose.
-                val widthFraction = if (oneHanded == OneHandedMode.OFF) {
-                    state.settings.keyboardWidthPercent / 100f
+                if (oneHanded == OneHandedMode.OFF) {
+                    // Resizable width: below 100% the keyboard shrinks and sits
+                    // at the chosen edge (or centered).
+                    val widthFraction = state.settings.keyboardWidthPercent / 100f
+                    val slack = 1f - widthFraction
+                    val leftSlack = when (state.settings.keyboardAlignment) {
+                        KeyboardAlignment.LEFT -> 0f
+                        KeyboardAlignment.CENTER -> slack / 2f
+                        KeyboardAlignment.RIGHT -> slack
+                    }
+                    if (leftSlack > 0.001f) Spacer(modifier = Modifier.weight(leftSlack))
+                    Column(modifier = Modifier.weight(widthFraction)) { body(state) }
+                    val rightSlack = slack - leftSlack
+                    if (rightSlack > 0.001f) Spacer(modifier = Modifier.weight(rightSlack))
                 } else {
-                    0.78f
-                }
-                val slack = if (oneHanded == OneHandedMode.OFF) 1f - widthFraction else 0f
-                val leftSlack = when (state.settings.keyboardAlignment) {
-                    KeyboardAlignment.LEFT -> 0f
-                    KeyboardAlignment.CENTER -> slack / 2f
-                    KeyboardAlignment.RIGHT -> slack
-                }
-                if (leftSlack > 0.001f) Spacer(modifier = Modifier.weight(leftSlack))
-                Column(modifier = Modifier.weight(widthFraction)) { body(state) }
-                val rightSlack = slack - leftSlack
-                if (rightSlack > 0.001f) Spacer(modifier = Modifier.weight(rightSlack))
-                if (oneHanded == OneHandedMode.LEFT) {
-                    OneHandedRail(current = oneHanded, onOneHanded = onOneHanded, modifier = Modifier.weight(0.22f))
+                    // One-handed: dock to the live side with this orientation's
+                    // width and height scale. The weights sum to 1 so the body
+                    // is exactly `widthFraction` of the screen and any leftover
+                    // beyond the rail becomes centre-ward slack.
+                    val widthFraction = (ohProfile.widthPercent / 100f).coerceIn(0.30f, 0.90f)
+                    val leftover = 1f - widthFraction
+                    val railWeight = ONE_HANDED_RAIL_WEIGHT.coerceAtMost(leftover)
+                    val slack = (leftover - railWeight).coerceAtLeast(0f)
+                    val ohState = if (ohProfile.heightScale >= 100) state else state.copy(
+                        settings = state.settings.copy(
+                            keyHeightDp =
+                                (state.settings.keyHeightDp * ohProfile.heightScale / 100).coerceAtLeast(1),
+                            numberRowHeightDp =
+                                (state.settings.numberRowHeightDp * ohProfile.heightScale / 100).coerceAtLeast(1),
+                        ),
+                    )
+                    val rail = @Composable {
+                        OneHandedRail(
+                            current = oneHanded,
+                            onFlip = flipSide,
+                            onExit = { onOneHanded(OneHandedMode.OFF) },
+                            modifier = Modifier.weight(railWeight),
+                        )
+                    }
+                    if (oneHanded == OneHandedMode.RIGHT) {
+                        if (slack > 0.001f) Spacer(modifier = Modifier.weight(slack))
+                        rail()
+                        Column(modifier = Modifier.weight(widthFraction)) { body(ohState) }
+                    } else {
+                        Column(modifier = Modifier.weight(widthFraction)) { body(ohState) }
+                        rail()
+                        if (slack > 0.001f) Spacer(modifier = Modifier.weight(slack))
+                    }
                 }
             }
         }
@@ -958,6 +1000,9 @@ private fun FloatingKeyboardFrame(
     }
 }
 
+// The one-handed rail's share of the screen width. Kept small so the body
+// gets its full configured width; shrinks only if the width leaves less room.
+private const val ONE_HANDED_RAIL_WEIGHT = 0.16f
 private const val FLOATING_MIN_WIDTH_DP = 240f
 private const val FLOATING_MIN_HEIGHT_SCALE = 0.6f
 private const val FLOATING_MAX_HEIGHT_SCALE = 1.6f
@@ -1059,7 +1104,8 @@ private fun FloatingHandleBar(
 @Composable
 private fun OneHandedRail(
     current: OneHandedMode,
-    onOneHanded: (OneHandedMode) -> Unit,
+    onFlip: () -> Unit,
+    onExit: () -> Unit,
     modifier: Modifier,
 ) {
     Column(
@@ -1067,9 +1113,7 @@ private fun OneHandedRail(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        IconButton(onClick = {
-            onOneHanded(if (current == OneHandedMode.LEFT) OneHandedMode.RIGHT else OneHandedMode.LEFT)
-        }) {
+        IconButton(onClick = onFlip) {
             Icon(
                 if (current == OneHandedMode.LEFT) {
                     Icons.AutoMirrored.Outlined.ArrowForward
@@ -1080,7 +1124,7 @@ private fun OneHandedRail(
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        IconButton(onClick = { onOneHanded(OneHandedMode.OFF) }) {
+        IconButton(onClick = onExit) {
             Icon(
                 Icons.Outlined.Fullscreen,
                 contentDescription = "Exit one-handed mode",

@@ -89,6 +89,7 @@ import com.wasimaster.wmkeyboard.core.settings.LetterSwipeAction
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.ModeField
 import com.wasimaster.wmkeyboard.core.settings.OneHandedMode
+import com.wasimaster.wmkeyboard.core.settings.OneHandedSide
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
 import com.wasimaster.wmkeyboard.core.settings.applyMode
@@ -855,6 +856,7 @@ class WMKeyboardService : InputMethodService() {
                 onClipboardSuggestionDismiss = ::onClipboardSuggestionDismiss,
                 onSnippet = ::onSnippetTapped,
                 onOneHanded = ::onOneHandedChange,
+                onOneHandedSide = ::onOneHandedSideChange,
                 onFloatingChange = ::onFloatingChange,
                 onFloatingMoved = ::onFloatingMoved,
                 onFloatingResized = ::onFloatingResized,
@@ -6124,6 +6126,10 @@ class WMKeyboardService : InputMethodService() {
     fun onOneHandedChange(mode: OneHandedMode) {
         vibrate()
         serviceScope.launch { settingsRepository.setOneHandedMode(mode) }
+    }
+
+    fun onOneHandedSideChange(landscape: Boolean, side: OneHandedSide) {
+        serviceScope.launch { settingsRepository.setOneHandedSide(landscape, side) }
     }
 
     fun onToggleSplit() {
