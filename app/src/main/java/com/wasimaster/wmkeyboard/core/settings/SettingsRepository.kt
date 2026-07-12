@@ -700,6 +700,15 @@ data class KeyboardSettings(
      * repeating single-character deletes.
      */
     val backspaceSwipeDelete: Boolean = true,
+    /**
+     * Route physical-keyboard keystrokes through the keyboard's own engine —
+     * transliteration, the composing buffer, suggestions and autocorrect — so a
+     * hardware keyboard types Bengali (or gets corrections) exactly like the
+     * on-screen keys. Off types the raw characters straight into the field,
+     * letting the system and the physical layout own input. On either way,
+     * shortcuts (Ctrl+C), cursor keys and function keys stay with the system.
+     */
+    val hardwareKeyboardInput: Boolean = true,
     /** Volume up/down move the text cursor while the keyboard is showing. */
     val volumeCursor: Boolean = false,
     /**
@@ -1401,6 +1410,7 @@ class SettingsRepository(private val context: Context) {
         private val SPACE_CURSOR_2D = booleanPreferencesKey("space_cursor_2d")
         private val HINT_FONT_SCALE = floatPreferencesKey("hint_font_scale")
         private val BACKSPACE_SWIPE_DELETE = booleanPreferencesKey("backspace_swipe_delete")
+        private val HARDWARE_KEYBOARD_INPUT = booleanPreferencesKey("hardware_keyboard_input")
         private val VOLUME_CURSOR = booleanPreferencesKey("volume_cursor")
         private val VOLUME_CURSOR_MEDIA_AWARE = booleanPreferencesKey("volume_cursor_media_aware")
         private val GLOBE_AS_EMOJI = booleanPreferencesKey("globe_as_emoji")
@@ -1775,6 +1785,7 @@ class SettingsRepository(private val context: Context) {
                 ?: defaults.spacebarLanguageArrows,
             spacebarLabel = p[SPACEBAR_LABEL] ?: defaults.spacebarLabel,
             backspaceSwipeDelete = p[BACKSPACE_SWIPE_DELETE] ?: defaults.backspaceSwipeDelete,
+            hardwareKeyboardInput = p[HARDWARE_KEYBOARD_INPUT] ?: defaults.hardwareKeyboardInput,
             volumeCursor = p[VOLUME_CURSOR] ?: defaults.volumeCursor,
             volumeCursorMediaAware = p[VOLUME_CURSOR_MEDIA_AWARE] ?: defaults.volumeCursorMediaAware,
             globeAsEmoji = p[GLOBE_AS_EMOJI] ?: defaults.globeAsEmoji,
@@ -2863,6 +2874,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setBackspaceSwipeDelete(value: Boolean) =
         context.dataStore.edit { it[BACKSPACE_SWIPE_DELETE] = value }
+
+    suspend fun setHardwareKeyboardInput(value: Boolean) =
+        context.dataStore.edit { it[HARDWARE_KEYBOARD_INPUT] = value }
 
     suspend fun setVolumeCursor(value: Boolean) =
         context.dataStore.edit { it[VOLUME_CURSOR] = value }
