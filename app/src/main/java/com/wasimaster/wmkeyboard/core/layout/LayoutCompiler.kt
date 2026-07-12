@@ -19,10 +19,16 @@ package com.wasimaster.wmkeyboard.core.layout
 fun LayoutSpec.compile(layer: LayoutLayer): KeyboardLayout = synchronized(compileCache) {
     val cacheKey = id to layer
     compileCache[cacheKey]?.let { (spec, built) -> if (spec == this) return built }
-    val rows = layer(layer)?.rows
-        ?: BuiltInLayouts.default.layer(layer)?.rows
-        ?: BuiltInLayouts.default.layer(LayoutLayer.LETTERS)!!.rows
-    val built = KeyboardLayout(name = "$id/${layer.key}", rows = rows)
+    // Resolve the whole layer (not just its rows) so per-row heights travel with
+    // the grid through the same fallback chain.
+    val resolved = layer(layer)
+        ?: BuiltInLayouts.default.layer(layer)
+        ?: BuiltInLayouts.default.layer(LayoutLayer.LETTERS)!!
+    val built = KeyboardLayout(
+        name = "$id/${layer.key}",
+        rows = resolved.rows,
+        rowHeights = resolved.rowHeights,
+    )
     compileCache[cacheKey] = this to built
     built
 }

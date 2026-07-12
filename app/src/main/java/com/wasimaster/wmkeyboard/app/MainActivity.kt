@@ -1517,6 +1517,32 @@ private fun TypingSettings(
                 value = settings.spaceLongSwipe,
             ) { scope.launch { repository.setSpaceLongSwipe(it) } }
         }
+        // 2-D cursor pad only makes sense once a slide is set to cursor control.
+        if (settings.spaceShortSwipe == SpaceSwipeAction.CURSOR ||
+            settings.spaceLongSwipe == SpaceSwipeAction.CURSOR
+        ) {
+            item {
+                ToggleSetting(
+                    "2-D cursor touchpad",
+                    "Cursor slide also moves up and down, not just left and right",
+                    settings.layoutBehavior.spaceCursor2d,
+                    info = "Turns the spacebar cursor slide into a touchpad: as well as moving " +
+                        "left and right, dragging up or down moves the cursor between lines. " +
+                        "Only applies to the swipe slot(s) set to \"Cursor\" above.",
+                ) { scope.launch { repository.setSpaceCursor2d(it) } }
+            }
+        }
+        item {
+            ToggleSetting(
+                "Swipe down to hide",
+                "A downward swipe on the spacebar dismisses the keyboard",
+                settings.layoutBehavior.spaceSwipeDownHide,
+                info = "Slide straight down on the spacebar to close the keyboard. Off by " +
+                    "default so a stray vertical drag never dismisses it. When the 2-D cursor " +
+                    "touchpad is on, downward drags move the cursor instead, so that takes " +
+                    "precedence.",
+            ) { scope.launch { repository.setSpaceSwipeDownHide(it) } }
+        }
         if (settings.spaceShortSwipe == SpaceSwipeAction.LANGUAGE ||
             settings.spaceLongSwipe == SpaceSwipeAction.LANGUAGE
         ) {
@@ -1912,6 +1938,17 @@ private fun KeyPressSettings(repository: SettingsRepository, settings: KeyboardS
         }
         item {
             ToggleSetting(
+                "Hold ?123 for numpad",
+                "Long-press the symbols key to open the number pad",
+                settings.layoutBehavior.symbolsLongPressNumpad,
+                info = "Normally the ?123 key only switches to the symbol layer. With this on, " +
+                    "holding it opens the numeric keypad panel over any field — a full number " +
+                    "pad without leaving the current text box. A quick tap still switches " +
+                    "layers as usual.",
+            ) { scope.launch { repository.setSymbolsLongPressNumpad(it) } }
+        }
+        item {
+            ToggleSetting(
                 "Ctrl shortcuts as raw key events",
                 "For terminals; off means Ctrl+A/C/V/X use the clipboard directly",
                 settings.rawClipboardShortcuts,
@@ -2014,6 +2051,18 @@ private fun AppearanceSettings(
                 info = "Multiplies the size of every label on the keys themselves. Popup " +
                     "bubbles have their own font size under Key press → Key popup.",
             ) { scope.launch { repository.setFontScale(it) } }
+        }
+        item {
+            SliderSetting(
+                "Key hint font size",
+                subtitle = "Scale of the small corner hint character on each key",
+                value = settings.layoutBehavior.hintFontScale,
+                range = 0.5f..2.0f,
+                display = "×%.2f".format(settings.layoutBehavior.hintFontScale),
+                info = "Resizes the little long-press hint printed in the corner of a key " +
+                    "(shown when \"Long-press hints\" is on). Larger values make the hints " +
+                    "easier to read; ×1.00 is the default.",
+            ) { scope.launch { repository.setHintFontScale(it) } }
         }
     }
 

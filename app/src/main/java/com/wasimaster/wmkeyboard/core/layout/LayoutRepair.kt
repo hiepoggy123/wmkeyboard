@@ -219,7 +219,11 @@ fun LayoutSpec.repair(): RepairedLayout {
             repairs += "The $label layer had no usable keys; it now uses the built-in grid."
             return@mapNotNull null
         }
-        key to layerSpec.copy(rows = rows)
+        // Per-row heights are positional, so they are only still valid if repair
+        // left the row count untouched (it never reorders, only drops/adds). Drop
+        // them otherwise rather than let them land on the wrong rows.
+        val heights = layerSpec.rowHeights?.takeIf { rows.size == layerSpec.rows.size }
+        key to layerSpec.copy(rows = rows, rowHeights = heights)
     }.toMap().toMutableMap()
 
     val lettersKey = LayoutLayer.LETTERS.key
@@ -234,7 +238,10 @@ fun LayoutSpec.repair(): RepairedLayout {
         rows = rows.ensuring(KeyAction.Enter, Key("⏎", action = KeyAction.Enter, width = 1.5f)) {
             repairs += "The letters layer had no enter key; added one."
         }
-        layers[lettersKey] = letters.copy(rows = rows)
+        // Same positional guard: a missing space/enter/delete key adds a row,
+        // which would shift every per-row height down one.
+        val heights = letters.rowHeights?.takeIf { rows.size == letters.rows.size }
+        layers[lettersKey] = letters.copy(rows = rows, rowHeights = heights)
     }
 
     for (layer in LayoutLayer.entries) {

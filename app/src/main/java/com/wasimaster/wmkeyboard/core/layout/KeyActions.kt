@@ -61,6 +61,14 @@ sealed interface KeyAction {
     @Serializable @SerialName("emoji") data object Emoji : KeyAction
 
     /**
+     * Opens the numeric keypad panel over the current field. Produced only at
+     * runtime by a long-press on the ?123 / symbols key (opt-in via
+     * `LayoutBehaviorSettings.symbolsLongPressNumpad`) — no built-in or custom
+     * layout binds it, so it is never written to a serialized layout.
+     */
+    @Serializable @SerialName("numpad") data object Numpad : KeyAction
+
+    /**
      * Latches a modifier for the next key, the way [Shift] latches case: tap to
      * arm, tap again to lock, a third tap to clear.
      *

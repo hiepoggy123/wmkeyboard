@@ -831,6 +831,7 @@ class WMKeyboardService : InputMethodService() {
                 onGesture = ::onGesture,
                 onGesturePreview = ::onGesturePreview,
                 onCursorMove = ::onCursorMove,
+                onCursorMoveVertical = ::onCursorMoveVertical,
                 onLayoutSelect = ::onLayoutSelected,
                 onClipboardKey = ::onClipboardKey,
                 canDelete = ::canDelete,
@@ -1392,6 +1393,8 @@ class WMKeyboardService : InputMethodService() {
             }
             KeyAction.LanguageSwitch -> switchLanguage()
             KeyAction.Emoji -> onPanelChange(PanelMode.EMOJI)
+            // Produced only by a long-press on ?123 when the opt-in is set.
+            KeyAction.Numpad -> onPanelChange(PanelMode.NUMPAD)
             is KeyAction.Mod -> onModifier((key.action as KeyAction.Mod).key)
             KeyAction.Fn -> onFn()
             // A key carrying its own modifiers, so it fires with no latch.
@@ -3060,6 +3063,21 @@ class WMKeyboardService : InputMethodService() {
         lastGestureWord = null
         sendDownUpKeyEvents(
             if (delta < 0) KeyEvent.KEYCODE_DPAD_LEFT else KeyEvent.KEYCODE_DPAD_RIGHT
+        )
+    }
+
+    /**
+     * 2-D spacebar touchpad: move the cursor one line up (-1) or down (+1).
+     * Mirrors [onCursorMove] but on the vertical axis.
+     */
+    fun onCursorMoveVertical(delta: Int) {
+        val ic = currentInputConnection ?: return
+        vibrate()
+        lastCaretScrubMs = SystemClock.uptimeMillis()
+        commitComposing(ic, autocorrect = false)
+        lastGestureWord = null
+        sendDownUpKeyEvents(
+            if (delta < 0) KeyEvent.KEYCODE_DPAD_UP else KeyEvent.KEYCODE_DPAD_DOWN
         )
     }
 
