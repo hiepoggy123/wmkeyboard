@@ -1614,30 +1614,45 @@ class WMKeyboardService : InputMethodService() {
     }
 
     private fun onTextKey(key: Key) {
+        processTypedText(keyOutput(key, _uiState.value), applyDeadKeys = true)
+    }
+
+    /**
+     * Shared path for one typed character, whether it came from a soft key
+     * ([onTextKey]) or a physical keyboard ([handleHardwareKeyDown]).
+     *
+     * [applyDeadKeys] is true only for soft keys. A physical key's character
+     * already carries the hardware layout's own shift and AltGr, and its dead
+     * keys are composed by the framework before the IME sees them, so running
+     * our dead-key state machine over it as well would double-apply accents.
+     */
+    private fun processTypedText(input: String, applyDeadKeys: Boolean) {
         val state = _uiState.value
-        var text = keyOutput(key, state)
+        var text = input
         // Any new input ends the window in which backspace reverts the
         // previous autocorrect.
         lastAutocorrect = null
 
-        // Dead keys: the accent arms and waits, then fuses with the next
-        // letter. Pressing the same accent twice types it literally, which
-        // is the standard escape hatch for wanting the accent on its own.
-        val pressedMark = DeadKeys.markOf(text)
-        val armedMark = pendingDeadKey
-        when {
-            pressedMark != null && pressedMark == armedMark -> {
-                setPendingDeadKey(null)
-                text = DeadKeys.standalone(pressedMark)
-            }
-            pressedMark != null -> {
-                setPendingDeadKey(pressedMark)
-                consumeShift()
-                return
-            }
-            armedMark != null -> {
-                setPendingDeadKey(null)
-                text = DeadKeys.apply(armedMark, text)
+        if (applyDeadKeys) {
+            // Dead keys: the accent arms and waits, then fuses with the next
+            // letter. Pressing the same accent twice types it literally, which
+            // is the standard escape hatch for wanting the accent on its own.
+            val pressedMark = DeadKeys.markOf(text)
+            val armedMark = pendingDeadKey
+            when {
+                pressedMark != null && pressedMark == armedMark -> {
+                    setPendingDeadKey(null)
+                    text = DeadKeys.standalone(pressedMark)
+                }
+                pressedMark != null -> {
+                    setPendingDeadKey(pressedMark)
+                    consumeShift()
+                    return
+                }
+                armedMark != null -> {
+                    setPendingDeadKey(null)
+                    text = DeadKeys.apply(armedMark, text)
+                }
             }
         }
 
@@ -6229,10 +6244,15 @@ class WMKeyboardService : InputMethodService() {
             onCursorMove(volumeCursorDelta(keyCode))
             return true
         }
+        if (handleHardwareKeyDown(event)) return true
         return super.onKeyDown(keyCode, event)
     }
 
     override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean {
+        // Swallow the UP of any DOWN this IME consumed, so the focused app
+        // never sees half a physical keypress. Checked before the BACK/volume
+        // handling, which never registers its keys here.
+        if (consumedHardwareKeys.remove(keyCode)) return true
         val panel = _uiState.value.panel
         if (keyCode == KeyEvent.KEYCODE_BACK && isInputViewShown &&
             (panel != PanelMode.NONE || _uiState.value.voice.strip)
@@ -6243,6 +6263,136 @@ class WMKeyboardService : InputMethodService() {
         // Swallow the UP too, so the system never sees half a volume event.
         if (volumeCursorDelta(keyCode) != 0) return true
         return super.onKeyUp(keyCode, event)
+    }
+
+    /**
+     * Physical keycodes whose DOWN this IME consumed, so the matching UP is
+     * swallowed too. A set rather than a flag because auto-repeat and modifier
+     * chords can leave several keys down at once.
+     */
+    private val consumedHardwareKeys = HashSet<Int>()
+
+    /**
+     * Routes a physical-keyboard press through the same pipeline as the
+     * on-screen keys — transliteration, the composing buffer, suggestions,
+     * autocorrect — so a hardware keyboard is a first-class input source rather
+     * than a raw bypass of the IME.
+     *
+     * Returns true when the event was consumed. False hands the key back to the
+     * system unchanged — cursor and function keys, shortcuts, and every key at
+     * all when the field or the [KeyboardSettings.hardwareKeyboardInput] setting
+     * doesn't want IME processing — after first committing any composing text so
+     * it is never stranded by the cursor move or shortcut about to run.
+     */
+    private fun handleHardwareKeyDown(event: KeyEvent): Boolean {
+        val ic = currentInputConnection ?: return false
+        val keyCode = event.keyCode
+
+        // Bare modifier presses latch in the system (Shift for a capital, Ctrl
+        // to open a chord). Never consumed, and never a commit trigger — a
+        // Ctrl+Shift+Arrow selection opens with a lone modifier down.
+        if (KeyEvent.isModifierKey(keyCode)) return false
+
+        val state = _uiState.value
+
+        // A modifier-driven shortcut belongs to the app (Ctrl+C, Meta+Space).
+        // AltGr arrives as Ctrl+Alt *together* and is not a shortcut — it
+        // produces characters (German AltGr+Q = @), so it falls through to the
+        // text path where getUnicodeChar decodes it against the held meta state.
+        val ctrl = event.metaState and KeyEvent.META_CTRL_ON != 0
+        val alt = event.metaState and KeyEvent.META_ALT_ON != 0
+        val meta = event.metaState and KeyEvent.META_META_ON != 0
+        val shortcut = meta || (ctrl && !alt)
+
+        if (!state.settings.hardwareKeyboardInput || shortcut || !hardwareIntercepts(state)) {
+            // Handing the key back: finish composing first so a moving cursor or
+            // a shortcut never strands the buffer. Skipped for the bare modifier
+            // case above, which returned before reaching here.
+            if (composing.isNotEmpty()) commitComposing(ic, autocorrect = false)
+            return false
+        }
+
+        stopVoiceForManualInput()
+        return when (keyCode) {
+            KeyEvent.KEYCODE_SPACE -> {
+                clearForHardwareTyping()
+                onSpace()
+                consumedHardwareKeys.add(keyCode)
+                true
+            }
+            KeyEvent.KEYCODE_DEL -> {
+                // Routed through onDelete so it edits the composing buffer, undoes
+                // a swipe/autocorrect, and deletes whole grapheme clusters — all
+                // of which a raw backspace against the field would get wrong.
+                onDelete()
+                consumedHardwareKeys.add(keyCode)
+                true
+            }
+            KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER -> {
+                // The soft Enter's own handler: commits the buffer, then runs the
+                // field's editor action (or a real newline), and — the reason it
+                // can't just pass through — runs an active panel/dictionary search
+                // instead of dropping a newline into the app behind the panel.
+                onEnter()
+                consumedHardwareKeys.add(keyCode)
+                true
+            }
+            KeyEvent.KEYCODE_TAB, KeyEvent.KEYCODE_ESCAPE,
+            KeyEvent.KEYCODE_FORWARD_DEL,
+            -> {
+                // The system owns these (field navigation, forward delete). Commit
+                // the buffer so it lands before them.
+                if (composing.isNotEmpty()) commitComposing(ic, autocorrect = false)
+                false
+            }
+            else -> {
+                val unicode = event.unicodeChar
+                if (unicode == 0 || unicode and KeyCharacterMap.COMBINING_ACCENT != 0) {
+                    // A non-printing key (arrows, F-keys, Home/End) or a physical
+                    // dead key the framework will compose: hand it back, buffer
+                    // committed first.
+                    if (composing.isNotEmpty()) commitComposing(ic, autocorrect = false)
+                    false
+                } else {
+                    clearForHardwareTyping()
+                    // Literal: the char already carries the physical layout's
+                    // shift/AltGr, so the soft shift state must not re-case it.
+                    processTypedText(unicode.toChar().toString(), applyDeadKeys = false)
+                    consumedHardwareKeys.add(keyCode)
+                    true
+                }
+            }
+        }
+    }
+
+    /**
+     * The IME should own physical input right now: a transliterating or
+     * suggestion-composing field, or an open panel search / typing test whose
+     * keys feed a query rather than the app behind. Mirrors the soft keyboard's
+     * own composing gate ([onTextKey]'s `composingMode`) so the two stay in step
+     * — a field that composes taps composes hardware keys the same way.
+     */
+    private fun hardwareIntercepts(state: KeyboardUiState): Boolean {
+        val composingMode = !state.composer.isClusterShaping &&
+            (
+                state.composer.isTransliterating ||
+                    (state.allowsTypingIntelligence && state.settings.suggestions)
+                )
+        return composingMode || state.emojiSearchActive ||
+            (state.mediaSearchActive && state.panel.hasMediaSearch) ||
+            state.dictionarySearchActive || state.typingTestActive
+    }
+
+    /**
+     * The [onKey] preamble a hardware character or space needs: drop the recent-
+     * copy paste chip, the swipe-undo word, and any armed auto-space, exactly as
+     * a soft key does. Backspace is deliberately excluded — it keeps the swipe
+     * word so one press can undo a whole glide.
+     */
+    private fun clearForHardwareTyping() {
+        clearClipboardSuggestion()
+        lastGestureWord = null
+        pendingAutoSpace = false
     }
 
     /**

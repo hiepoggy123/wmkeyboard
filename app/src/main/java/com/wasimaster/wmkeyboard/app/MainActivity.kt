@@ -1632,6 +1632,24 @@ private fun TypingSettings(
             }
         }
     }
+
+    SettingsGroup("Physical keyboard") {
+        item {
+            ToggleSetting(
+                "Process hardware keys",
+                "Transliterate, correct and suggest as you type on a physical keyboard",
+                settings.hardwareKeyboardInput,
+                info = "With a physical keyboard attached, keys flow through the same engine as " +
+                    "the on-screen keyboard: phonetic layouts transliterate (typing \"ami\" gives " +
+                    "\"আমি\"), words compose for suggestions, and autocorrect fires on space — the " +
+                    "word you are typing shows underlined in the field until you finish it.\n\n" +
+                    "Shortcuts (Ctrl+C, Ctrl+Z), the arrow and function keys, and everything in " +
+                    "password fields always go straight to the app, whichever way this is set.\n\n" +
+                    "Turn this off to type the raw characters straight into the field and let the " +
+                    "physical keyboard's own layout own input entirely.",
+            ) { scope.launch { repository.setHardwareKeyboardInput(it) } }
+        }
+    }
 }
 
 // ---- key press ----
