@@ -41,6 +41,12 @@ data class Key(
 data class KeyboardLayout(
     val name: String,
     val rows: List<List<Key>>,
+    /**
+     * Per-row height multipliers, positionally aligned with [rows]; null (the
+     * usual case) means every row uses the standard key height. A missing or
+     * short entry defaults to 1.0. Carried over verbatim from [LayerSpec].
+     */
+    val rowHeights: List<Float>? = null,
 )
 
 /**

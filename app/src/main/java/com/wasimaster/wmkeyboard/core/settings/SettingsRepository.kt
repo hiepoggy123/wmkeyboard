@@ -59,6 +59,34 @@ data class AutoThemeSettings(
     val darkThemeId: String = DEFAULT_THEME_ID,
 )
 
+/**
+ * The key-preview bubble (the character that pops above a pressed key). Grouped
+ * into a nested class to keep [KeyboardSettings]'s top-level field count under
+ * the JVM `copy$default` ceiling; the DataStore keys stay flat. Read as
+ * `settings.popup.enabled` etc.
+ */
+data class KeyPopupSettings(
+    val enabled: Boolean = true,
+    /**
+     * How long the bubble lingers *after* release, so a fast tap still leaves
+     * a readable bubble instead of a single-frame flash. This is a comfort
+     * floor: raise it for a slower, more deliberate feel.
+     */
+    val minDurationMs: Int = 150,
+    /**
+     * Hard ceiling on the bubble's on-screen life, measured from the press —
+     * a stuck-bubble backstop, not a comfort knob. Normally the bubble clears
+     * on release; if the release is ever dropped under UI-thread lag (e.g. the
+     * InputConnection work on a new line), this cap hides it anyway so it can't
+     * strand. Kept above the long-press timeout so genuine holds still preview
+     * until the alternates popup takes over.
+     */
+    val maxDurationMs: Int = 750,
+    val onKey: Boolean = true,
+    val fontScale: Float = 1.0f,
+    val heightDp: Int = 110,
+)
+
 /** Shrinks the keyboard toward one edge for thumb reach. */
 enum class OneHandedMode { OFF, LEFT, RIGHT }
 
@@ -498,25 +526,8 @@ data class KeyboardSettings(
     val keySoundStyle: KeySoundStyle = KeySoundStyle.CLICK,
     /** Sound-effect volume, 0..1 of the system media volume. */
     val keySoundVolume: Float = 0.5f,
-    val keyPopup: Boolean = true,
-    /**
-     * How long the bubble lingers *after* release, so a fast tap still leaves
-     * a readable bubble instead of a single-frame flash. This is a comfort
-     * floor: raise it for a slower, more deliberate feel.
-     */
-    val keyPopupMinDurationMs: Int = 150,
-    /**
-     * Hard ceiling on the bubble's on-screen life, measured from the press —
-     * a stuck-bubble backstop, not a comfort knob. Normally the bubble clears
-     * on release; if the release is ever dropped under UI-thread lag (e.g. the
-     * InputConnection work on a new line), this cap hides it anyway so it can't
-     * strand. Kept above the long-press timeout so genuine holds still preview
-     * until the alternates popup takes over.
-     */
-    val keyPopupMaxDurationMs: Int = 750,
-    val keyPopupOnKey: Boolean = true,
-    val popupFontScale: Float = 1.0f,
-    val keyPopupHeightDp: Int = 110,
+    /** Key-preview bubble settings; see [KeyPopupSettings]. */
+    val popup: KeyPopupSettings = KeyPopupSettings(),
     // ---- accessibility ----
     /** Daltonization / grayscale applied over the resolved theme palette. */
     val colorVisionFilter: ColorVisionFilter = ColorVisionFilter.NONE,
@@ -686,6 +697,8 @@ data class KeyboardSettings(
     val keyRepeatIntervalMs: Int = 50,
     /** Small corner label on each key showing its first long-press character. */
     val longPressHints: Boolean = true,
+    /** Assorted layout & gesture behaviours (see [LayoutBehaviorSettings]). */
+    val layoutBehavior: LayoutBehaviorSettings = LayoutBehaviorSettings(),
     /** Long-pressing A selects all text in the field. */
     /**
      * Send Ctrl+A/C/V/X to the app as raw key events instead of using the
@@ -1134,6 +1147,42 @@ data class GestureSettings(
 )
 
 /**
+ * Assorted layout & gesture behaviours layered on top of the base keyboard,
+ * grouped into their own class rather than sitting flat on [KeyboardSettings]
+ * because that class's primary constructor is at the JVM's 255-argument
+ * ceiling (see [ToolbarBehavior]). Each field still persists under its own
+ * DataStore key via the matching setter.
+ */
+data class LayoutBehaviorSettings(
+    /**
+     * Long-pressing the ?123 / symbols key opens the numeric keypad panel on
+     * any field, instead of the long-press behaving like a plain tap. Off by
+     * default.
+     */
+    val symbolsLongPressNumpad: Boolean = false,
+    /**
+     * Swiping straight down on the spacebar dismisses the keyboard, the way a
+     * downward flick on the toolbar can. Off by default so a stray vertical
+     * drag never closes the keyboard mid-type.
+     */
+    val spaceSwipeDownHide: Boolean = false,
+    /**
+     * Turn the spacebar cursor slide into a 2-D touchpad: a vertical drag moves
+     * the caret up and down as well as left and right. Only applies while a
+     * spacebar swipe slot is set to cursor control; when on it also claims the
+     * downward direction, so it takes precedence over [spaceSwipeDownHide].
+     * Off by default.
+     */
+    val spaceCursor2d: Boolean = false,
+    /**
+     * Size multiplier for the small corner hint character on each key (the
+     * first long-press alternate, shown when [KeyboardSettings.longPressHints]
+     * is on). 1.0 keeps the default 10sp base.
+     */
+    val hintFontScale: Float = 1.0f,
+)
+
+/**
  * DataStore-backed settings. Every option on the settings screens flows
  * through here; the IME service collects [settings] and re-renders live.
  */
@@ -1299,6 +1348,10 @@ class SettingsRepository(private val context: Context) {
         private val SPACE_LONG_SWIPE = stringPreferencesKey("space_long_swipe")
         private val SPACEBAR_LANGUAGE_ARROWS = booleanPreferencesKey("spacebar_language_arrows")
         private val SPACEBAR_LABEL = stringPreferencesKey("spacebar_label")
+        private val SYMBOLS_LONGPRESS_NUMPAD = booleanPreferencesKey("symbols_longpress_numpad")
+        private val SPACE_SWIPE_DOWN_HIDE = booleanPreferencesKey("space_swipe_down_hide")
+        private val SPACE_CURSOR_2D = booleanPreferencesKey("space_cursor_2d")
+        private val HINT_FONT_SCALE = floatPreferencesKey("hint_font_scale")
         private val BACKSPACE_SWIPE_DELETE = booleanPreferencesKey("backspace_swipe_delete")
         private val VOLUME_CURSOR = booleanPreferencesKey("volume_cursor")
         private val VOLUME_CURSOR_MEDIA_AWARE = booleanPreferencesKey("volume_cursor_media_aware")
@@ -1592,12 +1645,14 @@ class SettingsRepository(private val context: Context) {
                 ?.let { runCatching { KeySoundStyle.valueOf(it) }.getOrNull() }
                 ?: defaults.keySoundStyle,
             keySoundVolume = p[KEY_SOUND_VOLUME] ?: defaults.keySoundVolume,
-            keyPopup = p[KEY_POPUP] ?: defaults.keyPopup,
-            keyPopupMinDurationMs = p[KEY_POPUP_MIN_DURATION] ?: defaults.keyPopupMinDurationMs,
-            keyPopupMaxDurationMs = p[KEY_POPUP_MAX_DURATION] ?: defaults.keyPopupMaxDurationMs,
-            keyPopupOnKey = p[KEY_POPUP_ON_KEY] ?: defaults.keyPopupOnKey,
-            popupFontScale = p[POPUP_FONT_SCALE] ?: defaults.popupFontScale,
-            keyPopupHeightDp = p[KEY_POPUP_HEIGHT] ?: defaults.keyPopupHeightDp,
+            popup = KeyPopupSettings(
+                enabled = p[KEY_POPUP] ?: defaults.popup.enabled,
+                minDurationMs = p[KEY_POPUP_MIN_DURATION] ?: defaults.popup.minDurationMs,
+                maxDurationMs = p[KEY_POPUP_MAX_DURATION] ?: defaults.popup.maxDurationMs,
+                onKey = p[KEY_POPUP_ON_KEY] ?: defaults.popup.onKey,
+                fontScale = p[POPUP_FONT_SCALE] ?: defaults.popup.fontScale,
+                heightDp = p[KEY_POPUP_HEIGHT] ?: defaults.popup.heightDp,
+            ),
             colorVisionFilter = p[COLOR_VISION_FILTER]
                 ?.let { runCatching { ColorVisionFilter.valueOf(it) }.getOrNull() }
                 ?: defaults.colorVisionFilter,
@@ -1688,6 +1743,14 @@ class SettingsRepository(private val context: Context) {
             longPressDelayMs = p[LONG_PRESS_DELAY] ?: defaults.longPressDelayMs,
             keyRepeatIntervalMs = p[KEY_REPEAT_INTERVAL] ?: defaults.keyRepeatIntervalMs,
             longPressHints = p[LONG_PRESS_HINTS] ?: defaults.longPressHints,
+            layoutBehavior = LayoutBehaviorSettings(
+                symbolsLongPressNumpad =
+                    p[SYMBOLS_LONGPRESS_NUMPAD] ?: defaults.layoutBehavior.symbolsLongPressNumpad,
+                spaceSwipeDownHide =
+                    p[SPACE_SWIPE_DOWN_HIDE] ?: defaults.layoutBehavior.spaceSwipeDownHide,
+                spaceCursor2d = p[SPACE_CURSOR_2D] ?: defaults.layoutBehavior.spaceCursor2d,
+                hintFontScale = p[HINT_FONT_SCALE] ?: defaults.layoutBehavior.hintFontScale,
+            ),
             rawClipboardShortcuts = p[RAW_CLIPBOARD_SHORTCUTS] ?: defaults.rawClipboardShortcuts,
             longPressASelectAll = p[LONG_PRESS_A_SELECT_ALL] ?: defaults.longPressASelectAll,
             longPressCCopy = p[LONG_PRESS_C_COPY] ?: defaults.longPressCCopy,
@@ -2719,6 +2782,18 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setSpacebarLabel(value: String) =
         context.dataStore.edit { it[SPACEBAR_LABEL] = value.trim() }
+
+    suspend fun setSymbolsLongPressNumpad(value: Boolean) =
+        context.dataStore.edit { it[SYMBOLS_LONGPRESS_NUMPAD] = value }
+
+    suspend fun setSpaceSwipeDownHide(value: Boolean) =
+        context.dataStore.edit { it[SPACE_SWIPE_DOWN_HIDE] = value }
+
+    suspend fun setSpaceCursor2d(value: Boolean) =
+        context.dataStore.edit { it[SPACE_CURSOR_2D] = value }
+
+    suspend fun setHintFontScale(value: Float) =
+        context.dataStore.edit { it[HINT_FONT_SCALE] = value.coerceIn(0.5f, 2.0f) }
 
     suspend fun setBackspaceSwipeDelete(value: Boolean) =
         context.dataStore.edit { it[BACKSPACE_SWIPE_DELETE] = value }

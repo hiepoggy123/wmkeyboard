@@ -60,6 +60,14 @@ enum class LayoutLayer(val key: String) {
 data class LayerSpec(
     val rows: List<List<Key>>,
     val numberRow: List<Key>? = null,
+    /**
+     * Optional per-row height multipliers, one per entry in [rows] (index
+     * aligned). Null — the normal case — keeps every row at the standard key
+     * height; a value of e.g. 1.5 makes that row half again as tall. A short or
+     * over-long list is tolerated: rows without an entry use 1.0. Additive and
+     * optional, so it needs no format-version bump.
+     */
+    val rowHeights: List<Float>? = null,
 )
 
 /**

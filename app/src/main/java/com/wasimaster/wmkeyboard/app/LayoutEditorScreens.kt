@@ -498,7 +498,34 @@ internal fun KeyLayoutEditorScreen(
         edit { spec -> withLayerRows(spec, transform(spec.compile(layer).rows)) }
     }
 
+    // Whole-layer edit, so a structural change to the rows can keep the parallel
+    // per-row heights aligned. Authoring an inherited layer copies the built-in's
+    // compiled grid (heights and all) first.
+    fun editLayer(transform: (LayerSpec) -> LayerSpec) {
+        edit { spec ->
+            val compiled = spec.compile(layer)
+            val base = spec.layer(layer)
+                ?: LayerSpec(rows = compiled.rows, rowHeights = compiled.rowHeights)
+            spec.copy(layers = spec.layers + (layer.key to transform(base)))
+        }
+    }
+
+    // Reindexes per-row heights by source row index so they follow the rows
+    // through a reorder/duplicate/delete. Stays null while every row is the
+    // default height, so untouched layouts never grow the field.
+    fun pickHeights(heights: List<Float>?, sourceIndices: List<Int>): List<Float>? =
+        heights?.let { h -> sourceIndices.map { h.getOrNull(it) ?: 1f } }
+
+    fun setRowHeight(rowIndex: Int, value: Float) {
+        editLayer { ls ->
+            val list = MutableList(ls.rows.size) { ls.rowHeights?.getOrNull(it) ?: 1f }
+            if (rowIndex in list.indices) list[rowIndex] = value
+            ls.copy(rowHeights = if (list.all { it == 1f }) null else list.toList())
+        }
+    }
+
     val rows = layout.compile(layer).rows
+    val rowHeights = layout.compile(layer).rowHeights
     val selectedKey = selection?.let { rows.getOrNull(it.row)?.getOrNull(it.col) }
 
     SectionHeaderPublic(layout.name)
@@ -595,13 +622,28 @@ internal fun KeyLayoutEditorScreen(
                     }
                 },
                 onDuplicateRow = {
-                    editRows { r -> r.subList(0, ref.row + 1) + listOf(r[ref.row]) + r.drop(ref.row + 1) }
+                    editLayer { ls ->
+                        val src = (0..ref.row) + ref.row + (ref.row + 1 until ls.rows.size)
+                        ls.copy(
+                            rows = src.map { ls.rows[it] },
+                            rowHeights = pickHeights(ls.rowHeights, src),
+                        )
+                    }
                 },
                 onDeleteRow = {
-                    editRows { r -> r.filterIndexed { i, _ -> i != ref.row } }
+                    editLayer { ls ->
+                        val src = ls.rows.indices.filter { it != ref.row }
+                        ls.copy(
+                            rows = src.map { ls.rows[it] },
+                            rowHeights = pickHeights(ls.rowHeights, src),
+                        )
+                    }
                     selection = null
                 },
             )
+            RowHeightRow(
+                height = rowHeights?.getOrNull(ref.row) ?: 1f,
+            ) { setRowHeight(ref.row, it) }
         }
     }
 
@@ -610,7 +652,12 @@ internal fun KeyLayoutEditorScreen(
             ListItem(
                 colors = transparentListColors(),
                 modifier = Modifier.clickable {
-                    editRows { it + listOf(listOf(Key("new"))) }
+                    editLayer { ls ->
+                        ls.copy(
+                            rows = ls.rows + listOf(listOf(Key("new"))),
+                            rowHeights = ls.rowHeights?.plus(1f),
+                        )
+                    }
                 },
                 leadingContent = { Icon(Icons.Outlined.Add, contentDescription = null) },
                 headlineContent = { Text("Add a row") },
@@ -623,7 +670,14 @@ internal fun KeyLayoutEditorScreen(
                 dialogTitle = "Row order",
                 items = rows.indices.toList(),
                 label = { i -> "Row ${i + 1} · ${rows[i].size} keys" },
-            ) { order -> editRows { r -> order.map { r[it] } } }
+            ) { order ->
+                editLayer { ls ->
+                    ls.copy(
+                        rows = order.map { ls.rows[it] },
+                        rowHeights = pickHeights(ls.rowHeights, order),
+                    )
+                }
+            }
         }
         selection?.let { ref ->
             if (ref.row in rows.indices && rows[ref.row].size > 1) {
@@ -1331,6 +1385,36 @@ private fun RoleRow(role: KeyRole?, onChange: (KeyRole?) -> Unit) {
         selected = role,
         onChange = onChange,
     )
+}
+
+/**
+ * Per-row height control for the layout editor: a multiplier on the standard
+ * key height for this one row. 1.00 is the default (and collapses the stored
+ * list back to nothing). Mirrors [KeyWidthRow]'s quarter-step slider + presets.
+ */
+@Composable
+private fun RowHeightRow(
+    height: Float,
+    onChange: (Float) -> Unit,
+) {
+    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+        Text("Row height  ×%.2f".format(height), style = MaterialTheme.typography.bodyLarge)
+        Slider(
+            value = height.coerceIn(0.5f, 2f),
+            onValueChange = { onChange((it * 4f).roundToInt() / 4f) },
+            valueRange = 0.5f..2f,
+            steps = 5,
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            for (preset in listOf(0.75f, 1f, 1.25f, 1.5f, 2f)) {
+                FilterChip(
+                    selected = kotlin.math.abs(height - preset) < 0.01f,
+                    onClick = { onChange(preset) },
+                    label = { Text("×%.2f".format(preset).trimEnd('0').trimEnd('.')) },
+                )
+            }
+        }
+    }
 }
 
 @Composable

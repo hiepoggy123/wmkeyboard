@@ -1569,6 +1569,32 @@ private fun TypingSettings(
                 value = settings.spaceLongSwipe,
             ) { scope.launch { repository.setSpaceLongSwipe(it) } }
         }
+        // 2-D cursor pad only makes sense once a slide is set to cursor control.
+        if (settings.spaceShortSwipe == SpaceSwipeAction.CURSOR ||
+            settings.spaceLongSwipe == SpaceSwipeAction.CURSOR
+        ) {
+            item {
+                ToggleSetting(
+                    "2-D cursor touchpad",
+                    "Cursor slide also moves up and down, not just left and right",
+                    settings.layoutBehavior.spaceCursor2d,
+                    info = "Turns the spacebar cursor slide into a touchpad: as well as moving " +
+                        "left and right, dragging up or down moves the cursor between lines. " +
+                        "Only applies to the swipe slot(s) set to \"Cursor\" above.",
+                ) { scope.launch { repository.setSpaceCursor2d(it) } }
+            }
+        }
+        item {
+            ToggleSetting(
+                "Swipe down to hide",
+                "A downward swipe on the spacebar dismisses the keyboard",
+                settings.layoutBehavior.spaceSwipeDownHide,
+                info = "Slide straight down on the spacebar to close the keyboard. Off by " +
+                    "default so a stray vertical drag never dismisses it. When the 2-D cursor " +
+                    "touchpad is on, downward drags move the cursor instead, so that takes " +
+                    "precedence.",
+            ) { scope.launch { repository.setSpaceSwipeDownHide(it) } }
+        }
         if (settings.spaceShortSwipe == SpaceSwipeAction.LANGUAGE ||
             settings.spaceLongSwipe == SpaceSwipeAction.LANGUAGE
         ) {
@@ -1896,19 +1922,19 @@ private fun KeyPressSettings(repository: SettingsRepository, settings: KeyboardS
     SettingsGroup("Key popup") {
         item {
             ToggleSetting(
-                "Key popup", "Show a character bubble above the pressed key", settings.keyPopup,
+                "Key popup", "Show a character bubble above the pressed key", settings.popup.enabled,
                 info = "While a key is held, its character floats in a bubble above your finger " +
                     "so you can see what you hit.",
             ) { scope.launch { repository.setKeyPopup(it) } }
         }
-        if (settings.keyPopup) {
+        if (settings.popup.enabled) {
             item {
                 SliderSetting(
                     "Minimum popup duration",
                     subtitle = "How long the bubble stays up even on a fast tap",
-                    value = settings.keyPopupMinDurationMs.toFloat(),
+                    value = settings.popup.minDurationMs.toFloat(),
                     range = 0f..300f,
-                    display = "${settings.keyPopupMinDurationMs} ms",
+                    display = "${settings.popup.minDurationMs} ms",
                     info = "On a quick tap the key is released almost instantly, which can make " +
                         "the bubble a barely-visible flicker. The bubble lingers after release " +
                         "until it has been shown for at least this long. 0 hides it the moment " +
@@ -1919,9 +1945,9 @@ private fun KeyPressSettings(repository: SettingsRepository, settings: KeyboardS
                 SliderSetting(
                     "Maximum popup duration",
                     subtitle = "Safety cap that clears a bubble stuck by lag",
-                    value = settings.keyPopupMaxDurationMs.toFloat(),
+                    value = settings.popup.maxDurationMs.toFloat(),
                     range = 400f..2000f,
-                    display = "${settings.keyPopupMaxDurationMs} ms",
+                    display = "${settings.popup.maxDurationMs} ms",
                     info = "The bubble normally disappears when you lift your finger. If the " +
                         "keyboard lags — most often as a new line is inserted — the release can " +
                         "be missed and the bubble strands on screen. This is the hard ceiling on " +
@@ -1936,7 +1962,7 @@ private fun KeyPressSettings(repository: SettingsRepository, settings: KeyboardS
             ToggleSetting(
                 "Popup on key",
                 "Grow the bubble upward from the pressed key itself",
-                settings.keyPopupOnKey,
+                settings.popup.onKey,
                 info = "On: the preview bubble sits on the pressed key and stretches upward, " +
                     "key-wide with a large character near its top — the stock-keyboard look. " +
                     "Off: a compact bubble floats above your fingertip with a gap.",
@@ -1946,9 +1972,9 @@ private fun KeyPressSettings(repository: SettingsRepository, settings: KeyboardS
             SliderSetting(
                 "Popup font size",
                 subtitle = "Scale of the key preview bubble and long-press alternates",
-                value = settings.popupFontScale,
+                value = settings.popup.fontScale,
                 range = 0.7f..1.6f,
-                display = "×%.2f".format(settings.popupFontScale),
+                display = "×%.2f".format(settings.popup.fontScale),
                 info = "Multiplies the text size inside the character bubble shown while a key " +
                     "is pressed and in the long-press alternates popup, independently of the " +
                     "key label size.",
@@ -1958,9 +1984,9 @@ private fun KeyPressSettings(repository: SettingsRepository, settings: KeyboardS
             SliderSetting(
                 "Popup height",
                 subtitle = "Height of the key preview bubble",
-                value = settings.keyPopupHeightDp.toFloat(),
+                value = settings.popup.heightDp.toFloat(),
                 range = 32f..160f,
-                display = "${settings.keyPopupHeightDp} dp",
+                display = "${settings.popup.heightDp} dp",
                 info = "Height of the character bubble. With \"Popup on key\" enabled this is " +
                     "measured from the bottom of the pressed key, so anything taller than the " +
                     "key extends above it and stays visible past your finger.",
@@ -2002,6 +2028,17 @@ private fun KeyPressSettings(repository: SettingsRepository, settings: KeyboardS
                     "long-press character — the digit, symbol or accent the popup leads with. " +
                     "Keys running a clipboard shortcut below show no hint.",
             ) { scope.launch { repository.setLongPressHints(it) } }
+        }
+        item {
+            ToggleSetting(
+                "Hold ?123 for numpad",
+                "Long-press the symbols key to open the number pad",
+                settings.layoutBehavior.symbolsLongPressNumpad,
+                info = "Normally the ?123 key only switches to the symbol layer. With this on, " +
+                    "holding it opens the numeric keypad panel over any field — a full number " +
+                    "pad without leaving the current text box. A quick tap still switches " +
+                    "layers as usual.",
+            ) { scope.launch { repository.setSymbolsLongPressNumpad(it) } }
         }
         item {
             ToggleSetting(
@@ -2107,6 +2144,18 @@ private fun AppearanceSettings(
                 info = "Multiplies the size of every label on the keys themselves. Popup " +
                     "bubbles have their own font size under Key press → Key popup.",
             ) { scope.launch { repository.setFontScale(it) } }
+        }
+        item {
+            SliderSetting(
+                "Key hint font size",
+                subtitle = "Scale of the small corner hint character on each key",
+                value = settings.layoutBehavior.hintFontScale,
+                range = 0.5f..2.0f,
+                display = "×%.2f".format(settings.layoutBehavior.hintFontScale),
+                info = "Resizes the little long-press hint printed in the corner of a key " +
+                    "(shown when \"Long-press hints\" is on). Larger values make the hints " +
+                    "easier to read; ×1.00 is the default.",
+            ) { scope.launch { repository.setHintFontScale(it) } }
         }
     }
 

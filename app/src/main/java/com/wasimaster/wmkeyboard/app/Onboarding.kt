@@ -538,7 +538,7 @@ private fun FeedbackPage(repository: SettingsRepository, settings: KeyboardSetti
         supportingContent = { Text("Show a character bubble above the pressed key") },
         trailingContent = {
             Switch(
-                checked = settings.keyPopup,
+                checked = settings.popup.enabled,
                 onCheckedChange = { scope.launch { repository.setKeyPopup(it) } },
             )
         },

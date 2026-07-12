@@ -397,6 +397,20 @@ internal val LocalCanDeleteField = staticCompositionLocalOf<() -> Boolean> { { t
 internal val LocalDeleteWord = staticCompositionLocalOf<() -> Unit> { {} }
 
 /**
+ * Steps the text cursor vertically (sign = direction, magnitude = steps).
+ * Fired by the spacebar's optional 2-D touchpad slide; provided at the root
+ * like [LocalDeleteWord] so it does not thread through every key-grid layer.
+ */
+internal val LocalCursorMoveVertical = staticCompositionLocalOf<(Int) -> Unit> { {} }
+
+/**
+ * Dismisses the keyboard. Provided at the root so the spacebar's optional
+ * swipe-down-to-hide gesture can reach it without threading a callback down
+ * through the key grid.
+ */
+internal val LocalHideKeyboard = staticCompositionLocalOf<() -> Unit> { {} }
+
+/**
  * Whether TalkBack (or another explore-by-touch service) is currently
  * driving the screen. Resolved once at the root rather than per key —
  * every key would otherwise register its own listener.
@@ -494,6 +508,7 @@ fun KeyboardScreen(
     onGesturePreview: (List<GesturePoint>, List<KeyCenter>, Float) -> Unit = { _, _, _ -> },
     onGestureWords: (List<List<GesturePoint>>, List<KeyCenter>, Float) -> Unit = { _, _, _ -> },
     onCursorMove: (Int) -> Unit = {},
+    onCursorMoveVertical: (Int) -> Unit = {},
     onLayoutSelect: (String) -> Unit = {},
     onClipboardKey: (ClipboardKeyAction) -> Unit = {},
     canDelete: () -> Boolean = { true },
@@ -696,6 +711,8 @@ fun KeyboardScreen(
             LocalCanDelete provides canDelete,
             LocalCanDeleteField provides canDeleteField,
             LocalDeleteWord provides onDeleteWord,
+            LocalCursorMoveVertical provides onCursorMoveVertical,
+            LocalHideKeyboard provides onHideKeyboard,
             LocalTouchExploration provides rememberTouchExploration(),
         ) {
             KeyboardBody(
@@ -4536,13 +4553,19 @@ private fun KeyRows(
                     ),
                 )
             }
-            for (row in bodyRows) {
+            bodyRows.forEachIndexed { index, row ->
+                // Per-row height multiplier from the layout, if any. Rounded to
+                // whole dp so the rendered height matches keyRowsHeight exactly
+                // (which sums the same rounded values).
+                val rowHeightDp = rowScaledKeyHeight(
+                    state.settings.keyHeightDp, layout.rowHeights?.getOrNull(index),
+                )
                 KeyRow(
                     keys = row,
                     gridWeight = gridWeight,
                     split = split,
                     splitGapPercent = splitGapPercent,
-                    keyHeightDp = state.settings.keyHeightDp,
+                    keyHeightDp = rowHeightDp,
                     state = state,
                     onKey = onKey,
                     onText = onText,
@@ -5008,13 +5031,43 @@ internal fun topBarHeight(settings: KeyboardSettings): Dp =
  */
 internal fun keyRowsHeight(state: KeyboardUiState): Dp {
     val settings = state.settings
-    var height = (settings.keyHeightDp.dp + keyGapV(settings) * 2) * state.layouts.rowSpan +
-        KeyRowsPadVertical * 2
+    val rowSpan = state.layouts.rowSpan
+    val layout = currentLayout(state)
+    val rowHeights = layout.rowHeights
+    var height = if (rowHeights == null) {
+        (settings.keyHeightDp.dp + keyGapV(settings) * 2) * rowSpan
+    } else {
+        // A layout with per-row heights: sum its body rows at their scaled
+        // heights and pad the rest at the base height, mirroring the render
+        // loop key for key so the reserved height matches what is drawn.
+        val bodyRowCount = layout.rows.size.coerceAtMost(rowSpan)
+        var sum = 0.dp
+        for (i in 0 until bodyRowCount) {
+            sum += rowScaledKeyHeight(settings.keyHeightDp, rowHeights.getOrNull(i)).dp +
+                keyGapV(settings) * 2
+        }
+        sum + (settings.keyHeightDp.dp + keyGapV(settings) * 2) * (rowSpan - bodyRowCount)
+    }
+    height += KeyRowsPadVertical * 2
     if (settings.numberRow) {
         height += settings.numberRowHeightDp.dp + keyGapV(settings) * 2
     }
     return height
 }
+
+/**
+ * A row's key height in dp after applying its optional [scale] multiplier,
+ * clamped to a sane range and rounded to whole dp. A null or 1.0 scale (the
+ * common case) returns [baseKeyHeightDp] untouched. Shared by the [KeyRows]
+ * render loop and [keyRowsHeight] so the reserved and drawn heights agree to
+ * the pixel.
+ */
+private fun rowScaledKeyHeight(baseKeyHeightDp: Int, scale: Float?): Int =
+    if (scale == null || scale == 1f) {
+        baseKeyHeightDp
+    } else {
+        (baseKeyHeightDp * scale.coerceIn(0.4f, 2.5f)).roundToInt().coerceAtLeast(1)
+    }
 
 @Composable
 private fun KeyButton(
@@ -5043,6 +5096,8 @@ private fun KeyButton(
     val onClipboardKey = LocalClipboardKeyAction.current
     val canDelete = LocalCanDelete.current
     val onDeleteWord = LocalDeleteWord.current
+    val onCursorMoveVertical = LocalCursorMoveVertical.current
+    val onHideKeyboard = LocalHideKeyboard.current
 
     // The preview bubble outlives the physical press by up to the minimum
     // popup duration, so a fast tap still shows a readable bubble instead
@@ -5054,7 +5109,7 @@ private fun KeyButton(
             previewShownAt = SystemClock.uptimeMillis()
             previewVisible = true
         } else if (previewVisible) {
-            val remaining = settings.keyPopupMinDurationMs -
+            val remaining = settings.popup.minDurationMs -
                 (SystemClock.uptimeMillis() - previewShownAt)
             if (remaining > 0) delay(remaining)
             previewVisible = false
@@ -5072,7 +5127,7 @@ private fun KeyButton(
     // slider has real effect.
     LaunchedEffect(previewShownAt) {
         if (previewShownAt == 0L) return@LaunchedEffect
-        val cap = settings.keyPopupMaxDurationMs -
+        val cap = settings.popup.maxDurationMs -
             (SystemClock.uptimeMillis() - previewShownAt)
         if (cap > 0) delay(cap.toLong())
         previewVisible = false
@@ -5165,6 +5220,11 @@ private fun KeyButton(
                     onKey = debounced,
                     onClipboardKey = onClipboardKey,
                     onCursorMove = onCursorMove,
+                    onCursorMoveVertical = onCursorMoveVertical,
+                    onHideKeyboard = onHideKeyboard,
+                    spaceCursor2d = settings.layoutBehavior.spaceCursor2d,
+                    spaceSwipeDownHide = settings.layoutBehavior.spaceSwipeDownHide,
+                    symbolsLongPressNumpad = settings.layoutBehavior.symbolsLongPressNumpad,
                     onLayoutSelect = onLayoutSelect,
                     openLanguagePicker = { showLanguagePicker = true },
                     setLanguagePreview = { languagePreview = it },
@@ -5221,7 +5281,7 @@ private fun KeyButton(
                                         onText(alternate)
                                     }
                                     .padding(horizontal = 10.dp, vertical = 10.dp),
-                                fontSize = (18 * settings.popupFontScale).sp,
+                                fontSize = (18 * settings.popup.fontScale).sp,
                                 color = kb.popupText,
                             )
                         }
@@ -5234,8 +5294,8 @@ private fun KeyButton(
         // grows upward from the pressed key itself (stock-keyboard style,
         // key-wide with a large label near the top, clear of the finger);
         // otherwise it floats above the fingertip.
-        if (previewVisible && settings.keyPopup && key.action == KeyAction.Text && !showAlternates) {
-            val onKeyStyle = settings.keyPopupOnKey
+        if (previewVisible && settings.popup.enabled && key.action == KeyAction.Text && !showAlternates) {
+            val onKeyStyle = settings.popup.onKey
             Popup(
                 popupPositionProvider = if (onKeyStyle) OnKeyPopupPositionProvider else popupPosition,
                 properties = PreviewPopupProperties,
@@ -5247,7 +5307,7 @@ private fun KeyButton(
                 ) {
                     Box(
                         modifier = Modifier
-                            .height(settings.keyPopupHeightDp.dp)
+                            .height(settings.popup.heightDp.dp)
                             .widthIn(min = if (onKeyStyle) with(density) { keyWidthPx.toDp() } + 8.dp else 0.dp)
                             .padding(horizontal = 14.dp),
                         contentAlignment = if (onKeyStyle) Alignment.TopCenter else Alignment.Center,
@@ -5255,7 +5315,7 @@ private fun KeyButton(
                         Text(
                             text = displayLabel(key, state),
                             modifier = if (onKeyStyle) Modifier.padding(top = 8.dp) else Modifier,
-                            fontSize = ((if (onKeyStyle) 34 else 22) * settings.popupFontScale).sp,
+                            fontSize = ((if (onKeyStyle) 34 else 22) * settings.popup.fontScale).sp,
                             color = kb.popupText,
                         )
                     }
@@ -5291,7 +5351,7 @@ private fun KeyButton(
                                         RoundedCornerShape(kb.popupRadiusDp.dp),
                                     )
                                     .padding(horizontal = 10.dp, vertical = 8.dp),
-                                fontSize = (14 * settings.popupFontScale).sp,
+                                fontSize = (14 * settings.popup.fontScale).sp,
                                 fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
                                 color = if (selected) kb.popupText else kb.popupText.copy(alpha = 0.45f),
                             )
@@ -5499,7 +5559,7 @@ private fun KeyContent(key: Key, state: KeyboardUiState, contentColor: Color) {
                     modifier = Modifier
                         .align(Alignment.TopEnd)
                         .padding(top = 1.dp, end = 4.dp),
-                    fontSize = (10 * fontScale).sp,
+                    fontSize = (10 * fontScale * state.settings.layoutBehavior.hintFontScale).sp,
                     color = contentColor.copy(alpha = 0.55f),
                 )
             }
@@ -5600,6 +5660,11 @@ private fun Modifier.pointerInputKey(
     onKey: (Key) -> Unit,
     onClipboardKey: (ClipboardKeyAction) -> Unit,
     onCursorMove: (Int) -> Unit,
+    onCursorMoveVertical: (Int) -> Unit,
+    onHideKeyboard: () -> Unit,
+    spaceCursor2d: Boolean,
+    spaceSwipeDownHide: Boolean,
+    symbolsLongPressNumpad: Boolean,
     onLayoutSelect: (String) -> Unit,
     openLanguagePicker: () -> Unit,
     setLanguagePreview: (String?) -> Unit,
@@ -5609,15 +5674,19 @@ private fun Modifier.pointerInputKey(
     scope: kotlinx.coroutines.CoroutineScope,
 ): Modifier = this.then(
     if (key.action == KeyAction.Space &&
-        (spaceShortSwipe != SpaceSwipeAction.NONE || spaceLongSwipe != SpaceSwipeAction.NONE)
+        (spaceShortSwipe != SpaceSwipeAction.NONE || spaceLongSwipe != SpaceSwipeAction.NONE ||
+            spaceSwipeDownHide)
     ) {
         Modifier.pointerInput(
             key, spaceShortSwipe, spaceLongSwipe, enabledLayoutIds, currentLayoutId, longPressDelayMs,
-            hapticOnLongPress, vibrateOnSpace,
+            hapticOnLongPress, vibrateOnSpace, spaceCursor2d, spaceSwipeDownHide,
         ) {
             val slopPx = 12.dp.toPx()
             val cursorStepPx = 16.dp.toPx()
             val langStepPx = 44.dp.toPx()
+            // A swipe-down must clear this before it dismisses the keyboard —
+            // well past the slop so a diagonal cursor drag never trips it.
+            val hideThresholdPx = 40.dp.toPx()
             // Extra travel demanded before the language list wraps around at
             // either end — the boundary acts like a detent, not a wall.
             val langWrapPx = langStepPx * 2.5f
@@ -5631,6 +5700,12 @@ private fun Modifier.pointerInputKey(
                 var action: SpaceSwipeAction? = null
                 var accumulated = 0f
                 var lastX = down.position.x
+                // Vertical accumulator for the 2-D cursor pad, and a latch set
+                // once a swipe-down has dismissed the keyboard (so release does
+                // not also type a space).
+                var accumulatedY = 0f
+                var lastY = down.position.y
+                var hidden = false
                 var langIndex = enabledLayoutIds.indexOf(currentLayoutId).coerceAtLeast(0)
                 // With exactly two languages a swipe direction means "the
                 // other language", so a single run of travel toggles at most
@@ -5678,21 +5753,52 @@ private fun Modifier.pointerInputKey(
                     if (!change.pressed) break
                     // Picker is up: consume everything, resolve nothing.
                     if (pickerOpened) { change.consume(); continue }
+                    // The action this gesture would resolve to right now (short
+                    // vs long by hold time). Used to decide whether the 2-D pad
+                    // owns the vertical axis for this drag.
+                    val candidate = if (change.uptimeMillis - down.uptimeMillis < longPressDelayMs) {
+                        spaceShortSwipe
+                    } else {
+                        spaceLongSwipe
+                    }
+                    val cursorOwnsVertical = spaceCursor2d &&
+                        (action == SpaceSwipeAction.CURSOR ||
+                            (action == null && candidate == SpaceSwipeAction.CURSOR))
+                    // Swipe straight down to dismiss the keyboard — unless the
+                    // 2-D pad is claiming vertical for cursor movement.
+                    if (spaceSwipeDownHide && !cursorOwnsVertical) {
+                        val totalDy = change.position.y - down.position.y
+                        val totalDx = change.position.x - down.position.x
+                        if (totalDy > hideThresholdPx && totalDy > abs(totalDx)) {
+                            change.consume()
+                            hidden = true
+                            onHideKeyboard()
+                            break
+                        }
+                    }
                     if (action == null) {
                         val totalDx = change.position.x - down.position.x
-                        if (abs(totalDx) > slopPx) {
+                        val totalDy = change.position.y - down.position.y
+                        // The pad may also resolve on a vertical drag, so a
+                        // straight up/down slide starts moving the cursor; the
+                        // language and horizontal-cursor paths still need
+                        // horizontal slop, which keeps their flick direction sane.
+                        val vertForCursor = spaceCursor2d &&
+                            candidate == SpaceSwipeAction.CURSOR && abs(totalDy) > slopPx
+                        if (abs(totalDx) > slopPx || vertForCursor) {
                             // Short vs long is decided by hold time, not travel
                             // distance — a fast flick covers more ground than a
                             // careful drag, so distance can't tell them apart.
-                            val elapsed = change.uptimeMillis - down.uptimeMillis
-                            action = if (elapsed < longPressDelayMs) spaceShortSwipe else spaceLongSwipe
+                            action = candidate
                             // The hold picker was only a preview; a drag that
                             // resolves to another action dismisses it.
                             if (holdPreviewShown && action != SpaceSwipeAction.LANGUAGE) {
                                 setLanguagePreview(null)
                             }
                             lastX = change.position.x
+                            lastY = change.position.y
                             accumulated = 0f
+                            accumulatedY = 0f
                             if (action == SpaceSwipeAction.LANGUAGE) {
                                 // The movement that crossed the slop already
                                 // counts: a quick flick switches one language.
@@ -5717,6 +5823,21 @@ private fun Modifier.pointerInputKey(
                             change.consume()
                         }
                         continue
+                    }
+                    // 2-D touchpad: while sliding the cursor, a vertical drag
+                    // steps the caret up and down as well. Runs alongside the
+                    // horizontal step below, so a diagonal drag moves both axes.
+                    if (spaceCursor2d && action == SpaceSwipeAction.CURSOR) {
+                        accumulatedY += change.position.y - lastY
+                        lastY = change.position.y
+                        var movedV = false
+                        while (accumulatedY > cursorStepPx) {
+                            onCursorMoveVertical(1); accumulatedY -= cursorStepPx; movedV = true
+                        }
+                        while (accumulatedY < -cursorStepPx) {
+                            onCursorMoveVertical(-1); accumulatedY += cursorStepPx; movedV = true
+                        }
+                        if (movedV) change.consume()
                     }
                     accumulated += change.position.x - lastX
                     lastX = change.position.x
@@ -5801,6 +5922,9 @@ private fun Modifier.pointerInputKey(
                 setPressed(false)
                 setLanguagePreview(null)
                 when {
+                    // A swipe-down already dismissed the keyboard: the finger
+                    // lifting must not also type a space.
+                    hidden -> {}
                     // The tappable picker is up and owns the choice: release
                     // just lifts the finger, it must not type a space.
                     action == null && pickerOpened -> {}
@@ -5955,6 +6079,13 @@ private fun Modifier.pointerInputKey(
                                         // their repeat loop already buzzes per repeat.
                                         if (hapticOnLongPress) onKeyPress()
                                         openAlternates()
+                                    } else if (key.action == KeyAction.Symbols &&
+                                        symbolsLongPressNumpad
+                                    ) {
+                                        // Opt-in: long-pressing ?123 opens the
+                                        // numpad panel instead of acting like a tap.
+                                        if (hapticOnLongPress) onKeyPress()
+                                        onKey(key.copy(action = KeyAction.Numpad))
                                     } else if (key.action == KeyAction.LanguageSwitch) {
                                         // Tap cycles to the next language; the
                                         // long press opens the full picker.
