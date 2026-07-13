@@ -1250,6 +1250,18 @@ private fun TypingSettings(
         }
         item {
             ToggleSetting(
+                "Punctuation suggestions",
+                "Quick . , ? ! ' chips beside the word candidates",
+                settings.suggestionStrip.punctuation,
+                info = "Adds a short row of common punctuation to the end of the suggestion " +
+                    "strip while candidates are showing, so a full stop or comma is one tap " +
+                    "away without switching to the symbols layout. Tapping one behaves exactly " +
+                    "like typing that key. When an emoji prediction is offered it takes the " +
+                    "tail instead.",
+            ) { scope.launch { repository.setPunctuationSuggestions(it) } }
+        }
+        item {
+            ToggleSetting(
                 "Suggestions in every field",
                 "Show the suggestion strip even where apps ask it hidden",
                 settings.showSuggestionsInAllFields,
@@ -1265,7 +1277,7 @@ private fun TypingSettings(
             ToggleSetting(
                 "Suggestions bar always visible",
                 "Keep the suggestion strip up even before you type",
-                settings.suggestionsFirst,
+                settings.suggestionStrip.suggestionsFirst,
                 info = "Normally the top bar rests on the toolbar and only switches to " +
                     "suggestions while candidates exist. With this on, the suggestion strip is " +
                     "the resting state instead — next-word predictions are always one glance " +
@@ -1276,7 +1288,7 @@ private fun TypingSettings(
             ToggleSetting(
                 "Best suggestion in the middle",
                 "Show the top candidate in the center slot",
-                settings.suggestionPrimaryCenter,
+                settings.suggestionStrip.suggestionPrimaryCenter,
                 info = "The strongest candidate (the one autocorrect would pick) sits in the " +
                     "middle of the strip with the runner-up on its left — the layout most " +
                     "keyboards use. Turn off to rank candidates left to right instead.",

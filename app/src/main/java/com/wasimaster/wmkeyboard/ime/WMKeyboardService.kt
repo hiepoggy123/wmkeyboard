@@ -860,6 +860,7 @@ class WMKeyboardService : InputMethodService() {
                 onEmojiVariant = ::onEmojiVariantPicked,
                 onEmojiFavourite = ::onEmojiFavouriteToggled,
                 onEmojiSuggestion = ::onEmojiSuggestionTapped,
+                onPunctuation = ::onPunctuationSuggestionTapped,
                 onEmojiQueryTap = ::onEmojiSearchToggled,
                 onEmojiRecentsClear = ::onEmojiRecentsClear,
                 onEmojiRecentRemove = ::onEmojiRecentRemoved,
@@ -2976,7 +2977,11 @@ class WMKeyboardService : InputMethodService() {
                     }
                 }
                 _uiState.update {
-                    it.copy(suggestions = results, emojiSuggestions = emptyList())
+                    it.copy(
+                        suggestions = results,
+                        emojiSuggestions = emptyList(),
+                        punctuationSuggestions = emptyList(),
+                    )
                 }
             }
             return
@@ -3019,8 +3024,37 @@ class WMKeyboardService : InputMethodService() {
             val shownEmojis = emojis
                 .let { list -> if (hidden.isEmpty()) list else list.filterNot { it in hidden } }
                 .map { applyEmojiTone(it) }
-            _uiState.update { it.copy(suggestions = results, emojiSuggestions = shownEmojis) }
+            // Quick-punctuation rides the tail beside the word candidates, but
+            // only when there are candidates to ride (otherwise the strip is
+            // idle and flips to the toolbar) and no emoji prediction is actually
+            // drawn in the tail (gate on the shown set, not the raw one).
+            val punct = if (
+                state.settings.suggestionStrip.punctuation &&
+                results.isNotEmpty() &&
+                shownEmojis.isEmpty()
+            ) {
+                PUNCTUATION_SUGGESTIONS
+            } else {
+                emptyList()
+            }
+            _uiState.update {
+                it.copy(
+                    suggestions = results,
+                    emojiSuggestions = shownEmojis,
+                    punctuationSuggestions = punct,
+                )
+            }
         }
+    }
+
+    /**
+     * A quick-punctuation chip in the suggestion strip was tapped. Routed
+     * through the ordinary text path so it is indistinguishable from typing
+     * that punctuation key — the composing word commits, auto-capitalise and
+     * pending auto-space fire, and contextual-vowel handling all apply.
+     */
+    fun onPunctuationSuggestionTapped(mark: String) {
+        onText(mark)
     }
 
     fun onSuggestionTapped(suggestion: String) {
@@ -6548,6 +6582,10 @@ class WMKeyboardService : InputMethodService() {
 
     fun openSettings() {
         vibrate()
+        if (currentInputEditorInfo?.packageName == packageName) {
+            Toast.makeText(this, "Already in settings", Toast.LENGTH_SHORT).show()
+            return
+        }
         startActivity(
             Intent(this, MainActivity::class.java).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -6761,6 +6799,14 @@ class WMKeyboardService : InputMethodService() {
         private const val WEATHER_CACHE_MS = 15L * 60 * 1000
         private val SENTENCE_ENDERS = charArrayOf('.', '!', '?', '।')
         private const val SHIFT_DOUBLE_TAP_MS = 350L
+
+        /**
+         * Quick-insert punctuation offered in the tail of the suggestion strip
+         * when the "Punctuation suggestions" setting is on — the marks people
+         * reach for mid-sentence, kept short so they don't crowd the word
+         * candidates. Tapping one behaves exactly like typing its key.
+         */
+        private val PUNCTUATION_SUGGESTIONS = listOf(".", ",", "?", "!", "'")
 
         /**
          * Opening bracket/brace/quote → its closer. Typing one of these with a

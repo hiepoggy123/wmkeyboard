@@ -520,6 +520,7 @@ fun KeyboardScreen(
     onEmojiVariant: (String, String) -> Unit = { _, v -> onEmoji(v) },
     onEmojiFavourite: (String) -> Unit = {},
     onEmojiSuggestion: (String) -> Unit = onEmoji,
+    onPunctuation: (String) -> Unit = {},
     onEmojiQueryTap: () -> Unit,
     onEmojiRecentsClear: () -> Unit = {},
     onEmojiRecentRemove: (String) -> Unit = {},
@@ -740,6 +741,7 @@ fun KeyboardScreen(
                 onEmojiVariant = onEmojiVariant,
                 onEmojiFavourite = onEmojiFavourite,
                 onEmojiSuggestion = onEmojiSuggestion,
+                onPunctuation = onPunctuation,
                 onEmojiQueryTap = onEmojiQueryTap,
                 onEmojiRecentsClear = onEmojiRecentsClear,
                 onEmojiRecentRemove = onEmojiRecentRemove,
@@ -1229,6 +1231,7 @@ private fun TopBar(
     onSuggestion: (String) -> Unit,
     onEmoji: (String) -> Unit,
     onEmojiSuggestion: (String) -> Unit,
+    onPunctuation: (String) -> Unit = {},
     onPanelChange: (PanelMode) -> Unit,
     onToolTap: (ToolbarTool) -> Unit,
     drag: ToolDragController,
@@ -1258,7 +1261,7 @@ private fun TopBar(
     // Suggestions-first mode keeps the strip as the resting state (an empty
     // strip plus the chevron into the toolbar); the override then survives
     // idle gaps and instead resets when fresh candidates arrive.
-    val suggestionsFirst = state.settings.suggestionsFirst && state.settings.suggestions
+    val suggestionsFirst = state.settings.suggestionStrip.suggestionsFirst && state.settings.suggestions
     // The emoji panel is already all emojis — showing the row too would be
     // redundant, so opening the panel folds the row away.
     //
@@ -1338,10 +1341,15 @@ private fun TopBar(
     val stripContentVisible = !showToolbar && suggestionsShowing
     var shownSuggestions by remember { mutableStateOf(state.suggestions) }
     var shownEmojiSuggestions by remember { mutableStateOf(state.emojiSuggestions) }
+    // Punctuation chips are held alongside the words so they fade out with them
+    // rather than blanking. The service only fills them when word candidates
+    // are present, so they follow the same non-empty gate.
+    var shownPunctuation by remember { mutableStateOf(state.punctuationSuggestions) }
     LaunchedEffect(state.suggestions, state.emojiSuggestions) {
         if (state.suggestions.isNotEmpty() || state.emojiSuggestions.isNotEmpty()) {
             shownSuggestions = state.suggestions
             shownEmojiSuggestions = state.emojiSuggestions
+            shownPunctuation = state.punctuationSuggestions
         }
     }
     // Fade in when the strip shows its candidates, out when it stops. Keyed on
@@ -1705,7 +1713,7 @@ private fun TopBar(
                 // Gboard convention: the primary candidate sits in the middle
                 // slot with the runner-up on its left. The commit path still
                 // uses the engine's order — this is display-only.
-                val centerPrimary = state.settings.suggestionPrimaryCenter && ranked.size >= 2
+                val centerPrimary = state.settings.suggestionStrip.suggestionPrimaryCenter && ranked.size >= 2
                 val shown = if (centerPrimary) {
                     listOf(ranked[1], ranked[0]) + ranked.drop(2)
                 } else {
@@ -1753,6 +1761,33 @@ private fun TopBar(
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(text = emoji, fontSize = 22.sp, fontFamily = LocalEmojiFontFamily.current)
+                }
+            }
+            // Quick-punctuation chips ride the tail (the service leaves the list
+            // empty whenever an emoji prediction claimed it, so the two never
+            // fight for the row). A leading divider sets them off from the words.
+            if (shownPunctuation.isNotEmpty()) {
+                VerticalDivider(
+                    modifier = Modifier
+                        .height(20.dp)
+                        .graphicsLayer { alpha = stripContentAlpha.value },
+                    color = MaterialTheme.colorScheme.outlineVariant,
+                )
+                for (mark in shownPunctuation) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .graphicsLayer { alpha = stripContentAlpha.value }
+                            .clickable(enabled = suggestionsShowing) { onPunctuation(mark) }
+                            .padding(horizontal = 8.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = mark,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontWeight = FontWeight.Medium,
+                        )
+                    }
                 }
             }
         }
@@ -3664,6 +3699,7 @@ private fun KeyboardBody(
     onEmojiVariant: (String, String) -> Unit,
     onEmojiFavourite: (String) -> Unit,
     onEmojiSuggestion: (String) -> Unit,
+    onPunctuation: (String) -> Unit,
     onEmojiQueryTap: () -> Unit,
     onEmojiRecentsClear: () -> Unit,
     onEmojiRecentRemove: (String) -> Unit,
@@ -3785,7 +3821,11 @@ private fun KeyboardBody(
                     // and tools alike — so the keys claim its height.
                     BarRow.TOPBAR -> if (state.settings.toolbarBehavior.enabled && !fullBleed && !emojiSearching) {
                         TopBar(
-                            state, onSuggestion, onEmoji, onEmojiSuggestion, onPanelChange, onToolTap, drag,
+                            state, onSuggestion, onEmoji, onEmojiSuggestion,
+                            onPunctuation = onPunctuation,
+                            onPanelChange = onPanelChange,
+                            onToolTap = onToolTap,
+                            drag = drag,
                             onVoiceToggle = onVoiceToggle,
                             onVoiceUndo = onVoiceUndo,
                             onVoicePermissionRequest = onVoicePermissionRequest,

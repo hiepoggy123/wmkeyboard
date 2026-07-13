@@ -634,10 +634,9 @@ data class KeyboardSettings(
      * working whichever way this is set.
      */
     val showSuggestionsInAllFields: Boolean = true,
-    /** Keep the suggestion strip as the default top bar even with nothing typed. */
-    val suggestionsFirst: Boolean = false,
-    /** Show the primary candidate in the middle slot (Gboard style) instead of the left. */
-    val suggestionPrimaryCenter: Boolean = true,
+    // `suggestionsFirst` and `suggestionPrimaryCenter` moved into
+    // [SuggestionStripSettings] to keep this constructor under the JVM slot
+    // ceiling; their DataStore keys are unchanged.
     /** Suggest names from the phone's contacts (needs the Contacts permission). */
     val contactSuggestions: Boolean = false,
     /**
@@ -750,6 +749,8 @@ data class KeyboardSettings(
     val addWordsToSystemDictionary: Boolean = false,
     /** Clipboard-tool history, panel and suggestion-strip settings (see [ClipboardSettings]). */
     val clipboard: ClipboardSettings = ClipboardSettings(),
+    /** Suggestion-strip content options — quick-punctuation chips (see [SuggestionStripSettings]). */
+    val suggestionStrip: SuggestionStripSettings = SuggestionStripSettings(),
     val longPressDelayMs: Int = 300,
     val keyRepeatIntervalMs: Int = 50,
     /** Small corner label on each key showing its first long-press character. */
@@ -1240,6 +1241,25 @@ data class LayoutBehaviorSettings(
 )
 
 /**
+ * Suggestion-strip content options, grouped into their own object (see
+ * [CameraSettings] for why the top-level class can't take more flat fields).
+ * DataStore keys stay flat.
+ */
+data class SuggestionStripSettings(
+    /**
+     * Offer a row of common punctuation ( . , ? ! ' ) beside the word
+     * candidates, so a full stop or comma is one tap away without a detour to
+     * the symbols layout. Shown only while candidates are up; an emoji
+     * prediction takes the tail instead when one is present.
+     */
+    val punctuation: Boolean = true,
+    /** Keep the suggestion strip as the default top bar even with nothing typed. */
+    val suggestionsFirst: Boolean = false,
+    /** Show the primary candidate in the middle slot (Gboard style) instead of the left. */
+    val suggestionPrimaryCenter: Boolean = true,
+)
+
+/**
  * DataStore-backed settings. Every option on the settings screens flows
  * through here; the IME service collects [settings] and re-renders live.
  */
@@ -1443,6 +1463,7 @@ class SettingsRepository(private val context: Context) {
         private val CLIPBOARD_LINK_PREVIEWS = booleanPreferencesKey("clipboard_link_previews")
         private val CLIPBOARD_TRACK_SOURCE = booleanPreferencesKey("clipboard_track_source")
         private val CLIPBOARD_SUGGEST_RECENT = booleanPreferencesKey("clipboard_suggest_recent")
+        private val PUNCTUATION_SUGGESTIONS = booleanPreferencesKey("punctuation_suggestions")
         private val CLIPBOARD_BOTTOM_ROW = booleanPreferencesKey("clipboard_bottom_row")
         private val CLIPBOARD_PINNED_LAST = booleanPreferencesKey("clipboard_pinned_last")
         private val LONG_PRESS_DELAY = intPreferencesKey("long_press_delay")
@@ -1750,9 +1771,6 @@ class SettingsRepository(private val context: Context) {
             suggestions = p[SUGGESTIONS] ?: defaults.suggestions,
             showSuggestionsInAllFields = p[SHOW_SUGGESTIONS_ALL_FIELDS]
                 ?: defaults.showSuggestionsInAllFields,
-            suggestionsFirst = p[SUGGESTIONS_FIRST] ?: defaults.suggestionsFirst,
-            suggestionPrimaryCenter = p[SUGGESTION_PRIMARY_CENTER]
-                ?: defaults.suggestionPrimaryCenter,
             contactSuggestions = p[CONTACT_SUGGESTIONS] ?: defaults.contactSuggestions,
             contactEmailSuggestions = p[CONTACT_EMAIL_SUGGESTIONS]
                 ?: defaults.contactEmailSuggestions,
@@ -1816,6 +1834,12 @@ class SettingsRepository(private val context: Context) {
                 suggestRecent = p[CLIPBOARD_SUGGEST_RECENT] ?: defaults.clipboard.suggestRecent,
                 bottomRow = p[CLIPBOARD_BOTTOM_ROW] ?: defaults.clipboard.bottomRow,
                 pinnedLast = p[CLIPBOARD_PINNED_LAST] ?: defaults.clipboard.pinnedLast,
+            ),
+            suggestionStrip = SuggestionStripSettings(
+                punctuation = p[PUNCTUATION_SUGGESTIONS] ?: defaults.suggestionStrip.punctuation,
+                suggestionsFirst = p[SUGGESTIONS_FIRST] ?: defaults.suggestionStrip.suggestionsFirst,
+                suggestionPrimaryCenter = p[SUGGESTION_PRIMARY_CENTER]
+                    ?: defaults.suggestionStrip.suggestionPrimaryCenter,
             ),
             longPressDelayMs = p[LONG_PRESS_DELAY] ?: defaults.longPressDelayMs,
             keyRepeatIntervalMs = p[KEY_REPEAT_INTERVAL] ?: defaults.keyRepeatIntervalMs,
@@ -2971,6 +2995,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setClipboardSuggestRecent(value: Boolean) =
         context.dataStore.edit { it[CLIPBOARD_SUGGEST_RECENT] = value }
+
+    suspend fun setPunctuationSuggestions(value: Boolean) =
+        context.dataStore.edit { it[PUNCTUATION_SUGGESTIONS] = value }
 
     suspend fun setClipboardBottomRow(value: Boolean) =
         context.dataStore.edit { it[CLIPBOARD_BOTTOM_ROW] = value }
