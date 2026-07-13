@@ -6548,6 +6548,10 @@ class WMKeyboardService : InputMethodService() {
 
     fun openSettings() {
         vibrate()
+        if (currentInputEditorInfo?.packageName == packageName) {
+            Toast.makeText(this, "Already in settings", Toast.LENGTH_SHORT).show()
+            return
+        }
         startActivity(
             Intent(this, MainActivity::class.java).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
