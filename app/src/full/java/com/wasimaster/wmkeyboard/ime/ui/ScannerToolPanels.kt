@@ -22,6 +22,7 @@ import androidx.camera.view.PreviewView
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -601,6 +602,10 @@ private fun QrScanContent(
     var result by remember { mutableStateOf<ScannedCode?>(null) }
     var camera by remember { mutableStateOf<Camera?>(null) }
     var torchOn by remember { mutableStateOf(false) }
+    // Current zoom, driven by pinch and shown as a pill. Zooming into a
+    // small or distant code is often the difference between a decode and
+    // not. Resets to 1x whenever the camera rebinds (e.g. after Rescan).
+    var zoomRatio by remember(camera) { mutableStateOf(1f) }
 
     val provider by produceState<ProcessCameraProvider?>(null) {
         value = withContext(Dispatchers.IO) { ProcessCameraProvider.getInstance(context).get() }
@@ -771,7 +776,42 @@ private fun QrScanContent(
             return@Box
         }
 
-        AndroidView(factory = { previewView }, modifier = Modifier.fillMaxSize())
+        AndroidView(
+            factory = { previewView },
+            modifier = Modifier
+                .fillMaxSize()
+                // Pinch to zoom, clamped to what the lens supports.
+                .pointerInput(camera) {
+                    detectTransformGestures { _, _, gestureZoom, _ ->
+                        val cam = camera ?: return@detectTransformGestures
+                        val info = cam.cameraInfo.zoomState.value
+                        val minZoom = info?.minZoomRatio ?: 1f
+                        val maxZoom = info?.maxZoomRatio ?: 1f
+                        val current = info?.zoomRatio ?: zoomRatio
+                        val next = (current * gestureZoom).coerceIn(minZoom, maxZoom)
+                        cam.cameraControl.setZoomRatio(next)
+                        zoomRatio = next
+                    }
+                },
+        )
+
+        if (zoomRatio > 1.05f) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = 10.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Color.Black.copy(alpha = 0.45f))
+                    .padding(horizontal = 10.dp, vertical = 4.dp),
+            ) {
+                Text(
+                    "%.1fx".format(zoomRatio),
+                    color = Color.White,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
+        }
 
         Text(
             "Point at a QR code or barcode",
