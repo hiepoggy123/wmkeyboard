@@ -1248,6 +1248,18 @@ private fun TypingSettings(
         }
         item {
             ToggleSetting(
+                "Punctuation suggestions",
+                "Quick . , ? ! ' chips beside the word candidates",
+                settings.suggestionStrip.punctuation,
+                info = "Adds a short row of common punctuation to the end of the suggestion " +
+                    "strip while candidates are showing, so a full stop or comma is one tap " +
+                    "away without switching to the symbols layout. Tapping one behaves exactly " +
+                    "like typing that key. When an emoji prediction is offered it takes the " +
+                    "tail instead.",
+            ) { scope.launch { repository.setPunctuationSuggestions(it) } }
+        }
+        item {
+            ToggleSetting(
                 "Suggestions in every field",
                 "Show the suggestion strip even where apps ask it hidden",
                 settings.showSuggestionsInAllFields,

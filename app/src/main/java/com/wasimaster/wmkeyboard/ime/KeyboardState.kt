@@ -613,6 +613,14 @@ data class KeyboardUiState(
     /** Emoji candidates for the suggestion strip (word being typed). */
     val emojiSuggestions: List<String> = emptyList(),
     /**
+     * Common punctuation marks offered as quick-insert chips in the tail of
+     * the suggestion strip, beside the word candidates. Non-empty only while
+     * word candidates are up and no emoji prediction has claimed the tail;
+     * gated on the "Punctuation suggestions" setting. Tapping one commits the
+     * mark exactly as typing its key would.
+     */
+    val punctuationSuggestions: List<String> = emptyList(),
+    /**
      * The tool answer recognised in the text before the cursor — an inline
      * sum, currency or unit conversion, or a tool keyword. Rendered as a
      * chip over the suggestion strip.

@@ -51,6 +51,7 @@ private val SettingRows: List<SettingsSearchEntry> = listOfNotNull(
     entry("Wrap selection with brackets", "Typing ( [ { < \" ' or ` around selected text wraps it", "Typing", "typing"),
     entry("Shift re-cases selection", "Shift with text selected cycles lowercase, Title, UPPERCASE", "Typing", "typing"),
     entry("Suggestions", "Show word predictions above the keyboard", "Typing", "typing"),
+    entry("Punctuation suggestions", "Quick . , ? ! ' chips beside the word candidates", "Typing", "typing"),
     entry("Suggestions bar always visible", "Keep the suggestion strip up even before you type", "Typing", "typing"),
     entry("Best suggestion in the middle", "Show the top candidate in the center slot", "Typing", "typing"),
     entry("Suggest contact names", "Complete names from your contacts as you type", "Typing", "typing"),
