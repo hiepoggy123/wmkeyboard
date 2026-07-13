@@ -1,6 +1,7 @@
 package com.wasimaster.wmkeyboard.ime
 
 import android.app.AppOpsManager
+import android.app.KeyguardManager
 import android.app.NotificationManager
 import android.app.usage.UsageStatsManager
 import android.content.ClipboardManager
@@ -1046,6 +1047,14 @@ class WMKeyboardService : InputMethodService() {
         }
     }
 
+    /**
+     * True while the device lock screen (keyguard) is showing — secure or
+     * swipe-only. Read on each field start to drive the "hide toolbar &
+     * clipboard on lock screen" privacy setting.
+     */
+    private fun isDeviceLocked(): Boolean =
+        (getSystemService(Context.KEYGUARD_SERVICE) as? KeyguardManager)?.isKeyguardLocked == true
+
     override fun onStartInputView(info: EditorInfo?, restarting: Boolean) {
         super.onStartInputView(info, restarting)
         lifecycleOwner.onResume()
@@ -1162,6 +1171,7 @@ class WMKeyboardService : InputMethodService() {
                 // but that can lag the switch, leaving a stale chip up.
                 smart = null,
                 secureField = secure,
+                deviceLocked = isDeviceLocked(),
                 shiftState = autoCapitalizeShift(),
                 clipboardItems = clipboardStore.items(),
                 enterAction = info.enterAction(),
