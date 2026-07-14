@@ -10,6 +10,12 @@ import kotlinx.serialization.Serializable
  * popup, whose first entry doubles as the corner hint. [width] is relative: 1.0
  * is a standard key, the spacebar is wider, shift/delete slightly wider.
  *
+ * A text key can carry an [icon] instead of a glyph and an [iconHint] instead
+ * of the character hint — both are named lookups resolved to a vector at render
+ * time (see the icon registry in the ime layer), so this stays a plain
+ * serializable value type with no Compose dependency. They sit alongside the
+ * character system: a key with no icon renders exactly as before.
+ *
  * This is both the stored and the rendered type. A parallel KeySpec DTO was the
  * alternative and was rejected: it would have been field-identical, so the only
  * thing it bought was a mapping function to forget to update. The stored/runtime
@@ -31,6 +37,19 @@ data class Key(
     val clipboardAction: ClipboardKeyAction? = null,
     /** What this key means to field adaptation; null infers it from position. */
     val role: KeyRole? = null,
+    /**
+     * Named icon drawn as the key's main glyph in place of [label] (the label is
+     * still used for accessibility and, unless [output] overrides it, for what
+     * the key commits). Resolved through the ime-layer icon registry; an
+     * unknown name falls back to drawing the text label.
+     */
+    val icon: String? = null,
+    /**
+     * Named icon drawn as the small corner hint in place of the character hint.
+     * Shown under the same [KeyboardSettings.longPressHints] toggle as the text
+     * hint. Resolved through the ime-layer icon registry.
+     */
+    val iconHint: String? = null,
 )
 
 /**
