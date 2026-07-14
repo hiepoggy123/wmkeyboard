@@ -646,6 +646,12 @@ data class KeyboardUiState(
     val clipboardSuggestion: ClipItem? = null,
     val snippets: List<Snippet> = emptyList(),
     val secureField: Boolean = false,
+    /**
+     * The device lock screen (keyguard) is showing. Refreshed on each field
+     * start from [android.app.KeyguardManager]. Only the "hide toolbar &
+     * clipboard on lock screen" privacy setting reads it.
+     */
+    val deviceLocked: Boolean = false,
     /** Field class/variation of the focused editor, from EditorInfo. */
     val fieldKind: FieldKind = FieldKind.TEXT,
     /**

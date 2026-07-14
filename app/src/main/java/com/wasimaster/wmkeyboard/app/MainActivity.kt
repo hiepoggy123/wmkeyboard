@@ -2275,6 +2275,19 @@ private fun AppearanceSettings(
         }
         item {
             ToggleSetting(
+                "Hide toolbar & clipboard on lock screen",
+                "Drop the top strip and block the clipboard while the device is locked",
+                settings.toolbarBehavior.hideWhenLocked,
+                info = "When the keyboard comes up over your lock screen — replying to a " +
+                    "notification, a lock-screen search box — this hides the whole top strip " +
+                    "(word suggestions and every pinned tool, so the clipboard tool and its " +
+                    "paste chip go too) and blocks the clipboard panel. Copied text like " +
+                    "one-time codes and passwords stays off a screen anyone can wake. Off by " +
+                    "default; unlocked, the keyboard is unchanged.",
+            ) { scope.launch { repository.setToolbarHideWhenLocked(it) } }
+        }
+        item {
+            ToggleSetting(
                 "Tool labels",
                 "Show each tool's name under its icon on the toolbar",
                 settings.toolbarLabels,

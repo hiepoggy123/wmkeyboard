@@ -3815,11 +3815,16 @@ private fun KeyboardBody(
             // While an emoji search is typing, the toolbar is dead weight —
             // hide it and let the panel spend the height on result rows.
             val emojiSearching = state.panel == PanelMode.EMOJI && state.emojiSearchActive
+            // Lock-screen privacy: with the setting on and the keyguard up, drop
+            // the whole top strip (suggestions + toolbar, so the clipboard tool
+            // and paste chip go with it) and block the clipboard panel, keeping
+            // copied text and pinned tools off a screen anyone can wake.
+            val lockHidden = state.deviceLocked && state.settings.toolbarBehavior.hideWhenLocked
             for (row in state.settings.barOrder) {
                 when (row) {
                     // Disabling the toolbar drops the whole strip — suggestions
                     // and tools alike — so the keys claim its height.
-                    BarRow.TOPBAR -> if (state.settings.toolbarBehavior.enabled && !fullBleed && !emojiSearching) {
+                    BarRow.TOPBAR -> if (state.settings.toolbarBehavior.enabled && !fullBleed && !emojiSearching && !lockHidden) {
                         TopBar(
                             state, onSuggestion, onEmoji, onEmojiSuggestion,
                             onPunctuation = onPunctuation,
@@ -3861,7 +3866,7 @@ private fun KeyboardBody(
             // already on screen, which flashed it at full strength first.
             // Animating the swap needs the panels to be layered rather than
             // exchanged; until then the cut is the honest option.
-        when (state.panel) {
+        when (if (lockHidden && state.panel == PanelMode.CLIPBOARD) PanelMode.NONE else state.panel) {
                 PanelMode.EMOJI -> EmojiPanel(
                     state, onEmoji, onEmojiVariant, onEmojiFavourite, onEmojiQueryTap, onEmojiRecentsClear,
                     onRecentRemove = onEmojiRecentRemove,

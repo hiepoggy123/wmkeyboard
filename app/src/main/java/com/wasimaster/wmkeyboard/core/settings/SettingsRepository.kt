@@ -436,6 +436,13 @@ data class ToolbarBehavior(
      * Forces the packed (non-greedy) layout while on.
      */
     val scrollable: Boolean = false,
+    /**
+     * On the device lock screen, hide the whole top strip (suggestions +
+     * toolbar) and block the clipboard panel, so copied text — one-time codes,
+     * passwords — and every pinned tool stay off a screen anyone can wake. Off
+     * by default; locked or not, the keyboard looks the same.
+     */
+    val hideWhenLocked: Boolean = false,
 )
 
 /**
@@ -1485,6 +1492,7 @@ class SettingsRepository(private val context: Context) {
         private val REVERSE_TOOLBAR_RTL = booleanPreferencesKey("reverse_toolbar_rtl")
         private val TOOLBAR_HEIGHT = intPreferencesKey("toolbar_height")
         private val TOOLBAR_SCROLLABLE = booleanPreferencesKey("toolbar_scrollable")
+        private val TOOLBAR_HIDE_WHEN_LOCKED = booleanPreferencesKey("toolbar_hide_when_locked")
         private val TOOLBAR_LABELS = booleanPreferencesKey("toolbar_labels")
         private val TOOLBAR_LABEL_SIZE = intPreferencesKey("toolbar_label_size")
         private val TOOL_CIRCLE_RADIUS = intPreferencesKey("tool_circle_radius")
@@ -1875,6 +1883,7 @@ class SettingsRepository(private val context: Context) {
                 reverseForRtl = p[REVERSE_TOOLBAR_RTL] ?: defaults.toolbarBehavior.reverseForRtl,
                 greedy = p[TOOLBAR_GREEDY] ?: defaults.toolbarBehavior.greedy,
                 scrollable = p[TOOLBAR_SCROLLABLE] ?: defaults.toolbarBehavior.scrollable,
+                hideWhenLocked = p[TOOLBAR_HIDE_WHEN_LOCKED] ?: defaults.toolbarBehavior.hideWhenLocked,
             ),
             toolbarHeightDp = p[TOOLBAR_HEIGHT] ?: defaults.toolbarHeightDp,
             toolbarLabels = p[TOOLBAR_LABELS] ?: defaults.toolbarLabels,
@@ -2321,6 +2330,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setToolbarScrollable(value: Boolean) =
         context.dataStore.edit { it[TOOLBAR_SCROLLABLE] = value }
+
+    suspend fun setToolbarHideWhenLocked(value: Boolean) =
+        context.dataStore.edit { it[TOOLBAR_HIDE_WHEN_LOCKED] = value }
 
     suspend fun setToolbarLabels(value: Boolean) =
         context.dataStore.edit { it[TOOLBAR_LABELS] = value }
