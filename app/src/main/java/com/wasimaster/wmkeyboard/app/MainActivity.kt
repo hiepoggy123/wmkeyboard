@@ -5597,6 +5597,8 @@ private fun AiToolSettings(repository: SettingsRepository, settings: KeyboardSet
             "the built-in prompt.",
     )
     for (action in AiAction.entries) {
+        // Custom has no stored prompt — its instruction is typed per run.
+        if (action == AiAction.CUSTOM) continue
         val current = when (action) {
             AiAction.REWRITE -> settings.aiPromptRewrite
             AiAction.SUMMARIZE -> settings.aiPromptSummarize
@@ -5605,6 +5607,7 @@ private fun AiToolSettings(repository: SettingsRepository, settings: KeyboardSet
             AiAction.FIX_GRAMMAR -> settings.aiPromptFixGrammar
             AiAction.EXPLAIN -> settings.aiPromptExplain
             AiAction.CONTINUE -> settings.aiPromptContinue
+            AiAction.CUSTOM -> ""
         }
         val builtIn = AiPrompts.defaultPrompt(action, settings.aiTranslateTo)
         PromptFieldSetting(

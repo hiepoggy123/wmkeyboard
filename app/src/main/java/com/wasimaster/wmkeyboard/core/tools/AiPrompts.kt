@@ -52,6 +52,19 @@ object AiPrompts {
             ROLE + "Task: continue the input text naturally in the same " +
                 "style, tone and language. Write the continuation only — do " +
                 "not repeat the input." + GUARD + OUTPUT_ONLY
+        // Custom's real task is the instruction the user types each run; this
+        // default only stands in when that instruction is somehow blank.
+        AiAction.CUSTOM -> customPrompt("")
+    }
+
+    /**
+     * System prompt for the Custom action: the ad-hoc instruction the user
+     * types on the keyboard, wrapped in the same guard/output-only frame as
+     * the presets so the result stays insertable and injection-safe.
+     */
+    fun customPrompt(instruction: String): String {
+        val task = instruction.trim().ifBlank { "rewrite the input text, keeping its meaning" }
+        return ROLE + "Follow this instruction on the input text: " + task + GUARD + OUTPUT_ONLY
     }
 
     /** Effective system prompt: the user's override, or the built-in. */
@@ -64,6 +77,9 @@ object AiPrompts {
             AiAction.FIX_GRAMMAR -> settings.aiPromptFixGrammar
             AiAction.EXPLAIN -> settings.aiPromptExplain
             AiAction.CONTINUE -> settings.aiPromptContinue
+            // No stored override — the caller builds Custom's prompt from the
+            // typed instruction via customPrompt() instead of this path.
+            AiAction.CUSTOM -> ""
         }
         return custom.ifBlank { defaultPrompt(action, settings.aiTranslateTo) }
     }

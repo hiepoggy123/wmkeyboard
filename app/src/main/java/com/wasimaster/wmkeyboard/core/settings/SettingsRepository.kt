@@ -261,11 +261,15 @@ enum class AiProvider(val label: String) {
  */
 enum class LocalLlmBackend(val label: String) { CPU("CPU"), GPU("GPU") }
 
-/** One-tap writing actions on the AI tool's panel. */
+/**
+ * One-tap writing actions on the AI tool's panel. [CUSTOM] is the odd one
+ * out: its prompt is the instruction the user types on the keyboard each
+ * run, so it has no stored per-action override and no built-in prompt body.
+ */
 enum class AiAction(val label: String) {
     REWRITE("Rewrite"), SUMMARIZE("Summarize"), TRANSLATE("Translate"),
     IMPROVE("Improve"), FIX_GRAMMAR("Fix grammar"), EXPLAIN("Explain"),
-    CONTINUE("Continue"),
+    CONTINUE("Continue"), CUSTOM("Custom"),
 }
 
 /** Error-correction level for generated QR codes (higher = more redundant). */
@@ -3451,6 +3455,8 @@ class SettingsRepository(private val context: Context) {
                 AiAction.FIX_GRAMMAR -> AI_PROMPT_FIX_GRAMMAR
                 AiAction.EXPLAIN -> AI_PROMPT_EXPLAIN
                 AiAction.CONTINUE -> AI_PROMPT_CONTINUE
+                // Custom's prompt is typed at run time — nothing to persist.
+                AiAction.CUSTOM -> return@edit
             }
             it[key] = value
         }

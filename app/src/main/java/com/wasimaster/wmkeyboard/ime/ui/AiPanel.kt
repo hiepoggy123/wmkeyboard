@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -66,6 +67,7 @@ internal fun AiPanel(
     onReplace: () -> Unit,
     onInsert: () -> Unit,
     onRetry: () -> Unit,
+    onRunCustom: () -> Unit,
     onPickModel: (AiProvider, String?) -> Unit,
     onToggleStripMarkdown: () -> Unit,
     onOpenToolSettings: (ToolbarTool) -> Unit,
@@ -130,6 +132,43 @@ internal fun AiPanel(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 24.dp),
+                    )
+                }
+            }
+            // The Custom action's own prompt: typed on the key rows below (the
+            // panel is compact here), run on the field text via Run or Enter.
+            // No chip grid — like the dictionary/translate search modes, the
+            // header chevron is the way back out.
+            is AiUi.CustomInput -> Column(Modifier.fillMaxSize()) {
+                val blank = ai.instruction.isEmpty()
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(kb.chip)
+                        .padding(horizontal = 10.dp, vertical = 8.dp)
+                        .verticalScroll(rememberScrollState()),
+                ) {
+                    Text(
+                        if (blank) "Type an instruction — e.g. “make this a haiku”" else ai.instruction,
+                        color = if (blank) kb.secondaryText else kb.modifierKeyText,
+                        fontSize = 13.sp,
+                        lineHeight = 18.sp,
+                    )
+                }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    ToolPanelChip("Run", selected = !blank) { onRunCustom() }
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        "Runs on the selected text, or the whole field — via ${state.settings.aiProvider.label}.",
+                        color = kb.secondaryText,
+                        fontSize = 11.sp,
                     )
                 }
             }

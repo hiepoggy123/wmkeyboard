@@ -948,6 +948,7 @@ class WMKeyboardService : InputMethodService() {
                 onAiReplace = ::onAiReplace,
                 onAiInsert = ::onAiInsert,
                 onAiRetry = ::onAiRetry,
+                onAiRunCustom = ::onAiRunCustom,
                 onAiPickModel = ::onAiPickModel,
                 onAiToggleStripMarkdown = ::onAiToggleStripMarkdown,
                 onOpenToolSettings = ::openToolSettings,
@@ -1697,6 +1698,14 @@ class WMKeyboardService : InputMethodService() {
             return
         }
 
+        // The AI Custom instruction composes on the key rows — characters go
+        // into its buffer, never the field behind the panel.
+        if (state.aiCustomInputActive) {
+            aiCustomInputEdit { it + text }
+            consumeShift()
+            return
+        }
+
         if (state.emojiSearchActive) {
             text = fixedLayoutContextualVowel(text, state.emojiQuery.lastOrNull())
             _uiState.update { it.copy(emojiQuery = it.emojiQuery + text) }
@@ -1947,6 +1956,10 @@ class WMKeyboardService : InputMethodService() {
         }
         if (state.typingTestActive) {
             typingTestBackspace()
+            return
+        }
+        if (state.aiCustomInputActive) {
+            aiCustomInputEdit { it.dropLast(1) }
             return
         }
         if (state.emojiSearchActive) {
@@ -2210,6 +2223,12 @@ class WMKeyboardService : InputMethodService() {
             typingTestSpace()
             return
         }
+        // Ahead of the editor check too: the Custom instruction must accept a
+        // space even in a window with no focused field.
+        if (_uiState.value.aiCustomInputActive) {
+            aiCustomInputEdit { it + " " }
+            return
+        }
         val ic = currentInputConnection ?: return
         val state = _uiState.value
         val now = System.currentTimeMillis()
@@ -2288,6 +2307,12 @@ class WMKeyboardService : InputMethodService() {
         // Enter is not part of a typing test, and letting it through would
         // put a newline in the field behind the panel.
         if (state.typingTestActive) return
+        // Enter runs the Custom action rather than dropping a newline into the
+        // app behind the panel.
+        if (state.aiCustomInputActive) {
+            onAiRunCustom()
+            return
+        }
         if (state.dictionarySearchActive) {
             onDictionaryLookup(state.dictionaryQuery)
             return
@@ -4729,6 +4754,13 @@ class WMKeyboardService : InputMethodService() {
     private var aiRunSeq = 0
 
     /**
+     * The last instruction the user ran the Custom action with. Held here
+     * rather than on [AiUi] states so retry ([onAiRetry]) can rebuild the
+     * same prompt without threading it through Loading/Ready/Error.
+     */
+    private var aiCustomInstruction = ""
+
+    /**
      * The on-device model to run: the explicit selection, or — when nothing
      * (valid) is selected — the only model on disk. So the first download
      * just works without a selection step, and a deleted selection heals
@@ -4797,6 +4829,12 @@ class WMKeyboardService : InputMethodService() {
             _uiState.update { it.copy(ai = initial) }
             return
         }
+        // Custom has no fixed prompt: open its input box and let the key rows
+        // compose the instruction; the run happens on Enter / the Run chip.
+        if (action == AiAction.CUSTOM) {
+            _uiState.update { it.copy(ai = AiUi.CustomInput(aiCustomInstruction)) }
+            return
+        }
         currentInputConnection?.let { commitComposing(it, autocorrect = false) }
         val source = aiInputText(action).trim()
         if (source.isEmpty()) {
@@ -4808,13 +4846,40 @@ class WMKeyboardService : InputMethodService() {
         runAi(action, source)
     }
 
+    /** Backspace/character edits to the Custom-action instruction buffer. */
+    private fun aiCustomInputEdit(transform: (String) -> String) {
+        val ai = _uiState.value.ai as? AiUi.CustomInput ?: return
+        _uiState.update { it.copy(ai = AiUi.CustomInput(transform(ai.instruction))) }
+    }
+
+    /** Run the Custom action with the typed instruction over the field text. */
+    fun onAiRunCustom() {
+        val instruction = (_uiState.value.ai as? AiUi.CustomInput)?.instruction?.trim().orEmpty()
+        if (instruction.isEmpty()) return
+        vibrate()
+        currentInputConnection?.let { commitComposing(it, autocorrect = false) }
+        val source = aiInputText(AiAction.CUSTOM).trim()
+        if (source.isEmpty()) {
+            _uiState.update {
+                it.copy(ai = AiUi.Error(AiAction.CUSTOM, "Nothing to work on — type some text first."))
+            }
+            return
+        }
+        aiCustomInstruction = instruction
+        runAi(AiAction.CUSTOM, source)
+    }
+
     private fun runAi(action: AiAction, source: String) {
         aiJob?.cancel()
         val seq = ++aiRunSeq
         _uiState.update { it.copy(ai = AiUi.Loading(action)) }
         aiJob = serviceScope.launch {
             val settings = _uiState.value.settings
-            val system = AiPrompts.systemPrompt(action, settings)
+            val system = if (action == AiAction.CUSTOM) {
+                AiPrompts.customPrompt(aiCustomInstruction)
+            } else {
+                AiPrompts.systemPrompt(action, settings)
+            }
             val config = AiClient.config(settings)
             val result = withContext(Dispatchers.IO) {
                 runCatching {
@@ -4910,6 +4975,8 @@ class WMKeyboardService : InputMethodService() {
     fun onAiRetry() {
         when (val ai = _uiState.value.ai) {
             is AiUi.Ready -> { vibrate(); runAi(ai.action, ai.sourceText) }
+            // A failed Custom run reopens its input prefilled so the user can
+            // tweak the instruction; onAiAction(CUSTOM) does exactly that.
             is AiUi.Error -> onAiAction(ai.action)
             else -> {}
         }

@@ -603,6 +603,7 @@ fun KeyboardScreen(
     onAiReplace: () -> Unit = {},
     onAiInsert: () -> Unit = {},
     onAiRetry: () -> Unit = {},
+    onAiRunCustom: () -> Unit = {},
     onAiPickModel: (com.wasimaster.wmkeyboard.core.settings.AiProvider, String?) -> Unit = { _, _ -> },
     onAiToggleStripMarkdown: () -> Unit = {},
     onOpenToolSettings: (ToolbarTool) -> Unit = {},
@@ -812,6 +813,7 @@ fun KeyboardScreen(
                 onAiReplace = onAiReplace,
                 onAiInsert = onAiInsert,
                 onAiRetry = onAiRetry,
+                onAiRunCustom = onAiRunCustom,
                 onAiPickModel = onAiPickModel,
                 onAiToggleStripMarkdown = onAiToggleStripMarkdown,
                 onOpenToolSettings = onOpenToolSettings,
@@ -3770,6 +3772,7 @@ private fun KeyboardBody(
     onAiReplace: () -> Unit,
     onAiInsert: () -> Unit,
     onAiRetry: () -> Unit,
+    onAiRunCustom: () -> Unit,
     onAiPickModel: (com.wasimaster.wmkeyboard.core.settings.AiProvider, String?) -> Unit,
     onAiToggleStripMarkdown: () -> Unit,
     onOpenToolSettings: (ToolbarTool) -> Unit,
@@ -4218,6 +4221,10 @@ private fun KeyboardBody(
                     // needs the taller window; otherwise the panel stays at
                     // the normal keyboard height.
                     extraHeight = if (state.settings.aiShowThinking) 160.dp else 0.dp,
+                    // The Custom instruction types on the key rows, so the
+                    // panel collapses to leave room for them below.
+                    compact = state.aiCustomInputActive,
+                    compactHeight = 132.dp,
                     headerActions = {
                         val ai = state.ai
                         if (ai is AiUi.Ready && !ai.generating) {
@@ -4241,6 +4248,7 @@ private fun KeyboardBody(
                         onReplace = onAiReplace,
                         onInsert = onAiInsert,
                         onRetry = onAiRetry,
+                        onRunCustom = onAiRunCustom,
                         onPickModel = onAiPickModel,
                         onToggleStripMarkdown = onAiToggleStripMarkdown,
                         onOpenToolSettings = onOpenToolSettings,
@@ -4265,6 +4273,10 @@ private fun KeyboardBody(
             }
             // In emoji search mode the letters stay visible for typing the query.
             if (state.panel == PanelMode.EMOJI && state.emojiSearchActive) {
+                KeyRows(state, onKey, onText, onGesture, onGesturePreview, onCursorMove, onLayoutSelect)
+            }
+            // The AI Custom instruction types on the key rows under its panel.
+            if (state.aiCustomInputActive) {
                 KeyRows(state, onKey, onText, onGesture, onGesturePreview, onCursorMove, onLayoutSelect)
             }
             // Same for a dictionary search: the query types on the key rows.

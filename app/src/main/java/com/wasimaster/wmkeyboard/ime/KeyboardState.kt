@@ -432,6 +432,12 @@ sealed interface AiUi {
     /** On-device provider selected but no model downloaded/selected. */
     data object NeedModel : AiUi
     data object Idle : AiUi
+    /**
+     * The Custom action is picked and the user is typing its instruction on
+     * the key rows. [instruction] is that live buffer — keystrokes edit it
+     * instead of the field until they run it.
+     */
+    data class CustomInput(val instruction: String = "") : AiUi
     data class Loading(
         val action: com.wasimaster.wmkeyboard.core.settings.AiAction,
         /** A reasoning model is inside a `<think>` block (hidden by default). */
@@ -754,4 +760,12 @@ data class KeyboardUiState(
      */
     val typingTestActive: Boolean
         get() = panel == PanelMode.TYPING_TEST && typingTest.result == null
+
+    /**
+     * Whether keystrokes belong to the AI Custom-action instruction rather
+     * than to the text field — true while its input box is up, so the key
+     * rows compose the prompt instead of typing into the app behind.
+     */
+    val aiCustomInputActive: Boolean
+        get() = panel == PanelMode.AI && ai is AiUi.CustomInput
 }
