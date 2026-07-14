@@ -1,5 +1,6 @@
 package com.wasimaster.wmkeyboard.core.layout
 
+import kotlin.math.roundToInt
 import kotlinx.serialization.Serializable
 
 /**
@@ -50,17 +51,36 @@ data class KeyboardLayout(
 )
 
 /**
- * The width every row is laid out against: the first row's total.
+ * The width every row is laid out against: the width the most rows share.
  *
  * Rows narrower than this are centred with equal padding on both sides, which
  * is how QWERTY's nine-key home row sits under its ten-key top row. Rows *wider*
  * than it deliberately overflow into narrower keys rather than being scaled —
- * Dvorak's third row is twelve wide against a grid weight of ten and has shipped
- * that way, so taking the maximum over all rows instead would put side padding
- * on its top row and visibly move a layout users already know.
+ * Dvorak's third row is eleven wide against a grid weight of ten and has shipped
+ * that way.
+ *
+ * Keying off the *most common* width rather than the first row's makes a lone
+ * outlier row an outlier and nothing more. The first row was tempting but
+ * breaks the moment a narrow row is inserted at the top: a single width-1 key
+ * would set the grid weight to 1 and then fill the whole width. The maximum
+ * breaks the other way, padding Dvorak's ten-key top rows to match its eleven-
+ * key third row. The mode leaves every shipped layout on its historical grid
+ * (each has a clear majority of ten-wide rows, Dvorak included) while treating
+ * both a narrow top insert and a wide overflow row as the outliers they are.
+ *
+ * Widths are bucketed on a rounded key so accumulated-float jitter can't split
+ * one width into two buckets; ties between equally common widths resolve to the
+ * wider one.
  */
-fun gridWeightOf(rows: List<List<Key>>): Float =
-    rows.firstOrNull()?.sumOf { it.width.toDouble() }?.toFloat() ?: 0f
+fun gridWeightOf(rows: List<List<Key>>): Float {
+    if (rows.isEmpty()) return 0f
+    val widths = rows.map { row -> row.sumOf { it.width.toDouble() }.toFloat() }
+    return widths
+        .groupBy { (it * 100f).roundToInt() }
+        .entries
+        .maxWith(compareBy({ it.value.size }, { it.key }))
+        .value.first()
+}
 
 /**
  * Half the slack between [gridWeight] and this row's own width, as a layout

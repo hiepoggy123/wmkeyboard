@@ -161,7 +161,7 @@ fun validateLayout(spec: LayoutSpec): List<LayoutFinding> {
             if (total > gridWeight + 0.01f) {
                 findings += LayoutFinding(
                     LayoutSeverity.WARNING,
-                    "Row $number of the $label layer is wider than the first row, " +
+                    "Row $number of the $label layer is wider than the rest of the layer, " +
                         "so its keys will be drawn narrower.",
                     layer,
                 )
