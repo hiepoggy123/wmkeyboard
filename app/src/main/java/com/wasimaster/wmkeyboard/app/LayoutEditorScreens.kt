@@ -92,6 +92,7 @@ import com.wasimaster.wmkeyboard.core.layout.language
 import com.wasimaster.wmkeyboard.core.layout.ModifierKey
 import com.wasimaster.wmkeyboard.core.layout.LayoutSeverity
 import com.wasimaster.wmkeyboard.core.layout.compile
+import com.wasimaster.wmkeyboard.ime.ui.KeyIcons
 import com.wasimaster.wmkeyboard.core.layout.gridWeightOf
 import com.wasimaster.wmkeyboard.core.layout.resolveLayouts
 import com.wasimaster.wmkeyboard.core.layout.sidePadFor
@@ -1033,15 +1034,25 @@ private fun RowScope.EditorKeyCell(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
-            Text(
-                text = primary.ifBlank { actionGlyph(key.action) },
-                color = foreground,
-                fontSize = labelSize(primary),
-                fontWeight = FontWeight.Medium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                textAlign = TextAlign.Center,
-            )
+            val cellIcon = KeyIcons.byName(key.icon)
+            if (cellIcon != null) {
+                Icon(
+                    cellIcon,
+                    contentDescription = primary.ifBlank { key.icon },
+                    tint = foreground,
+                    modifier = Modifier.size(20.dp),
+                )
+            } else {
+                Text(
+                    text = primary.ifBlank { actionGlyph(key.action) },
+                    color = foreground,
+                    fontSize = labelSize(primary),
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = TextAlign.Center,
+                )
+            }
             // Probhat and Jatiya put half the alphabet on shiftLabel, and many
             // fonts render a bare matra (া, ি) as an orphaned mark. Showing the
             // pair identifies the key even when the top glyph is ambiguous. The
@@ -1261,6 +1272,18 @@ private fun KeyEditSheet(
 
             if (key.action == KeyAction.Text) {
                 SheetField(
+                    label = "Icon",
+                    value = key.icon.orEmpty(),
+                    supporting = iconFieldSupport(key.icon),
+                ) { onChange(key.copy(icon = it.ifBlank { null })) }
+
+                SheetField(
+                    label = "Icon hint",
+                    value = key.iconHint.orEmpty(),
+                    supporting = iconFieldSupport(key.iconHint),
+                ) { onChange(key.copy(iconHint = it.ifBlank { null })) }
+
+                SheetField(
                     label = "Long-press alternates",
                     value = alternates,
                     supporting = "Separate with spaces, so an alternate cannot itself be a " +
@@ -1328,6 +1351,14 @@ private fun KeyEditSheet(
  */
 private fun parseAlternates(text: String): List<String> =
     text.split(Regex("\\s+")).filter { it.isNotEmpty() }
+
+/** Inline validity feedback for the icon / icon-hint name fields. */
+private fun iconFieldSupport(name: String?): String = when {
+    name.isNullOrBlank() ->
+        "Name of a built-in icon (search, mic, arrow_up, emoji, …); blank draws the label"
+    KeyIcons.byName(name) != null -> "Shows the \"$name\" icon"
+    else -> "No icon named \"$name\" — the label is drawn instead"
+}
 
 /** The first alternate is also the corner hint, and a flat string cannot say so. */
 @OptIn(ExperimentalLayoutApi::class)

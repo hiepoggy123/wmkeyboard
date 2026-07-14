@@ -4317,6 +4317,25 @@ private data class TrailPoint(val position: Offset, val timeMs: Long)
 private val SymbolsFillRow = listOf("=", "\\", "<", ">", "[", "]", "{", "}", "|", "~")
     .map { Key(it) }
 
+/**
+ * Replaces the digit number row while the symbols-2 (`=\<`) layer is showing.
+ * The digits are one tap away on the symbols-1 layer, so this slot carries an
+ * extra set of arrow and comparison symbols the symbol layers have no room for
+ * rather than a second copy of the numbers.
+ */
+private val SymbolsShiftedFillRow = listOf(
+    Key("←", longPress = listOf("⟵", "↔")),
+    Key("→", longPress = listOf("⟶", "↦")),
+    Key("↑", longPress = listOf("↕")),
+    Key("↓"),
+    Key("±", longPress = listOf("∓")),
+    Key("∞"),
+    Key("≈", longPress = listOf("≅", "≡")),
+    Key("≠"),
+    Key("≤", longPress = listOf("≪")),
+    Key("≥", longPress = listOf("≫")),
+)
+
 @Composable
 private fun KeyRows(
     state: KeyboardUiState,
@@ -4598,7 +4617,13 @@ private fun KeyRows(
                 // A layout can supply its own row for this layer; the built-in
                 // choices below are the fallback rather than the rule.
                 val authored = state.authoredNumberRow(state.layoutMode)
-                val extraRow = remember(kind, authored) {
+                // The digit row tracks the active layer (and, optionally, shift)
+                // so the same slot serves more symbols the deeper the user goes:
+                // digits on letters/symbols-1, extra symbols on symbols-2, and —
+                // when the option is on — the symbol fill row while shift is held
+                // on the letters layer.
+                val shiftSymbols = state.settings.layoutBehavior.numberRowShiftSymbols
+                val extraRow = remember(kind, authored, state.layoutMode, state.shiftState, shiftSymbols) {
                     authored ?: when {
                         // A keypad already leads with digits, so the row
                         // carries what the pad lacks rather than a second set
@@ -4609,6 +4634,14 @@ private fun KeyRows(
                         kind.isNumericPad ->
                             listOf("+", "-", "*", "/", "=", "(", ")", "%", ":", ".")
                                 .map { Key(it) }
+                        // Symbols-2 reuses the number-row slot for the arrow and
+                        // comparison symbols it has nowhere else to put.
+                        state.layoutMode == LayoutMode.SYMBOLS_SHIFTED -> SymbolsShiftedFillRow
+                        // Opt-in: holding shift on the letters layer turns the
+                        // digits into the symbol layer's bracket/math fill row,
+                        // so symbols are reachable without switching layers.
+                        state.layoutMode == LayoutMode.LETTERS &&
+                            state.shiftState != ShiftState.OFF && shiftSymbols -> SymbolsFillRow
                         // Borrowed from the symbol layer so the digits carry
                         // their fraction and superscript long-presses here too.
                         else -> Layouts.SYMBOLS.rows.first()
@@ -5626,24 +5659,49 @@ private fun KeyContent(key: Key, state: KeyboardUiState, contentColor: Color) {
             }
         }
         else -> Box(modifier = Modifier.fillMaxSize()) {
-            // Multi-character mode labels (?123, ABC, =\<) read as labels,
-            // not characters — render them clearly smaller than letters.
-            val isModeLabel = key.action != KeyAction.Text && key.label.length > 1
-            Text(
-                text = displayLabel(key, state),
-                modifier = Modifier.align(Alignment.Center),
-                fontSize = ((if (isModeLabel) 15.6f else 23f) * fontScale).sp,
-                fontWeight = if (state.settings.boldKeyLabels) FontWeight.Bold else FontWeight.Medium,
-                color = contentColor,
-            )
-            // Corner hint: the key's first long-press alternate. Keys whose
-            // long press runs a clipboard shortcut show no character hint —
-            // the popup never opens there.
-            val hint = key.longPress.firstOrNull()
-            if (state.settings.longPressHints && key.action == KeyAction.Text &&
-                key.clipboardAction == null && hint != null
-            ) {
+            // A key may draw a named icon in place of its glyph; an unknown name
+            // resolves to null and falls through to the text label below.
+            val mainIcon = KeyIcons.byName(key.icon)
+            if (mainIcon != null) {
+                Icon(
+                    mainIcon,
+                    contentDescription = key.label.ifBlank { key.icon ?: "" },
+                    tint = contentColor,
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .size((22f * fontScale).dp),
+                )
+            } else {
+                // Multi-character mode labels (?123, ABC, =\<) read as labels,
+                // not characters — render them clearly smaller than letters.
+                val isModeLabel = key.action != KeyAction.Text && key.label.length > 1
                 Text(
+                    text = displayLabel(key, state),
+                    modifier = Modifier.align(Alignment.Center),
+                    fontSize = ((if (isModeLabel) 15.6f else 23f) * fontScale).sp,
+                    fontWeight = if (state.settings.boldKeyLabels) FontWeight.Bold else FontWeight.Medium,
+                    color = contentColor,
+                )
+            }
+            // Corner hint: a named icon if the key carries one, otherwise the
+            // key's first long-press alternate. Keys whose long press runs a
+            // clipboard shortcut show no character hint — the popup never opens
+            // there — but an explicit icon hint is an authored annotation, so it
+            // stands regardless of the alternates popup.
+            val hintIcon = KeyIcons.byName(key.iconHint)
+            val hint = key.longPress.firstOrNull()
+            when {
+                state.settings.longPressHints && hintIcon != null -> Icon(
+                    hintIcon,
+                    contentDescription = null,
+                    tint = contentColor.copy(alpha = 0.55f),
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(top = 1.dp, end = 4.dp)
+                        .size((11f * fontScale * state.settings.layoutBehavior.hintFontScale).dp),
+                )
+                state.settings.longPressHints && key.action == KeyAction.Text &&
+                    key.clipboardAction == null && hint != null -> Text(
                     text = hint,
                     modifier = Modifier
                         .align(Alignment.TopEnd)

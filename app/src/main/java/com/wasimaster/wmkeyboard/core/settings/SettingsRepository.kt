@@ -1245,6 +1245,13 @@ data class LayoutBehaviorSettings(
      * is on). 1.0 keeps the default 10sp base.
      */
     val hintFontScale: Float = 1.0f,
+    /**
+     * When on, holding shift on the letters layer swaps the extra number row's
+     * digits for the symbol layer's bracket/math fill row (`=\<>[]{}|~`), so
+     * those symbols are reachable without leaving the letters. Only has an
+     * effect while [KeyboardSettings.numberRow] is on. Off by default.
+     */
+    val numberRowShiftSymbols: Boolean = false,
 )
 
 /**
@@ -1436,6 +1443,7 @@ class SettingsRepository(private val context: Context) {
         private val SPACE_SWIPE_DOWN_HIDE = booleanPreferencesKey("space_swipe_down_hide")
         private val SPACE_CURSOR_2D = booleanPreferencesKey("space_cursor_2d")
         private val HINT_FONT_SCALE = floatPreferencesKey("hint_font_scale")
+        private val NUMBER_ROW_SHIFT_SYMBOLS = booleanPreferencesKey("number_row_shift_symbols")
         private val BACKSPACE_SWIPE_DELETE = booleanPreferencesKey("backspace_swipe_delete")
         private val HARDWARE_KEYBOARD_INPUT = booleanPreferencesKey("hardware_keyboard_input")
         private val VOLUME_CURSOR = booleanPreferencesKey("volume_cursor")
@@ -1859,6 +1867,8 @@ class SettingsRepository(private val context: Context) {
                     p[SPACE_SWIPE_DOWN_HIDE] ?: defaults.layoutBehavior.spaceSwipeDownHide,
                 spaceCursor2d = p[SPACE_CURSOR_2D] ?: defaults.layoutBehavior.spaceCursor2d,
                 hintFontScale = p[HINT_FONT_SCALE] ?: defaults.layoutBehavior.hintFontScale,
+                numberRowShiftSymbols =
+                    p[NUMBER_ROW_SHIFT_SYMBOLS] ?: defaults.layoutBehavior.numberRowShiftSymbols,
             ),
             rawClipboardShortcuts = p[RAW_CLIPBOARD_SHORTCUTS] ?: defaults.rawClipboardShortcuts,
             longPressASelectAll = p[LONG_PRESS_A_SELECT_ALL] ?: defaults.longPressASelectAll,
@@ -2907,6 +2917,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setHintFontScale(value: Float) =
         context.dataStore.edit { it[HINT_FONT_SCALE] = value.coerceIn(0.5f, 2.0f) }
+
+    suspend fun setNumberRowShiftSymbols(value: Boolean) =
+        context.dataStore.edit { it[NUMBER_ROW_SHIFT_SYMBOLS] = value }
 
     suspend fun setBackspaceSwipeDelete(value: Boolean) =
         context.dataStore.edit { it[BACKSPACE_SWIPE_DELETE] = value }

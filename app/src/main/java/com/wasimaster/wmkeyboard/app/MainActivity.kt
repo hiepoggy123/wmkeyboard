@@ -2386,6 +2386,18 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
                         "full row of extra keyboard height.",
                 ) { scope.launch { repository.setNumberRowHeightDp(it.toInt()) } }
             }
+            item {
+                ToggleSetting(
+                    "Symbols on shift",
+                    "Hold shift to turn the digit row into symbols",
+                    settings.layoutBehavior.numberRowShiftSymbols,
+                    info = "While shift is held on the letter layout, the number row shows the " +
+                        "symbol layer's fill row (= \\ < > [ ] { } | ~) instead of digits, so those " +
+                        "symbols are one shift away without switching to the symbols layer. The " +
+                        "number row already becomes extra arrow and comparison symbols on the " +
+                        "second symbols layer.",
+                ) { scope.launch { repository.setNumberRowShiftSymbols(it) } }
+            }
         }
     }
 
