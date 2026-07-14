@@ -3298,6 +3298,17 @@ class SettingsRepository(private val context: Context) {
             prefs[KEYBOARD_MODES] = KeyboardModeCodec.encodeList(current.filter { it.id != id })
         }
 
+    /**
+     * Restores a built-in mode to the configuration it ships with (its entry
+     * in [DefaultKeyboardModes]), discarding the user's edits to it. A no-op
+     * for an id that was never a built-in — a user-created mode has no shipped
+     * default to fall back to.
+     */
+    suspend fun resetKeyboardModeToDefault(id: String) {
+        val default = DefaultKeyboardModes.firstOrNull { it.id == id } ?: return
+        upsertKeyboardMode(default)
+    }
+
     suspend fun setSmartSuggestions(value: Boolean) =
         context.dataStore.edit { it[SMART_SUGGESTIONS] = value }
 

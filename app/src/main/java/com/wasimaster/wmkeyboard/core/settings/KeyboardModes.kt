@@ -272,13 +272,17 @@ val DefaultKeyboardModes: List<KeyboardMode> = listOf(
         id = "mode_writing",
         icon = "write",
         name = "Writing",
-        // Only the three that earn a permanent slot — these append to the
-        // user's own pins, and a toolbar of six borrowed buttons leaves no
-        // room for theirs. The rest lead the toolbox, one tap away.
+        // A self-contained toolbar — it replaces the user's pins rather than
+        // appending, so the Settings shortcut the global pins carry never
+        // rides along into a writing session. Writing helpers lead (compose
+        // and edit with AI, the caret tools, dictation), then the everyday
+        // paste-and-insert pins. AI drops out on its own in a build without
+        // it (see isSupportedTool), leaving the rest of the bar untouched.
         toolbarTools = listOf(
             ToolbarTool.AI, ToolbarTool.TEXT_EDIT, ToolbarTool.VOICE,
+            ToolbarTool.CLIPBOARD, ToolbarTool.SNIPPETS, ToolbarTool.EMOJI,
         ),
-        toolbarToolsAppend = true,
+        toolbarToolsAppend = false,
         toolboxOrder = listOf(
             // Polish the draft, then pull material into it, then the
             // reference and history tools.
@@ -286,8 +290,8 @@ val DefaultKeyboardModes: List<KeyboardMode> = listOf(
             ToolbarTool.OCR, ToolbarTool.DOC_SCAN, ToolbarTool.CALENDAR,
             ToolbarTool.CLIPBOARD, ToolbarTool.SNIPPETS, ToolbarTool.TRANSLATE,
             ToolbarTool.UNDO, ToolbarTool.REDO,
-            // Ranked for whenever the user unpins one of the three above.
-            ToolbarTool.AI, ToolbarTool.TEXT_EDIT, ToolbarTool.VOICE,
+            // Ranked for whenever the user unpins one of the pinned tools above.
+            ToolbarTool.AI, ToolbarTool.TEXT_EDIT, ToolbarTool.VOICE, ToolbarTool.EMOJI,
         ),
         symbolRowEnabled = true,
         symbolSetIds = listOf(BuiltInSymbolSets.PUNCTUATION_ID),
