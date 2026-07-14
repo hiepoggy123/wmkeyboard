@@ -4380,17 +4380,17 @@ private fun KeyRows(
     val spaceRect = remember(layout) { mutableStateOf<Rect?>(null) }
     var boxOrigin by remember { mutableStateOf(Offset.Zero) }
     var boxSize by remember { mutableStateOf(IntSize.Zero) }
-    // Rows narrower than the top row (e.g. the 9-key QWERTY home row) keep the
-    // top row's key width and are centred with side gaps, instead of stretching
+    // Rows narrower than the grid (e.g. the 9-key QWERTY home row) keep the
+    // standard key width and are centred with side gaps, instead of stretching
     // their keys to fill the full width.
     //
-    // Deliberately the first row's width rather than the widest row's: Dvorak's
-    // third row is already 12 units against a grid weight of 10 and renders
-    // squeezed on purpose, and taking the maximum would put side padding on its
-    // top row and move a layout users already know.
+    // The grid is the width the most rows share, not the first row's — see
+    // gridWeightOf. That keeps a lone narrow row (one inserted at the top) from
+    // hijacking the reference and filling the width, and a lone wide row
+    // (Dvorak's third) from padding every other row.
     //
     // A layout can arrive with no rows at all — the editor allows deleting them
-    // and an imported file is untrusted — so this cannot be `first()`.
+    // and an imported file is untrusted — so gridWeightOf returns 0 for empty.
     val gridWeight = gridWeightOf(layout.rows).takeIf { it > 0f } ?: 10f
     // One key's width, for the gesture decoder's distance normalisation.
     // Derived from the grid rather than recorded by whichever letter key

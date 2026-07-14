@@ -842,12 +842,12 @@ private fun RowActionBar(
     ) {
         Text("Row ${rowIndex + 1}", style = MaterialTheme.typography.labelLarge)
         Spacer(Modifier.width(8.dp))
-        // Only worth saying when it disagrees with row 1, which is the row the
+        // Only worth saying when it disagrees with the grid — the width the
         // keyboard measures every other row against. Printed on every row it
         // would be five numbers that are correct and identical almost always.
         if (kotlin.math.abs(rowWidth - gridWeight) > 0.01f) {
             Text(
-                "%.2f wide, row 1 is %.2f".format(rowWidth, gridWeight),
+                "%.2f wide, grid is %.2f".format(rowWidth, gridWeight),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.error,
             )
@@ -953,10 +953,10 @@ private fun EditorGrid(
                         .padding(horizontal = 4.dp, vertical = 6.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
-                    // The first row sets the grid width and every other row is
-                    // centred against it, or squeezed if it is wider — the same
-                    // rule the real keyboard lays rows out by, taken from the
-                    // same helpers so the two can never disagree.
+                    // The most common row width sets the grid and every other
+                    // row is centred against it, or squeezed if it is wider —
+                    // the same rule the real keyboard lays rows out by, taken
+                    // from the same helpers so the two can never disagree.
                     val gridWeight = gridWeightOf(layout.rows).takeIf { it > 0f } ?: 10f
                     if (layout.rows.isEmpty()) {
                         Text(
