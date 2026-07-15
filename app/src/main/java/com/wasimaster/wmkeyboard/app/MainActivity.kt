@@ -226,6 +226,7 @@ import com.wasimaster.wmkeyboard.core.layout.language
 import com.wasimaster.wmkeyboard.core.layout.resolveLayout
 import com.wasimaster.wmkeyboard.core.settings.SettingsBackup
 import com.wasimaster.wmkeyboard.core.settings.KeyboardMode
+import com.wasimaster.wmkeyboard.core.settings.DefaultKeyboardModes
 import com.wasimaster.wmkeyboard.core.settings.DefaultToolbarTools
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.isSupportedTool
@@ -6882,6 +6883,10 @@ private fun ModeEditor(
     // A brand-new mode is only persisted on its first edit — backing out of
     // an untouched editor leaves nothing behind.
     val save: (KeyboardMode) -> Unit = { scope.launch { repository.upsertKeyboardMode(it) } }
+    // Only the shipped modes can be reset — a user-made mode has no default to
+    // fall back to. Matched by id so an edited built-in still offers it.
+    val builtInDefault = DefaultKeyboardModes.firstOrNull { it.id == modeId }
+    var confirmReset by remember { mutableStateOf(false) }
 
     SettingsGroup {
         item {
@@ -7199,6 +7204,18 @@ private fun ModeEditor(
             "wins until you switch apps.",
     )
     Row(modifier = Modifier.padding(horizontal = 16.dp)) {
+        if (builtInDefault != null) {
+            TextButton(onClick = { confirmReset = true }) {
+                Icon(
+                    Icons.Outlined.Refresh,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                )
+                Spacer(Modifier.width(4.dp))
+                Text("Reset to default")
+            }
+            Spacer(Modifier.width(8.dp))
+        }
         TextButton(onClick = {
             scope.launch { repository.deleteKeyboardMode(modeId) }
             onDeleted()
@@ -7207,6 +7224,28 @@ private fun ModeEditor(
             Spacer(Modifier.width(4.dp))
             Text("Delete mode")
         }
+    }
+    if (confirmReset && builtInDefault != null) {
+        AlertDialog(
+            onDismissRequest = { confirmReset = false },
+            title = { Text("Reset ${builtInDefault.name} to default?") },
+            text = {
+                Text(
+                    "This built-in mode goes back to the pinned tools, toolbox order, " +
+                        "symbol row, apps and field types it ships with. Your edits to it " +
+                        "are discarded.",
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmReset = false
+                    scope.launch { repository.resetKeyboardModeToDefault(modeId) }
+                }) { Text("Reset") }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmReset = false }) { Text("Cancel") }
+            },
+        )
     }
 }
 

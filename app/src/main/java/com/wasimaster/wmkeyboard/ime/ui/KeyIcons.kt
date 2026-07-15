@@ -148,7 +148,7 @@ object KeyIcons {
     )
 
     /** Every icon name a layout can use, canonical names plus aliases. */
-    val names: List<String> = catalog.keys + aliases.keys
+    val names: List<String> = catalog.keys.toList() + aliases.keys
 
     /**
      * The vector for [name], or null if the name is blank or unrecognised (the
