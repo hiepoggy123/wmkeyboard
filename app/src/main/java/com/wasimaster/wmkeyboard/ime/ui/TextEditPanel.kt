@@ -20,7 +20,7 @@ import androidx.compose.material.icons.outlined.ContentPaste
 import androidx.compose.material.icons.outlined.FirstPage
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.KeyboardArrowUp
-import androidx.compose.material.icons.outlined.LastPage
+import androidx.compose.material.icons.automirrored.outlined.LastPage
 import androidx.compose.material.icons.outlined.SelectAll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -167,7 +167,7 @@ internal fun TextEditPanel(
                     .fillMaxHeight(),
             ) { onAction(TextEditAction.HOME) }
             EditKey(
-                icon = Icons.Outlined.LastPage,
+                icon = Icons.AutoMirrored.Outlined.LastPage,
                 description = "Move to line end",
                 modifier = Modifier
                     .weight(1f)

@@ -93,9 +93,9 @@ import androidx.compose.material.icons.outlined.KeyboardDoubleArrowDown
 import androidx.compose.material.icons.outlined.KeyboardDoubleArrowLeft
 import androidx.compose.material.icons.outlined.KeyboardDoubleArrowRight
 import androidx.compose.material.icons.outlined.KeyboardDoubleArrowUp
-import androidx.compose.material.icons.outlined.LastPage
+import androidx.compose.material.icons.automirrored.outlined.LastPage
 import androidx.compose.material.icons.outlined.Image
-import androidx.compose.material.icons.outlined.InsertDriveFile
+import androidx.compose.material.icons.automirrored.outlined.InsertDriveFile
 import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material.icons.outlined.PictureAsPdf
 import androidx.compose.material.icons.outlined.VideoFile
@@ -149,7 +149,7 @@ import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material.icons.outlined.StarBorder
-import androidx.compose.material.icons.outlined.StickyNote2
+import androidx.compose.material.icons.automirrored.outlined.StickyNote2
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Smartphone
 import androidx.compose.material.icons.outlined.Spellcheck
@@ -159,7 +159,7 @@ import androidx.compose.material.icons.outlined.Vibration
 import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material.icons.outlined.WbSunny
 import androidx.compose.material.icons.outlined.VerticalSplit
-import androidx.compose.material.icons.outlined.TextSnippet
+import androidx.compose.material.icons.automirrored.outlined.TextSnippet
 import androidx.compose.material.icons.outlined.EmojiFlags
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.GifBox
@@ -1689,7 +1689,7 @@ private fun TopBar(
             // when there are no candidates, one tap from pasting the last copy.
             // Word candidates always win the row, so it never hides a suggestion.
             val recentClip = state.clipboardSuggestion
-            if (recentClipChip && recentClip != null && smart == null && !suggestionsShowing) {
+            if (recentClipChip && smart == null && !suggestionsShowing) {
                 ClipboardSuggestionChip(
                     text = recentClip.text,
                     onPaste = { onClipboardSuggestion(recentClip) },
@@ -2202,7 +2202,7 @@ private fun ModeRow(
 internal fun toolIcon(tool: ToolbarTool): ImageVector = when (tool) {
     ToolbarTool.EMOJI -> Icons.Outlined.EmojiEmotions
     ToolbarTool.CLIPBOARD -> Icons.Outlined.ContentPaste
-    ToolbarTool.SNIPPETS -> Icons.Outlined.TextSnippet
+    ToolbarTool.SNIPPETS -> Icons.AutoMirrored.Outlined.TextSnippet
     ToolbarTool.TEXT_EDIT -> Icons.Outlined.EditNote
     ToolbarTool.ONE_HANDED -> Icons.Outlined.Smartphone
     ToolbarTool.SPLIT -> Icons.Outlined.VerticalSplit
@@ -2226,7 +2226,7 @@ internal fun toolIcon(tool: ToolbarTool): ImageVector = when (tool) {
     ToolbarTool.DICTIONARY -> Icons.AutoMirrored.Outlined.MenuBook
     ToolbarTool.TRANSLATE -> Icons.Outlined.Translate
     ToolbarTool.GIF -> Icons.Outlined.GifBox
-    ToolbarTool.STICKER -> Icons.Outlined.StickyNote2
+    ToolbarTool.STICKER -> Icons.AutoMirrored.Outlined.StickyNote2
     ToolbarTool.WEB_SEARCH -> Icons.Outlined.TravelExplore
     ToolbarTool.IMAGE_SEARCH -> Icons.Outlined.ImageSearch
     ToolbarTool.OCR -> Icons.Outlined.TextFields
@@ -2251,7 +2251,7 @@ internal fun toolIcon(tool: ToolbarTool): ImageVector = when (tool) {
     ToolbarTool.CURSOR_UP -> Icons.Outlined.KeyboardArrowUp
     ToolbarTool.CURSOR_DOWN -> Icons.Outlined.KeyboardArrowDown
     ToolbarTool.CURSOR_HOME -> Icons.Outlined.FirstPage
-    ToolbarTool.CURSOR_END -> Icons.Outlined.LastPage
+    ToolbarTool.CURSOR_END -> Icons.AutoMirrored.Outlined.LastPage
     ToolbarTool.HIDE_KEYBOARD -> Icons.Outlined.KeyboardHide
     ToolbarTool.PAGE_UP -> Icons.Outlined.KeyboardDoubleArrowUp
     ToolbarTool.PAGE_DOWN -> Icons.Outlined.KeyboardDoubleArrowDown
@@ -7875,7 +7875,7 @@ private fun fileIconFor(mimeType: String) = when {
     mimeType.startsWith("image/") -> Icons.Outlined.Image
     mimeType == "application/pdf" -> Icons.Outlined.PictureAsPdf
     mimeType.startsWith("text/") -> Icons.Outlined.Description
-    else -> Icons.Outlined.InsertDriveFile
+    else -> Icons.AutoMirrored.Outlined.InsertDriveFile
 }
 
 /** Human file size, or null when the provider didn't report one. */

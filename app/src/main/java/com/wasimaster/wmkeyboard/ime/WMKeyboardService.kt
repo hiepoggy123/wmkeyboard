@@ -429,13 +429,19 @@ class WMKeyboardService : InputMethodService() {
         if (!hasUsageAccess()) return null
         val usage = getSystemService(Context.USAGE_STATS_SERVICE) as? UsageStatsManager ?: return null
         val now = System.currentTimeMillis()
+        val fgType = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            android.app.usage.UsageEvents.Event.ACTIVITY_RESUMED
+        } else {
+            @Suppress("DEPRECATION")
+            android.app.usage.UsageEvents.Event.MOVE_TO_FOREGROUND
+        }
         val pkg = runCatching {
             val events = usage.queryEvents(now - 10_000L, now)
             val event = android.app.usage.UsageEvents.Event()
             var last: String? = null
             while (events.hasNextEvent()) {
                 events.getNextEvent(event)
-                if (event.eventType == android.app.usage.UsageEvents.Event.MOVE_TO_FOREGROUND) {
+                if (event.eventType == fgType) {
                     last = event.packageName
                 }
             }
@@ -452,6 +458,7 @@ class WMKeyboardService : InputMethodService() {
     private fun hasUsageAccess(): Boolean {
         val appOps = getSystemService(Context.APP_OPS_SERVICE) as? AppOpsManager ?: return false
         val mode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            @Suppress("DEPRECATION")
             appOps.unsafeCheckOpNoThrow(
                 AppOpsManager.OPSTR_GET_USAGE_STATS, Process.myUid(), packageName,
             )
@@ -1381,6 +1388,7 @@ class WMKeyboardService : InputMethodService() {
         super.onTrimMemory(level)
         // A cached local model pins hundreds of MB to a few GB — free it the
         // moment the system signals pressure; the next AI action reloads it.
+        @Suppress("DEPRECATION")
         if (level >= ComponentCallbacks2.TRIM_MEMORY_MODERATE) LocalLlmEngine.release()
     }
 

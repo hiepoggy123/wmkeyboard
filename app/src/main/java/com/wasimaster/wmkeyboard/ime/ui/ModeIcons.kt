@@ -2,7 +2,7 @@ package com.wasimaster.wmkeyboard.ime.ui
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
-import androidx.compose.material.icons.outlined.Article
+import androidx.compose.material.icons.automirrored.outlined.Article
 import androidx.compose.material.icons.outlined.Bolt
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Call
@@ -31,7 +31,7 @@ import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material.icons.outlined.ShoppingCart
 import androidx.compose.material.icons.outlined.SportsEsports
 import androidx.compose.material.icons.outlined.StarOutline
-import androidx.compose.material.icons.outlined.StickyNote2
+import androidx.compose.material.icons.automirrored.outlined.StickyNote2
 import androidx.compose.material.icons.outlined.Terminal
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material.icons.outlined.Videocam
@@ -54,8 +54,8 @@ object ModeIcons {
         "chat" to Icons.Outlined.ChatBubbleOutline,
         "forum" to Icons.Outlined.Forum,
         "write" to Icons.Outlined.EditNote,
-        "note" to Icons.Outlined.StickyNote2,
-        "article" to Icons.Outlined.Article,
+        "note" to Icons.AutoMirrored.Outlined.StickyNote2,
+        "article" to Icons.AutoMirrored.Outlined.Article,
         "book" to Icons.AutoMirrored.Outlined.MenuBook,
         "mail" to Icons.Outlined.MailOutline,
         "lock" to Icons.Outlined.Lock,
