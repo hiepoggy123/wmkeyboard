@@ -151,10 +151,19 @@ class SuggestionEngine(
     /** Best frequency for a word across the primary and secondary lists. */
     private fun dictionaryFrequencyOf(word: String): Int = maxOf(
         activeDictionary.frequencyOf(word),
-        customDictionary.frequencyOf(word) * CUSTOM_WORD_WEIGHT,
+        weighted(customDictionary.frequencyOf(word), CUSTOM_WORD_WEIGHT),
         secondaryEnglishFrequencyOf(word),
-        secondaryDictionaries.maxOfOrNull { it.frequencyOf(word) * SECONDARY_WORD_WEIGHT } ?: 0,
+        secondaryDictionaries.maxOfOrNull { weighted(it.frequencyOf(word), SECONDARY_WORD_WEIGHT) } ?: 0,
     )
+
+    /**
+     * Frequency × weight, widened to Long and clamped to the Int range.
+     * Imported frequency lists (OpenSubtitles-style raw counts) can carry
+     * tens of millions; a plain Int×Int would overflow negative and sink the
+     * most common words to the bottom of the suggestions.
+     */
+    private fun weighted(frequency: Int, weight: Int): Int =
+        (frequency.toLong() * weight).coerceIn(0L, Int.MAX_VALUE.toLong()).toInt()
 
     private fun inDictionaries(word: String): Boolean =
         activeDictionary.contains(word) || customDictionary.contains(word) ||
@@ -261,7 +270,7 @@ class SuggestionEngine(
             merged.merge(s.word, s.frequency, ::maxOf)
         }
         for (s in customDictionary.complete(lower, limit * 2)) {
-            merged.merge(s.word, s.frequency * CUSTOM_WORD_WEIGHT, ::maxOf)
+            merged.merge(s.word, weighted(s.frequency, CUSTOM_WORD_WEIGHT), ::maxOf)
         }
         if (englishAsSecondary && !englishSources) {
             for (s in dictionary.complete(lower, limit * 2)) {
@@ -270,7 +279,7 @@ class SuggestionEngine(
         }
         for (t in secondaryDictionaries) {
             for (s in t.complete(lower, limit * 2)) {
-                merged.merge(s.word, s.frequency * SECONDARY_WORD_WEIGHT, ::maxOf)
+                merged.merge(s.word, weighted(s.frequency, SECONDARY_WORD_WEIGHT), ::maxOf)
             }
         }
         for (s in userLexicon.complete(lower, limit)) {
@@ -316,7 +325,9 @@ class SuggestionEngine(
             .map { it.first }
             .filterNot(::blacklisted)
             .take(limit)
-            .map { matchCase(composing, it) }
+            // Emails are stored verbatim; case-matching the typed prefix would
+            // corrupt the address ("John" -> "John.doe@..."). Commit as stored.
+            .map { if (it.contains('@')) it else matchCase(composing, it) }
             .toList()
     }
 

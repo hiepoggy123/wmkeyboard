@@ -675,7 +675,17 @@ internal suspend fun ImageCapture.awaitCapture(context: Context): ImageProxy =
             ContextCompat.getMainExecutor(context),
             object : ImageCapture.OnImageCapturedCallback() {
                 override fun onCaptureSuccess(image: ImageProxy) {
-                    continuation.resume(image)
+                    // If the capture scope was cancelled (panel closed / keyboard
+                    // hidden) while the shot was in flight, the coroutine body that
+                    // would close this ImageProxy never runs — close it here so the
+                    // bounded capture buffer queue isn't exhausted. This callback
+                    // and the scope's cancellation both run on the main executor,
+                    // so the isActive check and resume can't race.
+                    if (continuation.isActive) {
+                        continuation.resume(image)
+                    } else {
+                        image.close()
+                    }
                 }
 
                 override fun onError(exception: ImageCaptureException) {

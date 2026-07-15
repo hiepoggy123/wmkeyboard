@@ -53,7 +53,16 @@ fun GradientSpec.brush(
 ): Brush {
     val stops = colors
         .map { Color(it.toInt()) }
-        .let { if (it.size == 1) it + it else it }
+        // Shaders require >= 2 colors: pad a single color and fall back to a
+        // transparent pair for a degenerate empty list (e.g. an imported theme
+        // with "colors":[]), which would otherwise crash createShader().
+        .let {
+            when {
+                it.isEmpty() -> listOf(Color.Transparent, Color.Transparent)
+                it.size == 1 -> it + it
+                else -> it
+            }
+        }
         .let {
             if (animation == ThemeAnimation.HUE_CYCLE) it.map { c -> hueShift(c, phase * 360f) } else it
         }

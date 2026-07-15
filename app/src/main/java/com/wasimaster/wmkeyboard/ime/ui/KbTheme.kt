@@ -287,8 +287,12 @@ private fun specKbTheme(spec: ThemeSpec, settings: KeyboardSettings): KbTheme {
         keyBorderWidthDp = spec.keyBorderWidthDp,
         accent = accent,
         gestureTrail = spec.gestureTrailColor?.let(::colorOf) ?: accent,
+        // A light theme's keyText is dark, so a heavy blend produced a dark
+        // popup — and popupText also falls back to keyText (dark), giving an
+        // unreadable dark-on-dark key preview. A light theme needs a subtle
+        // lift (like the dark branch) so the dark popupText stays legible.
         popup = spec.popupBackground?.let(::colorOf)
-            ?: blendOver(keyText, board, if (spec.dark) 0.20f else 0.9f),
+            ?: blendOver(keyText, board, if (spec.dark) 0.20f else 0.06f),
         popupText = spec.popupText?.let(::colorOf) ?: keyText,
         toolbarIcon = spec.toolbarIcon?.let(::colorOf) ?: secondary,
         toolCircle = spec.toolCircleBackground?.let(::colorOf)

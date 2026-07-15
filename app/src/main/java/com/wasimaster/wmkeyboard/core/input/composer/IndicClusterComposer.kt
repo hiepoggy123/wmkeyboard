@@ -73,7 +73,11 @@ internal fun clusterDeleteLength(text: CharSequence, range: IntRange, virama: Ch
     while (i >= 0 && inScript(text[i]) && isCombiningMark(text[i])) i--
     if (i < 0) return text.length
     if (virama != null) {
-        while (i - 1 >= 0 && text[i - 1] == virama) {
+        // Only consume a (virama + base) pair when an in-script base actually
+        // precedes the virama. Without this guard a dangling/leading virama
+        // drives i to -1 (delete length > input) or swallows an unrelated
+        // preceding character. Mirrors the Bengali path's consonant check.
+        while (i - 1 >= 0 && text[i - 1] == virama && i - 2 >= 0 && inScript(text[i - 2])) {
             i -= 2
             while (i >= 0 && inScript(text[i]) && isCombiningMark(text[i])) i--
         }

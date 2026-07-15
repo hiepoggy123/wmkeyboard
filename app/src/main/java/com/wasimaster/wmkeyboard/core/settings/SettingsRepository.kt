@@ -2025,8 +2025,11 @@ class SettingsRepository(private val context: Context) {
                 ?.split(',')
                 ?.mapNotNull { runCatching { BarRow.valueOf(it) }.getOrNull() }
                 ?.let { sanitizeBarOrder(it) }
-                ?: if (p[EMOJI_ROW_ABOVE_TOOLBAR] == true) {
-                    listOf(BarRow.EMOJI, BarRow.TOPBAR, BarRow.SYMBOL)
+                ?: if (p[EMOJI_ROW_ABOVE_TOOLBAR] == false) {
+                    // Legacy toggle explicitly off = emoji row below the toolbar.
+                    // true (emoji above) and unset both fall through to the
+                    // default order, which already puts the emoji row first.
+                    sanitizeBarOrder(listOf(BarRow.TOPBAR, BarRow.EMOJI, BarRow.SYMBOL))
                 } else {
                     defaults.barOrder
                 },

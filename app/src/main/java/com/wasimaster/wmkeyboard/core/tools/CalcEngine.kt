@@ -60,7 +60,10 @@ object CalcEngine {
                 .replace("e+0", "e+").replace("e-0", "e-")
         }
         val rounded = String.format(java.util.Locale.US, "%.${precision.coerceIn(0, 12)}f", value)
-        return rounded.trimEnd('0').trimEnd('.')
+        // Only strip fractional zeros. With precision 0 there is no decimal
+        // point, so an unconditional trimEnd('0') would eat an integer's own
+        // trailing zeros (100 -> "1").
+        return if (rounded.contains('.')) rounded.trimEnd('0').trimEnd('.') else rounded
     }
 
     private class Parser(private val text: String, private val degrees: Boolean) {
