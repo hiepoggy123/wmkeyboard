@@ -76,7 +76,7 @@ class Trie {
         val heap = java.util.PriorityQueue<Frontier>(compareByDescending { it.priority })
         heap.add(Frontier(node, prefix, node.maxSubtreeFreq))
         while (heap.isNotEmpty() && results.size < limit) {
-            val f = heap.poll()
+            val f = heap.poll() ?: break
             if (f.node == null) {
                 // A completed word: its priority is an exact frequency, and no
                 // unopened branch outranks it, so it is safe to emit now.

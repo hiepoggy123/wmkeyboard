@@ -74,7 +74,7 @@ import androidx.compose.material.icons.outlined.KeyboardDoubleArrowRight
 import androidx.compose.material.icons.outlined.KeyboardDoubleArrowUp
 import androidx.compose.material.icons.outlined.KeyboardHide
 import androidx.compose.material.icons.outlined.Language
-import androidx.compose.material.icons.outlined.LastPage
+import androidx.compose.material.icons.automirrored.outlined.LastPage
 import androidx.compose.material.icons.outlined.GridOn
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Mic
@@ -87,7 +87,7 @@ import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Smartphone
 import androidx.compose.material.icons.outlined.Spellcheck
 import androidx.compose.material.icons.outlined.Straighten
-import androidx.compose.material.icons.outlined.TextSnippet
+import androidx.compose.material.icons.automirrored.outlined.TextSnippet
 import androidx.compose.material.icons.outlined.TouchApp
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material.icons.outlined.Vibration
@@ -106,7 +106,7 @@ import androidx.compose.material.icons.outlined.CurrencyExchange
 import androidx.compose.material.icons.outlined.Functions
 import androidx.compose.material.icons.outlined.Password
 import androidx.compose.material.icons.outlined.Speed
-import androidx.compose.material.icons.outlined.StickyNote2
+import androidx.compose.material.icons.automirrored.outlined.StickyNote2
 import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material.icons.outlined.QrCode2
 import androidx.compose.material.icons.outlined.QrCodeScanner
@@ -3966,7 +3966,7 @@ internal fun toolDescription(tool: ToolbarTool): String = when (tool) {
 internal fun toolIconFor(tool: ToolbarTool): androidx.compose.ui.graphics.vector.ImageVector = when (tool) {
     ToolbarTool.EMOJI -> Icons.Outlined.EmojiEmotions
     ToolbarTool.CLIPBOARD -> Icons.Outlined.ContentPaste
-    ToolbarTool.SNIPPETS -> Icons.Outlined.TextSnippet
+    ToolbarTool.SNIPPETS -> Icons.AutoMirrored.Outlined.TextSnippet
     ToolbarTool.TEXT_EDIT -> Icons.Outlined.EditNote
     ToolbarTool.ONE_HANDED -> Icons.Outlined.Smartphone
     ToolbarTool.SPLIT -> Icons.Outlined.VerticalSplit
@@ -3990,7 +3990,7 @@ internal fun toolIconFor(tool: ToolbarTool): androidx.compose.ui.graphics.vector
     ToolbarTool.DICTIONARY -> Icons.AutoMirrored.Outlined.MenuBook
     ToolbarTool.TRANSLATE -> Icons.Outlined.Translate
     ToolbarTool.GIF -> Icons.Outlined.GifBox
-    ToolbarTool.STICKER -> Icons.Outlined.StickyNote2
+    ToolbarTool.STICKER -> Icons.AutoMirrored.Outlined.StickyNote2
     ToolbarTool.WEB_SEARCH -> Icons.Outlined.TravelExplore
     ToolbarTool.IMAGE_SEARCH -> Icons.Outlined.ImageSearch
     ToolbarTool.OCR -> Icons.Outlined.TextFields
@@ -4015,7 +4015,7 @@ internal fun toolIconFor(tool: ToolbarTool): androidx.compose.ui.graphics.vector
     ToolbarTool.CURSOR_UP -> Icons.Outlined.KeyboardArrowUp
     ToolbarTool.CURSOR_DOWN -> Icons.Outlined.KeyboardArrowDown
     ToolbarTool.CURSOR_HOME -> Icons.Outlined.FirstPage
-    ToolbarTool.CURSOR_END -> Icons.Outlined.LastPage
+    ToolbarTool.CURSOR_END -> Icons.AutoMirrored.Outlined.LastPage
     ToolbarTool.PAGE_UP -> Icons.Outlined.KeyboardDoubleArrowUp
     ToolbarTool.PAGE_DOWN -> Icons.Outlined.KeyboardDoubleArrowDown
     ToolbarTool.SELECT_WORD -> Icons.Outlined.Highlight
