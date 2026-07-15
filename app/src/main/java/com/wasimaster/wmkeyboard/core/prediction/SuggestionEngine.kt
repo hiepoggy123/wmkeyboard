@@ -455,35 +455,55 @@ class SuggestionEngine(
      */
     private fun edits1Weighted(word: String): Map<String, Double> {
         val result = HashMap<String, Double>()
-        fun add(candidate: String, weight: Double) {
+        val n = word.length
+        // One reusable builder for every candidate: the substring+concat form
+        // allocated 3-4 throwaway Strings per candidate (~27n+26 candidates);
+        // building in place leaves one — the map key we can't avoid.
+        val sb = StringBuilder(n + 1)
+        fun emit(weight: Double) {
+            val candidate = sb.toString()
             if (candidate != word) result.merge(candidate, weight, ::maxOf)
         }
-        for (i in word.indices) {
-            add(word.removeRange(i, i + 1), WEIGHT_DELETION)
-            if (i < word.length - 1) {
-                add(
-                    word.substring(0, i) + word[i + 1] + word[i] + word.substring(i + 2),
-                    WEIGHT_TRANSPOSITION,
-                )
-            }
+        // Deletion: drop char i.
+        for (i in 0 until n) {
+            sb.setLength(0)
+            sb.append(word, 0, i).append(word, i + 1, n)
+            emit(WEIGHT_DELETION)
+        }
+        // Transposition: swap chars i and i+1.
+        for (i in 0 until n - 1) {
+            sb.setLength(0)
+            sb.append(word, 0, i).append(word[i + 1]).append(word[i]).append(word, i + 2, n)
+            emit(WEIGHT_TRANSPOSITION)
+        }
+        // Substitution: replace char i with c (c == word[i] would just be
+        // `word`, which emit() drops anyway — skip it up front).
+        for (i in 0 until n) {
+            val original = word[i]
             for (c in ALPHABET) {
-                val weight = if (proximity.areAdjacent(word[i], c)) {
+                if (c == original) continue
+                sb.setLength(0)
+                sb.append(word, 0, i).append(c).append(word, i + 1, n)
+                val weight = if (proximity.areAdjacent(original, c)) {
                     WEIGHT_SUB_ADJACENT
                 } else {
                     WEIGHT_SUB_FAR
                 }
-                add(word.substring(0, i) + c + word.substring(i + 1), weight)
+                emit(weight)
             }
         }
-        for (i in 0..word.length) {
+        // Insertion: insert c before position i (0..n).
+        for (i in 0..n) {
             for (c in ALPHABET) {
+                sb.setLength(0)
+                sb.append(word, 0, i).append(c).append(word, i, n)
                 // An accidental extra press usually lands next to one of the
                 // characters it slipped in between.
                 val nearNeighbour =
                     (i > 0 && proximity.areAdjacent(word[i - 1], c)) ||
-                        (i < word.length && proximity.areAdjacent(word[i], c))
+                        (i < n && proximity.areAdjacent(word[i], c))
                 val weight = if (nearNeighbour) WEIGHT_INSERT_ADJACENT else WEIGHT_INSERT_FAR
-                add(word.substring(0, i) + c + word.substring(i), weight)
+                emit(weight)
             }
         }
         return result

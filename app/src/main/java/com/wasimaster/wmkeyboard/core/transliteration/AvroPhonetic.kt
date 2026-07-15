@@ -123,6 +123,23 @@ object AvroPhonetic {
         }
     }.sortedByDescending { it.match.length }
 
+    /**
+     * Rules bucketed by their first character. A rule can only match at
+     * position `i` when its first char equals `input[i]`, so a per-char scan
+     * need only test its own bucket — ~1-3 rules — instead of the whole ~90.
+     * [rules] is already length-descending, and [groupBy] preserves order, so
+     * each bucket stays length-descending: the first prefix match is still the
+     * greedy longest match, identical to scanning the full list.
+     */
+    private val rulesByFirstChar: Map<Char, List<Rule>> = rules.groupBy { it.match[0] }
+
+    /** Longest rule whose match is a prefix of [input] at [at], or null. */
+    private fun ruleAt(input: String, at: Int): Rule? {
+        if (at >= input.length) return null
+        val bucket = rulesByFirstChar[input[at]] ?: return null
+        return bucket.firstOrNull { input.startsWith(it.match, at) }
+    }
+
     /** Transliterates one romanized word (or free text) into Bengali script. */
     fun transliterate(input: String): String {
         val out = StringBuilder()
@@ -188,7 +205,7 @@ object AvroPhonetic {
             // already priority, and with no consonant following, "rr" falls
             // through to the plain r-rule.
             if (input.startsWith("rr", i) && !input.startsWith("rri", i)) {
-                val next = rules.firstOrNull { input.startsWith(it.match, i + 2) }
+                val next = ruleAt(input, i + 2)
                 val joinsConsonant = next?.kind == Kind.CONSONANT ||
                     (i + 2 < input.length && input[i + 2] == 'y')
                 if (joinsConsonant) {
@@ -201,7 +218,7 @@ object AvroPhonetic {
                 }
             }
 
-            val rule = rules.firstOrNull { input.startsWith(it.match, i) }
+            val rule = ruleAt(input, i)
             if (rule == null) {
                 out.append(input[i])
                 prev = Kind.OTHER

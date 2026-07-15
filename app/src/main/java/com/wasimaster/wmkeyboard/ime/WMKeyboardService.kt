@@ -264,6 +264,28 @@ class WMKeyboardService : InputMethodService() {
     private var suggestionCostMs = 0L
 
     /**
+     * The space/enter commit resolution the async suggestion job computed off
+     * the main thread for the word currently being composed — the English
+     * autocorrect target or the Bengali transliteration top. [commitComposing]
+     * reads it instead of running the edit-distance search on the UI thread,
+     * but only when [CommitResolution.typed] still equals the word being
+     * committed; otherwise it recomputes synchronously, so a commit never uses
+     * a stale result. Written from the suggestion coroutine, read on main —
+     * hence [Volatile].
+     */
+    @Volatile
+    private var commitResolution: CommitResolution? = null
+
+    private class CommitResolution(
+        val typed: String,
+        val isBengali: Boolean,
+        /** Transliteration top for Bengali phonetic mode; null otherwise. */
+        val bengaliTop: String?,
+        /** English autocorrect target, or null when the word stands as typed. */
+        val correction: String?,
+    )
+
+    /**
      * The last commit autocorrect changed, as typed-to-committed, so an
      * immediate backspace can undo the correction. Any other input clears it.
      */
@@ -2601,21 +2623,24 @@ class WMKeyboardService : InputMethodService() {
             } else {
                 null
             }
+        // The async suggestion job precomputes this word's commit resolution off
+        // the main thread; use it only while it still matches [typed] (a
+        // mismatch means the job hasn't caught up), else compute synchronously.
+        // Either way the result is fresh — the commit never uses a stale strip.
+        val pre = commitResolution?.takeIf { it.typed == typed }
         var corrected: String? = null
         val output = when {
-            // Computed fresh rather than read from the strip: the async
-            // suggestion job may not have caught up with the last keystroke
-            // (especially within the debounce window), and a commit must
-            // never use stale results.
             state.composer.isBengaliPhonetic ->
-                suggestionEngine?.suggest(typed, previousWord = null, avroMode = true)
-                    ?.firstOrNull() ?: state.composer.composeBuffer(typed)
+                (if (pre != null && pre.isBengali) pre.bengaliTop
+                else suggestionEngine?.suggest(typed, previousWord = null, avroMode = true)?.firstOrNull())
+                    ?: state.composer.composeBuffer(typed)
             // Other transliterators (Hangul) commit the composed text directly,
             // with no dictionary pass.
             state.composer.isTransliterating -> state.composer.composeBuffer(typed)
             apostrophized != null -> apostrophized
             autocorrect && state.allowsTypingIntelligence -> {
-                corrected = suggestionEngine?.shouldAutocorrect(typed)?.takeIf { it != typed }
+                corrected = if (pre != null && !pre.isBengali) pre.correction
+                else suggestionEngine?.shouldAutocorrect(typed)?.takeIf { it != typed }
                 corrected ?: typed
             }
             else -> typed
@@ -3059,6 +3084,26 @@ class WMKeyboardService : InputMethodService() {
                     previousWord = previousWord,
                     avroMode = state.composer.isBengaliPhonetic,
                 )
+                // Precompute what a space/enter commit of this exact word would
+                // resolve to, so the commit need not run the edit-distance
+                // search (English) or transliteration ranking (Bengali) on the
+                // main thread. commitComposing consumes it only on a typed match.
+                commitResolution = when {
+                    typed.isEmpty() -> null
+                    state.composer.isBengaliPhonetic -> CommitResolution(
+                        typed = typed,
+                        isBengali = true,
+                        bengaliTop = words.firstOrNull(),
+                        correction = null,
+                    )
+                    state.settings.autocorrect && state.allowsTypingIntelligence -> CommitResolution(
+                        typed = typed,
+                        isBengali = false,
+                        bengaliTop = null,
+                        correction = engine.shouldAutocorrect(typed)?.takeIf { it != typed },
+                    )
+                    else -> null
+                }
                 if (typed.isNotEmpty()) {
                     val emojis = if (state.settings.emojiPrediction) {
                         emojiSuggester?.suggest(typed).orEmpty()
