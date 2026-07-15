@@ -633,6 +633,10 @@ private fun ImageGrid(
     onResultLink: (ImageResult) -> Unit,
 ) {
     val loader = rememberMediaImageLoader()
+    // imageUrl is the LazyGrid key, which must be unique — Brave can return the
+    // same full-image URL for two results (a widely-reposted image), and a
+    // duplicate key throws during composition and crashes the IME. Dedup first.
+    val uniqueResults = remember(results) { results.distinctBy { it.imageUrl } }
     LazyVerticalGrid(
         columns = GridCells.Fixed(3),
         modifier = Modifier.fillMaxSize(),
@@ -640,7 +644,7 @@ private fun ImageGrid(
         horizontalArrangement = Arrangement.spacedBy(4.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        items(results, key = { it.imageUrl }) { result ->
+        items(uniqueResults, key = { it.imageUrl }) { result ->
             Box(
                 modifier = Modifier
                     .height(86.dp)

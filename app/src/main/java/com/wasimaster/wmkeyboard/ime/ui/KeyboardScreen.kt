@@ -5352,6 +5352,8 @@ private fun KeyButton(
                     hapticOnLongPressRelease = settings.hapticOnLongPressRelease,
                     openAlternates = { showAlternates = true },
                     onKey = debounced,
+                    // Repeat ticks bypass the debounce (raw onKey), taps don't.
+                    onKeyRepeat = onKey,
                     onClipboardKey = onClipboardKey,
                     onCursorMove = onCursorMove,
                     onCursorMoveVertical = onCursorMoveVertical,
@@ -5817,6 +5819,13 @@ private fun Modifier.pointerInputKey(
     hapticOnLongPressRelease: Boolean,
     openAlternates: () -> Unit,
     onKey: (Key) -> Unit,
+    /**
+     * Un-debounced sink for auto-repeat ticks (held backspace/space). The
+     * software repeat is deterministic, so it must bypass the tremor debounce
+     * that [onKey] carries — otherwise repeats landing inside the debounce
+     * window are dropped and the repeat rate is silently capped.
+     */
+    onKeyRepeat: (Key) -> Unit,
     onClipboardKey: (ClipboardKeyAction) -> Unit,
     onCursorMove: (Int) -> Unit,
     onCursorMoveVertical: (Int) -> Unit,
@@ -5888,7 +5897,13 @@ private fun Modifier.pointerInputKey(
                 // preview. Once open, the picker owns the selection: the rest
                 // of this gesture goes inert and release types nothing.
                 var pickerOpened = false
-                val holdOpensSwitcher = spaceShortSwipe == SpaceSwipeAction.LANGUAGE
+                // Only arm the hold-to-switch gesture when there is more than one
+                // language to switch between (mirrors the arrows' size > 1 gate).
+                // Otherwise a single-language user holding space would show a
+                // pointless one-item picker and, worse, release would swallow the
+                // space instead of typing it.
+                val holdOpensSwitcher = spaceShortSwipe == SpaceSwipeAction.LANGUAGE &&
+                    enabledLayoutIds.size > 1
                 val holdJob = if (holdOpensSwitcher) {
                     scope.launch {
                         delay(minOf(longPressDelayMs, SpaceHoldPickerMs).toLong())
@@ -6137,7 +6152,7 @@ private fun Modifier.pointerInputKey(
                     longPressFired = true
                     while (canDelete()) {
                         if (vibrateOnRepeat) onKeyPress() else onKeySound()
-                        onKey(key)
+                        onKeyRepeat(key)
                         delay(repeatIntervalMs.toLong())
                     }
                 }
@@ -6223,7 +6238,7 @@ private fun Modifier.pointerInputKey(
                                         // buzzing against an empty field.
                                         while (key.action != KeyAction.Delete || canDelete()) {
                                             if (vibrateOnRepeat) onKeyPress() else onKeySound()
-                                            onKey(key)
+                                            onKeyRepeat(key)
                                             delay(repeatIntervalMs.toLong())
                                         }
                                     } else if (key.clipboardAction != null) {

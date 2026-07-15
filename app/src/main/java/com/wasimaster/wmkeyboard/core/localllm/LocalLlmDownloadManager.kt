@@ -94,7 +94,12 @@ object LocalLlmDownloadManager {
                 }
                 set(model.id, DownloadStatus.Downloaded)
             } catch (e: kotlinx.coroutines.CancellationException) {
-                set(model.id, DownloadStatus.Paused(part.length(), model.sizeBytes))
+                // Only advertise a resumable Paused state when the .part still
+                // exists. delete() cancels, removes the file, and sets
+                // NotDownloaded; without this guard the unwinding coroutine
+                // overwrites that with Paused(0, size), resurrecting a model
+                // the user just deleted.
+                if (part.isFile) set(model.id, DownloadStatus.Paused(part.length(), model.sizeBytes))
                 throw e
             } catch (e: FailedException) {
                 set(model.id, DownloadStatus.Failed(e.reason, e.message.orEmpty()))
@@ -201,7 +206,17 @@ object LocalLlmDownloadManager {
                 }
             }
 
-            if (total >= 0 && written != total) {
+            if (total >= 0) {
+                if (written != total) {
+                    throw IOException("The connection dropped mid-download — resume to continue")
+                }
+            } else if (written < model.sizeBytes * 9 / 10) {
+                // No Content-Length to validate against. sizeBytes is only
+                // approximate, so use a loose floor: catch a grossly truncated
+                // body (clean EOF after a partial transfer) without false-
+                // rejecting a complete download whose real size differs a little
+                // from the catalog estimate. Otherwise a truncated file would be
+                // renamed into place and wrongly count as a valid model.
                 throw IOException("The connection dropped mid-download — resume to continue")
             }
         } finally {

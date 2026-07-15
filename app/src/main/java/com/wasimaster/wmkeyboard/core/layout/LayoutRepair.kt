@@ -72,10 +72,16 @@ fun validateLayout(spec: LayoutSpec): List<LayoutFinding> {
     val findings = mutableListOf<LayoutFinding>()
 
     val letters = spec.layer(LayoutLayer.LETTERS)
-    if (letters == null || letters.rows.none { it.isNotEmpty() }) {
+    if (letters == null) {
+        // An absent letters layer inherits the built-in default grid at compile
+        // time (LayoutCompiler), which already has letters plus delete/space/
+        // enter — so it is fully typeable and nothing here should block it. This
+        // keeps validate consistent with repair(), which drops an all-unusable
+        // letters layer to null and promises the result can still be enabled.
+    } else if (letters.rows.none { it.isNotEmpty() }) {
         findings += LayoutFinding(
             LayoutSeverity.BLOCKING,
-            "This layout has no letters layer.",
+            "The letters layer has no keys.",
             LayoutLayer.LETTERS,
         )
     } else {

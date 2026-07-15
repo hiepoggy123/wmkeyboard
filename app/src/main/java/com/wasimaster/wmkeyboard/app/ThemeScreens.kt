@@ -122,12 +122,38 @@ private fun ThemeSpec.effectivePressed(): Long =
     pressedKeyBackground ?: lerp(colorOf(keyBackground), colorOf(accent), 0.40f).argb()
 
 private fun ThemeSpec.effectivePopup(): Long =
-    popupBackground ?: colorOf(keyText).copy(alpha = if (dark) 0.20f else 0.9f)
+    popupBackground ?: colorOf(keyText).copy(alpha = if (dark) 0.20f else 0.06f)
         .compositeOver(colorOf(boardBackground)).argb()
 
 private fun ThemeSpec.effectiveToolCircle(): Long =
     toolCircleBackground ?: colorOf(keyText).copy(alpha = 0.14f)
         .compositeOver(colorOf(boardBackground)).argb()
+
+/**
+ * Regenerate the palette from [seed]/[dark] while keeping every non-palette
+ * field the user configured — gradients, background image + blur, key shape and
+ * border, gesture-trail color, radii, and animation. themeFromSeed only sets
+ * core colors, so a plain `.copy` of it would silently wipe those decorations;
+ * a reseed / dark-toggle must change only the generated colors.
+ */
+private fun ThemeSpec.reseeded(seed: Long, dark: Boolean): ThemeSpec =
+    themeFromSeed(id, name, seed, dark).copy(
+        backgroundImage = backgroundImage,
+        backgroundImageLandscape = backgroundImageLandscape,
+        backgroundImageOpacity = backgroundImageOpacity,
+        backgroundImageBlur = backgroundImageBlur,
+        boardGradient = boardGradient,
+        keyGradient = keyGradient,
+        keyShape = keyShape,
+        keyBorderColor = keyBorderColor,
+        keyBorderWidthDp = keyBorderWidthDp,
+        gestureTrailColor = gestureTrailColor,
+        keyCornerRadiusDp = keyCornerRadiusDp,
+        popupCornerRadiusDp = popupCornerRadiusDp,
+        toolCircleRadiusDp = toolCircleRadiusDp,
+        animation = animation,
+        animationSpeed = animationSpeed,
+    )
 
 /** The display name for a theme id in the same namespace as keyboardThemeId. */
 private fun themeDisplayName(settings: KeyboardSettings, id: String): String = when (id) {
@@ -778,16 +804,7 @@ fun ThemeEditorScreen(
             Switch(
                 checked = theme.dark,
                 onCheckedChange = { dark ->
-                    update { t ->
-                        themeFromSeed(t.id, t.name, t.enterKeyBackground, dark).copy(
-                            backgroundImage = t.backgroundImage,
-                            backgroundImageLandscape = t.backgroundImageLandscape,
-                            backgroundImageOpacity = t.backgroundImageOpacity,
-                            keyCornerRadiusDp = t.keyCornerRadiusDp,
-                            popupCornerRadiusDp = t.popupCornerRadiusDp,
-                            toolCircleRadiusDp = t.toolCircleRadiusDp,
-                        )
-                    }
+                    update { t -> t.reseeded(t.enterKeyBackground, dark) }
                 },
             )
         },
@@ -804,16 +821,7 @@ fun ThemeEditorScreen(
                     .background(colorOf(seed))
                     .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
                     .clickable {
-                        update { t ->
-                            themeFromSeed(t.id, t.name, seed, t.dark).copy(
-                                backgroundImage = t.backgroundImage,
-                                backgroundImageLandscape = t.backgroundImageLandscape,
-                                backgroundImageOpacity = t.backgroundImageOpacity,
-                                keyCornerRadiusDp = t.keyCornerRadiusDp,
-                                popupCornerRadiusDp = t.popupCornerRadiusDp,
-                                toolCircleRadiusDp = t.toolCircleRadiusDp,
-                            )
-                        }
+                        update { t -> t.reseeded(seed, t.dark) }
                     },
             )
         }

@@ -122,7 +122,10 @@ object SettingsBackup {
      */
     fun decode(text: String): Parsed? {
         val root = runCatching { parser.parseToJsonElement(text).jsonObject }.getOrNull() ?: return null
-        if (root["format"]?.jsonPrimitive?.contentOrNull != FORMAT) return null
+        // `as? JsonPrimitive` instead of `.jsonPrimitive`: the latter throws on
+        // a JsonObject/JsonArray value, which would break decode()'s null-on-
+        // bad-input contract and crash the import path on a crafted file.
+        if ((root["format"] as? JsonPrimitive)?.contentOrNull != FORMAT) return null
         val settings = runCatching { root.getValue("settings").jsonObject }.getOrNull() ?: return null
         val entries = ArrayList<Entry>()
         var skipped = 0
@@ -131,7 +134,7 @@ object SettingsBackup {
             if (parsed == null) skipped++ else entries.add(parsed)
         }
         return Parsed(
-            appVersion = root["appVersion"]?.jsonPrimitive?.intOrNull ?: 0,
+            appVersion = (root["appVersion"] as? JsonPrimitive)?.intOrNull ?: 0,
             entries = entries,
             skipped = skipped,
         )

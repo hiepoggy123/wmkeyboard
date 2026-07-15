@@ -294,6 +294,14 @@ class WMKeyboardService : InputMethodService() {
     /** English word list used by the gesture decoder (bundled dictionary). */
     private var gestureLexicon: List<Pair<String, Int>> = emptyList()
 
+    /**
+     * `gestureLexicon` merged with the user's weighted personal words, cached so
+     * a live swipe (many preview events) doesn't rebuild a ~17k-entry list per
+     * event. Invalidated whenever either input changes (see
+     * [invalidateGestureLexicon]).
+     */
+    private var cachedGestureLexicon: List<Pair<String, Int>>? = null
+
     /** Word lists the user imported, one trie per language (empty when none). */
     private var customDictionaries: Map<String, Trie> = emptyMap()
 
@@ -664,6 +672,7 @@ class WMKeyboardService : InputMethodService() {
                 // otherwise the next save here would clobber those edits.
                 if (lexiconVersion != -1 && settings.lexiconVersion != lexiconVersion) {
                     withContext(Dispatchers.Default) { userLexicon.reload() }
+                    invalidateGestureLexicon()
                 }
                 lexiconVersion = settings.lexiconVersion
                 baseSettings = settings
@@ -759,6 +768,7 @@ class WMKeyboardService : InputMethodService() {
             }
             val english = Trie().apply { for ((word, freq) in englishEntries) insert(word, freq) }
             gestureLexicon = englishEntries
+            invalidateGestureLexicon()
             bengaliAssetEntries = bengaliEntries
             val customTries = withContext(Dispatchers.Default) { loadCustomDictionaries() }
             customDictionaries = customTries
@@ -2037,6 +2047,7 @@ class WMKeyboardService : InputMethodService() {
                         !state.secureField
                     ) {
                         userLexicon.addWord(typed, boost = 5)
+                        invalidateGestureLexicon()
                     }
                     previousWord = typed.lowercase().trim { !it.isLetter() }.ifEmpty { null }
                     return
@@ -2673,6 +2684,9 @@ class WMKeyboardService : InputMethodService() {
             previous = cleaned
             lastLearned = cleaned
         }
+        // A new/reinforced personal word changes the gesture decoder's merged
+        // lexicon; drop the cache so the next swipe picks it up.
+        if (lastLearned != null) invalidateGestureLexicon()
         previousWord = lastLearned
     }
 
@@ -3192,6 +3206,27 @@ class WMKeyboardService : InputMethodService() {
 
     // ---- gesture typing ----
 
+    /**
+     * The gesture decoder's word list: bundled English plus the user's weighted
+     * personal words. Cached because it only changes when a word is learned or
+     * the settings app edits the lexicon, whereas a single swipe queries it many
+     * times (one preview event per few pointer samples).
+     */
+    @Synchronized
+    private fun gestureDecodeLexicon(): List<Pair<String, Int>> {
+        cachedGestureLexicon?.let { return it }
+        val personal = userLexicon.allWords().map { (word, count) -> word to count * 500 }
+        val combined = gestureLexicon + personal
+        cachedGestureLexicon = combined
+        return combined
+    }
+
+    /** Drop the merged-lexicon cache after a learn or a lexicon reload. */
+    @Synchronized
+    private fun invalidateGestureLexicon() {
+        cachedGestureLexicon = null
+    }
+
     /** Mid-swipe: show the current best candidates without committing. */
     fun onGesturePreview(points: List<GesturePoint>, keys: List<KeyCenter>, keyWidthPx: Float) {
         val state = _uiState.value
@@ -3204,8 +3239,7 @@ class WMKeyboardService : InputMethodService() {
             val candidates = withContext(Dispatchers.Default) {
                 // Same lexicon as the final decode, so the previewed word
                 // never differs from the one that commits on finger-up.
-                val personal = userLexicon.allWords().map { (word, count) -> word to count * 500 }
-                GestureDecoder(keys, keyWidthPx).decode(points, lexicon + personal)
+                GestureDecoder(keys, keyWidthPx).decode(points, gestureDecodeLexicon())
             }
             if (candidates.isNotEmpty()) {
                 _uiState.update {
@@ -3236,8 +3270,7 @@ class WMKeyboardService : InputMethodService() {
         _uiState.update { it.copy(glideWord = null) }
         suggestionJob = serviceScope.launch {
             val candidates = withContext(Dispatchers.Default) {
-                val personal = userLexicon.allWords().map { (word, count) -> word to count * 500 }
-                GestureDecoder(keys, keyWidthPx).decode(points, lexicon + personal)
+                GestureDecoder(keys, keyWidthPx).decode(points, gestureDecodeLexicon())
             }
             // Debug builds only: typed content must never be logged in release.
             if (applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0) {
@@ -3292,8 +3325,7 @@ class WMKeyboardService : InputMethodService() {
         _uiState.update { it.copy(glideWord = null) }
         suggestionJob = serviceScope.launch {
             val decoder = GestureDecoder(keys, keyWidthPx)
-            val personal = userLexicon.allWords().map { (word, count) -> word to count * 500 }
-            val lex = lexicon + personal
+            val lex = gestureDecodeLexicon()
             val ic = currentInputConnection ?: return@launch
             // Flush any composing text before the first glided word.
             commitComposing(ic, autocorrect = false)
@@ -3987,7 +4019,16 @@ class WMKeyboardService : InputMethodService() {
         val needsSpace = settings.handwritingAutoSpace &&
             word.firstOrNull()?.isLetterOrDigit() == true &&
             preContext.isNotEmpty() && !preContext.last().isWhitespace()
-        val connection = currentInputConnection ?: return
+        val connection = currentInputConnection ?: run {
+            // Input connection lost between recognition and commit. Clear the
+            // spinner and drop the ink instead of leaving the panel stuck in
+            // "recognizing" with stale strokes that would be re-recognized
+            // together with the next glyph.
+            _uiState.update {
+                it.copy(handwriting = it.handwriting.copy(strokes = emptyList(), recognizing = false))
+            }
+            return
+        }
         connection.commitText(if (needsSpace) " $word" else word, 1)
         learn(word)
         lastGestureWord = word

@@ -3104,16 +3104,30 @@ private fun EmojiSettings(repository: SettingsRepository, settings: KeyboardSett
 private fun DictionarySettings(repository: SettingsRepository) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
-    val lexicon = remember {
-        UserLexicon(java.io.File(context.filesDir, "learning/user_lexicon.json"))
-    }
-    var words by remember { mutableStateOf(lexicon.allWords().sortedByDescending { it.second }) }
+    val file = remember { java.io.File(context.filesDir, "learning/user_lexicon.json") }
+    // UserLexicon's constructor reads and JSON-parses the whole learned-words
+    // file, so it (and every save) runs on Dispatchers.IO, never in composition
+    // or on a click handler. The list draws empty for a moment then fills in.
+    var lexicon by remember { mutableStateOf<UserLexicon?>(null) }
+    var words by remember { mutableStateOf<List<Pair<String, Int>>>(emptyList()) }
     var showAdd by remember { mutableStateOf(false) }
 
-    fun persist() {
-        lexicon.save()
-        words = lexicon.allWords().sortedByDescending { it.second }
-        scope.launch { repository.bumpLexiconVersion() }
+    LaunchedEffect(Unit) {
+        val lex = withContext(Dispatchers.IO) { UserLexicon(file) }
+        words = lex.allWords().sortedByDescending { it.second }
+        lexicon = lex
+    }
+
+    fun persist(mutate: (UserLexicon) -> Unit) {
+        val lex = lexicon ?: return
+        scope.launch {
+            withContext(Dispatchers.IO) {
+                mutate(lex)
+                lex.save()
+            }
+            words = lex.allWords().sortedByDescending { it.second }
+            repository.bumpLexiconVersion()
+        }
     }
 
     Text(
@@ -3143,10 +3157,7 @@ private fun DictionarySettings(repository: SettingsRepository) {
                         Text(if (count >= 200) "Added by you" else "Seen $count×")
                     },
                     trailingContent = {
-                        IconButton(onClick = {
-                            lexicon.forget(word)
-                            persist()
-                        }) {
+                        IconButton(onClick = { persist { it.forget(word) } }) {
                             Icon(Icons.Outlined.Delete, contentDescription = "Remove $word")
                         }
                     },
@@ -3173,8 +3184,7 @@ private fun DictionarySettings(repository: SettingsRepository) {
                 TextButton(
                     enabled = input.isNotBlank(),
                     onClick = {
-                        lexicon.addWord(input.trim())
-                        persist()
+                        persist { it.addWord(input.trim()) }
                         showAdd = false
                     },
                 ) { Text("Add") }
@@ -5730,7 +5740,12 @@ private fun PromptFieldSetting(
     onSave: suspend (String) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
-    var text by remember(label) { mutableStateOf(value) }
+    // Re-init when the built-in prompt changes (e.g. the Translate target
+    // language changed under us), so the field doesn't keep showing — and
+    // mislabel as "Custom" — the previous language's prompt. Keyed on
+    // defaultPrompt, not value: value echoes the user's own keystrokes back
+    // asynchronously, and keying on it would drop fast typing.
+    var text by remember(label, defaultPrompt) { mutableStateOf(value) }
     OutlinedTextField(
         value = text,
         onValueChange = {
@@ -6167,13 +6182,32 @@ private fun PrivacySettings(repository: SettingsRepository, settings: KeyboardSe
 
 @Composable
 private fun SnippetSettings() {
+    val scope = rememberCoroutineScope()
     val context = LocalContext.current
-    val store = remember {
-        SnippetStore(java.io.File(context.filesDir, "snippets/snippets.json"))
-    }
-    var snippets by remember { mutableStateOf(store.items()) }
+    val file = remember { java.io.File(context.filesDir, "snippets/snippets.json") }
+    // SnippetStore's constructor reads and JSON-parses the file, so it (and
+    // every save) runs on Dispatchers.IO, not during composition or on a click.
+    var store by remember { mutableStateOf<SnippetStore?>(null) }
+    var snippets by remember { mutableStateOf<List<Snippet>>(emptyList()) }
     var editing by remember { mutableStateOf<Snippet?>(null) }
     var showAdd by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        val s = withContext(Dispatchers.IO) { SnippetStore(file) }
+        snippets = s.items()
+        store = s
+    }
+
+    fun mutate(block: (SnippetStore) -> Unit) {
+        val s = store ?: return
+        scope.launch {
+            withContext(Dispatchers.IO) {
+                block(s)
+                s.save()
+            }
+            snippets = s.items()
+        }
+    }
 
     Text(
         "Snippets are reusable pieces of text — an address, an email sign-off, a " +
@@ -6240,11 +6274,7 @@ private fun SnippetSettings() {
                             IconButton(onClick = { editing = snippet }) {
                                 Icon(Icons.Outlined.Edit, contentDescription = "Edit")
                             }
-                            IconButton(onClick = {
-                                store.remove(snippet.id)
-                                store.save()
-                                snippets = store.items()
-                            }) {
+                            IconButton(onClick = { mutate { it.remove(snippet.id) } }) {
                                 Icon(Icons.Outlined.Delete, contentDescription = "Delete")
                             }
                         }
@@ -6261,9 +6291,9 @@ private fun SnippetSettings() {
             onDismiss = { showAdd = false; editing = null },
             onSave = { label, text ->
                 val current = editing
-                if (current == null) store.add(label, text) else store.update(current.id, label, text)
-                store.save()
-                snippets = store.items()
+                mutate { s ->
+                    if (current == null) s.add(label, text) else s.update(current.id, label, text)
+                }
                 showAdd = false
                 editing = null
             },

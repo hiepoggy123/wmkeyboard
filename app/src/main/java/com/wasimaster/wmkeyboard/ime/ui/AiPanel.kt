@@ -334,7 +334,10 @@ private fun PanelCheckbox(label: String, checked: Boolean, onToggle: () -> Unit)
  */
 private fun grayThinking(text: String, gray: Color): AnnotatedString {
     val open = text.indexOf("<think>")
-    val close = text.indexOf("</think>")
+    // Search for the closer only after the opener so grayEnd can never precede
+    // grayStart (which would crash substring). Still handles the opener-in-
+    // prompt case (open == -1) by searching from 0.
+    val close = text.indexOf("</think>", startIndex = if (open != -1) open else 0)
     val grayStart = if (open != -1) open else 0
     val grayEnd = when {
         close != -1 -> close + "</think>".length
