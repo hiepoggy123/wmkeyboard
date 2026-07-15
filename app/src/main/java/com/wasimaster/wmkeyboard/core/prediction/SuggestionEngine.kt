@@ -18,7 +18,7 @@ import com.wasimaster.wmkeyboard.core.transliteration.BengaliPhoneticIndex
  *    common words (আছি) outrank raw phonetics (আসি).
  */
 class SuggestionEngine(
-    private val dictionary: Trie,
+    private val dictionary: WordSource,
     bengaliIndex: BengaliPhoneticIndex,
     private val userLexicon: UserLexicon,
     private val loanwords: EnglishBengaliMap = EnglishBengaliMap.EMPTY,
@@ -76,7 +76,7 @@ class SuggestionEngine(
      * ship no bundled list — can get completions this way.
      */
     @Volatile
-    var customDictionary: Trie = Trie()
+    var customDictionary: WordSource = PackedTrie.EMPTY
 
     /**
      * Dictionaries for the user's secondary languages, consulted alongside the
@@ -85,7 +85,7 @@ class SuggestionEngine(
      * in one is never autocorrected away.
      */
     @Volatile
-    var secondaryDictionaries: List<Trie> = emptyList()
+    var secondaryDictionaries: List<WordSource> = emptyList()
 
     /**
      * True when English is a secondary language and the primary is not: the
@@ -130,14 +130,14 @@ class SuggestionEngine(
     @Volatile
     var skipAllCapsAutocorrect: Boolean = true
 
-    private val emptyTrie = Trie()
+    private val emptyTrie: WordSource = PackedTrie.EMPTY
 
     /** True when [word] is on the suggestion blacklist (case-insensitive). */
     private fun blacklisted(word: String): Boolean =
         blacklist.isNotEmpty() && word.lowercase() in blacklist
 
     /** The bundled dictionary, or an empty one when [englishSources] is off. */
-    private val activeDictionary: Trie
+    private val activeDictionary: WordSource
         get() = if (englishSources) dictionary else emptyTrie
 
     /** English's bundled frequency when it is a secondary language, else 0. */

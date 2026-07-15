@@ -17,7 +17,7 @@ package com.wasimaster.wmkeyboard.core.prediction
 class NameIndex private constructor(
     private val words: Map<String, Word>,
     private val nextMap: Map<String, List<String>>,
-    private val trie: Trie,
+    private val trie: WordSource,
 ) {
 
     private data class Word(val display: String, val count: Int)
@@ -51,7 +51,7 @@ class NameIndex private constructor(
     fun nextWords(previous: String): List<String> = nextMap[previous].orEmpty()
 
     companion object {
-        val EMPTY = NameIndex(emptyMap(), emptyMap(), Trie())
+        val EMPTY = NameIndex(emptyMap(), emptyMap(), PackedTrie.EMPTY)
 
         private val SEPARATORS = Regex("[\\s,.()\\[\\]/_-]+")
 
@@ -73,12 +73,9 @@ class NameIndex private constructor(
                     previous = key
                 }
             }
-            // A frequency-weighted trie over the lowercase keys powers prefix
-            // completion; `words` still resolves each key to its display form.
-            val trie = Trie()
-            for ((key, word) in words) {
-                trie.insert(key, word.count)
-            }
+            // A frequency-weighted packed trie over the lowercase keys powers
+            // prefix completion; `words` still resolves each key to its display.
+            val trie = PackedTrie.of(words.map { (key, word) -> key to word.count })
             return NameIndex(
                 words,
                 next.mapValues { (_, followers) ->

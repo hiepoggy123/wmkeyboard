@@ -57,8 +57,8 @@ object CustomDictionaries {
         return all
     }
 
-    fun trie(filesDir: File, langId: String): Trie =
-        Trie().apply { for ((word, freq) in entries(filesDir, langId)) insert(word, freq) }
+    fun trie(filesDir: File, langId: String): WordSource =
+        PackedTrie.of(entries(filesDir, langId))
 
     /**
      * Copies [stream] in as a list named after [displayName], returning how

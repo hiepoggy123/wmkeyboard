@@ -80,11 +80,12 @@ import com.wasimaster.wmkeyboard.core.prediction.CustomDictionaries
 import com.wasimaster.wmkeyboard.core.prediction.DictionaryLoader
 import com.wasimaster.wmkeyboard.core.prediction.EnglishBengaliMap
 import com.wasimaster.wmkeyboard.core.prediction.KeyProximity
+import com.wasimaster.wmkeyboard.core.prediction.PackedTrie
 import com.wasimaster.wmkeyboard.core.prediction.SeedBigrams
 import com.wasimaster.wmkeyboard.core.prediction.SuggestionEngine
 import com.wasimaster.wmkeyboard.core.prediction.SystemUserDictionary
-import com.wasimaster.wmkeyboard.core.prediction.Trie
 import com.wasimaster.wmkeyboard.core.prediction.UserLexicon
+import com.wasimaster.wmkeyboard.core.prediction.WordSource
 import com.wasimaster.wmkeyboard.core.settings.EmojiFontChoice
 import com.wasimaster.wmkeyboard.core.settings.EmojiInsertMode
 import com.wasimaster.wmkeyboard.core.settings.HapticStyle
@@ -325,7 +326,7 @@ class WMKeyboardService : InputMethodService() {
     private var cachedGestureLexicon: List<Pair<String, Int>>? = null
 
     /** Word lists the user imported, one trie per language (empty when none). */
-    private var customDictionaries: Map<String, Trie> = emptyMap()
+    private var customDictionaries: Map<String, WordSource> = emptyMap()
 
     /** Bundled Bengali entries, kept so the phonetic index can be rebuilt. */
     private var bengaliAssetEntries: List<Pair<String, Int>> = emptyList()
@@ -760,7 +761,7 @@ class WMKeyboardService : InputMethodService() {
                 }
                 customDictVersion = settings.customDictVersion
                 suggestionEngine?.customDictionary =
-                    customDictionaries[activeLang.id] ?: Trie()
+                    customDictionaries[activeLang.id] ?: PackedTrie.EMPTY
                 // Secondary languages feed the strip alongside the primary. English
                 // rides its bundled list (englishAsSecondary); every other language
                 // its imported list.
@@ -795,7 +796,7 @@ class WMKeyboardService : InputMethodService() {
                 }.getOrDefault(SeedBigrams.EMPTY)
                 Triple(lw, v, seeds)
             }
-            val english = Trie().apply { for ((word, freq) in englishEntries) insert(word, freq) }
+            val english = PackedTrie.of(englishEntries)
             gestureLexicon = englishEntries
             invalidateGestureLexicon()
             bengaliAssetEntries = bengaliEntries
@@ -818,7 +819,7 @@ class WMKeyboardService : InputMethodService() {
                 skipAllCapsAutocorrect = _uiState.value.settings.autocorrectSkipAllCaps
                 val lang = _uiState.value.language
                 englishSources = lang.isEnglish
-                customDictionary = customTries[lang.id] ?: Trie()
+                customDictionary = customTries[lang.id] ?: PackedTrie.EMPTY
                 val secondaryIds = _uiState.value.settings.secondaryLanguages[lang.id].orEmpty()
                 secondaryDictionaries = secondaryIds.filter { it != "en" }.mapNotNull { customTries[it] }
                 englishAsSecondary = "en" in secondaryIds && !lang.isEnglish
@@ -6737,7 +6738,7 @@ class WMKeyboardService : InputMethodService() {
     }
 
     /** Re-reads every imported word list from disk into per-language tries. */
-    private fun loadCustomDictionaries(): Map<String, Trie> {
+    private fun loadCustomDictionaries(): Map<String, WordSource> {
         CustomDictionaries.migrateLegacyFolders(filesDir)
         return LanguageRegistry.all.associate { it.id to CustomDictionaries.trie(filesDir, it.id) }
     }

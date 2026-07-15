@@ -10,7 +10,7 @@ package com.wasimaster.wmkeyboard.core.prediction
  * into useless pieces. Addresses are stored lowercase — email local parts are
  * treated case-insensitively in practice — and matched by whole-string prefix.
  */
-class ContactEmails private constructor(private val index: Trie, val size: Int) {
+class ContactEmails private constructor(private val index: WordSource, val size: Int) {
 
     val isEmpty: Boolean get() = size == 0
 
@@ -24,7 +24,7 @@ class ContactEmails private constructor(private val index: Trie, val size: Int) 
     }
 
     companion object {
-        val EMPTY = ContactEmails(Trie(), 0)
+        val EMPTY = ContactEmails(PackedTrie.EMPTY, 0)
 
         /**
          * Builds an index from raw address strings, keeping only plausible
@@ -32,16 +32,15 @@ class ContactEmails private constructor(private val index: Trie, val size: Int) 
          * de-duplicating case-insensitively.
          */
         fun fromAddresses(addresses: Iterable<String>): ContactEmails {
-            val trie = Trie()
             val seen = HashSet<String>()
             for (raw in addresses) {
                 val email = raw.trim().lowercase()
                 val at = email.indexOf('@')
                 if (at <= 0 || at >= email.length - 1) continue
                 if (email.any { it.isWhitespace() }) continue
-                if (seen.add(email)) trie.insert(email, 1)
+                seen.add(email)
             }
-            return ContactEmails(trie, seen.size)
+            return ContactEmails(PackedTrie.of(seen.map { it to 1 }), seen.size)
         }
     }
 }
