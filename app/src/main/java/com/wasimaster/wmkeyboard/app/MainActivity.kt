@@ -1177,6 +1177,17 @@ private fun TypingSettings(
                         "alone. Turn this off to have such words corrected like any other.",
                 ) { scope.launch { repository.setAutocorrectSkipAllCaps(it) } }
             }
+            item {
+                ToggleSetting(
+                    "Block offensive words",
+                    "Keep profanity and slurs out of suggestions",
+                    settings.suggestionStrip.blockOffensiveWords,
+                    info = "Potentially offensive words are never offered in the suggestion " +
+                        "strip and a neutral typo is never autocorrected into one. You can " +
+                        "still type and commit any word yourself — this only stops the " +
+                        "keyboard from suggesting them.",
+                ) { scope.launch { repository.setBlockOffensiveWords(it) } }
+            }
         }
         item {
             ToggleSetting(

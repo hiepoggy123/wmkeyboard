@@ -44,6 +44,7 @@ private val SettingRows: List<SettingsSearchEntry> = listOfNotNull(
     entry("Autocorrect confidence", "How sure a correction must be before it is applied", "Typing", "typing"),
     entry("Undo autocorrect with backspace", "Backspace right after a correction restores what you typed", "Typing", "typing"),
     entry("Skip all-caps words", "Autocorrect leaves words typed in capitals alone", "Typing", "typing"),
+    entry("Block offensive words", "Keep profanity and slurs out of suggestions", "Typing", "typing"),
     entry("Fix missing apostrophes", "arent → aren't, im → I'm, dont → don't", "Typing", "typing"),
     entry("Auto-capitalize", "Capitalize the first letter of sentences", "Typing", "typing"),
     entry("Double-space period", "Double-tapping space inserts “. ”", "Typing", "typing"),

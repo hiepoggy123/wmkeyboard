@@ -122,6 +122,23 @@ class SuggestionEngine(
     var blacklist: Set<String> = emptySet()
 
     /**
+     * When on, words on the bundled [offensiveWords] set are treated like the
+     * blacklist: never offered in the strip and never used as an autocorrect
+     * target, so the keyboard won't suggest or "correct" a neutral typo into a
+     * slur. The user can still type and commit any of them verbatim — this only
+     * suppresses *suggesting* them. Off lets them suggest like any other word.
+     */
+    @Volatile
+    var blockOffensiveWords: Boolean = false
+
+    /**
+     * The bundled set of potentially-offensive words, lowercased. Only consulted
+     * when [blockOffensiveWords] is on. Empty until the service loads it.
+     */
+    @Volatile
+    var offensiveWords: Set<String> = emptySet()
+
+    /**
      * When on, a word typed entirely in capitals (SHOUTING, or an acronym like
      * ASAP, OFC) is never autocorrected — those are deliberate, and "fixing"
      * them to a lowercase dictionary word is almost always wrong. Off treats
@@ -135,6 +152,16 @@ class SuggestionEngine(
     /** True when [word] is on the suggestion blacklist (case-insensitive). */
     private fun blacklisted(word: String): Boolean =
         blacklist.isNotEmpty() && word.lowercase() in blacklist
+
+    /** True when the offensive filter is on and [word] is a blocked word. */
+    private fun offensive(word: String): Boolean =
+        blockOffensiveWords && offensiveWords.isNotEmpty() && word.lowercase() in offensiveWords
+
+    /**
+     * True when [word] must not be offered or used as an autocorrect target,
+     * for either reason (user blacklist or the offensive-words filter).
+     */
+    private fun suppressed(word: String): Boolean = blacklisted(word) || offensive(word)
 
     /** The bundled dictionary, or an empty one when [englishSources] is off. */
     private val activeDictionary: WordSource
@@ -323,7 +350,7 @@ class SuggestionEngine(
             .sortedByDescending { it.second }
             .asSequence()
             .map { it.first }
-            .filterNot(::blacklisted)
+            .filterNot(::suppressed)
             .take(limit)
             // Emails are stored verbatim; case-matching the typed prefix would
             // corrupt the address ("John" -> "John.doe@..."). Commit as stored.
@@ -377,7 +404,7 @@ class SuggestionEngine(
         }
         ordered.addAll(siblings)
         ordered.add(phonetic)
-        return ordered.asSequence().filterNot(::blacklisted).take(limit).toList()
+        return ordered.asSequence().filterNot(::suppressed).take(limit).toList()
     }
 
     private fun nextWords(previousWord: String?, limit: Int): List<String> {
@@ -390,7 +417,7 @@ class SuggestionEngine(
         ordered.addAll(contacts.nextWords(prev))
         // Seed bigrams are English pairs; they only cold-start English modes.
         if (englishSources) ordered.addAll(seedBigrams.nextWords(prev))
-        return ordered.asSequence().filterNot(::blacklisted).take(limit).toList()
+        return ordered.asSequence().filterNot(::suppressed).take(limit).toList()
     }
 
     /**
@@ -420,9 +447,10 @@ class SuggestionEngine(
         var bestUserScore = 0.0
         val combined = HashMap<String, Double>()
         for ((candidate, weight) in edits1Weighted(lower)) {
-            // A blacklisted word is never offered, so it is never a correction
-            // target either — otherwise it would be forced in silently.
-            if (blacklisted(candidate)) continue
+            // A suppressed word (blacklisted or offensive) is never offered, so
+            // it is never a correction target either — otherwise it would be
+            // forced in silently.
+            if (suppressed(candidate)) continue
             val dictScore = dictionaryFrequencyOf(candidate) * weight
             val userScore = userLexicon.frequencyOf(candidate) * USER_WORD_WEIGHT * weight
             if (dictScore <= 0 && userScore <= 0) continue

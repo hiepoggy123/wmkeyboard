@@ -745,6 +745,8 @@ class WMKeyboardService : InputMethodService() {
                 suggestionEngine?.autocorrectConfidence =
                     settings.autocorrectConfidence.toDouble()
                 suggestionEngine?.blacklist = settings.suggestionBlacklist
+                suggestionEngine?.blockOffensiveWords =
+                    settings.suggestionStrip.blockOffensiveWords
                 suggestionEngine?.skipAllCapsAutocorrect = settings.autocorrectSkipAllCaps
                 // Only English drives the bundled English word list; every other
                 // language (with no bundled dictionary) drops it so autocorrect
@@ -802,6 +804,18 @@ class WMKeyboardService : InputMethodService() {
             bengaliAssetEntries = bengaliEntries
             val customTries = withContext(Dispatchers.Default) { loadCustomDictionaries() }
             customDictionaries = customTries
+            // The offensive-word filter's fixed set — loaded once; only the
+            // on/off toggle (read from settings) ever changes afterwards.
+            val offensiveSet: Set<String> = withContext(Dispatchers.Default) {
+                runCatching {
+                    assets.open("dictionaries/offensive_en.txt").bufferedReader().useLines { lines ->
+                        lines.map { it.trim() }
+                            .filter { it.isNotEmpty() && !it.startsWith("#") }
+                            .map { it.lowercase() }
+                            .toSet()
+                    }
+                }.getOrDefault(emptySet())
+            }
             suggestionEngine = SuggestionEngine(
                 english,
                 buildBengaliIndex(),
@@ -816,6 +830,8 @@ class WMKeyboardService : InputMethodService() {
                 autocorrectConfidence =
                     _uiState.value.settings.autocorrectConfidence.toDouble()
                 blacklist = _uiState.value.settings.suggestionBlacklist
+                offensiveWords = offensiveSet
+                blockOffensiveWords = _uiState.value.settings.suggestionStrip.blockOffensiveWords
                 skipAllCapsAutocorrect = _uiState.value.settings.autocorrectSkipAllCaps
                 val lang = _uiState.value.language
                 englishSources = lang.isEnglish

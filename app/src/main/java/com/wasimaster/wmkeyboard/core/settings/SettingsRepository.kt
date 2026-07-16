@@ -1275,6 +1275,14 @@ data class SuggestionStripSettings(
     val suggestionsFirst: Boolean = false,
     /** Show the primary candidate in the middle slot (Gboard style) instead of the left. */
     val suggestionPrimaryCenter: Boolean = true,
+    /**
+     * Keep potentially-offensive words out of the suggestion strip and never
+     * autocorrect a neutral typo into one. On by default (as AOSP ships it); the
+     * words can always still be typed and committed verbatim. Lives here rather
+     * than beside the other autocorrect flags only to stay under the settings
+     * class's JVM field ceiling.
+     */
+    val blockOffensiveWords: Boolean = true,
 )
 
 /**
@@ -1421,6 +1429,7 @@ class SettingsRepository(private val context: Context) {
             booleanPreferencesKey("show_suggestions_all_fields")
         private val SUGGESTIONS_FIRST = booleanPreferencesKey("suggestions_first")
         private val SUGGESTION_PRIMARY_CENTER = booleanPreferencesKey("suggestion_primary_center")
+        private val BLOCK_OFFENSIVE_WORDS = booleanPreferencesKey("block_offensive_words")
         private val CONTACT_SUGGESTIONS = booleanPreferencesKey("contact_suggestions")
         private val CONTACT_EMAIL_SUGGESTIONS =
             booleanPreferencesKey("contact_email_suggestions")
@@ -1860,6 +1869,8 @@ class SettingsRepository(private val context: Context) {
                 suggestionsFirst = p[SUGGESTIONS_FIRST] ?: defaults.suggestionStrip.suggestionsFirst,
                 suggestionPrimaryCenter = p[SUGGESTION_PRIMARY_CENTER]
                     ?: defaults.suggestionStrip.suggestionPrimaryCenter,
+                blockOffensiveWords = p[BLOCK_OFFENSIVE_WORDS]
+                    ?: defaults.suggestionStrip.blockOffensiveWords,
             ),
             longPressDelayMs = p[LONG_PRESS_DELAY] ?: defaults.longPressDelayMs,
             keyRepeatIntervalMs = p[KEY_REPEAT_INTERVAL] ?: defaults.keyRepeatIntervalMs,
@@ -2844,6 +2855,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setSuggestionPrimaryCenter(value: Boolean) =
         context.dataStore.edit { it[SUGGESTION_PRIMARY_CENTER] = value }
+
+    suspend fun setBlockOffensiveWords(value: Boolean) =
+        context.dataStore.edit { it[BLOCK_OFFENSIVE_WORDS] = value }
 
     suspend fun setContactSuggestions(value: Boolean) =
         context.dataStore.edit { it[CONTACT_SUGGESTIONS] = value }

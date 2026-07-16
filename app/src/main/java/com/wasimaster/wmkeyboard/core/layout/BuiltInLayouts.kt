@@ -26,6 +26,8 @@ object BuiltInLayouts {
     const val QWERTY_ID = "builtin_qwerty"
     const val AZERTY_ID = "builtin_azerty"
     const val DVORAK_ID = "builtin_dvorak"
+    const val COLEMAK_ID = "builtin_colemak"
+    const val WORKMAN_ID = "builtin_workman"
     const val AVRO_ID = "builtin_avro"
     const val PROBHAT_ID = "builtin_probhat"
     const val JATIYA_ID = "builtin_jatiya"
@@ -88,6 +90,31 @@ object BuiltInLayouts {
         name = "Dvorak",
         langId = "en",
         layers = mapOf(LayoutLayer.LETTERS.key to LayerSpec(dvorakRows)),
+    )
+
+    /**
+     * Colemak: the modern ergonomic layout that keeps Z X C V in place. Follows
+     * the standard Colemak keymap adapted to the 10-column phone grid — the top
+     * row drops the desktop ; key (all 26 letters still fit as 9 / 10 / 7), with
+     * Samsung-style symbol-first alternates and accents on the base vowels.
+     */
+    val COLEMAK = LayoutSpec(
+        id = COLEMAK_ID,
+        name = "Colemak",
+        langId = "en",
+        layers = mapOf(LayoutLayer.LETTERS.key to LayerSpec(colemakRows)),
+    )
+
+    /**
+     * Workman: the layout tuned to English digraph frequency. Follows the
+     * standard Workman keymap adapted to the 10-column phone grid (9 / 10 / 7,
+     * the desktop ; key dropped from the top row), same symbol-first alternates.
+     */
+    val WORKMAN = LayoutSpec(
+        id = WORKMAN_ID,
+        name = "Workman",
+        langId = "en",
+        layers = mapOf(LayoutLayer.LETTERS.key to LayerSpec(workmanRows)),
     )
 
     /** Avro types Bengali phonetically, so it wears the QWERTY grid unchanged. */
@@ -237,8 +264,8 @@ object BuiltInLayouts {
      * add the language tail at runtime, and both feed `resolveLayouts`.
      */
     val all: List<LayoutSpec> = listOf(
-        QWERTY, AZERTY, DVORAK, AVRO, PROBHAT, JATIYA, FRENCH, GERMAN, SPANISH,
-        KOREAN, RUSSIAN, ARABIC, GREEK, HEBREW, HINDI,
+        QWERTY, AZERTY, DVORAK, COLEMAK, WORKMAN, AVRO, PROBHAT, JATIYA, FRENCH,
+        GERMAN, SPANISH, KOREAN, RUSSIAN, ARABIC, GREEK, HEBREW, HINDI,
     )
 
     fun byId(id: String): LayoutSpec? = all.firstOrNull { it.id == id }
@@ -449,6 +476,69 @@ private val dvorakRows = listOf(
         Key("w", longPress = listOf("?")), Key("v", longPress = listOf("=")),
         Key("z", longPress = listOf("%", "ż", "ź")),
         Key("⌫", action = KeyAction.Delete),
+    ),
+    bottomRow(),
+)
+
+// Colemak: Z X C V stay put; top row drops the desktop ; key so all 26 letters
+// fit the phone grid as 9 / 10 / 7. Number hints ride the top row, accents on
+// the base vowels, symbol-first alternates elsewhere — Samsung-style like QWERTY.
+private val colemakRows = listOf(
+    listOf(
+        Key("q", longPress = listOf("1")), Key("w", longPress = listOf("2")),
+        Key("f", longPress = listOf("3")), Key("p", longPress = listOf("4")),
+        Key("g", longPress = listOf("5")), Key("j", longPress = listOf("6")),
+        Key("l", longPress = listOf("7")),
+        Key("u", longPress = listOf("8", "ù", "ú", "û", "ü")),
+        Key("y", longPress = listOf("9", "ÿ")),
+    ),
+    listOf(
+        Key("a", longPress = listOf("@", "à", "á", "â", "ä", "å")),
+        Key("r", longPress = listOf("#")), Key("s", longPress = listOf("$", "ß", "ś")),
+        Key("t", longPress = listOf("_")), Key("d", longPress = listOf("&")),
+        Key("h", longPress = listOf("-")), Key("n", longPress = listOf("+", "ñ", "ń")),
+        Key("e", longPress = listOf("(", "è", "é", "ê", "ë")),
+        Key("i", longPress = listOf(")", "ì", "í", "î", "ï")),
+        Key("o", longPress = listOf("/", "ò", "ó", "ô", "ö")),
+    ),
+    listOf(
+        Key("⇧", action = KeyAction.Shift, width = 1.5f),
+        Key("z", longPress = listOf("*", "ż", "ź")), Key("x", longPress = listOf("\"")),
+        Key("c", longPress = listOf("'", "ç", "ć")), Key("v", longPress = listOf(":")),
+        Key("b", longPress = listOf(";")), Key("k", longPress = listOf("!")),
+        Key("m", longPress = listOf("?")),
+        Key("⌫", action = KeyAction.Delete, width = 1.5f),
+    ),
+    bottomRow(),
+)
+
+// Workman: tuned to English digraph frequency. Same 9 / 10 / 7 phone adaptation
+// as Colemak (desktop ; dropped from the top row), same alternate scheme.
+private val workmanRows = listOf(
+    listOf(
+        Key("q", longPress = listOf("1")), Key("d", longPress = listOf("2")),
+        Key("r", longPress = listOf("3")), Key("w", longPress = listOf("4")),
+        Key("b", longPress = listOf("5")), Key("j", longPress = listOf("6")),
+        Key("f", longPress = listOf("7")),
+        Key("u", longPress = listOf("8", "ù", "ú", "û", "ü")),
+        Key("p", longPress = listOf("9")),
+    ),
+    listOf(
+        Key("a", longPress = listOf("@", "à", "á", "â", "ä", "å")),
+        Key("s", longPress = listOf("#", "ß", "ś")), Key("h", longPress = listOf("$")),
+        Key("t", longPress = listOf("_")), Key("g", longPress = listOf("&")),
+        Key("y", longPress = listOf("-", "ÿ")), Key("n", longPress = listOf("+", "ñ", "ń")),
+        Key("e", longPress = listOf("(", "è", "é", "ê", "ë")),
+        Key("o", longPress = listOf(")", "ò", "ó", "ô", "ö")),
+        Key("i", longPress = listOf("/", "ì", "í", "î", "ï")),
+    ),
+    listOf(
+        Key("⇧", action = KeyAction.Shift, width = 1.5f),
+        Key("z", longPress = listOf("*", "ż", "ź")), Key("x", longPress = listOf("\"")),
+        Key("m", longPress = listOf("'")), Key("c", longPress = listOf(":", "ç", "ć")),
+        Key("v", longPress = listOf(";")), Key("k", longPress = listOf("!")),
+        Key("l", longPress = listOf("?")),
+        Key("⌫", action = KeyAction.Delete, width = 1.5f),
     ),
     bottomRow(),
 )
