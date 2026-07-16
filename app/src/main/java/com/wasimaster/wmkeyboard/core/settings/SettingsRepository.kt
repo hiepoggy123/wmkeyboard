@@ -1270,7 +1270,7 @@ data class SuggestionStripSettings(
      * the symbols layout. Shown only while candidates are up; an emoji
      * prediction takes the tail instead when one is present.
      */
-    val punctuation: Boolean = true,
+    val punctuation: Boolean = false,
     /** Keep the suggestion strip as the default top bar even with nothing typed. */
     val suggestionsFirst: Boolean = false,
     /** Show the primary candidate in the middle slot (Gboard style) instead of the left. */
