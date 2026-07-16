@@ -1,0 +1,181 @@
+{
+  "format": "wmkeyboard-layout",
+  "version": 1,
+  "layout": {
+    "id": "asset_ckb_sorani",
+    "name": "کوردی (Kurdish Sorani)",
+    "langId": "ckb",
+    "version": 2,
+    "layers": {
+      "letters": {
+        "rows": [
+          [
+            {
+              "label": "ق"
+            },
+            {
+              "label": "و"
+            },
+            {
+              "label": "ە"
+            },
+            {
+              "label": "ر",
+              "shiftLabel": "ڕ"
+            },
+            {
+              "label": "ت",
+              "shiftLabel": "ط"
+            },
+            {
+              "label": "ی",
+              "shiftLabel": "ێ"
+            },
+            {
+              "label": "ئ",
+              "shiftLabel": "ء"
+            },
+            {
+              "label": "ح",
+              "shiftLabel": "ع"
+            },
+            {
+              "label": "ۆ"
+            },
+            {
+              "label": "پ"
+            }
+          ],
+          [
+            {
+              "label": "ا",
+              "shiftLabel": "آ",
+              "longPress": [
+                "أ",
+                "إ"
+              ]
+            },
+            {
+              "label": "س",
+              "shiftLabel": "ش"
+            },
+            {
+              "label": "د"
+            },
+            {
+              "label": "ف"
+            },
+            {
+              "label": "گ",
+              "shiftLabel": "غ"
+            },
+            {
+              "label": "ه",
+              "shiftLabel": "ھ",
+              "longPress": [
+                "ة"
+              ]
+            },
+            {
+              "label": "ژ"
+            },
+            {
+              "label": "ک"
+            },
+            {
+              "label": "ل",
+              "shiftLabel": "ڵ"
+            }
+          ],
+          [
+            {
+              "label": "⇧",
+              "action": {
+                "type": "shift"
+              },
+              "width": 1.5
+            },
+            {
+              "label": "ز"
+            },
+            {
+              "label": "خ"
+            },
+            {
+              "label": "ج",
+              "shiftLabel": "چ"
+            },
+            {
+              "label": "ڤ"
+            },
+            {
+              "label": "ب"
+            },
+            {
+              "label": "ن"
+            },
+            {
+              "label": "م"
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              },
+              "width": 1.5
+            }
+          ],
+          [
+            {
+              "label": "?123",
+              "action": {
+                "type": "symbols"
+              },
+              "width": 1.5
+            },
+            {
+              "label": ",",
+              "longPress": [
+                "!",
+                "?"
+              ],
+              "role": "Comma"
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 4
+            },
+            {
+              "label": ".",
+              "longPress": [
+                "…",
+                ",",
+                "?",
+                "!",
+                ":",
+                ";"
+              ],
+              "role": "Period"
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.5
+            }
+          ]
+        ]
+      }
+    }
+  }
+}

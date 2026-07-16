@@ -154,6 +154,119 @@ object ScriptRegistry {
             fontHint = FontHint.GENERIC,
             unicodeRange = 0x10A0..0x10FF,
         ),
+        // Armenian is bicameral (has upper/lower case), like Greek and Cyrillic,
+        // but rides its own Unicode block; the system face supplies the glyphs.
+        ScriptDef(
+            id = ScriptId.ARMENIAN,
+            direction = TextDirection.LTR,
+            hasLetterCase = true,
+            composer = ComposerType.NONE,
+            fontHint = FontHint.GENERIC,
+            unicodeRange = 0x0530..0x058F,
+        ),
+        // Brahmic scripts: all uncased, all cluster-shaping (conjuncts joined by a
+        // virama, vowel signs deleted with their base), so they share the generic
+        // IndicClusterComposer keyed by their unicodeRange + virama (see viramaFor).
+        ScriptDef(
+            id = ScriptId.GURMUKHI,
+            direction = TextDirection.LTR,
+            hasLetterCase = false,
+            composer = ComposerType.INDIC_CLUSTER,
+            fontHint = FontHint.GENERIC,
+            unicodeRange = 0x0A00..0x0A7F,
+        ),
+        ScriptDef(
+            id = ScriptId.GUJARATI,
+            direction = TextDirection.LTR,
+            hasLetterCase = false,
+            composer = ComposerType.INDIC_CLUSTER,
+            fontHint = FontHint.GENERIC,
+            unicodeRange = 0x0A80..0x0AFF,
+        ),
+        ScriptDef(
+            id = ScriptId.ORIYA,
+            direction = TextDirection.LTR,
+            hasLetterCase = false,
+            composer = ComposerType.INDIC_CLUSTER,
+            fontHint = FontHint.GENERIC,
+            unicodeRange = 0x0B00..0x0B7F,
+        ),
+        ScriptDef(
+            id = ScriptId.TAMIL,
+            direction = TextDirection.LTR,
+            hasLetterCase = false,
+            composer = ComposerType.INDIC_CLUSTER,
+            fontHint = FontHint.TAMIL,
+            unicodeRange = 0x0B80..0x0BFF,
+        ),
+        ScriptDef(
+            id = ScriptId.TELUGU,
+            direction = TextDirection.LTR,
+            hasLetterCase = false,
+            composer = ComposerType.INDIC_CLUSTER,
+            fontHint = FontHint.GENERIC,
+            unicodeRange = 0x0C00..0x0C7F,
+        ),
+        ScriptDef(
+            id = ScriptId.KANNADA,
+            direction = TextDirection.LTR,
+            hasLetterCase = false,
+            composer = ComposerType.INDIC_CLUSTER,
+            fontHint = FontHint.GENERIC,
+            unicodeRange = 0x0C80..0x0CFF,
+        ),
+        ScriptDef(
+            id = ScriptId.MALAYALAM,
+            direction = TextDirection.LTR,
+            hasLetterCase = false,
+            composer = ComposerType.INDIC_CLUSTER,
+            fontHint = FontHint.GENERIC,
+            unicodeRange = 0x0D00..0x0D7F,
+        ),
+        ScriptDef(
+            id = ScriptId.SINHALA,
+            direction = TextDirection.LTR,
+            hasLetterCase = false,
+            composer = ComposerType.INDIC_CLUSTER,
+            fontHint = FontHint.GENERIC,
+            unicodeRange = 0x0D80..0x0DFF,
+        ),
+        // Thai and Lao are alphasyllabaries but stack no conjuncts (no virama), so
+        // they compose 1:1 and delete one code unit at a time — ComposerType.NONE.
+        ScriptDef(
+            id = ScriptId.THAI,
+            direction = TextDirection.LTR,
+            hasLetterCase = false,
+            composer = ComposerType.NONE,
+            fontHint = FontHint.THAI,
+            unicodeRange = 0x0E00..0x0E7F,
+        ),
+        ScriptDef(
+            id = ScriptId.LAO,
+            direction = TextDirection.LTR,
+            hasLetterCase = false,
+            composer = ComposerType.NONE,
+            fontHint = FontHint.GENERIC,
+            unicodeRange = 0x0E80..0x0EFF,
+        ),
+        // Khmer (coeng) and Myanmar (virama/asat) DO stack, so they use the cluster
+        // composer with their respective viramas (see viramaFor).
+        ScriptDef(
+            id = ScriptId.KHMER,
+            direction = TextDirection.LTR,
+            hasLetterCase = false,
+            composer = ComposerType.INDIC_CLUSTER,
+            fontHint = FontHint.GENERIC,
+            unicodeRange = 0x1780..0x17FF,
+        ),
+        ScriptDef(
+            id = ScriptId.MYANMAR,
+            direction = TextDirection.LTR,
+            hasLetterCase = false,
+            composer = ComposerType.INDIC_CLUSTER,
+            fontHint = FontHint.GENERIC,
+            unicodeRange = 0x1000..0x109F,
+        ),
     ).associateBy { it.id }
 
     val all: List<ScriptDef> get() = defs.values.toList()

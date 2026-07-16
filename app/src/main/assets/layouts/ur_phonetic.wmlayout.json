@@ -1,0 +1,209 @@
+{
+  "format": "wmkeyboard-layout",
+  "version": 1,
+  "layout": {
+    "id": "asset_ur_phonetic",
+    "name": "اردو (Urdu)",
+    "langId": "ur",
+    "version": 2,
+    "layers": {
+      "letters": {
+        "rows": [
+          [
+            {
+              "label": "ق"
+            },
+            {
+              "label": "و",
+              "shiftLabel": "ؤ"
+            },
+            {
+              "label": "ع",
+              "shiftLabel": "غ"
+            },
+            {
+              "label": "ر",
+              "shiftLabel": "ڑ"
+            },
+            {
+              "label": "ت",
+              "shiftLabel": "ٹ",
+              "longPress": [
+                "ث"
+              ]
+            },
+            {
+              "label": "ے"
+            },
+            {
+              "label": "ء",
+              "shiftLabel": "ئ",
+              "longPress": [
+                "أ",
+                "إ",
+                "ؤ",
+                "آ"
+              ]
+            },
+            {
+              "label": "ی",
+              "shiftLabel": "ئ"
+            },
+            {
+              "label": "ہ",
+              "shiftLabel": "ھ",
+              "longPress": [
+                "ة"
+              ]
+            },
+            {
+              "label": "پ"
+            },
+            {
+              "label": "چ"
+            }
+          ],
+          [
+            {
+              "label": "ا",
+              "shiftLabel": "آ",
+              "longPress": [
+                "أ",
+                "إ"
+              ]
+            },
+            {
+              "label": "س",
+              "shiftLabel": "ص",
+              "longPress": [
+                "ث",
+                "ض"
+              ]
+            },
+            {
+              "label": "د",
+              "shiftLabel": "ڈ",
+              "longPress": [
+                "ذ"
+              ]
+            },
+            {
+              "label": "ف"
+            },
+            {
+              "label": "گ",
+              "shiftLabel": "غ"
+            },
+            {
+              "label": "ح",
+              "shiftLabel": "خ"
+            },
+            {
+              "label": "ج"
+            },
+            {
+              "label": "ک"
+            },
+            {
+              "label": "ل"
+            }
+          ],
+          [
+            {
+              "label": "⇧",
+              "action": {
+                "type": "shift"
+              },
+              "width": 1.5
+            },
+            {
+              "label": "ز",
+              "shiftLabel": "ذ",
+              "longPress": [
+                "ژ",
+                "ظ"
+              ]
+            },
+            {
+              "label": "ش",
+              "shiftLabel": "ژ"
+            },
+            {
+              "label": "ط",
+              "shiftLabel": "ظ"
+            },
+            {
+              "label": "ب"
+            },
+            {
+              "label": "ن",
+              "shiftLabel": "ں"
+            },
+            {
+              "label": "م"
+            },
+            {
+              "label": "ھ"
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              },
+              "width": 1.5
+            }
+          ],
+          [
+            {
+              "label": "?123",
+              "action": {
+                "type": "symbols"
+              },
+              "width": 1.5
+            },
+            {
+              "label": ",",
+              "longPress": [
+                "!",
+                "?"
+              ],
+              "role": "Comma"
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 4
+            },
+            {
+              "label": ".",
+              "longPress": [
+                "…",
+                ",",
+                "?",
+                "!",
+                ":",
+                ";"
+              ],
+              "role": "Period"
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.5
+            }
+          ]
+        ]
+      }
+    }
+  }
+}

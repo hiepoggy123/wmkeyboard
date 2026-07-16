@@ -1,0 +1,223 @@
+{
+  "format": "wmkeyboard-layout",
+  "version": 1,
+  "layout": {
+    "id": "asset_sd_sindhi",
+    "name": "سنڌي (Sindhi)",
+    "langId": "sd",
+    "version": 2,
+    "layers": {
+      "letters": {
+        "rows": [
+          [
+            {
+              "label": "ض"
+            },
+            {
+              "label": "ص"
+            },
+            {
+              "label": "ث"
+            },
+            {
+              "label": "ق"
+            },
+            {
+              "label": "ف",
+              "shiftLabel": "ڦ"
+            },
+            {
+              "label": "غ"
+            },
+            {
+              "label": "ع"
+            },
+            {
+              "label": "ه",
+              "shiftLabel": "ھ",
+              "longPress": [
+                "ہ",
+                "ة"
+              ]
+            },
+            {
+              "label": "خ"
+            },
+            {
+              "label": "ح"
+            },
+            {
+              "label": "ج",
+              "shiftLabel": "ڄ",
+              "longPress": [
+                "ڃ"
+              ]
+            }
+          ],
+          [
+            {
+              "label": "ش"
+            },
+            {
+              "label": "س"
+            },
+            {
+              "label": "ي",
+              "shiftLabel": "ء",
+              "longPress": [
+                "ئ",
+                "ی"
+              ]
+            },
+            {
+              "label": "ب",
+              "shiftLabel": "ٻ",
+              "longPress": [
+                "ڀ"
+              ]
+            },
+            {
+              "label": "ل"
+            },
+            {
+              "label": "ا",
+              "shiftLabel": "آ",
+              "longPress": [
+                "أ",
+                "إ"
+              ]
+            },
+            {
+              "label": "ت",
+              "shiftLabel": "ٽ",
+              "longPress": [
+                "ٿ",
+                "ٺ"
+              ]
+            },
+            {
+              "label": "ن",
+              "shiftLabel": "ڻ"
+            },
+            {
+              "label": "م"
+            },
+            {
+              "label": "ک",
+              "shiftLabel": "ڪ"
+            },
+            {
+              "label": "گ",
+              "shiftLabel": "ڳ",
+              "longPress": [
+                "ڱ"
+              ]
+            }
+          ],
+          [
+            {
+              "label": "⇧",
+              "action": {
+                "type": "shift"
+              },
+              "width": 1.5
+            },
+            {
+              "label": "ظ"
+            },
+            {
+              "label": "ط"
+            },
+            {
+              "label": "ز",
+              "shiftLabel": "ژ"
+            },
+            {
+              "label": "ر",
+              "shiftLabel": "ڙ"
+            },
+            {
+              "label": "ذ"
+            },
+            {
+              "label": "د",
+              "shiftLabel": "ڊ",
+              "longPress": [
+                "ڌ",
+                "ڏ",
+                "ڍ"
+              ]
+            },
+            {
+              "label": "پ"
+            },
+            {
+              "label": "و",
+              "shiftLabel": "ؤ"
+            },
+            {
+              "label": "چ",
+              "shiftLabel": "ڇ"
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              },
+              "width": 1.5
+            }
+          ],
+          [
+            {
+              "label": "?123",
+              "action": {
+                "type": "symbols"
+              },
+              "width": 1.5
+            },
+            {
+              "label": ",",
+              "longPress": [
+                "!",
+                "?"
+              ],
+              "role": "Comma"
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 4
+            },
+            {
+              "label": ".",
+              "longPress": [
+                "…",
+                ",",
+                "?",
+                "!",
+                ":",
+                ";"
+              ],
+              "role": "Period"
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.5
+            }
+          ]
+        ]
+      }
+    }
+  }
+}

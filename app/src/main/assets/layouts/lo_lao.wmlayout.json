@@ -1,0 +1,235 @@
+{
+  "format": "wmkeyboard-layout",
+  "version": 1,
+  "layout": {
+    "id": "asset_lo_lao",
+    "name": "ລາວ (Lao)",
+    "langId": "lo",
+    "version": 2,
+    "layers": {
+      "letters": {
+        "rows": [
+          [
+            {
+              "label": "ຢ",
+              "shiftLabel": "໑"
+            },
+            {
+              "label": "ຟ",
+              "shiftLabel": "໒",
+              "longPress": [
+                "ຝ"
+              ]
+            },
+            {
+              "label": "ໂ",
+              "shiftLabel": "໓"
+            },
+            {
+              "label": "ຖ",
+              "shiftLabel": "໔"
+            },
+            {
+              "label": "ຸ",
+              "shiftLabel": "໕"
+            },
+            {
+              "label": "ູ",
+              "shiftLabel": "໖"
+            },
+            {
+              "label": "ຄ",
+              "shiftLabel": "໗"
+            },
+            {
+              "label": "ຕ",
+              "shiftLabel": "໘"
+            },
+            {
+              "label": "ຈ",
+              "shiftLabel": "໙"
+            },
+            {
+              "label": "ຂ",
+              "shiftLabel": "໐"
+            },
+            {
+              "label": "ຊ"
+            }
+          ],
+          [
+            {
+              "label": "ົ",
+              "shiftLabel": "ໍ"
+            },
+            {
+              "label": "ໄ"
+            },
+            {
+              "label": "ຳ"
+            },
+            {
+              "label": "ພ"
+            },
+            {
+              "label": "ະ"
+            },
+            {
+              "label": "ິ"
+            },
+            {
+              "label": "ີ"
+            },
+            {
+              "label": "ຮ"
+            },
+            {
+              "label": "ນ"
+            },
+            {
+              "label": "ຍ"
+            },
+            {
+              "label": "ບ"
+            },
+            {
+              "label": "ລ",
+              "longPress": [
+                "ຣ"
+              ]
+            }
+          ],
+          [
+            {
+              "label": "ັ"
+            },
+            {
+              "label": "ຫ"
+            },
+            {
+              "label": "ກ"
+            },
+            {
+              "label": "ດ"
+            },
+            {
+              "label": "ເ"
+            },
+            {
+              "label": "້",
+              "shiftLabel": "໊"
+            },
+            {
+              "label": "່",
+              "shiftLabel": "໋"
+            },
+            {
+              "label": "າ"
+            },
+            {
+              "label": "ສ"
+            },
+            {
+              "label": "ວ"
+            },
+            {
+              "label": "ງ"
+            }
+          ],
+          [
+            {
+              "label": "⇧",
+              "action": {
+                "type": "shift"
+              },
+              "width": 1.5
+            },
+            {
+              "label": "ຜ"
+            },
+            {
+              "label": "ປ"
+            },
+            {
+              "label": "ແ"
+            },
+            {
+              "label": "ອ"
+            },
+            {
+              "label": "ຶ"
+            },
+            {
+              "label": "ື"
+            },
+            {
+              "label": "ທ"
+            },
+            {
+              "label": "ມ"
+            },
+            {
+              "label": "ໃ"
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              },
+              "width": 1.5
+            }
+          ],
+          [
+            {
+              "label": "?123",
+              "action": {
+                "type": "symbols"
+              },
+              "width": 1.5
+            },
+            {
+              "label": ",",
+              "longPress": [
+                "!",
+                "?"
+              ],
+              "role": "Comma"
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 4
+            },
+            {
+              "label": ".",
+              "longPress": [
+                "…",
+                ",",
+                "?",
+                "!",
+                ":",
+                ";"
+              ],
+              "role": "Period"
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.5
+            }
+          ]
+        ]
+      }
+    }
+  }
+}

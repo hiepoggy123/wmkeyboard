@@ -1,0 +1,218 @@
+{
+  "format": "wmkeyboard-layout",
+  "version": 1,
+  "layout": {
+    "id": "asset_ta_tamil99",
+    "name": "தமிழ் (Tamil)",
+    "langId": "ta",
+    "version": 2,
+    "layers": {
+      "letters": {
+        "rows": [
+          [
+            {
+              "label": "ஆ",
+              "shiftLabel": "ஸ",
+              "longPress": [
+                "ா"
+              ]
+            },
+            {
+              "label": "ஈ",
+              "shiftLabel": "ஷ",
+              "longPress": [
+                "ீ"
+              ]
+            },
+            {
+              "label": "ஊ",
+              "shiftLabel": "ஜ",
+              "longPress": [
+                "ூ"
+              ]
+            },
+            {
+              "label": "ஐ",
+              "shiftLabel": "ஹ",
+              "longPress": [
+                "ை"
+              ]
+            },
+            {
+              "label": "ஏ",
+              "shiftLabel": "க்ஷ",
+              "longPress": [
+                "ே"
+              ]
+            },
+            {
+              "label": "ள"
+            },
+            {
+              "label": "ற",
+              "shiftLabel": "ஶ"
+            },
+            {
+              "label": "ன"
+            },
+            {
+              "label": "ட"
+            },
+            {
+              "label": "ண"
+            },
+            {
+              "label": "ழ"
+            }
+          ],
+          [
+            {
+              "label": "அ"
+            },
+            {
+              "label": "இ",
+              "longPress": [
+                "ி"
+              ]
+            },
+            {
+              "label": "உ",
+              "longPress": [
+                "ு"
+              ]
+            },
+            {
+              "label": "ஃ",
+              "shiftLabel": "்"
+            },
+            {
+              "label": "எ",
+              "longPress": [
+                "ெ"
+              ]
+            },
+            {
+              "label": "க"
+            },
+            {
+              "label": "ப"
+            },
+            {
+              "label": "ம"
+            },
+            {
+              "label": "த"
+            },
+            {
+              "label": "ந"
+            },
+            {
+              "label": "ய"
+            }
+          ],
+          [
+            {
+              "label": "⇧",
+              "action": {
+                "type": "shift"
+              },
+              "width": 1.5
+            },
+            {
+              "label": "ஔ",
+              "longPress": [
+                "ௌ"
+              ]
+            },
+            {
+              "label": "ஓ",
+              "longPress": [
+                "ோ"
+              ]
+            },
+            {
+              "label": "ஒ",
+              "longPress": [
+                "ொ"
+              ]
+            },
+            {
+              "label": "வ"
+            },
+            {
+              "label": "ங"
+            },
+            {
+              "label": "ல"
+            },
+            {
+              "label": "ர"
+            },
+            {
+              "label": "ச"
+            },
+            {
+              "label": "ஞ"
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              },
+              "width": 1.5
+            }
+          ],
+          [
+            {
+              "label": "?123",
+              "action": {
+                "type": "symbols"
+              },
+              "width": 1.5
+            },
+            {
+              "label": ",",
+              "longPress": [
+                "!",
+                "?"
+              ],
+              "role": "Comma"
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 4
+            },
+            {
+              "label": ".",
+              "longPress": [
+                "…",
+                ",",
+                "?",
+                "!",
+                ":",
+                ";"
+              ],
+              "role": "Period"
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.5
+            }
+          ]
+        ]
+      }
+    }
+  }
+}

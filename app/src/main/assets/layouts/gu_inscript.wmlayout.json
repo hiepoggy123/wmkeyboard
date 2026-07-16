@@ -1,0 +1,221 @@
+{
+  "format": "wmkeyboard-layout",
+  "version": 1,
+  "layout": {
+    "id": "asset_gu_inscript",
+    "name": "ગુજરાતી (Gujarati)",
+    "langId": "gu",
+    "version": 2,
+    "layers": {
+      "letters": {
+        "rows": [
+          [
+            {
+              "label": "ૌ",
+              "shiftLabel": "ઔ"
+            },
+            {
+              "label": "ૈ",
+              "shiftLabel": "ઐ"
+            },
+            {
+              "label": "ા",
+              "shiftLabel": "આ"
+            },
+            {
+              "label": "ી",
+              "shiftLabel": "ઈ"
+            },
+            {
+              "label": "ૂ",
+              "shiftLabel": "ઊ"
+            },
+            {
+              "label": "બ",
+              "shiftLabel": "ભ"
+            },
+            {
+              "label": "હ",
+              "shiftLabel": "ઙ"
+            },
+            {
+              "label": "ગ",
+              "shiftLabel": "ઘ"
+            },
+            {
+              "label": "દ",
+              "shiftLabel": "ધ"
+            },
+            {
+              "label": "જ",
+              "shiftLabel": "ઝ"
+            },
+            {
+              "label": "ડ",
+              "shiftLabel": "ઢ"
+            },
+            {
+              "label": "ઞ",
+              "longPress": [
+                "઼"
+              ]
+            }
+          ],
+          [
+            {
+              "label": "ો",
+              "shiftLabel": "ઓ",
+              "longPress": [
+                "ઑ",
+                "ૉ"
+              ]
+            },
+            {
+              "label": "ે",
+              "shiftLabel": "એ",
+              "longPress": [
+                "ઍ",
+                "ૅ"
+              ]
+            },
+            {
+              "label": "્",
+              "shiftLabel": "અ"
+            },
+            {
+              "label": "િ",
+              "shiftLabel": "ઇ"
+            },
+            {
+              "label": "ુ",
+              "shiftLabel": "ઉ"
+            },
+            {
+              "label": "પ",
+              "shiftLabel": "ફ"
+            },
+            {
+              "label": "ર",
+              "longPress": [
+                "ઋ",
+                "ૃ"
+              ]
+            },
+            {
+              "label": "ક",
+              "shiftLabel": "ખ"
+            },
+            {
+              "label": "ત",
+              "shiftLabel": "થ"
+            },
+            {
+              "label": "ચ",
+              "shiftLabel": "છ"
+            },
+            {
+              "label": "ટ",
+              "shiftLabel": "ઠ"
+            }
+          ],
+          [
+            {
+              "label": "⇧",
+              "action": {
+                "type": "shift"
+              },
+              "width": 1.5
+            },
+            {
+              "label": "ં",
+              "shiftLabel": "ઁ",
+              "longPress": [
+                "ઃ"
+              ]
+            },
+            {
+              "label": "મ",
+              "shiftLabel": "ણ"
+            },
+            {
+              "label": "ન"
+            },
+            {
+              "label": "વ"
+            },
+            {
+              "label": "લ",
+              "shiftLabel": "ળ"
+            },
+            {
+              "label": "સ",
+              "shiftLabel": "ષ"
+            },
+            {
+              "label": "ય"
+            },
+            {
+              "label": "શ"
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              },
+              "width": 1.5
+            }
+          ],
+          [
+            {
+              "label": "?123",
+              "action": {
+                "type": "symbols"
+              },
+              "width": 1.5
+            },
+            {
+              "label": ",",
+              "longPress": [
+                "!",
+                "?"
+              ],
+              "role": "Comma"
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 4
+            },
+            {
+              "label": ".",
+              "longPress": [
+                "…",
+                ",",
+                "?",
+                "!",
+                ":",
+                ";"
+              ],
+              "role": "Period"
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.5
+            }
+          ]
+        ]
+      }
+    }
+  }
+}

@@ -1,0 +1,221 @@
+{
+  "format": "wmkeyboard-layout",
+  "version": 1,
+  "layout": {
+    "id": "asset_te_inscript",
+    "name": "తెలుగు (Telugu)",
+    "langId": "te",
+    "version": 2,
+    "layers": {
+      "letters": {
+        "rows": [
+          [
+            {
+              "label": "ౌ",
+              "shiftLabel": "ఔ"
+            },
+            {
+              "label": "ై",
+              "shiftLabel": "ఐ"
+            },
+            {
+              "label": "ా",
+              "shiftLabel": "ఆ"
+            },
+            {
+              "label": "ీ",
+              "shiftLabel": "ఈ"
+            },
+            {
+              "label": "ూ",
+              "shiftLabel": "ఊ"
+            },
+            {
+              "label": "బ",
+              "shiftLabel": "భ"
+            },
+            {
+              "label": "హ",
+              "shiftLabel": "ఙ"
+            },
+            {
+              "label": "గ",
+              "shiftLabel": "ఘ"
+            },
+            {
+              "label": "ద",
+              "shiftLabel": "ధ"
+            },
+            {
+              "label": "జ",
+              "shiftLabel": "ఝ"
+            },
+            {
+              "label": "డ",
+              "shiftLabel": "ఢ"
+            },
+            {
+              "label": "ఞ"
+            }
+          ],
+          [
+            {
+              "label": "ో",
+              "shiftLabel": "ఓ",
+              "longPress": [
+                "ొ",
+                "ఒ"
+              ]
+            },
+            {
+              "label": "ే",
+              "shiftLabel": "ఏ",
+              "longPress": [
+                "ె",
+                "ఎ"
+              ]
+            },
+            {
+              "label": "్",
+              "shiftLabel": "అ"
+            },
+            {
+              "label": "ి",
+              "shiftLabel": "ఇ"
+            },
+            {
+              "label": "ు",
+              "shiftLabel": "ఉ",
+              "longPress": [
+                "ృ",
+                "ఋ",
+                "ౄ",
+                "ౠ"
+              ]
+            },
+            {
+              "label": "ప",
+              "shiftLabel": "ఫ"
+            },
+            {
+              "label": "ర",
+              "shiftLabel": "ఱ"
+            },
+            {
+              "label": "క",
+              "shiftLabel": "ఖ"
+            },
+            {
+              "label": "త",
+              "shiftLabel": "థ"
+            },
+            {
+              "label": "చ",
+              "shiftLabel": "ఛ"
+            },
+            {
+              "label": "ట",
+              "shiftLabel": "ఠ"
+            }
+          ],
+          [
+            {
+              "label": "⇧",
+              "action": {
+                "type": "shift"
+              },
+              "width": 1.5
+            },
+            {
+              "label": "ం",
+              "shiftLabel": "ఁ",
+              "longPress": [
+                "ః"
+              ]
+            },
+            {
+              "label": "మ",
+              "shiftLabel": "ణ"
+            },
+            {
+              "label": "న"
+            },
+            {
+              "label": "వ"
+            },
+            {
+              "label": "ల",
+              "shiftLabel": "ళ"
+            },
+            {
+              "label": "స",
+              "shiftLabel": "శ"
+            },
+            {
+              "label": "ష"
+            },
+            {
+              "label": "య"
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              },
+              "width": 1.5
+            }
+          ],
+          [
+            {
+              "label": "?123",
+              "action": {
+                "type": "symbols"
+              },
+              "width": 1.5
+            },
+            {
+              "label": ",",
+              "longPress": [
+                "!",
+                "?"
+              ],
+              "role": "Comma"
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 4
+            },
+            {
+              "label": ".",
+              "longPress": [
+                "…",
+                ",",
+                "?",
+                "!",
+                ":",
+                ";"
+              ],
+              "role": "Period"
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.5
+            }
+          ]
+        ]
+      }
+    }
+  }
+}

@@ -1,0 +1,170 @@
+{
+  "format": "wmkeyboard-layout",
+  "version": 1,
+  "layout": {
+    "id": "asset_ug_uyghur",
+    "name": "ئۇيغۇرچە (Uyghur)",
+    "langId": "ug",
+    "version": 2,
+    "layers": {
+      "letters": {
+        "rows": [
+          [
+            {
+              "label": "چ"
+            },
+            {
+              "label": "ۋ"
+            },
+            {
+              "label": "ې"
+            },
+            {
+              "label": "ر"
+            },
+            {
+              "label": "ت"
+            },
+            {
+              "label": "ي"
+            },
+            {
+              "label": "ۇ",
+              "shiftLabel": "ۈ"
+            },
+            {
+              "label": "ى"
+            },
+            {
+              "label": "و"
+            },
+            {
+              "label": "پ",
+              "shiftLabel": "ف"
+            }
+          ],
+          [
+            {
+              "label": "ھ"
+            },
+            {
+              "label": "س"
+            },
+            {
+              "label": "د"
+            },
+            {
+              "label": "ا",
+              "shiftLabel": "ئ"
+            },
+            {
+              "label": "ە"
+            },
+            {
+              "label": "گ",
+              "shiftLabel": "ڭ"
+            },
+            {
+              "label": "ج"
+            },
+            {
+              "label": "ك",
+              "shiftLabel": "ق"
+            },
+            {
+              "label": "ل"
+            }
+          ],
+          [
+            {
+              "label": "⇧",
+              "action": {
+                "type": "shift"
+              },
+              "width": 1.5
+            },
+            {
+              "label": "ز",
+              "shiftLabel": "ژ"
+            },
+            {
+              "label": "ش"
+            },
+            {
+              "label": "غ",
+              "shiftLabel": "خ"
+            },
+            {
+              "label": "ۆ"
+            },
+            {
+              "label": "ب"
+            },
+            {
+              "label": "ن"
+            },
+            {
+              "label": "م"
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              },
+              "width": 1.5
+            }
+          ],
+          [
+            {
+              "label": "?123",
+              "action": {
+                "type": "symbols"
+              },
+              "width": 1.5
+            },
+            {
+              "label": ",",
+              "longPress": [
+                "!",
+                "?"
+              ],
+              "role": "Comma"
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 4
+            },
+            {
+              "label": ".",
+              "longPress": [
+                "…",
+                ",",
+                "?",
+                "!",
+                ":",
+                ";"
+              ],
+              "role": "Period"
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.5
+            }
+          ]
+        ]
+      }
+    }
+  }
+}

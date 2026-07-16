@@ -1,0 +1,198 @@
+{
+  "format": "wmkeyboard-layout",
+  "version": 1,
+  "layout": {
+    "id": "asset_hy_phonetic",
+    "name": "Հայերեն հնչյունային (Armenian phonetic)",
+    "langId": "hy",
+    "version": 2,
+    "layers": {
+      "letters": {
+        "rows": [
+          [
+            {
+              "label": "ք"
+            },
+            {
+              "label": "ւ"
+            },
+            {
+              "label": "ե",
+              "longPress": [
+                "է",
+                "և"
+              ]
+            },
+            {
+              "label": "ր",
+              "longPress": [
+                "ռ"
+              ]
+            },
+            {
+              "label": "տ",
+              "longPress": [
+                "թ"
+              ]
+            },
+            {
+              "label": "յ"
+            },
+            {
+              "label": "ը"
+            },
+            {
+              "label": "ի"
+            },
+            {
+              "label": "ո",
+              "longPress": [
+                "օ"
+              ]
+            },
+            {
+              "label": "պ",
+              "longPress": [
+                "փ"
+              ]
+            }
+          ],
+          [
+            {
+              "label": "ա"
+            },
+            {
+              "label": "ս",
+              "longPress": [
+                "շ"
+              ]
+            },
+            {
+              "label": "դ",
+              "longPress": [
+                "ձ"
+              ]
+            },
+            {
+              "label": "ֆ"
+            },
+            {
+              "label": "գ"
+            },
+            {
+              "label": "հ"
+            },
+            {
+              "label": "ջ",
+              "longPress": [
+                "ճ",
+                "չ"
+              ]
+            },
+            {
+              "label": "կ"
+            },
+            {
+              "label": "լ"
+            }
+          ],
+          [
+            {
+              "label": "⇧",
+              "action": {
+                "type": "shift"
+              },
+              "width": 1.5
+            },
+            {
+              "label": "զ",
+              "longPress": [
+                "ժ"
+              ]
+            },
+            {
+              "label": "խ",
+              "longPress": [
+                "ղ"
+              ]
+            },
+            {
+              "label": "ծ",
+              "longPress": [
+                "ց"
+              ]
+            },
+            {
+              "label": "վ"
+            },
+            {
+              "label": "բ"
+            },
+            {
+              "label": "ն"
+            },
+            {
+              "label": "մ"
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              },
+              "width": 1.5
+            }
+          ],
+          [
+            {
+              "label": "?123",
+              "action": {
+                "type": "symbols"
+              },
+              "width": 1.5
+            },
+            {
+              "label": ",",
+              "longPress": [
+                "!",
+                "?"
+              ],
+              "role": "Comma"
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 4
+            },
+            {
+              "label": ".",
+              "longPress": [
+                "…",
+                ",",
+                "?",
+                "!",
+                ":",
+                ";"
+              ],
+              "role": "Period"
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.5
+            }
+          ]
+        ]
+      }
+    }
+  }
+}
