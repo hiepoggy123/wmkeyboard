@@ -17,6 +17,7 @@ package com.wasimaster.wmkeyboard.core.prediction
 class NameIndex private constructor(
     private val words: Map<String, Word>,
     private val nextMap: Map<String, List<String>>,
+    private val trie: WordSource,
 ) {
 
     private data class Word(val display: String, val count: Int)
@@ -32,23 +33,25 @@ class NameIndex private constructor(
     /** The source capitalization of an indexed [word] (lowercase), or null. */
     fun displayOf(word: String): String? = words[word]?.display
 
-    /** Indexed words starting with [prefix] (lowercase), most common first. */
+    /**
+     * Indexed words starting with [prefix] (lowercase), most common first.
+     * Backed by a frequency-weighted [Trie] so completion is bounded near
+     * [limit] rather than scanning and sorting every indexed word on each
+     * keystroke. The trie keys are lowercase; each result is mapped back to
+     * its source capitalization via [words].
+     */
     fun complete(prefix: String, limit: Int): List<Suggestion> {
         if (prefix.isEmpty()) return emptyList()
-        return words.entries
-            .asSequence()
-            .filter { it.key.startsWith(prefix) }
-            .map { Suggestion(it.value.display, it.value.count) }
-            .sortedByDescending { it.frequency }
-            .take(limit)
-            .toList()
+        return trie.complete(prefix, limit).map { s ->
+            Suggestion(words[s.word]?.display ?: s.word, s.frequency)
+        }
     }
 
     /** Words that follow [previous] (lowercase) within an indexed name. */
     fun nextWords(previous: String): List<String> = nextMap[previous].orEmpty()
 
     companion object {
-        val EMPTY = NameIndex(emptyMap(), emptyMap())
+        val EMPTY = NameIndex(emptyMap(), emptyMap(), PackedTrie.EMPTY)
 
         private val SEPARATORS = Regex("[\\s,.()\\[\\]/_-]+")
 
@@ -70,11 +73,15 @@ class NameIndex private constructor(
                     previous = key
                 }
             }
+            // A frequency-weighted packed trie over the lowercase keys powers
+            // prefix completion; `words` still resolves each key to its display.
+            val trie = PackedTrie.of(words.map { (key, word) -> key to word.count })
             return NameIndex(
                 words,
                 next.mapValues { (_, followers) ->
                     followers.values.sortedByDescending { it.count }.map { it.display }
                 },
+                trie,
             )
         }
     }

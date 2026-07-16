@@ -1,13 +1,26 @@
 package com.wasimaster.wmkeyboard.core.prediction
 
 /**
+ * Read-only view over a frequency-weighted word index: prefix completion plus
+ * exact frequency/membership lookup. Implemented by the mutable node-based
+ * [Trie] (used where words are learned at runtime — the user lexicon) and the
+ * immutable [PackedTrie] (used for build-once bundled and imported lists,
+ * where its flat-array layout costs a fraction of the heap).
+ */
+interface WordSource {
+    fun complete(prefix: String, limit: Int): List<Suggestion>
+    fun frequencyOf(word: String): Int
+    fun contains(word: String): Boolean
+}
+
+/**
  * Frequency-weighted prefix trie used for word completion.
  *
  * Lookup walks the prefix, then collects the highest-frequency words in the
  * subtree. The trie is built once from the bundled word list and mutated at
  * runtime as the user's personal words are learned.
  */
-class Trie {
+class Trie : WordSource {
 
     private class Node {
         val children = HashMap<Char, Node>()
@@ -52,7 +65,7 @@ class Trie {
         }
     }
 
-    fun frequencyOf(word: String): Int {
+    override fun frequencyOf(word: String): Int {
         var node = root
         for (ch in word) {
             node = node.children[ch] ?: return 0
@@ -60,10 +73,10 @@ class Trie {
         return if (node.isWord) node.frequency else 0
     }
 
-    fun contains(word: String): Boolean = frequencyOf(word) > 0
+    override fun contains(word: String): Boolean = frequencyOf(word) > 0
 
     /** Returns up to [limit] completions of [prefix], best frequency first. */
-    fun complete(prefix: String, limit: Int = 8): List<Suggestion> {
+    override fun complete(prefix: String, limit: Int): List<Suggestion> {
         if (prefix.isEmpty() || limit <= 0) return emptyList()
         var node = root
         for (ch in prefix) {

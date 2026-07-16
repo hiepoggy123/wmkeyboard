@@ -80,11 +80,12 @@ import com.wasimaster.wmkeyboard.core.prediction.CustomDictionaries
 import com.wasimaster.wmkeyboard.core.prediction.DictionaryLoader
 import com.wasimaster.wmkeyboard.core.prediction.EnglishBengaliMap
 import com.wasimaster.wmkeyboard.core.prediction.KeyProximity
+import com.wasimaster.wmkeyboard.core.prediction.PackedTrie
 import com.wasimaster.wmkeyboard.core.prediction.SeedBigrams
 import com.wasimaster.wmkeyboard.core.prediction.SuggestionEngine
 import com.wasimaster.wmkeyboard.core.prediction.SystemUserDictionary
-import com.wasimaster.wmkeyboard.core.prediction.Trie
 import com.wasimaster.wmkeyboard.core.prediction.UserLexicon
+import com.wasimaster.wmkeyboard.core.prediction.WordSource
 import com.wasimaster.wmkeyboard.core.settings.EmojiFontChoice
 import com.wasimaster.wmkeyboard.core.settings.EmojiInsertMode
 import com.wasimaster.wmkeyboard.core.settings.HapticStyle
@@ -264,6 +265,28 @@ class WMKeyboardService : InputMethodService() {
     private var suggestionCostMs = 0L
 
     /**
+     * The space/enter commit resolution the async suggestion job computed off
+     * the main thread for the word currently being composed — the English
+     * autocorrect target or the Bengali transliteration top. [commitComposing]
+     * reads it instead of running the edit-distance search on the UI thread,
+     * but only when [CommitResolution.typed] still equals the word being
+     * committed; otherwise it recomputes synchronously, so a commit never uses
+     * a stale result. Written from the suggestion coroutine, read on main —
+     * hence [Volatile].
+     */
+    @Volatile
+    private var commitResolution: CommitResolution? = null
+
+    private class CommitResolution(
+        val typed: String,
+        val isBengali: Boolean,
+        /** Transliteration top for Bengali phonetic mode; null otherwise. */
+        val bengaliTop: String?,
+        /** English autocorrect target, or null when the word stands as typed. */
+        val correction: String?,
+    )
+
+    /**
      * The last commit autocorrect changed, as typed-to-committed, so an
      * immediate backspace can undo the correction. Any other input clears it.
      */
@@ -303,7 +326,7 @@ class WMKeyboardService : InputMethodService() {
     private var cachedGestureLexicon: List<Pair<String, Int>>? = null
 
     /** Word lists the user imported, one trie per language (empty when none). */
-    private var customDictionaries: Map<String, Trie> = emptyMap()
+    private var customDictionaries: Map<String, WordSource> = emptyMap()
 
     /** Bundled Bengali entries, kept so the phonetic index can be rebuilt. */
     private var bengaliAssetEntries: List<Pair<String, Int>> = emptyList()
@@ -738,7 +761,7 @@ class WMKeyboardService : InputMethodService() {
                 }
                 customDictVersion = settings.customDictVersion
                 suggestionEngine?.customDictionary =
-                    customDictionaries[activeLang.id] ?: Trie()
+                    customDictionaries[activeLang.id] ?: PackedTrie.EMPTY
                 // Secondary languages feed the strip alongside the primary. English
                 // rides its bundled list (englishAsSecondary); every other language
                 // its imported list.
@@ -773,7 +796,7 @@ class WMKeyboardService : InputMethodService() {
                 }.getOrDefault(SeedBigrams.EMPTY)
                 Triple(lw, v, seeds)
             }
-            val english = Trie().apply { for ((word, freq) in englishEntries) insert(word, freq) }
+            val english = PackedTrie.of(englishEntries)
             gestureLexicon = englishEntries
             invalidateGestureLexicon()
             bengaliAssetEntries = bengaliEntries
@@ -796,7 +819,7 @@ class WMKeyboardService : InputMethodService() {
                 skipAllCapsAutocorrect = _uiState.value.settings.autocorrectSkipAllCaps
                 val lang = _uiState.value.language
                 englishSources = lang.isEnglish
-                customDictionary = customTries[lang.id] ?: Trie()
+                customDictionary = customTries[lang.id] ?: PackedTrie.EMPTY
                 val secondaryIds = _uiState.value.settings.secondaryLanguages[lang.id].orEmpty()
                 secondaryDictionaries = secondaryIds.filter { it != "en" }.mapNotNull { customTries[it] }
                 englishAsSecondary = "en" in secondaryIds && !lang.isEnglish
@@ -2601,21 +2624,24 @@ class WMKeyboardService : InputMethodService() {
             } else {
                 null
             }
+        // The async suggestion job precomputes this word's commit resolution off
+        // the main thread; use it only while it still matches [typed] (a
+        // mismatch means the job hasn't caught up), else compute synchronously.
+        // Either way the result is fresh — the commit never uses a stale strip.
+        val pre = commitResolution?.takeIf { it.typed == typed }
         var corrected: String? = null
         val output = when {
-            // Computed fresh rather than read from the strip: the async
-            // suggestion job may not have caught up with the last keystroke
-            // (especially within the debounce window), and a commit must
-            // never use stale results.
             state.composer.isBengaliPhonetic ->
-                suggestionEngine?.suggest(typed, previousWord = null, avroMode = true)
-                    ?.firstOrNull() ?: state.composer.composeBuffer(typed)
+                (if (pre != null && pre.isBengali) pre.bengaliTop
+                else suggestionEngine?.suggest(typed, previousWord = null, avroMode = true)?.firstOrNull())
+                    ?: state.composer.composeBuffer(typed)
             // Other transliterators (Hangul) commit the composed text directly,
             // with no dictionary pass.
             state.composer.isTransliterating -> state.composer.composeBuffer(typed)
             apostrophized != null -> apostrophized
             autocorrect && state.allowsTypingIntelligence -> {
-                corrected = suggestionEngine?.shouldAutocorrect(typed)?.takeIf { it != typed }
+                corrected = if (pre != null && !pre.isBengali) pre.correction
+                else suggestionEngine?.shouldAutocorrect(typed)?.takeIf { it != typed }
                 corrected ?: typed
             }
             else -> typed
@@ -3059,6 +3085,26 @@ class WMKeyboardService : InputMethodService() {
                     previousWord = previousWord,
                     avroMode = state.composer.isBengaliPhonetic,
                 )
+                // Precompute what a space/enter commit of this exact word would
+                // resolve to, so the commit need not run the edit-distance
+                // search (English) or transliteration ranking (Bengali) on the
+                // main thread. commitComposing consumes it only on a typed match.
+                commitResolution = when {
+                    typed.isEmpty() -> null
+                    state.composer.isBengaliPhonetic -> CommitResolution(
+                        typed = typed,
+                        isBengali = true,
+                        bengaliTop = words.firstOrNull(),
+                        correction = null,
+                    )
+                    state.settings.autocorrect && state.allowsTypingIntelligence -> CommitResolution(
+                        typed = typed,
+                        isBengali = false,
+                        bengaliTop = null,
+                        correction = engine.shouldAutocorrect(typed)?.takeIf { it != typed },
+                    )
+                    else -> null
+                }
                 if (typed.isNotEmpty()) {
                     val emojis = if (state.settings.emojiPrediction) {
                         emojiSuggester?.suggest(typed).orEmpty()
@@ -6692,7 +6738,7 @@ class WMKeyboardService : InputMethodService() {
     }
 
     /** Re-reads every imported word list from disk into per-language tries. */
-    private fun loadCustomDictionaries(): Map<String, Trie> {
+    private fun loadCustomDictionaries(): Map<String, WordSource> {
         CustomDictionaries.migrateLegacyFolders(filesDir)
         return LanguageRegistry.all.associate { it.id to CustomDictionaries.trie(filesDir, it.id) }
     }
