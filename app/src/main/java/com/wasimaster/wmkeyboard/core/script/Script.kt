@@ -19,7 +19,7 @@ enum class ScriptId {
     DEVANAGARI, BENGALI, GURMUKHI, GUJARATI, ORIYA,
     TAMIL, TELUGU, KANNADA, MALAYALAM, SINHALA,
     THAI, LAO, KHMER, MYANMAR,
-    HANGUL, ETHIOPIC,
+    HANGUL, ETHIOPIC, THAANA,
 }
 
 /** Which way the script runs. Drives the suggestion strip's layout direction. */
@@ -266,6 +266,29 @@ object ScriptRegistry {
             composer = ComposerType.INDIC_CLUSTER,
             fontHint = FontHint.GENERIC,
             unicodeRange = 0x1000..0x109F,
+        ),
+        // Ethiopic (Amharic, Tigrinya …) is an abugida written left-to-right and
+        // uncased. Its ~34 base consonants each have seven vowel orders; the
+        // layout puts the base order on the key and the other six on long-press,
+        // so it composes 1:1 with no special composer (system Noto face).
+        ScriptDef(
+            id = ScriptId.ETHIOPIC,
+            direction = TextDirection.LTR,
+            hasLetterCase = false,
+            composer = ComposerType.NONE,
+            fontHint = FontHint.GENERIC,
+            unicodeRange = 0x1200..0x137F,
+        ),
+        // Thaana (Dhivehi) is written right-to-left; consonants carry vowel
+        // diacritics (fili) typed after them, so like Arabic it composes 1:1 and
+        // the field renders RTL from the visual-order grid.
+        ScriptDef(
+            id = ScriptId.THAANA,
+            direction = TextDirection.RTL,
+            hasLetterCase = false,
+            composer = ComposerType.NONE,
+            fontHint = FontHint.GENERIC,
+            unicodeRange = 0x0780..0x07BF,
         ),
     ).associateBy { it.id }
 

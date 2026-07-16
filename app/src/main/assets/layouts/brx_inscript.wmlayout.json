@@ -1,0 +1,226 @@
+{
+  "format": "wmkeyboard-layout",
+  "version": 1,
+  "layout": {
+    "id": "asset_brx_inscript",
+    "name": "बड़ो (Bodo)",
+    "langId": "brx",
+    "version": 2,
+    "layers": {
+      "letters": {
+        "rows": [
+          [
+            {
+              "label": "ौ",
+              "shiftLabel": "औ"
+            },
+            {
+              "label": "ै",
+              "shiftLabel": "ऐ"
+            },
+            {
+              "label": "ा",
+              "shiftLabel": "आ"
+            },
+            {
+              "label": "ी",
+              "shiftLabel": "ई"
+            },
+            {
+              "label": "ू",
+              "shiftLabel": "ऊ"
+            },
+            {
+              "label": "ब",
+              "shiftLabel": "भ"
+            },
+            {
+              "label": "ह",
+              "shiftLabel": "ङ"
+            },
+            {
+              "label": "ग",
+              "shiftLabel": "घ"
+            },
+            {
+              "label": "द",
+              "shiftLabel": "ध"
+            },
+            {
+              "label": "ज",
+              "shiftLabel": "झ",
+              "longPress": [
+                "ञ"
+              ]
+            },
+            {
+              "label": "ड",
+              "shiftLabel": "ढ",
+              "longPress": [
+                "ड़",
+                "ढ़",
+                "़"
+              ]
+            }
+          ],
+          [
+            {
+              "label": "ो",
+              "shiftLabel": "ओ",
+              "longPress": [
+                "ॉ",
+                "ऑ"
+              ]
+            },
+            {
+              "label": "े",
+              "shiftLabel": "ए",
+              "longPress": [
+                "ॅ",
+                "ऍ"
+              ]
+            },
+            {
+              "label": "्",
+              "shiftLabel": "अ"
+            },
+            {
+              "label": "ि",
+              "shiftLabel": "इ"
+            },
+            {
+              "label": "ु",
+              "shiftLabel": "उ"
+            },
+            {
+              "label": "प",
+              "shiftLabel": "फ"
+            },
+            {
+              "label": "र",
+              "shiftLabel": "ऱ"
+            },
+            {
+              "label": "क",
+              "shiftLabel": "ख"
+            },
+            {
+              "label": "त",
+              "shiftLabel": "थ"
+            },
+            {
+              "label": "च",
+              "shiftLabel": "छ"
+            },
+            {
+              "label": "ट",
+              "shiftLabel": "ठ"
+            }
+          ],
+          [
+            {
+              "label": "⇧",
+              "action": {
+                "type": "shift"
+              },
+              "width": 1.5
+            },
+            {
+              "label": "ृ",
+              "shiftLabel": "ऋ"
+            },
+            {
+              "label": "ं",
+              "shiftLabel": "ँ",
+              "longPress": [
+                "ः",
+                "ॐ"
+              ]
+            },
+            {
+              "label": "म",
+              "shiftLabel": "ण"
+            },
+            {
+              "label": "न",
+              "shiftLabel": "ऩ"
+            },
+            {
+              "label": "व"
+            },
+            {
+              "label": "ल",
+              "shiftLabel": "ळ"
+            },
+            {
+              "label": "स",
+              "shiftLabel": "श"
+            },
+            {
+              "label": "ष"
+            },
+            {
+              "label": "य"
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              },
+              "width": 1.5
+            }
+          ],
+          [
+            {
+              "label": "?123",
+              "action": {
+                "type": "symbols"
+              },
+              "width": 1.5
+            },
+            {
+              "label": ",",
+              "longPress": [
+                "!",
+                "?"
+              ],
+              "role": "Comma"
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 4
+            },
+            {
+              "label": ".",
+              "longPress": [
+                "…",
+                ",",
+                "?",
+                "!",
+                ":",
+                ";"
+              ],
+              "role": "Period"
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.5
+            }
+          ]
+        ]
+      }
+    }
+  }
+}

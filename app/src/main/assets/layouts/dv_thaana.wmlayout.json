@@ -1,0 +1,188 @@
+{
+  "format": "wmkeyboard-layout",
+  "version": 1,
+  "layout": {
+    "id": "asset_dv_thaana",
+    "name": "ދިވެހި (Dhivehi)",
+    "langId": "dv",
+    "version": 2,
+    "layers": {
+      "letters": {
+        "rows": [
+          [
+            {
+              "label": "ހ",
+              "shiftLabel": "ޙ",
+              "longPress": [
+                "ޚ"
+              ]
+            },
+            {
+              "label": "ށ",
+              "shiftLabel": "ަ"
+            },
+            {
+              "label": "ނ",
+              "shiftLabel": "ާ"
+            },
+            {
+              "label": "ރ",
+              "shiftLabel": "ި"
+            },
+            {
+              "label": "ބ",
+              "shiftLabel": "ީ"
+            },
+            {
+              "label": "ޅ",
+              "shiftLabel": "ު"
+            },
+            {
+              "label": "ކ",
+              "shiftLabel": "ޤ"
+            },
+            {
+              "label": "އ",
+              "shiftLabel": "ޢ"
+            },
+            {
+              "label": "ވ",
+              "shiftLabel": "ޥ"
+            }
+          ],
+          [
+            {
+              "label": "މ",
+              "shiftLabel": "ޫ"
+            },
+            {
+              "label": "ފ",
+              "shiftLabel": "ެ"
+            },
+            {
+              "label": "ދ",
+              "shiftLabel": "ޛ"
+            },
+            {
+              "label": "ތ",
+              "shiftLabel": "ޘ"
+            },
+            {
+              "label": "ލ",
+              "shiftLabel": "ޭ"
+            },
+            {
+              "label": "ގ",
+              "shiftLabel": "ޣ"
+            },
+            {
+              "label": "ޱ",
+              "shiftLabel": "ޮ"
+            },
+            {
+              "label": "ސ",
+              "shiftLabel": "ޝ",
+              "longPress": [
+                "ޞ"
+              ]
+            },
+            {
+              "label": "ޑ",
+              "shiftLabel": "ޟ"
+            }
+          ],
+          [
+            {
+              "label": "⇧",
+              "action": {
+                "type": "shift"
+              },
+              "width": 1.5
+            },
+            {
+              "label": "ޒ",
+              "shiftLabel": "ޜ",
+              "longPress": [
+                "ޡ"
+              ]
+            },
+            {
+              "label": "ޓ",
+              "shiftLabel": "ޠ"
+            },
+            {
+              "label": "ޔ",
+              "shiftLabel": "ޯ"
+            },
+            {
+              "label": "ޕ",
+              "shiftLabel": "ް"
+            },
+            {
+              "label": "ޖ"
+            },
+            {
+              "label": "ޗ"
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              },
+              "width": 1.5
+            }
+          ],
+          [
+            {
+              "label": "?123",
+              "action": {
+                "type": "symbols"
+              },
+              "width": 1.5
+            },
+            {
+              "label": ",",
+              "longPress": [
+                "!",
+                "?"
+              ],
+              "role": "Comma"
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 4
+            },
+            {
+              "label": ".",
+              "longPress": [
+                "…",
+                ",",
+                "?",
+                "!",
+                ":",
+                ";"
+              ],
+              "role": "Period"
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.5
+            }
+          ]
+        ]
+      }
+    }
+  }
+}
