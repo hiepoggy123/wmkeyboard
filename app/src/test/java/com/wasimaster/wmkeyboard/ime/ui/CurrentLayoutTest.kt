@@ -8,6 +8,7 @@ import com.wasimaster.wmkeyboard.core.layout.KeyboardLayout
 import com.wasimaster.wmkeyboard.core.layout.LayoutLayer
 import com.wasimaster.wmkeyboard.core.layout.compile
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
+import com.wasimaster.wmkeyboard.core.settings.LongPressLetterActions
 import com.wasimaster.wmkeyboard.ime.FieldKind
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
 import com.wasimaster.wmkeyboard.ime.LayoutSet
@@ -45,29 +46,52 @@ class CurrentLayoutTest {
 
     /**
      * With every adaptation off the grid is handed back as-is rather than
-     * rebuilt. The clipboard shortcuts and the globe-as-emoji key both ship
-     * *on*, so they have to be switched off explicitly to get here.
+     * rebuilt. The clipboard shortcuts ship off by default; globe-as-emoji
+     * ships *on*, so it has to be switched off explicitly to get here.
      */
     @Test
     fun `a plain text field with no adaptations returns the layout untouched`() {
         val s = state(
             settings = KeyboardSettings(
-                longPressASelectAll = false,
-                longPressCCopy = false,
-                longPressVPaste = false,
-                longPressXCut = false,
                 globeAsEmoji = false,
             ),
         )
         assertEquals(s.layouts.letters, currentLayout(s))
     }
 
-    /** The clipboard shortcuts ship on, so a plain field does get them. */
+    /** The clipboard/undo/redo shortcuts ship off, so a plain field doesn't get them. */
     @Test
-    fun `the default clipboard shortcuts land on a c v x`() {
+    fun `the default clipboard shortcuts stay off`() {
         val layout = currentLayout(state())
+        assertNull(layout.keys().first { it.label == "a" }.clipboardAction)
+        assertNull(layout.keys().first { it.label == "v" }.clipboardAction)
+        assertNull(layout.keys().first { it.label == "z" }.clipboardAction)
+        assertNull(layout.keys().first { it.label == "y" }.clipboardAction)
+    }
+
+    /** Enabling each toggle lands its shortcut on the matching key, including Z/Y. */
+    @Test
+    fun `enabled clipboard shortcuts land on a c v x z y`() {
+        val layout = currentLayout(
+            state(
+                settings = KeyboardSettings(
+                    longPressLetterActions = LongPressLetterActions(
+                        selectAll = true,
+                        copy = true,
+                        paste = true,
+                        cut = true,
+                        undo = true,
+                        redo = true,
+                    ),
+                ),
+            ),
+        )
         assertNotNull(layout.keys().first { it.label == "a" }.clipboardAction)
+        assertNotNull(layout.keys().first { it.label == "c" }.clipboardAction)
         assertNotNull(layout.keys().first { it.label == "v" }.clipboardAction)
+        assertNotNull(layout.keys().first { it.label == "x" }.clipboardAction)
+        assertNotNull(layout.keys().first { it.label == "z" }.clipboardAction)
+        assertNotNull(layout.keys().first { it.label == "y" }.clipboardAction)
         assertNull(layout.keys().first { it.label == "q" }.clipboardAction)
     }
 
@@ -161,7 +185,12 @@ class CurrentLayoutTest {
             ),
         )
         val layout = currentLayout(
-            state(shouting, settings = KeyboardSettings(longPressASelectAll = true)),
+            state(
+                shouting,
+                settings = KeyboardSettings(
+                    longPressLetterActions = LongPressLetterActions(selectAll = true),
+                ),
+            ),
         )
         assertNotNull(
             "a key labelled A that outputs a should still get select-all",

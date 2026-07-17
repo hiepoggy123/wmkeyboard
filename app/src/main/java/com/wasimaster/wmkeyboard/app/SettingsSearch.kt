@@ -108,6 +108,8 @@ private val SettingRows: List<SettingsSearchEntry> = listOfNotNull(
     entry("Hold C to copy", "Copies the selection, or everything if nothing is selected", "Key press", "keypress"),
     entry("Hold X to cut", "Cuts the selection, or everything if nothing is selected", "Key press", "keypress"),
     entry("Hold V to paste", "Long-pressing V pastes the clipboard", "Key press", "keypress"),
+    entry("Hold Z to undo", "Long-pressing Z undoes the last edit", "Key press", "keypress"),
+    entry("Hold Y to redo", "Long-pressing Y redoes the last undone edit", "Key press", "keypress"),
     entry("Keyboard themes", "Light/dark/AMOLED, colors, background images, import/export", "Appearance", "appearance"),
     entry("Auto theme", "Pick a light and a dark theme that switch with the system setting", "Appearance › Themes", "themes"),
     entry("Landscape background image", "A separate theme background for landscape, editable per theme", "Appearance › Themes", "themes"),

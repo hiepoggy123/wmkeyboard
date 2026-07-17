@@ -4972,14 +4972,17 @@ internal fun currentLayout(state: KeyboardUiState): KeyboardLayout {
     // letters' long press are redundant — drop them so those keys go straight
     // to their accents (or lose their popup entirely).
     val stripDigits = state.settings.numberRow && state.layoutMode == LayoutMode.LETTERS
-    // A/C/V/X clipboard shortcuts only make sense on Latin letter keys.
+    // A/C/V/X/Z/Y clipboard/undo/redo shortcuts only make sense on Latin letter keys.
     val clipboardKeys: Map<String, ClipboardKeyAction> =
         if (state.layoutMode == LayoutMode.LETTERS && !state.composer.isClusterShaping) {
+            val longPress = state.settings.longPressLetterActions
             buildMap {
-                if (state.settings.longPressASelectAll) put("a", ClipboardKeyAction.SELECT_ALL)
-                if (state.settings.longPressCCopy) put("c", ClipboardKeyAction.COPY)
-                if (state.settings.longPressVPaste) put("v", ClipboardKeyAction.PASTE)
-                if (state.settings.longPressXCut) put("x", ClipboardKeyAction.CUT)
+                if (longPress.selectAll) put("a", ClipboardKeyAction.SELECT_ALL)
+                if (longPress.copy) put("c", ClipboardKeyAction.COPY)
+                if (longPress.paste) put("v", ClipboardKeyAction.PASTE)
+                if (longPress.cut) put("x", ClipboardKeyAction.CUT)
+                if (longPress.undo) put("z", ClipboardKeyAction.UNDO)
+                if (longPress.redo) put("y", ClipboardKeyAction.REDO)
             }
         } else {
             emptyMap()

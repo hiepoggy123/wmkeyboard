@@ -137,8 +137,8 @@ sealed interface KeyAction {
  */
 enum class ModifierKey { CTRL, ALT, META }
 
-/** Clipboard shortcut a letter key can perform on long press (A/C/V/X). */
-enum class ClipboardKeyAction { SELECT_ALL, COPY, PASTE, CUT }
+/** Clipboard/undo/redo shortcut a letter key can perform on long press (A/C/V/X/Z/Y). */
+enum class ClipboardKeyAction { SELECT_ALL, COPY, PASTE, CUT, UNDO, REDO }
 
 /**
  * What a key means to the runtime beyond the character it types.
