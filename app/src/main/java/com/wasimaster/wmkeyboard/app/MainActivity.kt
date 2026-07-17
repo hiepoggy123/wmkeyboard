@@ -3732,30 +3732,53 @@ private fun FontSettings(repository: SettingsRepository, settings: KeyboardSetti
             },
         )
     }
+    // Curated font pickers for the other non-Latin scripts, each shown only while
+    // a language using that script is enabled. These offer the script's automatic
+    // Noto face plus a few alternatives (no custom import — that stays English/
+    // Bengali-only). Latin/Cyrillic/Greek follow the English font above.
+    val enabledScripts = settings.enabledLanguages.mapTo(mutableSetOf()) { it.script }
+    for (choices in KeyboardFonts.scriptFontChoices) {
+        if (choices.script !in enabledScripts) continue
+        FontPickerSection(
+            header = "${choices.label} font",
+            sample = choices.sample,
+            selectedId = settings.scriptFontIds[choices.script.name] ?: KeyboardFonts.DEFAULT_ID,
+            googleNames = choices.fonts,
+            defaultLabel = "Automatic (Noto)",
+            onSelect = { id -> scope.launch { repository.setScriptFontId(choices.script.name, id) } },
+        )
+    }
     Spacer(Modifier.height(16.dp))
 }
 
-/** One script's font list: default, Google faces, the imported file, import button. */
+/**
+ * One script's font list: the default row, curated Google faces, and — for the
+ * scripts that support it (English/Bengali) — the imported file and an import
+ * button. Scripts that only offer curated faces pass [customFile] null; their
+ * default row is relabelled via [defaultLabel] since it is the script's automatic
+ * Noto face rather than the raw system font.
+ */
 @Composable
 private fun FontPickerSection(
     header: String,
     sample: String,
     selectedId: String,
     googleNames: List<String>,
-    customId: String,
-    customFile: java.io.File,
-    customName: String,
     onSelect: (String) -> Unit,
-    onImport: (android.net.Uri) -> Unit,
+    defaultLabel: String = "System default",
+    customId: String = KeyboardFonts.CUSTOM_ID,
+    customFile: java.io.File? = null,
+    customName: String = "",
+    onImport: ((android.net.Uri) -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val importFont = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument(),
-    ) { uri -> if (uri != null) onImport(uri) }
+    ) { uri -> if (uri != null) onImport?.invoke(uri) }
     SettingsGroup(header) {
         item {
             FontChoiceRow(
-                label = "System default",
+                label = defaultLabel,
                 family = null,
                 sample = sample,
                 selected = selectedId == KeyboardFonts.DEFAULT_ID,
@@ -3772,7 +3795,7 @@ private fun FontPickerSection(
                 ) { onSelect(id) }
             }
         }
-        if (customFile.exists()) {
+        if (customFile?.exists() == true) {
             item {
                 FontChoiceRow(
                     label = customName.ifBlank { "Imported font" },
@@ -3782,11 +3805,13 @@ private fun FontPickerSection(
                 ) { onSelect(customId) }
             }
         }
-        item {
-            OutlinedButton(
-                onClick = { importFont.launch(FONT_MIME_TYPES) },
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-            ) { Text("Import font file (.ttf / .otf)") }
+        if (onImport != null) {
+            item {
+                OutlinedButton(
+                    onClick = { importFont.launch(FONT_MIME_TYPES) },
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                ) { Text("Import font file (.ttf / .otf)") }
+            }
         }
     }
 }

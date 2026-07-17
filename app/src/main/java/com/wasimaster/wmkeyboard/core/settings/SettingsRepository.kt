@@ -562,6 +562,14 @@ data class KeyboardSettings(
     /** Display name of the imported custom Bengali font file. */
     val customBengaliFontName: String = "",
     /**
+     * Per-script font choice for the other non-Latin scripts, keyed by
+     * [com.wasimaster.wmkeyboard.core.script.ScriptId] name. Value is "default"
+     * (the script's automatic Noto face) or "google:<Name>" from that script's
+     * curated list. Absent scripts use their automatic face. Latin/Cyrillic/Greek
+     * follow [keyFontId] and Bengali has [bengaliFontId], so neither appears here.
+     */
+    val scriptFontIds: Map<String, String> = emptyMap(),
+    /**
      * Bumped by the settings app whenever it edits the learned-words file
      * directly, so the IME (which keeps the lexicon in memory) reloads it.
      */
@@ -1322,6 +1330,22 @@ private fun decodePerAppLayouts(raw: String): Map<String, String> =
         }
         .toMap()
 
+/** Serializes the per-script font map to a compact `SCRIPT=fontId;...` string. */
+private fun encodeScriptFontIds(map: Map<String, String>): String =
+    map.entries
+        .filter { it.key.isNotEmpty() && it.value.isNotEmpty() }
+        .joinToString(";") { (script, fontId) -> "$script=$fontId" }
+
+private fun decodeScriptFontIds(raw: String): Map<String, String> =
+    raw.split(';')
+        .filter { it.isNotEmpty() }
+        .mapNotNull { entry ->
+            val eq = entry.indexOf('=')
+            if (eq <= 0 || eq == entry.length - 1) return@mapNotNull null
+            entry.substring(0, eq) to entry.substring(eq + 1)
+        }
+        .toMap()
+
 class SettingsRepository(private val context: Context) {
 
     companion object {
@@ -1382,6 +1406,7 @@ class SettingsRepository(private val context: Context) {
         private val CUSTOM_FONT_NAME = stringPreferencesKey("custom_font_name")
         private val BENGALI_FONT_ID = stringPreferencesKey("bengali_font_id")
         private val CUSTOM_BENGALI_FONT_NAME = stringPreferencesKey("custom_bengali_font_name")
+        private val SCRIPT_FONT_IDS = stringPreferencesKey("script_font_ids")
         private val LEXICON_VERSION = intPreferencesKey("lexicon_version")
         private val CUSTOM_DICT_VERSION = intPreferencesKey("custom_dict_version")
         private val EMOJI_FONT = stringPreferencesKey("emoji_font")
@@ -1738,6 +1763,7 @@ class SettingsRepository(private val context: Context) {
             keyFontId = p[KEY_FONT_ID] ?: defaults.keyFontId,
             customFontName = p[CUSTOM_FONT_NAME] ?: defaults.customFontName,
             bengaliFontId = p[BENGALI_FONT_ID] ?: defaults.bengaliFontId,
+            scriptFontIds = p[SCRIPT_FONT_IDS]?.let { decodeScriptFontIds(it) } ?: defaults.scriptFontIds,
             customBengaliFontName = p[CUSTOM_BENGALI_FONT_NAME]
                 ?: defaults.customBengaliFontName,
             lexiconVersion = p[LEXICON_VERSION] ?: defaults.lexiconVersion,
@@ -2649,6 +2675,19 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setBengaliFontId(value: String) =
         context.dataStore.edit { it[BENGALI_FONT_ID] = value }
+
+    /**
+     * Selects [fontId] for [script] (a [com.wasimaster.wmkeyboard.core.script.ScriptId]
+     * name). "default" drops the entry so the script falls back to its automatic
+     * Noto face and the map stays compact.
+     */
+    suspend fun setScriptFontId(script: String, fontId: String) =
+        context.dataStore.edit { prefs ->
+            val current = prefs[SCRIPT_FONT_IDS]?.let { decodeScriptFontIds(it) } ?: emptyMap()
+            val next = if (fontId == "default") current - script else current + (script to fontId)
+            if (next == current) return@edit
+            prefs[SCRIPT_FONT_IDS] = encodeScriptFontIds(next)
+        }
 
     /** Records the imported Bengali font's display name and selects it. */
     suspend fun setCustomBengaliFont(name: String) =

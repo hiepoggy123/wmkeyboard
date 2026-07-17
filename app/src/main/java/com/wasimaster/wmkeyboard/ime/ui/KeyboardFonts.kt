@@ -54,13 +54,15 @@ object KeyboardFonts {
     )
 
     /**
-     * The Noto face each non-Latin script draws with, so a script always gets a
-     * correct glyph even when the user's key font is a Latin-only display face.
-     * Latin, Cyrillic and Greek are absent — they ride the user's [keyFontId]
-     * choice (Noto Sans, the system default, covers all three) — and Bengali has
-     * its own dedicated [bengaliFontId] picker, so it is resolved before this map.
-     * A name the Google Fonts provider does not recognise simply falls back to
-     * the system face, which carries the glyph anyway.
+     * The default (automatic) Noto face each non-Latin script draws with, so a
+     * script always gets a correct glyph even when the user's key font is a
+     * Latin-only display face. Latin, Cyrillic and Greek are absent — they ride
+     * the user's [keyFontId] choice (Noto Sans, the system default, covers all
+     * three) — and Bengali has its own dedicated [bengaliFontId] picker, so it is
+     * resolved before this map. Scripts here may additionally expose a handful of
+     * pickable alternatives via [scriptFontChoices]; when the user has not chosen
+     * one this face is used. A name the Google Fonts provider does not recognise
+     * simply falls back to the system face, which carries the glyph anyway.
      */
     private val scriptGoogleFonts: Map<ScriptId, String> = mapOf(
         ScriptId.ARMENIAN to "Noto Sans Armenian",
@@ -88,12 +90,127 @@ object KeyboardFonts {
     )
 
     /**
-     * The [FontFamily] a [scriptId] wants, or null for the scripts that follow the
-     * user's own font choice (Latin/Cyrillic/Greek) or have their own picker
-     * (Bengali). Used by the keyboard theme to pick a face per active script.
+     * A curated set of pickable font alternatives for one non-Latin script, shown
+     * in settings only while a language using that script is enabled. [fonts] are
+     * Google Fonts *alternatives* to the script's automatic [scriptGoogleFonts]
+     * face — the picker lists that automatic face first, so these never repeat it.
+     * All carry the script's glyphs; anything missing falls back to the system
+     * font per-glyph. Scripts absent from this list (e.g. Thaana, which has no
+     * second good face) still render with their automatic Noto face — they simply
+     * get no picker. Bengali is absent too: it keeps its own [bengaliGoogleFonts]
+     * picker, which also allows importing a custom file.
      */
-    fun scriptFamily(scriptId: ScriptId): FontFamily? =
-        scriptGoogleFonts[scriptId]?.let { googleFamily(it) }
+    data class ScriptFontChoices(
+        val script: ScriptId,
+        val label: String,
+        val sample: String,
+        val fonts: List<String>,
+    )
+
+    val scriptFontChoices: List<ScriptFontChoices> = listOf(
+        ScriptFontChoices(
+            ScriptId.ARABIC, "Arabic", "السلام عليكم · ابجد",
+            listOf("Noto Sans Arabic", "Noto Kufi Arabic", "Amiri", "Cairo", "Tajawal", "Markazi Text", "Reem Kufi"),
+        ),
+        ScriptFontChoices(
+            ScriptId.HEBREW, "Hebrew", "שלום · אבגד הוז",
+            listOf("Noto Serif Hebrew", "Rubik", "Heebo", "Assistant", "Frank Ruhl Libre", "David Libre", "Secular One"),
+        ),
+        ScriptFontChoices(
+            ScriptId.ARMENIAN, "Armenian", "Բարեւ · Աբգդ",
+            listOf("Noto Serif Armenian"),
+        ),
+        ScriptFontChoices(
+            ScriptId.GEORGIAN, "Georgian", "გამარჯობა · აბგდ",
+            listOf("Noto Serif Georgian"),
+        ),
+        ScriptFontChoices(
+            ScriptId.DEVANAGARI, "Devanagari", "नमस्ते · कखगघ",
+            listOf("Noto Serif Devanagari", "Hind", "Mukta", "Baloo 2", "Tiro Devanagari Hindi", "Rozha One", "Kalam"),
+        ),
+        ScriptFontChoices(
+            ScriptId.GURMUKHI, "Gurmukhi", "ਸਤ ਸ੍ਰੀ ਅਕਾਲ · ਕਖਗ",
+            listOf("Noto Serif Gurmukhi", "Mukta Mahee", "Baloo Paaji 2"),
+        ),
+        ScriptFontChoices(
+            ScriptId.GUJARATI, "Gujarati", "નમસ્તે · કખગઘ",
+            listOf("Noto Serif Gujarati", "Mukta Vaani", "Hind Vadodara", "Baloo Bhai 2", "Shrikhand"),
+        ),
+        ScriptFontChoices(
+            ScriptId.ORIYA, "Odia", "ନମସ୍କାର · କଖଗ",
+            listOf("Noto Serif Oriya", "Baloo Bhaina 2"),
+        ),
+        ScriptFontChoices(
+            ScriptId.TAMIL, "Tamil", "வணக்கம் · கஙச",
+            listOf("Noto Serif Tamil", "Hind Madurai", "Mukta Malar", "Baloo Thambi 2", "Catamaran", "Pavanam"),
+        ),
+        ScriptFontChoices(
+            ScriptId.TELUGU, "Telugu", "నమస్కారం · కఖగ",
+            listOf("Noto Serif Telugu", "Hind Guntur", "Mallanna", "Mandali", "Ramabhadra", "Baloo Tammudu 2", "Suranna"),
+        ),
+        ScriptFontChoices(
+            ScriptId.KANNADA, "Kannada", "ನಮಸ್ಕಾರ · ಕಖಗ",
+            listOf("Noto Serif Kannada", "Baloo Tamma 2", "Benne", "Akaya Kanadaka"),
+        ),
+        ScriptFontChoices(
+            ScriptId.MALAYALAM, "Malayalam", "നമസ്കാരം · കഖഗ",
+            listOf("Noto Serif Malayalam", "Manjari", "Baloo Chettan 2", "Gayathri", "Anek Malayalam", "Chilanka"),
+        ),
+        ScriptFontChoices(
+            ScriptId.SINHALA, "Sinhala", "ආයුබෝවන් · කඛග",
+            listOf("Noto Serif Sinhala", "Abhaya Libre", "Yaldevi", "Gemunu Libre"),
+        ),
+        ScriptFontChoices(
+            ScriptId.THAI, "Thai", "สวัสดี · กขคง",
+            listOf("Noto Serif Thai", "Sarabun", "Kanit", "Prompt", "Mitr", "Pridi", "Bai Jamjuree", "K2D", "Mali"),
+        ),
+        ScriptFontChoices(
+            ScriptId.LAO, "Lao", "ສະບາຍດີ · ກຂຄ",
+            listOf("Noto Serif Lao", "Noto Sans Lao Looped"),
+        ),
+        ScriptFontChoices(
+            ScriptId.KHMER, "Khmer", "សួស្តី · កខគ",
+            listOf("Noto Serif Khmer", "Battambang", "Hanuman", "Suwannaphum", "Koulen", "Moul", "Content", "Kantumruy Pro"),
+        ),
+        ScriptFontChoices(
+            ScriptId.MYANMAR, "Myanmar", "မင်္ဂလာပါ · ကခဂ",
+            listOf("Noto Serif Myanmar", "Padauk"),
+        ),
+        ScriptFontChoices(
+            ScriptId.ETHIOPIC, "Ethiopic", "ሰላም · ሀለሐመ",
+            listOf("Noto Serif Ethiopic", "Abyssinica SIL"),
+        ),
+        ScriptFontChoices(
+            ScriptId.HANGUL, "Korean", "안녕하세요 · 가나다라",
+            listOf("Noto Serif KR", "Nanum Gothic", "Nanum Myeongjo", "Gowun Dodum", "Do Hyeon", "Jua", "Gothic A1", "Black Han Sans", "Sunflower"),
+        ),
+        ScriptFontChoices(
+            ScriptId.JAPANESE, "Japanese", "こんにちは · 日本語 あいう",
+            listOf("Noto Serif JP", "M PLUS 1p", "M PLUS Rounded 1c", "Sawarabi Mincho", "Sawarabi Gothic", "Kosugi Maru", "Zen Maru Gothic", "Shippori Mincho", "Dela Gothic One"),
+        ),
+        ScriptFontChoices(
+            ScriptId.HAN, "Chinese", "你好 · 汉字 中文",
+            listOf("Noto Serif SC", "Noto Sans TC", "Noto Serif TC", "ZCOOL XiaoWei", "ZCOOL QingKe HuangYou", "ZCOOL KuaiLe", "Ma Shan Zheng", "Long Cang", "Zhi Mang Xing"),
+        ),
+    )
+
+    private val scriptFontChoicesById: Map<ScriptId, ScriptFontChoices> =
+        scriptFontChoices.associateBy { it.script }
+
+    fun scriptFontChoices(scriptId: ScriptId): ScriptFontChoices? = scriptFontChoicesById[scriptId]
+
+    /**
+     * The [FontFamily] a [scriptId] wants, honouring the user's per-script pick
+     * ([selectedId], a `google:<Name>` id or [DEFAULT_ID]) and otherwise the
+     * script's automatic Noto face. Null for the scripts that follow the user's
+     * own font choice (Latin/Cyrillic/Greek) or have their own picker (Bengali).
+     * Used by the keyboard theme to pick a face per active script.
+     */
+    fun scriptFamily(scriptId: ScriptId, selectedId: String = DEFAULT_ID): FontFamily? {
+        val name = selectedId.takeIf { it.startsWith(GOOGLE_PREFIX) }?.removePrefix(GOOGLE_PREFIX)
+            ?: scriptGoogleFonts[scriptId]
+        return name?.let { googleFamily(it) }
+    }
 
     fun googleId(name: String): String = GOOGLE_PREFIX + name
 

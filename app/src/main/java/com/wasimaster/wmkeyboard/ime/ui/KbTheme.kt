@@ -500,13 +500,16 @@ fun KeyboardThemeProvider(settings: KeyboardSettings, content: @Composable () ->
         scriptId,
         settings.keyFontId,
         settings.bengaliFontId,
+        settings.scriptFontIds,
         settings.customFontName,
         settings.customBengaliFontName,
     ) {
         when (settings.script.fontHint) {
             FontHint.BENGALI -> KeyboardFonts.family(context, settings.bengaliFontId)
-            else -> KeyboardFonts.scriptFamily(scriptId)
-                ?: KeyboardFonts.family(context, settings.keyFontId)
+            else -> KeyboardFonts.scriptFamily(
+                scriptId,
+                settings.scriptFontIds[scriptId.name] ?: KeyboardFonts.DEFAULT_ID,
+            ) ?: KeyboardFonts.family(context, settings.keyFontId)
         }
     }
     val emojiFontFamily = remember(settings.emojiFont) {
