@@ -491,15 +491,23 @@ fun KeyboardThemeProvider(settings: KeyboardSettings, content: @Composable () ->
     // and mixed suggestion strips stay in one face while Bengali is active.
     // (Phase 5 fans this out to a per-script font map; for now the two shipped
     // scripts keep their existing choices.)
-    val fontId = when (settings.script.fontHint) {
-        FontHint.BENGALI -> settings.bengaliFontId
-        // Latin and — until a full per-script font map lands — every other
-        // script use the main font; Android falls back to a system face for
-        // glyphs it lacks (Korean, etc.).
-        else -> settings.keyFontId
-    }
-    val keyFontFamily = remember(fontId, settings.customFontName, settings.customBengaliFontName) {
-        KeyboardFonts.family(context, fontId)
+    // Per-script font: Bengali keeps its own user-picked face; every other
+    // non-Latin script draws with its dedicated Noto face so its glyphs are
+    // correct even when the user's key font is a Latin-only display face; Latin
+    // (and Cyrillic/Greek, which ride the Latin faces) use the user's key font.
+    val scriptId = settings.script.id
+    val keyFontFamily = remember(
+        scriptId,
+        settings.keyFontId,
+        settings.bengaliFontId,
+        settings.customFontName,
+        settings.customBengaliFontName,
+    ) {
+        when (settings.script.fontHint) {
+            FontHint.BENGALI -> KeyboardFonts.family(context, settings.bengaliFontId)
+            else -> KeyboardFonts.scriptFamily(scriptId)
+                ?: KeyboardFonts.family(context, settings.keyFontId)
+        }
     }
     val emojiFontFamily = remember(settings.emojiFont) {
         KeyboardFonts.emojiFamily(context, settings.emojiFont)

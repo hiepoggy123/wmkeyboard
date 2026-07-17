@@ -238,6 +238,7 @@ import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
@@ -1434,6 +1435,17 @@ private fun TopBar(
     }
     val toolContentAlpha = { if (toolbarJustRevealed) 0f else toolsFade.value }
 
+    // The suggestion strip (and the toolbar that shares its bar) lays out
+    // right-to-left for RTL scripts — Arabic, Hebrew, Persian, Urdu, Thaana —
+    // so the first/best candidate sits on the right, where an RTL reader's eye
+    // starts. Only this bar is flipped; the key grid is a sibling composable
+    // and stays left-to-right.
+    val stripDirection = if (state.script.direction == TextDirection.RTL) {
+        LayoutDirection.Rtl
+    } else {
+        LayoutDirection.Ltr
+    }
+    CompositionLocalProvider(LocalLayoutDirection provides stripDirection) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -1793,6 +1805,7 @@ private fun TopBar(
                 }
             }
         }
+    }
     }
 }
 

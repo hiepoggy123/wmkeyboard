@@ -7,6 +7,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.googlefonts.GoogleFont
 import androidx.compose.ui.text.googlefonts.Font as DownloadableFont
 import com.wasimaster.wmkeyboard.R
+import com.wasimaster.wmkeyboard.core.script.ScriptId
 import com.wasimaster.wmkeyboard.core.settings.EmojiFontChoice
 import java.io.File
 
@@ -51,6 +52,48 @@ object KeyboardFonts {
         "Hind Siliguri", "Noto Sans Bengali", "Noto Serif Bengali",
         "Anek Bangla", "Baloo Da 2", "Tiro Bangla", "Atma", "Mina", "Galada",
     )
+
+    /**
+     * The Noto face each non-Latin script draws with, so a script always gets a
+     * correct glyph even when the user's key font is a Latin-only display face.
+     * Latin, Cyrillic and Greek are absent — they ride the user's [keyFontId]
+     * choice (Noto Sans, the system default, covers all three) — and Bengali has
+     * its own dedicated [bengaliFontId] picker, so it is resolved before this map.
+     * A name the Google Fonts provider does not recognise simply falls back to
+     * the system face, which carries the glyph anyway.
+     */
+    private val scriptGoogleFonts: Map<ScriptId, String> = mapOf(
+        ScriptId.ARMENIAN to "Noto Sans Armenian",
+        ScriptId.GEORGIAN to "Noto Sans Georgian",
+        ScriptId.ARABIC to "Noto Naskh Arabic",
+        ScriptId.HEBREW to "Noto Sans Hebrew",
+        ScriptId.THAANA to "Noto Sans Thaana",
+        ScriptId.DEVANAGARI to "Noto Sans Devanagari",
+        ScriptId.GURMUKHI to "Noto Sans Gurmukhi",
+        ScriptId.GUJARATI to "Noto Sans Gujarati",
+        ScriptId.ORIYA to "Noto Sans Oriya",
+        ScriptId.TAMIL to "Noto Sans Tamil",
+        ScriptId.TELUGU to "Noto Sans Telugu",
+        ScriptId.KANNADA to "Noto Sans Kannada",
+        ScriptId.MALAYALAM to "Noto Sans Malayalam",
+        ScriptId.SINHALA to "Noto Sans Sinhala",
+        ScriptId.THAI to "Noto Sans Thai",
+        ScriptId.LAO to "Noto Sans Lao",
+        ScriptId.KHMER to "Noto Sans Khmer",
+        ScriptId.MYANMAR to "Noto Sans Myanmar",
+        ScriptId.ETHIOPIC to "Noto Sans Ethiopic",
+        ScriptId.HANGUL to "Noto Sans KR",
+        ScriptId.JAPANESE to "Noto Sans JP",
+        ScriptId.HAN to "Noto Sans SC",
+    )
+
+    /**
+     * The [FontFamily] a [scriptId] wants, or null for the scripts that follow the
+     * user's own font choice (Latin/Cyrillic/Greek) or have their own picker
+     * (Bengali). Used by the keyboard theme to pick a face per active script.
+     */
+    fun scriptFamily(scriptId: ScriptId): FontFamily? =
+        scriptGoogleFonts[scriptId]?.let { googleFamily(it) }
 
     fun googleId(name: String): String = GOOGLE_PREFIX + name
 

@@ -221,6 +221,9 @@ import com.wasimaster.wmkeyboard.core.settings.CursorTools
 import com.wasimaster.wmkeyboard.BuildConfig
 import com.wasimaster.wmkeyboard.core.settings.KeyboardAlignment
 import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
+import com.wasimaster.wmkeyboard.core.script.ComposerType
+import com.wasimaster.wmkeyboard.core.script.ScriptId
+import com.wasimaster.wmkeyboard.core.script.ScriptRegistry
 import com.wasimaster.wmkeyboard.core.layout.AssetLayouts
 import com.wasimaster.wmkeyboard.core.layout.language
 import com.wasimaster.wmkeyboard.core.layout.resolveLayout
@@ -409,7 +412,7 @@ private fun SettingsNavHost(
         }
         composable("customdictionaries") {
             SettingsScreen("Custom dictionaries", { navController.popBackStack() }) {
-                CustomDictionarySettings(repository)
+                CustomDictionarySettings(repository, settings)
             }
         }
         composable("blacklist") {
@@ -2833,17 +2836,25 @@ private fun LanguageSettings(
             }
         }
     }
-    SettingsGroup("Bengali") {
-        item {
-            ToggleSetting(
-                "Conjunct-aware backspace",
-                "Delete a whole যুক্তবর্ণ (like ক্ষ or স্ত্রী) as one unit",
-                settings.conjunctBackspace,
-                info = "Normally backspace removes one code point at a time, which can leave " +
-                    "half-formed conjuncts. With this on, a conjunct cluster like স্ত্রী is " +
-                    "deleted in a single press.",
-            ) {
-                scope.launch { repository.setConjunctBackspace(it) }
+    // Only shown when a conjunct-forming (Indic/Brahmic) script is enabled — the
+    // setting drives cluster-aware deletion for every INDIC_CLUSTER script
+    // (Bengali, Devanagari, Tamil, …), not Bengali alone.
+    if (settings.enabledLanguages.any {
+            ScriptRegistry[it.script].composer == ComposerType.INDIC_CLUSTER
+        }
+    ) {
+        SettingsGroup("Complex scripts") {
+            item {
+                ToggleSetting(
+                    "Conjunct-aware backspace",
+                    "Delete a whole conjunct (যুক্তবর্ণ like ক্ষ, or क्ष) as one unit",
+                    settings.conjunctBackspace,
+                    info = "Normally backspace removes one code point at a time, which can leave " +
+                        "half-formed conjuncts. With this on, a conjunct cluster like স্ত্রী or " +
+                        "क्ष is deleted in a single press.",
+                ) {
+                    scope.launch { repository.setConjunctBackspace(it) }
+                }
             }
         }
     }
@@ -3451,7 +3462,7 @@ private fun languageLabel(langId: String): String =
 private data class WordListEntry(val file: java.io.File, val words: Int)
 
 @Composable
-private fun CustomDictionarySettings(repository: SettingsRepository) {
+private fun CustomDictionarySettings(repository: SettingsRepository, settings: KeyboardSettings) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     var lists by remember {
@@ -3466,7 +3477,7 @@ private fun CustomDictionarySettings(repository: SettingsRepository) {
     // thread — the screen draws empty for a moment and fills in.
     suspend fun refresh() {
         lists = withContext(Dispatchers.IO) {
-            LanguageRegistry.all.associate { language ->
+            settings.enabledLanguages.associate { language ->
                 language.id to CustomDictionaries.lists(context.filesDir, language.id).map { file ->
                     val words = runCatching {
                         file.inputStream().use { DictionaryLoader.loadEntries(it).size }
@@ -3565,7 +3576,7 @@ private fun CustomDictionarySettings(repository: SettingsRepository) {
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
     )
 
-    for (language in LanguageRegistry.all) {
+    for (language in settings.enabledLanguages) {
         val entries = lists[language.id].orEmpty()
         SettingsGroup(language.englishName) {
             for (entry in entries) {
@@ -3698,24 +3709,29 @@ private fun FontSettings(repository: SettingsRepository, settings: KeyboardSetti
             }
         },
     )
-    FontPickerSection(
-        header = "Bengali font",
-        sample = "আমি ভালো আছি · কখগঘঙ চছজঝঞ",
-        selectedId = settings.bengaliFontId,
-        googleNames = KeyboardFonts.bengaliGoogleFonts,
-        customId = KeyboardFonts.CUSTOM_BENGALI_ID,
-        customFile = KeyboardFonts.customBengaliFontFile(context),
-        customName = settings.customBengaliFontName,
-        onSelect = { id -> scope.launch { repository.setBengaliFontId(id) } },
-        onImport = { uri ->
-            scope.launch {
-                val name = withContext(Dispatchers.IO) {
-                    importFontFile(context, uri, KeyboardFonts.customBengaliFontFile(context))
+    // The Bengali font picker is the one script-specific face the user chooses by
+    // hand; every other non-Latin script uses its Noto face automatically. Only
+    // show it when a Bengali-script language is enabled.
+    if (settings.enabledLanguages.any { it.script == ScriptId.BENGALI }) {
+        FontPickerSection(
+            header = "Bengali font",
+            sample = "আমি ভালো আছি · কখগঘঙ চছজঝঞ",
+            selectedId = settings.bengaliFontId,
+            googleNames = KeyboardFonts.bengaliGoogleFonts,
+            customId = KeyboardFonts.CUSTOM_BENGALI_ID,
+            customFile = KeyboardFonts.customBengaliFontFile(context),
+            customName = settings.customBengaliFontName,
+            onSelect = { id -> scope.launch { repository.setBengaliFontId(id) } },
+            onImport = { uri ->
+                scope.launch {
+                    val name = withContext(Dispatchers.IO) {
+                        importFontFile(context, uri, KeyboardFonts.customBengaliFontFile(context))
+                    }
+                    if (name != null) repository.setCustomBengaliFont(name)
                 }
-                if (name != null) repository.setCustomBengaliFont(name)
-            }
-        },
-    )
+            },
+        )
+    }
     Spacer(Modifier.height(16.dp))
 }
 
