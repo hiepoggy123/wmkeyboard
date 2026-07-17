@@ -206,7 +206,14 @@ internal fun KeyLayoutsScreen(
     }
 
     SettingsGroup("Your layouts") {
-        val customs = layouts.filter { it.id in customIds && BuiltInLayouts.byId(it.id) == null }
+        // Only enabled layouts are listed: this page manages the grids you
+        // actually type with, not the whole registry. Enable others under
+        // Languages first and they appear here.
+        val customs = layouts.filter {
+            it.id in customIds &&
+                BuiltInLayouts.byId(it.id) == null &&
+                it.id in settings.enabledLayoutIds
+        }
         if (customs.isEmpty()) {
             item {
                 ListItem(
@@ -250,28 +257,33 @@ internal fun KeyLayoutsScreen(
         }
     }
 
-    SettingsGroup("Built in") {
-        for (layout in layouts.filter { BuiltInLayouts.byId(it.id) != null }) {
-            item {
-                LayoutRow(
-                    layout = layout,
-                    enabled = layout.id in settings.enabledLayoutIds,
-                    onEdit = { onNavigate("keymap_edit/${layout.id}") },
-                    onExport = {
-                        pendingExport = layout
-                        exportLauncher.launch(LayoutFile.fileName(layout))
-                    },
-                    onDuplicate = { duplicateAndEdit(layout) },
-                    // An edited built-in is stored as an override under the same
-                    // id, so removing it restores the shipped grid rather than
-                    // deleting anything — hence Reset, not Delete.
-                    onDelete = if (layout.id in customIds) {
-                        { confirmDelete = layout }
-                    } else {
-                        null
-                    },
-                    deleteIsReset = true,
-                )
+    val builtIns = layouts.filter {
+        BuiltInLayouts.byId(it.id) != null && it.id in settings.enabledLayoutIds
+    }
+    if (builtIns.isNotEmpty()) {
+        SettingsGroup("Built in") {
+            for (layout in builtIns) {
+                item {
+                    LayoutRow(
+                        layout = layout,
+                        enabled = layout.id in settings.enabledLayoutIds,
+                        onEdit = { onNavigate("keymap_edit/${layout.id}") },
+                        onExport = {
+                            pendingExport = layout
+                            exportLauncher.launch(LayoutFile.fileName(layout))
+                        },
+                        onDuplicate = { duplicateAndEdit(layout) },
+                        // An edited built-in is stored as an override under the same
+                        // id, so removing it restores the shipped grid rather than
+                        // deleting anything — hence Reset, not Delete.
+                        onDelete = if (layout.id in customIds) {
+                            { confirmDelete = layout }
+                        } else {
+                            null
+                        },
+                        deleteIsReset = true,
+                    )
+                }
             }
         }
     }
