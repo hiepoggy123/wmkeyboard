@@ -6319,6 +6319,14 @@ private fun SnippetSettings() {
                                     color = MaterialTheme.colorScheme.primary,
                                 )
                             }
+                            if (snippet.trigger != null) {
+                                Text(
+                                    "Auto-expands from: ${snippet.trigger}",
+                                    maxLines = 1,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
                         }
                     },
                     trailingContent = {
@@ -6341,10 +6349,10 @@ private fun SnippetSettings() {
         SnippetDialog(
             initial = editing,
             onDismiss = { showAdd = false; editing = null },
-            onSave = { label, text ->
+            onSave = { label, text, trigger ->
                 val current = editing
                 mutate { s ->
-                    if (current == null) s.add(label, text) else s.update(current.id, label, text)
+                    if (current == null) s.add(label, text, trigger) else s.update(current.id, label, text, trigger)
                 }
                 showAdd = false
                 editing = null
@@ -6401,10 +6409,11 @@ private fun VariableRow(variable: String, meaning: String, example: String) {
 private fun SnippetDialog(
     initial: Snippet?,
     onDismiss: () -> Unit,
-    onSave: (String, String) -> Unit,
+    onSave: (String, String, String?) -> Unit,
 ) {
     var label by remember { mutableStateOf(initial?.label.orEmpty()) }
     var text by remember { mutableStateOf(initial?.text.orEmpty()) }
+    var trigger by remember { mutableStateOf(initial?.trigger.orEmpty()) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(if (initial == null) "New snippet" else "Edit snippet") },
@@ -6423,12 +6432,24 @@ private fun SnippetDialog(
                     label = { Text("Text — supports {date} {time} {clip} {app} {cursor} …") },
                     minLines = 3,
                 )
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = trigger,
+                    onValueChange = { trigger = it },
+                    label = { Text("Trigger word (optional)") },
+                    singleLine = true,
+                )
+                Text(
+                    "Typing this word on its own auto-expands it to the text above.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         },
         confirmButton = {
             TextButton(
                 enabled = label.isNotBlank() && text.isNotBlank(),
-                onClick = { onSave(label.trim(), text) },
+                onClick = { onSave(label.trim(), text, trigger.trim().ifBlank { null }) },
             ) { Text("Save") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },

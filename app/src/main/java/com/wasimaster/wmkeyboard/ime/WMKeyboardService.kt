@@ -2653,6 +2653,28 @@ class WMKeyboardService : InputMethodService() {
             }
             return true
         }
+        // A word that exactly matches a snippet trigger expands to that
+        // snippet's text instead of committing literally. Skipped for
+        // transliterating/conversion composers (Pinyin, Vietnamese, …) —
+        // their buffer holds an input spelling, not the trigger the user
+        // meant to type.
+        if (!state.composer.isTransliterating && !state.composer.isConversion) {
+            val snippet = snippetStore.matchTrigger(typed)
+            if (snippet != null) {
+                val expanded = SnippetStore.expandWithCursor(snippet.text, context = snippetContext(ic))
+                ic.commitText(expanded.text, 1)
+                val trailing = expanded.text.length - expanded.cursorOffset
+                if (trailing > 0) {
+                    val end = ic.getExtractedText(ExtractedTextRequest(), 0)?.selectionEnd
+                    if (end != null && end >= trailing) ic.setSelection(end - trailing, end - trailing)
+                }
+                composing = StringBuilder()
+                _uiState.update {
+                    it.copy(composingPreview = "", suggestions = emptyList(), emojiSuggestions = emptyList())
+                }
+                return true
+            }
+        }
         // Apostrophe restoration outranks autocorrect: "dont" is a known
         // contraction slip, not a typo for "font"/"done" to be guessed at.
         val apostrophized =

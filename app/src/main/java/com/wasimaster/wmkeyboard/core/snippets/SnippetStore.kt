@@ -15,6 +15,8 @@ data class Snippet(
     val label: String,
     val text: String,
     val createdAt: Long = 0,
+    /** Word that, typed on its own and finished with a space/punctuation/enter, auto-expands to [text]. */
+    val trigger: String? = null,
 )
 
 /**
@@ -42,17 +44,27 @@ class SnippetStore(private val storageFile: File?) {
     fun items(): List<Snippet> = snippets.toList()
 
     @Synchronized
-    fun add(label: String, text: String, now: Long = System.currentTimeMillis()): Snippet {
-        val snippet = Snippet(id = nextId++, label = label.trim(), text = text, createdAt = now)
+    fun add(label: String, text: String, trigger: String? = null, now: Long = System.currentTimeMillis()): Snippet {
+        val snippet = Snippet(
+            id = nextId++,
+            label = label.trim(),
+            text = text,
+            createdAt = now,
+            trigger = normalizeTrigger(trigger),
+        )
         snippets.add(snippet)
         return snippet
     }
 
     @Synchronized
-    fun update(id: Long, label: String, text: String) {
+    fun update(id: Long, label: String, text: String, trigger: String? = null) {
         val index = snippets.indexOfFirst { it.id == id }
         if (index >= 0) {
-            snippets[index] = snippets[index].copy(label = label.trim(), text = text)
+            snippets[index] = snippets[index].copy(
+                label = label.trim(),
+                text = text,
+                trigger = normalizeTrigger(trigger),
+            )
         }
     }
 
@@ -60,6 +72,14 @@ class SnippetStore(private val storageFile: File?) {
     fun remove(id: Long) {
         snippets.removeAll { it.id == id }
     }
+
+    /** The snippet whose trigger matches [word] exactly (case-insensitive), if any. */
+    @Synchronized
+    fun matchTrigger(word: String): Snippet? =
+        snippets.firstOrNull { it.trigger != null && it.trigger.equals(word, ignoreCase = true) }
+
+    private fun normalizeTrigger(trigger: String?): String? =
+        trigger?.trim()?.takeIf { it.isNotEmpty() }
 
     @Synchronized
     fun save() {

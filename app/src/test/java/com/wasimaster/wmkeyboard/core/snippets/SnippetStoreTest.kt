@@ -32,6 +32,21 @@ class SnippetStoreTest {
     }
 
     @Test
+    fun `trigger match is case-insensitive and blank triggers are dropped`() {
+        val store = SnippetStore(null)
+        val snippet = store.add("Sig", "On my way!", trigger = "omw")
+        assertEquals(snippet.id, store.matchTrigger("OMW")?.id)
+        assertEquals(null, store.matchTrigger("omww"))
+
+        val blank = store.add("Blank", "text", trigger = "   ")
+        assertEquals(null, blank.trigger)
+
+        store.update(snippet.id, "Sig", "On my way!", trigger = "")
+        assertEquals(null, store.items().first { it.id == snippet.id }.trigger)
+        assertEquals(null, store.matchTrigger("omw"))
+    }
+
+    @Test
     fun `persists and reloads`() {
         val file = File(tmp.root, "snippets.json")
         val store = SnippetStore(file)
