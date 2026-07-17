@@ -490,6 +490,24 @@ data class FeedbackSettings(
     val hapticsRespectDnd: Boolean = false,
 )
 
+/**
+ * Clipboard/undo/redo shortcuts a letter key can perform on long press
+ * (A/C/V/X/Z/Y). Grouped into their own class rather than sitting flat on
+ * [KeyboardSettings] because that class's primary constructor is at the
+ * JVM's 255-argument ceiling (see the class doc). Each field still persists
+ * under its own DataStore key via the matching setter. All off by default —
+ * each one replaces that key's accent popup, so turning any on is an
+ * explicit trade a user opts into. Read as `settings.longPressLetterActions.selectAll`, etc.
+ */
+data class LongPressLetterActions(
+    val selectAll: Boolean = false,
+    val copy: Boolean = false,
+    val paste: Boolean = false,
+    val cut: Boolean = false,
+    val undo: Boolean = false,
+    val redo: Boolean = false,
+)
+
 data class KeyboardSettings(
     /**
      * The layout being typed on: a [BuiltInLayouts] id, or a custom one. This is
@@ -788,13 +806,8 @@ data class KeyboardSettings(
      * code editor or a password box.
      */
     val rawClipboardShortcuts: Boolean = false,
-    val longPressASelectAll: Boolean = true,
-    /** Long-pressing C copies the selection (selects all first when nothing is selected). */
-    val longPressCCopy: Boolean = true,
-    /** Long-pressing V pastes the clipboard. */
-    val longPressVPaste: Boolean = true,
-    /** Long-pressing X cuts the selection (selects all first when nothing is selected). */
-    val longPressXCut: Boolean = true,
+    /** Long-press shortcuts on the A/C/V/X/Z/Y keys (see [LongPressLetterActions]). */
+    val longPressLetterActions: LongPressLetterActions = LongPressLetterActions(),
     val emojiToolbar: Boolean = true,
     /** Tint each tool icon its own accent colour in Settings and the toolbox. */
     val coloredToolIcons: Boolean = true,
@@ -1526,6 +1539,8 @@ class SettingsRepository(private val context: Context) {
         private val LONG_PRESS_C_COPY = booleanPreferencesKey("long_press_c_copy")
         private val LONG_PRESS_V_PASTE = booleanPreferencesKey("long_press_v_paste")
         private val LONG_PRESS_X_CUT = booleanPreferencesKey("long_press_x_cut")
+        private val LONG_PRESS_Z_UNDO = booleanPreferencesKey("long_press_z_undo")
+        private val LONG_PRESS_Y_REDO = booleanPreferencesKey("long_press_y_redo")
         private val EMOJI_TOOLBAR = booleanPreferencesKey("emoji_toolbar")
         private val COLORED_TOOL_ICONS = booleanPreferencesKey("colored_tool_icons")
         private val TOOL_COLOR_OVERRIDES = stringPreferencesKey("tool_color_overrides")
@@ -1912,10 +1927,14 @@ class SettingsRepository(private val context: Context) {
                     p[NUMBER_ROW_SHIFT_SYMBOLS] ?: defaults.layoutBehavior.numberRowShiftSymbols,
             ),
             rawClipboardShortcuts = p[RAW_CLIPBOARD_SHORTCUTS] ?: defaults.rawClipboardShortcuts,
-            longPressASelectAll = p[LONG_PRESS_A_SELECT_ALL] ?: defaults.longPressASelectAll,
-            longPressCCopy = p[LONG_PRESS_C_COPY] ?: defaults.longPressCCopy,
-            longPressVPaste = p[LONG_PRESS_V_PASTE] ?: defaults.longPressVPaste,
-            longPressXCut = p[LONG_PRESS_X_CUT] ?: defaults.longPressXCut,
+            longPressLetterActions = LongPressLetterActions(
+                selectAll = p[LONG_PRESS_A_SELECT_ALL] ?: defaults.longPressLetterActions.selectAll,
+                copy = p[LONG_PRESS_C_COPY] ?: defaults.longPressLetterActions.copy,
+                paste = p[LONG_PRESS_V_PASTE] ?: defaults.longPressLetterActions.paste,
+                cut = p[LONG_PRESS_X_CUT] ?: defaults.longPressLetterActions.cut,
+                undo = p[LONG_PRESS_Z_UNDO] ?: defaults.longPressLetterActions.undo,
+                redo = p[LONG_PRESS_Y_REDO] ?: defaults.longPressLetterActions.redo,
+            ),
             emojiToolbar = p[EMOJI_TOOLBAR] ?: defaults.emojiToolbar,
             coloredToolIcons = p[COLORED_TOOL_ICONS] ?: defaults.coloredToolIcons,
             toolColorOverrides = decodeToolColors(p[TOOL_COLOR_OVERRIDES]),
@@ -3110,6 +3129,12 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setLongPressXCut(value: Boolean) =
         context.dataStore.edit { it[LONG_PRESS_X_CUT] = value }
+
+    suspend fun setLongPressZUndo(value: Boolean) =
+        context.dataStore.edit { it[LONG_PRESS_Z_UNDO] = value }
+
+    suspend fun setLongPressYRedo(value: Boolean) =
+        context.dataStore.edit { it[LONG_PRESS_Y_REDO] = value }
 
     suspend fun setEmojiToolbar(value: Boolean) =
         context.dataStore.edit { it[EMOJI_TOOLBAR] = value }

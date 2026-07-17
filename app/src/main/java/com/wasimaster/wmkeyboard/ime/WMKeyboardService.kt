@@ -5979,11 +5979,17 @@ class WMKeyboardService : InputMethodService() {
     }
 
     /**
-     * Clipboard shortcuts fired by long-pressing A/C/V/X. Copy and cut act on
-     * the current selection when one exists; with nothing selected they select
-     * all first, so a bare long press copies or cuts the whole field.
+     * Clipboard/undo/redo shortcuts fired by long-pressing A/C/V/X/Z/Y. Copy
+     * and cut act on the current selection when one exists; with nothing
+     * selected they select all first, so a bare long press copies or cuts the
+     * whole field. Undo/redo delegate to [onUndoRedo], the same path the
+     * toolbar's Undo/Redo tools use.
      */
     fun onClipboardKey(action: ClipboardKeyAction) {
+        if (action == ClipboardKeyAction.UNDO || action == ClipboardKeyAction.REDO) {
+            onUndoRedo(redo = action == ClipboardKeyAction.REDO)
+            return
+        }
         val ic = currentInputConnection ?: return
         commitComposing(ic, autocorrect = false)
         lastGestureWord = null
@@ -6005,6 +6011,7 @@ class WMKeyboardService : InputMethodService() {
                 _uiState.update { it.copy(textEditSelecting = false) }
             }
             ClipboardKeyAction.PASTE -> ic.performContextMenuAction(android.R.id.paste)
+            ClipboardKeyAction.UNDO, ClipboardKeyAction.REDO -> Unit
         }
     }
 

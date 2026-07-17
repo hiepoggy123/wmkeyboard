@@ -2102,7 +2102,7 @@ private fun KeyPressSettings(repository: SettingsRepository, settings: KeyboardS
         item {
             ToggleSetting(
                 "Hold A to select all", "Long-pressing A selects all text",
-                settings.longPressASelectAll,
+                settings.longPressLetterActions.selectAll,
                 info = "Replaces the A key's accent popup with a select-all shortcut. Turn it " +
                     "off to get the accents (à á â ä å) back.",
             ) { scope.launch { repository.setLongPressASelectAll(it) } }
@@ -2110,7 +2110,7 @@ private fun KeyPressSettings(repository: SettingsRepository, settings: KeyboardS
         item {
             ToggleSetting(
                 "Hold C to copy", "Copies the selection, or everything if nothing is selected",
-                settings.longPressCCopy,
+                settings.longPressLetterActions.copy,
                 info = "With text selected, a long press on C copies just that selection. With " +
                     "no selection it selects all first, so one hold copies the whole field. " +
                     "Replaces the C key's accent popup (ç ć) while enabled.",
@@ -2119,7 +2119,7 @@ private fun KeyPressSettings(repository: SettingsRepository, settings: KeyboardS
         item {
             ToggleSetting(
                 "Hold X to cut", "Cuts the selection, or everything if nothing is selected",
-                settings.longPressXCut,
+                settings.longPressLetterActions.cut,
                 info = "With text selected, a long press on X cuts just that selection. With " +
                     "no selection it selects all first, so one hold cuts the whole field.",
             ) { scope.launch { repository.setLongPressXCut(it) } }
@@ -2127,10 +2127,26 @@ private fun KeyPressSettings(repository: SettingsRepository, settings: KeyboardS
         item {
             ToggleSetting(
                 "Hold V to paste", "Long-pressing V pastes the clipboard",
-                settings.longPressVPaste,
+                settings.longPressLetterActions.paste,
                 info = "Pastes the current clipboard content at the cursor, replacing any " +
                     "selection — the classic Ctrl+V, one hold away.",
             ) { scope.launch { repository.setLongPressVPaste(it) } }
+        }
+        item {
+            ToggleSetting(
+                "Hold Z to undo", "Long-pressing Z undoes the last edit",
+                settings.longPressLetterActions.undo,
+                info = "Sends the same undo shortcut as the toolbar's Undo tool. Replaces the " +
+                    "Z key's accent popup while enabled.",
+            ) { scope.launch { repository.setLongPressZUndo(it) } }
+        }
+        item {
+            ToggleSetting(
+                "Hold Y to redo", "Long-pressing Y redoes the last undone edit",
+                settings.longPressLetterActions.redo,
+                info = "Sends the same redo shortcut as the toolbar's Redo tool " +
+                    "(Ctrl+Y or Ctrl+Shift+Z, per the redo shortcut setting).",
+            ) { scope.launch { repository.setLongPressYRedo(it) } }
         }
     }
 }
