@@ -20,6 +20,7 @@ enum class ScriptId {
     TAMIL, TELUGU, KANNADA, MALAYALAM, SINHALA,
     THAI, LAO, KHMER, MYANMAR,
     HANGUL, ETHIOPIC, THAANA,
+    JAPANESE, HAN,
 }
 
 /** Which way the script runs. Drives the suggestion strip's layout direction. */
@@ -41,7 +42,21 @@ enum class TextDirection { LTR, RTL }
  * (Probhat/Jatiya) but the Avro layout overrides to [TRANSLITERATE]. The default
  * lives here; the per-layout override lands in Phase 1 on `LayoutSpec`.
  */
-enum class ComposerType { NONE, DEAD_KEY, TRANSLITERATE, INDIC_CLUSTER, HANGUL }
+enum class ComposerType {
+    NONE, DEAD_KEY, TRANSLITERATE, INDIC_CLUSTER, HANGUL,
+
+    /** Vietnamese Telex: roman keystrokes fold into toned Vietnamese letters. */
+    TELEX,
+
+    /** Vietnamese VNI: digit keys apply tones and letter marks. */
+    VNI,
+
+    /** Japanese: romaji composes to kana, with kana→kanji candidates. */
+    ROMAJI,
+
+    /** Chinese: pinyin buffer with Hanzi candidates chosen from the strip. */
+    PINYIN,
+}
 
 /**
  * Which font family a script wants, so [com.wasimaster.wmkeyboard.ime.ui.KbTheme]
@@ -289,6 +304,25 @@ object ScriptRegistry {
             composer = ComposerType.NONE,
             fontHint = FontHint.GENERIC,
             unicodeRange = 0x0780..0x07BF,
+        ),
+        // Japanese and Chinese: the script default is a plain 1:1 append, and the
+        // layouts override it (romaji→kana for ja, pinyin for zh). Their fonts are
+        // resolved per script id (Noto Sans JP / SC), not the fontHint.
+        ScriptDef(
+            id = ScriptId.JAPANESE,
+            direction = TextDirection.LTR,
+            hasLetterCase = false,
+            composer = ComposerType.NONE,
+            fontHint = FontHint.GENERIC,
+            unicodeRange = 0x3040..0x30FF,
+        ),
+        ScriptDef(
+            id = ScriptId.HAN,
+            direction = TextDirection.LTR,
+            hasLetterCase = false,
+            composer = ComposerType.NONE,
+            fontHint = FontHint.GENERIC,
+            unicodeRange = 0x4E00..0x9FFF,
         ),
     ).associateBy { it.id }
 

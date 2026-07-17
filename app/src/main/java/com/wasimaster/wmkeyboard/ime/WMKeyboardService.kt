@@ -163,6 +163,8 @@ import com.wasimaster.wmkeyboard.core.layout.ModifierKey
 import com.wasimaster.wmkeyboard.core.layout.numberRowFor
 import com.wasimaster.wmkeyboard.core.layout.LayoutSpec
 import com.wasimaster.wmkeyboard.core.input.composer.composerFor
+import com.wasimaster.wmkeyboard.core.input.composer.CjkDictionaries
+import com.wasimaster.wmkeyboard.core.input.composer.ConversionDictionary
 import com.wasimaster.wmkeyboard.core.script.LanguageDef
 import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
 import com.wasimaster.wmkeyboard.core.script.ScriptId
@@ -815,6 +817,21 @@ class WMKeyboardService : InputMethodService() {
                             .toSet()
                     }
                 }.getOrDefault(emptySet())
+            }
+            // Chinese/Japanese conversion tables (pinyin→Hanzi, kana→Kanji). These
+            // assets are optional: an absent or unreadable file leaves the composer
+            // typing the raw reading (pinyin letters, or kana) with no candidates.
+            withContext(Dispatchers.Default) {
+                runCatching {
+                    assets.open("dictionaries/pinyin.tsv").bufferedReader().useLines {
+                        CjkDictionaries.pinyin = ConversionDictionary.parse(it)
+                    }
+                }
+                runCatching {
+                    assets.open("dictionaries/ja_kana.tsv").bufferedReader().useLines {
+                        CjkDictionaries.japanese = ConversionDictionary.parse(it)
+                    }
+                }
             }
             suggestionEngine = SuggestionEngine(
                 english,
@@ -1826,7 +1843,13 @@ class WMKeyboardService : InputMethodService() {
             return
         }
 
-        val isWordChar = text.length == 1 && (text[0].isLetter() || text[0] == '\'')
+        // VNI spells Vietnamese tones/marks with digits, so a digit typed *while a
+        // syllable is composing* feeds the buffer (the transducer eats it) instead
+        // of committing. A digit on an empty buffer is a literal digit as usual.
+        val isWordChar = text.length == 1 && (
+            text[0].isLetter() || text[0] == '\'' ||
+                (state.composer.bufferDigits && text[0].isDigit() && composing.isNotEmpty())
+            )
         // Avro is a transliterating input method: its composing must run even
         // in password fields and with the strip off, or the roman keys commit
         // untransliterated and no Bengali is produced. English composing only
@@ -2651,8 +2674,13 @@ class WMKeyboardService : InputMethodService() {
                 (if (pre != null && pre.isBengali) pre.bengaliTop
                 else suggestionEngine?.suggest(typed, previousWord = null, avroMode = true)?.firstOrNull())
                     ?: state.composer.composeBuffer(typed)
-            // Other transliterators (Hangul) commit the composed text directly,
-            // with no dictionary pass.
+            // Conversion IMEs (Pinyin, Japanese): space commits the best candidate
+            // (top Hanzi/Kanji), falling back to the raw reading when there is none.
+            state.composer.isConversion ->
+                state.composer.candidates(typed).firstOrNull()
+                    ?: state.composer.composeBuffer(typed)
+            // Other transliterators (Hangul, Vietnamese) commit the composed text
+            // directly, with no dictionary pass.
             state.composer.isTransliterating -> state.composer.composeBuffer(typed)
             apostrophized != null -> apostrophized
             autocorrect && state.allowsTypingIntelligence -> {
@@ -2666,7 +2694,10 @@ class WMKeyboardService : InputMethodService() {
         ic.commitText(output, 1)
         // An autocorrected word was the engine's choice, not the user's —
         // it earns no personal-dictionary reinforcement, only the bigram.
-        learn(output, reinforcement = if (corrected != null) 0 else 1)
+        // Conversion-IME output (Hanzi/Kanji) is never learned into the lexicon.
+        if (!state.composer.isConversion) {
+            learn(output, reinforcement = if (corrected != null) 0 else 1)
+        }
         composing = StringBuilder()
         // Refill the strip in the same frame the word commits. Blanking it
         // and waiting for the async refresh left it empty for a frame or
@@ -3087,6 +3118,24 @@ class WMKeyboardService : InputMethodService() {
         }
 
         val typed = composing.toString()
+
+        // Conversion IMEs (Chinese Pinyin, Japanese) show the composer's own
+        // reading→character candidates in the strip, not dictionary word
+        // suggestions. The lookup is a cheap map read, so it runs inline.
+        if (state.composer.isConversion) {
+            suggestionJob?.cancel()
+            commitResolution = null
+            val cands = state.composer.candidates(typed)
+            _uiState.update {
+                it.copy(
+                    suggestions = cands,
+                    emojiSuggestions = emptyList(),
+                    punctuationSuggestions = emptyList(),
+                )
+            }
+            return
+        }
+
         suggestionJob?.cancel()
         suggestionJob = serviceScope.launch {
             // Short adaptive debounce: fast bursts of keystrokes cancel the
@@ -3217,6 +3266,21 @@ class WMKeyboardService : InputMethodService() {
             _uiState.update {
                 it.copy(composingPreview = "", suggestions = emptyList(), emojiSuggestions = emptyList())
             }
+            return
+        }
+
+        // Conversion IMEs (Chinese Pinyin, Japanese kana→kanji): the tapped chip
+        // is a character choice for the current reading. Commit it with no
+        // trailing space (CJK runs words together) and no learning, then clear the
+        // reading buffer so the next syllable starts fresh.
+        if (_uiState.value.composer.isConversion) {
+            ic.commitText(suggestion, 1)
+            composing = StringBuilder()
+            consumeShift()
+            _uiState.update {
+                it.copy(composingPreview = "", suggestions = emptyList(), emojiSuggestions = emptyList())
+            }
+            refreshSuggestions()
             return
         }
 

@@ -194,6 +194,13 @@ object AssetLayouts {
     const val IA_QWERTY_ID = "asset_ia_qwerty"
     const val DV_THAANA_ID = "asset_dv_thaana"
 
+    // --- Composer-driven input methods (Vietnamese Telex/VNI, Japanese romaji,
+    // Chinese pinyin): plain QWERTY grids whose "composer" field does the work. ---
+    const val VI_TELEX_ID = "asset_vi_telex"
+    const val VI_VNI_ID = "asset_vi_vni"
+    const val JA_ROMAJI_ID = "asset_ja_romaji"
+    const val ZH_PINYIN_ID = "asset_zh_pinyin"
+
     @Volatile private var cached: List<LayoutSpec> = emptyList()
     @Volatile private var loaded = false
 

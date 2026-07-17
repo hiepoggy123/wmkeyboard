@@ -41,6 +41,29 @@ interface Composer {
      */
     val isClusterShaping: Boolean get() = false
 
+    /**
+     * Whether digit keys feed the composing buffer instead of committing it and
+     * typing the digit. Only Vietnamese VNI needs this — its tones and marks are
+     * spelled with the digits 0–9, which the transducer consumes.
+     */
+    val bufferDigits: Boolean get() = false
+
+    /**
+     * A conversion IME (Chinese Pinyin, Japanese kana→kanji): the roman/kana
+     * buffer maps to a *choice* of outputs shown in the suggestion strip, and the
+     * user taps one to commit it — unlike a plain transliterator whose buffer has
+     * a single deterministic rendering. When true, the strip shows [candidates]
+     * instead of dictionary suggestions and a tap commits with no trailing space.
+     */
+    val isConversion: Boolean get() = false
+
+    /**
+     * The candidate conversions of [buffer] for a conversion IME, best first
+     * (Pinyin → Hanzi words, kana → kanji). Empty for every non-conversion
+     * composer. The composing region still shows [composeBuffer].
+     */
+    fun candidates(buffer: String): List<String> = emptyList()
+
     /** A transliterator's buffer (roman, or jamo) rendered as script text. */
     fun composeBuffer(buffer: String): String = buffer
 
@@ -79,4 +102,8 @@ fun composerFor(script: ScriptDef, type: ComposerType): Composer = when (type) {
         else -> NoComposer
     }
     ComposerType.HANGUL -> HangulComposer
+    ComposerType.TELEX -> VietnameseTelexComposer
+    ComposerType.VNI -> VietnameseVniComposer
+    ComposerType.ROMAJI -> JapaneseComposer
+    ComposerType.PINYIN -> PinyinComposer
 }

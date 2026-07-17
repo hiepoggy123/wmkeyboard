@@ -952,7 +952,31 @@ object LanguageRegistry {
             englishName = "Vietnamese",
             script = ScriptId.LATIN,
             localeTag = "vi-VN",
-            layoutIds = listOf(AssetLayouts.VI_QWERTY_ID),
+            layoutIds = listOf(
+                AssetLayouts.VI_TELEX_ID,
+                AssetLayouts.VI_VNI_ID,
+                AssetLayouts.VI_QWERTY_ID,
+            ),
+        ),
+        // CJK conversion IMEs. The script default is a plain append; the layout's
+        // composer (romaji→kana, pinyin) drives the input, with candidates in the
+        // strip. Neither ships a word list — the bundled conversion tables are what
+        // turn a reading into characters.
+        LanguageDef(
+            id = "ja",
+            displayName = "日本語 · Japanese",
+            englishName = "Japanese",
+            script = ScriptId.JAPANESE,
+            localeTag = "ja-JP",
+            layoutIds = listOf(AssetLayouts.JA_ROMAJI_ID),
+        ),
+        LanguageDef(
+            id = "zh",
+            displayName = "中文 · Chinese",
+            englishName = "Chinese",
+            script = ScriptId.HAN,
+            localeTag = "zh-CN",
+            layoutIds = listOf(AssetLayouts.ZH_PINYIN_ID),
         ),
         LanguageDef(
             id = "ht",
