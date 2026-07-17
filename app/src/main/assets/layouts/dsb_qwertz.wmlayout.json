@@ -32,7 +32,11 @@
               "label": "t"
             },
             {
-              "label": "z"
+              "label": "z",
+              "longPress": [
+                "ž",
+                "ź"
+              ]
             },
             {
               "label": "u"

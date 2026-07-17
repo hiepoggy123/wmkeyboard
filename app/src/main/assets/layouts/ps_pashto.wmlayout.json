@@ -33,7 +33,10 @@
             },
             {
               "label": "ه",
-              "shiftLabel": "ة"
+              "shiftLabel": "ة",
+              "longPress": [
+                "ۀ"
+              ]
             },
             {
               "label": "خ"
