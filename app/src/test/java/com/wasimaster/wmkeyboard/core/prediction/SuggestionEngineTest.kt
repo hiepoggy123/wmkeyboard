@@ -54,6 +54,20 @@ class SuggestionEngineTest {
         assertTrue("hello" in suggestions || "help" in suggestions)
     }
 
+    @Test fun nextLetterWeightsRanksLikelyContinuations() {
+        // Extensions of "the": "they" → 'y' (freq 90), "them" → 'm' (freq 80).
+        // "the" itself is exactly the prefix, so it contributes no next letter.
+        val bias = engine().nextLetterWeights("the")
+        assertEquals(setOf('y', 'm'), bias.keys)
+        assertEquals(1.0f, bias.getValue('y'), 1e-4f) // top letter normalised to 1
+        assertTrue(bias.getValue('m') < bias.getValue('y'))
+    }
+
+    @Test fun nextLetterWeightsEmptyForBlankOrUnknownPrefix() {
+        assertTrue(engine().nextLetterWeights("").isEmpty())
+        assertTrue(engine().nextLetterWeights("zzz").isEmpty())
+    }
+
     @Test fun autocorrectFiresOnlyWhenConfident() {
         // "wprld" has exactly one plausible fix.
         assertEquals("world", engine().shouldAutocorrect("wprld"))

@@ -227,6 +227,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerId
 import androidx.compose.ui.input.pointer.changedToDown
+import androidx.compose.ui.input.pointer.changedToDownIgnoreConsumed
 import androidx.compose.ui.input.pointer.changedToUp
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.LayoutCoordinates
@@ -4430,6 +4431,52 @@ private fun KeyRows(
     val keyWidth = rememberUpdatedState(
         if (boxSize.width > 0) ((boxSize.width - rowInsetPx) / gridWeight).coerceAtLeast(0f) else 0f,
     )
+    // Smart key-hit detection: a boundary tap can be claimed by a likelier
+    // neighbour. Only the letters layer, and only while the field is composing.
+    val smartHit = state.settings.layoutBehavior.smartHitDetection &&
+        state.layoutMode == LayoutMode.LETTERS &&
+        state.panel == PanelMode.NONE
+    // Live next-letter distribution; read fresh inside the down-observer, which
+    // must not restart on every keystroke.
+    val nextBias = rememberUpdatedState(if (smartHit) state.nextLetterBias else emptyMap())
+    // Pointer → the letter its down chose to remap to, set at down time by the
+    // observer and consumed by the owning key on release.
+    val hitRemap = remember { HashMap<PointerId, Char>() }
+    // Current-layer letter keys by lowercase char, so a remap resolves to the
+    // correctly-cased Key to commit. Keyed on layout: rebuilt when it changes.
+    val letterKeys = remember(layout) {
+        buildMap<Char, Key> {
+            for (row in layout.rows) {
+                for (key in row) {
+                    val ch = key.label.singleOrNull()
+                        ?.takeIf { key.action == KeyAction.Text && it.isLetter() }
+                        ?: continue
+                    put(ch.lowercaseChar(), key)
+                }
+            }
+        }
+    }
+    // Substitutes the committed key when the owning letter's down was remapped
+    // toward a likelier neighbour. Stable across keystrokes (depends only on the
+    // layout), so it never restarts a key's pointerInput.
+    val smartResolve = remember(letterKeys) {
+        { key: Key, id: PointerId ->
+            val target = hitRemap[id]
+            val own = key.label.singleOrNull()
+                ?.takeIf { key.action == KeyAction.Text && it.isLetter() }
+                ?.lowercaseChar()
+            if (target != null && own != null && target != own) {
+                letterKeys[target] ?: key
+            } else {
+                key
+            }
+        }
+    }
+    // Drop any in-flight remap when the feature switches off or the layout
+    // changes: a release arriving after such a change must not apply a decision
+    // made against the old grid (the down-observer that would have cleared it is
+    // gone once smartHit is false).
+    LaunchedEffect(smartHit, layout) { hitRemap.clear() }
     var trail by remember { mutableStateOf<List<TrailPoint>>(emptyList()) }
     var trailReleased by remember { mutableStateOf(false) }
     // Frame clock driving the fade; points older than trailMs vanish.
@@ -4590,6 +4637,36 @@ private fun KeyRows(
                     }
                     hwActiveStroke = emptyList()
                 }
+            }
+            // Smart key-hit detection: watch every pointer-down on the Initial
+            // pass (before the keys see it), and if a likelier neighbour should
+            // claim this touch, record the remap for the owning key to consume
+            // on release. Never consumes — taps, glides and long-presses are all
+            // untouched; only which letter finally commits can change.
+            .pointerInput(smartHit) {
+                if (!smartHit) return@pointerInput
+                awaitPointerEventScope {
+                    while (true) {
+                        val event = awaitPointerEvent(PointerEventPass.Initial)
+                        for (change in event.changes) {
+                            when {
+                                change.changedToDownIgnoreConsumed() -> {
+                                    val target = smartHitTarget(
+                                        change.position, keyCenters, keyWidth.value, nextBias.value,
+                                    )
+                                    if (target != null) {
+                                        hitRemap[change.id] = target
+                                    } else {
+                                        hitRemap.remove(change.id)
+                                    }
+                                }
+                                // Any lift OR cancel (glide steals the pointer):
+                                // once it is no longer pressed the remap is spent.
+                                !change.pressed -> hitRemap.remove(change.id)
+                            }
+                        }
+                    }
+                }
             },
     ) {
         // No spacing between cells: each key's touch target fills its whole
@@ -4684,6 +4761,7 @@ private fun KeyRows(
                     onCursorMove = onCursorMove,
                     onLayoutSelect = onLayoutSelect,
                     onLetterPositioned = onLetterPositioned,
+                    smartResolve = smartResolve,
                 )
             }
             // Layers shorter than the reserved span pad at the top rather than
@@ -4720,6 +4798,7 @@ private fun KeyRows(
                     onLayoutSelect = onLayoutSelect,
                     onLetterPositioned = onLetterPositioned,
                     onSpacePositioned = onSpacePositioned,
+                    smartResolve = smartResolve,
                 )
             }
         }
@@ -4838,6 +4917,7 @@ private fun KeyRow(
     onLayoutSelect: (String) -> Unit,
     onLetterPositioned: (Char, LayoutCoordinates) -> Unit,
     onSpacePositioned: (LayoutCoordinates) -> Unit = {},
+    smartResolve: (Key, PointerId) -> Key = { k, _ -> k },
 ) {
     val sidePad = sidePadFor(keys, gridWeight)
     Row {
@@ -4845,15 +4925,15 @@ private fun KeyRow(
         if (split) {
             val (left, right) = remember(keys) { splitKeys(keys) }
             for (key in left) {
-                KeyCell(key, keyHeightDp, state, onKey, onText, onCursorMove, onLayoutSelect, onLetterPositioned, onSpacePositioned)
+                KeyCell(key, keyHeightDp, state, onKey, onText, onCursorMove, onLayoutSelect, onLetterPositioned, onSpacePositioned, smartResolve)
             }
             Spacer(modifier = Modifier.weight(gridWeight * splitGapPercent / 100f))
             for (key in right) {
-                KeyCell(key, keyHeightDp, state, onKey, onText, onCursorMove, onLayoutSelect, onLetterPositioned, onSpacePositioned)
+                KeyCell(key, keyHeightDp, state, onKey, onText, onCursorMove, onLayoutSelect, onLetterPositioned, onSpacePositioned, smartResolve)
             }
         } else {
             for (key in keys) {
-                KeyCell(key, keyHeightDp, state, onKey, onText, onCursorMove, onLayoutSelect, onLetterPositioned, onSpacePositioned)
+                KeyCell(key, keyHeightDp, state, onKey, onText, onCursorMove, onLayoutSelect, onLetterPositioned, onSpacePositioned, smartResolve)
             }
         }
         if (sidePad > 0.01f) Spacer(modifier = Modifier.weight(sidePad))
@@ -4871,6 +4951,7 @@ private fun RowScope.KeyCell(
     onLayoutSelect: (String) -> Unit,
     onLetterPositioned: (Char, LayoutCoordinates) -> Unit,
     onSpacePositioned: (LayoutCoordinates) -> Unit = {},
+    smartResolve: (Key, PointerId) -> Key = { k, _ -> k },
 ) {
     val letter = key.label.singleOrNull()?.takeIf {
         key.action == KeyAction.Text && it.isLetter()
@@ -4894,6 +4975,7 @@ private fun RowScope.KeyCell(
         onText = onText,
         onCursorMove = onCursorMove,
         onLayoutSelect = onLayoutSelect,
+        smartResolve = smartResolve,
     )
 }
 
@@ -4931,6 +5013,54 @@ internal fun splitKeys(keys: List<Key>): Pair<List<Key>, List<Key>> {
 /** True when [position] falls within roughly one key of a tracked letter key. */
 private fun nearLetterKey(position: Offset, centers: Map<Char, Offset>, keyWidth: Float): Boolean =
     centers.values.any { (it - position).getDistance() < keyWidth }
+
+/** How hard a likely next letter pulls a boundary tap. Higher = wider steal. */
+private const val SMART_HIT_STRENGTH = 0.5f
+
+/** A favoured letter never claims a tap more than this many key-widths away. */
+private const val SMART_HIT_MAX_REACH = 1.3f
+
+/**
+ * Smart key-hit detection. Given a touch [pos], the tracked letter [centers]
+ * and the live next-letter [bias] (0..1 per letter), returns the letter whose
+ * hitbox should claim this touch, or null to leave the plain-nearest key alone.
+ *
+ * Each centre's effective distance is shortened in proportion to how likely
+ * that letter is next, so a likely neighbour can win a touch that landed just
+ * inside the nominal key. The shortening is a fixed fraction of distance, so it
+ * only ever flips the outcome near a shared edge — a press deep inside a key
+ * stays with that key — and a favoured letter out of reach is ignored outright.
+ */
+private fun smartHitTarget(
+    pos: Offset,
+    centers: Map<Char, Offset>,
+    keyWidth: Float,
+    bias: Map<Char, Float>,
+): Char? {
+    if (keyWidth <= 0f || centers.isEmpty() || bias.isEmpty()) return null
+    var nominal: Char? = null
+    var nominalDist = Float.MAX_VALUE
+    var best: Char? = null
+    var bestScore = Float.MAX_VALUE
+    for ((ch, center) in centers) {
+        val d = (center - pos).getDistance()
+        if (d < nominalDist) {
+            nominalDist = d
+            nominal = ch
+        }
+        val score = d / (1f + SMART_HIT_STRENGTH * (bias[ch] ?: 0f))
+        if (score < bestScore) {
+            bestScore = score
+            best = ch
+        }
+    }
+    // The plain-nearest key already wins: nothing to remap.
+    if (best == null || best == nominal) return null
+    // Never yank a tap onto a key the finger is nowhere near.
+    val target = centers[best] ?: return null
+    if ((target - pos).getDistance() > keyWidth * SMART_HIT_MAX_REACH) return null
+    return best
+}
 
 internal fun currentLayout(state: KeyboardUiState): KeyboardLayout {
     if (numericPadActive(state)) {
@@ -5229,6 +5359,7 @@ private fun KeyButton(
     onCursorMove: (Int) -> Unit = {},
     onLayoutSelect: (String) -> Unit = {},
     heightDp: Int? = null,
+    smartResolve: (Key, PointerId) -> Key = { k, _ -> k },
 ) {
     var pressed by remember { mutableStateOf(false) }
     var showAlternates by remember { mutableStateOf(false) }
@@ -5384,6 +5515,7 @@ private fun KeyButton(
                     onDeleteWord = onDeleteWord,
                     backspaceSwipeDelete = settings.backspaceSwipeDelete,
                     scope = scope,
+                    smartResolve = smartResolve,
                 )
             )
             .padding(horizontal = keyGapH(settings), vertical = keyGapV(settings))
@@ -5856,6 +5988,7 @@ private fun Modifier.pointerInputKey(
     onDeleteWord: () -> Unit,
     backspaceSwipeDelete: Boolean,
     scope: kotlinx.coroutines.CoroutineScope,
+    smartResolve: (Key, PointerId) -> Key = { k, _ -> k },
 ): Modifier = this.then(
     if (key.action == KeyAction.Space &&
         (spaceShortSwipe != SpaceSwipeAction.NONE || spaceLongSwipe != SpaceSwipeAction.NONE ||
@@ -6311,7 +6444,9 @@ private fun Modifier.pointerInputKey(
                                         change.position.y > -size.height * 0.5f &&
                                         change.position.y < size.height * 1.5f
                                 if (!press.longPressFired) {
-                                    if (inBounds) onKey(key)
+                                    // Smart key-hit may swap in a likelier
+                                    // neighbour chosen when this pointer went down.
+                                    if (inBounds) onKey(smartResolve(key, change.id))
                                 } else if (hapticOnLongPressRelease) {
                                     onKeyPress()
                                 }

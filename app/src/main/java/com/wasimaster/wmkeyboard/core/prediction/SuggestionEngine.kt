@@ -200,6 +200,8 @@ class SuggestionEngine(
     companion object {
         private const val ALPHABET = "abcdefghijklmnopqrstuvwxyz"
         /** Learned words get a large boost so personalization wins quickly. */
+        /** Completions scanned per source when building the next-letter map. */
+        private const val NEXT_LETTER_SCAN = 24
         private const val USER_WORD_WEIGHT = 500
 
         /**
@@ -356,6 +358,40 @@ class SuggestionEngine(
             // corrupt the address ("John" -> "John.doe@..."). Commit as stored.
             .map { if (it.contains('@')) it else matchCase(composing, it) }
             .toList()
+    }
+
+    /**
+     * A distribution over the character most likely to be typed next, given the
+     * word-so-far [prefix]. Each dictionary word that starts with [prefix]
+     * contributes its frequency to the single letter that would extend the
+     * prefix by one; the personal lexicon counts extra so learned habits bias
+     * the keyboard. Values are normalised to 0..1 with the top letter at 1.0.
+     * Empty when the prefix is blank or completes to nothing.
+     *
+     * Deliberately cheap and approximate — it feeds smart key-hit detection,
+     * which only nudges boundary taps, so an imperfect distribution is fine.
+     */
+    fun nextLetterWeights(prefix: String): Map<Char, Float> {
+        if (prefix.isEmpty()) return emptyMap()
+        val lower = prefix.lowercase()
+        val at = lower.length
+        val tally = HashMap<Char, Double>()
+        fun fold(weight: Double, complete: (String, Int) -> List<Suggestion>) {
+            for (s in complete(lower, NEXT_LETTER_SCAN)) {
+                // Only genuine extensions; a completion equal to the prefix (the
+                // word itself) predicts no next letter.
+                if (s.word.length <= at) continue
+                val ch = s.word[at].lowercaseChar()
+                if (!ch.isLetter()) continue
+                tally.merge(ch, s.frequency.toDouble() * weight, Double::plus)
+            }
+        }
+        fold(1.0, activeDictionary::complete)
+        fold(USER_WORD_WEIGHT.toDouble(), userLexicon::complete)
+        fold(CUSTOM_WORD_WEIGHT.toDouble(), customDictionary::complete)
+        val max = tally.values.maxOrNull() ?: return emptyMap()
+        if (max <= 0.0) return emptyMap()
+        return tally.mapValues { (it.value / max).toFloat() }
     }
 
     /**
