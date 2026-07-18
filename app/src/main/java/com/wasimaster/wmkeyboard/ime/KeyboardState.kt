@@ -606,6 +606,13 @@ data class KeyboardUiState(
     /** Best gesture-typing candidate mid-swipe, shown floating above the finger. */
     val glideWord: String? = null,
     val composingPreview: String = "",
+    /**
+     * Probability weight (0..1) of each letter being typed next, given the
+     * current composing word. Drives smart key-hit detection, which nudges
+     * boundary taps toward the high-weight letters. Empty when the feature is
+     * off, the field is not composing, or nothing is predicted.
+     */
+    val nextLetterBias: Map<Char, Float> = emptyMap(),
     /** Text-edit panel: arrows extend the selection instead of moving the cursor. */
     val textEditSelecting: Boolean = false,
     val emojiQuery: String = "",

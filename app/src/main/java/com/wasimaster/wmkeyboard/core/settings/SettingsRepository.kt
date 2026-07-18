@@ -1264,6 +1264,15 @@ data class LayoutBehaviorSettings(
      * effect while [KeyboardSettings.numberRow] is on. Off by default.
      */
     val numberRowShiftSymbols: Boolean = false,
+    /**
+     * Smart key-hit detection: while a word is being typed, the touch target of
+     * each letter is nudged toward the letters most likely to come next (from
+     * the dictionary), so a tap that lands just inside a neighbour's cell still
+     * commits the intended letter. Only biases boundary taps and only on the
+     * letters layer; deliberate presses well inside a key are untouched. Off by
+     * default.
+     */
+    val smartHitDetection: Boolean = false,
 )
 
 /**
@@ -1482,6 +1491,7 @@ class SettingsRepository(private val context: Context) {
         private val SPACE_CURSOR_2D = booleanPreferencesKey("space_cursor_2d")
         private val HINT_FONT_SCALE = floatPreferencesKey("hint_font_scale")
         private val NUMBER_ROW_SHIFT_SYMBOLS = booleanPreferencesKey("number_row_shift_symbols")
+        private val SMART_HIT_DETECTION = booleanPreferencesKey("smart_hit_detection")
         private val BACKSPACE_SWIPE_DELETE = booleanPreferencesKey("backspace_swipe_delete")
         private val HARDWARE_KEYBOARD_INPUT = booleanPreferencesKey("hardware_keyboard_input")
         private val VOLUME_CURSOR = booleanPreferencesKey("volume_cursor")
@@ -1910,6 +1920,8 @@ class SettingsRepository(private val context: Context) {
                 hintFontScale = p[HINT_FONT_SCALE] ?: defaults.layoutBehavior.hintFontScale,
                 numberRowShiftSymbols =
                     p[NUMBER_ROW_SHIFT_SYMBOLS] ?: defaults.layoutBehavior.numberRowShiftSymbols,
+                smartHitDetection =
+                    p[SMART_HIT_DETECTION] ?: defaults.layoutBehavior.smartHitDetection,
             ),
             rawClipboardShortcuts = p[RAW_CLIPBOARD_SHORTCUTS] ?: defaults.rawClipboardShortcuts,
             longPressASelectAll = p[LONG_PRESS_A_SELECT_ALL] ?: defaults.longPressASelectAll,
@@ -2980,6 +2992,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setNumberRowShiftSymbols(value: Boolean) =
         context.dataStore.edit { it[NUMBER_ROW_SHIFT_SYMBOLS] = value }
+
+    suspend fun setSmartHitDetection(value: Boolean) =
+        context.dataStore.edit { it[SMART_HIT_DETECTION] = value }
 
     suspend fun setBackspaceSwipeDelete(value: Boolean) =
         context.dataStore.edit { it[BACKSPACE_SWIPE_DELETE] = value }

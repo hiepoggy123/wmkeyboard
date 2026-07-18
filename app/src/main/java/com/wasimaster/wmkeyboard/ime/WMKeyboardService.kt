@@ -3144,12 +3144,24 @@ class WMKeyboardService : InputMethodService() {
             // clamped so it never becomes perceptible.
             delay((suggestionCostMs / 2).coerceIn(16L, 40L))
             val started = SystemClock.uptimeMillis()
-            val (results, emojis) = withContext(Dispatchers.Default) {
+            val (results, emojis, bias) = withContext(Dispatchers.Default) {
                 val words = engine.suggest(
                     composing = typed,
                     previousWord = previousWord,
                     avroMode = state.composer.isBengaliPhonetic,
                 )
+                // Next-letter distribution for smart key-hit detection. Only for
+                // plain Latin composing — conversion/transliteration IMEs commit
+                // through their own composer, where a Latin-letter nudge is wrong.
+                val bias = if (
+                    state.settings.layoutBehavior.smartHitDetection &&
+                    typed.isNotEmpty() &&
+                    !state.composer.isTransliterating
+                ) {
+                    engine.nextLetterWeights(typed)
+                } else {
+                    emptyMap()
+                }
                 // Precompute what a space/enter commit of this exact word would
                 // resolve to, so the commit need not run the edit-distance
                 // search (English) or transliteration ranking (Bengali) on the
@@ -3176,13 +3188,17 @@ class WMKeyboardService : InputMethodService() {
                     } else {
                         emptyList()
                     }
-                    words to emojis
+                    Triple(words, emojis, bias)
                 } else {
                     // Next-word prediction: learned bigrams can end in an
                     // emoji ("you" → ❤️). Those belong in the emoji slot of
                     // the strip, not among the word chips.
                     val (emojiNext, wordNext) = words.partition { isEmojiCandidate(it) }
-                    wordNext to if (state.settings.emojiPrediction) emojiNext else emptyList()
+                    Triple(
+                        wordNext,
+                        if (state.settings.emojiPrediction) emojiNext else emptyList(),
+                        bias,
+                    )
                 }
             }
             suggestionCostMs = (suggestionCostMs + (SystemClock.uptimeMillis() - started)) / 2
@@ -3210,6 +3226,7 @@ class WMKeyboardService : InputMethodService() {
                     suggestions = results,
                     emojiSuggestions = shownEmojis,
                     punctuationSuggestions = punct,
+                    nextLetterBias = bias,
                 )
             }
         }

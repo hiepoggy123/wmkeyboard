@@ -1415,6 +1415,19 @@ private fun TypingSettings(
             }
         }
         item {
+            ToggleSetting(
+                "Smart key-hit detection",
+                "Nudge boundary taps toward the letter you likely meant",
+                settings.layoutBehavior.smartHitDetection,
+                info = "As you type a word, the dictionary predicts which letters are likely to " +
+                    "come next, and the touch target of each key is quietly widened toward them. " +
+                    "A tap that lands just inside a neighbouring key still commits the letter you " +
+                    "meant — but only near the shared edge; a deliberate press in the middle of a " +
+                    "key is never changed. Only affects the letters layer, and needs Suggestions " +
+                    "on so the prediction has something to work with.",
+            ) { scope.launch { repository.setSmartHitDetection(it) } }
+        }
+        item {
             NavRow(
                 "Personal dictionary",
                 "Words the keyboard has learned — review, remove, add your own",
