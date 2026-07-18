@@ -229,7 +229,6 @@ import androidx.compose.ui.input.pointer.PointerId
 import androidx.compose.ui.input.pointer.changedToDown
 import androidx.compose.ui.input.pointer.changedToDownIgnoreConsumed
 import androidx.compose.ui.input.pointer.changedToUp
-import androidx.compose.ui.input.pointer.changedToUpIgnoreConsumed
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.boundsInRoot
@@ -4473,6 +4472,11 @@ private fun KeyRows(
             }
         }
     }
+    // Drop any in-flight remap when the feature switches off or the layout
+    // changes: a release arriving after such a change must not apply a decision
+    // made against the old grid (the down-observer that would have cleared it is
+    // gone once smartHit is false).
+    LaunchedEffect(smartHit, layout) { hitRemap.clear() }
     var trail by remember { mutableStateOf<List<TrailPoint>>(emptyList()) }
     var trailReleased by remember { mutableStateOf(false) }
     // Frame clock driving the fade; points older than trailMs vanish.
@@ -4656,7 +4660,9 @@ private fun KeyRows(
                                         hitRemap.remove(change.id)
                                     }
                                 }
-                                change.changedToUpIgnoreConsumed() -> hitRemap.remove(change.id)
+                                // Any lift OR cancel (glide steals the pointer):
+                                // once it is no longer pressed the remap is spent.
+                                !change.pressed -> hitRemap.remove(change.id)
                             }
                         }
                     }
