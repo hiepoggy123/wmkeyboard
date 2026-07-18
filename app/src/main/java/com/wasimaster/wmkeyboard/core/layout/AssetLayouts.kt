@@ -196,6 +196,9 @@ object AssetLayouts {
 
     // --- Composer-driven input methods (Vietnamese Telex/VNI, Japanese romaji,
     // Chinese pinyin): plain QWERTY grids whose "composer" field does the work. ---
+    /** International Phonetic Alphabet: a phonetic-notation layout, not a language. */
+    const val IPA_ID = "asset_ipa"
+
     const val VI_TELEX_ID = "asset_vi_telex"
     const val VI_VNI_ID = "asset_vi_vni"
     const val JA_ROMAJI_ID = "asset_ja_romaji"

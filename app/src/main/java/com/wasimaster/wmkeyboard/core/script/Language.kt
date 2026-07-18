@@ -1434,6 +1434,20 @@ object LanguageRegistry {
             localeTag = "dv-MV",
             layoutIds = listOf(AssetLayouts.DV_THAANA_ID),
         ),
+        // Not a spoken language but a phonetic notation, offered as one so it rides
+        // the same enable/select/layout machinery. "-fonipa" is the BCP-47 variant
+        // for IPA transcription; the primary subtag is "mul" (multiple languages)
+        // rather than "und", because java.util.Locale maps "und" to an empty
+        // language and every locale tag here must parse. No dictionary or gesture
+        // lexicon applies.
+        LanguageDef(
+            id = "ipa",
+            displayName = "IPA · Phonetic",
+            englishName = "IPA (Phonetic)",
+            script = ScriptId.IPA,
+            localeTag = "mul-fonipa",
+            layoutIds = listOf(AssetLayouts.IPA_ID),
+        ),
     )
 
     /** The stand-in for an id this build does not recognise. Never surfaced in UI. */
