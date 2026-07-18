@@ -21,6 +21,14 @@ enum class ScriptId {
     THAI, LAO, KHMER, MYANMAR,
     HANGUL, ETHIOPIC, THAANA,
     JAPANESE, HAN,
+
+    /**
+     * The International Phonetic Alphabet. Not a language's writing system but a
+     * transcription notation: Latin-derived glyphs plus the IPA Extensions block
+     * and spacing/combining modifiers. Uncased, no dictionary, no composer — every
+     * key commits its symbol as-is.
+     */
+    IPA,
 }
 
 /** Which way the script runs. Drives the suggestion strip's layout direction. */
@@ -323,6 +331,20 @@ object ScriptRegistry {
             composer = ComposerType.NONE,
             fontHint = FontHint.GENERIC,
             unicodeRange = 0x4E00..0x9FFF,
+        ),
+        // IPA is uncased (a shift key would be inert) and composes 1:1 — each key
+        // commits its phonetic symbol directly, combining diacritics included. It
+        // rides the Latin faces, which carry the IPA Extensions block and the
+        // spacing/combining modifiers, so it needs no dedicated font. The declared
+        // range is the IPA Extensions block; the layout also reaches Latin,
+        // spacing-modifier and combining-diacritic characters outside it.
+        ScriptDef(
+            id = ScriptId.IPA,
+            direction = TextDirection.LTR,
+            hasLetterCase = false,
+            composer = ComposerType.NONE,
+            fontHint = FontHint.LATIN,
+            unicodeRange = 0x0250..0x02AF,
         ),
     ).associateBy { it.id }
 
