@@ -651,6 +651,10 @@ data class KeyboardUiState(
      */
     val hiddenEmoji: Set<String> = emptySet(),
     val clipboardItems: List<ClipItem> = emptyList(),
+    /** Live query for the clipboard panel's search bar (feature-gated). */
+    val clipboardQuery: String = "",
+    /** Typing edits [clipboardQuery] instead of the field, like emoji search. */
+    val clipboardSearchActive: Boolean = false,
     /**
      * Most recently copied text, offered as a paste chip on the suggestion strip
      * (Gboard style). Null when nothing recent, the chip expired, was dismissed,

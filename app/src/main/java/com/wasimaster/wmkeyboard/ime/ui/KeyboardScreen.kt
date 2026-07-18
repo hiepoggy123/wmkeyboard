@@ -533,6 +533,7 @@ fun KeyboardScreen(
     onClipboardItem: (ClipItem) -> Unit,
     onClipboardPin: (ClipItem) -> Unit,
     onClipboardDelete: (ClipItem) -> Unit,
+    onClipboardSearchToggle: () -> Unit = {},
     onClipboardSuggestionDismiss: () -> Unit = {},
     onSnippet: (Snippet) -> Unit = {},
     onOneHanded: (OneHandedMode) -> Unit = {},
@@ -755,6 +756,7 @@ fun KeyboardScreen(
                 onClipboardItem = onClipboardItem,
                 onClipboardPin = onClipboardPin,
                 onClipboardDelete = onClipboardDelete,
+                onClipboardSearchToggle = onClipboardSearchToggle,
                 onClipboardSuggestionDismiss = onClipboardSuggestionDismiss,
                 onSnippet = onSnippet,
                 onToolTap = onToolTap,
@@ -3726,6 +3728,7 @@ private fun KeyboardBody(
     onClipboardItem: (ClipItem) -> Unit,
     onClipboardPin: (ClipItem) -> Unit,
     onClipboardDelete: (ClipItem) -> Unit,
+    onClipboardSearchToggle: () -> Unit,
     onClipboardSuggestionDismiss: () -> Unit,
     onSnippet: (Snippet) -> Unit,
     onToolTap: (ToolbarTool) -> Unit,
@@ -3895,6 +3898,7 @@ private fun KeyboardBody(
                 )
                 PanelMode.CLIPBOARD -> ClipboardPanel(
                     state, onClipboardItem, onClipboardPin, onClipboardDelete,
+                    onClipboardSearchToggle = onClipboardSearchToggle,
                     onKey = onKey,
                     // Toggling the open panel closes it — back to the keys.
                     onClose = { onPanelChange(PanelMode.CLIPBOARD) },
@@ -7648,6 +7652,7 @@ private fun ClipboardPanel(
     onClipboardItem: (ClipItem) -> Unit,
     onClipboardPin: (ClipItem) -> Unit,
     onClipboardDelete: (ClipItem) -> Unit,
+    onClipboardSearchToggle: () -> Unit,
     onKey: (Key) -> Unit,
     onClose: () -> Unit,
 ) {
@@ -7660,10 +7665,74 @@ private fun ClipboardPanel(
     Column {
         ClipboardPanelContent(
             state, onClipboardItem, onClipboardPin, onClipboardDelete,
+            onClipboardSearchToggle = onClipboardSearchToggle,
             height = contentHeight,
         )
         if (showBottomRow) {
             EmojiBottomBar(state = state, onKey = onKey, onClose = onClose)
+        }
+    }
+}
+
+/**
+ * Whether a clip matches the panel's search query — the same rule as
+ * [com.wasimaster.wmkeyboard.core.clipboard.ClipboardStore.search]: textual
+ * clips match on their text, files/folders on their name, others never.
+ */
+private fun clipMatchesQuery(item: ClipItem, query: String): Boolean = when {
+    item.kind.isTextual -> item.text.contains(query, ignoreCase = true)
+    item.kind == ClipKind.FILE || item.kind == ClipKind.FOLDER ->
+        item.fileName.orEmpty().contains(query, ignoreCase = true)
+    else -> false
+}
+
+/**
+ * Search pill at the top of the clipboard panel. Tapping it routes the keys
+ * into [KeyboardUiState.clipboardQuery] (like emoji/dictionary search) so the
+ * IME can filter its own history without a focusable text field.
+ */
+@Composable
+private fun ClipboardSearchField(
+    state: KeyboardUiState,
+    onToggle: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val active = state.clipboardSearchActive
+    Row(
+        modifier = modifier
+            .background(MaterialTheme.colorScheme.surfaceContainer, RoundedCornerShape(20.dp))
+            .clickable { onToggle() }
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            Icons.Outlined.Search,
+            contentDescription = null,
+            modifier = Modifier.size(18.dp),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.width(8.dp))
+        SearchQueryText(
+            query = state.clipboardQuery,
+            placeholder = "Search clipboard…",
+            active = active,
+            textColor = MaterialTheme.colorScheme.onSurface,
+            placeholderColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontSize = 14.sp,
+            modifier = Modifier.weight(1f),
+        )
+        // Only up while searching (typing is the only way to fill the query,
+        // and closing clears it). Clears the filter and hands the keys back.
+        if (active) {
+            Icon(
+                Icons.Outlined.Close,
+                contentDescription = "Clear search",
+                modifier = Modifier
+                    .padding(start = 8.dp)
+                    .size(18.dp)
+                    .clickable { onToggle() },
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }
@@ -7674,8 +7743,12 @@ private fun ClipboardPanelContent(
     onClipboardItem: (ClipItem) -> Unit,
     onClipboardPin: (ClipItem) -> Unit,
     onClipboardDelete: (ClipItem) -> Unit,
+    onClipboardSearchToggle: () -> Unit,
     height: Dp,
 ) {
+    // The search bar is only offered once there is history to filter and the
+    // feature is on; an empty panel just shows the placeholder.
+    val showSearch = state.settings.clipboard.search && state.clipboardItems.isNotEmpty()
     if (state.clipboardItems.isEmpty()) {
         Box(
             modifier = Modifier
@@ -7690,16 +7763,46 @@ private fun ClipboardPanelContent(
         }
         return
     }
-    LazyVerticalGrid(
-        columns = GridCells.Fixed(2),
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(height),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(8.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        items(state.clipboardItems, key = { it.id }) { item ->
+    val query = state.clipboardQuery.trim()
+    val shownItems = if (!showSearch || query.isEmpty()) {
+        state.clipboardItems
+    } else {
+        state.clipboardItems.filter { clipMatchesQuery(it, query) }
+    }
+    Column(modifier = Modifier.height(height)) {
+        if (showSearch) {
+            ClipboardSearchField(
+                state = state,
+                onToggle = onClipboardSearchToggle,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 8.dp, end = 8.dp, top = 8.dp),
+            )
+        }
+        if (shownItems.isEmpty()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    "No clips match “$query”.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            return@Column
+        }
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(2),
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            items(shownItems, key = { it.id }) { item ->
             // Deleting fades the card out and slides the survivors up into the
             // gap; pinning re-sorts the list, so the card glides to the front
             // instead of teleporting there.
@@ -7769,6 +7872,7 @@ private fun ClipboardPanelContent(
                         ) { onClipboardDelete(item) }
                     }
                 }
+            }
             }
         }
     }

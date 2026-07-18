@@ -4351,6 +4351,14 @@ private fun ToolDetailSettings(
             }
             item {
                 ToggleSetting(
+                    "Search bar",
+                    "Show a search bar at the top of the clipboard panel to filter " +
+                        "history as you type.",
+                    settings.clipboard.search,
+                ) { scope.launch { repository.setClipboardSearch(it) } }
+            }
+            item {
+                ToggleSetting(
                     "Link previews",
                     "Fetch the page title of copied links and show it in the panel. " +
                         "This contacts the linked site.",

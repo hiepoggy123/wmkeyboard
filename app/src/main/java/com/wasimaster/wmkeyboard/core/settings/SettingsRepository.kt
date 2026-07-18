@@ -1180,6 +1180,8 @@ data class ClipboardSettings(
     val bottomRow: Boolean = false,
     /** List pinned entries at the end instead of the top of the clipboard panel. */
     val pinnedLast: Boolean = false,
+    /** Show a search bar at the top of the clipboard panel to filter history. */
+    val search: Boolean = false,
 )
 
 /**
@@ -1542,6 +1544,7 @@ class SettingsRepository(private val context: Context) {
         private val PUNCTUATION_SUGGESTIONS = booleanPreferencesKey("punctuation_suggestions")
         private val CLIPBOARD_BOTTOM_ROW = booleanPreferencesKey("clipboard_bottom_row")
         private val CLIPBOARD_PINNED_LAST = booleanPreferencesKey("clipboard_pinned_last")
+        private val CLIPBOARD_SEARCH = booleanPreferencesKey("clipboard_search")
         private val LONG_PRESS_DELAY = intPreferencesKey("long_press_delay")
         private val KEY_REPEAT_INTERVAL = intPreferencesKey("key_repeat_interval")
         private val LONG_PRESS_HINTS = booleanPreferencesKey("long_press_hints")
@@ -1914,6 +1917,7 @@ class SettingsRepository(private val context: Context) {
                 suggestRecent = p[CLIPBOARD_SUGGEST_RECENT] ?: defaults.clipboard.suggestRecent,
                 bottomRow = p[CLIPBOARD_BOTTOM_ROW] ?: defaults.clipboard.bottomRow,
                 pinnedLast = p[CLIPBOARD_PINNED_LAST] ?: defaults.clipboard.pinnedLast,
+                search = p[CLIPBOARD_SEARCH] ?: defaults.clipboard.search,
             ),
             suggestionStrip = SuggestionStripSettings(
                 punctuation = p[PUNCTUATION_SUGGESTIONS] ?: defaults.suggestionStrip.punctuation,
@@ -3123,6 +3127,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setClipboardPinnedLast(value: Boolean) =
         context.dataStore.edit { it[CLIPBOARD_PINNED_LAST] = value }
+
+    suspend fun setClipboardSearch(value: Boolean) =
+        context.dataStore.edit { it[CLIPBOARD_SEARCH] = value }
 
     suspend fun setLongPressDelayMs(value: Int) =
         context.dataStore.edit { it[LONG_PRESS_DELAY] = value.coerceIn(150, 700) }

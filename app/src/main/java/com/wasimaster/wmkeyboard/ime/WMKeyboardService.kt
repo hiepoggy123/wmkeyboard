@@ -945,6 +945,7 @@ class WMKeyboardService : InputMethodService() {
                 onClipboardItem = ::onClipboardItemTapped,
                 onClipboardPin = ::onClipboardPin,
                 onClipboardDelete = ::onClipboardDelete,
+                onClipboardSearchToggle = ::onClipboardSearchToggle,
                 onClipboardSuggestionDismiss = ::onClipboardSuggestionDismiss,
                 onSnippet = ::onSnippetTapped,
                 onOneHanded = ::onOneHandedChange,
@@ -1229,6 +1230,8 @@ class WMKeyboardService : InputMethodService() {
                 emojiSearchActive = false,
                 emojiQuery = "",
                 dictionarySearchActive = false,
+                clipboardSearchActive = false,
+                clipboardQuery = "",
                 mediaSearchActive = false,
                 mediaQuery = "",
                 mediaDownloadingId = null,
@@ -1801,6 +1804,11 @@ class WMKeyboardService : InputMethodService() {
             consumeShift()
             return
         }
+        if (state.clipboardSearchActive) {
+            _uiState.update { it.copy(clipboardQuery = it.clipboardQuery + text) }
+            consumeShift()
+            return
+        }
 
         val ic = currentInputConnection ?: return
         text = fixedLayoutContextualVowel(text, ic.getTextBeforeCursor(1, 0)?.lastOrNull())
@@ -2056,6 +2064,12 @@ class WMKeyboardService : InputMethodService() {
             }
             return
         }
+        if (state.clipboardSearchActive) {
+            if (state.clipboardQuery.isNotEmpty()) {
+                _uiState.update { it.copy(clipboardQuery = it.clipboardQuery.dropLast(1)) }
+            }
+            return
+        }
         if (state.mediaSearchActive && state.panel.hasMediaSearch) {
             if (state.mediaQuery.isNotEmpty()) {
                 _uiState.update { it.copy(mediaQuery = it.mediaQuery.dropLast(1)) }
@@ -2212,6 +2226,7 @@ class WMKeyboardService : InputMethodService() {
             state.allowsTypingIntelligence && state.language.gestureLexicon &&
             !state.typingTestActive && !state.emojiSearchActive &&
             !state.dictionarySearchActive && !state.mediaSearchActive &&
+            !state.clipboardSearchActive &&
             state.voice.status != VoiceStatus.LISTENING &&
             state.voice.status != VoiceStatus.FINISHING
 
@@ -2259,6 +2274,7 @@ class WMKeyboardService : InputMethodService() {
         // A panel search owns the backspace key while it is open; word-deleting
         // the real field behind it would edit text the user cannot see.
         if (state.emojiSearchActive || state.dictionarySearchActive ||
+            state.clipboardSearchActive ||
             (state.mediaSearchActive && state.panel.hasMediaSearch) ||
             ((state.panel == PanelMode.HANDWRITING || keyboardHandwriteActive(state)) &&
                 state.handwriting.strokes.isNotEmpty())
@@ -3571,6 +3587,8 @@ class WMKeyboardService : InputMethodService() {
                 clipboardItems = clipboardStore.items(),
                 snippets = snippetStore.items(),
                 dictionarySearchActive = false,
+                clipboardSearchActive = false,
+                clipboardQuery = "",
                 mediaQuery = "",
                 // Web/image search and translate open straight into their
                 // search box (there is nothing to show yet); gif/sticker
@@ -5314,6 +5332,16 @@ class WMKeyboardService : InputMethodService() {
     fun onDictionarySearchToggle() {
         vibrate()
         _uiState.update { it.copy(dictionarySearchActive = !it.dictionarySearchActive) }
+    }
+
+    /** Clipboard panel search bar tapped: route keys into [clipboardQuery]. */
+    fun onClipboardSearchToggle() {
+        vibrate()
+        _uiState.update {
+            val active = !it.clipboardSearchActive
+            // Closing search clears the filter so the full history is back.
+            it.copy(clipboardSearchActive = active, clipboardQuery = if (active) it.clipboardQuery else "")
+        }
     }
 
     /** Insert chip on a dictionary entry: type the word into the editor. */
