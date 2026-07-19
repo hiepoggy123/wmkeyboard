@@ -4,6 +4,13 @@ import com.wasimaster.wmkeyboard.core.transliteration.AvroPhonetic
 import com.wasimaster.wmkeyboard.core.transliteration.BengaliPhoneticIndex
 
 /**
+ * A secondary-language word list paired with the id of the language it belongs
+ * to, so [SuggestionEngine] can attribute committed words back to a language and
+ * adapt how strongly that language participates in the mix.
+ */
+data class SecondaryDictionary(val langId: String, val source: WordSource)
+
+/**
  * Produces the suggestion-bar candidates for the word being composed.
  *
  * Sources, merged and ranked by frequency:
@@ -23,6 +30,7 @@ class SuggestionEngine(
     private val userLexicon: UserLexicon,
     private val loanwords: EnglishBengaliMap = EnglishBengaliMap.EMPTY,
     private val seedBigrams: SeedBigrams = SeedBigrams.EMPTY,
+    private val mixConfidence: LanguageMixConfidence = LanguageMixConfidence(),
 ) {
 
     /**
@@ -82,16 +90,27 @@ class SuggestionEngine(
      * Dictionaries for the user's secondary languages, consulted alongside the
      * primary so a bilingual typist gets both without switching. These are the
      * freq-1 imported lists, weighted below every primary source; a word valid
-     * in one is never autocorrected away.
+     * in one is never autocorrected away. Each is tagged with its language id so
+     * its share of the strip adapts to how much the user actually types it (see
+     * [mixConfidence] / [recordUsage]).
      */
     @Volatile
-    var secondaryDictionaries: List<WordSource> = emptyList()
+    var secondaryDictionaries: List<SecondaryDictionary> = emptyList()
+
+    /**
+     * Language id of the primary (on-screen) language, so a committed word the
+     * primary already covers is attributed to it rather than mistaken for
+     * secondary-language use. Blank when no language is set (tests).
+     */
+    @Volatile
+    var primaryLanguageId: String = ""
 
     /**
      * True when English is a secondary language and the primary is not: the
      * bundled English list then participates at a fraction of its frequency
      * (it carries real frequencies, unlike the freq-1 [secondaryDictionaries]),
-     * covering the common "native language + English" pairing.
+     * covering the common "native language + English" pairing. Its share is
+     * scaled by the adaptive confidence for "en" like any other secondary.
      */
     @Volatile
     var englishAsSecondary: Boolean = false
@@ -167,10 +186,24 @@ class SuggestionEngine(
     private val activeDictionary: WordSource
         get() = if (englishSources) dictionary else emptyTrie
 
+    /**
+     * Fraction of its real frequency at which bundled English participates as a
+     * secondary language: the base [SECONDARY_ENGLISH_DIVISOR] scaled by how
+     * much the user actually mixes English in. At the neutral (untrained)
+     * confidence this is exactly `1 / SECONDARY_ENGLISH_DIVISOR`, matching the
+     * old fixed behaviour.
+     */
+    private fun englishSecondaryFactor(): Double =
+        mixConfidence.confidenceFor(EN) / SECONDARY_ENGLISH_DIVISOR
+
+    /** Adaptive weight for a secondary language's imported list. */
+    private fun secondaryWeight(langId: String): Int =
+        (SECONDARY_WORD_WEIGHT * mixConfidence.confidenceFor(langId)).toInt()
+
     /** English's bundled frequency when it is a secondary language, else 0. */
     private fun secondaryEnglishFrequencyOf(word: String): Int =
         if (englishAsSecondary && !englishSources) {
-            dictionary.frequencyOf(word) / SECONDARY_ENGLISH_DIVISOR
+            (dictionary.frequencyOf(word) * englishSecondaryFactor()).toInt()
         } else {
             0
         }
@@ -180,7 +213,9 @@ class SuggestionEngine(
         activeDictionary.frequencyOf(word),
         weighted(customDictionary.frequencyOf(word), CUSTOM_WORD_WEIGHT),
         secondaryEnglishFrequencyOf(word),
-        secondaryDictionaries.maxOfOrNull { weighted(it.frequencyOf(word), SECONDARY_WORD_WEIGHT) } ?: 0,
+        secondaryDictionaries.maxOfOrNull {
+            weighted(it.source.frequencyOf(word), secondaryWeight(it.langId))
+        } ?: 0,
     )
 
     /**
@@ -195,10 +230,32 @@ class SuggestionEngine(
     private fun inDictionaries(word: String): Boolean =
         activeDictionary.contains(word) || customDictionary.contains(word) ||
             (englishAsSecondary && !englishSources && dictionary.contains(word)) ||
-            secondaryDictionaries.any { it.contains(word) }
+            secondaryDictionaries.any { it.source.contains(word) }
+
+    /**
+     * Attribute one committed [word] to the language in the active mix that owns
+     * it, feeding [mixConfidence] so the secondary tier's weighting tracks real
+     * use. A no-op unless a secondary mix is configured, so a monolingual user
+     * pays nothing. Words the primary already covers count toward the primary,
+     * which is how a lightly-used secondary ends up damped relative to it.
+     */
+    fun recordUsage(word: String) {
+        if (secondaryDictionaries.isEmpty() && !englishAsSecondary) return
+        val lower = word.lowercase()
+        val langId = when {
+            activeDictionary.contains(lower) || customDictionary.contains(lower) ||
+                userLexicon.contains(lower) -> primaryLanguageId
+            englishAsSecondary && !englishSources && dictionary.contains(lower) -> EN
+            else -> secondaryDictionaries.firstOrNull { it.source.contains(lower) }?.langId
+                ?: primaryLanguageId
+        }
+        mixConfidence.record(langId)
+    }
 
     companion object {
         private const val ALPHABET = "abcdefghijklmnopqrstuvwxyz"
+        /** Language id of bundled English, the only special-cased secondary. */
+        private const val EN = "en"
         /** Learned words get a large boost so personalization wins quickly. */
         /** Completions scanned per source when building the next-letter map. */
         private const val NEXT_LETTER_SCAN = 24
@@ -302,13 +359,15 @@ class SuggestionEngine(
             merged.merge(s.word, weighted(s.frequency, CUSTOM_WORD_WEIGHT), ::maxOf)
         }
         if (englishAsSecondary && !englishSources) {
+            val factor = englishSecondaryFactor()
             for (s in dictionary.complete(lower, limit * 2)) {
-                merged.merge(s.word, s.frequency / SECONDARY_ENGLISH_DIVISOR, ::maxOf)
+                merged.merge(s.word, (s.frequency * factor).toInt(), ::maxOf)
             }
         }
         for (t in secondaryDictionaries) {
-            for (s in t.complete(lower, limit * 2)) {
-                merged.merge(s.word, weighted(s.frequency, SECONDARY_WORD_WEIGHT), ::maxOf)
+            val weight = secondaryWeight(t.langId)
+            for (s in t.source.complete(lower, limit * 2)) {
+                merged.merge(s.word, weighted(s.frequency, weight), ::maxOf)
             }
         }
         for (s in userLexicon.complete(lower, limit)) {

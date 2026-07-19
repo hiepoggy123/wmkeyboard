@@ -80,7 +80,9 @@ import com.wasimaster.wmkeyboard.core.prediction.CustomDictionaries
 import com.wasimaster.wmkeyboard.core.prediction.DictionaryLoader
 import com.wasimaster.wmkeyboard.core.prediction.EnglishBengaliMap
 import com.wasimaster.wmkeyboard.core.prediction.KeyProximity
+import com.wasimaster.wmkeyboard.core.prediction.LanguageMixConfidence
 import com.wasimaster.wmkeyboard.core.prediction.PackedTrie
+import com.wasimaster.wmkeyboard.core.prediction.SecondaryDictionary
 import com.wasimaster.wmkeyboard.core.prediction.SeedBigrams
 import com.wasimaster.wmkeyboard.core.prediction.SuggestionEngine
 import com.wasimaster.wmkeyboard.core.prediction.SystemUserDictionary
@@ -220,6 +222,7 @@ class WMKeyboardService : InputMethodService() {
     private var emojiSuggester: EmojiSuggester? = null
     private var emojiEntries: List<EmojiEntry> = emptyList()
     private lateinit var userLexicon: UserLexicon
+    private lateinit var languageMixConfidence: LanguageMixConfidence
     private lateinit var emojiUsage: EmojiUsage
     private lateinit var clipboardStore: ClipboardStore
     /** In-flight link-metadata fetch; one at a time (see [fetchLinkPreviews]). */
@@ -624,6 +627,7 @@ class WMKeyboardService : InputMethodService() {
         // Decode the synthesized key sounds up front so the first press plays.
         KeySoundPlayer.warmUp(this)
         userLexicon = UserLexicon(File(filesDir, "learning/user_lexicon.json"))
+        languageMixConfidence = LanguageMixConfidence(File(filesDir, "learning/language_mix.json"))
         emojiUsage = EmojiUsage(File(filesDir, "learning/emoji_usage.json"))
         clipboardStore = ClipboardStore(
             File(filesDir, "clipboard/history.json"),
@@ -764,14 +768,17 @@ class WMKeyboardService : InputMethodService() {
                     }
                 }
                 customDictVersion = settings.customDictVersion
+                suggestionEngine?.primaryLanguageId = activeLang.id
                 suggestionEngine?.customDictionary =
                     customDictionaries[activeLang.id] ?: PackedTrie.EMPTY
                 // Secondary languages feed the strip alongside the primary. English
                 // rides its bundled list (englishAsSecondary); every other language
-                // its imported list.
+                // its imported list. Each is tagged with its id so its share of the
+                // strip adapts to how much the user actually types it.
                 val secondaryIds = settings.secondaryLanguages[activeLang.id].orEmpty()
                 suggestionEngine?.secondaryDictionaries =
-                    secondaryIds.filter { it != "en" }.mapNotNull { customDictionaries[it] }
+                    secondaryIds.filter { it != "en" }
+                        .mapNotNull { id -> customDictionaries[id]?.let { SecondaryDictionary(id, it) } }
                 suggestionEngine?.englishAsSecondary =
                     "en" in secondaryIds && !activeLang.isEnglish
             }
@@ -839,6 +846,7 @@ class WMKeyboardService : InputMethodService() {
                 userLexicon,
                 loanwords,
                 seedBigrams,
+                languageMixConfidence,
             ).apply {
                 contacts = contactNames
                 contactEmails = this@WMKeyboardService.contactEmails
@@ -852,9 +860,11 @@ class WMKeyboardService : InputMethodService() {
                 skipAllCapsAutocorrect = _uiState.value.settings.autocorrectSkipAllCaps
                 val lang = _uiState.value.language
                 englishSources = lang.isEnglish
+                primaryLanguageId = lang.id
                 customDictionary = customTries[lang.id] ?: PackedTrie.EMPTY
                 val secondaryIds = _uiState.value.settings.secondaryLanguages[lang.id].orEmpty()
-                secondaryDictionaries = secondaryIds.filter { it != "en" }.mapNotNull { customTries[it] }
+                secondaryDictionaries = secondaryIds.filter { it != "en" }
+                    .mapNotNull { id -> customTries[id]?.let { SecondaryDictionary(id, it) } }
                 englishAsSecondary = "en" in secondaryIds && !lang.isEnglish
             }
             emojiEntries = catalog
@@ -1419,6 +1429,7 @@ class WMKeyboardService : InputMethodService() {
         // user types in next.
         fieldLayoutOverride = null
         userLexicon.save()
+        languageMixConfidence.save()
         emojiUsage.save()
         if (_uiState.value.settings.flashlightAutoOff && _uiState.value.torchOn) {
             setTorch(false)
@@ -2791,6 +2802,9 @@ class WMKeyboardService : InputMethodService() {
             val cleaned = part.trim { !it.isLetter() }
             if (cleaned.isEmpty()) continue
             userLexicon.learnWord(cleaned, reinforcement)
+            // Attribute the word to whichever mixed language owns it, so the
+            // secondary-dictionary weighting tracks the user's real habit.
+            suggestionEngine?.recordUsage(cleaned)
             // Mirror genuinely typed words (not autocorrect targets, which are
             // reinforcement 0 and already dictionary words) into Android's
             // shared personal dictionary when the user has opted in.

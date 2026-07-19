@@ -264,14 +264,14 @@ class SuggestionEngineTest {
         val spanish = Trie().apply { insert("gato", 1); insert("gata", 1) }
         val e = engine().apply {
             englishSources = false // primary is a non-English language
-            secondaryDictionaries = listOf(spanish)
+            secondaryDictionaries = listOf(SecondaryDictionary("es", spanish))
         }
         assertTrue("gato" in e.suggest("gat", previousWord = null))
     }
 
     @Test fun `a word in a secondary dictionary is never autocorrected away`() {
         val secondary = Trie().apply { insert("worl", 1) }
-        val e = engine().apply { secondaryDictionaries = listOf(secondary) }
+        val e = engine().apply { secondaryDictionaries = listOf(SecondaryDictionary("es", secondary)) }
         assertNull("worl is a valid secondary word", e.shouldAutocorrect("worl"))
         // Without the secondary the same string corrects to the bundled word.
         assertEquals("world", engine().shouldAutocorrect("worl"))
@@ -284,5 +284,54 @@ class SuggestionEngineTest {
         }
         val s = e.suggest("hel", previousWord = null)
         assertTrue("hello" in s || "help" in s)
+    }
+
+    @Test fun `the more-used secondary language outranks the neglected one`() {
+        // Two secondaries whose completions collide on the same prefix; the one
+        // the user actually types should sort ahead once the mix has adapted.
+        val spanish = Trie().apply { insert("plato", 1) }
+        val german = Trie().apply { insert("platz", 1) }
+        val mix = LanguageMixConfidence()
+        val e = SuggestionEngine(
+            Trie(), BengaliPhoneticIndex(emptyList()), UserLexicon(null),
+            mixConfidence = mix,
+        ).apply {
+            englishSources = false
+            primaryLanguageId = "fr"
+            secondaryDictionaries = listOf(
+                SecondaryDictionary("es", spanish),
+                SecondaryDictionary("de", german),
+            )
+        }
+        // Cold start: equal weight, so neither is forced ahead of the other.
+        // Teach the keyboard the user leans on Spanish.
+        repeat(30) { e.recordUsage("plato") }
+        val ranked = e.suggest("plat", previousWord = null)
+        assertTrue("plato" in ranked && "platz" in ranked)
+        assertTrue(
+            "the used language should sort first",
+            ranked.indexOf("plato") < ranked.indexOf("platz"),
+        )
+    }
+
+    @Test fun `words the primary covers do not inflate a secondary`() {
+        // "world" is a primary (English) word: committing it must count toward
+        // the primary, leaving the untouched secondary damped below neutral —
+        // never boosted as though the user had typed Spanish.
+        val dictionary = Trie().apply { insert("world", 50) }
+        val spanish = Trie().apply { insert("hola", 1) }
+        val mix = LanguageMixConfidence()
+        val e = SuggestionEngine(
+            dictionary, BengaliPhoneticIndex(emptyList()), UserLexicon(null),
+            mixConfidence = mix,
+        ).apply {
+            englishSources = true
+            primaryLanguageId = "en"
+            secondaryDictionaries = listOf(SecondaryDictionary("es", spanish))
+        }
+        repeat(20) { e.recordUsage("world") }
+        // Primary got the credit, so Spanish sits below neutral, not above it.
+        assertTrue(mix.confidenceFor("es") < LanguageMixConfidence.NEUTRAL)
+        assertTrue(mix.confidenceFor("en") > mix.confidenceFor("es"))
     }
 }
