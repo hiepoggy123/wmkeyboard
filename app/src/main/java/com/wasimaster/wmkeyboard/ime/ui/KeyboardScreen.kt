@@ -283,6 +283,8 @@ import com.wasimaster.wmkeyboard.core.gesture.KeyCenter
 import com.wasimaster.wmkeyboard.core.handwriting.HwPoint
 import com.wasimaster.wmkeyboard.core.handwriting.HwStroke
 import com.wasimaster.wmkeyboard.core.script.TextDirection
+import com.wasimaster.wmkeyboard.core.script.mapDigits
+import com.wasimaster.wmkeyboard.core.script.resolveNumeralDigits
 import com.wasimaster.wmkeyboard.core.settings.BarRow
 import com.wasimaster.wmkeyboard.core.settings.EmojiBarContent
 import com.wasimaster.wmkeyboard.core.settings.GrammarDialect
@@ -5900,6 +5902,10 @@ private fun spacebarText(state: KeyboardUiState): String {
 }
 
 private fun displayLabel(key: Key, state: KeyboardUiState): String {
+    // Digit keys draw the chosen numeral system's glyphs (in every commit
+    // scope, including display-only). The layout data stays ASCII; the swap
+    // happens here at draw time. Non-digit labels pass through untouched.
+    val digits = resolveNumeralDigits(state.settings.layoutBehavior.numeralSystem, state.language)
     val raw = when {
         state.shiftState != ShiftState.OFF && key.shiftLabel != null -> key.shiftLabel
         // Cased-script letter labels track the live shift state: lowercase
@@ -5922,7 +5928,7 @@ private fun displayLabel(key: Key, state: KeyboardUiState): String {
             ?.let { BengaliGraphemes.vowelKeyText(it, state.vowelForm) }
             ?.let { return it }
     }
-    return raw
+    return mapDigits(raw, digits)
 }
 
 /**

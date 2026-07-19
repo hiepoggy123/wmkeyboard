@@ -169,7 +169,10 @@ import com.wasimaster.wmkeyboard.core.input.composer.CjkDictionaries
 import com.wasimaster.wmkeyboard.core.input.composer.ConversionDictionary
 import com.wasimaster.wmkeyboard.core.script.LanguageDef
 import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
+import com.wasimaster.wmkeyboard.core.script.NumeralCommitScope
 import com.wasimaster.wmkeyboard.core.script.ScriptId
+import com.wasimaster.wmkeyboard.core.script.mapDigits
+import com.wasimaster.wmkeyboard.core.script.resolveNumeralDigits
 import com.wasimaster.wmkeyboard.core.layout.composerType
 import com.wasimaster.wmkeyboard.core.layout.language
 import com.wasimaster.wmkeyboard.core.layout.resolveLayout
@@ -1916,12 +1919,32 @@ class WMKeyboardService : InputMethodService() {
 
     private fun keyOutput(key: Key, state: KeyboardUiState): String {
         val base = key.output ?: key.label
-        return when {
+        val out = when {
             state.shiftState != ShiftState.OFF && key.shiftLabel != null -> key.shiftLabel
             state.shiftState != ShiftState.OFF && !state.composer.isClusterShaping ->
                 base.uppercase()
             else -> base
         }
+        return applyNumerals(out, state)
+    }
+
+    /**
+     * Rewrites ASCII digits in a committed key output to the chosen numeral
+     * system. Numeric/phone/date/time keypads keep ASCII under the default
+     * [NumeralCommitScope.TEXT_ONLY] so those fields stay machine-parseable;
+     * [NumeralCommitScope.EVERYWHERE] types native digits there too, and
+     * [NumeralCommitScope.DISPLAY_ONLY] never rewrites. A no-op for Latin and
+     * for text with no digits.
+     */
+    private fun applyNumerals(text: String, state: KeyboardUiState): String {
+        val apply = when (state.settings.layoutBehavior.numeralCommitScope) {
+            NumeralCommitScope.DISPLAY_ONLY -> false
+            NumeralCommitScope.EVERYWHERE -> true
+            NumeralCommitScope.TEXT_ONLY -> !state.fieldKind.isNumericPad
+        }
+        if (!apply) return text
+        val digits = resolveNumeralDigits(state.settings.layoutBehavior.numeralSystem, state.language)
+        return mapDigits(text, digits)
     }
 
     /**

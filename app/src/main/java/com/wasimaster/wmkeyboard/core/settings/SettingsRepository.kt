@@ -24,6 +24,8 @@ import com.wasimaster.wmkeyboard.core.layout.resolveLayout
 import com.wasimaster.wmkeyboard.core.layout.script
 import com.wasimaster.wmkeyboard.core.script.LanguageDef
 import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
+import com.wasimaster.wmkeyboard.core.script.NumeralCommitScope
+import com.wasimaster.wmkeyboard.core.script.NumeralSystem
 import com.wasimaster.wmkeyboard.core.script.ScriptDef
 import com.wasimaster.wmkeyboard.core.script.ScriptId
 import com.wasimaster.wmkeyboard.core.script.ScriptRegistry
@@ -1300,6 +1302,21 @@ data class LayoutBehaviorSettings(
      * default.
      */
     val smartHitDetection: Boolean = false,
+    /**
+     * Which digit glyphs the number row and numpad draw, and (per
+     * [numeralCommitScope]) type. [NumeralSystem.AUTO] follows the active
+     * language's own default (Arabic → ٠-٩, Persian/Urdu → ۰-۹, Bengali → ০-৯,
+     * the Devanagari languages → ०-९, everything else Latin); any other value
+     * forces that system regardless of language.
+     */
+    val numeralSystem: NumeralSystem = NumeralSystem.AUTO,
+    /**
+     * Where a non-Latin [numeralSystem] rewrites committed digits. Default
+     * [NumeralCommitScope.TEXT_ONLY] keeps ASCII in numeric/phone/date/time
+     * fields so those stay machine-parseable while typing native digits
+     * elsewhere. Drawing is unaffected — the glyphs always show on the keys.
+     */
+    val numeralCommitScope: NumeralCommitScope = NumeralCommitScope.TEXT_ONLY,
 )
 
 /**
@@ -1519,6 +1536,8 @@ class SettingsRepository(private val context: Context) {
         private val HINT_FONT_SCALE = floatPreferencesKey("hint_font_scale")
         private val NUMBER_ROW_SHIFT_SYMBOLS = booleanPreferencesKey("number_row_shift_symbols")
         private val SMART_HIT_DETECTION = booleanPreferencesKey("smart_hit_detection")
+        private val NUMERAL_SYSTEM = stringPreferencesKey("numeral_system")
+        private val NUMERAL_COMMIT_SCOPE = stringPreferencesKey("numeral_commit_scope")
         private val BACKSPACE_SWIPE_DELETE = booleanPreferencesKey("backspace_swipe_delete")
         private val HARDWARE_KEYBOARD_INPUT = booleanPreferencesKey("hardware_keyboard_input")
         private val VOLUME_CURSOR = booleanPreferencesKey("volume_cursor")
@@ -1953,6 +1972,12 @@ class SettingsRepository(private val context: Context) {
                     p[NUMBER_ROW_SHIFT_SYMBOLS] ?: defaults.layoutBehavior.numberRowShiftSymbols,
                 smartHitDetection =
                     p[SMART_HIT_DETECTION] ?: defaults.layoutBehavior.smartHitDetection,
+                numeralSystem = p[NUMERAL_SYSTEM]
+                    ?.let { runCatching { NumeralSystem.valueOf(it) }.getOrNull() }
+                    ?: defaults.layoutBehavior.numeralSystem,
+                numeralCommitScope = p[NUMERAL_COMMIT_SCOPE]
+                    ?.let { runCatching { NumeralCommitScope.valueOf(it) }.getOrNull() }
+                    ?: defaults.layoutBehavior.numeralCommitScope,
             ),
             rawClipboardShortcuts = p[RAW_CLIPBOARD_SHORTCUTS] ?: defaults.rawClipboardShortcuts,
             longPressLetterActions = LongPressLetterActions(
@@ -3214,6 +3239,12 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setSmartHitDetection(value: Boolean) =
         context.dataStore.edit { it[SMART_HIT_DETECTION] = value }
+
+    suspend fun setNumeralSystem(value: NumeralSystem) =
+        context.dataStore.edit { it[NUMERAL_SYSTEM] = value.name }
+
+    suspend fun setNumeralCommitScope(value: NumeralCommitScope) =
+        context.dataStore.edit { it[NUMERAL_COMMIT_SCOPE] = value.name }
 
     suspend fun setBackspaceSwipeDelete(value: Boolean) =
         context.dataStore.edit { it[BACKSPACE_SWIPE_DELETE] = value }

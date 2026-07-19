@@ -221,6 +221,8 @@ import com.wasimaster.wmkeyboard.core.settings.CursorTools
 import com.wasimaster.wmkeyboard.BuildConfig
 import com.wasimaster.wmkeyboard.core.settings.KeyboardAlignment
 import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
+import com.wasimaster.wmkeyboard.core.script.NumeralCommitScope
+import com.wasimaster.wmkeyboard.core.script.NumeralSystem
 import com.wasimaster.wmkeyboard.core.script.ComposerType
 import com.wasimaster.wmkeyboard.core.script.ScriptId
 import com.wasimaster.wmkeyboard.core.script.ScriptRegistry
@@ -2442,6 +2444,36 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
                         "number row already becomes extra arrow and comparison symbols on the " +
                         "second symbols layer.",
                 ) { scope.launch { repository.setNumberRowShiftSymbols(it) } }
+            }
+        }
+    }
+
+    SettingsGroup("Numerals") {
+        item {
+            ChoiceSetting(
+                "Numeral system",
+                subtitle = "Digits the number row and keypad show and type",
+                info = "Auto follows the current language — Arabic shows ٠-٩, Persian and Urdu " +
+                    "۰-۹, Bengali ০-৯, Hindi/Marathi/Nepali and the other Devanagari languages " +
+                    "०-९, everything else Latin 0-9. Pick a specific system to force it for every " +
+                    "language. The keys always display these glyphs; what gets typed is set below.",
+                options = NumeralSystem.entries.map { it to it.label },
+                selected = settings.layoutBehavior.numeralSystem,
+            ) { scope.launch { repository.setNumeralSystem(it) } }
+        }
+        val numeralsActive = settings.layoutBehavior.numeralSystem != NumeralSystem.LATIN
+        if (numeralsActive) {
+            item {
+                ChoiceSetting(
+                    "Type native digits in",
+                    subtitle = "Where the native digits are actually inserted",
+                    info = "Text fields only (default) keeps plain 0-9 in number, phone, date and " +
+                        "time fields so they stay machine-readable, and types native digits " +
+                        "everywhere else. Everywhere types native digits in those fields too. " +
+                        "Display only shows the glyphs on the keys but always inserts 0-9.",
+                    options = NumeralCommitScope.entries.map { it to it.label },
+                    selected = settings.layoutBehavior.numeralCommitScope,
+                ) { scope.launch { repository.setNumeralCommitScope(it) } }
             }
         }
     }

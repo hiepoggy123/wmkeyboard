@@ -27,6 +27,13 @@ data class LanguageDef(
     val layoutIds: List<String>,
     val bundledDictionary: Boolean = false,
     val gestureLexicon: Boolean = false,
+    /**
+     * The digit glyphs this language draws and types when the numeral-system
+     * setting is left on Auto. Defaults to Latin `0-9`; scripts with their own
+     * numerals (Arabic, Persian/Urdu, Bengali/Assamese, the Devanagari
+     * languages) set their own. A manual override in settings ignores this.
+     */
+    val numeralSystem: NumeralSystem = NumeralSystem.LATIN,
 ) {
     /** English-language convenience, preserving the old `InputMode.isEnglish` reads. */
     val isEnglish: Boolean get() = id == "en"
@@ -69,6 +76,7 @@ object LanguageRegistry {
             localeTag = "bn-BD",
             layoutIds = listOf(BuiltInLayouts.AVRO_ID, BuiltInLayouts.PROBHAT_ID, BuiltInLayouts.JATIYA_ID),
             bundledDictionary = true,
+            numeralSystem = NumeralSystem.BENGALI,
         ),
         LanguageDef(
             id = "fr",
@@ -117,6 +125,7 @@ object LanguageRegistry {
             script = ScriptId.ARABIC,
             localeTag = "ar-SA",
             layoutIds = listOf(BuiltInLayouts.ARABIC_ID),
+            numeralSystem = NumeralSystem.ARABIC_INDIC,
         ),
         LanguageDef(
             id = "el",
@@ -141,6 +150,7 @@ object LanguageRegistry {
             script = ScriptId.DEVANAGARI,
             localeTag = "hi-IN",
             layoutIds = listOf(BuiltInLayouts.HINDI_ID),
+            numeralSystem = NumeralSystem.DEVANAGARI,
         ),
         // Layouts delivered as JSON assets (see AssetLayouts). The language is
         // still Kotlin data — only the key grid moved to a file.
@@ -289,6 +299,7 @@ object LanguageRegistry {
             script = ScriptId.ARABIC,
             localeTag = "fa-IR",
             layoutIds = listOf(AssetLayouts.FA_STANDARD_ID),
+            numeralSystem = NumeralSystem.PERSIAN,
         ),
         LanguageDef(
             id = "be",
@@ -337,6 +348,7 @@ object LanguageRegistry {
             script = ScriptId.ARABIC,
             localeTag = "ur-PK",
             layoutIds = listOf(AssetLayouts.UR_PHONETIC_ID),
+            numeralSystem = NumeralSystem.PERSIAN,
         ),
         LanguageDef(
             id = "ps",
@@ -345,6 +357,7 @@ object LanguageRegistry {
             script = ScriptId.ARABIC,
             localeTag = "ps-AF",
             layoutIds = listOf(AssetLayouts.PS_PASHTO_ID),
+            numeralSystem = NumeralSystem.PERSIAN,
         ),
         LanguageDef(
             id = "sd",
@@ -353,6 +366,7 @@ object LanguageRegistry {
             script = ScriptId.ARABIC,
             localeTag = "sd-PK",
             layoutIds = listOf(AssetLayouts.SD_SINDHI_ID),
+            numeralSystem = NumeralSystem.PERSIAN,
         ),
         LanguageDef(
             id = "ug",
@@ -361,6 +375,7 @@ object LanguageRegistry {
             script = ScriptId.ARABIC,
             localeTag = "ug-CN",
             layoutIds = listOf(AssetLayouts.UG_UYGHUR_ID),
+            numeralSystem = NumeralSystem.ARABIC_INDIC,
         ),
         LanguageDef(
             id = "ckb",
@@ -369,6 +384,7 @@ object LanguageRegistry {
             script = ScriptId.ARABIC,
             localeTag = "ckb-IQ",
             layoutIds = listOf(AssetLayouts.CKB_SORANI_ID),
+            numeralSystem = NumeralSystem.PERSIAN,
         ),
         LanguageDef(
             id = "hy",
@@ -473,6 +489,7 @@ object LanguageRegistry {
             script = ScriptId.DEVANAGARI,
             localeTag = "mr-IN",
             layoutIds = listOf(AssetLayouts.MR_INSCRIPT_ID),
+            numeralSystem = NumeralSystem.DEVANAGARI,
         ),
         LanguageDef(
             id = "ne",
@@ -481,6 +498,7 @@ object LanguageRegistry {
             script = ScriptId.DEVANAGARI,
             localeTag = "ne-NP",
             layoutIds = listOf(AssetLayouts.NE_INSCRIPT_ID),
+            numeralSystem = NumeralSystem.DEVANAGARI,
         ),
         LanguageDef(
             id = "sa",
@@ -489,6 +507,7 @@ object LanguageRegistry {
             script = ScriptId.DEVANAGARI,
             localeTag = "sa-IN",
             layoutIds = listOf(AssetLayouts.SA_INSCRIPT_ID),
+            numeralSystem = NumeralSystem.DEVANAGARI,
         ),
         LanguageDef(
             id = "ta",
@@ -1137,6 +1156,7 @@ object LanguageRegistry {
             script = ScriptId.DEVANAGARI,
             localeTag = "kok-IN",
             layoutIds = listOf(AssetLayouts.KOK_INSCRIPT_ID),
+            numeralSystem = NumeralSystem.DEVANAGARI,
         ),
         LanguageDef(
             id = "mai",
@@ -1145,6 +1165,7 @@ object LanguageRegistry {
             script = ScriptId.DEVANAGARI,
             localeTag = "mai-IN",
             layoutIds = listOf(AssetLayouts.MAI_INSCRIPT_ID),
+            numeralSystem = NumeralSystem.DEVANAGARI,
         ),
         LanguageDef(
             id = "brx",
@@ -1153,6 +1174,7 @@ object LanguageRegistry {
             script = ScriptId.DEVANAGARI,
             localeTag = "brx-IN",
             layoutIds = listOf(AssetLayouts.BRX_INSCRIPT_ID),
+            numeralSystem = NumeralSystem.DEVANAGARI,
         ),
         LanguageDef(
             id = "doi",
@@ -1161,6 +1183,7 @@ object LanguageRegistry {
             script = ScriptId.DEVANAGARI,
             localeTag = "doi-IN",
             layoutIds = listOf(AssetLayouts.DOI_INSCRIPT_ID),
+            numeralSystem = NumeralSystem.DEVANAGARI,
         ),
         LanguageDef(
             id = "bho",
@@ -1169,6 +1192,7 @@ object LanguageRegistry {
             script = ScriptId.DEVANAGARI,
             localeTag = "bho-IN",
             layoutIds = listOf(AssetLayouts.BHO_INSCRIPT_ID),
+            numeralSystem = NumeralSystem.DEVANAGARI,
         ),
         LanguageDef(
             id = "am",
@@ -1447,6 +1471,44 @@ object LanguageRegistry {
             script = ScriptId.IPA,
             localeTag = "mul-fonipa",
             layoutIds = listOf(AssetLayouts.IPA_ID),
+        ),
+        // Not a language but a family of styled-Latin "fonts": each layout maps
+        // the Latin letters onto a Mathematical-Alphanumeric (or enclosed /
+        // fullwidth / combining) variant so a tap commits 𝔣𝔞𝔫𝔠𝔶 𝕦𝕟𝕚𝕔𝕠𝕕𝕖 text
+        // straight into any field. It rides the Latin script (bicameral, so shift
+        // reaches the capital variant via each key's shiftLabel) and ships no
+        // dictionary or gesture lexicon — the substitution is the whole point.
+        // Primary subtag "mul" (multiple languages) so the locale tag still parses.
+        LanguageDef(
+            id = "fancy",
+            displayName = "𝓕𝓪𝓷𝓬𝔂 · Fancy Text",
+            englishName = "Fancy Text (fonts)",
+            script = ScriptId.LATIN,
+            localeTag = "mul",
+            layoutIds = listOf(
+                AssetLayouts.FANCY_BOLD_ID,
+                AssetLayouts.FANCY_ITALIC_ID,
+                AssetLayouts.FANCY_BOLD_ITALIC_ID,
+                AssetLayouts.FANCY_SCRIPT_ID,
+                AssetLayouts.FANCY_BOLD_SCRIPT_ID,
+                AssetLayouts.FANCY_FRAKTUR_ID,
+                AssetLayouts.FANCY_BOLD_FRAKTUR_ID,
+                AssetLayouts.FANCY_DOUBLE_STRUCK_ID,
+                AssetLayouts.FANCY_SANS_ID,
+                AssetLayouts.FANCY_SANS_BOLD_ID,
+                AssetLayouts.FANCY_SANS_ITALIC_ID,
+                AssetLayouts.FANCY_SANS_BOLD_ITALIC_ID,
+                AssetLayouts.FANCY_MONOSPACE_ID,
+                AssetLayouts.FANCY_FULLWIDTH_ID,
+                AssetLayouts.FANCY_CIRCLED_ID,
+                AssetLayouts.FANCY_CIRCLED_FILLED_ID,
+                AssetLayouts.FANCY_SQUARED_ID,
+                AssetLayouts.FANCY_SQUARED_FILLED_ID,
+                AssetLayouts.FANCY_SMALL_CAPS_ID,
+                AssetLayouts.FANCY_SUPERSCRIPT_ID,
+                AssetLayouts.FANCY_STRIKETHROUGH_ID,
+                AssetLayouts.FANCY_UNDERLINE_ID,
+            ),
         ),
     )
 
