@@ -1,0 +1,177 @@
+{
+  "format": "wmkeyboard-layout",
+  "version": 1,
+  "layout": {
+    "id": "asset_fancy_italic",
+    "name": "Italic",
+    "langId": "fancy",
+    "version": 2,
+    "layers": {
+      "letters": {
+        "rows": [
+          [
+            {
+              "label": "𝑞",
+              "shiftLabel": "𝑄"
+            },
+            {
+              "label": "𝑤",
+              "shiftLabel": "𝑊"
+            },
+            {
+              "label": "𝑒",
+              "shiftLabel": "𝐸"
+            },
+            {
+              "label": "𝑟",
+              "shiftLabel": "𝑅"
+            },
+            {
+              "label": "𝑡",
+              "shiftLabel": "𝑇"
+            },
+            {
+              "label": "𝑦",
+              "shiftLabel": "𝑌"
+            },
+            {
+              "label": "𝑢",
+              "shiftLabel": "𝑈"
+            },
+            {
+              "label": "𝑖",
+              "shiftLabel": "𝐼"
+            },
+            {
+              "label": "𝑜",
+              "shiftLabel": "𝑂"
+            },
+            {
+              "label": "𝑝",
+              "shiftLabel": "𝑃"
+            }
+          ],
+          [
+            {
+              "label": "𝑎",
+              "shiftLabel": "𝐴"
+            },
+            {
+              "label": "𝑠",
+              "shiftLabel": "𝑆"
+            },
+            {
+              "label": "𝑑",
+              "shiftLabel": "𝐷"
+            },
+            {
+              "label": "𝑓",
+              "shiftLabel": "𝐹"
+            },
+            {
+              "label": "𝑔",
+              "shiftLabel": "𝐺"
+            },
+            {
+              "label": "ℎ",
+              "shiftLabel": "𝐻"
+            },
+            {
+              "label": "𝑗",
+              "shiftLabel": "𝐽"
+            },
+            {
+              "label": "𝑘",
+              "shiftLabel": "𝐾"
+            },
+            {
+              "label": "𝑙",
+              "shiftLabel": "𝐿"
+            }
+          ],
+          [
+            {
+              "label": "⇧",
+              "action": {
+                "type": "shift"
+              },
+              "width": 1.5
+            },
+            {
+              "label": "𝑧",
+              "shiftLabel": "𝑍"
+            },
+            {
+              "label": "𝑥",
+              "shiftLabel": "𝑋"
+            },
+            {
+              "label": "𝑐",
+              "shiftLabel": "𝐶"
+            },
+            {
+              "label": "𝑣",
+              "shiftLabel": "𝑉"
+            },
+            {
+              "label": "𝑏",
+              "shiftLabel": "𝐵"
+            },
+            {
+              "label": "𝑛",
+              "shiftLabel": "𝑁"
+            },
+            {
+              "label": "𝑚",
+              "shiftLabel": "𝑀"
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              },
+              "width": 1.5
+            }
+          ],
+          [
+            {
+              "label": "?123",
+              "action": {
+                "type": "symbols"
+              },
+              "width": 1.5
+            },
+            {
+              "label": ",",
+              "role": "Comma"
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 4
+            },
+            {
+              "label": ".",
+              "role": "Period"
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.5
+            }
+          ]
+        ]
+      }
+    }
+  }
+}

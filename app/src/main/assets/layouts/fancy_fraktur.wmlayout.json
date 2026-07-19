@@ -1,0 +1,177 @@
+{
+  "format": "wmkeyboard-layout",
+  "version": 1,
+  "layout": {
+    "id": "asset_fancy_fraktur",
+    "name": "Fraktur",
+    "langId": "fancy",
+    "version": 2,
+    "layers": {
+      "letters": {
+        "rows": [
+          [
+            {
+              "label": "𝔮",
+              "shiftLabel": "𝔔"
+            },
+            {
+              "label": "𝔴",
+              "shiftLabel": "𝔚"
+            },
+            {
+              "label": "𝔢",
+              "shiftLabel": "𝔈"
+            },
+            {
+              "label": "𝔯",
+              "shiftLabel": "ℜ"
+            },
+            {
+              "label": "𝔱",
+              "shiftLabel": "𝔗"
+            },
+            {
+              "label": "𝔶",
+              "shiftLabel": "𝔜"
+            },
+            {
+              "label": "𝔲",
+              "shiftLabel": "𝔘"
+            },
+            {
+              "label": "𝔦",
+              "shiftLabel": "ℑ"
+            },
+            {
+              "label": "𝔬",
+              "shiftLabel": "𝔒"
+            },
+            {
+              "label": "𝔭",
+              "shiftLabel": "𝔓"
+            }
+          ],
+          [
+            {
+              "label": "𝔞",
+              "shiftLabel": "𝔄"
+            },
+            {
+              "label": "𝔰",
+              "shiftLabel": "𝔖"
+            },
+            {
+              "label": "𝔡",
+              "shiftLabel": "𝔇"
+            },
+            {
+              "label": "𝔣",
+              "shiftLabel": "𝔉"
+            },
+            {
+              "label": "𝔤",
+              "shiftLabel": "𝔊"
+            },
+            {
+              "label": "𝔥",
+              "shiftLabel": "ℌ"
+            },
+            {
+              "label": "𝔧",
+              "shiftLabel": "𝔍"
+            },
+            {
+              "label": "𝔨",
+              "shiftLabel": "𝔎"
+            },
+            {
+              "label": "𝔩",
+              "shiftLabel": "𝔏"
+            }
+          ],
+          [
+            {
+              "label": "⇧",
+              "action": {
+                "type": "shift"
+              },
+              "width": 1.5
+            },
+            {
+              "label": "𝔷",
+              "shiftLabel": "ℨ"
+            },
+            {
+              "label": "𝔵",
+              "shiftLabel": "𝔛"
+            },
+            {
+              "label": "𝔠",
+              "shiftLabel": "ℭ"
+            },
+            {
+              "label": "𝔳",
+              "shiftLabel": "𝔙"
+            },
+            {
+              "label": "𝔟",
+              "shiftLabel": "𝔅"
+            },
+            {
+              "label": "𝔫",
+              "shiftLabel": "𝔑"
+            },
+            {
+              "label": "𝔪",
+              "shiftLabel": "𝔐"
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              },
+              "width": 1.5
+            }
+          ],
+          [
+            {
+              "label": "?123",
+              "action": {
+                "type": "symbols"
+              },
+              "width": 1.5
+            },
+            {
+              "label": ",",
+              "role": "Comma"
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 4
+            },
+            {
+              "label": ".",
+              "role": "Period"
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.5
+            }
+          ]
+        ]
+      }
+    }
+  }
+}

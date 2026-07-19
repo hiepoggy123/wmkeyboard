@@ -1,0 +1,177 @@
+{
+  "format": "wmkeyboard-layout",
+  "version": 1,
+  "layout": {
+    "id": "asset_fancy_circled_filled",
+    "name": "Circled (Filled)",
+    "langId": "fancy",
+    "version": 2,
+    "layers": {
+      "letters": {
+        "rows": [
+          [
+            {
+              "label": "🅠",
+              "shiftLabel": "🅠"
+            },
+            {
+              "label": "🅦",
+              "shiftLabel": "🅦"
+            },
+            {
+              "label": "🅔",
+              "shiftLabel": "🅔"
+            },
+            {
+              "label": "🅡",
+              "shiftLabel": "🅡"
+            },
+            {
+              "label": "🅣",
+              "shiftLabel": "🅣"
+            },
+            {
+              "label": "🅨",
+              "shiftLabel": "🅨"
+            },
+            {
+              "label": "🅤",
+              "shiftLabel": "🅤"
+            },
+            {
+              "label": "🅘",
+              "shiftLabel": "🅘"
+            },
+            {
+              "label": "🅞",
+              "shiftLabel": "🅞"
+            },
+            {
+              "label": "🅟",
+              "shiftLabel": "🅟"
+            }
+          ],
+          [
+            {
+              "label": "🅐",
+              "shiftLabel": "🅐"
+            },
+            {
+              "label": "🅢",
+              "shiftLabel": "🅢"
+            },
+            {
+              "label": "🅓",
+              "shiftLabel": "🅓"
+            },
+            {
+              "label": "🅕",
+              "shiftLabel": "🅕"
+            },
+            {
+              "label": "🅖",
+              "shiftLabel": "🅖"
+            },
+            {
+              "label": "🅗",
+              "shiftLabel": "🅗"
+            },
+            {
+              "label": "🅙",
+              "shiftLabel": "🅙"
+            },
+            {
+              "label": "🅚",
+              "shiftLabel": "🅚"
+            },
+            {
+              "label": "🅛",
+              "shiftLabel": "🅛"
+            }
+          ],
+          [
+            {
+              "label": "⇧",
+              "action": {
+                "type": "shift"
+              },
+              "width": 1.5
+            },
+            {
+              "label": "🅩",
+              "shiftLabel": "🅩"
+            },
+            {
+              "label": "🅧",
+              "shiftLabel": "🅧"
+            },
+            {
+              "label": "🅒",
+              "shiftLabel": "🅒"
+            },
+            {
+              "label": "🅥",
+              "shiftLabel": "🅥"
+            },
+            {
+              "label": "🅑",
+              "shiftLabel": "🅑"
+            },
+            {
+              "label": "🅝",
+              "shiftLabel": "🅝"
+            },
+            {
+              "label": "🅜",
+              "shiftLabel": "🅜"
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              },
+              "width": 1.5
+            }
+          ],
+          [
+            {
+              "label": "?123",
+              "action": {
+                "type": "symbols"
+              },
+              "width": 1.5
+            },
+            {
+              "label": ",",
+              "role": "Comma"
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 4
+            },
+            {
+              "label": ".",
+              "role": "Period"
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.5
+            }
+          ]
+        ]
+      }
+    }
+  }
+}

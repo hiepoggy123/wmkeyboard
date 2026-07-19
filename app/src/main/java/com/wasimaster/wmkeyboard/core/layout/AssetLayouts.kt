@@ -204,6 +204,32 @@ object AssetLayouts {
     const val JA_ROMAJI_ID = "asset_ja_romaji"
     const val ZH_PINYIN_ID = "asset_zh_pinyin"
 
+    // --- Fancy Text: per-style Unicode "font" layouts (the 𝔣𝔞𝔫𝔠𝔶 𝕦𝕟𝕚𝕔𝕠𝕕𝕖
+    // trick). Each is a plain QWERTY grid whose keys carry the styled glyph as
+    // their output — no composer, the substitution is the layout itself. ---
+    const val FANCY_BOLD_ID = "asset_fancy_bold"
+    const val FANCY_ITALIC_ID = "asset_fancy_italic"
+    const val FANCY_BOLD_ITALIC_ID = "asset_fancy_bold_italic"
+    const val FANCY_SCRIPT_ID = "asset_fancy_script"
+    const val FANCY_BOLD_SCRIPT_ID = "asset_fancy_bold_script"
+    const val FANCY_FRAKTUR_ID = "asset_fancy_fraktur"
+    const val FANCY_BOLD_FRAKTUR_ID = "asset_fancy_bold_fraktur"
+    const val FANCY_DOUBLE_STRUCK_ID = "asset_fancy_double_struck"
+    const val FANCY_SANS_ID = "asset_fancy_sans"
+    const val FANCY_SANS_BOLD_ID = "asset_fancy_sans_bold"
+    const val FANCY_SANS_ITALIC_ID = "asset_fancy_sans_italic"
+    const val FANCY_SANS_BOLD_ITALIC_ID = "asset_fancy_sans_bold_italic"
+    const val FANCY_MONOSPACE_ID = "asset_fancy_monospace"
+    const val FANCY_FULLWIDTH_ID = "asset_fancy_fullwidth"
+    const val FANCY_CIRCLED_ID = "asset_fancy_circled"
+    const val FANCY_CIRCLED_FILLED_ID = "asset_fancy_circled_filled"
+    const val FANCY_SQUARED_ID = "asset_fancy_squared"
+    const val FANCY_SQUARED_FILLED_ID = "asset_fancy_squared_filled"
+    const val FANCY_SMALL_CAPS_ID = "asset_fancy_small_caps"
+    const val FANCY_SUPERSCRIPT_ID = "asset_fancy_superscript"
+    const val FANCY_STRIKETHROUGH_ID = "asset_fancy_strikethrough"
+    const val FANCY_UNDERLINE_ID = "asset_fancy_underline"
+
     @Volatile private var cached: List<LayoutSpec> = emptyList()
     @Volatile private var loaded = false
 

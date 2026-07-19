@@ -1,0 +1,177 @@
+{
+  "format": "wmkeyboard-layout",
+  "version": 1,
+  "layout": {
+    "id": "asset_fancy_strikethrough",
+    "name": "Strikethrough",
+    "langId": "fancy",
+    "version": 2,
+    "layers": {
+      "letters": {
+        "rows": [
+          [
+            {
+              "label": "q̶",
+              "shiftLabel": "Q̶"
+            },
+            {
+              "label": "w̶",
+              "shiftLabel": "W̶"
+            },
+            {
+              "label": "e̶",
+              "shiftLabel": "E̶"
+            },
+            {
+              "label": "r̶",
+              "shiftLabel": "R̶"
+            },
+            {
+              "label": "t̶",
+              "shiftLabel": "T̶"
+            },
+            {
+              "label": "y̶",
+              "shiftLabel": "Y̶"
+            },
+            {
+              "label": "u̶",
+              "shiftLabel": "U̶"
+            },
+            {
+              "label": "i̶",
+              "shiftLabel": "I̶"
+            },
+            {
+              "label": "o̶",
+              "shiftLabel": "O̶"
+            },
+            {
+              "label": "p̶",
+              "shiftLabel": "P̶"
+            }
+          ],
+          [
+            {
+              "label": "a̶",
+              "shiftLabel": "A̶"
+            },
+            {
+              "label": "s̶",
+              "shiftLabel": "S̶"
+            },
+            {
+              "label": "d̶",
+              "shiftLabel": "D̶"
+            },
+            {
+              "label": "f̶",
+              "shiftLabel": "F̶"
+            },
+            {
+              "label": "g̶",
+              "shiftLabel": "G̶"
+            },
+            {
+              "label": "h̶",
+              "shiftLabel": "H̶"
+            },
+            {
+              "label": "j̶",
+              "shiftLabel": "J̶"
+            },
+            {
+              "label": "k̶",
+              "shiftLabel": "K̶"
+            },
+            {
+              "label": "l̶",
+              "shiftLabel": "L̶"
+            }
+          ],
+          [
+            {
+              "label": "⇧",
+              "action": {
+                "type": "shift"
+              },
+              "width": 1.5
+            },
+            {
+              "label": "z̶",
+              "shiftLabel": "Z̶"
+            },
+            {
+              "label": "x̶",
+              "shiftLabel": "X̶"
+            },
+            {
+              "label": "c̶",
+              "shiftLabel": "C̶"
+            },
+            {
+              "label": "v̶",
+              "shiftLabel": "V̶"
+            },
+            {
+              "label": "b̶",
+              "shiftLabel": "B̶"
+            },
+            {
+              "label": "n̶",
+              "shiftLabel": "N̶"
+            },
+            {
+              "label": "m̶",
+              "shiftLabel": "M̶"
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              },
+              "width": 1.5
+            }
+          ],
+          [
+            {
+              "label": "?123",
+              "action": {
+                "type": "symbols"
+              },
+              "width": 1.5
+            },
+            {
+              "label": ",",
+              "role": "Comma"
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 4
+            },
+            {
+              "label": ".",
+              "role": "Period"
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.5
+            }
+          ]
+        ]
+      }
+    }
+  }
+}
