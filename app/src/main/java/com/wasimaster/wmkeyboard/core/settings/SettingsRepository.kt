@@ -1254,6 +1254,15 @@ data class GestureSettings(
      * swipe right after a tap is slower to start).
      */
     val postTypeCooldownMs: Int = 160,
+    /**
+     * Handwrite-with-swipes only. For this long after a drawn stroke lifts, a
+     * quick tap over the letters is captured as another ink stroke of the same
+     * character rather than typing its key — so the dot on an i or j, or the
+     * cross on a t, can be added as a separate mark instead of committing a
+     * letter. A press that lands after the window types as normal. 0 disables
+     * it; default 700 ms.
+     */
+    val handwriteDotCooldownMs: Int = 700,
     /** Head width of the comet trail, in dp. The tail thins to ~30% of this. */
     val trailWidthDp: Float = 10f,
     /** How long each trail point stays on screen, in ms. Longer = a longer tail. */
@@ -1532,6 +1541,7 @@ class SettingsRepository(private val context: Context) {
         private val GESTURE_SPACE_MULTI_WORD = booleanPreferencesKey("gesture_space_multi_word")
         private val GESTURE_START_THRESHOLD_SLOP = floatPreferencesKey("gesture_start_threshold_slop")
         private val GESTURE_POST_TYPE_COOLDOWN_MS = intPreferencesKey("gesture_post_type_cooldown_ms")
+        private val GESTURE_HANDWRITE_DOT_COOLDOWN_MS = intPreferencesKey("gesture_handwrite_dot_cooldown_ms")
         private val GESTURE_TRAIL_WIDTH_DP = floatPreferencesKey("gesture_trail_width_dp")
         private val GESTURE_TRAIL_DURATION_MS = intPreferencesKey("gesture_trail_duration_ms")
         private val GESTURE_TRAIL_OPACITY = floatPreferencesKey("gesture_trail_opacity")
@@ -1913,6 +1923,7 @@ class SettingsRepository(private val context: Context) {
                 spaceGlideMultiWord = p[GESTURE_SPACE_MULTI_WORD] ?: defaults.gesture.spaceGlideMultiWord,
                 startThresholdSlop = p[GESTURE_START_THRESHOLD_SLOP] ?: defaults.gesture.startThresholdSlop,
                 postTypeCooldownMs = p[GESTURE_POST_TYPE_COOLDOWN_MS] ?: defaults.gesture.postTypeCooldownMs,
+                handwriteDotCooldownMs = p[GESTURE_HANDWRITE_DOT_COOLDOWN_MS] ?: defaults.gesture.handwriteDotCooldownMs,
                 trailWidthDp = p[GESTURE_TRAIL_WIDTH_DP] ?: defaults.gesture.trailWidthDp,
                 trailDurationMs = p[GESTURE_TRAIL_DURATION_MS] ?: defaults.gesture.trailDurationMs,
                 trailOpacity = p[GESTURE_TRAIL_OPACITY] ?: defaults.gesture.trailOpacity,
@@ -3215,6 +3226,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setGesturePostTypeCooldownMs(value: Int) =
         context.dataStore.edit { it[GESTURE_POST_TYPE_COOLDOWN_MS] = value.coerceIn(0, 500) }
+
+    suspend fun setGestureHandwriteDotCooldownMs(value: Int) =
+        context.dataStore.edit { it[GESTURE_HANDWRITE_DOT_COOLDOWN_MS] = value.coerceIn(0, 1500) }
 
     suspend fun setGestureTrailWidthDp(value: Float) =
         context.dataStore.edit { it[GESTURE_TRAIL_WIDTH_DP] = value.coerceIn(2f, 24f) }

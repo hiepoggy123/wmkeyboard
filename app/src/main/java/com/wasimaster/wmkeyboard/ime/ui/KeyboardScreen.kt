@@ -4508,6 +4508,12 @@ private fun KeyRows(
     val stampedOnText = remember(onText) {
         { t: String -> lastKeyPressTime.longValue = SystemClock.uptimeMillis(); onText(t) }
     }
+    val dotCooldownMs = gesture.handwriteDotCooldownMs
+    // Uptime of the last *drawn* handwriting stroke. For [dotCooldownMs] after
+    // it, a tap over the letters is grabbed as an ink dot (the mark on an i/j/t)
+    // instead of typing, so a two-part character can be completed without the
+    // dot committing a letter.
+    val lastHwStrokeTime = remember { mutableLongStateOf(0L) }
     // Points of the handwriting stroke being drawn right now (box space); the
     // finished strokes waiting for recognition come back from service state.
     var hwActiveStroke by remember { mutableStateOf<List<Offset>>(emptyList()) }
@@ -4633,16 +4639,29 @@ private fun KeyRows(
             // `gestureEnabled` is false whenever `handwriteSwipe` is true. A
             // press that never travels past the slop stays unconsumed and
             // falls through to the key, so taps still type.
-            .pointerInput(handwriteSwipe) {
+            .pointerInput(handwriteSwipe, dotCooldownMs) {
                 if (!handwriteSwipe) return@pointerInput
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
                     val slop = viewConfiguration.touchSlop
-                    var isStroke = false
+                    // Dot window: for a short spell after a drawn stroke, a tap
+                    // over the letters is taken as another stroke of the same
+                    // character (the dot/cross) rather than typing a key. Only
+                    // over a letter, so space/enter still work; captured from the
+                    // down so even a stationary tap is grabbed as ink.
+                    val dotWindow = dotCooldownMs > 0 && keyWidth.value > 0f &&
+                        down.uptimeMillis - lastHwStrokeTime.longValue in 0 until dotCooldownMs.toLong() &&
+                        nearLetterKey(down.position, keyCenters, keyWidth.value)
+                    var isStroke = dotWindow
+                    // Whether the finger actually travelled — only a real drawn
+                    // stroke reopens the dot window, so a dot-tap does not keep
+                    // swallowing later taps.
+                    var moved = false
                     val pts = ArrayList<HwPoint>()
                     val live = ArrayList<Offset>()
                     pts.add(HwPoint(down.position.x, down.position.y, down.uptimeMillis))
                     live.add(down.position)
+                    if (isStroke) down.consume()
                     while (true) {
                         val event = awaitPointerEvent(PointerEventPass.Initial)
                         val change = event.changes.firstOrNull { it.id == down.id } ?: break
@@ -4650,10 +4669,9 @@ private fun KeyRows(
                             if (isStroke) change.consume()
                             break
                         }
-                        if (!isStroke &&
-                            (change.position - down.position).getDistance() > slop * 2
-                        ) {
+                        if ((change.position - down.position).getDistance() > slop * 2) {
                             isStroke = true
+                            moved = true
                         }
                         if (isStroke) {
                             change.consume()
@@ -4662,8 +4680,12 @@ private fun KeyRows(
                             hwActiveStroke = live.toList()
                         }
                     }
-                    if (isStroke && pts.size >= 2) {
+                    // A dot tap is a single-point stroke; a drawn stroke needs at
+                    // least two points to have a shape.
+                    if (isStroke && pts.size >= (if (moved) 2 else 1)) {
                         onKeyboardHandwritingStroke(HwStroke(pts.toList()), boxSize)
+                        // Only a drawn stroke arms the dot window for the next tap.
+                        if (moved) lastHwStrokeTime.longValue = SystemClock.uptimeMillis()
                     }
                     hwActiveStroke = emptyList()
                 }

@@ -1563,24 +1563,52 @@ private fun TypingSettings(
                         "can trip on a stationary tap; higher needs a more deliberate swipe.",
                 ) { scope.launch { repository.setGestureStartThresholdSlop(it) } }
             }
-            item {
-                SliderSetting(
-                    "Cooldown after typing",
-                    subtitle = "Briefly resist starting a glide right after a tap",
-                    value = settings.gesture.postTypeCooldownMs.toFloat(),
-                    range = 0f..500f,
-                    display = if (settings.gesture.postTypeCooldownMs == 0) {
-                        "Off"
-                    } else {
-                        "${settings.gesture.postTypeCooldownMs} ms"
-                    },
-                    info = "Just after you tap a key, a stray slide off it can be misread as a " +
-                        "swipe-word. During this window a glide has to travel further before it " +
-                        "takes over, and the extra distance fades away across the window, so fast " +
-                        "tapping stays clean while a deliberate swipe still starts. Higher is " +
-                        "safer against accidents but makes gliding right after typing slower to " +
-                        "begin; 0 turns the guard off.",
-                ) { scope.launch { repository.setGesturePostTypeCooldownMs(it.roundToInt()) } }
+            // Glide-word only: the guard raises the swipe-start bar, which never
+            // runs in handwrite mode (there is no word glide to suppress).
+            if (settings.letterSwipeAction == LetterSwipeAction.TYPE_WORDS) {
+                item {
+                    SliderSetting(
+                        "Cooldown after typing",
+                        subtitle = "Briefly resist starting a glide right after a tap",
+                        value = settings.gesture.postTypeCooldownMs.toFloat(),
+                        range = 0f..500f,
+                        display = if (settings.gesture.postTypeCooldownMs == 0) {
+                            "Off"
+                        } else {
+                            "${settings.gesture.postTypeCooldownMs} ms"
+                        },
+                        info = "Just after you tap a key, a stray slide off it can be misread as a " +
+                            "swipe-word. During this window a glide has to travel further before it " +
+                            "takes over, and the extra distance fades away across the window, so fast " +
+                            "tapping stays clean while a deliberate swipe still starts. Higher is " +
+                            "safer against accidents but makes gliding right after typing slower to " +
+                            "begin; 0 turns the guard off.",
+                    ) { scope.launch { repository.setGesturePostTypeCooldownMs(it.roundToInt()) } }
+                }
+            }
+            // Handwrite-with-swipes only: window after a drawn stroke in which a
+            // tap is grabbed as an ink dot rather than typing.
+            if (BuildConfig.ENABLE_ML_KIT_HANDWRITING &&
+                settings.letterSwipeAction == LetterSwipeAction.HANDWRITE
+            ) {
+                item {
+                    SliderSetting(
+                        "Dot leeway after drawing",
+                        subtitle = "Time to tap a dot or cross before it types instead",
+                        value = settings.gesture.handwriteDotCooldownMs.toFloat(),
+                        range = 0f..1500f,
+                        display = if (settings.gesture.handwriteDotCooldownMs == 0) {
+                            "Off"
+                        } else {
+                            "${settings.gesture.handwriteDotCooldownMs} ms"
+                        },
+                        info = "Letters like i, j and t need a separate mark after the main stroke. " +
+                            "For this long after you draw a stroke, a tap over the letters is added " +
+                            "to the same character as another stroke (the dot or cross) instead of " +
+                            "typing that key. A tap after the window types as normal; 0 turns the " +
+                            "leeway off.",
+                    ) { scope.launch { repository.setGestureHandwriteDotCooldownMs(it.roundToInt()) } }
+                }
             }
             item {
                 SliderSetting(
