@@ -1,7 +1,6 @@
 package com.wasimaster.wmkeyboard.app
 
 import android.graphics.BitmapFactory
-import android.util.Base64
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -102,6 +101,8 @@ import com.wasimaster.wmkeyboard.core.theme.blurredBy
 import com.wasimaster.wmkeyboard.core.theme.brush
 import com.wasimaster.wmkeyboard.core.theme.keyShapeFor
 import com.wasimaster.wmkeyboard.core.theme.themeFromSeed
+import com.wasimaster.wmkeyboard.core.theme.withEmbeddedImages
+import com.wasimaster.wmkeyboard.core.theme.withExtractedImages
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -224,7 +225,7 @@ fun ThemesScreen(
             scope.launch(Dispatchers.IO) {
                 runCatching {
                     context.contentResolver.openOutputStream(uri)?.use { out ->
-                        out.write(ThemeCodec.encode(theme.forExport()).toByteArray())
+                        out.write(ThemeCodec.encode(theme.withEmbeddedImages()).toByteArray())
                     }
                 }
             }
@@ -240,22 +241,10 @@ fun ThemesScreen(
                         .use { it.readBytes().decodeToString() }
                     val parsed = ThemeCodec.decode(text) ?: return@runCatching
                     val id = "custom_${System.currentTimeMillis()}"
-                    fun writeImage(name: String, b64: String): String? = runCatching {
-                        val file = File(themeImagesDir(context), name)
-                        file.writeBytes(Base64.decode(b64, Base64.DEFAULT))
-                        file.absolutePath
-                    }.getOrNull()
-                    val imagePath = parsed.backgroundImageBase64?.let { writeImage("$id.img", it) }
-                    val landPath = parsed.backgroundImageLandscapeBase64
-                        ?.let { writeImage("${id}_land.img", it) }
+                    // Set the fresh id first so the extracted image filenames key
+                    // off it and stay unique against existing themes.
                     repository.upsertCustomTheme(
-                        parsed.copy(
-                            id = id,
-                            backgroundImage = imagePath,
-                            backgroundImageBase64 = null,
-                            backgroundImageLandscape = landPath,
-                            backgroundImageLandscapeBase64 = null,
-                        )
+                        parsed.copy(id = id).withExtractedImages(themeImagesDir(context))
                     )
                     repository.setKeyboardThemeId(id)
                 }
@@ -446,19 +435,6 @@ fun ThemesScreen(
         }
     }
     Spacer(Modifier.height(24.dp))
-}
-
-/** Strips local paths and embeds the images so the file works on any device. */
-private fun ThemeSpec.forExport(): ThemeSpec {
-    fun encode(path: String?) = path?.let {
-        runCatching { Base64.encodeToString(File(it).readBytes(), Base64.NO_WRAP) }.getOrNull()
-    }
-    return copy(
-        backgroundImage = null,
-        backgroundImageBase64 = encode(backgroundImage),
-        backgroundImageLandscape = null,
-        backgroundImageLandscapeBase64 = encode(backgroundImageLandscape),
-    )
 }
 
 @Composable

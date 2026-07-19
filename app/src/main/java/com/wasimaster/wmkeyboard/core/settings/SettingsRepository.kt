@@ -30,6 +30,8 @@ import com.wasimaster.wmkeyboard.core.script.ScriptRegistry
 import com.wasimaster.wmkeyboard.core.theme.DEFAULT_THEME_ID
 import com.wasimaster.wmkeyboard.core.theme.ThemeCodec
 import com.wasimaster.wmkeyboard.core.theme.ThemeSpec
+import com.wasimaster.wmkeyboard.core.theme.withEmbeddedImages
+import com.wasimaster.wmkeyboard.core.theme.withExtractedImages
 import com.wasimaster.wmkeyboard.core.tools.BuiltInSymbolSets
 import com.wasimaster.wmkeyboard.core.tools.SmartSuggest
 import com.wasimaster.wmkeyboard.core.tools.SymbolSet
@@ -2875,9 +2877,17 @@ class SettingsRepository(private val context: Context) {
                 SettingsBackup.encodeSettings(prefs, includeSecrets, exclude = SettingsBackup.THEME_KEYS)
         }
         if (ConfigBackup.Section.THEMES in sections) {
-            prefs[CUSTOM_THEMES]?.takeIf { it.isNotBlank() }
-                ?.let { runCatching { bundleJson.parseToJsonElement(it) }.getOrNull() }
-                ?.let { out[ConfigBackup.Section.THEMES] = it }
+            prefs[CUSTOM_THEMES]?.takeIf { it.isNotBlank() }?.let { raw ->
+                // Embed each theme's background image as base64 so it travels with
+                // the bundle instead of a device-local path that won't resolve on
+                // another phone.
+                val themes = ThemeCodec.decodeList(raw).map { it.withEmbeddedImages() }
+                if (themes.isNotEmpty()) {
+                    runCatching { bundleJson.parseToJsonElement(ThemeCodec.encodeList(themes)) }
+                        .getOrNull()
+                        ?.let { out[ConfigBackup.Section.THEMES] = it }
+                }
+            }
         }
         if (ConfigBackup.Section.DICTIONARY in sections) {
             readStore("learning/user_lexicon.json")?.let { out[ConfigBackup.Section.DICTIONARY] = it }
@@ -2959,7 +2969,11 @@ class SettingsRepository(private val context: Context) {
         (parsed.sections[ConfigBackup.Section.THEMES] as? JsonArray)?.let { array ->
             val themes = runCatching { ThemeCodec.decodeList(array.toString()) }.getOrNull()
             if (themes != null) {
-                context.dataStore.edit { it[CUSTOM_THEMES] = ThemeCodec.encodeList(themes) }
+                // Rebuild any embedded background images onto local storage and
+                // strip the base64 before persisting the themes.
+                val dir = File(context.filesDir, "theme_images")
+                val extracted = themes.map { it.withExtractedImages(dir) }
+                context.dataStore.edit { it[CUSTOM_THEMES] = ThemeCodec.encodeList(extracted) }
                 restored.add(ConfigBackup.Section.THEMES)
             }
         }

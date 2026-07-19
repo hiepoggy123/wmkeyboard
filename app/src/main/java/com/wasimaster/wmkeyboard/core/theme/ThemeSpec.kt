@@ -1,5 +1,6 @@
 package com.wasimaster.wmkeyboard.core.theme
 
+import android.util.Base64
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
@@ -7,6 +8,7 @@ import androidx.compose.ui.graphics.toArgb
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import java.io.File
 
 /**
  * A complete keyboard theme. Colors are ARGB longs (0xAARRGGBB) so alpha is
@@ -126,6 +128,47 @@ object ThemeCodec {
 
     fun decode(json: String): ThemeSpec? =
         runCatching { themeJson.decodeFromString<ThemeSpec>(json) }.getOrNull()
+}
+
+/**
+ * Reads the local background image file(s) into base64 for a transport payload
+ * (single-theme export or full-config backup) and nulls the local paths, so the
+ * image travels with the theme instead of a device-local path that only resolves
+ * on the source phone. A path that no longer resolves becomes null.
+ */
+fun ThemeSpec.withEmbeddedImages(): ThemeSpec {
+    fun encode(path: String?) = path?.let {
+        runCatching { Base64.encodeToString(File(it).readBytes(), Base64.NO_WRAP) }.getOrNull()
+    }
+    return copy(
+        backgroundImage = null,
+        backgroundImageBase64 = encode(backgroundImage),
+        backgroundImageLandscape = null,
+        backgroundImageLandscapeBase64 = encode(backgroundImageLandscape),
+    )
+}
+
+/**
+ * Inverse of [withEmbeddedImages]: writes any embedded base64 image(s) into
+ * [dir] (filenames keyed off [id]) and returns a copy pointing at the local
+ * files with the base64 stripped. When no base64 is present the existing path is
+ * kept — old backups that carry only paths, and themes with no image, are
+ * unchanged.
+ */
+fun ThemeSpec.withExtractedImages(dir: File): ThemeSpec {
+    fun write(name: String, b64: String?): String? = b64?.let {
+        runCatching {
+            dir.mkdirs()
+            File(dir, name).apply { writeBytes(Base64.decode(it, Base64.DEFAULT)) }.absolutePath
+        }.getOrNull()
+    }
+    return copy(
+        backgroundImage = write("$id.img", backgroundImageBase64) ?: backgroundImage,
+        backgroundImageBase64 = null,
+        backgroundImageLandscape = write("${id}_land.img", backgroundImageLandscapeBase64)
+            ?: backgroundImageLandscape,
+        backgroundImageLandscapeBase64 = null,
+    )
 }
 
 private fun Color.argb(): Long = toArgb().toLong() and 0xFFFFFFFFL
