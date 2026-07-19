@@ -57,6 +57,15 @@ object SettingsBackup {
         "ai_gemini_key",
     )
 
+    /**
+     * Custom themes are stored as one JSON string preference. The full-config
+     * bundle ([ConfigBackup]) carries them as their own section so they can be
+     * toggled independently, so it excludes these keys from the settings
+     * section to avoid exporting them twice. The standalone settings backup
+     * leaves them in, unchanged.
+     */
+    val THEME_KEYS = setOf("custom_themes")
+
     private val json = Json { prettyPrint = true }
     private val parser = Json { ignoreUnknownKeys = true }
 
@@ -78,21 +87,32 @@ object SettingsBackup {
         appVersion: Int,
         appVersionName: String,
     ): String {
-        val values = buildJsonObject {
-            for ((key, value) in prefs.asMap().entries.sortedBy { it.key.name }) {
-                if (!includeSecrets && key.name in SECRET_KEYS) continue
-                val encoded = encodeValue(value) ?: continue
-                put(key.name, encoded)
-            }
-        }
         val root = buildJsonObject {
             put("format", FORMAT)
             put("version", VERSION)
             put("appVersion", appVersion)
             put("appVersionName", appVersionName)
-            put("settings", values)
+            put("settings", encodeSettings(prefs, includeSecrets))
         }
         return json.encodeToString(JsonObject.serializer(), root)
+    }
+
+    /**
+     * The typed `{ key: { type, value } }` map on its own, without the backup
+     * envelope. Shared by [encode] and by [ConfigBackup], which nests it as
+     * one section of a larger bundle. [exclude] drops keys handled elsewhere.
+     */
+    fun encodeSettings(
+        prefs: Preferences,
+        includeSecrets: Boolean,
+        exclude: Set<String> = emptySet(),
+    ): JsonObject = buildJsonObject {
+        for ((key, value) in prefs.asMap().entries.sortedBy { it.key.name }) {
+            if (!includeSecrets && key.name in SECRET_KEYS) continue
+            if (key.name in exclude) continue
+            val encoded = encodeValue(value) ?: continue
+            put(key.name, encoded)
+        }
     }
 
     private fun encodeValue(value: Any): JsonObject? {
@@ -127,17 +147,27 @@ object SettingsBackup {
         // bad-input contract and crash the import path on a crafted file.
         if ((root["format"] as? JsonPrimitive)?.contentOrNull != FORMAT) return null
         val settings = runCatching { root.getValue("settings").jsonObject }.getOrNull() ?: return null
+        val (entries, skipped) = decodeSettings(settings)
+        return Parsed(
+            appVersion = (root["appVersion"] as? JsonPrimitive)?.intOrNull ?: 0,
+            entries = entries,
+            skipped = skipped,
+        )
+    }
+
+    /**
+     * Parses the typed `{ key: { type, value } }` map into entries, counting
+     * (not failing on) unreadable ones. Counterpart of [encodeSettings]; used
+     * both by [decode] and by [ConfigBackup]'s settings section.
+     */
+    fun decodeSettings(settings: JsonObject): Pair<List<Entry>, Int> {
         val entries = ArrayList<Entry>()
         var skipped = 0
         for ((name, element) in settings) {
             val parsed = runCatching { decodeEntry(name, element.jsonObject) }.getOrNull()
             if (parsed == null) skipped++ else entries.add(parsed)
         }
-        return Parsed(
-            appVersion = (root["appVersion"] as? JsonPrimitive)?.intOrNull ?: 0,
-            entries = entries,
-            skipped = skipped,
-        )
+        return entries to skipped
     }
 
     private fun decodeEntry(name: String, obj: JsonObject): Entry? {

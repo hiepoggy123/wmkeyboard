@@ -38,6 +38,16 @@ import com.wasimaster.wmkeyboard.core.tools.TypingTestMode
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import java.io.File
 
 /** Visual theme for the keyboard and settings app. */
 enum class ThemeMode { SYSTEM, LIGHT, DARK, AMOLED }
@@ -2796,6 +2806,178 @@ class SettingsRepository(private val context: Context) {
                 set(stringSetPreferencesKey(entry.name), entry.value as Set<String>)
             }
         }
+    }
+
+    // ---- full-config bundle ----
+    //
+    // One file that can carry several independent parts of the app — settings,
+    // custom themes, the learned dictionary, clipboard history, snippets — each
+    // an opt-in section. See [ConfigBackup] for the container format.
+    //
+    // The file-backed stores (dictionary/clipboard/snippets) live under
+    // filesDir as JSON the store itself wrote; export embeds that JSON verbatim
+    // and import writes it straight back, so this repository never has to model
+    // their internals. Custom themes are the one DataStore string preference
+    // that gets its own section, so the settings section always excludes it.
+
+    private val bundleJson = Json { ignoreUnknownKeys = true }
+
+    /** Clip kinds worth exporting: the ones whose bytes/URIs survive the move. */
+    private val TEXTUAL_CLIP_KINDS = setOf("TEXT", "HTML", "LINK")
+
+    private fun storeFile(relativePath: String) = File(context.filesDir, relativePath)
+
+    /** A store's JSON file as an element, or null when it's missing or empty. */
+    private fun readStore(relativePath: String): JsonElement? {
+        val file = storeFile(relativePath)
+        if (!file.exists()) return null
+        val text = runCatching { file.readText() }.getOrNull()?.takeIf { it.isNotBlank() } ?: return null
+        return runCatching { bundleJson.parseToJsonElement(text) }.getOrNull()
+    }
+
+    /** Overwrites a store's JSON file with [element]; false on any I/O error. */
+    private fun writeStore(relativePath: String, element: JsonElement): Boolean = runCatching {
+        val file = storeFile(relativePath)
+        file.parentFile?.mkdirs()
+        file.writeText(element.toString())
+        true
+    }.getOrDefault(false)
+
+    /**
+     * Drops image/file/folder clips from a clipboard snapshot: those point at
+     * files or content URIs that only exist on the source device, so carrying
+     * them to another phone would just leave broken entries. Text clips travel.
+     */
+    private fun portableClipboard(element: JsonElement): JsonElement {
+        val obj = element as? JsonObject ?: return element
+        val items = obj["items"] as? JsonArray ?: return element
+        val kept = items.filter { item ->
+            val kind = (item as? JsonObject)?.get("kind") as? JsonPrimitive
+            (kind?.contentOrNull ?: "TEXT") in TEXTUAL_CLIP_KINDS
+        }
+        return buildJsonObject { put("items", JsonArray(kept)) }
+    }
+
+    /**
+     * Builds a full-config bundle from the chosen [sections]. A section whose
+     * store is empty or absent is simply left out of the file.
+     */
+    suspend fun exportConfig(
+        sections: Set<ConfigBackup.Section>,
+        includeSecrets: Boolean,
+        appVersion: Int,
+        appVersionName: String,
+    ): String {
+        val prefs = context.dataStore.data.first()
+        val out = LinkedHashMap<ConfigBackup.Section, JsonElement>()
+        if (ConfigBackup.Section.SETTINGS in sections) {
+            out[ConfigBackup.Section.SETTINGS] =
+                SettingsBackup.encodeSettings(prefs, includeSecrets, exclude = SettingsBackup.THEME_KEYS)
+        }
+        if (ConfigBackup.Section.THEMES in sections) {
+            prefs[CUSTOM_THEMES]?.takeIf { it.isNotBlank() }
+                ?.let { runCatching { bundleJson.parseToJsonElement(it) }.getOrNull() }
+                ?.let { out[ConfigBackup.Section.THEMES] = it }
+        }
+        if (ConfigBackup.Section.DICTIONARY in sections) {
+            readStore("learning/user_lexicon.json")?.let { out[ConfigBackup.Section.DICTIONARY] = it }
+        }
+        if (ConfigBackup.Section.CLIPBOARD in sections) {
+            readStore("clipboard/history.json")?.let { out[ConfigBackup.Section.CLIPBOARD] = portableClipboard(it) }
+        }
+        if (ConfigBackup.Section.SNIPPETS in sections) {
+            readStore("snippets/snippets.json")?.let { out[ConfigBackup.Section.SNIPPETS] = it }
+        }
+        return ConfigBackup.encode(appVersion, appVersionName, out)
+    }
+
+    /** How many items each section of a decoded bundle holds, for the dialog. */
+    fun describeConfig(parsed: ConfigBackup.Parsed): Map<ConfigBackup.Section, Int> {
+        val counts = LinkedHashMap<ConfigBackup.Section, Int>()
+        for ((section, element) in parsed.sections) {
+            val count = runCatching {
+                when (section) {
+                    ConfigBackup.Section.SETTINGS -> element.jsonObject.size
+                    ConfigBackup.Section.THEMES -> element.jsonArray.size
+                    ConfigBackup.Section.DICTIONARY -> element.jsonObject["words"]?.jsonObject?.size ?: 0
+                    ConfigBackup.Section.CLIPBOARD -> element.jsonObject["items"]?.jsonArray?.size ?: 0
+                    ConfigBackup.Section.SNIPPETS -> element.jsonObject["snippets"]?.jsonArray?.size ?: 0
+                }
+            }.getOrDefault(0)
+            counts[section] = count
+        }
+        return counts
+    }
+
+    /** True when a decoded bundle's settings section carries any API key. */
+    fun configContainsSecrets(parsed: ConfigBackup.Parsed): Boolean {
+        val settings = parsed.sections[ConfigBackup.Section.SETTINGS]?.let { it as? JsonObject } ?: return false
+        return settings.keys.any { it in SettingsBackup.SECRET_KEYS }
+    }
+
+    sealed interface ConfigImportResult {
+        /**
+         * [restored] lists the sections written. [settingsFailed] is true when
+         * the settings section parsed but left the app unable to read its own
+         * settings, so it was rolled back while the other sections still applied.
+         */
+        data class Applied(
+            val restored: List<ConfigBackup.Section>,
+            val settingsFailed: Boolean,
+        ) : ConfigImportResult
+        data object NotABackup : ConfigImportResult
+    }
+
+    /**
+     * Restores every section present in a full-config bundle. The settings
+     * section is verified and rolled back on its own the same way
+     * [importSettings] is; the file-backed sections overwrite their store file.
+     */
+    suspend fun importConfig(text: String): ConfigImportResult {
+        val parsed = ConfigBackup.decode(text) ?: return ConfigImportResult.NotABackup
+        val restored = ArrayList<ConfigBackup.Section>()
+        var settingsFailed = false
+
+        (parsed.sections[ConfigBackup.Section.SETTINGS] as? JsonObject)?.let { obj ->
+            val (entries, _) = SettingsBackup.decodeSettings(obj)
+            val snapshot = context.dataStore.data.first()
+            context.dataStore.edit { prefs -> entries.forEach { prefs.put(it) } }
+            if (runCatching { settings.first() }.isSuccess) {
+                restored.add(ConfigBackup.Section.SETTINGS)
+            } else {
+                context.dataStore.edit { prefs ->
+                    prefs.clear()
+                    for ((key, value) in snapshot.asMap()) {
+                        @Suppress("UNCHECKED_CAST")
+                        prefs[key as Preferences.Key<Any>] = value
+                    }
+                }
+                settingsFailed = true
+            }
+        }
+
+        (parsed.sections[ConfigBackup.Section.THEMES] as? JsonArray)?.let { array ->
+            val themes = runCatching { ThemeCodec.decodeList(array.toString()) }.getOrNull()
+            if (themes != null) {
+                context.dataStore.edit { it[CUSTOM_THEMES] = ThemeCodec.encodeList(themes) }
+                restored.add(ConfigBackup.Section.THEMES)
+            }
+        }
+
+        (parsed.sections[ConfigBackup.Section.DICTIONARY] as? JsonObject)?.let { obj ->
+            if (writeStore("learning/user_lexicon.json", obj)) {
+                restored.add(ConfigBackup.Section.DICTIONARY)
+                bumpLexiconVersion()
+            }
+        }
+        (parsed.sections[ConfigBackup.Section.CLIPBOARD] as? JsonObject)?.let { obj ->
+            if (writeStore("clipboard/history.json", obj)) restored.add(ConfigBackup.Section.CLIPBOARD)
+        }
+        (parsed.sections[ConfigBackup.Section.SNIPPETS] as? JsonObject)?.let { obj ->
+            if (writeStore("snippets/snippets.json", obj)) restored.add(ConfigBackup.Section.SNIPPETS)
+        }
+
+        return ConfigImportResult.Applied(restored, settingsFailed)
     }
 
     suspend fun bumpLexiconVersion() =

@@ -227,6 +227,7 @@ import com.wasimaster.wmkeyboard.core.script.ScriptRegistry
 import com.wasimaster.wmkeyboard.core.layout.AssetLayouts
 import com.wasimaster.wmkeyboard.core.layout.language
 import com.wasimaster.wmkeyboard.core.layout.resolveLayout
+import com.wasimaster.wmkeyboard.core.settings.ConfigBackup
 import com.wasimaster.wmkeyboard.core.settings.SettingsBackup
 import com.wasimaster.wmkeyboard.core.settings.KeyboardMode
 import com.wasimaster.wmkeyboard.core.settings.DefaultKeyboardModes
@@ -3322,21 +3323,67 @@ private fun BlacklistSettings(repository: SettingsRepository, settings: Keyboard
 
 // ---- backup ----
 
+/** Human name for a bundle section, used in toggles and the import dialog. */
+private fun sectionLabel(section: ConfigBackup.Section): String = when (section) {
+    ConfigBackup.Section.SETTINGS -> "Settings"
+    ConfigBackup.Section.THEMES -> "Themes"
+    ConfigBackup.Section.DICTIONARY -> "Dictionary"
+    ConfigBackup.Section.CLIPBOARD -> "Clipboard"
+    ConfigBackup.Section.SNIPPETS -> "Snippets"
+}
+
+/** "3 themes", "1 snippet" — the count line shown per section on import. */
+private fun sectionSummary(section: ConfigBackup.Section, count: Int): String = when (section) {
+    ConfigBackup.Section.SETTINGS -> "$count settings"
+    ConfigBackup.Section.THEMES -> if (count == 1) "1 custom theme" else "$count custom themes"
+    ConfigBackup.Section.DICTIONARY -> if (count == 1) "1 learned word" else "$count learned words"
+    ConfigBackup.Section.CLIPBOARD -> if (count == 1) "1 clip" else "$count clips"
+    ConfigBackup.Section.SNIPPETS -> if (count == 1) "1 snippet" else "$count snippets"
+}
+
+/** A file picked for import, once we know which of the two formats it is. */
+private sealed interface PendingImport {
+    val text: String
+    data class Config(override val text: String) : PendingImport
+    data class Legacy(override val text: String) : PendingImport
+}
+
 @Composable
 private fun BackupSettings(repository: SettingsRepository) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+
+    // What the export file will contain. Configuration-like parts default on;
+    // the personal ones (learned words) and the private, short-lived one
+    // (clipboard) default off, so a backup shared or synced by habit doesn't
+    // carry them without a deliberate opt-in.
+    var includeSettings by remember { mutableStateOf(true) }
+    var includeThemes by remember { mutableStateOf(true) }
+    var includeSnippets by remember { mutableStateOf(true) }
+    var includeDictionary by remember { mutableStateOf(false) }
+    var includeClipboard by remember { mutableStateOf(false) }
     var includeSecrets by remember { mutableStateOf(false) }
+
     var message by remember { mutableStateOf<String?>(null) }
-    var confirmImport by remember { mutableStateOf<String?>(null) }
+    var confirmImport by remember { mutableStateOf<PendingImport?>(null) }
+
+    fun selectedSections(): Set<ConfigBackup.Section> = buildSet {
+        if (includeSettings) add(ConfigBackup.Section.SETTINGS)
+        if (includeThemes) add(ConfigBackup.Section.THEMES)
+        if (includeDictionary) add(ConfigBackup.Section.DICTIONARY)
+        if (includeClipboard) add(ConfigBackup.Section.CLIPBOARD)
+        if (includeSnippets) add(ConfigBackup.Section.SNIPPETS)
+    }
 
     val exportLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.CreateDocument(SettingsBackup.MIME_TYPE),
+        ActivityResultContracts.CreateDocument(ConfigBackup.MIME_TYPE),
     ) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
+        val sections = selectedSections()
         scope.launch {
             val ok = runCatching {
-                val text = repository.exportSettings(
+                val text = repository.exportConfig(
+                    sections = sections,
                     includeSecrets = includeSecrets,
                     appVersion = BuildConfig.VERSION_CODE,
                     appVersionName = BuildConfig.VERSION_NAME,
@@ -3347,20 +3394,18 @@ private fun BackupSettings(repository: SettingsRepository) {
                     } ?: error("no stream")
                 }
             }.isSuccess
-            message = if (ok) {
-                if (includeSecrets) {
-                    "Settings exported, API keys included. Treat that file as a password."
-                } else {
-                    "Settings exported."
-                }
-            } else {
-                "Could not write that file."
+            message = when {
+                !ok -> "Could not write that file."
+                includeSettings && includeSecrets ->
+                    "Backup exported, API keys included. Treat that file as a password."
+                else -> "Backup exported."
             }
         }
     }
 
     // Import reads the file first and asks before writing: restoring is not
-    // something to discover you have done.
+    // something to discover you have done. Both the full-config bundle and the
+    // older settings-only file are accepted.
     val importLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument(),
     ) { uri ->
@@ -3372,45 +3417,93 @@ private fun BackupSettings(repository: SettingsRepository) {
                         .use { it.readBytes().decodeToString() }
                 }.getOrNull()
             }
-            val parsed = text?.let { SettingsBackup.decode(it) }
-            if (text == null || parsed == null) {
-                message = "That file is not a WMKeyboard settings backup."
-                return@launch
+            confirmImport = when {
+                text == null -> { message = "Could not read that file."; null }
+                ConfigBackup.decode(text) != null -> PendingImport.Config(text)
+                SettingsBackup.decode(text) != null -> PendingImport.Legacy(text)
+                else -> { message = "That file is not a WMKeyboard backup."; null }
             }
-            confirmImport = text
         }
     }
 
     Text(
-        "Save every keyboard setting to a file you can keep, move to another " +
-            "phone, or restore after a reinstall.\n\n" +
-            "Themes, snippets and imported word lists are separate files with " +
-            "their own import buttons, and learned words stay on this device — " +
-            "none of them are in this backup.",
+        "Save your keyboard to a file you can keep, move to another phone, or " +
+            "restore after a reinstall. Choose what goes in it below — settings, " +
+            "themes, your learned dictionary, clipboard history and snippets can " +
+            "each be included or left out.",
         style = MaterialTheme.typography.bodyMedium,
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
     )
 
-    SettingsGroup("Export") {
+    SettingsGroup("Include in export") {
         item {
             ToggleSetting(
-                "Include API keys",
-                "Translate, GIF, search and AI keys",
-                includeSecrets,
-                info = "Off by default, because a settings file is easy to mail to " +
-                    "yourself or drop in a shared folder, and these keys spend real " +
-                    "money on your accounts.\n\n" +
-                    "Turn it on only for a backup you keep to yourself — anyone who " +
-                    "opens that file can use your keys.",
-            ) { includeSecrets = it }
+                "Settings",
+                "Every keyboard preference",
+                includeSettings,
+            ) { includeSettings = it }
+        }
+        if (includeSettings) {
+            item {
+                ToggleSetting(
+                    "Include API keys",
+                    "Translate, GIF, search and AI keys",
+                    includeSecrets,
+                    info = "Off by default, because a backup file is easy to mail to " +
+                        "yourself or drop in a shared folder, and these keys spend real " +
+                        "money on your accounts.\n\n" +
+                        "Turn it on only for a backup you keep to yourself — anyone who " +
+                        "opens that file can use your keys.",
+                ) { includeSecrets = it }
+            }
         }
         item {
+            ToggleSetting(
+                "Themes",
+                "Your custom themes",
+                includeThemes,
+                info = "Colours, gradients and layout of your saved themes. A theme's " +
+                    "background image doesn't travel to another phone — only the theme " +
+                    "itself does.",
+            ) { includeThemes = it }
+        }
+        item {
+            ToggleSetting(
+                "Dictionary",
+                "Words the keyboard learned from you",
+                includeDictionary,
+                info = "Your personal vocabulary and next-word patterns. Off by default " +
+                    "since it's personal typing data — turn it on for a backup you keep " +
+                    "to yourself.",
+            ) { includeDictionary = it }
+        }
+        item {
+            ToggleSetting(
+                "Clipboard",
+                "Saved clipboard history",
+                includeClipboard,
+                info = "Your pinned and recent text clips. Images and files are left out " +
+                    "because they live on this device and wouldn't open elsewhere.",
+            ) { includeClipboard = it }
+        }
+        item {
+            ToggleSetting(
+                "Snippets",
+                "Your saved text snippets",
+                includeSnippets,
+            ) { includeSnippets = it }
+        }
+    }
+
+    SettingsGroup {
+        item {
             OutlinedButton(
+                enabled = selectedSections().isNotEmpty(),
                 onClick = {
-                    exportLauncher.launch("wmkeyboard-settings.${SettingsBackup.FILE_EXTENSION}")
+                    exportLauncher.launch("wmkeyboard-backup.${ConfigBackup.FILE_EXTENSION}")
                 },
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-            ) { Text("Export settings") }
+            ) { Text("Export backup") }
         }
     }
 
@@ -3419,57 +3512,111 @@ private fun BackupSettings(repository: SettingsRepository) {
             OutlinedButton(
                 onClick = { importLauncher.launch(arrayOf("*/*")) },
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-            ) { Text("Import settings") }
+            ) { Text("Import backup") }
         }
     }
     CaptionText(
-        "Importing overwrites the settings named in the file and leaves the " +
-            "rest as they are, so an older backup will not reset anything added " +
-            "since it was made.",
+        "Importing settings overwrites only the preferences named in the file " +
+            "and leaves the rest as they are. Dictionary, clipboard and snippets " +
+            "in the file replace what's on this device.",
     )
     Spacer(Modifier.height(16.dp))
 
-    val pending = confirmImport
-    if (pending != null) {
-        val parsed = remember(pending) { SettingsBackup.decode(pending) }
-        AlertDialog(
-            onDismissRequest = { confirmImport = null },
-            title = { Text("Import settings?") },
-            text = {
-                Text(
-                    buildString {
-                        append("This will overwrite ${parsed?.entries?.size ?: 0} settings ")
-                        append("with the values in that file.")
-                        if (parsed?.containsSecrets == true) {
-                            append("\n\nThe file includes API keys, which will replace the ones ")
-                            append("set here.")
+    when (val pending = confirmImport) {
+        is PendingImport.Config -> {
+            val parsed = remember(pending.text) { ConfigBackup.decode(pending.text) }
+            val counts = remember(pending.text) { parsed?.let { repository.describeConfig(it) } ?: emptyMap() }
+            val hasSecrets = remember(pending.text) { parsed?.let { repository.configContainsSecrets(it) } ?: false }
+            AlertDialog(
+                onDismissRequest = { confirmImport = null },
+                title = { Text("Import backup?") },
+                text = {
+                    Text(
+                        buildString {
+                            append("This file contains:\n")
+                            for ((section, count) in counts) {
+                                append("\n• ${sectionLabel(section)}: ${sectionSummary(section, count)}")
+                            }
+                            append("\n\nSettings merge into your current ones; dictionary, ")
+                            append("clipboard and snippets replace what's on this device.")
+                            if (hasSecrets) {
+                                append("\n\nThe file includes API keys, which will replace the ")
+                                append("ones set here.")
+                            }
+                        },
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        confirmImport = null
+                        scope.launch {
+                            message = when (val result = repository.importConfig(pending.text)) {
+                                is SettingsRepository.ConfigImportResult.Applied -> buildString {
+                                    if (result.restored.isEmpty()) {
+                                        append("Nothing to restore from that file.")
+                                    } else {
+                                        append("Restored ")
+                                        append(result.restored.joinToString { sectionLabel(it).lowercase() })
+                                        append(".")
+                                    }
+                                    if (result.settingsFailed) {
+                                        append("\n\nThe settings couldn't be applied and were " +
+                                            "left unchanged.")
+                                    }
+                                }
+                                SettingsRepository.ConfigImportResult.NotABackup ->
+                                    "That file is not a WMKeyboard backup."
+                            }
                         }
-                        if ((parsed?.skipped ?: 0) > 0) {
-                            append("\n\n${parsed?.skipped} entries could not be read and will ")
-                            append("be skipped.")
+                    }) { Text("Import") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { confirmImport = null }) { Text("Cancel") }
+                },
+            )
+        }
+        is PendingImport.Legacy -> {
+            val parsed = remember(pending.text) { SettingsBackup.decode(pending.text) }
+            AlertDialog(
+                onDismissRequest = { confirmImport = null },
+                title = { Text("Import settings?") },
+                text = {
+                    Text(
+                        buildString {
+                            append("This will overwrite ${parsed?.entries?.size ?: 0} settings ")
+                            append("with the values in that file.")
+                            if (parsed?.containsSecrets == true) {
+                                append("\n\nThe file includes API keys, which will replace the ones ")
+                                append("set here.")
+                            }
+                            if ((parsed?.skipped ?: 0) > 0) {
+                                append("\n\n${parsed?.skipped} entries could not be read and will ")
+                                append("be skipped.")
+                            }
+                        },
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        confirmImport = null
+                        scope.launch {
+                            message = when (val result = repository.importSettings(pending.text)) {
+                                is SettingsRepository.ImportResult.Applied ->
+                                    "Restored ${result.settings} settings."
+                                SettingsRepository.ImportResult.RolledBack ->
+                                    "That backup could not be applied — your settings are unchanged."
+                                SettingsRepository.ImportResult.NotABackup ->
+                                    "That file is not a WMKeyboard settings backup."
+                            }
                         }
-                    },
-                )
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    confirmImport = null
-                    scope.launch {
-                        message = when (val result = repository.importSettings(pending)) {
-                            is SettingsRepository.ImportResult.Applied ->
-                                "Restored ${result.settings} settings."
-                            SettingsRepository.ImportResult.RolledBack ->
-                                "That backup could not be applied — your settings are unchanged."
-                            SettingsRepository.ImportResult.NotABackup ->
-                                "That file is not a WMKeyboard settings backup."
-                        }
-                    }
-                }) { Text("Import") }
-            },
-            dismissButton = {
-                TextButton(onClick = { confirmImport = null }) { Text("Cancel") }
-            },
-        )
+                    }) { Text("Import") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { confirmImport = null }) { Text("Cancel") }
+                },
+            )
+        }
+        null -> {}
     }
 
     if (message != null) {
