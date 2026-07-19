@@ -1244,6 +1244,16 @@ data class GestureSettings(
      * from a tap. Default 2×.
      */
     val startThresholdSlop: Float = 2f,
+    /**
+     * How long after the last keypress a glide is held back, in ms. During this
+     * window right after tapping, a stray slide off a key needs to travel much
+     * further before it is read as a swipe-word, so fast tap-typing does not
+     * spill into accidental gestures. The extra distance fades to nothing across
+     * the window. 0 disables the guard entirely; default 160 ms. Higher makes
+     * gliding immediately after typing harder (fewer accidents, but a deliberate
+     * swipe right after a tap is slower to start).
+     */
+    val postTypeCooldownMs: Int = 160,
     /** Head width of the comet trail, in dp. The tail thins to ~30% of this. */
     val trailWidthDp: Float = 10f,
     /** How long each trail point stays on screen, in ms. Longer = a longer tail. */
@@ -1521,6 +1531,7 @@ class SettingsRepository(private val context: Context) {
         private val LETTER_SWIPE_ACTION = stringPreferencesKey("letter_swipe_action")
         private val GESTURE_SPACE_MULTI_WORD = booleanPreferencesKey("gesture_space_multi_word")
         private val GESTURE_START_THRESHOLD_SLOP = floatPreferencesKey("gesture_start_threshold_slop")
+        private val GESTURE_POST_TYPE_COOLDOWN_MS = intPreferencesKey("gesture_post_type_cooldown_ms")
         private val GESTURE_TRAIL_WIDTH_DP = floatPreferencesKey("gesture_trail_width_dp")
         private val GESTURE_TRAIL_DURATION_MS = intPreferencesKey("gesture_trail_duration_ms")
         private val GESTURE_TRAIL_OPACITY = floatPreferencesKey("gesture_trail_opacity")
@@ -1901,6 +1912,7 @@ class SettingsRepository(private val context: Context) {
             gesture = GestureSettings(
                 spaceGlideMultiWord = p[GESTURE_SPACE_MULTI_WORD] ?: defaults.gesture.spaceGlideMultiWord,
                 startThresholdSlop = p[GESTURE_START_THRESHOLD_SLOP] ?: defaults.gesture.startThresholdSlop,
+                postTypeCooldownMs = p[GESTURE_POST_TYPE_COOLDOWN_MS] ?: defaults.gesture.postTypeCooldownMs,
                 trailWidthDp = p[GESTURE_TRAIL_WIDTH_DP] ?: defaults.gesture.trailWidthDp,
                 trailDurationMs = p[GESTURE_TRAIL_DURATION_MS] ?: defaults.gesture.trailDurationMs,
                 trailOpacity = p[GESTURE_TRAIL_OPACITY] ?: defaults.gesture.trailOpacity,
@@ -3200,6 +3212,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setGestureStartThresholdSlop(value: Float) =
         context.dataStore.edit { it[GESTURE_START_THRESHOLD_SLOP] = value.coerceIn(0.5f, 4f) }
+
+    suspend fun setGesturePostTypeCooldownMs(value: Int) =
+        context.dataStore.edit { it[GESTURE_POST_TYPE_COOLDOWN_MS] = value.coerceIn(0, 500) }
 
     suspend fun setGestureTrailWidthDp(value: Float) =
         context.dataStore.edit { it[GESTURE_TRAIL_WIDTH_DP] = value.coerceIn(2f, 24f) }

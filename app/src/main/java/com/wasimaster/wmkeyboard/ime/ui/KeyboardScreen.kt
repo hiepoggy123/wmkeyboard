@@ -4494,7 +4494,20 @@ private fun KeyRows(
     val trailOpacity = gesture.trailOpacity
     val trailHeadWidth = gesture.trailWidthDp
     val startSlop = gesture.startThresholdSlop
+    val cooldownMs = gesture.postTypeCooldownMs
     val spaceGlide = gesture.spaceGlideMultiWord
+    // Stamp of the last tap-typed key (uptime ms). A glide starting within
+    // [cooldownMs] of it has to travel further before it takes over, so a stray
+    // slide off a key during fast tapping is not misread as a swipe-word. Held
+    // in a State so the tap handlers below can write it without restarting the
+    // gesture detector, which reads it live inside its pointer loop.
+    val lastKeyPressTime = remember { mutableLongStateOf(0L) }
+    val stampedOnKey = remember(onKey) {
+        { k: Key -> lastKeyPressTime.longValue = SystemClock.uptimeMillis(); onKey(k) }
+    }
+    val stampedOnText = remember(onText) {
+        { t: String -> lastKeyPressTime.longValue = SystemClock.uptimeMillis(); onText(t) }
+    }
     // Points of the handwriting stroke being drawn right now (box space); the
     // finished strokes waiting for recognition come back from service state.
     var hwActiveStroke by remember { mutableStateOf<List<Offset>>(emptyList()) }
@@ -4519,11 +4532,22 @@ private fun KeyRows(
                 boxOrigin = it.positionInRoot()
                 boxSize = it.size
             }
-            .pointerInput(gestureEnabled, spaceGlide, startSlop, trailMs) {
+            .pointerInput(gestureEnabled, spaceGlide, startSlop, cooldownMs, trailMs) {
                 if (!gestureEnabled) return@pointerInput
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
                     val slop = viewConfiguration.touchSlop
+                    // Post-typing cooldown: right after a tap, hold the glide back
+                    // by requiring more travel, fading out across the window. A
+                    // finger that lands long after the last keypress swipes as
+                    // normal (boost 1×).
+                    val sinceTap = down.uptimeMillis - lastKeyPressTime.longValue
+                    val cooldownBoost = if (cooldownMs > 0 && sinceTap in 0 until cooldownMs.toLong()) {
+                        1f + POST_TYPE_SLOP_BOOST * (1f - sinceTap.toFloat() / cooldownMs)
+                    } else {
+                        1f
+                    }
+                    val effectiveSlop = startSlop * cooldownBoost
                     var isGesture = false
                     // Completed word segments (multi-word glide) plus the one
                     // being drawn now. With spaceGlide off there is only ever
@@ -4542,7 +4566,7 @@ private fun KeyRows(
                             break
                         }
                         if (!isGesture && keyWidth.value > 0f &&
-                            (change.position - down.position).getDistance() > slop * startSlop &&
+                            (change.position - down.position).getDistance() > slop * effectiveSlop &&
                             nearLetterKey(down.position, keyCenters, keyWidth.value)
                         ) {
                             isGesture = true
@@ -4762,8 +4786,8 @@ private fun KeyRows(
                     splitGapPercent = splitGapPercent,
                     keyHeightDp = state.settings.numberRowHeightDp,
                     state = state,
-                    onKey = onKey,
-                    onText = onText,
+                    onKey = stampedOnKey,
+                    onText = stampedOnText,
                     onCursorMove = onCursorMove,
                     onLayoutSelect = onLayoutSelect,
                     onLetterPositioned = onLetterPositioned,
@@ -4798,8 +4822,8 @@ private fun KeyRows(
                     splitGapPercent = splitGapPercent,
                     keyHeightDp = rowHeightDp,
                     state = state,
-                    onKey = onKey,
-                    onText = onText,
+                    onKey = stampedOnKey,
+                    onText = stampedOnText,
                     onCursorMove = onCursorMove,
                     onLayoutSelect = onLayoutSelect,
                     onLetterPositioned = onLetterPositioned,
@@ -5266,6 +5290,14 @@ private val KeyGapVertical = 4.dp
  */
 private fun keyGapH(settings: KeyboardSettings): Dp = KeyGapHorizontal * settings.keyGapScale
 private fun keyGapV(settings: KeyboardSettings): Dp = KeyGapVertical * settings.keyGapScale
+
+/**
+ * Peak extra glide-start slop applied the instant after a tap, on top of the
+ * user's start-distance multiplier, decaying to 0 across the post-typing
+ * cooldown window. 2.5 means a glide starting right after a keypress must travel
+ * 3.5× as far (1 + 2.5) as it normally would before it is read as a swipe-word.
+ */
+private const val POST_TYPE_SLOP_BOOST = 2.5f
 
 /** Vertical padding of the [KeyRows] column, mirrored into [keyRowsHeight]. */
 private val KeyRowsPadVertical = 2.dp

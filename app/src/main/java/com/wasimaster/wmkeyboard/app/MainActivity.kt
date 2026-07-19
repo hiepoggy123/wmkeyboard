@@ -1565,6 +1565,25 @@ private fun TypingSettings(
             }
             item {
                 SliderSetting(
+                    "Cooldown after typing",
+                    subtitle = "Briefly resist starting a glide right after a tap",
+                    value = settings.gesture.postTypeCooldownMs.toFloat(),
+                    range = 0f..500f,
+                    display = if (settings.gesture.postTypeCooldownMs == 0) {
+                        "Off"
+                    } else {
+                        "${settings.gesture.postTypeCooldownMs} ms"
+                    },
+                    info = "Just after you tap a key, a stray slide off it can be misread as a " +
+                        "swipe-word. During this window a glide has to travel further before it " +
+                        "takes over, and the extra distance fades away across the window, so fast " +
+                        "tapping stays clean while a deliberate swipe still starts. Higher is " +
+                        "safer against accidents but makes gliding right after typing slower to " +
+                        "begin; 0 turns the guard off.",
+                ) { scope.launch { repository.setGesturePostTypeCooldownMs(it.roundToInt()) } }
+            }
+            item {
+                SliderSetting(
                     "Trail width",
                     subtitle = "Thickness of the glide trail",
                     value = settings.gesture.trailWidthDp,
