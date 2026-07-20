@@ -1,6 +1,9 @@
 <resources>
     <string name="app_name">WM Keyboard</string>
     <string name="ime_name">WM Keyboard</string>
+    <!-- Shown in Settings › Notification access for the media-control tool's
+         listener; names why the app appears in that list. -->
+    <string name="media_listener_label">WM Keyboard media controls</string>
     <string name="subtype_english">English</string>
     <!--
       OS subtype label when "app name first" is on. The framework substitutes

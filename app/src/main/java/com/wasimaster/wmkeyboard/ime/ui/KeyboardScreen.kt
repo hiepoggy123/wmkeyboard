@@ -134,6 +134,7 @@ import androidx.compose.material.icons.outlined.Calculate
 import androidx.compose.material.icons.outlined.CurrencyExchange
 import androidx.compose.material.icons.outlined.Functions
 import androidx.compose.material.icons.outlined.Password
+import androidx.compose.material.icons.outlined.MusicNote
 import androidx.compose.material.icons.outlined.Speed
 import androidx.compose.material.icons.outlined.Psychology
 import androidx.compose.material.icons.outlined.Public
@@ -563,6 +564,12 @@ fun KeyboardScreen(
     onVoicePermissionRequest: () -> Unit = {},
     onVoiceUndo: () -> Unit = {},
     onVoiceModelDownload: () -> Unit = {},
+    onMediaPlayPause: () -> Unit = {},
+    onMediaNext: () -> Unit = {},
+    onMediaPrevious: () -> Unit = {},
+    onMediaSeek: (Long) -> Unit = {},
+    onMediaAccessRequest: () -> Unit = {},
+    onMediaResume: () -> Unit = {},
     onDictionaryLookup: (String) -> Unit = {},
     onDictionarySearchToggle: () -> Unit = {},
     onDictionaryInsert: (String) -> Unit = {},
@@ -696,6 +703,7 @@ fun KeyboardScreen(
             ToolbarTool.QR_GEN -> onPanelChange(PanelMode.QR_GEN)
             ToolbarTool.PASSWORD_GEN -> onPanelChange(PanelMode.PASSWORD_GEN)
             ToolbarTool.TYPING_TEST -> onPanelChange(PanelMode.TYPING_TEST)
+            ToolbarTool.MEDIA_CONTROL -> onPanelChange(PanelMode.MEDIA_CONTROL)
             ToolbarTool.AI -> onPanelChange(PanelMode.AI)
             ToolbarTool.MODES -> onPanelChange(PanelMode.MODES)
             // Same moves the text-editing panel offers, one tap deep instead
@@ -777,6 +785,12 @@ fun KeyboardScreen(
                 onVoicePermissionRequest = onVoicePermissionRequest,
                 onVoiceUndo = onVoiceUndo,
                 onVoiceModelDownload = onVoiceModelDownload,
+                onMediaPlayPause = onMediaPlayPause,
+                onMediaNext = onMediaNext,
+                onMediaPrevious = onMediaPrevious,
+                onMediaSeek = onMediaSeek,
+                onMediaAccessRequest = onMediaAccessRequest,
+                onMediaResume = onMediaResume,
                 onDictionaryLookup = onDictionaryLookup,
                 onDictionarySearchToggle = onDictionarySearchToggle,
                 onDictionaryInsert = onDictionaryInsert,
@@ -2262,6 +2276,7 @@ internal fun toolIcon(tool: ToolbarTool): ImageVector = when (tool) {
     ToolbarTool.QR_GEN -> Icons.Outlined.QrCode2
     ToolbarTool.PASSWORD_GEN -> Icons.Outlined.Password
     ToolbarTool.TYPING_TEST -> Icons.Outlined.Speed
+    ToolbarTool.MEDIA_CONTROL -> Icons.Outlined.MusicNote
     ToolbarTool.AI -> Icons.Outlined.AutoAwesome
     ToolbarTool.MODES -> Icons.Outlined.Tune
     ToolbarTool.CURSOR_LEFT -> Icons.AutoMirrored.Outlined.KeyboardArrowLeft
@@ -2321,6 +2336,7 @@ internal fun toolLabel(tool: ToolbarTool): String = when (tool) {
     ToolbarTool.QR_GEN -> "QR code"
     ToolbarTool.PASSWORD_GEN -> "Password"
     ToolbarTool.TYPING_TEST -> "Typing speed"
+    ToolbarTool.MEDIA_CONTROL -> "Media"
     ToolbarTool.AI -> "AI"
     ToolbarTool.MODES -> "Modes"
     ToolbarTool.CURSOR_LEFT -> "Left"
@@ -2380,6 +2396,7 @@ private fun toolActive(tool: ToolbarTool, state: KeyboardUiState): Boolean = whe
     ToolbarTool.QR_GEN -> state.panel == PanelMode.QR_GEN
     ToolbarTool.PASSWORD_GEN -> state.panel == PanelMode.PASSWORD_GEN
     ToolbarTool.TYPING_TEST -> state.panel == PanelMode.TYPING_TEST
+    ToolbarTool.MEDIA_CONTROL -> state.panel == PanelMode.MEDIA_CONTROL
     ToolbarTool.AI -> state.panel == PanelMode.AI
     ToolbarTool.MODES -> state.panel == PanelMode.MODES || state.activeModeId != null
     // Stateless one-shot moves, like undo/redo: nothing to stay lit for.
@@ -3597,7 +3614,7 @@ private val FullBleedPanels = setOf(
     PanelMode.OCR, PanelMode.QR_SCAN, PanelMode.CALCULATOR, PanelMode.CURRENCY,
     PanelMode.UNIT_CONVERT, PanelMode.CALENDAR, PanelMode.AI,
     PanelMode.TRANSLATE, PanelMode.WEB_SEARCH, PanelMode.IMAGE_SEARCH,
-    PanelMode.DICTIONARY, PanelMode.SYMBOLS,
+    PanelMode.DICTIONARY, PanelMode.SYMBOLS, PanelMode.MEDIA_CONTROL,
 )
 
 /**
@@ -3750,6 +3767,12 @@ private fun KeyboardBody(
     onVoicePermissionRequest: () -> Unit,
     onVoiceUndo: () -> Unit,
     onVoiceModelDownload: () -> Unit,
+    onMediaPlayPause: () -> Unit,
+    onMediaNext: () -> Unit,
+    onMediaPrevious: () -> Unit,
+    onMediaSeek: (Long) -> Unit,
+    onMediaAccessRequest: () -> Unit,
+    onMediaResume: () -> Unit,
     onDictionaryLookup: (String) -> Unit,
     onDictionarySearchToggle: () -> Unit,
     onDictionaryInsert: (String) -> Unit,
@@ -3998,6 +4021,21 @@ private fun KeyboardBody(
                     onLayoutSelect = onLayoutSelect,
                     onClose = { onPanelChange(PanelMode.VOICE) },
                 )
+                PanelMode.MEDIA_CONTROL -> FullBleedTool(
+                    state,
+                    title = "Media",
+                    onClose = { onPanelChange(PanelMode.MEDIA_CONTROL) },
+                ) {
+                    MediaControlPanel(
+                        state = state,
+                        onPlayPause = onMediaPlayPause,
+                        onNext = onMediaNext,
+                        onPrevious = onMediaPrevious,
+                        onSeek = onMediaSeek,
+                        onRequestAccess = onMediaAccessRequest,
+                        onResume = onMediaResume,
+                    )
+                }
                 PanelMode.DICTIONARY -> FullBleedTool(
                     state, title = "",
                     onClose = { onPanelChange(PanelMode.DICTIONARY) },

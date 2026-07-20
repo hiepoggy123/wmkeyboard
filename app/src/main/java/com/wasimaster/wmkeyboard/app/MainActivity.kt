@@ -105,6 +105,7 @@ import androidx.compose.material.icons.outlined.Calculate
 import androidx.compose.material.icons.outlined.CurrencyExchange
 import androidx.compose.material.icons.outlined.Functions
 import androidx.compose.material.icons.outlined.Password
+import androidx.compose.material.icons.outlined.MusicNote
 import androidx.compose.material.icons.outlined.Speed
 import androidx.compose.material.icons.automirrored.outlined.StickyNote2
 import androidx.compose.material.icons.outlined.Public
@@ -4163,6 +4164,9 @@ private fun toolHasOptions(tool: ToolbarTool): Boolean =
         // Quick toggles/panels, not tools with settings of their own —
         // their options all live elsewhere (Appearance, Typing).
         ToolbarTool.THEMES, ToolbarTool.SOUND_HAPTICS, ToolbarTool.ONE_HANDED,
+        // Just an enable toggle — the transport lives on the keyboard panel,
+        // there is nothing to configure here.
+        ToolbarTool.MEDIA_CONTROL,
     )
 
 internal fun toolTitle(tool: ToolbarTool): String = when (tool) {
@@ -4208,6 +4212,7 @@ internal fun toolTitle(tool: ToolbarTool): String = when (tool) {
     ToolbarTool.QR_GEN -> "QR code generator"
     ToolbarTool.PASSWORD_GEN -> "Password generator"
     ToolbarTool.TYPING_TEST -> "Typing speed test"
+    ToolbarTool.MEDIA_CONTROL -> "Media controls"
     ToolbarTool.AI -> "AI writing tools"
     ToolbarTool.MODES -> "Keyboard modes"
     ToolbarTool.CURSOR_LEFT -> "Cursor left"
@@ -4267,6 +4272,7 @@ internal fun toolDescription(tool: ToolbarTool): String = when (tool) {
     ToolbarTool.QR_GEN -> "Turn the text in the field into a QR code and send it as an image"
     ToolbarTool.PASSWORD_GEN -> "Strong passwords and passphrases, generated on-device"
     ToolbarTool.TYPING_TEST -> "Time your typing on this keyboard and track your best scores"
+    ToolbarTool.MEDIA_CONTROL -> "Play, pause and skip whatever's playing — with album art and a seek bar"
     ToolbarTool.AI -> "Rewrite, summarize, translate and more — your own API key or local server"
     ToolbarTool.MODES -> "Switch between per-app setups: emoji row, pinned tools, symbol sets"
     ToolbarTool.CURSOR_LEFT -> "Move the cursor one character left"
@@ -4326,6 +4332,7 @@ internal fun toolIconFor(tool: ToolbarTool): androidx.compose.ui.graphics.vector
     ToolbarTool.QR_GEN -> Icons.Outlined.QrCode2
     ToolbarTool.PASSWORD_GEN -> Icons.Outlined.Password
     ToolbarTool.TYPING_TEST -> Icons.Outlined.Speed
+    ToolbarTool.MEDIA_CONTROL -> Icons.Outlined.MusicNote
     ToolbarTool.AI -> Icons.Outlined.AutoAwesome
     ToolbarTool.MODES -> Icons.Outlined.Tune
     ToolbarTool.CURSOR_LEFT -> Icons.AutoMirrored.Outlined.KeyboardArrowLeft

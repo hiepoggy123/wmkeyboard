@@ -11,6 +11,7 @@ import com.wasimaster.wmkeyboard.core.layout.ModifierKey
 import com.wasimaster.wmkeyboard.core.layout.KeyboardLayout
 import com.wasimaster.wmkeyboard.core.layout.LayoutLayer
 import com.wasimaster.wmkeyboard.core.layout.Layouts
+import com.wasimaster.wmkeyboard.core.media.MediaSnapshot
 import com.wasimaster.wmkeyboard.core.input.composer.Composer
 import com.wasimaster.wmkeyboard.core.input.composer.NoComposer
 import com.wasimaster.wmkeyboard.core.script.LanguageDef
@@ -229,7 +230,7 @@ enum class PanelMode {
     TRANSLATE, GIF, STICKER, WEB_SEARCH, IMAGE_SEARCH,
     OCR, QR_SCAN, VOICE, GRAMMAR,
     WIKIPEDIA, SYMBOLS, CALCULATOR, UNIT_CONVERT, CURRENCY, QR_GEN, PASSWORD_GEN, AI,
-    MODES, TYPING_TEST,
+    MODES, TYPING_TEST, MEDIA_CONTROL,
 }
 
 /**
@@ -723,6 +724,13 @@ data class KeyboardUiState(
     val vowelForm: BengaliGraphemes.VowelKeyForm = BengaliGraphemes.VowelKeyForm.INDEPENDENT,
     val handwriting: HandwritingUi = HandwritingUi(),
     val voice: VoiceUi = VoiceUi(),
+    /**
+     * Now-playing snapshot for the media-control tool, mirrored from the
+     * active [android.media.session.MediaSession]. Null means nothing is
+     * playing — or notification access hasn't been granted, which the panel
+     * detects itself (like the voice panel checks the mic permission).
+     */
+    val mediaControl: MediaSnapshot? = null,
     /** Query buffer for the GIF/sticker/web/image search panels. */
     val mediaQuery: String = "",
     /** While true, key presses type into [mediaQuery] and the key rows stay visible. */

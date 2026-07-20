@@ -50,6 +50,7 @@ import com.wasimaster.wmkeyboard.core.media.GallerySaver
 import com.wasimaster.wmkeyboard.core.media.MediaMime
 import com.wasimaster.wmkeyboard.core.settings.MediaSendMode
 import android.provider.DocumentsContract
+import android.provider.Settings
 import com.wasimaster.wmkeyboard.core.clipboard.ClipKind
 import com.wasimaster.wmkeyboard.core.clipboard.ClipLinks
 import com.wasimaster.wmkeyboard.core.clipboard.ClipboardStore
@@ -149,6 +150,8 @@ import com.wasimaster.wmkeyboard.core.tools.typingConfigLabel
 import com.wasimaster.wmkeyboard.core.tools.WikipediaClient
 import com.wasimaster.wmkeyboard.core.tools.WeatherClient
 import com.wasimaster.wmkeyboard.core.tools.WebResult
+import com.wasimaster.wmkeyboard.core.media.MediaControlManager
+import com.wasimaster.wmkeyboard.core.media.MediaNotificationListener
 import com.wasimaster.wmkeyboard.core.voice.VoiceInputEngine
 import com.wasimaster.wmkeyboard.core.voice.VoicePunctuation
 import com.wasimaster.wmkeyboard.core.transliteration.AvroPhonetic
@@ -352,6 +355,9 @@ class WMKeyboardService : InputMethodService() {
     private var mediaInsertJob: Job? = null
     private var webSearchJob: Job? = null
     private var imageSearchJob: Job? = null
+
+    // ---- media control state ----
+    private val mediaController = MediaControlManager(this)
 
     // ---- voice input state ----
     private val voiceEngine = VoiceInputEngine(this)
@@ -987,6 +993,12 @@ class WMKeyboardService : InputMethodService() {
                 onVoicePermissionRequest = ::onVoicePermissionRequest,
                 onVoiceUndo = ::onVoiceUndo,
                 onVoiceModelDownload = ::onVoiceModelDownload,
+                onMediaPlayPause = ::onMediaPlayPause,
+                onMediaNext = ::onMediaNext,
+                onMediaPrevious = ::onMediaPrevious,
+                onMediaSeek = ::onMediaSeek,
+                onMediaAccessRequest = ::onMediaAccessRequest,
+                onMediaResume = ::onMediaResume,
                 onDictionaryLookup = ::onDictionaryLookup,
                 onDictionarySearchToggle = ::onDictionarySearchToggle,
                 onDictionaryInsert = ::onDictionaryInsert,
@@ -1451,6 +1463,7 @@ class WMKeyboardService : InputMethodService() {
         emojiUsage.save()
         clipboardStore.save()
         voiceEngine.cancel()
+        mediaController.stop()
         hwRecognizer.close()
         LocalLlmEngine.release()
         lifecycleOwner.onDestroy()
@@ -3695,6 +3708,73 @@ class WMKeyboardService : InputMethodService() {
             startVoice()
         } else {
             cancelVoice()
+        }
+        if (_uiState.value.panel == PanelMode.MEDIA_CONTROL) startMedia() else stopMedia()
+    }
+
+    // ---- media control ----
+
+    /** Begin mirroring the active media session into [KeyboardUiState.mediaControl]. */
+    private fun startMedia() {
+        mediaController.start { snapshot ->
+            _uiState.update { it.copy(mediaControl = snapshot) }
+        }
+    }
+
+    /** Stop tracking and clear the now-playing snapshot. */
+    private fun stopMedia() {
+        mediaController.stop()
+        if (_uiState.value.mediaControl != null) {
+            _uiState.update { it.copy(mediaControl = null) }
+        }
+    }
+
+    fun onMediaPlayPause() {
+        vibrate()
+        mediaController.playPause()
+    }
+
+    fun onMediaNext() {
+        vibrate()
+        mediaController.next()
+    }
+
+    fun onMediaPrevious() {
+        vibrate()
+        mediaController.previous()
+    }
+
+    fun onMediaSeek(positionMs: Long) {
+        mediaController.seekTo(positionMs)
+    }
+
+    /**
+     * The panel re-checks notification access when the keyboard returns to the
+     * foreground; if it was just granted, (re)bind to the active session.
+     */
+    fun onMediaResume() {
+        if (_uiState.value.panel == PanelMode.MEDIA_CONTROL) startMedia()
+    }
+
+    /** IMEs cannot show the grant dialog; open the system Notification-access screen. */
+    fun onMediaAccessRequest() {
+        val component = ComponentName(this, MediaNotificationListener::class.java)
+        val detail = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            Intent(Settings.ACTION_NOTIFICATION_LISTENER_DETAIL_SETTINGS)
+                .putExtra(
+                    Settings.EXTRA_NOTIFICATION_LISTENER_COMPONENT_NAME,
+                    component.flattenToString(),
+                )
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        } else {
+            null
+        }
+        val list = Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        // Prefer the per-app detail page (API 30+), falling back to the full
+        // listener list if the deep link is unavailable on this device.
+        if (detail == null || runCatching { startActivity(detail) }.isFailure) {
+            runCatching { startActivity(list) }
         }
     }
 
