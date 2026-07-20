@@ -334,6 +334,7 @@ import com.wasimaster.wmkeyboard.ime.displayCaseForShift
 import com.wasimaster.wmkeyboard.core.layout.BuiltInLayouts
 import com.wasimaster.wmkeyboard.core.layout.LayoutSpec
 import com.wasimaster.wmkeyboard.core.layout.resolveLayout
+import com.wasimaster.wmkeyboard.core.layout.language
 import com.wasimaster.wmkeyboard.core.layout.ClipboardKeyAction
 import com.wasimaster.wmkeyboard.core.layout.Key
 import com.wasimaster.wmkeyboard.core.layout.KeyAction
@@ -5738,7 +5739,12 @@ private fun KeyButton(
                         for (layoutId in enabledLayoutIds) {
                             val selected = layoutId == previewMode
                             Text(
-                                text = layoutSwitchLabel(layoutId, settings.customLayouts),
+                                text = layoutSwitchLabel(
+                                    layoutId,
+                                    enabledLayoutIds,
+                                    settings.customLayouts,
+                                    settings.layoutBehavior.spacebarDisplay,
+                                ),
                                 modifier = Modifier
                                     .padding(horizontal = 2.dp)
                                     .background(
@@ -5762,6 +5768,7 @@ private fun KeyButton(
                 enabledLayoutIds = settings.enabledLayoutIds.ifEmpty { listOf(BuiltInLayouts.DEFAULT_ID) },
                 currentLayoutId = state.layoutId,
                 customLayouts = settings.customLayouts,
+                displayMode = settings.layoutBehavior.spacebarDisplay,
                 onPick = {
                     showLanguagePicker = false
                     if (it != state.layoutId) onLayoutSelect(it)
@@ -5774,9 +5781,11 @@ private fun KeyButton(
 
 /**
  * A tappable list of every enabled layout, current one highlighted. Opened by
- * a long-press on the globe key or a spacebar hold with more than two
- * languages enabled; picking one switches to it. Non-focusable like the other
- * key popups so it never steals the edited field's input connection.
+ * a long-press on the globe key, or a spacebar hold when more than four layouts
+ * are enabled or the language swipe is off; picking one switches to it. Rows
+ * read like the spacebar (language, with the layout in parentheses when a
+ * language has several enabled layouts). Non-focusable like the other key
+ * popups so it never steals the edited field's input connection.
  */
 @Composable
 private fun LanguagePickerPopup(
@@ -5784,6 +5793,7 @@ private fun LanguagePickerPopup(
     enabledLayoutIds: List<String>,
     currentLayoutId: String,
     customLayouts: List<LayoutSpec>,
+    displayMode: SpacebarDisplay,
     onPick: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -5807,7 +5817,7 @@ private fun LanguagePickerPopup(
                 for (layoutId in enabledLayoutIds) {
                     val selected = layoutId == currentLayoutId
                     Text(
-                        text = layoutSwitchLabel(layoutId, customLayouts),
+                        text = layoutSwitchLabel(layoutId, enabledLayoutIds, customLayouts, displayMode),
                         color = if (selected) kb.accent else kb.popupText,
                         fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
                         fontSize = 15.sp,
@@ -5823,9 +5833,30 @@ private fun LanguagePickerPopup(
     }
 }
 
-/** Short label for an enabled layout, shown in the spacebar's language tooltip. */
-private fun layoutSwitchLabel(layoutId: String, customLayouts: List<LayoutSpec>): String =
-    resolveLayout(customLayouts, layoutId).name
+/**
+ * Label for an enabled layout in the spacebar language switcher (tooltip and
+ * picker). Follows the same rule as the spacebar label: the language name, the
+ * layout name, or "Language (Layout)" — and always the combined form when more
+ * than one enabled layout shares the language, so the rows stay distinct.
+ */
+private fun layoutSwitchLabel(
+    layoutId: String,
+    enabledLayoutIds: List<String>,
+    customLayouts: List<LayoutSpec>,
+    mode: SpacebarDisplay,
+): String {
+    val spec = resolveLayout(customLayouts, layoutId)
+    val lang = spec.language().displayName
+    val layout = spec.name
+    val sameLangCount = enabledLayoutIds.count {
+        resolveLayout(customLayouts, it).langId == spec.langId
+    }
+    return when {
+        mode == SpacebarDisplay.LAYOUT -> layout
+        mode == SpacebarDisplay.BOTH || sameLangCount > 1 -> "$lang ($layout)"
+        else -> lang
+    }
+}
 
 @Composable
 private fun KeyContent(key: Key, state: KeyboardUiState, contentColor: Color) {
@@ -5997,21 +6028,12 @@ private fun KeyContent(key: Key, state: KeyboardUiState, contentColor: Color) {
  * both read the same.
  */
 private fun spacebarText(state: KeyboardUiState): String {
-    val custom = state.settings.customLayouts
-    val lang = state.language.displayName
-    val layout = state.layoutName.ifBlank { resolveLayout(custom, state.layoutId).name }
-    // How many enabled layouts share the active language? More than one means
-    // the language name alone can't tell them apart, so the layout is appended
-    // regardless of the chosen display mode.
-    val sameLangCount = state.settings.enabledLayoutIds.count {
-        resolveLayout(custom, it).langId == state.language.id
-    }
-    val name = when {
-        state.settings.layoutBehavior.spacebarDisplay == SpacebarDisplay.LAYOUT -> layout
-        state.settings.layoutBehavior.spacebarDisplay == SpacebarDisplay.BOTH ||
-            sameLangCount > 1 -> "$lang ($layout)"
-        else -> lang
-    }
+    val name = layoutSwitchLabel(
+        state.layoutId,
+        state.settings.enabledLayoutIds,
+        state.settings.customLayouts,
+        state.settings.layoutBehavior.spacebarDisplay,
+    )
     val label = state.settings.spacebarLabel
     return if (label.isEmpty()) name else label.replace("%s", name)
 }
