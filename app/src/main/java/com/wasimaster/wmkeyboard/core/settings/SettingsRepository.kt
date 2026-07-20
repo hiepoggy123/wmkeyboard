@@ -353,6 +353,14 @@ enum class HapticStyle(val label: String) {
 enum class SpaceSwipeAction { NONE, LANGUAGE, CURSOR }
 
 /**
+ * What the resting spacebar label shows. [LANGUAGE] the current language name,
+ * [LAYOUT] the current layout name, [BOTH] "Language (Layout)". Regardless of
+ * mode, when the active language has more than one enabled layout the layout
+ * name is appended anyway, so those layouts stay distinguishable.
+ */
+enum class SpacebarDisplay { LANGUAGE, LAYOUT, BOTH }
+
+/**
  * What a swipe across the letter keys does. TYPE_WORDS is the classic glide
  * decoder; HANDWRITE turns the same swipe into a handwriting stroke fed to the
  * ML Kit recognizer (full builds only — needs a downloaded handwriting model).
@@ -1301,6 +1309,8 @@ data class LayoutBehaviorSettings(
      * Off by default.
      */
     val spaceCursor2d: Boolean = false,
+    /** What the resting spacebar label shows: language, layout, or both. */
+    val spacebarDisplay: SpacebarDisplay = SpacebarDisplay.LANGUAGE,
     /**
      * Size multiplier for the small corner hint character on each key (the
      * first long-press alternate, shown when [KeyboardSettings.longPressHints]
@@ -1559,6 +1569,7 @@ class SettingsRepository(private val context: Context) {
         private val HINT_FONT_SCALE = floatPreferencesKey("hint_font_scale")
         private val NUMBER_ROW_SHIFT_SYMBOLS = booleanPreferencesKey("number_row_shift_symbols")
         private val SMART_HIT_DETECTION = booleanPreferencesKey("smart_hit_detection")
+        private val SPACEBAR_DISPLAY = stringPreferencesKey("spacebar_display")
         private val NUMERAL_SYSTEM = stringPreferencesKey("numeral_system")
         private val NUMERAL_COMMIT_SCOPE = stringPreferencesKey("numeral_commit_scope")
         private val BACKSPACE_SWIPE_DELETE = booleanPreferencesKey("backspace_swipe_delete")
@@ -1997,6 +2008,9 @@ class SettingsRepository(private val context: Context) {
                     p[NUMBER_ROW_SHIFT_SYMBOLS] ?: defaults.layoutBehavior.numberRowShiftSymbols,
                 smartHitDetection =
                     p[SMART_HIT_DETECTION] ?: defaults.layoutBehavior.smartHitDetection,
+                spacebarDisplay = p[SPACEBAR_DISPLAY]
+                    ?.let { runCatching { SpacebarDisplay.valueOf(it) }.getOrNull() }
+                    ?: defaults.layoutBehavior.spacebarDisplay,
                 numeralSystem = p[NUMERAL_SYSTEM]
                     ?.let { runCatching { NumeralSystem.valueOf(it) }.getOrNull() }
                     ?: defaults.layoutBehavior.numeralSystem,
@@ -3273,6 +3287,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setNumeralSystem(value: NumeralSystem) =
         context.dataStore.edit { it[NUMERAL_SYSTEM] = value.name }
+
+    suspend fun setSpacebarDisplay(value: SpacebarDisplay) =
+        context.dataStore.edit { it[SPACEBAR_DISPLAY] = value.name }
 
     suspend fun setNumeralCommitScope(value: NumeralCommitScope) =
         context.dataStore.edit { it[NUMERAL_COMMIT_SCOPE] = value.name }

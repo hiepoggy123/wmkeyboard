@@ -299,6 +299,7 @@ import com.wasimaster.wmkeyboard.core.settings.OneHandedMode
 import com.wasimaster.wmkeyboard.core.settings.OneHandedSide
 import com.wasimaster.wmkeyboard.core.settings.LetterSwipeAction
 import com.wasimaster.wmkeyboard.core.settings.SpaceSwipeAction
+import com.wasimaster.wmkeyboard.core.settings.SpacebarDisplay
 import com.wasimaster.wmkeyboard.core.settings.ThemeMode
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
 import com.wasimaster.wmkeyboard.core.settings.isSupportedTool
@@ -5921,6 +5922,9 @@ private fun KeyContent(key: Key, state: KeyboardUiState, contentColor: Color) {
                         text = spacebarText(state),
                         fontSize = (11 * fontScale).sp,
                         color = contentColor.copy(alpha = 0.5f),
+                        maxLines = 1,
+                        softWrap = false,
+                        overflow = TextOverflow.Ellipsis,
                     )
                     if (showArrows) Text(
                         text = "▶",
@@ -5993,16 +5997,23 @@ private fun KeyContent(key: Key, state: KeyboardUiState, contentColor: Color) {
  * both read the same.
  */
 private fun spacebarText(state: KeyboardUiState): String {
-    // A built-in reads as the language it types; a custom layout keeps its own
-    // name (two layouts can share a language, so the language cannot tell them
-    // apart).
-    val languageName = if (BuiltInLayouts.byId(state.layoutId) != null) {
-        state.language.displayName
-    } else {
-        state.layoutName.ifBlank { state.language.displayName }
+    val custom = state.settings.customLayouts
+    val lang = state.language.displayName
+    val layout = state.layoutName.ifBlank { resolveLayout(custom, state.layoutId).name }
+    // How many enabled layouts share the active language? More than one means
+    // the language name alone can't tell them apart, so the layout is appended
+    // regardless of the chosen display mode.
+    val sameLangCount = state.settings.enabledLayoutIds.count {
+        resolveLayout(custom, it).langId == state.language.id
     }
-    val custom = state.settings.spacebarLabel
-    return if (custom.isEmpty()) languageName else custom.replace("%s", languageName)
+    val name = when {
+        state.settings.layoutBehavior.spacebarDisplay == SpacebarDisplay.LAYOUT -> layout
+        state.settings.layoutBehavior.spacebarDisplay == SpacebarDisplay.BOTH ||
+            sameLangCount > 1 -> "$lang ($layout)"
+        else -> lang
+    }
+    val label = state.settings.spacebarLabel
+    return if (label.isEmpty()) name else label.replace("%s", name)
 }
 
 private fun displayLabel(key: Key, state: KeyboardUiState): String {
@@ -6160,18 +6171,23 @@ private fun Modifier.pointerInputKey(
                 // preview. Once open, the picker owns the selection: the rest
                 // of this gesture goes inert and release types nothing.
                 var pickerOpened = false
-                // Only arm the hold-to-switch gesture when there is more than one
-                // language to switch between (mirrors the arrows' size > 1 gate).
-                // Otherwise a single-language user holding space would show a
-                // pointless one-item picker and, worse, release would swallow the
-                // space instead of typing it.
-                val holdOpensSwitcher = spaceShortSwipe == SpaceSwipeAction.LANGUAGE &&
-                    enabledLayoutIds.size > 1
+                // Arm the hold-to-switch gesture whenever there is more than one
+                // layout to switch between — independent of the swipe setting, so
+                // the tappable picker stays reachable even when the language swipe
+                // is off. A single-layout user gets nothing (holding space would
+                // otherwise show a pointless one-item picker and swallow the
+                // space). The picker only opens on a still-hold (action == null);
+                // a drag sets action first and still runs the swipe/cursor gesture.
+                val holdOpensSwitcher = enabledLayoutIds.size > 1
                 val holdJob = if (holdOpensSwitcher) {
                     scope.launch {
                         delay(minOf(longPressDelayMs, SpaceHoldPickerMs).toLong())
                         if (action == null) {
-                            if (enabledLayoutIds.size > 2) {
+                            // List for a long ring (> 4) or when the swipe can't
+                            // cycle languages; otherwise the inline swipe preview.
+                            val useList = enabledLayoutIds.size > 4 ||
+                                spaceShortSwipe != SpaceSwipeAction.LANGUAGE
+                            if (useList) {
                                 pickerOpened = true
                                 openLanguagePicker()
                             } else {

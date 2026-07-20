@@ -248,6 +248,7 @@ import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import com.wasimaster.wmkeyboard.core.settings.sizingValuesFor
 import com.wasimaster.wmkeyboard.core.settings.LetterSwipeAction
 import com.wasimaster.wmkeyboard.core.settings.SpaceSwipeAction
+import com.wasimaster.wmkeyboard.core.settings.SpacebarDisplay
 import com.wasimaster.wmkeyboard.core.settings.ThemeMode
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
 import kotlin.math.roundToInt
@@ -1715,10 +1716,25 @@ private fun TypingSettings(
             }
         }
         item {
+            ChoiceSetting(
+                "Spacebar shows",
+                subtitle = "What the resting spacebar label displays",
+                info = "Language shows the current language name, Layout the current layout name, " +
+                    "Both shows \"Language (Layout)\". When one language has more than one layout " +
+                    "enabled, the layout name is added anyway so you can tell them apart.",
+                options = listOf(
+                    SpacebarDisplay.LANGUAGE to "Language",
+                    SpacebarDisplay.LAYOUT to "Layout",
+                    SpacebarDisplay.BOTH to "Both",
+                ),
+                selected = settings.layoutBehavior.spacebarDisplay,
+            ) { scope.launch { repository.setSpacebarDisplay(it) } }
+        }
+        item {
             TextFieldSetting(
                 label = "Spacebar text",
                 value = settings.spacebarLabel,
-                hint = "Blank = current language name. %s inserts it, e.g. \"— %s —\".",
+                hint = "Blank = current spacebar label. %s inserts it, e.g. \"— %s —\".",
             ) { repository.setSpacebarLabel(it) }
         }
     }
