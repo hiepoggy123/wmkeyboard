@@ -537,7 +537,7 @@ object SmartSuggest {
             query = word,
             result = null,
             insert = null,
-            replaceSpan = word.length,
+            replaceSpan = if (tool == ToolbarTool.TEXT_EDIT) 0 else word.length,
             tool = tool,
             prefill = null,
         )

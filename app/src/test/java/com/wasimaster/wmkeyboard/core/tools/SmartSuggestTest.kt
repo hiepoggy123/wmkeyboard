@@ -203,6 +203,15 @@ class SmartSuggestTest {
     }
 
     @Test
+    fun textEditingKeywordPreservesText() {
+        val h = hit("edit")
+        assertEquals(SmartSuggest.Kind.TOOL, h?.kind)
+        assertEquals(ToolbarTool.TEXT_EDIT, h?.tool)
+        assertEquals(0, h?.replaceSpan)
+        assertNull("a keyword chip only opens the tool", h?.insert)
+    }
+
+    @Test
     fun keywordsOnlyFireOnTheWholeWord() {
         assertNull(hit("wikipedian"))
         assertEquals(ToolbarTool.WIKIPEDIA, hit("see wiki")?.tool)
