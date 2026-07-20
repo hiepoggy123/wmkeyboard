@@ -1540,16 +1540,20 @@ private fun TypingSettings(
             }
         }
         if (settings.gestureTyping) {
-            item {
-                ToggleSetting(
-                    "Glide across spacebar",
-                    "Swipe over space to keep gliding the next word",
-                    settings.gesture.spaceGlideMultiWord,
-                    info = "Without lifting your finger, glide a word, slide across the spacebar, " +
-                        "then glide the next — each crossing commits the word so far and a space, " +
-                        "so a whole phrase lands in one stroke. Off treats a swipe that crosses " +
-                        "the spacebar as a single word.",
-                ) { scope.launch { repository.setGestureSpaceMultiWord(it) } }
+            // Glide-word only: crossing the spacebar to chain words has no
+            // meaning when a swipe draws handwriting instead.
+            if (settings.letterSwipeAction == LetterSwipeAction.TYPE_WORDS) {
+                item {
+                    ToggleSetting(
+                        "Glide across spacebar",
+                        "Swipe over space to keep gliding the next word",
+                        settings.gesture.spaceGlideMultiWord,
+                        info = "Without lifting your finger, glide a word, slide across the spacebar, " +
+                            "then glide the next — each crossing commits the word so far and a space, " +
+                            "so a whole phrase lands in one stroke. Off treats a swipe that crosses " +
+                            "the spacebar as a single word.",
+                    ) { scope.launch { repository.setGestureSpaceMultiWord(it) } }
+                }
             }
             item {
                 SliderSetting(

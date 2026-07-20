@@ -4586,8 +4586,10 @@ private fun KeyRows(
                             // without lifting. Spacebar points anchor no letter,
                             // so they are dropped from the word's shape rather
                             // than added to either side.
+                            // spaceRect is in root space; lift the box-local
+                            // touch point into root space to test it.
                             val overSpace = spaceGlide &&
-                                spaceRect.value?.contains(change.position) == true
+                                spaceRect.value?.contains(change.position + boxOrigin) == true
                             if (overSpace) {
                                 if (!wasOverSpace && seg.size >= 3) {
                                     segments.add(seg)
@@ -4737,10 +4739,17 @@ private fun KeyRows(
                     topLeft.y + coords.size.height / 2f,
                 )
             }
-            // Records the spacebar's box-space rect for the multi-word split.
+            // Records the spacebar's rect in *root* coordinates for the
+            // multi-word split. Stored root-relative rather than box-relative on
+            // purpose: this callback can fire before the Box's own
+            // onGloballyPositioned has set `boxOrigin`, and unlike the letter
+            // centres (a state map the keys keep re-reporting) it fires only
+            // once, so subtracting a still-zero `boxOrigin` here would leave the
+            // rect stuck in absolute space and the containment test — which runs
+            // in box space — would never hit. The gesture loop adds the live
+            // `boxOrigin` at test time instead, when the Box is laid out.
             val onSpacePositioned: (LayoutCoordinates) -> Unit = { coords ->
-                val topLeft = coords.positionInRoot() - boxOrigin
-                spaceRect.value = Rect(topLeft, coords.size.toSize())
+                spaceRect.value = coords.boundsInRoot()
             }
             val split = state.settings.splitKeyboard
             val splitGapPercent = state.settings.splitGapPercent
