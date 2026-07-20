@@ -85,7 +85,7 @@ import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.FirstPage
 import androidx.compose.material.icons.outlined.Folder
-import androidx.compose.material.icons.outlined.Highlight
+import androidx.compose.material.icons.outlined.HighlightAlt
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.KeyboardHide
@@ -2273,7 +2273,7 @@ internal fun toolIcon(tool: ToolbarTool): ImageVector = when (tool) {
     ToolbarTool.HIDE_KEYBOARD -> Icons.Outlined.KeyboardHide
     ToolbarTool.PAGE_UP -> Icons.Outlined.KeyboardDoubleArrowUp
     ToolbarTool.PAGE_DOWN -> Icons.Outlined.KeyboardDoubleArrowDown
-    ToolbarTool.SELECT_WORD -> Icons.Outlined.Highlight
+    ToolbarTool.SELECT_WORD -> Icons.Outlined.HighlightAlt
 }
 
 internal fun toolLabel(tool: ToolbarTool): String = when (tool) {

@@ -65,7 +65,7 @@ import androidx.compose.material.icons.outlined.Explore
 import androidx.compose.material.icons.outlined.FlashlightOn
 import androidx.compose.material.icons.outlined.FirstPage
 import androidx.compose.material.icons.outlined.Keyboard
-import androidx.compose.material.icons.outlined.Highlight
+import androidx.compose.material.icons.outlined.HighlightAlt
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.KeyboardDoubleArrowDown
@@ -4329,7 +4329,7 @@ internal fun toolIconFor(tool: ToolbarTool): androidx.compose.ui.graphics.vector
     ToolbarTool.CURSOR_END -> Icons.AutoMirrored.Outlined.LastPage
     ToolbarTool.PAGE_UP -> Icons.Outlined.KeyboardDoubleArrowUp
     ToolbarTool.PAGE_DOWN -> Icons.Outlined.KeyboardDoubleArrowDown
-    ToolbarTool.SELECT_WORD -> Icons.Outlined.Highlight
+    ToolbarTool.SELECT_WORD -> Icons.Outlined.HighlightAlt
     ToolbarTool.HIDE_KEYBOARD -> Icons.Outlined.KeyboardHide
 }
 
