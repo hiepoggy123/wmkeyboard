@@ -612,6 +612,7 @@ fun KeyboardScreen(
     onAiPickModel: (com.wasimaster.wmkeyboard.core.settings.AiProvider, String?) -> Unit = { _, _ -> },
     onAiToggleStripMarkdown: () -> Unit = {},
     onOpenToolSettings: (ToolbarTool) -> Unit = {},
+    onOpenRoute: (String) -> Unit = {},
     onDismissInlineSuggestions: () -> Unit = {},
     /** Smart chip tapped: type the answer over the text that triggered it. */
     onSmartAccept: () -> Unit = {},
@@ -823,6 +824,7 @@ fun KeyboardScreen(
                 onAiPickModel = onAiPickModel,
                 onAiToggleStripMarkdown = onAiToggleStripMarkdown,
                 onOpenToolSettings = onOpenToolSettings,
+                onOpenRoute = onOpenRoute,
             )
         }
     }
@@ -3795,6 +3797,7 @@ private fun KeyboardBody(
     onAiPickModel: (com.wasimaster.wmkeyboard.core.settings.AiProvider, String?) -> Unit,
     onAiToggleStripMarkdown: () -> Unit,
     onOpenToolSettings: (ToolbarTool) -> Unit,
+    onOpenRoute: (String) -> Unit = {},
 ) {
     val drag = remember { ToolDragController() }
     // Mirror the drag's view of the bar when the tools read RTL, then flip the
@@ -3940,7 +3943,7 @@ private fun KeyboardBody(
                 PanelMode.THEMES -> ThemesPanel(
                     state,
                     onThemeSelect,
-                    onOpenSettings = { onOpenToolSettings(ToolbarTool.THEMES) },
+                    onOpenSettings = { onOpenRoute("themes") },
                 )
                 PanelMode.SOUND_HAPTICS -> SoundHapticsPanel(state, onSoundHaptic)
                 PanelMode.NUMPAD -> NumpadPanel(state, onText, onKey)

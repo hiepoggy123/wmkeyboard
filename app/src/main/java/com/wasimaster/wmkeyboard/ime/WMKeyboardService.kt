@@ -1039,6 +1039,7 @@ class WMKeyboardService : InputMethodService() {
                 onAiPickModel = ::onAiPickModel,
                 onAiToggleStripMarkdown = ::onAiToggleStripMarkdown,
                 onOpenToolSettings = ::openToolSettings,
+                onOpenRoute = ::openRoute,
                 onDismissInlineSuggestions = ::onDismissInlineSuggestions,
                 onSmartAccept = ::onSmartSuggestionTapped,
                 onSmartOpen = ::onSmartSuggestionOpen,
@@ -6963,6 +6964,17 @@ class WMKeyboardService : InputMethodService() {
             Intent(this, MainActivity::class.java).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 putExtra(MainActivity.EXTRA_OPEN_TOOL, tool.name)
+            }
+        )
+    }
+
+    /** Jump directly to a specific settings page route (e.g. "themes"). */
+    fun openRoute(route: String) {
+        vibrate()
+        startActivity(
+            Intent(this, MainActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                putExtra(MainActivity.EXTRA_OPEN_ROUTE, route)
             }
         )
     }

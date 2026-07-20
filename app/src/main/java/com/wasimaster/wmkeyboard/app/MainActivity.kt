@@ -273,6 +273,10 @@ class MainActivity : ComponentActivity() {
          * to that tool's settings page.
          */
         const val EXTRA_OPEN_TOOL = "open_tool"
+        /**
+         * Intent extra with a specific settings route string (e.g., "themes").
+         */
+        const val EXTRA_OPEN_ROUTE = "open_route"
     }
 
     private lateinit var repository: SettingsRepository
@@ -289,6 +293,7 @@ class MainActivity : ComponentActivity() {
         lifecycleScope.launch { repository.seedNewDefaultModes() }
         val openTool = intent?.getStringExtra(EXTRA_OPEN_TOOL)
             ?.let { name -> ToolbarTool.entries.find { it.name == name } }
+        val openRoute = intent?.getStringExtra(EXTRA_OPEN_ROUTE)
         setContent {
             // Null until DataStore's first emission: rendering nothing for a
             // frame beats flashing onboarding at users who finished it.
@@ -296,7 +301,7 @@ class MainActivity : ComponentActivity() {
                 .collectAsStateWithLifecycle(null as KeyboardSettings?)
             settings?.let { loaded ->
                 AppTheme(loaded) {
-                    SettingsNavHost(repository, loaded, openTool)
+                    SettingsNavHost(repository, loaded, openTool, openRoute)
                 }
             }
         }
@@ -330,15 +335,19 @@ private fun SettingsNavHost(
     repository: SettingsRepository,
     settings: KeyboardSettings,
     openTool: ToolbarTool? = null,
+    openRoute: String? = null,
 ) {
     val navController = rememberNavController()
     // Deep link from the keyboard (tool long-press, or a panel's "Open
-    // settings"): land on the tool's page with the tools list underneath
-    // for a sane back stack.
-    LaunchedEffect(openTool) {
-        if (openTool != null && settings.onboardingDone) {
-            navController.navigate("tools")
-            navController.navigate("tool/${openTool.name}")
+    // settings"): land on the tool's page or specified route with a sane back stack.
+    LaunchedEffect(openTool, openRoute) {
+        if (settings.onboardingDone) {
+            if (!openRoute.isNullOrEmpty()) {
+                navController.navigate(openRoute)
+            } else if (openTool != null) {
+                navController.navigate("tools")
+                navController.navigate("tool/${openTool.name}")
+            }
         }
     }
     // Quick shared-axis slide instead of the sluggish default cross-fade;
