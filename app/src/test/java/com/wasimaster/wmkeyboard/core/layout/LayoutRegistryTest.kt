@@ -29,6 +29,16 @@ class LayoutRegistryTest {
     }
 
     @Test
+    fun `colemak workman halmak built-in layouts exist`() {
+        assertNotNull(BuiltInLayouts.byId(BuiltInLayouts.COLEMAK_ID))
+        assertNotNull(BuiltInLayouts.byId(BuiltInLayouts.WORKMAN_ID))
+        assertNotNull(BuiltInLayouts.byId(BuiltInLayouts.HALMAK_ID))
+        assertEquals("Colemak", BuiltInLayouts.COLEMAK.name)
+        assertEquals("Workman", BuiltInLayouts.WORKMAN.name)
+        assertEquals("Halmak", BuiltInLayouts.HALMAK.name)
+    }
+
+    @Test
     fun `with no customs the registry is exactly the built-ins`() {
         assertEquals(BuiltInLayouts.all, resolveLayouts(emptyList()))
     }

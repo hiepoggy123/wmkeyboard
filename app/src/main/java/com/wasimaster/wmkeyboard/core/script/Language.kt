@@ -64,6 +64,7 @@ object LanguageRegistry {
                 BuiltInLayouts.DVORAK_ID,
                 BuiltInLayouts.COLEMAK_ID,
                 BuiltInLayouts.WORKMAN_ID,
+                BuiltInLayouts.HALMAK_ID,
             ),
             bundledDictionary = true,
             gestureLexicon = true,

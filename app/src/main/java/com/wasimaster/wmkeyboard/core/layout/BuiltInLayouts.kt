@@ -28,6 +28,7 @@ object BuiltInLayouts {
     const val DVORAK_ID = "builtin_dvorak"
     const val COLEMAK_ID = "builtin_colemak"
     const val WORKMAN_ID = "builtin_workman"
+    const val HALMAK_ID = "builtin_halmak"
     const val AVRO_ID = "builtin_avro"
     const val PROBHAT_ID = "builtin_probhat"
     const val JATIYA_ID = "builtin_jatiya"
@@ -115,6 +116,19 @@ object BuiltInLayouts {
         name = "Workman",
         langId = "en",
         layers = mapOf(LayoutLayer.LETTERS.key to LayerSpec(workmanRows)),
+    )
+
+    /**
+     * Halmak: the AI-designed layout tuned to English typing efficiency and hand
+     * alternation. Follows the standard Halmak keymap adapted to the 10-column
+     * phone grid (9 / 10 / 7, with desktop punctuation dropped to long-press),
+     * same symbol-first alternates and vowel accents.
+     */
+    val HALMAK = LayoutSpec(
+        id = HALMAK_ID,
+        name = "Halmak",
+        langId = "en",
+        layers = mapOf(LayoutLayer.LETTERS.key to LayerSpec(halmakRows)),
     )
 
     /** Avro types Bengali phonetically, so it wears the QWERTY grid unchanged. */
@@ -264,7 +278,7 @@ object BuiltInLayouts {
      * add the language tail at runtime, and both feed `resolveLayouts`.
      */
     val all: List<LayoutSpec> = listOf(
-        QWERTY, AZERTY, DVORAK, COLEMAK, WORKMAN, AVRO, PROBHAT, JATIYA, FRENCH,
+        QWERTY, AZERTY, DVORAK, COLEMAK, WORKMAN, HALMAK, AVRO, PROBHAT, JATIYA, FRENCH,
         GERMAN, SPANISH, KOREAN, RUSSIAN, ARABIC, GREEK, HEBREW, HINDI,
     )
 
@@ -538,6 +552,36 @@ private val workmanRows = listOf(
         Key("m", longPress = listOf("'")), Key("c", longPress = listOf(":", "ç", "ć")),
         Key("v", longPress = listOf(";")), Key("k", longPress = listOf("!")),
         Key("l", longPress = listOf("?")),
+        Key("⌫", action = KeyAction.Delete, width = 1.5f),
+    ),
+    bottomRow(),
+)
+
+// Halmak: tuned to English letter frequency & hand alternation. Same 9 / 10 / 7
+// phone adaptation as Colemak and Workman (desktop punctuation dropped), same alternate scheme.
+private val halmakRows = listOf(
+    listOf(
+        Key("w", longPress = listOf("1")), Key("l", longPress = listOf("2")),
+        Key("r", longPress = listOf("3")), Key("b", longPress = listOf("4")),
+        Key("z", longPress = listOf("5", "ż", "ź")), Key("q", longPress = listOf("6")),
+        Key("u", longPress = listOf("7", "ù", "ú", "û", "ü")),
+        Key("d", longPress = listOf("8")), Key("j", longPress = listOf("9")),
+    ),
+    listOf(
+        Key("s", longPress = listOf("@", "ß", "ś")), Key("h", longPress = listOf("#")),
+        Key("n", longPress = listOf("$", "ñ", "ń")), Key("t", longPress = listOf("_")),
+        Key("f", longPress = listOf("&")), Key("g", longPress = listOf("-")),
+        Key("a", longPress = listOf("+", "à", "á", "â", "ä", "å")),
+        Key("e", longPress = listOf("(", "è", "é", "ê", "ë")),
+        Key("o", longPress = listOf(")", "ò", "ó", "ô", "ö")),
+        Key("i", longPress = listOf("/", "ì", "í", "î", "ï")),
+    ),
+    listOf(
+        Key("⇧", action = KeyAction.Shift, width = 1.5f),
+        Key("m", longPress = listOf("*")), Key("v", longPress = listOf("\"")),
+        Key("c", longPress = listOf("'", "ç", "ć")), Key("p", longPress = listOf(":")),
+        Key("x", longPress = listOf(";")), Key("k", longPress = listOf("!")),
+        Key("y", longPress = listOf("?", "ÿ")),
         Key("⌫", action = KeyAction.Delete, width = 1.5f),
     ),
     bottomRow(),
