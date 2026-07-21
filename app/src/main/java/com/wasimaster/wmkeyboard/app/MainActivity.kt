@@ -5295,6 +5295,28 @@ private fun ToolDetailSettings(
             )
         }
         ToolbarTool.VOICE -> {
+            val whisperEnabled = com.wasimaster.wmkeyboard.core.settings.isWhisperEnabled()
+            val usingWhisper = whisperEnabled && settings.voiceEngine == "whisper"
+            if (whisperEnabled) {
+                SettingsGroup("Engine") {
+                    item {
+                        ChoiceSetting(
+                            "Recognition engine",
+                            subtitle = "How speech is turned into text",
+                            info = "The system recognizer is fast and streams words as " +
+                                "you speak, but depends on the OS and its languages. " +
+                                "Offline Whisper runs entirely on this device across many " +
+                                "languages and never sends audio anywhere — it transcribes " +
+                                "each phrase after you stop speaking.",
+                            options = listOf(
+                                "system" to "System recognizer",
+                                "whisper" to "Offline Whisper",
+                            ),
+                            selected = settings.voiceEngine,
+                        ) { scope.launch { repository.setVoiceEngine(it) } }
+                    }
+                }
+            }
             SettingsGroup("Dictation") {
                 item {
                     ToggleSetting(
@@ -5318,13 +5340,17 @@ private fun ToolDetailSettings(
                     ) { scope.launch { repository.setVoiceSpokenPunctuation(it) } }
                 }
             }
-            CaptionText(
-                "Recognition uses the device's speech recognizer. On Android " +
-                    "12+ it runs on-device when the language model is " +
-                    "installed; otherwise audio goes to the recognizer " +
-                    "service while you dictate. Long-press the mic to " +
-                    "dictate walkie-talkie style — it stops when you let go.",
-            )
+            if (usingWhisper) {
+                WhisperModelManager(repository, settings)
+            } else {
+                CaptionText(
+                    "Recognition uses the device's speech recognizer. On Android " +
+                        "12+ it runs on-device when the language model is " +
+                        "installed; otherwise audio goes to the recognizer " +
+                        "service while you dictate. Long-press the mic to " +
+                        "dictate walkie-talkie style — it stops when you let go.",
+                )
+            }
         }
         ToolbarTool.GRAMMAR -> {
             SettingsGroup("Options") {

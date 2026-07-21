@@ -208,6 +208,14 @@ fun isSupportedTool(tool: ToolbarTool): Boolean = when {
 }
 
 /**
+ * Whether the offline Whisper dictation engine can run in this build. False in
+ * the lite flavor (no LiteRT runtime) — settings hide the engine option and the
+ * IME never routes dictation through it.
+ */
+fun isWhisperEnabled(): Boolean =
+    BuildConfig.ENABLE_WHISPER && com.wasimaster.wmkeyboard.core.voice.whisper.WhisperEngine.AVAILABLE
+
+/**
  * Toolbox order until the user rearranges it: what most people reach for
  * most often comes first (expressive media, then everyday text helpers,
  * then keyboard tweaks, then the specialty and novelty tools). A tool
@@ -908,6 +916,14 @@ data class KeyboardSettings(
     val voiceContinuous: Boolean = true,
     /** Saying "comma" / "দাঁড়ি" types the mark instead of the word. */
     val voiceSpokenPunctuation: Boolean = true,
+    /** Dictation backend: "system" = OS SpeechRecognizer, "whisper" = offline LiteRT. */
+    val voiceEngine: String = "system",
+    /** Selected Whisper catalog id; blank falls back to the sole downloaded model. */
+    val whisperModelId: String = "",
+    /** Whisper transcription language: a Whisper code (e.g. "en") or "auto". */
+    val whisperLanguage: String = "auto",
+    /** Force Whisper to translate speech to English instead of transcribing verbatim. */
+    val whisperTranslate: Boolean = false,
     /** Camera tool settings, grouped (see [CameraSettings]). */
     val camera: CameraSettings = CameraSettings(),
     /** Copy scanned document pages into Pictures/WM Keyboard. */
@@ -1674,6 +1690,10 @@ class SettingsRepository(private val context: Context) {
         private val VOICE_STRIP_MODE = booleanPreferencesKey("voice_strip_mode")
         private val VOICE_CONTINUOUS = booleanPreferencesKey("voice_continuous")
         private val VOICE_SPOKEN_PUNCTUATION = booleanPreferencesKey("voice_spoken_punctuation")
+        private val VOICE_ENGINE = stringPreferencesKey("voice_engine")
+        private val WHISPER_MODEL_ID = stringPreferencesKey("whisper_model_id")
+        private val WHISPER_LANGUAGE = stringPreferencesKey("whisper_language")
+        private val WHISPER_TRANSLATE = booleanPreferencesKey("whisper_translate")
         private val CAMERA_PREFER_FRONT = booleanPreferencesKey("camera_prefer_front")
         private val CAMERA_MIRROR_FRONT = booleanPreferencesKey("camera_mirror_front")
         private val CAMERA_SHUTTER_SOUND = booleanPreferencesKey("camera_shutter_sound")
@@ -2100,6 +2120,10 @@ class SettingsRepository(private val context: Context) {
             voiceContinuous = p[VOICE_CONTINUOUS] ?: defaults.voiceContinuous,
             voiceSpokenPunctuation = p[VOICE_SPOKEN_PUNCTUATION]
                 ?: defaults.voiceSpokenPunctuation,
+            voiceEngine = p[VOICE_ENGINE] ?: defaults.voiceEngine,
+            whisperModelId = p[WHISPER_MODEL_ID] ?: defaults.whisperModelId,
+            whisperLanguage = p[WHISPER_LANGUAGE] ?: defaults.whisperLanguage,
+            whisperTranslate = p[WHISPER_TRANSLATE] ?: defaults.whisperTranslate,
             camera = CameraSettings(
                 preferFront = p[CAMERA_PREFER_FRONT] ?: defaults.camera.preferFront,
                 mirrorFront = p[CAMERA_MIRROR_FRONT] ?: defaults.camera.mirrorFront,
@@ -2391,6 +2415,18 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setVoiceSpokenPunctuation(value: Boolean) =
         context.dataStore.edit { it[VOICE_SPOKEN_PUNCTUATION] = value }
+
+    suspend fun setVoiceEngine(value: String) =
+        context.dataStore.edit { it[VOICE_ENGINE] = value }
+
+    suspend fun setWhisperModelId(value: String) =
+        context.dataStore.edit { it[WHISPER_MODEL_ID] = value }
+
+    suspend fun setWhisperLanguage(value: String) =
+        context.dataStore.edit { it[WHISPER_LANGUAGE] = value }
+
+    suspend fun setWhisperTranslate(value: Boolean) =
+        context.dataStore.edit { it[WHISPER_TRANSLATE] = value }
 
     suspend fun setCameraPreferFront(value: Boolean) =
         context.dataStore.edit { it[CAMERA_PREFER_FRONT] = value }

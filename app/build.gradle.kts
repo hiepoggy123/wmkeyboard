@@ -61,6 +61,7 @@ android {
             buildConfigField("Boolean", "ENABLE_ML_KIT_SCANNERS", "true")
             buildConfigField("Boolean", "ENABLE_GRAMMAR", "true")
             buildConfigField("Boolean", "ENABLE_LOCAL_LLM", "true")
+            buildConfigField("Boolean", "ENABLE_WHISPER", "true")
         }
         create("lite") {
             dimension = "capabilities"
@@ -68,6 +69,7 @@ android {
             buildConfigField("Boolean", "ENABLE_ML_KIT_SCANNERS", "false")
             buildConfigField("Boolean", "ENABLE_GRAMMAR", "false")
             buildConfigField("Boolean", "ENABLE_LOCAL_LLM", "false")
+            buildConfigField("Boolean", "ENABLE_WHISPER", "false")
         }
     }
 
@@ -139,6 +141,11 @@ dependencies {
 
     // On-device LLM runtime (full flavor only)
     "fullImplementation"(libs.litertlm.android)
+
+    // On-device Whisper speech-to-text runtime (full flavor only). The classic
+    // LiteRT/TF-Lite Interpreter API (org.tensorflow.lite.*) — .tflite Whisper
+    // graphs run the full decode internally via named signatures.
+    "fullImplementation"(libs.litert)
 
     implementation(libs.coil.compose)
     implementation(libs.coil.gif)
