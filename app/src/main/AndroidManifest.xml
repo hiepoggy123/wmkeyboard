@@ -44,6 +44,12 @@
         android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="28" />
 
+    <!-- Only used by the optional "User screenshots" clipboard setting. -->
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-feature android:name="android.hardware.camera.front" android:required="false" />
     <uses-feature android:name="android.hardware.camera.flash" android:required="false" />
@@ -116,6 +122,15 @@
              android.permission.READ_CALENDAR. -->
         <activity
             android:name="com.wasimaster.wmkeyboard.app.CalendarPermissionActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:noHistory="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
+        <!-- Same trampoline pattern for the screenshot setting's
+             android.permission.READ_MEDIA_IMAGES (or READ_EXTERNAL_STORAGE). -->
+        <activity
+            android:name="com.wasimaster.wmkeyboard.app.ImagesPermissionActivity"
             android:excludeFromRecents="true"
             android:exported="false"
             android:noHistory="true"

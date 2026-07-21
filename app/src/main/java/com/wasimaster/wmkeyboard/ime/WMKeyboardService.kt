@@ -462,6 +462,105 @@ class WMKeyboardService : InputMethodService() {
         if (added?.kind == ClipKind.LINK) fetchLinkPreviews()
     }
 
+    private var lastScreenshotId = -1L
+    private var screenshotObserver: android.database.ContentObserver? = null
+
+    private fun updateScreenshotObserver(enabled: Boolean) {
+        val hasPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            androidx.core.content.ContextCompat.checkSelfPermission(this, android.Manifest.permission.READ_MEDIA_IMAGES) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        } else {
+            androidx.core.content.ContextCompat.checkSelfPermission(this, android.Manifest.permission.READ_EXTERNAL_STORAGE) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        }
+
+        if (enabled && hasPermission) {
+            if (screenshotObserver == null) {
+                screenshotObserver = object : android.database.ContentObserver(android.os.Handler(android.os.Looper.getMainLooper())) {
+                    override fun onChange(selfChange: Boolean, uri: android.net.Uri?) {
+                        super.onChange(selfChange, uri)
+                        handleScreenshotAdded()
+                    }
+                }
+                contentResolver.registerContentObserver(
+                    android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                    true,
+                    screenshotObserver!!
+                )
+            }
+        } else {
+            screenshotObserver?.let {
+                contentResolver.unregisterContentObserver(it)
+                screenshotObserver = null
+            }
+        }
+    }
+
+    private fun handleScreenshotAdded() {
+        val state = _uiState.value
+        if (!state.settings.clipboard.history ||
+            (state.incognitoOn && state.settings.incognitoPausesClipboard) ||
+            state.secureField
+        ) return
+
+        serviceScope.launch(Dispatchers.IO) {
+            val projection = arrayOf(
+                android.provider.MediaStore.Images.Media._ID,
+                android.provider.MediaStore.Images.Media.DATE_ADDED,
+                android.provider.MediaStore.Images.Media.DATA,
+                android.provider.MediaStore.Images.Media.MIME_TYPE
+            )
+            val cursor = runCatching {
+                contentResolver.query(
+                    android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                    projection,
+                    null,
+                    null,
+                    "${android.provider.MediaStore.Images.Media.DATE_ADDED} DESC"
+                )
+            }.getOrNull() ?: return@launch
+
+            cursor.use { c ->
+                if (c.moveToFirst()) {
+                    val dateAdded = c.getLong(c.getColumnIndexOrThrow(android.provider.MediaStore.Images.Media.DATE_ADDED))
+                    if (System.currentTimeMillis() / 1000 - dateAdded > 15) return@launch
+
+                    val path = c.getString(c.getColumnIndexOrThrow(android.provider.MediaStore.Images.Media.DATA)) ?: ""
+                    if (!path.contains("Screenshot", ignoreCase = true)) return@launch
+
+                    val id = c.getLong(c.getColumnIndexOrThrow(android.provider.MediaStore.Images.Media._ID))
+                    if (id == lastScreenshotId) return@launch
+                    lastScreenshotId = id
+
+                    val mimeType = c.getString(c.getColumnIndexOrThrow(android.provider.MediaStore.Images.Media.MIME_TYPE)) ?: "image/png"
+                    val uri = android.content.ContentUris.withAppendedId(android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id)
+
+                    val copied = runCatching {
+                        val dir = File(filesDir, "clipboard/images").apply { mkdirs() }
+                        val extension = when (mimeType) {
+                            "image/png" -> "png"
+                            "image/gif" -> "gif"
+                            "image/webp" -> "webp"
+                            else -> "jpg"
+                        }
+                        val target = File(dir, "clip_${System.currentTimeMillis()}.$extension")
+                        contentResolver.openInputStream(uri)?.use { input ->
+                            target.outputStream().use { output -> input.copyTo(output) }
+                        } ?: return@runCatching null
+                        target
+                    }.getOrNull()
+
+                    if (copied != null) {
+                        val added = clipboardStore.addImage(copied, mimeType, "System UI")
+                        clipboardStore.save()
+                        _uiState.update { it.copy(clipboardItems = clipboardStore.items()) }
+                        if (added != null && state.settings.clipboard.suggestRecent) {
+                            showClipboardSuggestion(added)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     private val clipboardFileProviderAuthority: String
         get() = "$packageName.clipboard"
 
@@ -666,6 +765,7 @@ class WMKeyboardService : InputMethodService() {
             var appNamesEnabled: Boolean? = null
             var linkPreviewsEnabled: Boolean? = null
             var pinnedLastEnabled: Boolean? = null
+            var userScreenshotsEnabled: Boolean? = null
             // Recompute the hidden-emoji set only when the toggle or the font
             // behind it actually changes, not on every unrelated settings save.
             var hiddenEmojiKey: Pair<Boolean, EmojiFontChoice>? = null
@@ -694,6 +794,10 @@ class WMKeyboardService : InputMethodService() {
                     _uiState.update { it.copy(clipboardItems = clipboardStore.items()) }
                 }
                 linkPreviewsEnabled = settings.clipboard.linkPreviews
+                if (userScreenshotsEnabled != settings.clipboard.userScreenshots) {
+                    userScreenshotsEnabled = settings.clipboard.userScreenshots
+                    updateScreenshotObserver(settings.clipboard.userScreenshots)
+                }
                 if (!settings.floatingKeyboard) floatingPanelBounds = null
                 if (settings.contactSuggestions != contactsEnabled) {
                     contactsEnabled = settings.contactSuggestions

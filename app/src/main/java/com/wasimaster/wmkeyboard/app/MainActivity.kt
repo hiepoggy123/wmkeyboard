@@ -5,9 +5,11 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.pm.PackageManager
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
 import android.view.inputmethod.InputMethodManager
+import androidx.core.content.ContextCompat
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -4626,6 +4628,52 @@ private fun ToolDetailSettings(
                         "This contacts the linked site.",
                     settings.clipboard.linkPreviews,
                 ) { scope.launch { repository.setClipboardLinkPreviews(it) } }
+            }
+            item {
+                val context = LocalContext.current
+                ToggleSetting(
+                    "User screenshots",
+                    "Show user screenshots in the clipboard alongside copied text and images.",
+                    settings.clipboard.userScreenshots,
+                ) { on ->
+                    scope.launch { repository.setClipboardUserScreenshots(on) }
+                    if (on) {
+                        val permission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            android.Manifest.permission.READ_MEDIA_IMAGES
+                        } else {
+                            android.Manifest.permission.READ_EXTERNAL_STORAGE
+                        }
+                        if (ContextCompat.checkSelfPermission(context, permission) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                            runCatching {
+                                context.startActivity(Intent(context, ImagesPermissionActivity::class.java))
+                            }
+                        }
+                    }
+                }
+            }
+            if (settings.clipboard.userScreenshots) {
+                item {
+                    val context = LocalContext.current
+                    val permission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        android.Manifest.permission.READ_MEDIA_IMAGES
+                    } else {
+                        android.Manifest.permission.READ_EXTERNAL_STORAGE
+                    }
+                    if (ContextCompat.checkSelfPermission(context, permission) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                        NavRow(
+                            "Storage permission required",
+                            "Open system settings to grant it",
+                        ) {
+                            runCatching {
+                                context.startActivity(
+                                    Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                                        .setData(Uri.parse("package:${context.packageName}"))
+                                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                                )
+                            }
+                        }
+                    }
+                }
             }
             item {
                 val context = LocalContext.current
