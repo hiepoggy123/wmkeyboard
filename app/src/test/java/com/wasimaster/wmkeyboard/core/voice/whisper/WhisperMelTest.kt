@@ -1,0 +1,44 @@
+package com.wasimaster.wmkeyboard.core.voice.whisper
+
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Test
+import kotlin.math.PI
+import kotlin.math.sin
+
+class WhisperMelTest {
+
+    /** An identity-ish filterbank: one column per fft bin, mapped 1:1 to mels. */
+    private fun flatFilters(nMel: Int, nFft: Int) = FloatArray(nMel * nFft) { 1f }
+
+    @Test
+    fun `output is 80 x 3000 mel-major`() {
+        val nFft = 1 + WhisperMel.N_FFT / 2
+        val mel = WhisperMel.compute(FloatArray(WhisperMel.N_SAMPLES), flatFilters(WhisperMel.N_MEL, nFft), nFft)
+        assertEquals(WhisperMel.N_MEL * WhisperMel.MEL_LEN, mel.size)
+    }
+
+    @Test
+    fun `values are finite and span at most the clamped range`() {
+        val nFft = 1 + WhisperMel.N_FFT / 2
+        val samples = FloatArray(WhisperMel.N_SAMPLES) {
+            (0.5 * sin(2.0 * PI * 440.0 * it / WhisperMel.SAMPLE_RATE)).toFloat()
+        }
+        val mel = WhisperMel.compute(samples, flatFilters(WhisperMel.N_MEL, nFft), nFft)
+        for (v in mel) assertTrue("mel value not finite: $v", v.isFinite())
+        // The clamp floors values 8 log-decades below the max; dividing by 4
+        // makes the post-normalization span exactly 2.0 (the absolute ceiling
+        // depends on the filterbank, so span is the invariant to assert).
+        val span = mel.max() - mel.min()
+        assertTrue("normalized span $span exceeds 2.0", span <= 2.0001f)
+    }
+
+    @Test
+    fun `silence maps to the normalized floor everywhere`() {
+        val nFft = 1 + WhisperMel.N_FFT / 2
+        val mel = WhisperMel.compute(FloatArray(WhisperMel.N_SAMPLES), flatFilters(WhisperMel.N_MEL, nFft), nFft)
+        // Pure silence → every bin hits the 1e-10 clamp → identical value.
+        val first = mel[0]
+        assertTrue(mel.all { kotlin.math.abs(it - first) < 1e-4f })
+    }
+}

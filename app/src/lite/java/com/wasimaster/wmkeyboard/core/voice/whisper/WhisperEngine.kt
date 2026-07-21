@@ -19,7 +19,6 @@ object WhisperEngine {
         modelFile: File,
         vocabFile: File,
         pcm: FloatArray,
-        langToken: Int?,
         translate: Boolean,
     ): String = throw IllegalStateException("Offline Whisper is not available in the lite build")
 

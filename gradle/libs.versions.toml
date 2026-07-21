@@ -24,7 +24,10 @@ camerax = "1.4.2"
 coil = "3.2.0"
 zxing = "3.5.3"
 litertlm = "0.14.0"
-litert = "2.1.6"
+# 2.x splits into litert + litert-api sharing one namespace, which AGP's
+# manifest merger rejects; 1.4.2 is the last single-artifact classic runtime
+# (org.tensorflow.lite.Interpreter + signature runners).
+litert = "1.4.2"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
