@@ -47,10 +47,11 @@ data class MediaSnapshot(
  */
 class MediaControlManager(private val context: Context) {
 
-    private val sessionManager: MediaSessionManager? =
+    private val sessionManager: MediaSessionManager? by lazy {
         context.getSystemService(Context.MEDIA_SESSION_SERVICE) as? MediaSessionManager
+    }
 
-    private val component = ComponentName(context, MediaNotificationListener::class.java)
+    private val component by lazy { ComponentName(context, MediaNotificationListener::class.java) }
     private val handler = Handler(Looper.getMainLooper())
 
     private var onUpdate: ((MediaSnapshot?) -> Unit)? = null

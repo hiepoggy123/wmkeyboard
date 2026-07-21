@@ -443,9 +443,12 @@ class WMKeyboardService : InputMethodService() {
                     target
                 }.getOrNull()
                 if (copied != null) {
-                    clipboardStore.addImage(copied, imageMime, source)
+                    val added = clipboardStore.addImage(copied, imageMime, source)
                     clipboardStore.save()
                     _uiState.update { it.copy(clipboardItems = clipboardStore.items()) }
+                    if (added != null && state.settings.clipboard.suggestRecent) {
+                        showClipboardSuggestion(added)
+                    }
                 }
             }
             return@OnPrimaryClipChangedListener

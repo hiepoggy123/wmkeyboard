@@ -1728,14 +1728,19 @@ private fun TopBar(
             // when there are no candidates, one tap from pasting the last copy.
             // Word candidates always win the row, so it never hides a suggestion.
             val recentClip = state.clipboardSuggestion
-            if (recentClipChip && smart == null && !suggestionsShowing) {
+            if (recentClipChip && smart == null) {
                 ClipboardSuggestionChip(
-                    text = recentClip.text,
+                    clip = recentClip,
                     onPaste = { onClipboardSuggestion(recentClip) },
                     onDismiss = onClipboardSuggestionDismiss,
-                    modifier = Modifier.weight(1f),
+                    stretch = !suggestionsShowing,
+                    modifier = if (suggestionsShowing) {
+                        Modifier.widthIn(max = 160.dp).padding(horizontal = 4.dp)
+                    } else {
+                        Modifier.weight(1f).padding(horizontal = 4.dp)
+                    },
                 )
-                return@Row
+                if (!suggestionsShowing) return@Row
             }
             // The top candidates split the whole bar evenly (Gboard style),
             // so each one gets the largest possible tap target.
@@ -1843,15 +1848,38 @@ private fun TopBar(
  */
 @Composable
 private fun ClipboardSuggestionChip(
-    text: String,
+    clip: ClipItem,
     onPaste: () -> Unit,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
+    stretch: Boolean = false,
 ) {
     val kb = LocalKbTheme.current
     val feedback = LocalKeyPressFeedback.current
     val tint = kb.accent
     val fill = tint.copy(alpha = if (kb.dark) 0.20f else 0.11f)
+    
+    val bitmap by produceState<ImageBitmap?>(initialValue = null, clip.imagePath) {
+        if (clip.kind == ClipKind.IMAGE && clip.imagePath != null) {
+            value = withContext(Dispatchers.IO) {
+                runCatching {
+                    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                    BitmapFactory.decodeFile(clip.imagePath, bounds)
+                    var sample = 1
+                    while (bounds.outWidth / (sample * 2) >= 64 &&
+                        bounds.outHeight / (sample * 2) >= 64
+                    ) {
+                        sample *= 2
+                    }
+                    BitmapFactory.decodeFile(clip.imagePath, BitmapFactory.Options().apply { inSampleSize = sample })
+                        ?.asImageBitmap()
+                }.getOrNull()
+            }
+        } else {
+            value = null
+        }
+    }
+
     Row(
         modifier = modifier
             .fillMaxHeight()
@@ -1863,7 +1891,7 @@ private fun ClipboardSuggestionChip(
     ) {
         Row(
             modifier = Modifier
-                .weight(1f)
+                .weight(1f, fill = stretch)
                 .fillMaxHeight()
                 .clickable {
                     feedback()
@@ -1873,27 +1901,44 @@ private fun ClipboardSuggestionChip(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            Box(
-                modifier = Modifier
-                    .size(22.dp)
-                    .clip(CircleShape)
-                    .background(tint.copy(alpha = 0.22f)),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    Icons.Outlined.ContentPaste,
+            if (clip.kind == ClipKind.IMAGE && bitmap != null) {
+                Image(
+                    bitmap = bitmap!!,
                     contentDescription = null,
-                    tint = tint,
-                    modifier = Modifier.size(13.dp),
+                    modifier = Modifier
+                        .size(22.dp)
+                        .clip(CircleShape)
+                        .background(tint.copy(alpha = 0.22f)),
+                    contentScale = ContentScale.Crop,
                 )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .size(22.dp)
+                        .clip(CircleShape)
+                        .background(tint.copy(alpha = 0.22f)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        if (clip.kind == ClipKind.IMAGE) Icons.Outlined.Image else Icons.Outlined.ContentPaste,
+                        contentDescription = null,
+                        tint = tint,
+                        modifier = Modifier.size(13.dp),
+                    )
+                }
+            }
+            val textToDisplay = when {
+                clip.kind == ClipKind.IMAGE -> if (clip.sourceApp == "System UI") "Screenshot" else "Copied image"
+                clip.text.isNotBlank() -> clip.text
+                else -> "Copied item"
             }
             Text(
-                text = text,
+                text = textToDisplay,
                 color = kb.keyText,
                 fontSize = 13.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f, fill = false),
             )
         }
         Box(
