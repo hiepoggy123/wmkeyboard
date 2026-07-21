@@ -154,6 +154,7 @@ import com.wasimaster.wmkeyboard.core.media.MediaControlManager
 import com.wasimaster.wmkeyboard.core.media.MediaNotificationListener
 import com.wasimaster.wmkeyboard.core.voice.VoiceInputEngine
 import com.wasimaster.wmkeyboard.core.voice.VoicePunctuation
+import com.wasimaster.wmkeyboard.core.voice.VoiceSpacing
 import com.wasimaster.wmkeyboard.core.transliteration.AvroPhonetic
 import com.wasimaster.wmkeyboard.core.transliteration.BengaliGraphemes
 import com.wasimaster.wmkeyboard.core.transliteration.BengaliPhoneticIndex
@@ -363,8 +364,10 @@ class WMKeyboardService : InputMethodService() {
     private val voiceEngine = VoiceInputEngine(this)
     /** Bumped when a session ends/aborts so late recognizer callbacks drop. */
     private var voiceGeneration = 0
-    /** The text at the cursor needed a separating space when dictation began. */
-    private var voiceNeedsSpace = false
+    /** Leading space needed when dictation begins mid-word/text. */
+    private var voiceNeedsLeadingSpace = false
+    /** Trailing space needed when dictation begins before a word. */
+    private var voiceNeedsTrailingSpace = false
     /** User tapped stop: the pending final must not chain another utterance. */
     private var voiceStopRequested = false
     /** Consecutive empty utterances in continuous mode; give up after a few. */
@@ -3852,8 +3855,10 @@ class WMKeyboardService : InputMethodService() {
         val ic = currentInputConnection ?: return
         // Flush the half-typed word so dictation appends after it.
         commitComposing(ic, autocorrect = false)
-        val before = ic.getTextBeforeCursor(1, 0)?.toString().orEmpty()
-        voiceNeedsSpace = before.isNotEmpty() && !before.last().isWhitespace()
+        val beforeChar = ic.getTextBeforeCursor(1, 0)?.lastOrNull()
+        val afterChar = ic.getTextAfterCursor(1, 0)?.firstOrNull()
+        voiceNeedsLeadingSpace = VoiceSpacing.needsLeadingSpace(beforeChar, afterChar)
+        voiceNeedsTrailingSpace = VoiceSpacing.needsTrailingSpace(beforeChar, afterChar)
         val generation = ++voiceGeneration
         // Offline-model chip: check once per language, not per utterance
         // (continuous mode restarts sessions constantly).
@@ -3968,9 +3973,9 @@ class WMKeyboardService : InputMethodService() {
         )
     }
 
-    /** Leading space when dictation starts mid-text, so words never glue on. */
+    /** Intelligent leading and trailing spaces when dictation starts mid-text or replaces selection. */
     private fun spacedVoiceText(text: String): String =
-        if (voiceNeedsSpace && text.firstOrNull()?.isLetterOrDigit() == true) " $text" else text
+        VoiceSpacing.format(text, voiceNeedsLeadingSpace, voiceNeedsTrailingSpace)
 
     /**
      * Abandons any running dictation: the mic is released and the partial
