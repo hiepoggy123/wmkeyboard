@@ -264,8 +264,13 @@ data class HandwritingUi(
     val errorMessage: String? = null,
 )
 
-/** Where the voice input panel is in a dictation session. */
-enum class VoiceStatus { IDLE, LISTENING, FINISHING, NEED_PERMISSION, UNAVAILABLE, ERROR }
+/**
+ * Where the voice input panel is in a dictation session. TRANSCRIBING is the
+ * offline-Whisper-only state after recording stops while the model turns the
+ * captured audio into text (the system recognizer streams instead, so it never
+ * enters it).
+ */
+enum class VoiceStatus { IDLE, LISTENING, FINISHING, TRANSCRIBING, NEED_PERMISSION, UNAVAILABLE, ERROR }
 
 /**
  * On-device recognition model availability for the active language
@@ -295,6 +300,12 @@ data class VoiceUi(
     val modelState: VoiceModelState = VoiceModelState.UNKNOWN,
     /** Download percent while [modelState] is DOWNLOADING, -1 when unknown. */
     val modelProgress: Int = -1,
+    /** Offline Whisper engine is active for this session (vs the system recognizer). */
+    val whisper: Boolean = false,
+    /** Whisper translate-to-English task is on (mirrors the setting for the panel chip). */
+    val translate: Boolean = false,
+    /** Offline Whisper is selected but no model is downloaded — panel prompts to get one. */
+    val whisperNeedsModel: Boolean = false,
 )
 
 /** One change made from the password generator panel (all persisted). */

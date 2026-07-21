@@ -5296,7 +5296,7 @@ private fun ToolDetailSettings(
         }
         ToolbarTool.VOICE -> {
             val whisperEnabled = com.wasimaster.wmkeyboard.core.settings.isWhisperEnabled()
-            val usingWhisper = whisperEnabled && settings.voiceEngine == "whisper"
+            val usingWhisper = whisperEnabled && settings.whisper.engine == "whisper"
             if (whisperEnabled) {
                 SettingsGroup("Engine") {
                     item {
@@ -5312,7 +5312,7 @@ private fun ToolDetailSettings(
                                 "system" to "System recognizer",
                                 "whisper" to "Offline Whisper",
                             ),
-                            selected = settings.voiceEngine,
+                            selected = settings.whisper.engine,
                         ) { scope.launch { repository.setVoiceEngine(it) } }
                     }
                 }
@@ -5341,6 +5341,15 @@ private fun ToolDetailSettings(
                 }
             }
             if (usingWhisper) {
+                SettingsGroup("Offline transcription") {
+                    item {
+                        ToggleSetting(
+                            "Translate to English",
+                            "Speak any language and type its English translation",
+                            settings.whisper.translate,
+                        ) { scope.launch { repository.setWhisperTranslate(it) } }
+                    }
+                }
                 WhisperModelManager(repository, settings)
             } else {
                 CaptionText(

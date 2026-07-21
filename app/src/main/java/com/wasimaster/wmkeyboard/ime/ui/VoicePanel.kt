@@ -29,6 +29,7 @@ import androidx.compose.material.icons.outlined.FileDownload
 import androidx.compose.material.icons.outlined.Keyboard
 import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material.icons.outlined.SpaceBar
+import androidx.compose.material.icons.outlined.Translate
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -80,6 +81,8 @@ internal fun VoicePanel(
     onUndo: () -> Unit,
     onRequestPermission: () -> Unit,
     onDownloadModel: () -> Unit,
+    onToggleTranslate: () -> Unit,
+    onOpenVoiceSettings: () -> Unit,
     onKey: (Key) -> Unit,
     onLayoutSelect: (String) -> Unit,
     onClose: () -> Unit,
@@ -150,7 +153,7 @@ internal fun VoicePanel(
                 voice.status == VoiceStatus.UNAVAILABLE -> VoiceNotice(
                     "Speech recognition is not available on this device.",
                 )
-                else -> MicContent(state, onToggle, onDownloadModel)
+                else -> MicContent(state, onToggle, onDownloadModel, onToggleTranslate, onOpenVoiceSettings)
             }
 
             // Language chip: shows the active recognition language, tap
@@ -186,7 +189,8 @@ internal fun VoicePanel(
 
             // Undo the last dictated utterance (whole, in one tap).
             val undoVisible = voice.canUndo && hasPermission && !state.secureField &&
-                voice.status != VoiceStatus.LISTENING && voice.status != VoiceStatus.FINISHING
+                voice.status != VoiceStatus.LISTENING && voice.status != VoiceStatus.FINISHING &&
+                voice.status != VoiceStatus.TRANSCRIBING
             if (undoVisible) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -265,11 +269,16 @@ private fun MicContent(
     state: KeyboardUiState,
     onToggle: () -> Unit,
     onDownloadModel: () -> Unit,
+    onToggleTranslate: () -> Unit,
+    onOpenVoiceSettings: () -> Unit,
 ) {
     val kb = LocalKbTheme.current
     val voice = state.voice
     val listening = voice.status == VoiceStatus.LISTENING
     val finishing = voice.status == VoiceStatus.FINISHING
+    // Whisper-only: recording captured, model turning it into text.
+    val transcribing = voice.status == VoiceStatus.TRANSCRIBING
+    val busy = finishing || transcribing
 
     Column(
         modifier = Modifier.fillMaxSize(),
@@ -312,7 +321,9 @@ private fun MicContent(
                         detectTapGestures(
                             onPress = {
                                 val pressed = currentStatus
-                                if (pressed != VoiceStatus.FINISHING) {
+                                if (pressed != VoiceStatus.FINISHING &&
+                                    pressed != VoiceStatus.TRANSCRIBING
+                                ) {
                                     val startedIdle = pressed != VoiceStatus.LISTENING
                                     if (startedIdle) onToggle()
                                     val downAt = System.currentTimeMillis()
@@ -329,7 +340,7 @@ private fun MicContent(
                     },
                 contentAlignment = Alignment.Center,
             ) {
-                if (finishing) {
+                if (busy) {
                     CircularProgressIndicator(
                         color = kb.accent,
                         modifier = Modifier.size(26.dp),
@@ -347,7 +358,11 @@ private fun MicContent(
         }
         Spacer(Modifier.height(12.dp))
         val statusText = when {
+            voice.whisperNeedsModel -> "No offline voice model yet"
+            // Whisper gives no live partials, so guide the user to tap when done.
+            listening && voice.whisper -> "Listening — tap when you're done"
             listening -> voice.partial.ifEmpty { "Listening…" }
+            transcribing -> "Transcribing…"
             finishing -> "…"
             voice.status == VoiceStatus.ERROR ->
                 voice.errorMessage ?: "Speech recognition failed — try again."
@@ -362,6 +377,61 @@ private fun MicContent(
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.padding(horizontal = 24.dp),
         )
+
+        // Offline Whisper chips: a prompt to download a model, or the
+        // translate-to-English toggle. Whisper auto-detects language, so there
+        // is no language chip — the choice is transcribe vs translate.
+        if (voice.whisper || voice.whisperNeedsModel) {
+            if (voice.whisperNeedsModel) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .padding(top = 8.dp)
+                        .clip(RoundedCornerShape(kb.toolRadiusDp.dp))
+                        .background(kb.chip)
+                        .clickable { onOpenVoiceSettings() }
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                ) {
+                    Icon(
+                        Icons.Outlined.FileDownload,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = kb.secondaryText,
+                    )
+                    Text(
+                        "Download a voice model",
+                        color = kb.secondaryText,
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(start = 5.dp),
+                    )
+                }
+            } else {
+                val translate = state.settings.whisper.translate
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .padding(top = 8.dp)
+                        .clip(RoundedCornerShape(kb.toolRadiusDp.dp))
+                        .background(if (translate) kb.toolCircleActive else kb.chip)
+                        .clickable { onToggleTranslate() }
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                ) {
+                    Icon(
+                        Icons.Outlined.Translate,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = if (translate) kb.toolCircleActiveIcon else kb.secondaryText,
+                    )
+                    Text(
+                        if (translate) "Translating to English" else "Translate to English",
+                        color = if (translate) kb.toolCircleActiveIcon else kb.secondaryText,
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(start = 5.dp),
+                    )
+                }
+            }
+            return@Column
+        }
 
         // Offline-model chip (API 33+): downloading the language's on-device
         // model makes dictation offline, faster, and beep-free.
@@ -423,6 +493,8 @@ internal fun VoiceStripBar(
     val voice = state.voice
     val listening = voice.status == VoiceStatus.LISTENING
     val finishing = voice.status == VoiceStatus.FINISHING
+    val transcribing = voice.status == VoiceStatus.TRANSCRIBING
+    val busy = finishing || transcribing
     val feedback = LocalKeyPressFeedback.current
 
     Row(
@@ -457,10 +529,10 @@ internal fun VoiceStripBar(
                     .size(30.dp)
                     .clip(CircleShape)
                     .background(if (listening) kb.toolCircleActive else kb.chip)
-                    .clickable(enabled = !finishing) { onToggle() },
+                    .clickable(enabled = !busy) { onToggle() },
                 contentAlignment = Alignment.Center,
             ) {
-                if (finishing) {
+                if (busy) {
                     CircularProgressIndicator(
                         color = kb.accent,
                         modifier = Modifier.size(16.dp),
@@ -480,7 +552,10 @@ internal fun VoiceStripBar(
             state.secureField -> "Unavailable in password fields"
             voice.status == VoiceStatus.NEED_PERMISSION -> "Microphone permission needed"
             voice.status == VoiceStatus.UNAVAILABLE -> "Speech recognition unavailable"
+            voice.whisperNeedsModel -> "No offline voice model — open settings"
+            listening && voice.whisper -> "Listening — tap when done"
             listening -> voice.partial.ifEmpty { "Listening…" }
+            transcribing -> "Transcribing…"
             finishing -> "…"
             voice.status == VoiceStatus.ERROR ->
                 voice.errorMessage ?: "Speech recognition failed — try again."

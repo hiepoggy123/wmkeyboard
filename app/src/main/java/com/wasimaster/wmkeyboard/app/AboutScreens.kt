@@ -139,6 +139,35 @@ private val bundledAttributions: List<Attribution> = buildList {
             ),
         )
     }
+    if (BuildConfig.ENABLE_WHISPER) {
+        add(
+            Attribution(
+                "LiteRT",
+                "On-device runtime for offline Whisper speech-to-text",
+                "Copyright Google LLC",
+                "Apache-2.0", "apache-2.0.txt",
+                "https://github.com/google-ai-edge/LiteRT",
+            ),
+        )
+        add(
+            Attribution(
+                "OpenAI Whisper",
+                "Speech recognition model (TFLite conversions run on-device)",
+                "Copyright OpenAI",
+                "MIT", "mit.txt",
+                "https://github.com/openai/whisper",
+            ),
+        )
+        add(
+            Attribution(
+                "whisper_android",
+                "Reference for the mel-spectrogram and tokenizer port",
+                "Copyright Vilas Nandeshwar and contributors",
+                "MIT", "mit.txt",
+                "https://github.com/vilassn/whisper_android",
+            ),
+        )
+    }
     add(
         Attribution(
             "Unicode CLDR & emoji data",

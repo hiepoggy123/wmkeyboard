@@ -1,0 +1,108 @@
+package com.wasimaster.wmkeyboard.core.voice
+
+import android.annotation.SuppressLint
+import android.media.AudioFormat
+import android.media.AudioRecord
+import android.media.MediaRecorder
+import com.wasimaster.wmkeyboard.core.voice.whisper.WhisperMel
+import kotlin.math.min
+import kotlin.math.sqrt
+
+/**
+ * Captures microphone audio for offline Whisper: 16 kHz mono PCM into a fixed
+ * 30-second float buffer (Whisper's window). Reports a smoothed input level for
+ * the panel's pulse ring and fires [onMaxReached] when the buffer fills so the
+ * service can transcribe and, in continuous mode, start the next utterance.
+ *
+ * The caller must hold RECORD_AUDIO before [start]. [stop] is idempotent and
+ * returns exactly the samples captured so far; it blocks briefly while the
+ * reader thread winds down, so call it off the main thread.
+ */
+class WhisperRecorder(
+    private val onLevel: (Float) -> Unit,
+    private val onMaxReached: () -> Unit,
+) {
+    private val maxSamples = WhisperMel.N_SAMPLES // 16 kHz * 30 s
+    private val buffer = FloatArray(maxSamples)
+
+    @Volatile private var count = 0
+    @Volatile private var running = false
+    private var record: AudioRecord? = null
+    private var thread: Thread? = null
+
+    val isRecording: Boolean get() = running
+
+    @SuppressLint("MissingPermission") // caller verifies RECORD_AUDIO
+    fun start(): Boolean {
+        val minBuf = AudioRecord.getMinBufferSize(
+            WhisperMel.SAMPLE_RATE,
+            AudioFormat.CHANNEL_IN_MONO,
+            AudioFormat.ENCODING_PCM_16BIT,
+        )
+        if (minBuf <= 0) return false
+        val r = try {
+            AudioRecord(
+                MediaRecorder.AudioSource.VOICE_RECOGNITION,
+                WhisperMel.SAMPLE_RATE,
+                AudioFormat.CHANNEL_IN_MONO,
+                AudioFormat.ENCODING_PCM_16BIT,
+                minBuf * 4,
+            )
+        } catch (_: Throwable) {
+            return false
+        }
+        if (r.state != AudioRecord.STATE_INITIALIZED) {
+            runCatching { r.release() }
+            return false
+        }
+        record = r
+        count = 0
+        running = true
+        runCatching { r.startRecording() }.onFailure {
+            running = false
+            runCatching { r.release() }
+            record = null
+            return false
+        }
+        thread = Thread { readLoop(r) }.apply { start() }
+        return true
+    }
+
+    private fun readLoop(r: AudioRecord) {
+        val chunk = ShortArray(1600) // ~100 ms
+        while (running) {
+            val n = r.read(chunk, 0, chunk.size)
+            if (n <= 0) continue
+            var sumSq = 0.0
+            val room = min(n, maxSamples - count)
+            for (i in 0 until room) {
+                val s = chunk[i] / 32768f
+                buffer[count + i] = s
+                sumSq += (s * s).toDouble()
+            }
+            count += room
+            if (room > 0) {
+                val rms = sqrt(sumSq / room).toFloat()
+                onLevel((rms * 6f).coerceIn(0f, 1f))
+            }
+            if (count >= maxSamples) {
+                running = false
+                onMaxReached()
+                break
+            }
+        }
+    }
+
+    /** Stops capture and returns the samples recorded so far. Idempotent. */
+    fun stop(): FloatArray {
+        running = false
+        thread?.let { runCatching { it.join(600) } }
+        thread = null
+        record?.let {
+            runCatching { it.stop() }
+            runCatching { it.release() }
+        }
+        record = null
+        return buffer.copyOf(count)
+    }
+}

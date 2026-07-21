@@ -78,7 +78,7 @@ internal fun WhisperModelManager(repository: SettingsRepository, settings: Keybo
         orphanBytes = withContext(Dispatchers.IO) { WhisperStore.orphanBytes(filesDir) }
         // The only model on disk needs no selection step: adopt it — covers
         // both "first download just finished" and "selection was deleted".
-        if (WhisperStore.selectedModel(filesDir, settings.whisperModelId) == null) {
+        if (WhisperStore.selectedModel(filesDir, settings.whisper.modelId) == null) {
             WhisperStore.soleDownloadedId(filesDir)?.let { repository.setWhisperModelId(it) }
         }
     }
@@ -99,7 +99,7 @@ internal fun WhisperModelManager(repository: SettingsRepository, settings: Keybo
     val onDisk = WhisperCatalog.models.filter {
         (states[it.id] ?: DownloadStatus.NotDownloaded) is DownloadStatus.Downloaded
     }
-    val yours = onDisk.sortedByDescending { it.id == settings.whisperModelId }
+    val yours = onDisk.sortedByDescending { it.id == settings.whisper.modelId }
     val available = WhisperCatalog.models - onDisk.toSet()
 
     @Composable
@@ -107,15 +107,15 @@ internal fun WhisperModelManager(repository: SettingsRepository, settings: Keybo
         WhisperCatalogRow(
             model = model,
             status = states[model.id] ?: DownloadStatus.NotDownloaded,
-            selected = settings.whisperModelId == model.id ||
-                (settings.whisperModelId.isBlank() && WhisperStore.soleDownloadedId(filesDir) == model.id),
+            selected = settings.whisper.modelId == model.id ||
+                (settings.whisper.modelId.isBlank() && WhisperStore.soleDownloadedId(filesDir) == model.id),
             downloadBusy = WhisperDownloadManager.isBusy,
             onDownload = { requestDownload(model) },
             onCancel = { WhisperDownloadManager.cancel() },
             onSelect = { scope.launch { repository.setWhisperModelId(model.id) } },
             onDelete = {
                 WhisperDownloadManager.delete(filesDir, model)
-                if (settings.whisperModelId == model.id) {
+                if (settings.whisper.modelId == model.id) {
                     scope.launch { repository.setWhisperModelId("") }
                 }
             },

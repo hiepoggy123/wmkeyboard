@@ -155,6 +155,11 @@ import com.wasimaster.wmkeyboard.core.media.MediaNotificationListener
 import com.wasimaster.wmkeyboard.core.voice.VoiceInputEngine
 import com.wasimaster.wmkeyboard.core.voice.VoicePunctuation
 import com.wasimaster.wmkeyboard.core.voice.VoiceSpacing
+import com.wasimaster.wmkeyboard.core.voice.WhisperRecorder
+import com.wasimaster.wmkeyboard.core.voice.whisper.WhisperEngine
+import com.wasimaster.wmkeyboard.core.voice.whisper.WhisperModel
+import com.wasimaster.wmkeyboard.core.voice.whisper.WhisperStore
+import com.wasimaster.wmkeyboard.core.settings.isWhisperEnabled
 import com.wasimaster.wmkeyboard.core.transliteration.AvroPhonetic
 import com.wasimaster.wmkeyboard.core.transliteration.BengaliGraphemes
 import com.wasimaster.wmkeyboard.core.transliteration.BengaliPhoneticIndex
@@ -374,6 +379,8 @@ class WMKeyboardService : InputMethodService() {
     private var voiceSilentRetries = 0
     /** Last dictated commit, so the undo chip can take it back whole. */
     private var lastVoiceCommit: String? = null
+    /** Active offline-Whisper capture, when the Whisper engine is in use. */
+    private var whisperRecorder: WhisperRecorder? = null
 
     // ---- handwriting recognition state ----
     private val hwRecognizer = HandwritingRecognizerCache()
@@ -996,6 +1003,8 @@ class WMKeyboardService : InputMethodService() {
                 onVoicePermissionRequest = ::onVoicePermissionRequest,
                 onVoiceUndo = ::onVoiceUndo,
                 onVoiceModelDownload = ::onVoiceModelDownload,
+                onWhisperTranslateToggle = ::onWhisperTranslateToggle,
+                onOpenVoiceSettings = ::onOpenVoiceSettings,
                 onMediaPlayPause = ::onMediaPlayPause,
                 onMediaNext = ::onMediaNext,
                 onMediaPrevious = ::onMediaPrevious,
@@ -1466,9 +1475,11 @@ class WMKeyboardService : InputMethodService() {
         emojiUsage.save()
         clipboardStore.save()
         voiceEngine.cancel()
+        whisperRecorder?.let { rec -> whisperRecorder = null; runCatching { rec.stop() } }
         mediaController.stop()
         hwRecognizer.close()
         LocalLlmEngine.release()
+        WhisperEngine.release()
         lifecycleOwner.onDestroy()
         serviceScope.cancel()
         super.onDestroy()
@@ -1479,7 +1490,10 @@ class WMKeyboardService : InputMethodService() {
         // A cached local model pins hundreds of MB to a few GB — free it the
         // moment the system signals pressure; the next AI action reloads it.
         @Suppress("DEPRECATION")
-        if (level >= ComponentCallbacks2.TRIM_MEMORY_MODERATE) LocalLlmEngine.release()
+        if (level >= ComponentCallbacks2.TRIM_MEMORY_MODERATE) {
+            LocalLlmEngine.release()
+            WhisperEngine.release()
+        }
     }
 
     // ---- key handling ----
@@ -3793,10 +3807,16 @@ class WMKeyboardService : InputMethodService() {
         when (_uiState.value.voice.status) {
             VoiceStatus.LISTENING -> {
                 voiceStopRequested = true
-                _uiState.update { it.copy(voice = it.voice.copy(status = VoiceStatus.FINISHING)) }
-                voiceEngine.finish()
+                if (whisperRecorder != null) {
+                    // Whisper: stop recording and transcribe this clip.
+                    finishWhisper(userStopped = true)
+                } else {
+                    _uiState.update { it.copy(voice = it.voice.copy(status = VoiceStatus.FINISHING)) }
+                    voiceEngine.finish()
+                }
             }
-            VoiceStatus.FINISHING -> {}
+            // Ignore taps while finishing or transcribing — the result is coming.
+            VoiceStatus.FINISHING, VoiceStatus.TRANSCRIBING -> {}
             else -> {
                 voiceSilentRetries = 0
                 startVoice()
@@ -3848,7 +3868,22 @@ class WMKeyboardService : InputMethodService() {
             fail(VoiceStatus.NEED_PERMISSION)
             return
         }
-        if (!voiceEngine.isAvailable()) {
+        val whisperModel = whisperModel()
+        val whisperSelected = isWhisperEnabled() && _uiState.value.settings.whisper.engine == "whisper"
+        if (whisperSelected && whisperModel == null) {
+            // Whisper is chosen but no model is downloaded — prompt for one
+            // instead of opening the mic to no purpose.
+            _uiState.update {
+                it.copy(
+                    voice = it.voice.copy(
+                        status = VoiceStatus.IDLE, languageTag = tag, whisper = true,
+                        whisperNeedsModel = true, partial = "", level = 0f, errorMessage = null,
+                    ),
+                )
+            }
+            return
+        }
+        if (whisperModel == null && !voiceEngine.isAvailable()) {
             fail(VoiceStatus.UNAVAILABLE)
             return
         }
@@ -3869,8 +3904,15 @@ class WMKeyboardService : InputMethodService() {
                 voice = it.voice.copy(
                     status = VoiceStatus.LISTENING, languageTag = tag,
                     partial = "", level = 0f, errorMessage = null,
+                    whisper = whisperModel != null,
+                    translate = _uiState.value.settings.whisper.translate,
+                    whisperNeedsModel = false,
                 ),
             )
+        }
+        if (whisperModel != null) {
+            startWhisperCapture(whisperModel, generation)
+            return
         }
         if (!modelKnown) refreshVoiceModelState(tag)
         voiceEngine.start(
@@ -3973,6 +4015,134 @@ class WMKeyboardService : InputMethodService() {
         )
     }
 
+    /**
+     * The offline Whisper model to run, or null when Whisper isn't the selected
+     * engine, isn't built into this flavor, or has no model downloaded yet.
+     */
+    private fun whisperModel(): WhisperModel? {
+        val s = _uiState.value.settings
+        if (!isWhisperEnabled() || s.whisper.engine != "whisper") return null
+        return WhisperStore.effectiveModel(filesDir, s.whisper.modelId)
+    }
+
+    /**
+     * Records audio for offline Whisper. Unlike the streaming system recognizer,
+     * Whisper transcribes a whole clip, so nothing commits until recording stops
+     * (a mic tap, or the 30-second window filling). The pulse ring follows the
+     * mic level while recording.
+     */
+    private fun startWhisperCapture(model: WhisperModel, generation: Int) {
+        val recorder = WhisperRecorder(
+            onLevel = { level ->
+                if (generation != voiceGeneration) return@WhisperRecorder
+                val quantized = (level * 8).toInt() / 8f
+                _uiState.update {
+                    if (it.voice.level == quantized) it
+                    else it.copy(voice = it.voice.copy(level = quantized))
+                }
+            },
+            onMaxReached = {
+                // Buffer full (30 s): transcribe this clip; continuous mode then
+                // starts the next one on its own.
+                finishWhisper(userStopped = false)
+            },
+        )
+        if (!recorder.start()) {
+            _uiState.update {
+                it.copy(
+                    voice = it.voice.copy(
+                        status = VoiceStatus.ERROR, partial = "", level = 0f,
+                        errorMessage = "Couldn't start the microphone — close other apps using it and try again.",
+                    ),
+                )
+            }
+            return
+        }
+        whisperRecorder = recorder
+    }
+
+    /**
+     * Stops the Whisper recording and transcribes it off the main thread, then
+     * commits exactly like a system final (spoken punctuation, spacing, learn,
+     * undo). [userStopped] suppresses the continuous-mode chain. Safe to call
+     * from any thread; no-op if no recording is active.
+     */
+    private fun finishWhisper(userStopped: Boolean) {
+        val recorder = whisperRecorder ?: return
+        whisperRecorder = null
+        val gen = voiceGeneration
+        val tag = _uiState.value.voice.languageTag
+        val model = whisperModel()
+        if (model == null) {
+            serviceScope.launch(Dispatchers.IO) { runCatching { recorder.stop() } }
+            _uiState.update { it.copy(voice = it.voice.copy(status = VoiceStatus.IDLE, level = 0f)) }
+            return
+        }
+        _uiState.update {
+            it.copy(voice = it.voice.copy(status = VoiceStatus.TRANSCRIBING, partial = "", level = 0f))
+        }
+        serviceScope.launch(Dispatchers.Default) {
+            val pcm = runCatching { recorder.stop() }.getOrDefault(FloatArray(0))
+            if (gen != voiceGeneration) return@launch
+            val result = runCatching {
+                WhisperEngine.transcribe(
+                    this@WMKeyboardService,
+                    WhisperStore.modelFile(filesDir, model),
+                    WhisperStore.vocabFile(filesDir, model),
+                    pcm,
+                    _uiState.value.settings.whisper.translate,
+                )
+            }
+            withContext(Dispatchers.Main) {
+                if (gen != voiceGeneration) return@withContext
+                result
+                    .onSuccess { commitWhisperResult(it.trim(), tag, userStopped) }
+                    .onFailure { e ->
+                        _uiState.update {
+                            it.copy(
+                                voice = it.voice.copy(
+                                    status = VoiceStatus.ERROR, partial = "", level = 0f,
+                                    errorMessage = e.message ?: "Transcription failed — try again.",
+                                ),
+                            )
+                        }
+                    }
+            }
+        }
+    }
+
+    /** Commits a finished Whisper transcription and continues or ends the session. */
+    private fun commitWhisperResult(text: String, tag: String, userStopped: Boolean) {
+        val settings = _uiState.value.settings
+        val chain = !userStopped && settings.voiceContinuous &&
+            !voiceStopRequested && voiceSessionAlive()
+        if (text.isBlank()) {
+            // Nothing heard. In continuous mode keep listening; otherwise idle.
+            if (chain) {
+                _uiState.update { it.copy(voice = it.voice.copy(partial = "", level = 0f)) }
+                serviceScope.launch(Dispatchers.Main) { startVoice() }
+            } else {
+                _uiState.update { it.copy(voice = it.voice.copy(status = VoiceStatus.IDLE, partial = "", level = 0f)) }
+            }
+            return
+        }
+        val processed = if (settings.voiceSpokenPunctuation) VoicePunctuation.apply(text, tag) else text
+        val spaced = spacedVoiceText(processed)
+        currentInputConnection?.let { connection ->
+            connection.commitText(spaced, 1)
+            learn(processed)
+            lastVoiceCommit = spaced
+        }
+        if (chain) {
+            _uiState.update { it.copy(voice = it.voice.copy(partial = "", level = 0f, canUndo = true)) }
+            serviceScope.launch(Dispatchers.Main) { startVoice() }
+        } else {
+            _uiState.update {
+                it.copy(voice = it.voice.copy(status = VoiceStatus.IDLE, partial = "", level = 0f, canUndo = true))
+            }
+        }
+    }
+
     /** Intelligent leading and trailing spaces when dictation starts mid-text or replaces selection. */
     private fun spacedVoiceText(text: String): String =
         VoiceSpacing.format(text, voiceNeedsLeadingSpace, voiceNeedsTrailingSpace)
@@ -3984,8 +4154,17 @@ class WMKeyboardService : InputMethodService() {
      */
     private fun cancelVoice() {
         val status = _uiState.value.voice.status
+        // Bumping first invalidates any in-flight Whisper transcription.
         voiceGeneration++
-        if (status != VoiceStatus.LISTENING && status != VoiceStatus.FINISHING) return
+        whisperRecorder?.let { rec ->
+            whisperRecorder = null
+            serviceScope.launch(Dispatchers.IO) { runCatching { rec.stop() } }
+        }
+        if (status != VoiceStatus.LISTENING && status != VoiceStatus.FINISHING &&
+            status != VoiceStatus.TRANSCRIBING
+        ) {
+            return
+        }
         voiceEngine.cancel()
         currentInputConnection?.finishComposingText()
         _uiState.update {
@@ -4001,7 +4180,9 @@ class WMKeyboardService : InputMethodService() {
      */
     private fun stopVoiceForManualInput() {
         val status = _uiState.value.voice.status
-        if (status == VoiceStatus.LISTENING || status == VoiceStatus.FINISHING) {
+        if (status == VoiceStatus.LISTENING || status == VoiceStatus.FINISHING ||
+            status == VoiceStatus.TRANSCRIBING
+        ) {
             voiceStopRequested = true
             cancelVoice()
         }
@@ -4094,6 +4275,16 @@ class WMKeyboardService : InputMethodService() {
             },
         )
     }
+
+    /** Translate chip on the Whisper voice panel: flip translate-to-English. */
+    fun onWhisperTranslateToggle() {
+        vibrate()
+        val next = !_uiState.value.settings.whisper.translate
+        serviceScope.launch { settingsRepository.setWhisperTranslate(next) }
+    }
+
+    /** "Get a voice model" chip: open the Voice tool settings to download one. */
+    fun onOpenVoiceSettings() = openToolSettings(ToolbarTool.VOICE)
 
     /** Undo chip: removes the last dictated utterance if still at the cursor. */
     fun onVoiceUndo() {
