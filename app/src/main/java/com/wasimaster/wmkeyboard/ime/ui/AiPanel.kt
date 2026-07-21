@@ -44,6 +44,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import com.wasimaster.wmkeyboard.core.localllm.LocalLlmCatalog
 import com.wasimaster.wmkeyboard.core.localllm.LocalLlmStore
+import com.wasimaster.wmkeyboard.BuildConfig
 import com.wasimaster.wmkeyboard.core.settings.AiAction
 import com.wasimaster.wmkeyboard.core.settings.AiProvider
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
@@ -93,9 +94,13 @@ internal fun AiPanel(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center,
             ) {
+                val setupText = if (BuildConfig.ENABLE_LOCAL_LLM) {
+                    "Set up an AI provider or download a local model in the tool's settings to use AI."
+                } else {
+                    "Set up an AI provider in the tool's settings to use AI."
+                }
                 Text(
-                    "Pick a provider and add its API key (or your Ollama / LM Studio " +
-                        "server address) in the tool's settings.",
+                    setupText,
                     color = kb.secondaryText,
                     fontSize = 13.sp,
                     textAlign = TextAlign.Center,
@@ -110,7 +115,7 @@ internal fun AiPanel(
                 verticalArrangement = Arrangement.Center,
             ) {
                 Text(
-                    "AI runs entirely on this device — download a model in the " +
+                    "To use on-device AI, download a model in the " +
                         "tool's settings first.",
                     color = kb.secondaryText,
                     fontSize = 13.sp,

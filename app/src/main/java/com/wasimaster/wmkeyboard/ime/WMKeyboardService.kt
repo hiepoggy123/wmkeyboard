@@ -5441,10 +5441,10 @@ class WMKeyboardService : InputMethodService() {
 
     /** What the AI panel should show before any action runs. */
     private fun aiInitialState(settings: KeyboardSettings): AiUi = when {
-        settings.aiProvider == AiProvider.ON_DEVICE &&
+        settings.aiProvider == AiProvider.ON_DEVICE && BuildConfig.ENABLE_LOCAL_LLM &&
             effectiveLocalModelFile(settings) == null -> AiUi.NeedModel
-        !AiClient.isConfigured(settings) &&
-            settings.aiProvider != AiProvider.ON_DEVICE -> AiUi.NeedSetup
+        settings.aiProvider == AiProvider.ON_DEVICE && !BuildConfig.ENABLE_LOCAL_LLM -> AiUi.NeedSetup
+        !AiClient.isConfigured(settings) -> AiUi.NeedSetup
         else -> AiUi.Idle
     }
 
