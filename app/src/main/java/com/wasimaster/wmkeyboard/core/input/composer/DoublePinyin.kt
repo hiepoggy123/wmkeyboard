@@ -9,10 +9,6 @@ package com.wasimaster.wmkeyboard.core.input.composer
  * a/e/o double as zero-initial leads), so translation is *validity-filtered*:
  * the combination that forms a real syllable per the inventory wins. That both
  * disambiguates and makes the scheme tables forgiving of small mistakes.
- *
- * Only [DoublePinyinScheme.XIAOHE] ships a table here. The other schemes'
- * tables are large key→Pinyin maps generated separately; until one is added,
- * [tableFor] returns null and the composer stays on full Pinyin for it.
  */
 object DoublePinyin {
 
@@ -23,7 +19,11 @@ object DoublePinyin {
     )
 
     private val TABLES: Map<DoublePinyinScheme, Table> = mapOf(
+        DoublePinyinScheme.MICROSOFT to MICROSOFT,
+        DoublePinyinScheme.SOGOU to SOGOU,
         DoublePinyinScheme.XIAOHE to XIAOHE,
+        DoublePinyinScheme.ZIRANMA to ZIRANMA,
+        DoublePinyinScheme.PINYINPP to PINYINPP,
     )
 
     fun tableFor(scheme: DoublePinyinScheme): Table? = TABLES[scheme]
@@ -73,43 +73,155 @@ object DoublePinyin {
     }
 }
 
+/** Standard initials for Xiaohe, Microsoft, Sogou, and Ziranma: v=zh, i=ch, u=sh. */
+private val STANDARD_INITIALS: Map<Char, String> = buildMap {
+    for (c in listOf('b', 'p', 'm', 'f', 'd', 't', 'n', 'l', 'g', 'k', 'h',
+            'j', 'q', 'x', 'r', 'z', 'c', 's', 'y', 'w')) put(c, c.toString())
+    put('v', "zh"); put('i', "ch"); put('u', "sh")
+}
+
+/** Pinyin++ initials: v=zh, u=ch, i=sh. */
+private val PINYINPP_INITIALS: Map<Char, String> = buildMap {
+    for (c in listOf('b', 'p', 'm', 'f', 'd', 't', 'n', 'l', 'g', 'k', 'h',
+            'j', 'q', 'x', 'r', 'z', 'c', 's', 'y', 'w')) put(c, c.toString())
+    put('v', "zh"); put('u', "ch"); put('i', "sh")
+}
+
 /**
  * Xiaohe Shuangpin (小鹤双拼). Initials v/i/u stand for zh/ch/sh; every other
  * consonant key is itself. Final keys map to one or two finals, resolved by
  * validity. a/e/o additionally lead zero-initial syllables.
  */
 private val XIAOHE = DoublePinyin.Table(
-    initials = buildMap {
-        for (c in listOf('b', 'p', 'm', 'f', 'd', 't', 'n', 'l', 'g', 'k', 'h',
-                'j', 'q', 'x', 'r', 'z', 'c', 's', 'y', 'w')) put(c, c.toString())
-        put('v', "zh"); put('i', "ch"); put('u', "sh")
-    },
+    initials = STANDARD_INITIALS,
     finals = mapOf(
         'a' to listOf("a"),
-        'o' to listOf("uo", "o"),
-        'e' to listOf("e"),
-        'i' to listOf("i"),
-        'u' to listOf("u"),
-        'v' to listOf("ui", "v"),
         'b' to listOf("in"),
         'c' to listOf("ao"),
         'd' to listOf("ai"),
+        'e' to listOf("e"),
         'f' to listOf("en"),
         'g' to listOf("eng"),
         'h' to listOf("ang"),
+        'i' to listOf("i"),
         'j' to listOf("an"),
         'k' to listOf("ing", "uai"),
         'l' to listOf("iang", "uang"),
         'm' to listOf("ian"),
         'n' to listOf("iao"),
+        'o' to listOf("uo", "o"),
         'p' to listOf("ie"),
         'q' to listOf("iu"),
         'r' to listOf("uan", "er"),
         's' to listOf("ong", "iong"),
         't' to listOf("ue", "ve"),
+        'u' to listOf("u"),
+        'v' to listOf("ui", "v"),
         'w' to listOf("ei"),
         'x' to listOf("ia", "ua"),
         'y' to listOf("un"),
         'z' to listOf("ou"),
+    ),
+)
+
+/** Microsoft Double Pinyin (微软双拼). */
+private val MICROSOFT = DoublePinyin.Table(
+    initials = STANDARD_INITIALS,
+    finals = mapOf(
+        'a' to listOf("a"),
+        'b' to listOf("ou"),
+        'c' to listOf("iao"),
+        'd' to listOf("iang", "uang"),
+        'e' to listOf("e"),
+        'f' to listOf("en"),
+        'g' to listOf("eng"),
+        'h' to listOf("ang"),
+        'i' to listOf("i"),
+        'j' to listOf("an"),
+        'k' to listOf("ao"),
+        'l' to listOf("ai"),
+        'm' to listOf("ian"),
+        'n' to listOf("in"),
+        'o' to listOf("uo", "o"),
+        'p' to listOf("un"),
+        'q' to listOf("iu"),
+        'r' to listOf("uan", "er"),
+        's' to listOf("ong", "iong"),
+        't' to listOf("ue", "ve"),
+        'u' to listOf("u"),
+        'v' to listOf("ui", "v"),
+        'w' to listOf("ia", "ua"),
+        'x' to listOf("ie"),
+        'y' to listOf("uai", "ing"),
+        'z' to listOf("ei"),
+    ),
+)
+
+/** Sogou Double Pinyin (搜狗双拼). Identical layout to Microsoft. */
+private val SOGOU = MICROSOFT
+
+/** Ziranma Double Pinyin (自然码双拼). */
+private val ZIRANMA = DoublePinyin.Table(
+    initials = STANDARD_INITIALS,
+    finals = mapOf(
+        'a' to listOf("a"),
+        'b' to listOf("ou"),
+        'c' to listOf("iao"),
+        'd' to listOf("iang", "uang"),
+        'e' to listOf("e"),
+        'f' to listOf("en"),
+        'g' to listOf("eng"),
+        'h' to listOf("ang"),
+        'i' to listOf("i"),
+        'j' to listOf("an"),
+        'k' to listOf("ao"),
+        'l' to listOf("ai"),
+        'm' to listOf("ian"),
+        'n' to listOf("in"),
+        'o' to listOf("uo", "o"),
+        'p' to listOf("un"),
+        'q' to listOf("iu"),
+        'r' to listOf("uan", "er"),
+        's' to listOf("ong", "iong"),
+        't' to listOf("ue", "ve"),
+        'u' to listOf("u"),
+        'v' to listOf("ui", "v"),
+        'w' to listOf("ia", "ua"),
+        'x' to listOf("ie"),
+        'y' to listOf("uai", "ing"),
+        'z' to listOf("ei"),
+    ),
+)
+
+/** Pinyin++ Double Pinyin (拼音加加双拼). Initials: v=zh, u=ch, i=sh. */
+private val PINYINPP = DoublePinyin.Table(
+    initials = PINYINPP_INITIALS,
+    finals = mapOf(
+        'a' to listOf("a"),
+        'b' to listOf("ia", "ua"),
+        'c' to listOf("uan"),
+        'd' to listOf("ao"),
+        'e' to listOf("e"),
+        'f' to listOf("an"),
+        'g' to listOf("ang"),
+        'h' to listOf("iang", "uang"),
+        'i' to listOf("i"),
+        'j' to listOf("ian"),
+        'k' to listOf("iao"),
+        'l' to listOf("in"),
+        'm' to listOf("ie"),
+        'n' to listOf("iu"),
+        'o' to listOf("uo", "o"),
+        'p' to listOf("ou"),
+        'q' to listOf("ing"),
+        'r' to listOf("en"),
+        't' to listOf("eng"),
+        'u' to listOf("u"),
+        'v' to listOf("ui", "v"),
+        'w' to listOf("ei"),
+        'x' to listOf("uai", "ue", "ve"),
+        'y' to listOf("ong", "iong"),
+        'z' to listOf("un"),
+        's' to listOf("ai"),
     ),
 )
