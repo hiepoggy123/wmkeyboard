@@ -193,6 +193,13 @@ object AssetLayouts {
     const val TET_QWERTY_ID = "asset_tet_qwerty"
     const val IA_QWERTY_ID = "asset_ia_qwerty"
     const val DV_THAANA_ID = "asset_dv_thaana"
+    const val SE_QWERTY_ID = "asset_se_qwerty"
+    const val SMN_QWERTY_ID = "asset_smn_qwerty"
+    const val SMS_QWERTY_ID = "asset_sms_qwerty"
+    const val SC_QWERTY_ID = "asset_sc_qwerty"
+    const val PMS_QWERTY_ID = "asset_pms_qwerty"
+    const val LLD_QWERTY_ID = "asset_lld_qwerty"
+    const val NRF_QWERTY_ID = "asset_nrf_qwerty"
 
     // --- Composer-driven input methods (Vietnamese Telex/VNI, Japanese romaji,
     // Chinese pinyin): plain QWERTY grids whose "composer" field does the work. ---
