@@ -11,4 +11,7 @@ package com.wasimaster.wmkeyboard.core.input.composer
 object CjkDictionaries {
     @Volatile var pinyin: ConversionDictionary = ConversionDictionary.EMPTY
     @Volatile var japanese: ConversionDictionary = ConversionDictionary.EMPTY
+
+    /** Stroke-order → Hanzi table for the 笔画 input method (downloadable pack). */
+    @Volatile var stroke: StrokeDictionary = StrokeDictionary.EMPTY
 }

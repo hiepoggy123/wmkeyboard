@@ -18,7 +18,7 @@ class CjkDictPackTest {
     fun `catalog maps packs to their language and is unavailable until hosted`() {
         val pinyin = CjkDictCatalog.byId("pinyin")!!
         assertEquals("zh", pinyin.langId)
-        assertEquals(listOf("pinyin"), CjkDictCatalog.forLang("zh").map { it.id })
+        assertEquals(listOf("pinyin", "stroke"), CjkDictCatalog.forLang("zh").map { it.id })
         assertEquals(listOf("ja_kana"), CjkDictCatalog.forLang("ja").map { it.id })
         assertEquals(emptyList<CjkDictPack>(), CjkDictCatalog.forLang("en"))
         // The shipped packs are hosted (url + checksum present).

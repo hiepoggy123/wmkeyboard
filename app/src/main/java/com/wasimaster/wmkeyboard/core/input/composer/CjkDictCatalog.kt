@@ -59,6 +59,17 @@ object CjkDictCatalog {
             sha256 = "189214b81968c857d7cb020c52fc087ee44918ab28534194f79ea66f45c17a70",
             fileName = "ja_kana.tsv",
         ),
+        CjkDictPack(
+            id = "stroke",
+            langId = "zh",
+            displayName = "Chinese stroke (笔画) dictionary",
+            description = "Stroke-order → Hanzi table. Required for the stroke keyboard.",
+            // Filled once the pack is built (Unihan stroke-order derived) and hosted.
+            url = "",
+            sizeBytes = 3_000_000L,
+            sha256 = "",
+            fileName = "stroke.tsv",
+        ),
     )
 
     init {

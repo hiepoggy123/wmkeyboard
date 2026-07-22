@@ -35,6 +35,7 @@ class CjkComposerTest {
         assertSame(VietnameseVniComposer, composerFor(latin, ComposerType.VNI))
         assertSame(JapaneseComposer, composerFor(japanese, ComposerType.ROMAJI))
         assertSame(PinyinComposer, composerFor(han, ComposerType.PINYIN))
+        assertSame(StrokeComposer, composerFor(han, ComposerType.STROKE))
     }
 
     @Test
@@ -210,6 +211,37 @@ class CjkComposerTest {
         val segs = DoublePinyin.segments("nihc", t, valid)
         assertEquals(listOf("ni", "hao"), segs.map { it.syllable })
         assertEquals(listOf(2, 2), segs.map { it.inputLen })
+    }
+
+    @Test
+    fun `double pinyin microsoft sogou ziranma and pinyinpp translate key codes to full pinyin`() {
+        val valid = setOf("ni", "hao", "hui", "hu", "zhong", "xiang", "an", "lve", "chu", "shi")
+
+        // Microsoft
+        val ms = DoublePinyin.tableFor(DoublePinyinScheme.MICROSOFT)!!
+        assertEquals("hui", DoublePinyin.translate("hv", ms, valid))   // h + v=ui
+        assertEquals("hu", DoublePinyin.translate("hu", ms, valid))    // h + u=u
+        assertEquals("zhong", DoublePinyin.translate("vs", ms, valid)) // v=zh + s=ong
+        assertEquals("xiang", DoublePinyin.translate("xd", ms, valid)) // x + d=iang
+        assertEquals("an", DoublePinyin.translate("oj", ms, valid))    // o=zero + j=an
+        assertEquals("lve", DoublePinyin.translate("lt", ms, valid))   // l + t=ve
+
+        // Sogou
+        val sg = DoublePinyin.tableFor(DoublePinyinScheme.SOGOU)!!
+        assertEquals("zhong", DoublePinyin.translate("vs", sg, valid))
+
+        // Ziranma
+        val zr = DoublePinyin.tableFor(DoublePinyinScheme.ZIRANMA)!!
+        assertEquals("xiang", DoublePinyin.translate("xd", zr, valid))
+
+        // PinyinPP
+        val pp = DoublePinyin.tableFor(DoublePinyinScheme.PINYINPP)!!
+        assertEquals("zhong", DoublePinyin.translate("vy", pp, valid)) // v=zh + y=ong
+        assertEquals("xiang", DoublePinyin.translate("xh", pp, valid)) // x + h=iang
+        assertEquals("an", DoublePinyin.translate("af", pp, valid))    // a=zero + f=an
+        assertEquals("lve", DoublePinyin.translate("lx", pp, valid))   // l + x=ve
+        assertEquals("chu", DoublePinyin.translate("uu", pp, valid))   // u=ch + u=u
+        assertEquals("shi", DoublePinyin.translate("ii", pp, valid))   // i=sh + i=i
     }
 
     @Test

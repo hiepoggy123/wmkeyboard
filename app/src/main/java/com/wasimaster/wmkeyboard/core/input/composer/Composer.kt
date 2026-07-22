@@ -116,4 +116,5 @@ fun composerFor(script: ScriptDef, type: ComposerType): Composer = when (type) {
     ComposerType.VNI -> VietnameseVniComposer
     ComposerType.ROMAJI -> JapaneseComposer
     ComposerType.PINYIN -> PinyinComposer
+    ComposerType.STROKE -> StrokeComposer
 }

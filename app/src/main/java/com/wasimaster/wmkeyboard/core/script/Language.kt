@@ -996,7 +996,7 @@ object LanguageRegistry {
             englishName = "Chinese",
             script = ScriptId.HAN,
             localeTag = "zh-CN",
-            layoutIds = listOf(AssetLayouts.ZH_PINYIN_ID),
+            layoutIds = listOf(AssetLayouts.ZH_PINYIN_ID, AssetLayouts.ZH_STROKE_ID),
         ),
         LanguageDef(
             id = "ht",

@@ -67,6 +67,9 @@ enum class ComposerType {
 
     /** Chinese: pinyin buffer with Hanzi candidates chosen from the strip. */
     PINYIN,
+
+    /** Chinese: 笔画 stroke-class buffer (一丨丿丶乙) with Hanzi candidates. */
+    STROKE,
 }
 
 /**
