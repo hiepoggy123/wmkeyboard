@@ -195,6 +195,7 @@ import com.wasimaster.wmkeyboard.core.layout.numberRowFor
 import com.wasimaster.wmkeyboard.core.layout.LayoutSpec
 import com.wasimaster.wmkeyboard.core.input.composer.composerFor
 import com.wasimaster.wmkeyboard.core.input.composer.CjkDictionaries
+import com.wasimaster.wmkeyboard.core.input.composer.PinyinSyllables
 import com.wasimaster.wmkeyboard.core.input.composer.ConversionDictionary
 import com.wasimaster.wmkeyboard.core.script.LanguageDef
 import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
@@ -1044,6 +1045,15 @@ open class WMKeyboardService : InputMethodService() {
                 runCatching {
                     assets.open("dictionaries/pinyin.tsv").bufferedReader().useLines {
                         CjkDictionaries.pinyin = ConversionDictionary.parse(it)
+                    }
+                }
+                // The valid-syllable inventory that segments a pinyin buffer into
+                // syllables (nihao → ni | hao) for prefix commit. Optional: absent
+                // leaves segmentation off, so Pinyin falls back to whole-buffer
+                // lookups exactly as before.
+                runCatching {
+                    assets.open("dictionaries/pinyin_syllables.txt").bufferedReader().useLines {
+                        PinyinSyllables.valid = PinyinSyllables.parse(it)
                     }
                 }
                 runCatching {
@@ -2783,6 +2793,19 @@ open class WMKeyboardService : InputMethodService() {
             return
         }
 
+        // Conversion IME (Pinyin, Japanese): space commits the top candidate for
+        // the leading syllable(s) and re-converts the tail — no trailing literal
+        // space (CJK runs words together). An empty buffer falls through to a
+        // plain space.
+        if (composing.isNotEmpty() && state.composer.isConversion) {
+            val buf = composing.toString()
+            val chosen = state.composer.candidates(buf).firstOrNull()
+                ?: state.composer.composeBuffer(buf)
+            commitConversionPrefix(ic, chosen)
+            lastSpaceTime = now
+            return
+        }
+
         val committed = commitComposing(
             ic,
             autocorrect = state.settings.autocorrect,
@@ -3157,6 +3180,15 @@ open class WMKeyboardService : InputMethodService() {
                 return true
             }
         }
+        // Conversion IME (Pinyin, Japanese): flush the whole reading as a
+        // sequence of best candidates, each consuming its own syllables, so the
+        // callers that aren't the space bar — cursor scrub, layout switch,
+        // defocus — never drop the unconverted tail. The space bar takes the
+        // interactive one-step path (commitConversionPrefix) instead.
+        if (state.composer.isConversion) {
+            flushConversion(ic)
+            return true
+        }
         // Apostrophe restoration outranks autocorrect: "dont" is a known
         // contraction slip, not a typo for "font"/"done" to be guessed at.
         val apostrophized =
@@ -3177,11 +3209,6 @@ open class WMKeyboardService : InputMethodService() {
             state.composer.isBengaliPhonetic ->
                 (if (pre != null && pre.isBengali) pre.bengaliTop
                 else suggestionEngine?.suggest(typed, previousWord = null, avroMode = true)?.firstOrNull())
-                    ?: state.composer.composeBuffer(typed)
-            // Conversion IMEs (Pinyin, Japanese): space commits the best candidate
-            // (top Hanzi/Kanji), falling back to the raw reading when there is none.
-            state.composer.isConversion ->
-                state.composer.candidates(typed).firstOrNull()
                     ?: state.composer.composeBuffer(typed)
             // Other transliterators (Hangul, Vietnamese) commit the composed text
             // directly, with no dictionary pass.
@@ -3212,6 +3239,59 @@ open class WMKeyboardService : InputMethodService() {
             it.copy(composingPreview = "", suggestions = nextWords, emojiSuggestions = nextEmojis)
         }
         return true
+    }
+
+    /**
+     * Flushes a conversion buffer whole: repeatedly commits the top candidate
+     * for what remains and drops the input chars it consumed, until the buffer
+     * is empty. A reading with no dictionary match commits raw (consuming all),
+     * so the loop always terminates; the guard is a belt-and-braces backstop.
+     * Used by every non-space commit path — the space bar goes one step at a
+     * time through [commitConversionPrefix].
+     */
+    private fun flushConversion(ic: InputConnection) {
+        val composer = _uiState.value.composer
+        var guard = 0
+        while (composing.isNotEmpty() && guard++ < 64) {
+            val buf = composing.toString()
+            val chosen = composer.candidates(buf).firstOrNull() ?: composer.composeBuffer(buf)
+            val consumed = composer.consumedFor(buf, chosen).coerceIn(1, composing.length)
+            ic.commitText(chosen, 1)
+            composing.delete(0, consumed)
+        }
+        composing = StringBuilder()
+        val (nextWords, nextEmojis) = nextWordStrip()
+        _uiState.update {
+            it.copy(composingPreview = "", suggestions = nextWords, emojiSuggestions = nextEmojis)
+        }
+    }
+
+    /**
+     * Commits a single chosen conversion candidate and keeps the tail: deletes
+     * only the input chars [chosen] consumed, then re-converts whatever is left
+     * so the next syllable's candidates appear immediately. Tapping 你 for
+     * `nihao` commits 你 and leaves `hao` composing. Never learns (Hanzi/Kanji
+     * are not lexicon words) and never adds a trailing space.
+     */
+    private fun commitConversionPrefix(ic: InputConnection, chosen: String) {
+        if (composing.isEmpty()) return
+        val composer = _uiState.value.composer
+        val buf = composing.toString()
+        val consumed = composer.consumedFor(buf, chosen).coerceIn(1, buf.length)
+        ic.commitText(chosen, 1)
+        composing.delete(0, consumed)
+        consumeShift()
+        if (composing.isEmpty()) {
+            val (nextWords, nextEmojis) = nextWordStrip()
+            _uiState.update {
+                it.copy(composingPreview = "", suggestions = nextWords, emojiSuggestions = nextEmojis)
+            }
+        } else {
+            // Re-show the remaining pinyin/kana as the composing region and
+            // convert it — the next chunk's candidates fill the strip.
+            updateComposingText(ic)
+            refreshSuggestions()
+        }
     }
 
     /**
@@ -3823,13 +3903,7 @@ open class WMKeyboardService : InputMethodService() {
         // trailing space (CJK runs words together) and no learning, then clear the
         // reading buffer so the next syllable starts fresh.
         if (_uiState.value.composer.isConversion) {
-            ic.commitText(suggestion, 1)
-            composing = StringBuilder()
-            consumeShift()
-            _uiState.update {
-                it.copy(composingPreview = "", suggestions = emptyList(), emojiSuggestions = emptyList())
-            }
-            refreshSuggestions()
+            commitConversionPrefix(ic, suggestion)
             return
         }
 

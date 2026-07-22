@@ -64,6 +64,16 @@ interface Composer {
      */
     fun candidates(buffer: String): List<String> = emptyList()
 
+    /**
+     * How many chars of the input [buffer] the [chosen] candidate consumed —
+     * the linchpin of prefix commit. Picking 你 for `nihao` consumes only the
+     * `ni` (2), so a commit deletes those chars and re-converts the `hao` tail
+     * instead of wiping the whole buffer. Whole-buffer composers (and the raw
+     * fallback, where [chosen] is the reading itself) consume everything, so the
+     * default returns [buffer]'s length.
+     */
+    fun consumedFor(buffer: String, chosen: String): Int = buffer.length
+
     /** A transliterator's buffer (roman, or jamo) rendered as script text. */
     fun composeBuffer(buffer: String): String = buffer
 
