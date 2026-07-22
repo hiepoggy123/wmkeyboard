@@ -988,7 +988,11 @@ object LanguageRegistry {
             englishName = "Japanese",
             script = ScriptId.JAPANESE,
             localeTag = "ja-JP",
-            layoutIds = listOf(AssetLayouts.JA_ROMAJI_ID),
+            layoutIds = listOf(
+                AssetLayouts.JA_ROMAJI_ID,
+                AssetLayouts.JA_FLICK_ID,
+                AssetLayouts.JA_KANA_JIS_ID,
+            ),
         ),
         LanguageDef(
             id = "zh",

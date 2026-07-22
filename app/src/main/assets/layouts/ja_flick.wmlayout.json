@@ -1,0 +1,169 @@
+{
+  "format": "wmkeyboard-layout",
+  "version": 1,
+  "layout": {
+    "id": "asset_ja_flick",
+    "name": "日本語 フリック (Japanese Flick)",
+    "langId": "ja",
+    "composer": "ROMAJI",
+    "version": 1,
+    "layers": {
+      "letters": {
+        "rows": [
+          [
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": "あ",
+              "flick": {
+                "left": "い",
+                "up": "う",
+                "right": "え",
+                "down": "お"
+              }
+            },
+            {
+              "label": "か",
+              "flick": {
+                "left": "き",
+                "up": "く",
+                "right": "け",
+                "down": "こ"
+              }
+            },
+            {
+              "label": "さ",
+              "flick": {
+                "left": "し",
+                "up": "す",
+                "right": "せ",
+                "down": "そ"
+              }
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              }
+            }
+          ],
+          [
+            {
+              "label": "?123",
+              "action": {
+                "type": "symbols"
+              }
+            },
+            {
+              "label": "た",
+              "flick": {
+                "left": "ち",
+                "up": "つ",
+                "right": "て",
+                "down": "と"
+              }
+            },
+            {
+              "label": "な",
+              "flick": {
+                "left": "に",
+                "up": "ぬ",
+                "right": "ね",
+                "down": "の"
+              }
+            },
+            {
+              "label": "は",
+              "flick": {
+                "left": "ひ",
+                "up": "ふ",
+                "right": "へ",
+                "down": "ほ"
+              }
+            },
+            {
+              "label": "␣",
+              "action": {
+                "type": "space"
+              }
+            }
+          ],
+          [
+            {
+              "label": "😊",
+              "action": {
+                "type": "emoji"
+              }
+            },
+            {
+              "label": "ま",
+              "flick": {
+                "left": "み",
+                "up": "む",
+                "right": "め",
+                "down": "も"
+              }
+            },
+            {
+              "label": "や",
+              "flick": {
+                "left": "ゆ",
+                "up": "よ"
+              }
+            },
+            {
+              "label": "ら",
+              "flick": {
+                "left": "り",
+                "up": "る",
+                "right": "れ",
+                "down": "ろ"
+              }
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              }
+            }
+          ],
+          [
+            {
+              "label": "小゛゜",
+              "action": {
+                "type": "kana_variant"
+              }
+            },
+            {
+              "label": "わ",
+              "flick": {
+                "left": "を",
+                "up": "ん",
+                "right": "ー"
+              }
+            },
+            {
+              "label": "、",
+              "flick": {
+                "left": "。",
+                "up": "？",
+                "right": "！",
+                "down": "…"
+              }
+            },
+            {
+              "label": "ー"
+            },
+            {
+              "label": "。"
+            }
+          ]
+        ]
+      }
+    }
+  }
+}

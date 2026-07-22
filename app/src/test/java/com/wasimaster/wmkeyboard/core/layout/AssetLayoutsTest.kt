@@ -73,6 +73,23 @@ class AssetLayoutsTest {
     }
 
     @Test
+    fun `the japanese flick layout carries flick arms and a kana-variant key`() {
+        val file = layoutFiles.first { it.name == "ja_flick.${LayoutFile.FILE_EXTENSION}" }
+        val keys = LayoutFile.decode(file.readText())!!.layout
+            .layers.values.flatMap { it.rows.flatten() }
+        // The あ key flicks to the other vowels of its row.
+        val a = keys.first { it.label == "あ" }
+        assertEquals("い", a.flick[FlickDirection.LEFT])
+        assertEquals("う", a.flick[FlickDirection.UP])
+        assertEquals("お", a.flick[FlickDirection.DOWN])
+        // The 小゛゜ key cycles small/dakuten forms.
+        assertTrue(
+            "the flick pad has no kana-variant key",
+            keys.any { it.action == KeyAction.KanaVariant },
+        )
+    }
+
+    @Test
     fun `asset layout ids are unique and never shadow a built-in`() {
         val builtInIds = BuiltInLayouts.all.mapTo(HashSet()) { it.id }
         val seen = mutableSetOf<String>()
