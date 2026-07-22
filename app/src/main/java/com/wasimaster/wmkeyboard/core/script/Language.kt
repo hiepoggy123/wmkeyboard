@@ -1459,6 +1459,22 @@ object LanguageRegistry {
             localeTag = "dv-MV",
             layoutIds = listOf(AssetLayouts.DV_THAANA_ID),
         ),
+        LanguageDef(
+            id = "jbo",
+            displayName = "la .lojban. · Lojban",
+            englishName = "Lojban",
+            script = ScriptId.LATIN,
+            localeTag = "jbo",
+            layoutIds = listOf(BuiltInLayouts.QWERTY_ID),
+        ),
+        LanguageDef(
+            id = "tlh",
+            displayName = "tlhIngan Hol · Klingon",
+            englishName = "Klingon",
+            script = ScriptId.LATIN,
+            localeTag = "tlh",
+            layoutIds = listOf(BuiltInLayouts.QWERTY_ID),
+        ),
         // Not a spoken language but a phonetic notation, offered as one so it rides
         // the same enable/select/layout machinery. "-fonipa" is the BCP-47 variant
         // for IPA transcription; the primary subtag is "mul" (multiple languages)
@@ -1526,7 +1542,7 @@ object LanguageRegistry {
     private val index: Map<String, LanguageDef> = all.associateBy { it.id }
 
     private val byLayout: Map<String, LanguageDef> = buildMap {
-        for (lang in all) for (layoutId in lang.layoutIds) put(layoutId, lang)
+        for (lang in all) for (layoutId in lang.layoutIds) putIfAbsent(layoutId, lang)
     }
 
     fun byId(id: String): LanguageDef = index[id] ?: GENERIC
