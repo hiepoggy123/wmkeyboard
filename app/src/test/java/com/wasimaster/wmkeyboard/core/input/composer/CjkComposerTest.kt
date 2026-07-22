@@ -140,6 +140,24 @@ class CjkComposerTest {
     }
 
     @Test
+    fun `kana variant key cycles small dakuten and handakuten forms`() {
+        // Dakuten-only ring: か↔が.
+        assertEquals('が', Kana.cycleVariant('か'))
+        assertEquals('か', Kana.cycleVariant('が'))
+        // は→ば→ぱ→は (dakuten then handakuten).
+        assertEquals('ば', Kana.cycleVariant('は'))
+        assertEquals('ぱ', Kana.cycleVariant('ば'))
+        assertEquals('は', Kana.cycleVariant('ぱ'))
+        // つ→っ→づ→つ (small then dakuten).
+        assertEquals('っ', Kana.cycleVariant('つ'))
+        assertEquals('づ', Kana.cycleVariant('っ'))
+        assertEquals('つ', Kana.cycleVariant('づ'))
+        // A kana with no variant cycles to itself, so the key is a no-op on it.
+        assertEquals('な', Kana.cycleVariant('な'))
+        assertEquals('ん', Kana.cycleVariant('ん'))
+    }
+
+    @Test
     fun `japanese segments kana and reports consumed romaji length`() {
         // Kana readings are fine in tests; the words are ASCII stand-ins.
         CjkDictionaries.japanese = ConversionDictionary.parse(

@@ -29,6 +29,25 @@ class LayoutCodecTest {
     }
 
     @Test
+    fun `round trips flick keys and the kana-variant action`() {
+        val original = spec(
+            listOf(
+                Key(
+                    "あ",
+                    flick = mapOf(
+                        FlickDirection.LEFT to "い",
+                        FlickDirection.UP to "う",
+                        FlickDirection.RIGHT to "え",
+                        FlickDirection.DOWN to "お",
+                    ),
+                ),
+                Key("小゛゜", action = KeyAction.KanaVariant),
+            ),
+        )
+        assertEquals(original, LayoutCodec.decode(LayoutCodec.encode(original)))
+    }
+
+    @Test
     fun `round trips a list`() {
         val list = listOf(spec(listOf(Key("a"))), spec(listOf(Key("b"))).copy(id = "custom_2"))
         assertEquals(list, LayoutCodec.decodeList(LayoutCodec.encodeList(list)))

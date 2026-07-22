@@ -1,7 +1,25 @@
 package com.wasimaster.wmkeyboard.core.layout
 
 import kotlin.math.roundToInt
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+
+/**
+ * The four flick directions a 12-key kana pad reads off a key. The centre
+ * (a plain tap) commits the key's own [Key.output]/[Key.label]; a directional
+ * flick commits the matching entry of [Key.flick]. Serialised lowercase so a
+ * hand-authored layout reads `"flick": { "left": "い", "up": "う", … }`.
+ */
+@Serializable
+enum class FlickDirection {
+    @SerialName("left") LEFT,
+
+    @SerialName("up") UP,
+
+    @SerialName("right") RIGHT,
+
+    @SerialName("down") DOWN,
+}
 
 /**
  * One key of a layout grid.
@@ -51,6 +69,13 @@ data class Key(
      * hint. Resolved through the ime-layer icon registry.
      */
     val iconHint: String? = null,
+    /**
+     * Directional flick outputs for a 12-key kana pad: a flick left/up/right/down
+     * from this key commits the matching kana instead of the centre tap. Empty
+     * (the usual case) means the key has no flick behaviour and a drag off it just
+     * cancels the press, exactly as before.
+     */
+    val flick: Map<FlickDirection, String> = emptyMap(),
 )
 
 /**

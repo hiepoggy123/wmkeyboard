@@ -135,6 +135,14 @@ internal object Kana {
         for (u in transduce(romaji)) append(u.kana)
     }
 
+    /**
+     * The next form of a kana in the flick pad's 小゛゜ cycle: base → small /
+     * dakuten / handakuten → base, following the ring the kana sits in
+     * (か→が→か, は→ば→ぱ→は, つ→っ→づ→つ, う→ぅ→ゔ→う). A kana with no variant
+     * (な, ん, …) maps to itself, so cycling it is a no-op.
+     */
+    fun cycleVariant(kana: Char): Char = VARIANT_NEXT[kana] ?: kana
+
     /** Hiragana → katakana (the two blocks differ by a fixed 0x60 offset). */
     fun toKatakana(hiragana: String): String = buildString {
         for (c in hiragana) {
@@ -202,6 +210,28 @@ internal object Kana {
         put("xtu", "っ"); put("ltu", "っ"); put("xya", "ゃ"); put("xyu", "ゅ"); put("xyo", "ょ")
         // Long vowel + punctuation the composer may see
         put("-", "ー")
+    }
+
+    /**
+     * Each string is a cycle ring for the flick pad's 小゛゜ key: char *i* advances
+     * to char *i+1*, and the last wraps back to the first. Only kana with a small,
+     * dakuten or handakuten form appear; everything else cycles to itself.
+     */
+    private val VARIANT_CYCLES = listOf(
+        "あぁ", "いぃ", "うぅゔ", "えぇ", "おぉ",
+        "かが", "きぎ", "くぐ", "けげ", "こご",
+        "さざ", "しじ", "すず", "せぜ", "そぞ",
+        "ただ", "ちぢ", "つっづ", "てで", "とど",
+        "はばぱ", "ひびぴ", "ふぶぷ", "へべぺ", "ほぼぽ",
+        "やゃ", "ゆゅ", "よょ",
+        "わゎ",
+    )
+
+    /** Flattened [VARIANT_CYCLES]: kana → its next form in the ring. */
+    private val VARIANT_NEXT: Map<Char, Char> = buildMap {
+        for (ring in VARIANT_CYCLES) {
+            for (i in ring.indices) put(ring[i], ring[(i + 1) % ring.length])
+        }
     }
 
     /** Base (undakuten) full-width katakana → half-width; dakuten handled via NFD. */

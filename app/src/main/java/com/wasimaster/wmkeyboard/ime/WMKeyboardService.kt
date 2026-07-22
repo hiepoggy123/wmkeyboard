@@ -196,6 +196,7 @@ import com.wasimaster.wmkeyboard.core.layout.LayoutSpec
 import com.wasimaster.wmkeyboard.core.input.composer.composerFor
 import com.wasimaster.wmkeyboard.core.input.composer.CjkConfig
 import com.wasimaster.wmkeyboard.core.input.composer.CjkDictionaries
+import com.wasimaster.wmkeyboard.core.input.composer.Kana
 import com.wasimaster.wmkeyboard.core.input.composer.CjkDictStore
 import com.wasimaster.wmkeyboard.core.input.composer.PinyinSyllables
 import com.wasimaster.wmkeyboard.core.input.composer.StrokeDictionary
@@ -1872,6 +1873,7 @@ open class WMKeyboardService : InputMethodService() {
             // Produced only by a long-press on ?123 when the opt-in is set.
             KeyAction.Numpad -> onPanelChange(PanelMode.NUMPAD)
             is KeyAction.Mod -> onModifier((key.action as KeyAction.Mod).key)
+            KeyAction.KanaVariant -> cycleKanaVariant()
             KeyAction.Fn -> onFn()
             // A key carrying its own modifiers, so it fires with no latch.
             is KeyAction.SendKey -> sendShortcut(key, Modifiers.None)
@@ -3286,6 +3288,24 @@ open class WMKeyboardService : InputMethodService() {
             updateComposingText(ic)
             refreshSuggestions()
         }
+    }
+
+    /**
+     * The Japanese flick pad's 小゛゜ key: cycles the last kana in the composing
+     * buffer through its small / dakuten / handakuten forms (か→が, は→ば→ぱ). The
+     * kana lives in the composing buffer while the reading is still being typed,
+     * so this rewrites the last char in place and re-converts; a no-op when the
+     * buffer is empty or the last char has no variant.
+     */
+    private fun cycleKanaVariant() {
+        val ic = currentInputConnection ?: return
+        if (composing.isEmpty()) return
+        val last = composing[composing.length - 1]
+        val cycled = Kana.cycleVariant(last)
+        if (cycled == last) return
+        composing.setCharAt(composing.length - 1, cycled)
+        updateComposingText(ic)
+        refreshSuggestions()
     }
 
     /** Pack-state token the conversion tables were last loaded from; see [CjkDictStore.stateToken]. */
