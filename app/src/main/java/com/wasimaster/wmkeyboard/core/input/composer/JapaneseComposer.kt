@@ -1,43 +1,108 @@
 package com.wasimaster.wmkeyboard.core.input.composer
 
+import java.text.Normalizer
+
 /**
  * Japanese input: romaji keystrokes compose to hiragana ([composeBuffer]), and
  * the hiragana reading offers kanji/word candidates in the strip
  * ([isConversion] + [candidates]), chosen from the shipped kana→kanji table.
  * With no dictionary match the reading still commits as kana, so it works as a
  * plain kana keyboard on its own.
+ *
+ * Like [PinyinComposer], this is a *prefix-commit* IME: the kana buffer is split
+ * at mora boundaries so a multi-mora reading like `nihon` offers both the whole
+ * 日本 and the leading 日/... , each remembering how many *romaji input* chars it
+ * consumed ([consumedFor]). The service commits that prefix and re-converts the
+ * tail. The catch is that segmentation happens on **kana** while `consumedFor`
+ * must report **romaji** length, so the lookup runs over [Kana.transduce], which
+ * tracks the romaji span behind every emitted kana unit.
  */
 object JapaneseComposer : Composer {
 
     override val isTransliterating: Boolean get() = true
     override val isConversion: Boolean get() = true
 
+    private const val LIMIT = 12
+
     override fun composeBuffer(buffer: String): String = Kana.toHiragana(buffer)
 
-    override fun candidates(buffer: String): List<String> {
-        val kana = Kana.toHiragana(buffer)
-        if (kana.isEmpty()) return emptyList()
-        val out = LinkedHashSet<String>()
-        out.addAll(CjkDictionaries.japanese.candidates(kana))
-        out.add(kana)                       // keep the plain hiragana as a choice
-        Kana.toKatakana(kana).let { if (it != kana) out.add(it) }
-        return out.toList()
+    override fun candidates(buffer: String): List<String> = ranked(buffer).map { it.text }
+
+    override fun consumedFor(buffer: String, chosen: String): Int =
+        ranked(buffer).firstOrNull { it.text == chosen }?.consumed ?: buffer.length
+
+    /** A candidate word and the number of romaji input chars it covers. */
+    private data class Cand(val text: String, val consumed: Int)
+
+    /**
+     * Candidates for [buffer], longest kana reading first so a whole-phrase entry
+     * (日本) outranks its leading-mora pieces (日), each tagged with its consumed
+     * *romaji* length. The plain hiragana, katakana and half-width katakana forms
+     * of the whole reading follow as always-available trailing choices, each
+     * consuming the entire buffer.
+     */
+    private fun ranked(buffer: String): List<Cand> {
+        if (buffer.isEmpty()) return emptyList()
+        val spans = Kana.transduce(buffer)
+        if (spans.isEmpty()) return emptyList()
+        // Each cumulative mora prefix: the kana so far and the romaji it consumed.
+        val kanaSb = StringBuilder()
+        val prefixes = ArrayList<Pair<String, Int>>(spans.size)
+        var romaji = 0
+        for (sp in spans) {
+            kanaSb.append(sp.kana)
+            romaji += sp.romajiLen
+            prefixes.add(kanaSb.toString() to romaji)
+        }
+        val dict = CjkDictionaries.japanese
+        val out = LinkedHashMap<String, Cand>()
+        // Longest reading first: にほん (whole) ranks above に (leading mora).
+        for ((kana, cons) in prefixes.asReversed()) {
+            for (w in dict.exact(kana)) {
+                out.getOrPut(w) { Cand(w, cons) }
+                if (out.size >= LIMIT) break
+            }
+            if (out.size >= LIMIT) break
+        }
+        // Trailing plain-kana choices for the whole buffer (romaji == buffer.length).
+        val whole = kanaSb.toString()
+        out.getOrPut(whole) { Cand(whole, romaji) }
+        val kata = Kana.toKatakana(whole)
+        if (kata != whole) out.getOrPut(kata) { Cand(kata, romaji) }
+        val half = Kana.toHalfWidthKatakana(kata)
+        if (half != kata) out.getOrPut(half) { Cand(half, romaji) }
+        return out.values.toList()
+        // Stretch (not shipped): light okurigana / verb-conjugation would fold a
+        // trailing kana inflection (…って, …した) back onto a stem reading before
+        // dict lookup here, so 食べた converts from `tabeta`. Needs a conjugation
+        // table + stem index in the pack; left out until the ja_kana pack ships.
     }
 }
 
 /** Romaji↔kana transliteration (Hepburn/wāpuro), longest-match. */
 internal object Kana {
 
-    fun toHiragana(romaji: String): String {
+    /** One transduction step: the kana it produced and the romaji chars it ate. */
+    data class KanaSpan(val kana: String, val romajiLen: Int)
+
+    /**
+     * Transduces [romaji] into kana units, each remembering how many romaji input
+     * chars it consumed. This is the single source of truth: [toHiragana] just
+     * concatenates the kana, and the composer maps a consumed *kana* prefix back
+     * to consumed *romaji* by summing the spans' [KanaSpan.romajiLen]. The sum of
+     * all spans' lengths always equals `romaji.length` — every input char is
+     * consumed exactly once — so a whole-buffer choice consumes the whole buffer.
+     */
+    fun transduce(romaji: String): List<KanaSpan> {
         val s = romaji.lowercase()
-        val out = StringBuilder()
+        val out = ArrayList<KanaSpan>()
         var i = 0
         while (i < s.length) {
             val c = s[i]
             // Sokuon: a doubled consonant (kk, tt, ss, …, but not n or a vowel)
-            // becomes っ before the next syllable.
+            // becomes っ before the next syllable, consuming the first consonant.
             if (i + 1 < s.length && c == s[i + 1] && c !in "aeioun" && c in 'a'..'z') {
-                out.append('っ'); i++; continue
+                out.add(KanaSpan("っ", 1)); i++; continue
             }
             // Syllabic ん. `n'` is an explicit ん. For `nn`: if a vowel/y follows
             // the second n it starts a な-row syllable (`onna`→おんな, `konnichi`→
@@ -45,33 +110,52 @@ internal object Kana {
             // fold to a single ん (`onn`→おん). A lone n before a consonant or the
             // word end is also ん; before a vowel/y it falls through to the table.
             if (c == 'n') {
-                if (i + 1 < s.length && s[i + 1] == '\'') { out.append('ん'); i += 2; continue }
+                if (i + 1 < s.length && s[i + 1] == '\'') { out.add(KanaSpan("ん", 2)); i += 2; continue }
                 if (i + 1 < s.length && s[i + 1] == 'n') {
                     val after = s.getOrNull(i + 2)
-                    if (after != null && after in "aeiouy") { out.append('ん'); i++; continue }
-                    out.append('ん'); i += 2; continue
+                    if (after != null && after in "aeiouy") { out.add(KanaSpan("ん", 1)); i++; continue }
+                    out.add(KanaSpan("ん", 2)); i += 2; continue
                 }
                 val nxt = s.getOrNull(i + 1)
-                if (nxt == null || nxt !in "aeiouy") { out.append('ん'); i++; continue }
+                if (nxt == null || nxt !in "aeiouy") { out.add(KanaSpan("ん", 1)); i++; continue }
             }
             var matched = false
             for (len in 3 downTo 1) {
                 if (i + len <= s.length) {
-                    TABLE[s.substring(i, i + len)]?.let {
-                        out.append(it); i += len; matched = true
-                    }
-                    if (matched) break
+                    val v = TABLE[s.substring(i, i + len)]
+                    if (v != null) { out.add(KanaSpan(v, len)); i += len; matched = true; break }
                 }
             }
-            if (!matched) { out.append(s[i]); i++ }
+            if (!matched) { out.add(KanaSpan(s[i].toString(), 1)); i++ }
         }
-        return out.toString()
+        return out
+    }
+
+    fun toHiragana(romaji: String): String = buildString {
+        for (u in transduce(romaji)) append(u.kana)
     }
 
     /** Hiragana → katakana (the two blocks differ by a fixed 0x60 offset). */
     fun toKatakana(hiragana: String): String = buildString {
         for (c in hiragana) {
             if (c.code in 0x3041..0x3096) append((c.code + 0x60).toChar()) else append(c)
+        }
+    }
+
+    /**
+     * (Full-width) katakana → half-width katakana (半角カナ). Dakuten/handakuten
+     * forms have no single half-width code point, so they decompose via NFD to
+     * base + combining mark first (ガ → カ゛ → ｶﾞ, ヴ → ウ゛ → ｳﾞ); anything with
+     * no half-width equivalent passes through unchanged.
+     */
+    fun toHalfWidthKatakana(text: String): String {
+        val nfd = Normalizer.normalize(text, Normalizer.Form.NFD)
+        return buildString {
+            for (c in nfd) when (c) {
+                '゙' -> append('ﾞ') // combining dakuten → halfwidth ﾞ
+                '゚' -> append('ﾟ') // combining handakuten → halfwidth ﾟ
+                else -> append(HALF_KATAKANA[c] ?: c)
+            }
         }
     }
 
@@ -118,5 +202,24 @@ internal object Kana {
         put("xtu", "っ"); put("ltu", "っ"); put("xya", "ゃ"); put("xyu", "ゅ"); put("xyo", "ょ")
         // Long vowel + punctuation the composer may see
         put("-", "ー")
+    }
+
+    /** Base (undakuten) full-width katakana → half-width; dakuten handled via NFD. */
+    private val HALF_KATAKANA: Map<Char, Char> = buildMap {
+        put('ア', 'ｱ'); put('イ', 'ｲ'); put('ウ', 'ｳ'); put('エ', 'ｴ'); put('オ', 'ｵ')
+        put('カ', 'ｶ'); put('キ', 'ｷ'); put('ク', 'ｸ'); put('ケ', 'ｹ'); put('コ', 'ｺ')
+        put('サ', 'ｻ'); put('シ', 'ｼ'); put('ス', 'ｽ'); put('セ', 'ｾ'); put('ソ', 'ｿ')
+        put('タ', 'ﾀ'); put('チ', 'ﾁ'); put('ツ', 'ﾂ'); put('テ', 'ﾃ'); put('ト', 'ﾄ')
+        put('ナ', 'ﾅ'); put('ニ', 'ﾆ'); put('ヌ', 'ﾇ'); put('ネ', 'ﾈ'); put('ノ', 'ﾉ')
+        put('ハ', 'ﾊ'); put('ヒ', 'ﾋ'); put('フ', 'ﾌ'); put('ヘ', 'ﾍ'); put('ホ', 'ﾎ')
+        put('マ', 'ﾏ'); put('ミ', 'ﾐ'); put('ム', 'ﾑ'); put('メ', 'ﾒ'); put('モ', 'ﾓ')
+        put('ヤ', 'ﾔ'); put('ユ', 'ﾕ'); put('ヨ', 'ﾖ')
+        put('ラ', 'ﾗ'); put('リ', 'ﾘ'); put('ル', 'ﾙ'); put('レ', 'ﾚ'); put('ロ', 'ﾛ')
+        put('ワ', 'ﾜ'); put('ヲ', 'ｦ'); put('ン', 'ﾝ')
+        // Small kana
+        put('ァ', 'ｧ'); put('ィ', 'ｨ'); put('ゥ', 'ｩ'); put('ェ', 'ｪ'); put('ォ', 'ｫ')
+        put('ッ', 'ｯ'); put('ャ', 'ｬ'); put('ュ', 'ｭ'); put('ョ', 'ｮ')
+        // Punctuation
+        put('ー', 'ｰ'); put('、', '､'); put('。', '｡'); put('・', '･')
     }
 }
