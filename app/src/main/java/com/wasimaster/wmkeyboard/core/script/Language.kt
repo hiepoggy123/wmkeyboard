@@ -1531,6 +1531,31 @@ object LanguageRegistry {
             localeTag = "nrf-JE",
             layoutIds = listOf(AssetLayouts.NRF_QWERTY_ID),
         ),
+        LanguageDef(
+            id = "hac",
+            displayName = "هَوْرامِی · Hawrami",
+            englishName = "Hawrami Kurdish",
+            script = ScriptId.ARABIC,
+            localeTag = "hac-IQ",
+            layoutIds = listOf(AssetLayouts.HAC_STANDARD_ID),
+            numeralSystem = NumeralSystem.PERSIAN,
+        ),
+        LanguageDef(
+            id = "yi",
+            displayName = "ייִדיש · Yiddish",
+            englishName = "Yiddish",
+            script = ScriptId.HEBREW,
+            localeTag = "yi-001",
+            layoutIds = listOf(AssetLayouts.YI_STANDARD_ID),
+        ),
+        LanguageDef(
+            id = "grc",
+            displayName = "Ancient Greek · Polytonic",
+            englishName = "Polytonic Greek",
+            script = ScriptId.GREEK,
+            localeTag = "grc",
+            layoutIds = listOf(AssetLayouts.GRC_POLYTONIC_ID),
+        ),
         // Not a spoken language but a phonetic notation, offered as one so it rides
         // the same enable/select/layout machinery. "-fonipa" is the BCP-47 variant
         // for IPA transcription; the primary subtag is "mul" (multiple languages)

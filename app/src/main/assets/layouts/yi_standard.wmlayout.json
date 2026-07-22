@@ -1,0 +1,59 @@
+{
+  "format": "wmkeyboard-layout",
+  "version": 1,
+  "layout": {
+    "id": "asset_yi_standard",
+    "name": "ייִדיש (Yiddish)",
+    "langId": "yi",
+    "version": 1,
+    "layers": {
+      "letters": {
+        "rows": [
+          [
+            { "label": "q" },
+            { "label": "w" },
+            { "label": "e" },
+            { "label": "r" },
+            { "label": "t" },
+            { "label": "y" },
+            { "label": "u", "longPress": ["וּ"] },
+            { "label": "i", "longPress": ["יִ"] },
+            { "label": "o", "longPress": ["אָ"] },
+            { "label": "p" }
+          ],
+          [
+            { "label": "ש" },
+            { "label": "ד" },
+            { "label": "ג" },
+            { "label": "כ", "longPress": ["ך"] },
+            { "label": "ע" },
+            { "label": "י", "longPress": ["ײ", "ױ", "יִ"] },
+            { "label": "ח" },
+            { "label": "ל" },
+            { "label": "ך" },
+            { "label": "ף" }
+          ],
+          [
+            { "label": "⇧", "action": { "type": "shift" }, "width": 1.5 },
+            { "label": "ז" },
+            { "label": "ס" },
+            { "label": "ב", "longPress": ["בֿ"] },
+            { "label": "ה" },
+            { "label": "נ", "longPress": ["ן"] },
+            { "label": "מ", "longPress": ["ם"] },
+            { "label": "צ", "longPress": ["ץ"] },
+            { "label": "⌫", "action": { "type": "delete" }, "width": 1.5 }
+          ],
+          [
+            { "label": "?123", "action": { "type": "symbols" }, "width": 1.5 },
+            { "label": ",", "longPress": ["!", "?"], "role": "Comma" },
+            { "label": "🌐", "action": { "type": "language_switch" } },
+            { "label": " ", "action": { "type": "space" }, "width": 4 },
+            { "label": ".", "longPress": ["…", ",", "?", "!", ":", ";"], "role": "Period" },
+            { "label": "⏎", "action": { "type": "enter" }, "width": 1.5 }
+          ]
+        ]
+      }
+    }
+  }
+}

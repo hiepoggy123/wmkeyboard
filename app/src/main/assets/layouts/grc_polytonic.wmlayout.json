@@ -1,0 +1,58 @@
+{
+  "format": "wmkeyboard-layout",
+  "version": 1,
+  "layout": {
+    "id": "asset_grc_polytonic",
+    "name": "Ancient Greek (Polytonic)",
+    "langId": "grc",
+    "version": 1,
+    "layers": {
+      "letters": {
+        "rows": [
+          [
+            { "label": "semicolon", "longPress": ["·"] },
+            { "label": "ς" },
+            { "label": "ε", "longPress": ["ἐ", "ἑ", "ἔ", "ἕ", "ὲ", "έ"] },
+            { "label": "ρ", "longPress": ["ῤ", "ῥ"] },
+            { "label": "τ" },
+            { "label": "υ", "longPress": ["ὐ", "ὑ", "ὔ", "ὕ", "ὖ", "ὗ", "ὺ", "ύ", "ῦ", "ϋ"] },
+            { "label": "θ" },
+            { "label": "ι", "longPress": ["ἰ", "ἱ", "ἴ", "ἵ", "ἶ", "ἷ", "ὶ", "ί", "ῖ", "ϊ"] },
+            { "label": "ο", "longPress": ["ὀ", "ὁ", "ὄ", "ὅ", "ὸ", "ό"] },
+            { "label": "π" }
+          ],
+          [
+            { "label": "α", "longPress": ["ἀ", "ἁ", "ἄ", "ἅ", "ἆ", "ἇ", "ὰ", "ά", "ᾶ"] },
+            { "label": "σ" },
+            { "label": "δ" },
+            { "label": "φ" },
+            { "label": "γ" },
+            { "label": "η", "longPress": ["ἠ", "ἡ", "ἤ", "ἥ", "ἦ", "ἧ", "ὴ", "ή", "ῆ"] },
+            { "label": "ξ" },
+            { "label": "κ" },
+            { "label": "λ" }
+          ],
+          [
+            { "label": "⇧", "action": { "type": "shift" }, "width": 1.5 },
+            { "label": "ζ" },
+            { "label": "χ" },
+            { "label": "ψ" },
+            { "label": "ω", "longPress": ["ὠ", "ὡ", "ὤ", "ὥ", "ὦ", "ὧ", "ὼ", "ώ", "ῶ"] },
+            { "label": "β" },
+            { "label": "ν" },
+            { "label": "μ" },
+            { "label": "⌫", "action": { "type": "delete" }, "width": 1.5 }
+          ],
+          [
+            { "label": "?123", "action": { "type": "symbols" }, "width": 1.5 },
+            { "label": ",", "longPress": ["!", "?"], "role": "Comma" },
+            { "label": "🌐", "action": { "type": "language_switch" } },
+            { "label": " ", "action": { "type": "space" }, "width": 4 },
+            { "label": ".", "longPress": ["…", ",", "?", "!", ":", ";"], "role": "Period" },
+            { "label": "⏎", "action": { "type": "enter" }, "width": 1.5 }
+          ]
+        ]
+      }
+    }
+  }
+}

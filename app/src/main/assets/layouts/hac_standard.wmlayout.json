@@ -1,0 +1,58 @@
+{
+  "format": "wmkeyboard-layout",
+  "version": 1,
+  "layout": {
+    "id": "asset_hac_standard",
+    "name": "هَوْرامِی (Hawrami)",
+    "langId": "hac",
+    "version": 1,
+    "layers": {
+      "letters": {
+        "rows": [
+          [
+            { "label": "ق" },
+            { "label": "و", "longPress": ["ۄ", "ۆ", "ؤ"] },
+            { "label": "ە" },
+            { "label": "ر", "shiftLabel": "ڕ", "longPress": ["ڶ", "ڷ"] },
+            { "label": "ت", "shiftLabel": "ط" },
+            { "label": "ی", "shiftLabel": "ێ", "longPress": ["ئ", "ي"] },
+            { "label": "ئ", "shiftLabel": "ء" },
+            { "label": "ح", "shiftLabel": "ع" },
+            { "label": "ۆ", "longPress": ["ۄ"] },
+            { "label": "پ" }
+          ],
+          [
+            { "label": "ا", "shiftLabel": "آ", "longPress": ["أ", "إ"] },
+            { "label": "س", "shiftLabel": "ش" },
+            { "label": "د" },
+            { "label": "ف" },
+            { "label": "گ", "shiftLabel": "غ" },
+            { "label": "ه", "shiftLabel": "ھ", "longPress": ["ة"] },
+            { "label": "ژ" },
+            { "label": "ک" },
+            { "label": "ل", "shiftLabel": "ڵ" }
+          ],
+          [
+            { "label": "⇧", "action": { "type": "shift" }, "width": 1.5 },
+            { "label": "ز", "longPress": ["ڟ"] },
+            { "label": "خ" },
+            { "label": "ج", "shiftLabel": "چ" },
+            { "label": "ڤ" },
+            { "label": "ب" },
+            { "label": "ن" },
+            { "label": "م" },
+            { "label": "⌫", "action": { "type": "delete" }, "width": 1.5 }
+          ],
+          [
+            { "label": "?123", "action": { "type": "symbols" }, "width": 1.5 },
+            { "label": ",", "longPress": ["!", "?"], "role": "Comma" },
+            { "label": "🌐", "action": { "type": "language_switch" } },
+            { "label": " ", "action": { "type": "space" }, "width": 4 },
+            { "label": ".", "longPress": ["…", ",", "?", "!", ":", ";"], "role": "Period" },
+            { "label": "⏎", "action": { "type": "enter" }, "width": 1.5 }
+          ]
+        ]
+      }
+    }
+  }
+}
