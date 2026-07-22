@@ -100,10 +100,68 @@ class CjkComposerTest {
     @Test
     fun `japanese offers the kana and katakana as candidates when no dictionary is loaded`() {
         // In a plain JVM test the conversion tables are empty, so candidates are
-        // just the reading itself in both kana.
+        // just the reading itself in both kana (plus half-width katakana).
         val cands = JapaneseComposer.candidates("nihon")
         assertTrue("にほん" in cands)
         assertTrue("ニホン" in cands)
+        assertTrue("ﾆﾎﾝ" in cands)
+    }
+
+    // --- Japanese conversion upgrade (Phase 5) ----------------------------------
+
+    @Test
+    fun `kana transducer tracks the romaji span behind each kana unit`() {
+        // A yōon cluster is one kana unit produced from three romaji chars.
+        val kya = Kana.transduce("kya")
+        assertEquals(listOf("きゃ"), kya.map { it.kana })
+        assertEquals(listOf(3), kya.map { it.romajiLen })
+
+        // Sokuon + syllabic n each carry their own span; the totals reconcile.
+        val kekkon = Kana.transduce("kekkon")
+        assertEquals(listOf("け", "っ", "こ", "ん"), kekkon.map { it.kana })
+        assertEquals(listOf(2, 1, 2, 1), kekkon.map { it.romajiLen })
+
+        // The spans always sum back to the input length — no romaji char is lost
+        // or double-counted, so a whole-buffer choice consumes the whole buffer.
+        for (r in listOf("konnichiha", "arigatou", "nihon", "onna", "n'ya")) {
+            assertEquals(r.length, Kana.transduce(r).sumOf { it.romajiLen })
+            assertEquals(Kana.toHiragana(r), Kana.transduce(r).joinToString("") { it.kana })
+        }
+    }
+
+    @Test
+    fun `katakana converts to half-width including dakuten`() {
+        assertEquals("ﾆﾎﾝ", Kana.toHalfWidthKatakana("ニホン"))
+        assertEquals("ﾏｸﾄﾞﾅﾙﾄﾞ", Kana.toHalfWidthKatakana("マクドナルド"))
+        // Dakuten/handakuten decompose to base + a half-width mark.
+        assertEquals("ｶﾞ", Kana.toHalfWidthKatakana("ガ"))
+        assertEquals("ﾊﾟ", Kana.toHalfWidthKatakana("パ"))
+        assertEquals("ｳﾞ", Kana.toHalfWidthKatakana("ヴ"))
+    }
+
+    @Test
+    fun `japanese segments kana and reports consumed romaji length`() {
+        // Kana readings are fine in tests; the words are ASCII stand-ins.
+        CjkDictionaries.japanese = ConversionDictionary.parse(
+            sequenceOf(
+                "に\tN1\t100",
+                "にほん\tNH\t50",
+            ),
+        )
+        val cands = JapaneseComposer.candidates("nihon")
+        // Whole-reading NH (にほん) outranks the leading-mora N1 (に).
+        assertEquals("NH", cands[0])
+        assertTrue("N1" in cands)
+        // Plain kana forms remain available as trailing choices.
+        assertTrue("にほん" in cands)
+        assertTrue("ニホン" in cands)
+        // consumedFor reports ROMAJI input chars, though segmentation is on kana:
+        // にほん spans nihon (5), に spans ni (2).
+        assertEquals(5, JapaneseComposer.consumedFor("nihon", "NH"))
+        assertEquals(2, JapaneseComposer.consumedFor("nihon", "N1"))
+        // A plain-kana or unknown choice consumes the whole buffer.
+        assertEquals(5, JapaneseComposer.consumedFor("nihon", "にほん"))
+        assertEquals(5, JapaneseComposer.consumedFor("nihon", "??"))
     }
 
     @Test
