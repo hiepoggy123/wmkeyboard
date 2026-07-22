@@ -202,6 +202,24 @@ private val bundledAttributions: List<Attribution> = buildList {
             "https://fonts.google.com/attribution",
         ),
     )
+    add(
+        Attribution(
+            "CC-CEDICT",
+            "Chinese Pinyin conversion dictionary (downloadable pack)",
+            "Copyright MDBG and CC-CEDICT contributors",
+            "CC BY-SA 4.0", "cc-by-sa-4.0.txt",
+            "https://www.mdbg.net/chinese/dictionary?page=cc-cedict",
+        ),
+    )
+    add(
+        Attribution(
+            "mozc & SudachiDict",
+            "Japanese kana→kanji conversion dictionary (downloadable pack)",
+            "Copyright Google Inc. and Works Applications Co., Ltd.",
+            "BSD-3-Clause / Apache-2.0", "bsd-3-clause.txt",
+            "https://github.com/google/mozc",
+        ),
+    )
 }
 
 /**

@@ -195,6 +195,7 @@ import com.wasimaster.wmkeyboard.core.layout.numberRowFor
 import com.wasimaster.wmkeyboard.core.layout.LayoutSpec
 import com.wasimaster.wmkeyboard.core.input.composer.composerFor
 import com.wasimaster.wmkeyboard.core.input.composer.CjkDictionaries
+import com.wasimaster.wmkeyboard.core.input.composer.CjkDictStore
 import com.wasimaster.wmkeyboard.core.input.composer.PinyinSyllables
 import com.wasimaster.wmkeyboard.core.input.composer.ConversionDictionary
 import com.wasimaster.wmkeyboard.core.script.LanguageDef
@@ -1041,27 +1042,7 @@ open class WMKeyboardService : InputMethodService() {
             // Chinese/Japanese conversion tables (pinyin→Hanzi, kana→Kanji). These
             // assets are optional: an absent or unreadable file leaves the composer
             // typing the raw reading (pinyin letters, or kana) with no candidates.
-            withContext(Dispatchers.Default) {
-                runCatching {
-                    assets.open("dictionaries/pinyin.tsv").bufferedReader().useLines {
-                        CjkDictionaries.pinyin = ConversionDictionary.parse(it)
-                    }
-                }
-                // The valid-syllable inventory that segments a pinyin buffer into
-                // syllables (nihao → ni | hao) for prefix commit. Optional: absent
-                // leaves segmentation off, so Pinyin falls back to whole-buffer
-                // lookups exactly as before.
-                runCatching {
-                    assets.open("dictionaries/pinyin_syllables.txt").bufferedReader().useLines {
-                        PinyinSyllables.valid = PinyinSyllables.parse(it)
-                    }
-                }
-                runCatching {
-                    assets.open("dictionaries/ja_kana.tsv").bufferedReader().useLines {
-                        CjkDictionaries.japanese = ConversionDictionary.parse(it)
-                    }
-                }
-            }
+            loadCjkConversionTables()
             loadedDictToken = withContext(Dispatchers.Default) {
                 DictionaryStore.stateToken(filesDir)
             }
@@ -1442,6 +1423,13 @@ open class WMKeyboardService : InputMethodService() {
         // the next field focus — token-guarded, so this is a cheap no-op when
         // nothing on disk changed.
         serviceScope.launch { reloadDownloadedDictionaries() }
+        // A CJK dictionary pack finished (or was deleted) in Settings since the
+        // tables were last parsed: reload so it goes live on this focus. The
+        // token compare is two file-existence checks — cheap enough per focus,
+        // and the re-parse only runs when a pack actually changed.
+        if (loadedCjkPackToken != CjkDictStore.stateToken(filesDir)) {
+            serviceScope.launch { loadCjkConversionTables() }
+        }
         hwJob?.cancel()
         hwGeneration++
         val secure = info.isSecureField()
@@ -3291,6 +3279,44 @@ open class WMKeyboardService : InputMethodService() {
             // convert it — the next chunk's candidates fill the strip.
             updateComposingText(ic)
             refreshSuggestions()
+        }
+    }
+
+    /** Pack-state token the conversion tables were last loaded from; see [CjkDictStore.stateToken]. */
+    @Volatile
+    private var loadedCjkPackToken = Int.MIN_VALUE
+
+    /**
+     * (Re)loads the Chinese/Japanese conversion tables, preferring a downloaded
+     * [CjkDictCatalog] pack over the small bundled asset. Records the pack-state
+     * token so [onStartInputView] can skip re-parsing until a pack actually
+     * changes. All parsing runs off the main thread; an absent or unreadable
+     * source leaves the composer typing the raw reading, exactly as before.
+     */
+    private suspend fun loadCjkConversionTables() {
+        withContext(Dispatchers.Default) {
+            val token = CjkDictStore.stateToken(filesDir)
+            runCatching {
+                val packed = CjkDictStore.downloadedFileFor(filesDir, "pinyin")
+                val reader = packed?.bufferedReader()
+                    ?: assets.open("dictionaries/pinyin.tsv").bufferedReader()
+                reader.useLines { CjkDictionaries.pinyin = ConversionDictionary.parse(it) }
+            }
+            // The valid-syllable inventory that segments a pinyin buffer into
+            // syllables (nihao → ni | hao) for prefix commit. Optional: absent
+            // leaves segmentation off, so Pinyin falls back to whole-buffer lookups.
+            runCatching {
+                assets.open("dictionaries/pinyin_syllables.txt").bufferedReader().useLines {
+                    PinyinSyllables.valid = PinyinSyllables.parse(it)
+                }
+            }
+            runCatching {
+                val packed = CjkDictStore.downloadedFileFor(filesDir, "ja_kana")
+                val reader = packed?.bufferedReader()
+                    ?: assets.open("dictionaries/ja_kana.tsv").bufferedReader()
+                reader.useLines { CjkDictionaries.japanese = ConversionDictionary.parse(it) }
+            }
+            loadedCjkPackToken = token
         }
     }
 

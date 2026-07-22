@@ -1,0 +1,24 @@
+Creative Commons Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)
+
+The Chinese Pinyin conversion pack is derived from CC-CEDICT, a
+community-maintained Chinese-English dictionary published by MDBG
+(https://www.mdbg.net/chinese/dictionary?page=cc-cedict).
+
+CC-CEDICT is licensed under the Creative Commons Attribution-ShareAlike 4.0
+International License. You are free to share and adapt the data for any purpose,
+even commercially, under the following terms:
+
+  * Attribution — You must give appropriate credit to CC-CEDICT and its
+    contributors, provide a link to the license, and indicate if changes were
+    made.
+  * ShareAlike — If you remix, transform, or build upon the material, you must
+    distribute your contributions under the same license as the original.
+
+This app redistributes a transformed subset of the data (readings mapped to
+characters and frequencies) under the same CC BY-SA 4.0 terms.
+
+The full legal text of the license is available at:
+  https://creativecommons.org/licenses/by-sa/4.0/legalcode
+
+A human-readable summary is available at:
+  https://creativecommons.org/licenses/by-sa/4.0/

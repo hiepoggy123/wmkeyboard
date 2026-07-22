@@ -4,11 +4,13 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ArrowDropDown
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -34,6 +36,9 @@ import androidx.compose.ui.unit.dp
 import com.wasimaster.wmkeyboard.core.dictionaries.DictionaryCatalog
 import com.wasimaster.wmkeyboard.core.dictionaries.DictionaryEntry
 import com.wasimaster.wmkeyboard.core.dictionaries.WordlistDownloadManager
+import com.wasimaster.wmkeyboard.core.input.composer.CjkDictCatalog
+import com.wasimaster.wmkeyboard.core.input.composer.CjkDictDownloadManager
+import com.wasimaster.wmkeyboard.core.input.composer.CjkDictPack
 import com.wasimaster.wmkeyboard.core.layout.language
 import com.wasimaster.wmkeyboard.core.layout.resolveLayout
 import com.wasimaster.wmkeyboard.core.script.LanguageDef
@@ -232,6 +237,13 @@ internal fun LanguageDetailScreen(
         }
     }
 
+    // Chinese/Japanese get a downloadable large conversion dictionary — the
+    // group is named "… options" so the fuzzy/double-pinyin toggles (Phase 3)
+    // slot into the same place later.
+    if (CjkDictCatalog.forLang(langId).isNotEmpty()) {
+        CjkDictPackManager(langId)
+    }
+
     // Removing the only language would leave nothing to type in, so it is only
     // offered when another language is enabled.
     if (settings.enabledLanguages.size > 1) {
@@ -377,4 +389,82 @@ private fun WordlistRow(entry: DictionaryEntry) {
         }
         else -> Unit
     }
+}
+
+/**
+ * Download/delete rows for a language's [CjkDictCatalog] packs, driven by the
+ * process-level [CjkDictDownloadManager] so progress survives navigation. The
+ * pack replaces the small bundled dictionary once fetched (the service reloads
+ * on the next field focus). A pack with no hosting URL yet shows "Not available
+ * yet" with its download disabled.
+ */
+@Composable
+private fun CjkDictPackManager(langId: String) {
+    val context = LocalContext.current
+    val filesDir = context.filesDir
+    val scope = rememberCoroutineScope()
+    val states by CjkDictDownloadManager.states.collectAsState()
+    LaunchedEffect(langId) { CjkDictDownloadManager.refresh(filesDir) }
+
+    val groupTitle = if (langId == "ja") "Japanese options" else "Chinese options"
+    SettingsGroup(groupTitle) {
+        item {
+            CaptionText(
+                "Download a larger conversion dictionary — many more characters and " +
+                    "phrases than the built-in set. Works offline once fetched.",
+            )
+        }
+        for (pack in CjkDictCatalog.forLang(langId)) {
+            item {
+                val status = states[pack.id] ?: CjkDictDownloadManager.DownloadStatus.NotDownloaded
+                ListItem(
+                    headlineContent = { Text(pack.displayName) },
+                    supportingContent = { Text(packStatusLabel(pack, status)) },
+                    trailingContent = {
+                        when (status) {
+                            is CjkDictDownloadManager.DownloadStatus.Downloading ->
+                                IconButton(onClick = { CjkDictDownloadManager.cancel() }) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(24.dp),
+                                        strokeWidth = 2.dp,
+                                    )
+                                }
+                            CjkDictDownloadManager.DownloadStatus.Downloaded ->
+                                IconButton(onClick = { CjkDictDownloadManager.delete(filesDir, pack) }) {
+                                    Icon(
+                                        Icons.Outlined.Delete,
+                                        contentDescription = "Delete ${pack.displayName}",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            else -> TextButton(
+                                enabled = pack.available && !CjkDictDownloadManager.isBusy,
+                                onClick = { CjkDictDownloadManager.start(filesDir, pack) },
+                            ) {
+                                Text(
+                                    if (status is CjkDictDownloadManager.DownloadStatus.Paused) "Resume"
+                                    else "Download",
+                                )
+                            }
+                        }
+                    },
+                    colors = transparentListColors(),
+                )
+            }
+        }
+    }
+}
+
+/** Supporting-line text for a pack's current download state. */
+private fun packStatusLabel(
+    pack: CjkDictPack,
+    status: CjkDictDownloadManager.DownloadStatus,
+): String = when (status) {
+    CjkDictDownloadManager.DownloadStatus.NotDownloaded ->
+        if (pack.available) pack.description else "Not available yet — coming soon."
+    is CjkDictDownloadManager.DownloadStatus.Downloading ->
+        if (status.total > 0) "Downloading… ${status.bytes * 100 / status.total}%" else "Downloading…"
+    is CjkDictDownloadManager.DownloadStatus.Paused -> "Paused — tap Resume to continue."
+    CjkDictDownloadManager.DownloadStatus.Downloaded -> "Downloaded — works offline."
+    is CjkDictDownloadManager.DownloadStatus.Failed -> status.message
 }
