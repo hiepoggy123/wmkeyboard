@@ -25,6 +25,8 @@ class CjkComposerTest {
         CjkDictionaries.pinyin = ConversionDictionary.EMPTY
         CjkDictionaries.japanese = ConversionDictionary.EMPTY
         PinyinSyllables.valid = emptySet()
+        CjkConfig.fuzzyPinyin = false
+        CjkConfig.doublePinyin = DoublePinyinScheme.OFF
     }
 
     @Test
@@ -166,6 +168,62 @@ class CjkComposerTest {
         CjkDictionaries.pinyin = ConversionDictionary.parse(sequenceOf("ni\tN1\t100"))
         assertEquals(listOf("N1"), PinyinComposer.candidates("ni"))
         assertEquals(2, PinyinComposer.consumedFor("ni", "N1"))
+    }
+
+    // --- Fuzzy Pinyin (Phase 3) -------------------------------------------------
+
+    @Test
+    fun `fuzzy expands a syllable to valid variants only`() {
+        val valid = setOf("shang", "shan", "sang", "san", "shi", "si")
+        val e = PinyinFuzzy.expand("shang", valid)
+        assertTrue("shang" in e && "shan" in e && "sang" in e && "san" in e)
+        // Never yields a non-syllable.
+        assertTrue(e.all { it == "shang" || it in valid })
+        // sh↔s only (no bogus final swaps).
+        assertEquals(setOf("shi", "si"), PinyinFuzzy.expand("shi", valid))
+    }
+
+    @Test
+    fun `pinyin composer fuzzy matches a confusable spelling`() {
+        PinyinSyllables.valid = setOf("shi", "si")
+        CjkDictionaries.pinyin = ConversionDictionary.parse(sequenceOf("shi\tSH\t100"))
+        // Off: "si" finds nothing.
+        assertEquals(emptyList<String>(), PinyinComposer.candidates("si"))
+        CjkConfig.fuzzyPinyin = true
+        // On: "si" also looks up "shi".
+        assertTrue("SH" in PinyinComposer.candidates("si"))
+        assertEquals(2, PinyinComposer.consumedFor("si", "SH"))
+    }
+
+    // --- Double Pinyin (Phase 3, Xiaohe scheme) ---------------------------------
+
+    @Test
+    fun `double pinyin xiaohe translates key codes to full pinyin`() {
+        val valid = setOf("ni", "hao", "zhu", "an", "ang")
+        val t = DoublePinyin.tableFor(DoublePinyinScheme.XIAOHE)!!
+        assertEquals("nihao", DoublePinyin.translate("nihc", t, valid)) // ni + h+ao
+        assertEquals("zhu", DoublePinyin.translate("vu", t, valid))     // v=zh + u
+        // Zero-initial leads: a + final key.
+        assertEquals("an", DoublePinyin.translate("aj", t, valid))
+        assertEquals("ang", DoublePinyin.translate("ah", t, valid))
+        // Each syllable spans two keys.
+        val segs = DoublePinyin.segments("nihc", t, valid)
+        assertEquals(listOf("ni", "hao"), segs.map { it.syllable })
+        assertEquals(listOf(2, 2), segs.map { it.inputLen })
+    }
+
+    @Test
+    fun `pinyin composer converts double pinyin and reports key-consumed length`() {
+        PinyinSyllables.valid = setOf("ni", "hao")
+        CjkDictionaries.pinyin =
+            ConversionDictionary.parse(sequenceOf("ni\tN1\t100", "hao\tH1\t100", "nihao\tNH\t50"))
+        CjkConfig.doublePinyin = DoublePinyinScheme.XIAOHE
+        // "nihc" (Xiaohe) → ni | hao.
+        assertEquals("nihao", PinyinComposer.composeBuffer("nihc"))
+        assertEquals(listOf("NH", "N1"), PinyinComposer.candidates("nihc"))
+        // Consumed length is in KEYS: 2 per syllable.
+        assertEquals(4, PinyinComposer.consumedFor("nihc", "NH"))
+        assertEquals(2, PinyinComposer.consumedFor("nihc", "N1"))
     }
 
     @Test

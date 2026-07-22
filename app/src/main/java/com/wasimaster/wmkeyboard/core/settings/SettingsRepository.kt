@@ -15,6 +15,7 @@ import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.wasimaster.wmkeyboard.BuildConfig
 import com.wasimaster.wmkeyboard.core.icons.IconOverrides
+import com.wasimaster.wmkeyboard.core.input.composer.DoublePinyinScheme
 import com.wasimaster.wmkeyboard.core.layout.BuiltInLayouts
 import com.wasimaster.wmkeyboard.core.layout.LayoutCodec
 import com.wasimaster.wmkeyboard.core.layout.LayoutSpec
@@ -904,6 +905,10 @@ data class KeyboardSettings(
     val perAppLanguage: PerAppLanguageSettings = PerAppLanguageSettings(),
     val onboardingDone: Boolean = false,
     val conjunctBackspace: Boolean = false,
+    /** Chinese: treat confusable pinyin initials/finals as equivalent (zh↔z, an↔ang…). */
+    val pinyinFuzzy: Boolean = false,
+    /** Chinese: the Double Pinyin scheme, or OFF for full pinyin. */
+    val pinyinDoublePinyin: DoublePinyinScheme = DoublePinyinScheme.OFF,
     val oneHandedMode: OneHandedMode = OneHandedMode.OFF,
     /** Per-orientation one-handed width, height scale and dock side. */
     val oneHanded: OneHandedSettings = OneHandedSettings(),
@@ -1833,6 +1838,8 @@ class SettingsRepository(private val context: Context) {
         private val PER_APP_LAYOUT_MAP = stringPreferencesKey("per_app_layout_map")
         private val ONBOARDING_DONE = booleanPreferencesKey("onboarding_done")
         private val CONJUNCT_BACKSPACE = booleanPreferencesKey("conjunct_backspace")
+        private val PINYIN_FUZZY = booleanPreferencesKey("pinyin_fuzzy")
+        private val PINYIN_DOUBLE_PINYIN = stringPreferencesKey("pinyin_double_pinyin")
         private val ONE_HANDED_MODE = stringPreferencesKey("one_handed_mode")
         // One-handed width leaves room for the rail on the inner edge, so it is
         // capped below 100%. Height scale never grows the keys, only shrinks.
@@ -2248,6 +2255,10 @@ class SettingsRepository(private val context: Context) {
             ),
             onboardingDone = p[ONBOARDING_DONE] ?: defaults.onboardingDone,
             conjunctBackspace = p[CONJUNCT_BACKSPACE] ?: defaults.conjunctBackspace,
+            pinyinFuzzy = p[PINYIN_FUZZY] ?: defaults.pinyinFuzzy,
+            pinyinDoublePinyin = p[PINYIN_DOUBLE_PINYIN]
+                ?.let { runCatching { DoublePinyinScheme.valueOf(it) }.getOrNull() }
+                ?: defaults.pinyinDoublePinyin,
             oneHandedMode = p[ONE_HANDED_MODE]
                 ?.let { runCatching { OneHandedMode.valueOf(it) }.getOrNull() }
                 ?: defaults.oneHandedMode,
@@ -3824,6 +3835,12 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setConjunctBackspace(value: Boolean) =
         context.dataStore.edit { it[CONJUNCT_BACKSPACE] = value }
+
+    suspend fun setPinyinFuzzy(value: Boolean) =
+        context.dataStore.edit { it[PINYIN_FUZZY] = value }
+
+    suspend fun setPinyinDoublePinyin(value: DoublePinyinScheme) =
+        context.dataStore.edit { it[PINYIN_DOUBLE_PINYIN] = value.name }
 
     suspend fun setOneHandedMode(value: OneHandedMode) =
         context.dataStore.edit { it[ONE_HANDED_MODE] = value.name }

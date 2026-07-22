@@ -1,5 +1,6 @@
 package com.wasimaster.wmkeyboard.app
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -20,6 +21,7 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -39,6 +41,8 @@ import com.wasimaster.wmkeyboard.core.dictionaries.WordlistDownloadManager
 import com.wasimaster.wmkeyboard.core.input.composer.CjkDictCatalog
 import com.wasimaster.wmkeyboard.core.input.composer.CjkDictDownloadManager
 import com.wasimaster.wmkeyboard.core.input.composer.CjkDictPack
+import com.wasimaster.wmkeyboard.core.input.composer.DoublePinyin
+import com.wasimaster.wmkeyboard.core.input.composer.DoublePinyinScheme
 import com.wasimaster.wmkeyboard.core.layout.language
 import com.wasimaster.wmkeyboard.core.layout.resolveLayout
 import com.wasimaster.wmkeyboard.core.script.LanguageDef
@@ -237,11 +241,10 @@ internal fun LanguageDetailScreen(
         }
     }
 
-    // Chinese/Japanese get a downloadable large conversion dictionary — the
-    // group is named "… options" so the fuzzy/double-pinyin toggles (Phase 3)
-    // slot into the same place later.
+    // Chinese/Japanese get a downloadable large conversion dictionary; Chinese
+    // also gets fuzzy + Double Pinyin, all in one "… options" group.
     if (CjkDictCatalog.forLang(langId).isNotEmpty()) {
-        CjkDictPackManager(langId)
+        CjkDictPackManager(langId, repository, settings)
     }
 
     // Removing the only language would leave nothing to type in, so it is only
@@ -399,7 +402,11 @@ private fun WordlistRow(entry: DictionaryEntry) {
  * yet" with its download disabled.
  */
 @Composable
-private fun CjkDictPackManager(langId: String) {
+private fun CjkDictPackManager(
+    langId: String,
+    repository: SettingsRepository,
+    settings: KeyboardSettings,
+) {
     val context = LocalContext.current
     val filesDir = context.filesDir
     val scope = rememberCoroutineScope()
@@ -450,6 +457,50 @@ private fun CjkDictPackManager(langId: String) {
                     },
                     colors = transparentListColors(),
                 )
+            }
+        }
+
+        // Chinese-only: fuzzy pinyin + Double Pinyin scheme.
+        if (langId == "zh") {
+            item {
+                ToggleSetting(
+                    "Fuzzy Pinyin",
+                    "Match confusable sounds: zh↔z, ch↔c, sh↔s, n↔l, an↔ang, in↔ing…",
+                    settings.pinyinFuzzy,
+                ) { on -> scope.launch { repository.setPinyinFuzzy(on) } }
+            }
+            item {
+                CaptionText(
+                    "Double Pinyin — type each syllable in exactly two keys. Needs the " +
+                        "Pinyin dictionary above.",
+                )
+            }
+            for (scheme in DoublePinyinScheme.entries) {
+                item {
+                    // OFF is always selectable; a scheme is live only once its key
+                    // table ships (currently Xiaohe), so the rest are shown but
+                    // disabled rather than silently doing nothing.
+                    val ready = scheme == DoublePinyinScheme.OFF || DoublePinyin.tableFor(scheme) != null
+                    val select = { scope.launch { repository.setPinyinDoublePinyin(scheme) }; Unit }
+                    ListItem(
+                        headlineContent = {
+                            Text(if (ready) scheme.displayName else "${scheme.displayName} — coming soon")
+                        },
+                        trailingContent = {
+                            RadioButton(
+                                selected = settings.pinyinDoublePinyin == scheme,
+                                enabled = ready,
+                                onClick = select,
+                            )
+                        },
+                        colors = transparentListColors(),
+                        modifier = if (ready) {
+                            Modifier.fillMaxWidth().clickable(onClick = select)
+                        } else {
+                            Modifier.fillMaxWidth()
+                        },
+                    )
+                }
             }
         }
     }

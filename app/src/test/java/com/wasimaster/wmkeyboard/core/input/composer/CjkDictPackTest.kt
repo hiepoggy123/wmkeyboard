@@ -21,9 +21,11 @@ class CjkDictPackTest {
         assertEquals(listOf("pinyin"), CjkDictCatalog.forLang("zh").map { it.id })
         assertEquals(listOf("ja_kana"), CjkDictCatalog.forLang("ja").map { it.id })
         assertEquals(emptyList<CjkDictPack>(), CjkDictCatalog.forLang("en"))
-        // A pack with no URL or checksum yet cannot be offered.
-        assertFalse(pinyin.available)
-        assertTrue(pinyin.copy(url = "https://x/y", sha256 = "abc").available)
+        // The shipped packs are hosted (url + checksum present).
+        assertTrue(pinyin.available)
+        // A pack is unavailable if either the URL or the checksum is missing.
+        assertFalse(pinyin.copy(url = "").available)
+        assertFalse(pinyin.copy(sha256 = "").available)
     }
 
     @Test

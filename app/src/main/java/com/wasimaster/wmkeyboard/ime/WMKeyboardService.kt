@@ -194,6 +194,7 @@ import com.wasimaster.wmkeyboard.core.layout.ModifierKey
 import com.wasimaster.wmkeyboard.core.layout.numberRowFor
 import com.wasimaster.wmkeyboard.core.layout.LayoutSpec
 import com.wasimaster.wmkeyboard.core.input.composer.composerFor
+import com.wasimaster.wmkeyboard.core.input.composer.CjkConfig
 import com.wasimaster.wmkeyboard.core.input.composer.CjkDictionaries
 import com.wasimaster.wmkeyboard.core.input.composer.CjkDictStore
 import com.wasimaster.wmkeyboard.core.input.composer.PinyinSyllables
@@ -959,6 +960,10 @@ open class WMKeyboardService : InputMethodService() {
                 suggestionEngine?.blockOffensiveWords =
                     settings.suggestionStrip.blockOffensiveWords
                 suggestionEngine?.skipAllCapsAutocorrect = settings.autocorrectSkipAllCaps
+                // Chinese Pinyin options the composer reads at call time (it stays a
+                // parameter-less singleton). Pushed from the same block, like above.
+                CjkConfig.fuzzyPinyin = settings.pinyinFuzzy
+                CjkConfig.doublePinyin = settings.pinyinDoublePinyin
                 // Only English drives the bundled English word list; every other
                 // language (with no bundled dictionary) drops it so autocorrect
                 // and completions never offer English for their words. Bengali
@@ -3287,34 +3292,29 @@ open class WMKeyboardService : InputMethodService() {
     private var loadedCjkPackToken = Int.MIN_VALUE
 
     /**
-     * (Re)loads the Chinese/Japanese conversion tables, preferring a downloaded
-     * [CjkDictCatalog] pack over the small bundled asset. Records the pack-state
-     * token so [onStartInputView] can skip re-parsing until a pack actually
-     * changes. All parsing runs off the main thread; an absent or unreadable
-     * source leaves the composer typing the raw reading, exactly as before.
+     * (Re)loads the Chinese/Japanese conversion tables from their downloaded
+     * [CjkDictCatalog] packs. The tables are large and useful to a minority, so
+     * they are not bundled — with no pack on disk the composer types the raw
+     * reading with no candidates, and deleting a pack resets it to empty. Records
+     * the pack-state token so [onStartInputView] re-parses only when a pack
+     * actually changes. All parsing runs off the main thread.
      */
     private suspend fun loadCjkConversionTables() {
         withContext(Dispatchers.Default) {
             val token = CjkDictStore.stateToken(filesDir)
-            runCatching {
-                val packed = CjkDictStore.downloadedFileFor(filesDir, "pinyin")
-                val reader = packed?.bufferedReader()
-                    ?: assets.open("dictionaries/pinyin.tsv").bufferedReader()
-                reader.useLines { CjkDictionaries.pinyin = ConversionDictionary.parse(it) }
-            }
-            // The valid-syllable inventory that segments a pinyin buffer into
-            // syllables (nihao → ni | hao) for prefix commit. Optional: absent
-            // leaves segmentation off, so Pinyin falls back to whole-buffer lookups.
+            CjkDictionaries.pinyin = CjkDictStore.downloadedFileFor(filesDir, "pinyin")
+                ?.let { file -> runCatching { file.bufferedReader().useLines(ConversionDictionary::parse) }.getOrNull() }
+                ?: ConversionDictionary.EMPTY
+            CjkDictionaries.japanese = CjkDictStore.downloadedFileFor(filesDir, "ja_kana")
+                ?.let { file -> runCatching { file.bufferedReader().useLines(ConversionDictionary::parse) }.getOrNull() }
+                ?: ConversionDictionary.EMPTY
+            // The pinyin syllable inventory is tiny static reference data (~1.8 KB),
+            // the only bundled CJK asset — segmentation is ready without a download,
+            // though candidates still need the pinyin pack above.
             runCatching {
                 assets.open("dictionaries/pinyin_syllables.txt").bufferedReader().useLines {
                     PinyinSyllables.valid = PinyinSyllables.parse(it)
                 }
-            }
-            runCatching {
-                val packed = CjkDictStore.downloadedFileFor(filesDir, "ja_kana")
-                val reader = packed?.bufferedReader()
-                    ?: assets.open("dictionaries/ja_kana.tsv").bufferedReader()
-                reader.useLines { CjkDictionaries.japanese = ConversionDictionary.parse(it) }
             }
             loadedCjkPackToken = token
         }
