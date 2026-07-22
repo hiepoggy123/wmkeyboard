@@ -220,7 +220,7 @@ import java.util.EnumMap
  * Compose view is pure presentation: it renders the state and calls back
  * into [onKey]/[onSuggestion]/[onEmoji]/etc.
  */
-class WMKeyboardService : InputMethodService() {
+open class WMKeyboardService : InputMethodService() {
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private lateinit var lifecycleOwner: KeyboardViewLifecycleOwner
