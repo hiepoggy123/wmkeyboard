@@ -203,6 +203,8 @@ object AssetLayouts {
     const val HAC_STANDARD_ID = "asset_hac_standard"
     const val YI_STANDARD_ID = "asset_yi_standard"
     const val GRC_POLYTONIC_ID = "asset_grc_polytonic"
+    const val ZGH_TIFINAGH_ID = "asset_zgh_tifinagh"
+    const val CHR_CHEROKEE_ID = "asset_chr_cherokee"
 
     // --- Composer-driven input methods (Vietnamese Telex/VNI, Japanese romaji,
     // Chinese pinyin): plain QWERTY grids whose "composer" field does the work. ---

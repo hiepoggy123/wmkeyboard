@@ -1556,6 +1556,22 @@ object LanguageRegistry {
             localeTag = "grc",
             layoutIds = listOf(AssetLayouts.GRC_POLYTONIC_ID),
         ),
+        LanguageDef(
+            id = "zgh",
+            displayName = "ⵜⴰⵎⴰⵣⵉⵖⵜ · Tamazight",
+            englishName = "Tamazight (Tifinagh)",
+            script = ScriptId.TIFINAGH,
+            localeTag = "zgh-MA",
+            layoutIds = listOf(AssetLayouts.ZGH_TIFINAGH_ID),
+        ),
+        LanguageDef(
+            id = "chr",
+            displayName = "ᏣᎳᎩ · Cherokee",
+            englishName = "Cherokee",
+            script = ScriptId.CHEROKEE,
+            localeTag = "chr-US",
+            layoutIds = listOf(AssetLayouts.CHR_CHEROKEE_ID),
+        ),
         // Not a spoken language but a phonetic notation, offered as one so it rides
         // the same enable/select/layout machinery. "-fonipa" is the BCP-47 variant
         // for IPA transcription; the primary subtag is "mul" (multiple languages)
