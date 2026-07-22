@@ -52,7 +52,7 @@ internal object VietnameseEngine {
             vowels.any { it > 1 }
         ) vowels.remove(1)
         if (vowels.isEmpty()) return -1
-        vowels.firstOrNull { letters[it].mark != VMark.NONE }?.let { return it }
+        vowels.lastOrNull { letters[it].mark != VMark.NONE }?.let { return it }
         if (vowels.size == 1) return vowels[0]
         val last = vowels.last()
         val hasCoda = (last + 1..letters.lastIndex).any { !isVowel(letters[it].base) }
@@ -135,23 +135,43 @@ internal object VietnameseEngine {
                     }
                 }
                 'w' -> {
-                    // Horn/breve on the last a/o/u; a bare w types ư.
-                    val a = applyMark(letters, "a", VMark.BREVE) ||
-                        applyMark(letters, "ou", VMark.HORN)
-                    if (!a) letters.add(VLetter('u', VMark.HORN, upper))
+                    // Horn on uo cluster -> ươ (e.g. nuocsw -> nước, tuongw -> tương);
+                    // otherwise horn/breve on the last a/o/u; a bare w types ư.
+                    val uIdx = letters.indexOfLast { it.base == 'u' }
+                    val oIdx = letters.indexOfLast { it.base == 'o' }
+                    if (uIdx != -1 && oIdx != -1 && oIdx == uIdx + 1) {
+                        val toggleOff = letters[uIdx].mark == VMark.HORN && letters[oIdx].mark == VMark.HORN
+                        val targetMark = if (toggleOff) VMark.NONE else VMark.HORN
+                        letters[uIdx].mark = targetMark
+                        letters[oIdx].mark = targetMark
+                    } else {
+                        val a = applyMark(letters, "a", VMark.BREVE) ||
+                            applyMark(letters, "ou", VMark.HORN)
+                        if (!a) letters.add(VLetter('u', VMark.HORN, upper))
+                    }
                 }
                 'a', 'e', 'o' -> {
                     val last = letters.lastOrNull()
-                    if (last != null && last.base == lc && last.mark == VMark.NONE) {
-                        last.mark = VMark.CIRCUMFLEX
+                    if (last != null && last.base == lc) {
+                        if (last.mark == VMark.CIRCUMFLEX) {
+                            last.mark = VMark.NONE
+                            letters.add(VLetter(lc, VMark.NONE, upper))
+                        } else {
+                            last.mark = VMark.CIRCUMFLEX
+                        }
                     } else {
                         letters.add(VLetter(lc, VMark.NONE, upper))
                     }
                 }
                 'd' -> {
                     val last = letters.lastOrNull()
-                    if (last != null && last.base == 'd' && last.mark == VMark.NONE) {
-                        last.mark = VMark.STROKE
+                    if (last != null && last.base == 'd') {
+                        if (last.mark == VMark.STROKE) {
+                            last.mark = VMark.NONE
+                            letters.add(VLetter('d', VMark.NONE, upper))
+                        } else {
+                            last.mark = VMark.STROKE
+                        }
                     } else {
                         letters.add(VLetter('d', VMark.NONE, upper))
                     }
