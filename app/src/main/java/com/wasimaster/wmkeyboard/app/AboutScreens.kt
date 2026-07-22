@@ -195,20 +195,11 @@ private val bundledAttributions: List<Attribution> = buildList {
     )
     add(
         Attribution(
-            "Google Fonts",
-            "Keyboard typefaces, downloaded on demand by the system",
-            "Copyright the respective font authors",
-            "SIL Open Font License 1.1", "ofl-1.1.txt",
-            "https://fonts.google.com/attribution",
-        ),
-    )
-    add(
-        Attribution(
             "CC-CEDICT",
             "Chinese Pinyin conversion dictionary (downloadable pack)",
             "Copyright MDBG and CC-CEDICT contributors",
             "CC BY-SA 4.0", "cc-by-sa-4.0.txt",
-            "https://www.mdbg.net/chinese/dictionary?page=cc-cedict",
+            "https://cc-cedict.org/",
         ),
     )
     add(
@@ -218,6 +209,15 @@ private val bundledAttributions: List<Attribution> = buildList {
             "Copyright Google Inc. and Works Applications Co., Ltd.",
             "BSD-3-Clause / Apache-2.0", "bsd-3-clause.txt",
             "https://github.com/google/mozc",
+        ),
+    )
+    add(
+        Attribution(
+            "Google Fonts",
+            "Keyboard typefaces, downloaded on demand by the system",
+            "Copyright the respective font authors",
+            "SIL Open Font License 1.1", "ofl-1.1.txt",
+            "https://fonts.google.com/attribution",
         ),
     )
 }

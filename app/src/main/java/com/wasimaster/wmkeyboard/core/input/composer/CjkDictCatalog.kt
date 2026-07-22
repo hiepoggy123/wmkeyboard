@@ -3,11 +3,11 @@ package com.wasimaster.wmkeyboard.core.input.composer
 import java.io.File
 
 /**
- * One downloadable CJK conversion-dictionary pack. Small (single-digit MB)
- * compared to the [com.wasimaster.wmkeyboard.core.localllm] models, so unlike
- * those it is checksum-verified after download — a corrupt pinyin table is worse
- * than none. A pack replaces the small bundled base dictionary of the same [id]
- * once downloaded; absent, the bundled asset is used ([ConversionDictionary]).
+ * One downloadable CJK conversion-dictionary pack. These tables are large and
+ * useful only to a minority, so they are NOT bundled — the pack is the only
+ * source. Until it is downloaded the composer types the raw reading with no
+ * candidates. Checksum-verified after download (a corrupt table is worse than
+ * none); see [ConversionDictionary].
  */
 data class CjkDictPack(
     /** Stable key — storage subdir and the bundled asset base name (`pinyin`). */
@@ -22,7 +22,7 @@ data class CjkDictPack(
     val sizeBytes: Long,
     /** Lowercase-hex SHA-256 of the downloaded file; verified before it goes live. */
     val sha256: String,
-    /** On-disk file name, matching the bundled asset it supersedes. */
+    /** On-disk file name for the downloaded pack. */
     val fileName: String,
 ) {
     /** A pack can only be offered once it has a hosting URL and a checksum. */
@@ -42,21 +42,21 @@ object CjkDictCatalog {
         CjkDictPack(
             id = "pinyin",
             langId = "zh",
-            displayName = "Chinese Pinyin (large)",
-            description = "CC-CEDICT-derived Hanzi & phrases — far more than the built-in set.",
-            url = "",
-            sizeBytes = 6_000_000L,
-            sha256 = "",
+            displayName = "Chinese Pinyin dictionary",
+            description = "CC-CEDICT-derived Hanzi & phrases (120k entries). Required for Chinese conversion.",
+            url = "https://raw.githubusercontent.com/wasi-master/wmkeyboard-addon-repository/HEAD/cjk/pinyin.tsv",
+            sizeBytes = 2_489_699L,
+            sha256 = "8baab4c758499272e36dba4bda4253317a4f93bb88bcf386ea86196c50d73715",
             fileName = "pinyin.tsv",
         ),
         CjkDictPack(
             id = "ja_kana",
             langId = "ja",
-            displayName = "Japanese kana→kanji (large)",
-            description = "mozc/SudachiDict-derived readings — richer romaji→kanji conversion.",
-            url = "",
-            sizeBytes = 8_000_000L,
-            sha256 = "",
+            displayName = "Japanese kana→kanji dictionary",
+            description = "mozc-derived readings (1.08M entries, ~42 MB). Required for Japanese conversion.",
+            url = "https://raw.githubusercontent.com/wasi-master/wmkeyboard-addon-repository/HEAD/cjk/ja_kana.tsv",
+            sizeBytes = 41_531_397L,
+            sha256 = "189214b81968c857d7cb020c52fc087ee44918ab28534194f79ea66f45c17a70",
             fileName = "ja_kana.tsv",
         ),
     )
@@ -94,7 +94,7 @@ object CjkDictStore {
         packDir(filesDir, pack).deleteRecursively()
     }
 
-    /** The downloaded pack file for [id] if present, else null (use the bundled asset). */
+    /** The downloaded pack file for [id] if present, else null (no candidates until downloaded). */
     fun downloadedFileFor(filesDir: File, id: String): File? =
         CjkDictCatalog.byId(id)?.let { packFile(filesDir, it).takeIf(File::isFile) }
 
