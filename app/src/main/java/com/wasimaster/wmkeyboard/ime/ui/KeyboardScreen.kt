@@ -34,6 +34,7 @@ import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -290,6 +291,7 @@ import com.wasimaster.wmkeyboard.core.layout.LayoutSpec
 import com.wasimaster.wmkeyboard.core.layout.resolveLayout
 import com.wasimaster.wmkeyboard.core.layout.language
 import com.wasimaster.wmkeyboard.core.layout.ClipboardKeyAction
+import com.wasimaster.wmkeyboard.core.layout.FlickDirection
 import com.wasimaster.wmkeyboard.core.layout.Key
 import com.wasimaster.wmkeyboard.core.layout.KeyAction
 import com.wasimaster.wmkeyboard.core.layout.KeyRole
@@ -305,6 +307,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.abs
+import kotlin.math.max
 import kotlin.math.roundToInt
 import kotlin.random.Random
 
@@ -5540,6 +5543,9 @@ private fun KeyButton(
 ) {
     var pressed by remember { mutableStateOf(false) }
     var showAlternates by remember { mutableStateOf(false) }
+    // The flick arm the finger is currently over on a kana-pad key, driving the
+    // cross popup's highlight; null when centred (a plain tap) or released.
+    var flickDirection by remember { mutableStateOf<FlickDirection?>(null) }
     // Full tappable language list: opened by a long-press on the globe key or
     // by holding the spacebar when more than two languages are enabled (a
     // swipe through a long ring is tedious). Independent of languagePreview.
@@ -5675,6 +5681,7 @@ private fun KeyButton(
                     hapticOnLongPress = settings.hapticOnLongPress,
                     hapticOnLongPressRelease = settings.hapticOnLongPressRelease,
                     openAlternates = { showAlternates = true },
+                    setFlickDirection = { flickDirection = it },
                     onKey = debounced,
                     // Repeat ticks bypass the debounce (raw onKey), taps don't.
                     onKeyRepeat = onKey,
@@ -5748,6 +5755,15 @@ private fun KeyButton(
                         }
                     }
                 }
+            }
+        }
+
+        // Cross popup for a kana-pad key: the centre kana with its flick arms
+        // laid out around it, the arm under the finger highlighted. Shown while
+        // the key is held (unless the long-press alternates popup took over).
+        if (pressed && key.flick.isNotEmpty() && !showAlternates) {
+            Popup(popupPositionProvider = FlickPopupPositionProvider) {
+                FlickCrossPopup(key, flickDirection, settings.popup.fontScale)
             }
         }
 
@@ -5847,6 +5863,66 @@ private fun KeyButton(
                 onDismiss = { showLanguagePicker = false },
             )
         }
+    }
+}
+
+/**
+ * The flick preview shown while a kana-pad key is held: the centre kana with
+ * its defined arms laid out in a plus, the arm the finger is over — or the
+ * centre, when [active] is null — highlighted. Only arms the key actually
+ * defines are drawn, so a key with two flicks shows two chips, not four blanks.
+ */
+@Composable
+private fun FlickCrossPopup(key: Key, active: FlickDirection?, fontScale: Float) {
+    Box(modifier = Modifier.size(148.dp)) {
+        FlickCell(key.output ?: key.label, active == null, Alignment.Center, fontScale)
+        FlickCell(key.flick[FlickDirection.UP], active == FlickDirection.UP, Alignment.TopCenter, fontScale)
+        FlickCell(key.flick[FlickDirection.LEFT], active == FlickDirection.LEFT, Alignment.CenterStart, fontScale)
+        FlickCell(key.flick[FlickDirection.RIGHT], active == FlickDirection.RIGHT, Alignment.CenterEnd, fontScale)
+        FlickCell(key.flick[FlickDirection.DOWN], active == FlickDirection.DOWN, Alignment.BottomCenter, fontScale)
+    }
+}
+
+/** One chip of the flick cross: an empty/absent arm draws nothing. */
+@Composable
+private fun BoxScope.FlickCell(
+    text: String?,
+    highlighted: Boolean,
+    align: Alignment,
+    fontScale: Float,
+) {
+    if (text.isNullOrEmpty()) return
+    val kb = LocalKbTheme.current
+    Box(
+        modifier = Modifier
+            .align(align)
+            .padding(3.dp)
+            .background(
+                if (highlighted) kb.accent else kb.popup,
+                RoundedCornerShape(kb.popupRadiusDp.dp),
+            )
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = text,
+            fontSize = (20 * fontScale).sp,
+            color = if (highlighted) kb.keyText else kb.popupText,
+        )
+    }
+}
+
+/** Centres the flick cross popup on the key it belongs to. */
+private object FlickPopupPositionProvider : PopupPositionProvider {
+    override fun calculatePosition(
+        anchorBounds: IntRect,
+        windowSize: IntSize,
+        layoutDirection: LayoutDirection,
+        popupContentSize: IntSize,
+    ): IntOffset {
+        val x = anchorBounds.left + (anchorBounds.width - popupContentSize.width) / 2
+        val y = anchorBounds.top + (anchorBounds.height - popupContentSize.height) / 2
+        return IntOffset(x, y)
     }
 }
 
@@ -6178,6 +6254,8 @@ private fun Modifier.pointerInputKey(
     hapticOnLongPress: Boolean,
     hapticOnLongPressRelease: Boolean,
     openAlternates: () -> Unit,
+    /** Live flick arm for the cross popup, or null when centred / released. */
+    setFlickDirection: (FlickDirection?) -> Unit,
     onKey: (Key) -> Unit,
     /**
      * Un-debounced sink for auto-repeat ticks (held backspace/space). The
@@ -6559,6 +6637,67 @@ private fun Modifier.pointerInputKey(
                     swiping -> Unit
                     !longPressFired -> onKey(key)
                     hapticOnLongPressRelease -> onKeyPress()
+                }
+            }
+        }
+    } else if (key.action == KeyAction.Text && key.flick.isNotEmpty()) {
+        // A 12-key kana pad key: a tap commits the centre kana, a directional
+        // flick past the slop commits that arm's kana instead. One pointer owns
+        // the whole gesture (like space/backspace) so the cross popup can track
+        // the live direction; a long press still opens the alternates popup.
+        Modifier.pointerInput(key, longPressDelayMs, hapticOnLongPress, hapticOnLongPressRelease) {
+            val slopPx = 22.dp.toPx()
+            awaitEachGesture {
+                val down = awaitFirstDown()
+                setPressed(true)
+                onKeyPress()
+                var dir: FlickDirection? = null
+                var longFired = false
+                val longJob = if (key.longPress.isNotEmpty()) {
+                    scope.launch {
+                        delay(longPressDelayMs.toLong())
+                        if (dir == null) {
+                            longFired = true
+                            if (hapticOnLongPress) onKeyPress()
+                            openAlternates()
+                        }
+                    }
+                } else {
+                    null
+                }
+                while (true) {
+                    val event = awaitPointerEvent()
+                    val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                    if (!change.pressed) { change.consume(); break }
+                    val dx = change.position.x - down.position.x
+                    val dy = change.position.y - down.position.y
+                    // Dominant axis picks the arm; only directions the key
+                    // actually defines count, so a flick toward an empty arm
+                    // falls back to the centre tap rather than committing nothing.
+                    val raw = when {
+                        max(abs(dx), abs(dy)) < slopPx -> null
+                        abs(dx) >= abs(dy) -> if (dx < 0) FlickDirection.LEFT else FlickDirection.RIGHT
+                        else -> if (dy < 0) FlickDirection.UP else FlickDirection.DOWN
+                    }
+                    val resolved = raw?.takeIf { key.flick.containsKey(it) }
+                    if (resolved != dir) {
+                        dir = resolved
+                        setFlickDirection(dir)
+                        // Committing to a flick arm cancels the pending long press.
+                        if (dir != null) longJob?.cancel()
+                    }
+                    change.consume()
+                }
+                longJob?.cancel()
+                setPressed(false)
+                setFlickDirection(null)
+                val chosen = dir?.let { key.flick[it] }
+                when {
+                    chosen != null -> onKey(key.copy(output = chosen))
+                    // The long press already opened alternates; release must not
+                    // also type the centre kana.
+                    longFired -> if (hapticOnLongPressRelease) onKeyPress()
+                    else -> onKey(key)
                 }
             }
         }
