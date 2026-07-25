@@ -1435,12 +1435,14 @@ open class WMKeyboardService : InputMethodService() {
         candidatesEnd: Int,
     ) {
         super.onUpdateSelection(oldSelStart, oldSelEnd, newSelStart, newSelEnd, candidatesStart, candidatesEnd)
-        // The cursor moved away from the composing region (tap elsewhere,
-        // selection handle drag): stop composing so edits apply at the new
-        // position instead of the stale word.
-        if (composing.isNotEmpty() &&
-            (newSelStart != candidatesEnd || newSelEnd != candidatesEnd)
-        ) {
+        val wasComposing = composing.isNotEmpty()
+        // The candidate range is valid when positive/zero. The cursor moved away
+        // from the composing region if it jumped strictly outside [candidatesStart, candidatesEnd].
+        // Invalid or un-reported candidate ranges (-1) must not erroneously cancel active composing.
+        val cursorOutsideCandidates = candidatesStart >= 0 && candidatesEnd >= candidatesStart &&
+            (newSelStart < candidatesStart || newSelEnd > candidatesEnd)
+
+        if (wasComposing && cursorOutsideCandidates) {
             composing = StringBuilder()
             currentInputConnection?.finishComposingText()
             suggestionJob?.cancel()
@@ -1452,7 +1454,7 @@ open class WMKeyboardService : InputMethodService() {
         val voiceStatus = _uiState.value.voice.status
         if ((voiceStatus == VoiceStatus.LISTENING || voiceStatus == VoiceStatus.FINISHING) &&
             _uiState.value.voice.partial.isNotEmpty() &&
-            (newSelStart != candidatesEnd || newSelEnd != candidatesEnd)
+            cursorOutsideCandidates
         ) {
             cancelVoice()
         }
@@ -1465,7 +1467,7 @@ open class WMKeyboardService : InputMethodService() {
         // — via restartSuggestionsAtCursor (which folds in the chip refresh). An
         // active word still being composed in place, or a range selection being
         // dragged out, only refreshes the chips.
-        if (composing.isEmpty() && newSelStart == newSelEnd) {
+        if (!wasComposing && composing.isEmpty() && newSelStart == newSelEnd) {
             currentInputConnection?.let { restartSuggestionsAtCursor(it, newSelStart) }
         } else {
             refreshSmartSuggestion()
