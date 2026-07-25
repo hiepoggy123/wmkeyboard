@@ -1,14 +1,55 @@
-*.iml
-.gradle
-.kotlin
-/local.properties
-.idea
-.DS_Store
-/build
-/captures
-.externalNativeBuild
-.cxx
+# Built application files & Gradle
+.gradle/
+.kotlin/
+build/
+**/build/
 local.properties
+*.apk
+*.aab
+*.ap_
+*.dex
+*.class
 
-# Rust native (Harper grammar engine)
-/native/harper-jni/target
+# Native C/C++ & NDK
+.externalNativeBuild/
+.cxx/
+cmake-build-*/
+
+# Keystores & Signing Keys
+*.keystore
+*.jks
+*.p12
+*.pem
+*.pk8
+
+# IDE & Editor files
+.idea/
+*.iml
+.navigation/
+captures/
+*.hprof
+.vscode/
+
+# OS metadata & temporary files
+.DS_Store
+Thumbs.db
+*~
+*.swp
+*.swo
+
+# Rust (Cargo & Harper native engine)
+target/
+**/target/
+
+# Python (Emoji & build tools)
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+dist/
