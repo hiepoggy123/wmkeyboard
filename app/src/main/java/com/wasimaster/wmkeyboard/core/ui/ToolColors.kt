@@ -91,7 +91,8 @@ fun toolAccentColor(tool: ToolbarTool): Color = when (tool) {
     ToolbarTool.CURSOR_END,
     ToolbarTool.PAGE_UP,
     ToolbarTool.PAGE_DOWN,
-    ToolbarTool.SELECT_WORD -> Color(0xFF90A4AE)
+    ToolbarTool.SELECT_WORD,
+    ToolbarTool.SELECT_LINE -> Color(0xFF90A4AE)
 
     ToolbarTool.HIDE_KEYBOARD -> Color(0xFF607D8B)
 }

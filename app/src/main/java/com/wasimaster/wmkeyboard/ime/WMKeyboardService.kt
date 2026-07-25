@@ -6440,6 +6440,7 @@ open class WMKeyboardService : InputMethodService() {
             TextEditAction.WORD_RIGHT ->
                 sendEditorKey(KeyEvent.KEYCODE_DPAD_RIGHT, selecting, ctrl = true)
             TextEditAction.SELECT_WORD -> selectWordAtCursor(ic)
+            TextEditAction.SELECT_LINE -> selectLineAtCursor(ic)
             TextEditAction.SELECT ->
                 _uiState.update { it.copy(textEditSelecting = !selecting) }
             TextEditAction.SELECT_ALL -> {
@@ -6563,6 +6564,28 @@ open class WMKeyboardService : InputMethodService() {
         var end = caret
         while (start > 0 && isWord(text[start - 1])) start--
         while (end < n && isWord(text[end])) end++
+        if (start == end) return
+        ic.setSelection(start, end)
+        _uiState.update { it.copy(textEditSelecting = true) }
+    }
+
+    /**
+     * Selects the entire line the cursor sits on: walks out to the nearest
+     * newline on either side and sets the selection to span the line content
+     * (newlines themselves are excluded). An empty line leaves the caret
+     * untouched, matching [selectWordAtCursor]'s no-op on bare whitespace.
+     */
+    private fun selectLineAtCursor(ic: InputConnection) {
+        val et = ic.getExtractedText(ExtractedTextRequest(), 0) ?: return
+        val text = et.text ?: return
+        val n = text.length
+        val caret = et.selectionEnd.let { if (it in 0..n) it else et.selectionStart }
+        if (caret !in 0..n) return
+        fun isLineBreak(c: Char) = c == '\n' || c == '\r'
+        var start = caret
+        var end = caret
+        while (start > 0 && !isLineBreak(text[start - 1])) start--
+        while (end < n && !isLineBreak(text[end])) end++
         if (start == end) return
         ic.setSelection(start, end)
         _uiState.update { it.copy(textEditSelecting = true) }

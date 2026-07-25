@@ -86,6 +86,7 @@ import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.FirstPage
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.HighlightAlt
+import androidx.compose.material.icons.outlined.ViewHeadline
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.KeyboardHide
@@ -724,6 +725,7 @@ fun KeyboardScreen(
             ToolbarTool.PAGE_UP -> onTextEdit(TextEditAction.PAGE_UP)
             ToolbarTool.PAGE_DOWN -> onTextEdit(TextEditAction.PAGE_DOWN)
             ToolbarTool.SELECT_WORD -> onTextEdit(TextEditAction.SELECT_WORD)
+            ToolbarTool.SELECT_LINE -> onTextEdit(TextEditAction.SELECT_LINE)
             ToolbarTool.HIDE_KEYBOARD -> onHideKeyboard()
         }
     }
@@ -2342,6 +2344,7 @@ internal fun toolIcon(tool: ToolbarTool): ImageVector = when (tool) {
     ToolbarTool.PAGE_UP -> Icons.Outlined.KeyboardDoubleArrowUp
     ToolbarTool.PAGE_DOWN -> Icons.Outlined.KeyboardDoubleArrowDown
     ToolbarTool.SELECT_WORD -> Icons.Outlined.HighlightAlt
+    ToolbarTool.SELECT_LINE -> Icons.Outlined.ViewHeadline
 }
 
 internal fun toolLabel(tool: ToolbarTool): String = when (tool) {
@@ -2402,6 +2405,7 @@ internal fun toolLabel(tool: ToolbarTool): String = when (tool) {
     ToolbarTool.PAGE_UP -> "Page up"
     ToolbarTool.PAGE_DOWN -> "Page down"
     ToolbarTool.SELECT_WORD -> "Select word"
+    ToolbarTool.SELECT_LINE -> "Select line"
 }
 
 private fun toolActive(tool: ToolbarTool, state: KeyboardUiState): Boolean = when (tool) {
@@ -2456,7 +2460,7 @@ private fun toolActive(tool: ToolbarTool, state: KeyboardUiState): Boolean = whe
     ToolbarTool.CURSOR_UP, ToolbarTool.CURSOR_DOWN,
     ToolbarTool.CURSOR_HOME, ToolbarTool.CURSOR_END,
     ToolbarTool.PAGE_UP, ToolbarTool.PAGE_DOWN,
-    ToolbarTool.SELECT_WORD,
+    ToolbarTool.SELECT_WORD, ToolbarTool.SELECT_LINE,
     // A one-shot action too — it hides the keyboard, nothing to keep lit.
     ToolbarTool.HIDE_KEYBOARD -> false
 }

@@ -68,6 +68,7 @@ import androidx.compose.material.icons.outlined.FlashlightOn
 import androidx.compose.material.icons.outlined.FirstPage
 import androidx.compose.material.icons.outlined.Keyboard
 import androidx.compose.material.icons.outlined.HighlightAlt
+import androidx.compose.material.icons.outlined.ViewHeadline
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.KeyboardDoubleArrowDown
@@ -4244,6 +4245,7 @@ internal fun toolTitle(tool: ToolbarTool): String = when (tool) {
     ToolbarTool.PAGE_UP -> "Page up"
     ToolbarTool.PAGE_DOWN -> "Page down"
     ToolbarTool.SELECT_WORD -> "Select word"
+    ToolbarTool.SELECT_LINE -> "Select line"
     ToolbarTool.HIDE_KEYBOARD -> "Hide keyboard"
 }
 
@@ -4304,6 +4306,7 @@ internal fun toolDescription(tool: ToolbarTool): String = when (tool) {
     ToolbarTool.PAGE_UP -> "Scroll the cursor up a page"
     ToolbarTool.PAGE_DOWN -> "Scroll the cursor down a page"
     ToolbarTool.SELECT_WORD -> "Select the word at the cursor"
+    ToolbarTool.SELECT_LINE -> "Select the entire line at the cursor"
     ToolbarTool.HIDE_KEYBOARD -> "Dismiss the keyboard in one tap"
 }
 
@@ -4364,6 +4367,7 @@ internal fun toolIconFor(tool: ToolbarTool): androidx.compose.ui.graphics.vector
     ToolbarTool.PAGE_UP -> Icons.Outlined.KeyboardDoubleArrowUp
     ToolbarTool.PAGE_DOWN -> Icons.Outlined.KeyboardDoubleArrowDown
     ToolbarTool.SELECT_WORD -> Icons.Outlined.HighlightAlt
+    ToolbarTool.SELECT_LINE -> Icons.Outlined.ViewHeadline
     ToolbarTool.HIDE_KEYBOARD -> Icons.Outlined.KeyboardHide
 }
 

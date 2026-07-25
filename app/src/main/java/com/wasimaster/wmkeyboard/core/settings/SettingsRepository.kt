@@ -181,8 +181,8 @@ enum class ToolbarTool {
     // the toolbar they cost a single tap instead of opening a panel first.
     CURSOR_LEFT, CURSOR_RIGHT, CURSOR_UP, CURSOR_DOWN,
     CURSOR_HOME, CURSOR_END, PAGE_UP, PAGE_DOWN,
-    // Move by whole words (Ctrl+Arrow), and select the word at the cursor.
-    CURSOR_WORD_LEFT, CURSOR_WORD_RIGHT, SELECT_WORD,
+    // Move by whole words (Ctrl+Arrow), and select the word or line at the cursor.
+    CURSOR_WORD_LEFT, CURSOR_WORD_RIGHT, SELECT_WORD, SELECT_LINE,
     // Dismiss the keyboard in one tap. Grouped with the cursor moves in the
     // toolbox (it belongs beside the caret controls, not a panel it opens).
     HIDE_KEYBOARD,
@@ -195,7 +195,7 @@ val CursorTools: List<ToolbarTool> = listOf(
     ToolbarTool.CURSOR_UP, ToolbarTool.CURSOR_DOWN,
     ToolbarTool.CURSOR_HOME, ToolbarTool.CURSOR_END,
     ToolbarTool.PAGE_UP, ToolbarTool.PAGE_DOWN,
-    ToolbarTool.SELECT_WORD,
+    ToolbarTool.SELECT_WORD, ToolbarTool.SELECT_LINE,
 )
 
 fun isSupportedTool(tool: ToolbarTool): Boolean = when {
@@ -242,7 +242,7 @@ private val RankedToolOrder: List<ToolbarTool> = listOf(
     ToolbarTool.CURSOR_WORD_LEFT, ToolbarTool.CURSOR_WORD_RIGHT,
     ToolbarTool.CURSOR_UP, ToolbarTool.CURSOR_DOWN,
     ToolbarTool.CURSOR_HOME, ToolbarTool.CURSOR_END, ToolbarTool.PAGE_UP, ToolbarTool.PAGE_DOWN,
-    ToolbarTool.SELECT_WORD,
+    ToolbarTool.SELECT_WORD, ToolbarTool.SELECT_LINE,
     ToolbarTool.HIDE_KEYBOARD,
 )
 
