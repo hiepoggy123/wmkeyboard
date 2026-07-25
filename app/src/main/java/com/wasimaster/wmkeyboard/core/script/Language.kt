@@ -1596,6 +1596,14 @@ object LanguageRegistry {
             localeTag = "iu-CA",
             layoutIds = listOf(AssetLayouts.IU_SYLLABICS_ID),
         ),
+        LanguageDef(
+            id = "bo",
+            displayName = "བོད་སྐད་ · Tibetan",
+            englishName = "Tibetan",
+            script = ScriptId.TIBETAN,
+            localeTag = "bo-CN",
+            layoutIds = listOf(AssetLayouts.BO_TIBETAN_ID),
+        ),
         // Not a spoken language but a phonetic notation, offered as one so it rides
         // the same enable/select/layout machinery. "-fonipa" is the BCP-47 variant
         // for IPA transcription; the primary subtag is "mul" (multiple languages)

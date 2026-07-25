@@ -208,6 +208,7 @@ object AssetLayouts {
     const val NQO_NKO_ID = "asset_nqo_nko"
     const val IU_SYLLABICS_ID = "asset_iu_syllabics"
     const val SYC_SYRIAC_ID = "asset_syc_syriac"
+    const val BO_TIBETAN_ID = "asset_bo_tibetan"
 
     // --- Composer-driven input methods (Vietnamese Telex/VNI, Japanese romaji,
     // Chinese pinyin): plain QWERTY grids whose "composer" field does the work. ---

@@ -31,6 +31,7 @@ enum class ScriptId {
     IPA,
     TIFINAGH, CHEROKEE,
     NKO, CANADIAN_ABORIGINAL_SYLLABICS,
+    TIBETAN,
 }
 
 /** Which way the script runs. Drives the suggestion strip's layout direction. */
@@ -387,6 +388,14 @@ object ScriptRegistry {
             composer = ComposerType.NONE,
             fontHint = FontHint.GENERIC,
             unicodeRange = 0x1400..0x167F,
+        ),
+        ScriptDef(
+            id = ScriptId.TIBETAN,
+            direction = TextDirection.LTR,
+            hasLetterCase = false,
+            composer = ComposerType.INDIC_CLUSTER,
+            fontHint = FontHint.GENERIC,
+            unicodeRange = 0x0F00..0x0FFF,
         ),
     ).associateBy { it.id }
 
