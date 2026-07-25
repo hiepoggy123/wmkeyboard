@@ -15,7 +15,7 @@ package com.wasimaster.wmkeyboard.core.script
  */
 enum class ScriptId {
     LATIN, CYRILLIC, GREEK, ARMENIAN, GEORGIAN,
-    ARABIC, HEBREW,
+    ARABIC, HEBREW, SYRIAC,
     DEVANAGARI, BENGALI, GURMUKHI, GUJARATI, ORIYA,
     TAMIL, TELUGU, KANNADA, MALAYALAM, SINHALA,
     THAI, LAO, KHMER, MYANMAR,
@@ -161,6 +161,14 @@ object ScriptRegistry {
             composer = ComposerType.NONE,
             fontHint = FontHint.HEBREW,
             unicodeRange = 0x0590..0x05FF,
+        ),
+        ScriptDef(
+            id = ScriptId.SYRIAC,
+            direction = TextDirection.RTL,
+            hasLetterCase = false,
+            composer = ComposerType.NONE,
+            fontHint = FontHint.GENERIC,
+            unicodeRange = 0x0700..0x074F,
         ),
         ScriptDef(
             id = ScriptId.DEVANAGARI,

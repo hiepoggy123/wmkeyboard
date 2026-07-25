@@ -1549,6 +1549,14 @@ object LanguageRegistry {
             layoutIds = listOf(AssetLayouts.YI_STANDARD_ID),
         ),
         LanguageDef(
+            id = "syc",
+            displayName = "ܣܘܪܝܝܐ · Syriac",
+            englishName = "Syriac",
+            script = ScriptId.SYRIAC,
+            localeTag = "syc",
+            layoutIds = listOf(AssetLayouts.SYC_SYRIAC_ID),
+        ),
+        LanguageDef(
             id = "grc",
             displayName = "Ancient Greek · Polytonic",
             englishName = "Polytonic Greek",

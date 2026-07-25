@@ -1,0 +1,61 @@
+{
+  "format": "wmkeyboard-layout",
+  "version": 1,
+  "layout": {
+    "id": "asset_syc_syriac",
+    "name": "ܣܘܪܝܝܐ (Syriac)",
+    "langId": "syc",
+    "version": 1,
+    "layers": {
+      "letters": {
+        "rows": [
+          [
+            { "label": "ܐ", "longPress": ["ܰ", "ܱ", "ܲ"] },
+            { "label": "ܒ", "longPress": ["ܳ", "ܴ", "ܵ"] },
+            { "label": "ܓ", "longPress": ["ܶ", "ܷ", "ܸ"] },
+            { "label": "ܕ", "longPress": ["ܹ", "ܺ", "ܻ"] },
+            { "label": "ܗ", "longPress": ["ܼ", "ܽ", "ܾ"] },
+            { "label": "ܘ", "longPress": ["ܰ", "ܱ", "ܲ"] },
+            { "label": "ܙ", "longPress": ["ܳ", "ܴ", "ܵ"] },
+            { "label": "ܚ", "longPress": ["ܶ", "ܷ", "ܸ"] },
+            { "label": "ܛ", "longPress": ["ܹ", "ܺ", "ܻ"] },
+            { "label": "ܝ", "longPress": ["ܼ", "ܽ", "ܾ"] }
+          ],
+          [
+            { "label": "ܟ", "longPress": ["ܰ", "ܱ", "ܲ"] },
+            { "label": "ܠ", "longPress": ["ܳ", "ܴ", "ܵ"] },
+            { "label": "ܡ", "longPress": ["ܶ", "ܷ", "ܸ"] },
+            { "label": "ܢ", "longPress": ["ܹ", "ܺ", "ܻ"] },
+            { "label": "ܣ", "longPress": ["ܼ", "ܽ", "ܾ"] },
+            { "label": "ܥ", "longPress": ["ܰ", "ܱ", "ܲ"] },
+            { "label": "ܦ", "longPress": ["ܳ", "ܴ", "ܵ"] },
+            { "label": "ܨ", "longPress": ["ܶ", "ܷ", "ܸ"] },
+            { "label": "ܩ", "longPress": ["ܹ", "ܺ", "ܻ"] },
+            { "label": "ܪ", "longPress": ["ܼ", "ܽ", "ܾ"] }
+          ],
+          [
+            { "label": "ܫ", "longPress": ["ܰ", "ܱ", "ܲ"] },
+            { "label": "ܬ", "longPress": ["ܳ", "ܴ", "ܵ"] },
+            { "label": "ܰ" },
+            { "label": "ܱ" },
+            { "label": "ܲ" },
+            { "label": "ܳ" },
+            { "label": "ܴ" },
+            { "label": "ܵ" },
+            { "label": "ܶ" },
+            { "label": "ܷ" }
+          ],
+          [
+            { "label": "?123", "action": { "type": "symbols" }, "width": 1.5 },
+            { "label": ",", "longPress": ["!", "?"], "role": "Comma" },
+            { "label": "🌐", "action": { "type": "language_switch" } },
+            { "label": " ", "action": { "type": "space" }, "width": 4 },
+            { "label": ".", "longPress": ["…", ",", "?", "!", ":", ";"], "role": "Period" },
+            { "label": "⌫", "action": { "type": "delete" }, "width": 1.5 },
+            { "label": "⏎", "action": { "type": "enter" }, "width": 1.5 }
+          ]
+        ]
+      }
+    }
+  }
+}
