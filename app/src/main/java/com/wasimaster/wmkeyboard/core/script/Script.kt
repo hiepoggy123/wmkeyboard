@@ -29,8 +29,8 @@ enum class ScriptId {
      * key commits its symbol as-is.
      */
     IPA,
-    TIFINAGH,
-    CHEROKEE,
+    TIFINAGH, CHEROKEE,
+    NKO, CANADIAN_ABORIGINAL_SYLLABICS,
 }
 
 /** Which way the script runs. Drives the suggestion strip's layout direction. */
@@ -363,6 +363,22 @@ object ScriptRegistry {
             composer = ComposerType.NONE,
             fontHint = FontHint.GENERIC,
             unicodeRange = 0x13A0..0x13FF,
+        ),
+        ScriptDef(
+            id = ScriptId.NKO,
+            direction = TextDirection.RTL,
+            hasLetterCase = false,
+            composer = ComposerType.NONE,
+            fontHint = FontHint.GENERIC,
+            unicodeRange = 0x07C0..0x07FF,
+        ),
+        ScriptDef(
+            id = ScriptId.CANADIAN_ABORIGINAL_SYLLABICS,
+            direction = TextDirection.LTR,
+            hasLetterCase = false,
+            composer = ComposerType.NONE,
+            fontHint = FontHint.GENERIC,
+            unicodeRange = 0x1400..0x167F,
         ),
     ).associateBy { it.id }
 

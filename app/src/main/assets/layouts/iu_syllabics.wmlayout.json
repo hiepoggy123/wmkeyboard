@@ -1,0 +1,60 @@
+{
+  "format": "wmkeyboard-layout",
+  "version": 1,
+  "layout": {
+    "id": "asset_iu_syllabics",
+    "name": "ᐃᓄᒃᑎᑐᑦ (Inuktitut)",
+    "langId": "iu",
+    "version": 1,
+    "layers": {
+      "letters": {
+        "rows": [
+          [
+            { "label": "ᐊ", "longPress": ["ᐃ", "ᐅ", "ᐁ"] },
+            { "label": "ᐱ", "longPress": ["ᐲ", "ᐳ", "ᐸ"] },
+            { "label": "ᑎ", "longPress": ["ᑏ", "ᑐ", "ᑕ"] },
+            { "label": "ᑭ", "longPress": ["ᑮ", "ᑯ", "ᑲ"] },
+            { "label": "ᒥ", "longPress": ["ᒦ", "ᒧ", "ᒪ"] },
+            { "label": "ᓂ", "longPress": ["ᓃ", "ᓄ", "ᓇ"] },
+            { "label": "ᓴ", "longPress": ["ᓯ", "ᓱ", "ᓵ"] },
+            { "label": "ᔭ", "longPress": ["ᔨ", "ᔪ", "ᔭ"] },
+            { "label": "ᕙ", "longPress": ["ᕕ", "ᕗ", "ᕘ"] }
+          ],
+          [
+            { "label": "ᐸ", "longPress": ["ᐱ", "ᐳ", "ᐁ"] },
+            { "label": "ᑕ", "longPress": ["ᑎ", "ᑐ", "ᑏ"] },
+            { "label": "ᑲ", "longPress": ["ᑭ", "ᑯ", "ᑮ"] },
+            { "label": "ᒪ", "longPress": ["ᒥ", "ᒧ", "ᒦ"] },
+            { "label": "ᓇ", "longPress": ["ᓂ", "ᓄ", "ᓃ"] },
+            { "label": "ᓵ", "longPress": ["ᓴ", "ᓯ", "ᓱ"] },
+            { "label": "ᔪ", "longPress": ["ᔭ", "ᔨ", "ᔫ"] },
+            { "label": "ᕗ", "longPress": ["ᕙ", "ᕕ", "ᕘ"] },
+            { "label": "ᕋ", "longPress": ["ᕆ", "ᕇ", "ᕈ"] },
+            { "label": "ᙯ", "longPress": ["ᙱ", "ᙳ", "ᙰ"] }
+          ],
+          [
+            { "label": "ᐊ", "longPress": ["ᐃ", "ᐅ", "ᐁ"] },
+            { "label": "ᐱ", "longPress": ["ᐲ", "ᐳ", "ᐸ"] },
+            { "label": "ᑎ", "longPress": ["ᑏ", "ᑐ", "ᑕ"] },
+            { "label": "ᑭ", "longPress": ["ᑮ", "ᑯ", "ᑲ"] },
+            { "label": "ᒥ", "longPress": ["ᒦ", "ᒧ", "ᒪ"] },
+            { "label": "ᓂ", "longPress": ["ᓃ", "ᓄ", "ᓇ"] },
+            { "label": "ᓴ", "longPress": ["ᓯ", "ᓱ", "ᓵ"] },
+            { "label": "ᔭ", "longPress": ["ᔨ", "ᔪ", "ᔭ"] },
+            { "label": "ᕙ", "longPress": ["ᕕ", "ᕗ", "ᕘ"] },
+            { "label": "ᕆ", "longPress": ["ᕇ", "ᕈ", "ᕋ"] }
+          ],
+          [
+            { "label": "?123", "action": { "type": "symbols" }, "width": 1.5 },
+            { "label": ",", "longPress": ["!", "?"], "role": "Comma" },
+            { "label": "🌐", "action": { "type": "language_switch" } },
+            { "label": " ", "action": { "type": "space" }, "width": 4 },
+            { "label": ".", "longPress": ["…", ",", "?", "!", ":", ";"], "role": "Period" },
+            { "label": "⌫", "action": { "type": "delete" }, "width": 1.5 },
+            { "label": "⏎", "action": { "type": "enter" }, "width": 1.5 }
+          ]
+        ]
+      }
+    }
+  }
+}

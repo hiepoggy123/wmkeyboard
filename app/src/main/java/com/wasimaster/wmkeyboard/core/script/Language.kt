@@ -1572,6 +1572,22 @@ object LanguageRegistry {
             localeTag = "chr-US",
             layoutIds = listOf(AssetLayouts.CHR_CHEROKEE_ID),
         ),
+        LanguageDef(
+            id = "nqo",
+            displayName = "ߒߞߏ · N’Ko",
+            englishName = "N’Ko",
+            script = ScriptId.NKO,
+            localeTag = "nqo-GN",
+            layoutIds = listOf(AssetLayouts.NQO_NKO_ID),
+        ),
+        LanguageDef(
+            id = "iu",
+            displayName = "ᐃᓄᒃᑎᑐᑦ · Inuktitut",
+            englishName = "Inuktitut",
+            script = ScriptId.CANADIAN_ABORIGINAL_SYLLABICS,
+            localeTag = "iu-CA",
+            layoutIds = listOf(AssetLayouts.IU_SYLLABICS_ID),
+        ),
         // Not a spoken language but a phonetic notation, offered as one so it rides
         // the same enable/select/layout machinery. "-fonipa" is the BCP-47 variant
         // for IPA transcription; the primary subtag is "mul" (multiple languages)

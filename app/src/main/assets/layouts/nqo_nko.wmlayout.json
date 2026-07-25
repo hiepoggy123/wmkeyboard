@@ -1,0 +1,61 @@
+{
+  "format": "wmkeyboard-layout",
+  "version": 1,
+  "layout": {
+    "id": "asset_nqo_nko",
+    "name": "ߒߞߏ (N’Ko)",
+    "langId": "nqo",
+    "version": 1,
+    "layers": {
+      "letters": {
+        "rows": [
+          [
+            { "label": "ߊ", "longPress": ["ߴ", "ߵ"] },
+            { "label": "ߋ", "longPress": ["ߴ", "ߵ"] },
+            { "label": "ߌ", "longPress": ["ߴ", "ߵ"] },
+            { "label": "ߍ", "longPress": ["ߴ", "ߵ"] },
+            { "label": "ߎ", "longPress": ["ߴ", "ߵ"] },
+            { "label": "ߏ", "longPress": ["ߴ", "ߵ"] },
+            { "label": "ߐ" },
+            { "label": "ߑ" },
+            { "label": "ߒ" },
+            { "label": "ߓ" }
+          ],
+          [
+            { "label": "ߔ" },
+            { "label": "ߕ" },
+            { "label": "ߖ" },
+            { "label": "ߗ" },
+            { "label": "ߘ" },
+            { "label": "ߙ" },
+            { "label": "ߚ" },
+            { "label": "ߛ" },
+            { "label": "ߜ" },
+            { "label": "ߝ" }
+          ],
+          [
+            { "label": "ߞ" },
+            { "label": "ߟ" },
+            { "label": "ߠ" },
+            { "label": "ߡ" },
+            { "label": "ߢ" },
+            { "label": "ߣ" },
+            { "label": "ߤ" },
+            { "label": "ߥ" },
+            { "label": "ߦ" },
+            { "label": "ߧ" }
+          ],
+          [
+            { "label": "?123", "action": { "type": "symbols" }, "width": 1.5 },
+            { "label": "߸", "longPress": ["!", "?"] , "role": "Comma" },
+            { "label": "🌐", "action": { "type": "language_switch" } },
+            { "label": " ", "action": { "type": "space" }, "width": 4 },
+            { "label": "߹", "longPress": ["…", ",", "?", "!", ":", ";"], "role": "Period" },
+            { "label": "⌫", "action": { "type": "delete" }, "width": 1.5 },
+            { "label": "⏎", "action": { "type": "enter" }, "width": 1.5 }
+          ]
+        ]
+      }
+    }
+  }
+}
