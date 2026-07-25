@@ -78,8 +78,29 @@ android {
         }
     }
 
+    signingConfigs {
+        create("release") {
+            val storeFilePath = apiKey("RELEASE_STORE_FILE", "RELEASE_STORE_FILE")
+            if (storeFilePath.isNotEmpty()) {
+                val file = rootProject.file(storeFilePath)
+                if (file.exists()) {
+                    storeFile = file
+                    storePassword = apiKey("RELEASE_STORE_PASSWORD", "RELEASE_STORE_PASSWORD")
+                    keyAlias = apiKey("RELEASE_KEY_ALIAS", "RELEASE_KEY_ALIAS")
+                    keyPassword = apiKey("RELEASE_KEY_PASSWORD", "RELEASE_KEY_PASSWORD")
+                }
+            }
+        }
+    }
+
     buildTypes {
         release {
+            val releaseSigningConfig = signingConfigs.getByName("release")
+            signingConfig = if (releaseSigningConfig.storeFile?.exists() == true) {
+                releaseSigningConfig
+            } else {
+                signingConfigs.getByName("debug")
+            }
             isMinifyEnabled = true
             isShrinkResources = true
             optimization {
@@ -98,6 +119,7 @@ android {
     packaging {
         jniLibs {
             useLegacyPackaging = false
+            keepDebugSymbols += "**/*.so"
         }
     }
 
@@ -109,7 +131,7 @@ android {
     sourceSets {
         // Lite builds exclude native libraries (Harper grammar, ~20 MB per ABI).
         getByName("lite") {
-            jniLibs.setSrcDirs(emptySet<String>())
+            jniLibs.directories.clear()
         }
     }
 }
