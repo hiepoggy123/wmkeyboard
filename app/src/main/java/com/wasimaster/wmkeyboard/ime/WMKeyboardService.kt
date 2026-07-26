@@ -4230,6 +4230,9 @@ open class WMKeyboardService : InputMethodService() {
         val gen = voiceGeneration
         val tag = _uiState.value.voice.languageTag
         val model = whisperModel()
+        // Grouped graphs take the language as an input, so hand them the language
+        // being typed in rather than letting them guess from a short clip.
+        val langToken = model?.langTokenFor(_uiState.value.language.id)
         if (model == null) {
             serviceScope.launch(Dispatchers.IO) { runCatching { recorder.stop() } }
             _uiState.update { it.copy(voice = it.voice.copy(status = VoiceStatus.IDLE, level = 0f)) }
@@ -4248,6 +4251,7 @@ open class WMKeyboardService : InputMethodService() {
                     WhisperStore.vocabFile(filesDir, model),
                     pcm,
                     _uiState.value.settings.whisper.translate,
+                    langToken,
                 )
             }
             withContext(Dispatchers.Main) {
