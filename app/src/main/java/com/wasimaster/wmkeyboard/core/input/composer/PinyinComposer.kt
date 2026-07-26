@@ -45,7 +45,7 @@ object PinyinComposer : Composer {
     }
 
     /** Syllables of [buffer] with per-syllable input spans, in the active input mode. */
-    private fun segments(buffer: String): List<PinyinSyllables.Seg> {
+    private fun segments(buffer: String): List<Seg> {
         val table = doublePinyinTable()
         return if (table != null) DoublePinyin.segments(buffer, table, PinyinSyllables.valid)
         else PinyinSyllables.segment(buffer)

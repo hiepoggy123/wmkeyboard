@@ -49,12 +49,15 @@ object T9PinyinComposer : Composer {
 
     /**
      * Splits the digit buffer against the digit codes of real syllables. Reuses
-     * [PinyinSyllables.segment] verbatim — greedy longest match with `'` as a
-     * forced boundary — because segmenting digit codes and segmenting syllables
-     * are the same problem over a different alphabet. Each returned
-     * [PinyinSyllables.Seg.syllable] is therefore a digit code, not a syllable.
+     * [PinyinSyllables.segment] verbatim, because segmenting digit codes and
+     * segmenting syllables are the same problem over a different alphabet. Each
+     * returned [Seg.syllable] is therefore a digit code, not a syllable.
+     *
+     * The backtracking search matters more here than anywhere: 412 syllables
+     * collapse onto ~230 codes over an eight-symbol alphabet, so ambiguous splits
+     * are far commoner among digits than among letters.
      */
-    private fun segments(buffer: String): List<PinyinSyllables.Seg> =
+    private fun segments(buffer: String): List<Seg> =
         PinyinSyllables.segment(buffer, T9Pinyin.index.keys)
 
     /**

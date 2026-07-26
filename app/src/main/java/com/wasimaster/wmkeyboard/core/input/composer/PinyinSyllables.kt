@@ -23,41 +23,23 @@ object PinyinSyllables {
     /** Longest real toneless pinyin syllable is 6 chars (`zhuang`, `chuang`, `shuang`). */
     private const val MAX_SYLLABLE = 6
 
-    /** One segmented syllable and how many input chars it spanned. */
-    data class Seg(val syllable: String, val inputLen: Int)
-
     /**
-     * Splits [buffer] into leading syllables using [inventory], greedily taking
-     * the longest valid syllable at each position and honouring `'` as a forced
-     * boundary. A leading apostrophe is folded into the next syllable's
+     * Splits [buffer] into leading syllables using [inventory], honouring `'` as a
+     * forced boundary. A leading apostrophe is folded into the next syllable's
      * [Seg.inputLen] so a prefix commit deletes it along with the syllable.
-     * Stops at the first position that no valid syllable covers (an in-progress
-     * trailing syllable), returning the syllables matched so far; the caller
-     * treats the unconsumed remainder as raw input.
+     *
+     * Backtracks, via [SyllableSegmenter] — pinyin finals ending in -n/-ng let a
+     * syllable borrow the first letter of a vowel-initial one that follows, so
+     * greedy both mis-splits (`pingan` never reaching `pin`+`gan`) and drops the
+     * tail outright (`sanguo` matching `sang`, then dead-ending on `uo`).
      */
-    fun segment(buffer: String, inventory: Set<String>): List<Seg> {
-        if (buffer.isEmpty() || inventory.isEmpty()) return emptyList()
-        val s = buffer.lowercase()
-        val out = ArrayList<Seg>()
-        var i = 0
-        while (i < s.length) {
-            // Consume any apostrophe boundaries; count them toward this syllable's
-            // input span so deletion math stays exact.
-            var lead = 0
-            while (i + lead < s.length && s[i + lead] == '\'') lead++
-            val start = i + lead
-            if (start >= s.length) break
-            var matchLen = 0
-            val maxLen = minOf(MAX_SYLLABLE, s.length - start)
-            for (len in maxLen downTo 1) {
-                if (s.substring(start, start + len) in inventory) { matchLen = len; break }
-            }
-            if (matchLen == 0) break
-            out.add(Seg(s.substring(start, start + matchLen), lead + matchLen))
-            i = start + matchLen
-        }
-        return out
-    }
+    fun segment(buffer: String, inventory: Set<String>): List<Seg> =
+        SyllableSegmenter.segment(
+            buffer,
+            inventory,
+            maxUnit = MAX_SYLLABLE,
+            skipBefore = { it == '\'' },
+        )
 
     /** [segment] against the loaded global inventory. */
     fun segment(buffer: String): List<Seg> = segment(buffer, valid)

@@ -35,33 +35,26 @@ object ZhuyinSyllables {
     data class Seg(val syllable: String, val pinyin: String, val inputLen: Int)
 
     /**
-     * Splits [buffer] into leading syllables against [table], greedily taking the
-     * longest match and folding any trailing tone mark into that syllable's
-     * [Seg.inputLen] — the mirror of the way [PinyinSyllables.segment] folds a
-     * *leading* apostrophe. Stops at the first position nothing covers, so a
-     * half-typed syllable is left for the caller to treat as raw input.
+     * Splits [buffer] into leading syllables against [table], folding any trailing
+     * tone mark into that syllable's [Seg.inputLen] — the mirror of the way
+     * [PinyinSyllables.segment] folds a *leading* apostrophe. Stops where nothing
+     * covers, so a half-typed syllable is left for the caller as raw input.
+     *
+     * Shares [SyllableSegmenter] with the other conversion scripts, then attaches
+     * each unit's pinyin reading. Bopomofo cannot actually mis-split — its
+     * initials, medials and finals are disjoint character classes, so no syllable
+     * can borrow the next one's first character — but running the same search
+     * keeps one walk to reason about rather than three, and lowercasing is off
+     * because bopomofo has no case.
      */
-    fun segment(buffer: String, table: Map<String, String>): List<Seg> {
-        if (buffer.isEmpty() || table.isEmpty()) return emptyList()
-        val out = ArrayList<Seg>()
-        var i = 0
-        while (i < buffer.length) {
-            var matchLen = 0
-            val maxLen = minOf(MAX_SYLLABLE, buffer.length - i)
-            for (len in maxLen downTo 1) {
-                if (buffer.substring(i, i + len) in table) { matchLen = len; break }
-            }
-            if (matchLen == 0) break
-            val syllable = buffer.substring(i, i + matchLen)
-            i += matchLen
-            // A tone mark belongs to the syllable it follows: counted in the span
-            // so a prefix commit deletes it, but never part of the reading.
-            val toned = i < buffer.length && buffer[i] in TONES
-            if (toned) i++
-            out.add(Seg(syllable, table.getValue(syllable), matchLen + if (toned) 1 else 0))
-        }
-        return out
-    }
+    fun segment(buffer: String, table: Map<String, String>): List<Seg> =
+        SyllableSegmenter.segment(
+            buffer,
+            table.keys,
+            maxUnit = MAX_SYLLABLE,
+            skipAfter = { it in TONES },
+            lowercase = false,
+        ).map { Seg(it.syllable, table.getValue(it.syllable), it.inputLen) }
 
     /** [segment] against the loaded global table. */
     fun segment(buffer: String): List<Seg> = segment(buffer, table)

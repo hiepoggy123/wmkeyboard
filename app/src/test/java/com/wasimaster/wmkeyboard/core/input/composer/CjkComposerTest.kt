@@ -209,11 +209,81 @@ class CjkComposerTest {
 
     private val fixtureSyllables = setOf("ni", "hao", "xi", "an", "wo")
 
+    /**
+     * The real ~410-syllable inventory, read from disk the way
+     * `zhuyin encodes every syllable the shipped inventory contains` does. The
+     * backtracking cases only exist against the full set — a hand-written fixture
+     * cannot reproduce which prefixes happen to collide.
+     */
+    private val shippedSyllables: Set<String> by lazy {
+        File("src/main/assets/dictionaries/pinyin_syllables.txt")
+            .readText().lineSequence().let(PinyinSyllables::parse)
+            .also { assertTrue("inventory asset is missing or empty", it.size > 400) }
+    }
+
     @Test
-    fun `segmenter splits a multi-syllable buffer greedily`() {
+    fun `segmenter splits a multi-syllable buffer longest-first`() {
         val segs = PinyinSyllables.segment("nihao", fixtureSyllables)
         assertEquals(listOf("ni", "hao"), segs.map { it.syllable })
         assertEquals(listOf(2, 3), segs.map { it.inputLen })
+    }
+
+    @Test
+    fun `segmenter backtracks instead of dropping the tail`() {
+        // A greedy longest-match takes the -n/-ng final, then dead-ends on the
+        // vowel-initial syllable that follows and returns only what it had — so
+        // the trailing letters silently vanish from the candidate list. Each of
+        // these is a real word that lost characters that way.
+        val inventory = shippedSyllables
+        for ((buffer, expected) in listOf(
+            "sanguo" to listOf("san", "guo"),   // 三国, greedy: [sang], "uo" dropped
+            "jinian" to listOf("ji", "nian"),   // 纪念, greedy: [jin], "ian" dropped
+            "xianguo" to listOf("xian", "guo"), // greedy: [xiang], "uo" dropped
+            "banian" to listOf("ba", "nian"),   // greedy: [ban], "ian" dropped
+        )) {
+            val segs = PinyinSyllables.segment(buffer, inventory)
+            assertEquals(buffer, expected, segs.map { it.syllable })
+            // Nothing may be left behind: the whole buffer is a real reading.
+            assertEquals(buffer, buffer.length, segs.sumOf { it.inputLen })
+        }
+    }
+
+    @Test
+    fun `segmenter prefers the longest split that still completes`() {
+        // Both ping|an and pin|gan cover the buffer, so the old longest-first
+        // preference still decides — backtracking only overrides it when the
+        // longer step cannot reach the end.
+        val segs = PinyinSyllables.segment("pingan", shippedSyllables)
+        assertEquals(listOf("ping", "an"), segs.map { it.syllable })
+        assertEquals(6, segs.sumOf { it.inputLen })
+    }
+
+    @Test
+    fun `segmenter input lengths sum to the segmented prefix`() {
+        // The invariant prefix commit cannot survive without: consumedFor adds
+        // these up to decide how much of the buffer to delete, so a span that
+        // over- or under-counts eats the user's text.
+        //
+        // Paired against the vowel-initial syllables specifically, because those
+        // are the ones a preceding -n/-ng/-r final can swallow the first letter
+        // of — the shape that makes a greedy walk lose the tail. There are only
+        // about a dozen: standard pinyin spells i-/u- initial syllables yi-/wu-.
+        val inventory = shippedSyllables
+        val vowelInitial = inventory.filter { it.first() in "aeo" }
+        assertTrue("no vowel-initial syllables found", vowelInitial.size > 8)
+        for (a in inventory) {
+            for (b in vowelInitial) {
+                val buffer = a + b
+                val segs = PinyinSyllables.segment(buffer, inventory)
+                val consumed = segs.sumOf { it.inputLen }
+                assertTrue("$buffer consumed $consumed of ${buffer.length}", consumed <= buffer.length)
+                // The spans tile the consumed prefix with no gap or overlap: with
+                // no separators in play, the syllables are the buffer's own chars.
+                assertEquals(buffer, buffer.take(consumed), segs.joinToString("") { it.syllable })
+                // And a concatenation of two real syllables always segments whole.
+                assertEquals(buffer, buffer.length, consumed)
+            }
+        }
     }
 
     @Test
@@ -326,6 +396,26 @@ class CjkComposerTest {
         val segs = DoublePinyin.segments("nihc", t, valid)
         assertEquals(listOf("ni", "hao"), segs.map { it.syllable })
         assertEquals(listOf(2, 2), segs.map { it.inputLen })
+    }
+
+    @Test
+    fun `double pinyin survives an apostrophe`() {
+        // An apostrophe means nothing in Double Pinyin — a syllable is always
+        // two keys — but the user can still type one, and stepping blindly by two
+        // would pair it with a real key and desync the parity of every syllable
+        // after it, mistranslating the rest of the buffer.
+        val valid = setOf("ni", "hao")
+        val t = DoublePinyin.tableFor(DoublePinyinScheme.XIAOHE)!!
+        val segs = DoublePinyin.segments("ni'hc", t, valid)
+        assertEquals(listOf("ni", "hao"), segs.map { it.syllable })
+        // The skipped key is charged to the syllable it introduced, so a prefix
+        // commit deletes exactly the three chars the user typed for "hao".
+        assertEquals(listOf(2, 3), segs.map { it.inputLen })
+        assertEquals(5, segs.sumOf { it.inputLen })
+        // The preview agrees with the segmentation.
+        assertEquals("nihao", DoublePinyin.translate("ni'hc", t, valid))
+        // A dangling key after a separator still shows up raw.
+        assertEquals("nih", DoublePinyin.translate("ni'h", t, valid))
     }
 
     @Test
@@ -489,6 +579,20 @@ class CjkComposerTest {
         assertEquals(5, T9PinyinComposer.consumedFor("64426", "??"))
         // The composing region reads back the pinyin of the best candidate.
         assertEquals("nihao", T9PinyinComposer.composeBuffer("64426"))
+    }
+
+    @Test
+    fun `t9 segmenter backtracks over digit codes`() {
+        // The digit alphabet is denser than the letter one — 412 syllables
+        // collapse onto ~230 codes over eight symbols — so a greedy walk loses
+        // the tail more often here than in full pinyin, not less.
+        // san=726, guo=486 → 726486; greedy takes sang=7264 and dead-ends on 86,
+        // which spells no syllable, so the split has to be reconsidered.
+        PinyinSyllables.valid = setOf("san", "guo", "sang")
+        T9Pinyin.index = T9Pinyin.buildIndex(PinyinSyllables.valid)
+        val segs = PinyinSyllables.segment("726486", T9Pinyin.index.keys)
+        assertEquals(listOf("726", "486"), segs.map { it.syllable })
+        assertEquals(6, segs.sumOf { it.inputLen })
     }
 
     @Test

@@ -33,14 +33,23 @@ object DoublePinyin {
      * keys, using [valid] to disambiguate. A dangling final key (odd length —
      * a syllable still being typed) is left unconsumed, mirroring a partial full
      * Pinyin syllable.
+     *
+     * Apostrophes are skipped rather than paired. They carry no meaning here (a
+     * Double Pinyin syllable is always exactly two keys, so there is no boundary
+     * to disambiguate) but the user can still type one, and stepping blindly by
+     * two would then pair the apostrophe with a real key and desync the parity of
+     * every syllable after it. Skipped keys count toward the following syllable's
+     * span so a prefix commit still deletes exactly what was typed.
      */
-    fun segments(buffer: String, table: Table, valid: Set<String>): List<PinyinSyllables.Seg> {
+    fun segments(buffer: String, table: Table, valid: Set<String>): List<Seg> {
         val s = buffer.lowercase()
-        val out = ArrayList<PinyinSyllables.Seg>(s.length / 2)
+        val out = ArrayList<Seg>(s.length / 2)
         var i = 0
-        while (i + 1 < s.length) {
-            out.add(PinyinSyllables.Seg(syllableFor(s[i], s[i + 1], table, valid), 2))
-            i += 2
+        while (i < s.length) {
+            val a = skipSeparators(s, i)
+            if (a + 1 >= s.length) break
+            out.add(Seg(syllableFor(s[a], s[a + 1], table, valid), a + 2 - i))
+            i = a + 2
         }
         return out
     }
@@ -48,17 +57,27 @@ object DoublePinyin {
     /**
      * Full toneless Pinyin for a key [buffer], for the composing-region preview.
      * A dangling final key is appended raw so the user still sees their keystroke.
+     * Skips apostrophes on the same parity-preserving grounds as [segments].
      */
     fun translate(buffer: String, table: Table, valid: Set<String>): String {
         val s = buffer.lowercase()
         val out = StringBuilder()
         var i = 0
-        while (i + 1 < s.length) {
-            out.append(syllableFor(s[i], s[i + 1], table, valid))
-            i += 2
+        while (i < s.length) {
+            val a = skipSeparators(s, i)
+            if (a + 1 >= s.length) { i = a; break }
+            out.append(syllableFor(s[a], s[a + 1], table, valid))
+            i = a + 2
         }
         if (i < s.length) out.append(s[i])
         return out.toString()
+    }
+
+    /** First index at or after [from] that is not an apostrophe. */
+    private fun skipSeparators(s: String, from: Int): Int {
+        var i = from
+        while (i < s.length && s[i] == '\'') i++
+        return i
     }
 
     private fun syllableFor(c1: Char, c2: Char, table: Table, valid: Set<String>): String {
