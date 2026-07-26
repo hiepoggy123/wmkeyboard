@@ -570,7 +570,7 @@ object SmartSuggest {
         ToolbarTool.TYPING_TEST to listOf("wpm"),
         ToolbarTool.DICTIONARY to listOf("define", "dict"),
         ToolbarTool.GRAMMAR to listOf("grammar"),
-        ToolbarTool.CALENDAR to listOf("calendar"),
+        ToolbarTool.CALENDAR to listOf("calendar", "schedule"),
         ToolbarTool.MOON_PHASE to listOf("moon"),
         ToolbarTool.COMPASS to listOf("compass"),
         ToolbarTool.LEVEL to listOf("level"),
