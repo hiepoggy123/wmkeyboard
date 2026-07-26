@@ -217,7 +217,7 @@ fun ThemesScreen(
     // (with the background image embedded as base64) into it.
     var pendingExport by remember { mutableStateOf<ThemeSpec?>(null) }
     val exportLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.CreateDocument("application/json")
+        ActivityResultContracts.CreateDocument(ThemeCodec.MIME_TYPE)
     ) { uri ->
         val theme = pendingExport
         pendingExport = null
@@ -253,7 +253,7 @@ fun ThemesScreen(
     }
     fun export(theme: ThemeSpec) {
         pendingExport = theme
-        exportLauncher.launch("${theme.name.ifBlank { "theme" }}.wmtheme.json")
+        exportLauncher.launch("${theme.name.ifBlank { "theme" }}.${ThemeCodec.FILE_EXTENSION}")
     }
     fun duplicateAndEdit(base: ThemeSpec) {
         scope.launch {
@@ -372,7 +372,7 @@ fun ThemesScreen(
             Text("Create theme")
         }
         Spacer(Modifier.width(8.dp))
-        OutlinedButton(onClick = { importLauncher.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) }) {
+        OutlinedButton(onClick = { importLauncher.launch(ThemeCodec.IMPORT_MIME_TYPES) }) {
             Icon(Icons.Outlined.FileDownload, contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(6.dp))
             Text("Import")

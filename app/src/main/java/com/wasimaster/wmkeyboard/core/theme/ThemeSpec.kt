@@ -119,6 +119,23 @@ private val themeJson = Json {
 }
 
 object ThemeCodec {
+
+    /** Matches the settings backup's `wmsettings.json` shape. */
+    const val FILE_EXTENSION = "wmtheme.json"
+
+    /**
+     * Plain JSON rather than a vendor type, for the reason spelled out in
+     * [com.wasimaster.wmkeyboard.core.layout.LayoutFile.MIME_TYPE]: a custom
+     * MIME would stop most file managers and chat apps from offering the file.
+     */
+    const val MIME_TYPE = "application/json"
+
+    /**
+     * What the import picker accepts. Permissive on purpose: providers report a
+     * `.json` file as `text/plain` or `application/octet-stream` as often as not.
+     */
+    val IMPORT_MIME_TYPES = arrayOf("application/json", "text/plain", "application/octet-stream")
+
     fun encodeList(themes: List<ThemeSpec>): String = themeJson.encodeToString(themes)
 
     fun decodeList(json: String): List<ThemeSpec> =
