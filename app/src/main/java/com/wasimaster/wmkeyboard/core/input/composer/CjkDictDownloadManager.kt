@@ -133,6 +133,10 @@ object CjkDictDownloadManager {
 
     private suspend fun downloadInto(pack: CjkDictPack, part: File) {
         part.parentFile?.mkdirs()
+        // A partial longer than the finished pack can only be junk left by an
+        // earlier bad resume. Resuming past the end would just fail forever and
+        // strand the row on "Download" that never completes, so start over.
+        if (part.length() > pack.sizeBytes) part.delete()
         var resumeFrom = part.length()
 
         val free = StatFs(part.parentFile!!.path).availableBytes
@@ -146,6 +150,15 @@ object CjkDictDownloadManager {
             connection.readTimeout = 30_000
             connection.instanceFollowRedirects = true
             connection.setRequestProperty("User-Agent", USER_AGENT)
+            // Ask for the bytes as they are on the server. Left alone,
+            // HttpURLConnection advertises gzip and silently inflates the reply,
+            // so what lands in the `.part` is *decoded* bytes while `Range` below
+            // counts *encoded* ones — and the packs are served
+            // `Content-Encoding: gzip`. Resuming then asks for a compressed
+            // offset, gets a mid-stream gzip fragment, and the inflater dies on
+            // its missing header ("ID1ID2 … != 1f8b"). Identity keeps the file,
+            // the resume offset and the pack's SHA-256 in one coordinate space.
+            connection.setRequestProperty("Accept-Encoding", "identity")
             if (resumeFrom > 0) connection.setRequestProperty("Range", "bytes=$resumeFrom-")
 
             when (val status = connection.responseCode) {
