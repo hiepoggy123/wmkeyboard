@@ -501,6 +501,10 @@ fun KeyboardScreen(
     canDeleteField: () -> Boolean = { true },
     onDeleteWord: () -> Unit = {},
     onSuggestion: (String) -> Unit,
+    /** A conversion candidate tapped, with its position — see Composer.consumedForIndex. */
+    onCandidate: (String, Int) -> Unit = { text, _ -> onSuggestion(text) },
+    /** Open the expanded candidate grid. */
+    onCandidatesExpand: () -> Unit = {},
     onEmoji: (String) -> Unit,
     onEmojiVariant: (String, String) -> Unit = { _, v -> onEmoji(v) },
     onEmojiFavourite: (String) -> Unit = {},
@@ -685,6 +689,8 @@ fun KeyboardScreen(
                 onCursorMove = onCursorMove,
                 onLayoutSelect = onLayoutSelect,
                 onSuggestion = onSuggestion,
+                onCandidate = onCandidate,
+                onCandidatesExpand = onCandidatesExpand,
                 onEmoji = onEmoji,
                 onEmojiVariant = onEmojiVariant,
                 onEmojiFavourite = onEmojiFavourite,
@@ -1193,6 +1199,10 @@ private const val FullBleedReturnFadeMs = 260
 private fun TopBar(
     state: KeyboardUiState,
     onSuggestion: (String) -> Unit,
+    /** A conversion candidate tapped, with its position — see Composer.consumedForIndex. */
+    onCandidate: (String, Int) -> Unit = { text, _ -> onSuggestion(text) },
+    /** Open the expanded candidate grid. */
+    onCandidatesExpand: () -> Unit = {},
     onEmoji: (String) -> Unit,
     onEmojiSuggestion: (String) -> Unit,
     onPunctuation: (String) -> Unit = {},
@@ -1689,7 +1699,8 @@ private fun TopBar(
                     candidates = shownSuggestions,
                     enabled = suggestionsShowing,
                     alpha = { stripContentAlpha.value },
-                    onSuggestion = onSuggestion,
+                    onCandidate = onCandidate,
+                    onExpand = onCandidatesExpand,
                 )
             } else {
                 LatinSuggestionChips(
@@ -1837,7 +1848,8 @@ private fun RowScope.CandidateStrip(
     candidates: List<String>,
     enabled: Boolean,
     alpha: () -> Float,
-    onSuggestion: (String) -> Unit,
+    onCandidate: (String, Int) -> Unit,
+    onExpand: () -> Unit,
 ) {
     LazyRow(
         modifier = Modifier
@@ -1858,7 +1870,9 @@ private fun RowScope.CandidateStrip(
                 modifier = Modifier
                     .widthIn(min = CandidateChipMinWidth)
                     .fillMaxHeight()
-                    .clickable(enabled = enabled) { onSuggestion(suggestion) },
+                    // By position, not text: the composer works out how much of
+                    // the buffer to eat from where the chip sat.
+                    .clickable(enabled = enabled) { onCandidate(suggestion, index) },
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
@@ -1874,7 +1888,65 @@ private fun RowScope.CandidateStrip(
             }
         }
     }
+    // Outside the scrolling row on purpose, so the way to see the rest of the
+    // candidates cannot itself scroll off the end of the candidates.
+    IconButton(onClick = onExpand, enabled = enabled) {
+        Icon(
+            Icons.Outlined.ArrowDropDown,
+            contentDescription = "More candidates",
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
 }
+
+/**
+ * The candidate strip's overflow: every candidate the composer ranked, wrapped
+ * over as many rows as it takes.
+ *
+ * Covers the keys while it is open, which is what Sogou, Baidu and QQ all do —
+ * at this point you are choosing a character, not typing one. A [FlowRow] rather
+ * than a grid because candidates run from one glyph to four and fixed columns
+ * would leave ragged gaps; not lazy, because a hundred short chips is nothing.
+ */
+@Composable
+private fun CandidateGridPanel(
+    state: KeyboardUiState,
+    onCandidate: (String, Int) -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(keyRowsHeight(state))
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 8.dp, vertical = 4.dp),
+    ) {
+        FlowRow(modifier = Modifier.fillMaxWidth()) {
+            state.expandedCandidates.forEachIndexed { index, candidate ->
+                Box(
+                    modifier = Modifier
+                        .padding(2.dp)
+                        .widthIn(min = CandidateChipMinWidth)
+                        .height(CandidateGridRowHeight)
+                        .clickable { onCandidate(candidate, index) },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = candidate,
+                        modifier = Modifier.padding(horizontal = 10.dp),
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontSize = CandidateFontSize,
+                        fontWeight = if (index == 0) FontWeight.SemiBold else FontWeight.Normal,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** Row height in the expanded grid — a comfortable tap target for one glyph. */
+private val CandidateGridRowHeight = 44.dp
 
 /** Tap-target floor for a candidate chip; single Hanzi would be narrower. */
 private val CandidateChipMinWidth = 44.dp
@@ -3855,6 +3927,10 @@ private fun KeyboardBody(
     onCursorMove: (Int) -> Unit,
     onLayoutSelect: (String) -> Unit,
     onSuggestion: (String) -> Unit,
+    /** A conversion candidate tapped, with its position — see Composer.consumedForIndex. */
+    onCandidate: (String, Int) -> Unit = { text, _ -> onSuggestion(text) },
+    /** Open the expanded candidate grid. */
+    onCandidatesExpand: () -> Unit = {},
     onEmoji: (String) -> Unit,
     onEmojiVariant: (String, String) -> Unit,
     onEmojiFavourite: (String) -> Unit,
@@ -4010,7 +4086,12 @@ private fun KeyboardBody(
                     // and tools alike — so the keys claim its height.
                     BarRow.TOPBAR -> if (state.settings.toolbarBehavior.enabled && !fullBleed && !emojiSearching && !clipboardSearching && !lockHidden) {
                         TopBar(
-                            state, onSuggestion, onEmoji, onEmojiSuggestion,
+                            state,
+                            onSuggestion = onSuggestion,
+                            onCandidate = onCandidate,
+                            onCandidatesExpand = onCandidatesExpand,
+                            onEmoji = onEmoji,
+                            onEmojiSuggestion = onEmojiSuggestion,
                             onPunctuation = onPunctuation,
                             onPanelChange = onPanelChange,
                             onToolTap = onToolTap,
@@ -4115,6 +4196,7 @@ private fun KeyboardBody(
                 )
                 PanelMode.SOUND_HAPTICS -> SoundHapticsPanel(state, onSoundHaptic)
                 PanelMode.NUMPAD -> NumpadPanel(state, onText, onKey)
+                PanelMode.CANDIDATES -> CandidateGridPanel(state, onCandidate)
                 PanelMode.HANDWRITING -> if (BuildConfig.ENABLE_ML_KIT_HANDWRITING) {
                     HandwritingPanel(
                         state = state,

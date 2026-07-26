@@ -1165,6 +1165,8 @@ open class WMKeyboardService : InputMethodService() {
                 canDeleteField = ::canDeleteField,
                 onDeleteWord = ::onDeleteWord,
                 onSuggestion = ::onSuggestionTapped,
+                onCandidate = ::onCandidateTapped,
+                onCandidatesExpand = ::onCandidatesExpand,
                 onEmoji = ::onEmojiTapped,
                 onEmojiVariant = ::onEmojiVariantPicked,
                 onEmojiFavourite = ::onEmojiFavouriteToggled,
@@ -3311,7 +3313,16 @@ open class WMKeyboardService : InputMethodService() {
         if (composing.isEmpty()) {
             val (nextWords, nextEmojis) = nextWordStrip()
             _uiState.update {
-                it.copy(composingPreview = "", suggestions = nextWords, emojiSuggestions = nextEmojis)
+                it.copy(
+                    composingPreview = "",
+                    suggestions = nextWords,
+                    emojiSuggestions = nextEmojis,
+                    // The reading is fully committed, so there is nothing left to
+                    // choose. Leaving the grid up would strand the user staring at
+                    // an empty panel with the keyboard hidden behind it.
+                    panel = if (it.panel == PanelMode.CANDIDATES) PanelMode.NONE else it.panel,
+                    expandedCandidates = emptyList(),
+                )
             }
         } else {
             // Re-show the remaining pinyin/kana as the composing region and
@@ -3849,9 +3860,17 @@ open class WMKeyboardService : InputMethodService() {
             suggestionJob?.cancel()
             commitResolution = null
             val cands = state.composer.candidates(typed)
+            // The grid is a widening of the same ranking, so it only costs
+            // anything while it is actually open.
+            val expanded = if (state.panel == PanelMode.CANDIDATES) {
+                state.composer.candidates(typed, CANDIDATE_GRID_LIMIT)
+            } else {
+                emptyList()
+            }
             _uiState.update {
                 it.copy(
                     suggestions = cands,
+                    expandedCandidates = expanded,
                     emojiSuggestions = emptyList(),
                     punctuationSuggestions = emptyList(),
                 )
@@ -3963,6 +3982,42 @@ open class WMKeyboardService : InputMethodService() {
      */
     fun onPunctuationSuggestionTapped(mark: String) {
         onText(mark)
+    }
+
+    /**
+     * How deep the expanded grid goes. Well under the composers' own lookup
+     * depth, so every candidate it shows can still be resolved back to the input
+     * length it consumes.
+     */
+    private val CANDIDATE_GRID_LIMIT = 100
+
+    /**
+     * A conversion candidate tapped in the strip or the expanded grid. Resolved
+     * by position rather than by text — see [Composer.consumedForIndex].
+     */
+    fun onCandidateTapped(candidate: String, index: Int) {
+        val ic = currentInputConnection ?: return
+        if (!_uiState.value.composer.isConversion) {
+            onSuggestionTapped(candidate)
+            return
+        }
+        commitConversionPrefix(ic, candidate, index)
+    }
+
+    /** The candidate strip's chevron: opens the overflow grid, or closes it. */
+    fun onCandidatesExpand() {
+        val state = _uiState.value
+        if (state.panel == PanelMode.CANDIDATES) {
+            _uiState.update { it.copy(panel = PanelMode.NONE, expandedCandidates = emptyList()) }
+            return
+        }
+        if (!state.composer.isConversion || composing.isEmpty()) return
+        _uiState.update {
+            it.copy(
+                panel = PanelMode.CANDIDATES,
+                expandedCandidates = state.composer.candidates(composing.toString(), CANDIDATE_GRID_LIMIT),
+            )
+        }
     }
 
     fun onSuggestionTapped(suggestion: String) {

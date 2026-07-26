@@ -37,18 +37,18 @@ object T9PinyinComposer : Composer {
      * Falls back to the digits themselves when nothing segments yet.
      */
     override fun composeBuffer(buffer: String): String =
-        ranked(buffer, LIMIT).firstOrNull()?.reading ?: buffer
+        ranked(buffer).firstOrNull()?.reading ?: buffer
 
     override fun candidates(buffer: String): List<String> = candidates(buffer, LIMIT)
 
     override fun candidates(buffer: String, limit: Int): List<String> =
-        ranked(buffer, limit).map { it.text }
+        ranked(buffer).take(limit).map { it.text }
 
     override fun consumedFor(buffer: String, chosen: String): Int =
-        ranked(buffer, LOOKUP_LIMIT).firstOrNull { it.text == chosen }?.consumed ?: buffer.length
+        ranked(buffer).firstOrNull { it.text == chosen }?.consumed ?: buffer.length
 
     override fun consumedForIndex(buffer: String, index: Int): Int =
-        ranked(buffer, LOOKUP_LIMIT).getOrNull(index)?.consumed ?: buffer.length
+        ranked(buffer).getOrNull(index)?.consumed ?: buffer.length
 
     /** A candidate, the digits it covers, and the reading that produced it. */
     private data class Cand(val text: String, val consumed: Int, val reading: String)
@@ -73,12 +73,12 @@ object T9PinyinComposer : Composer {
      * digit run that spells no syllable) it yields nothing and the raw digits
      * commit, so the buffer never traps the user.
      */
-    private fun ranked(buffer: String, limit: Int): List<Cand> {
+    private fun ranked(buffer: String): List<Cand> {
         if (buffer.isEmpty()) return emptyList()
-        return cache.get(buffer, limit) { rank(buffer, limit) }
+        return cache.get(buffer) { rank(buffer) }
     }
 
-    private fun rank(buffer: String, limit: Int): List<Cand> {
+    private fun rank(buffer: String): List<Cand> {
         val segs = segments(buffer)
         if (segs.isEmpty()) return emptyList()
         // Each digit code stands for several syllables, and that ambiguity goes
@@ -96,7 +96,7 @@ object T9PinyinComposer : Composer {
             // Every digit is ambiguous, so the ambiguity cap has to come off or
             // later syllables get pinned to whichever one sorted first — the
             // alphabetical bias this whole change removes.
-            Lattice.Opts(limit = limit, maxAmbiguousSpan = Int.MAX_VALUE),
+            Lattice.Opts(limit = LOOKUP_LIMIT, maxAmbiguousSpan = Int.MAX_VALUE),
         )
             .map { Cand(HanVariant.toTraditional(it.text), it.consumed, it.reading) }
             .distinctBy { it.text }

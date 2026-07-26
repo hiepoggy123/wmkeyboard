@@ -16,19 +16,17 @@ package com.wasimaster.wmkeyboard.core.input.composer
  */
 class RankCache<T> {
 
-    private class Entry<T>(val buffer: String, val limit: Int, val generation: Int, val value: T)
+    private class Entry<T>(val buffer: String, val generation: Int, val value: T)
 
     @Volatile
     private var entry: Entry<T>? = null
 
-    fun get(buffer: String, limit: Int, compute: () -> T): T {
+    fun get(buffer: String, compute: () -> T): T {
         val hit = entry
         val generation = CjkDictionaries.generation
-        if (hit != null && hit.buffer == buffer && hit.limit == limit && hit.generation == generation) {
-            return hit.value
-        }
+        if (hit != null && hit.buffer == buffer && hit.generation == generation) return hit.value
         val value = compute()
-        entry = Entry(buffer, limit, generation, value)
+        entry = Entry(buffer, generation, value)
         return value
     }
 }

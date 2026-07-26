@@ -232,6 +232,9 @@ enum class PanelMode {
     OCR, QR_SCAN, VOICE, GRAMMAR,
     WIKIPEDIA, SYMBOLS, CALCULATOR, UNIT_CONVERT, CURRENCY, QR_GEN, PASSWORD_GEN, AI,
     MODES, TYPING_TEST, MEDIA_CONTROL,
+
+    /** The CJK candidate grid: the strip's overflow, opened from its chevron. */
+    CANDIDATES,
 }
 
 /**
@@ -290,6 +293,8 @@ fun panelFocusRegions(panel: PanelMode): List<FocusRegion> = when (panel) {
     PanelMode.WEB_SEARCH, PanelMode.IMAGE_SEARCH, PanelMode.WIKIPEDIA,
     -> listOf(FocusRegion.SEARCH, FocusRegion.RESULTS)
     PanelMode.TOOLBOX, PanelMode.SNIPPETS, PanelMode.THEMES, PanelMode.MODES,
+    // The candidate grid is a wall of choices and nothing else.
+    PanelMode.CANDIDATES,
     -> listOf(FocusRegion.RESULTS)
     // Panels the keyboard cannot drive: sensors, cameras, ink, button grids
     // whose keys the field already receives.
@@ -691,6 +696,12 @@ data class KeyboardUiState(
     /** Fn was double-tapped: the layer holds until Fn or ABC is tapped. */
     val fnLocked: Boolean = false,
     val panel: PanelMode = PanelMode.NONE,
+    /**
+     * Conversion candidates beyond the handful the strip has room for, filled
+     * only while [PanelMode.CANDIDATES] is open. The strip's own list stays in
+     * [suggestions]; this is a widening of it, so the two agree on ordering.
+     */
+    val expandedCandidates: List<String> = emptyList(),
     val suggestions: List<String> = emptyList(),
     /** Spacing form of the dead-key accent waiting for a letter, if any. */
     val pendingDeadKey: String? = null,

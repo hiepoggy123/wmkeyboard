@@ -35,16 +35,16 @@ object JyutpingComposer : Composer {
     override fun candidates(buffer: String): List<String> = candidates(buffer, LIMIT)
 
     override fun candidates(buffer: String, limit: Int): List<String> =
-        ranked(buffer.lowercase(), limit).map { it.text }
+        ranked(buffer.lowercase()).take(limit).map { it.text }
 
     override fun consumedFor(buffer: String, chosen: String): Int {
         val b = buffer.lowercase()
-        return ranked(b, LOOKUP_LIMIT).firstOrNull { it.text == chosen }?.consumed ?: b.length
+        return ranked(b).firstOrNull { it.text == chosen }?.consumed ?: b.length
     }
 
     override fun consumedForIndex(buffer: String, index: Int): Int {
         val b = buffer.lowercase()
-        return ranked(b, LOOKUP_LIMIT).getOrNull(index)?.consumed ?: b.length
+        return ranked(b).getOrNull(index)?.consumed ?: b.length
     }
 
     /** A candidate word and the number of input chars (tone digits included) it covers. */
@@ -56,20 +56,20 @@ object JyutpingComposer : Composer {
      * back to the dictionary's own prefix matching when nothing segments yet — a
      * still-typing first syllable — mirroring [PinyinComposer].
      */
-    private fun ranked(buffer: String, limit: Int): List<Cand> {
+    private fun ranked(buffer: String): List<Cand> {
         if (buffer.isEmpty()) return emptyList()
-        return cache.get(buffer, limit) { rank(buffer, limit) }
+        return cache.get(buffer) { rank(buffer) }
     }
 
-    private fun rank(buffer: String, limit: Int): List<Cand> {
+    private fun rank(buffer: String): List<Cand> {
         val dict = CjkDictionaries.jyutping
         val segs = JyutpingSyllables.segment(buffer)
         if (segs.isEmpty()) {
-            return dict.candidates(buffer, limit)
+            return dict.candidates(buffer, LOOKUP_LIMIT)
                 .map { Cand(HanVariant.toTraditional(it), buffer.length) }
         }
         val input = Lattice.input(segs.map { it.syllable }, segs.map { it.inputLen })
-        return Lattice.decode(input, dict, CjkDictionaries.ngrams, Lattice.Opts(limit = limit))
+        return Lattice.decode(input, dict, CjkDictionaries.ngrams, Lattice.Opts(limit = LOOKUP_LIMIT))
             .map { Cand(HanVariant.toTraditional(it.text), it.consumed) }
             .distinctBy { it.text }
     }

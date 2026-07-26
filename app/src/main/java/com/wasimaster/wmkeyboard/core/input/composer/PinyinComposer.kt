@@ -56,16 +56,16 @@ object PinyinComposer : Composer {
     override fun candidates(buffer: String): List<String> = candidates(buffer, LIMIT)
 
     override fun candidates(buffer: String, limit: Int): List<String> =
-        ranked(buffer.lowercase(), limit).map { it.text }
+        ranked(buffer.lowercase()).take(limit).map { it.text }
 
     override fun consumedFor(buffer: String, chosen: String): Int {
         val b = buffer.lowercase()
-        return ranked(b, LOOKUP_LIMIT).firstOrNull { it.text == chosen }?.consumed ?: b.length
+        return ranked(b).firstOrNull { it.text == chosen }?.consumed ?: b.length
     }
 
     override fun consumedForIndex(buffer: String, index: Int): Int {
         val b = buffer.lowercase()
-        return ranked(b, LOOKUP_LIMIT).getOrNull(index)?.consumed ?: b.length
+        return ranked(b).getOrNull(index)?.consumed ?: b.length
     }
 
     private fun doublePinyinTable(): DoublePinyin.Table? {
@@ -119,22 +119,22 @@ object PinyinComposer : Composer {
      * Cached on the buffer, because the service ranks the same one twice per
      * commit — once to fill the strip and once to ask how much to delete.
      */
-    private fun ranked(buffer: String, limit: Int): List<Cand> {
+    private fun ranked(buffer: String): List<Cand> {
         if (buffer.isEmpty()) return emptyList()
-        return cache.get(buffer, limit) { rank(buffer, limit) }
+        return cache.get(buffer) { rank(buffer) }
     }
 
-    private fun rank(buffer: String, limit: Int): List<Cand> {
+    private fun rank(buffer: String): List<Cand> {
         val dict = CjkDictionaries.pinyin
         val segs = segments(buffer)
         if (segs.isEmpty() || segs.size > MAX_LATTICE_UNITS) {
             // Nothing segments yet, or the buffer is longer than anyone types
             // before committing: fall back to plain prefix lookup, which cannot
             // offer a prefix commit but always answers.
-            return dict.candidates(buffer, limit)
+            return dict.candidates(buffer, LOOKUP_LIMIT)
                 .map { Cand(HanVariant.toTraditional(it), buffer.length) }
         }
-        return Lattice.decode(latticeInput(segs), dict, CjkDictionaries.ngrams, Lattice.Opts(limit = limit))
+        return Lattice.decode(latticeInput(segs), dict, CjkDictionaries.ngrams, Lattice.Opts(limit = LOOKUP_LIMIT))
             .map { Cand(HanVariant.toTraditional(it.text), it.consumed) }
             // Converting to Traditional can merge two Simplified words onto one
             // form, so de-duplicate after the conversion rather than before it.

@@ -92,7 +92,10 @@ interface Composer {
      *
      * Implementations must keep the shorter list a prefix of the longer one —
      * `candidates(b, 100).take(12) == candidates(b, 12)` — or the strip and the
-     * expanded grid would disagree about which candidate is which.
+     * expanded grid would disagree about which candidate is which, and
+     * [consumedForIndex] would resolve a tap against the wrong one. The way to
+     * guarantee it is to rank once to a fixed depth and truncate, never to let
+     * the requested depth change the ordering.
      */
     fun candidates(buffer: String, limit: Int): List<String> = candidates(buffer).take(limit)
 

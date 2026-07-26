@@ -94,7 +94,13 @@ object Lattice {
          * prune instead, which is what it is for.
          */
         val maxAmbiguousSpan: Int = 2,
-        /** Words kept per span, best-frequency first. */
+        /**
+         * Words kept per span, best-frequency first — raised to [limit] where
+         * that is larger, since a single reading routinely has more characters
+         * behind it than the strip shows and the expanded grid exists to show
+         * them. Interior spans only matter for pathfinding, but the first span
+         * *is* the candidate list.
+         */
         val spanCandCap: Int = 16,
         /** Live paths carried between positions. */
         val beam: Int = 8,
@@ -275,7 +281,8 @@ object Lattice {
         val units = end - start
         val usable = if (opts.charPerUnit) rows.filter { dict.wordLength(it) >= units } else rows.toList()
         if (usable.isEmpty()) return
-        val kept = usable.sortedByDescending { dict.frequency(it) }.take(opts.spanCandCap)
+        val cap = maxOf(opts.spanCandCap, opts.limit)
+        val kept = usable.sortedByDescending { dict.frequency(it) }.take(cap)
         val maxFreq = dict.frequency(kept.first()).coerceAtLeast(1)
         for (row in kept) {
             val freq = dict.frequency(row).coerceAtLeast(1)

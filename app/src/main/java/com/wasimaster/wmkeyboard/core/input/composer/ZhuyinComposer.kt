@@ -29,13 +29,13 @@ object ZhuyinComposer : Composer {
     override fun candidates(buffer: String): List<String> = candidates(buffer, LIMIT)
 
     override fun candidates(buffer: String, limit: Int): List<String> =
-        ranked(buffer, limit).map { it.text }
+        ranked(buffer).take(limit).map { it.text }
 
     override fun consumedForIndex(buffer: String, index: Int): Int =
-        ranked(buffer, LOOKUP_LIMIT).getOrNull(index)?.consumed ?: buffer.length
+        ranked(buffer).getOrNull(index)?.consumed ?: buffer.length
 
     override fun consumedFor(buffer: String, chosen: String): Int =
-        ranked(buffer, LOOKUP_LIMIT).firstOrNull { it.text == chosen }?.consumed ?: buffer.length
+        ranked(buffer).firstOrNull { it.text == chosen }?.consumed ?: buffer.length
 
     /** A candidate and the number of bopomofo chars (tone marks included) it covers. */
     private data class Cand(val text: String, val consumed: Int)
@@ -47,18 +47,18 @@ object ZhuyinComposer : Composer {
      * yields nothing and the raw bopomofo commits, so the buffer never traps the
      * user.
      */
-    private fun ranked(buffer: String, limit: Int): List<Cand> {
+    private fun ranked(buffer: String): List<Cand> {
         if (buffer.isEmpty()) return emptyList()
-        return cache.get(buffer, limit) { rank(buffer, limit) }
+        return cache.get(buffer) { rank(buffer) }
     }
 
-    private fun rank(buffer: String, limit: Int): List<Cand> {
+    private fun rank(buffer: String): List<Cand> {
         val segs = ZhuyinSyllables.segment(buffer)
         if (segs.isEmpty()) return emptyList()
         // Bopomofo is a second spelling of the same Mandarin syllables, so the
         // decoder sees the pinyin reading and the pack needs no Zhuyin of its own.
         val input = Lattice.input(segs.map { it.pinyin }, segs.map { it.inputLen })
-        return Lattice.decode(input, CjkDictionaries.pinyin, CjkDictionaries.ngrams, Lattice.Opts(limit = limit))
+        return Lattice.decode(input, CjkDictionaries.pinyin, CjkDictionaries.ngrams, Lattice.Opts(limit = LOOKUP_LIMIT))
             .map { Cand(HanVariant.toTraditional(it.text), it.consumed) }
             .distinctBy { it.text }
     }

@@ -164,6 +164,50 @@ class CjkLatticeTest {
     }
 
     @Test
+    fun `a candidate past the strip still commits only its own prefix`() {
+        // The bug the expanded grid would otherwise ship with: consumedFor used
+        // to rank only as deep as the strip, so a candidate the grid could show
+        // but the ranking could not find fell through to "consumed everything"
+        // and ate the rest of the reading.
+        PinyinSyllables.valid = setOf("ni", "hao")
+        val rows = (1..40).map { "ni\t${(0x4E00 + it).toChar()}\t${1000 - it}" } + "hao\t好\t900"
+        CjkDictionaries.pinyin = ConversionDictionary.parse(rows.asSequence())
+        val wide = PinyinComposer.candidates("nihao", 40)
+        assertTrue("expected a deep list, got ${wide.size}", wide.size > 12)
+        val deep = wide[20]
+        assertEquals(2, PinyinComposer.consumedFor("nihao", deep))
+        assertEquals(2, PinyinComposer.consumedForIndex("nihao", 20))
+    }
+
+    @Test
+    fun `every conversion composer widens without reordering`() {
+        PinyinSyllables.valid = setOf("ni", "hao")
+        T9Pinyin.index = T9Pinyin.buildIndex(PinyinSyllables.valid)
+        ZhuyinSyllables.table = ZhuyinSyllables.buildTable(PinyinSyllables.valid)
+        JyutpingSyllables.valid = setOf("nei", "hou")
+        val rows = (1..20).map { "ni\t${(0x4E00 + it).toChar()}\t${1000 - it}" } + "hao\t好\t900"
+        CjkDictionaries.pinyin = ConversionDictionary.parse(rows.asSequence())
+        CjkDictionaries.japanese = ConversionDictionary.parse(
+            ((1..20).map { "に\t${(0x4E00 + it).toChar()}\t${1000 - it}" }).asSequence(),
+        )
+        CjkDictionaries.jyutping = ConversionDictionary.parse(
+            ((1..20).map { "nei\t${(0x4E00 + it).toChar()}\t${1000 - it}" }).asSequence(),
+        )
+        val cases = listOf<Pair<Composer, String>>(
+            PinyinComposer to "nihao",
+            T9PinyinComposer to "64426",
+            ZhuyinComposer to "ㄋㄧㄏㄠ",
+            JyutpingComposer to "neihou",
+            JapaneseComposer to "ni",
+        )
+        for ((composer, buffer) in cases) {
+            val wide = composer.candidates(buffer, 40)
+            val narrow = composer.candidates(buffer, 3)
+            assertEquals(composer.toString(), narrow, wide.take(narrow.size))
+        }
+    }
+
+    @Test
     fun `candidates widen without reordering what the strip already showed`() {
         PinyinSyllables.valid = setOf("ni", "hao")
         pinyin(
