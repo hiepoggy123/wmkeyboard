@@ -6451,9 +6451,12 @@ private fun HandwritingModelManager() {
     }
 }
 
-/** Weather location: place label plus coordinates, edited in a dialog. */
+/**
+ * Weather location: place label plus coordinates, edited in a dialog. Shared
+ * with the onboarding tool-setup page, which asks the same question.
+ */
 @Composable
-private fun WeatherLocationSetting(repository: SettingsRepository, settings: KeyboardSettings) {
+internal fun WeatherLocationSetting(repository: SettingsRepository, settings: KeyboardSettings) {
     val scope = rememberCoroutineScope()
     var editing by remember { mutableStateOf(false) }
     val summary = if (settings.weatherLatitude != null && settings.weatherLongitude != null) {

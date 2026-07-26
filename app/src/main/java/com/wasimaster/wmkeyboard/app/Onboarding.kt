@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -22,13 +21,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -42,10 +38,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -54,17 +48,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.wasimaster.wmkeyboard.BuildConfig
 import com.wasimaster.wmkeyboard.core.emoji.EmojiCatalog
 import com.wasimaster.wmkeyboard.core.emoji.EmojiRenderCheck
+import com.wasimaster.wmkeyboard.core.feedback.HapticPlayer
 import com.wasimaster.wmkeyboard.core.layout.language
 import com.wasimaster.wmkeyboard.core.layout.resolveLayout
-import com.wasimaster.wmkeyboard.core.localllm.LocalLlmCatalog
 import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
-import com.wasimaster.wmkeyboard.core.localllm.LocalLlmDownloadManager
-import com.wasimaster.wmkeyboard.core.settings.AiProvider
 import com.wasimaster.wmkeyboard.core.settings.DefaultToolOrder
 import com.wasimaster.wmkeyboard.core.settings.EmojiBarMode
 import com.wasimaster.wmkeyboard.core.settings.HapticStyle
@@ -82,6 +74,14 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
+ * Every wizard step, in the order they're asked. Which ones actually appear is
+ * decided per device and per run — see [visiblePages].
+ */
+private enum class OnboardingPage {
+    WELCOME, LANGUAGES, LOOK, EMOJI, FEEDBACK, GESTURES, TOOLS, TOOL_SETUP,
+}
+
+/**
  * First-run wizard: enable the keyboard, then walk through the choices that
  * have no one-size-fits-all default — languages, theme, haptics, spacebar
  * gestures. Every page writes straight to DataStore, so backing out or
@@ -94,12 +94,18 @@ internal fun OnboardingScreen(
     onFinished: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
-    var page by rememberSaveable { mutableIntStateOf(0) }
-    // The tool-setup page only exists when a tool with first-run choices is
-    // enabled (the tools page right before it decides that), so the wizard
-    // length adapts live.
-    val toolSetupVisible = settings.enabledTools.any { it in ToolSetupTools }
-    val pageCount = if (toolSetupVisible) 8 else 7
+    // How many catalog emoji this phone's own font can't draw; null while the
+    // count is still running.
+    val missingEmoji = rememberUnrenderableEmojiCount()
+    val pages = visiblePages(missingEmoji, settings)
+    var current by rememberSaveable { mutableStateOf(OnboardingPage.WELCOME) }
+    // A page can disappear under the user (the emoji count landing at zero, or
+    // the tools page turning off the last tool with setup); fall back to the
+    // nearest earlier page that survived rather than snapping to the start.
+    val index = pages.indexOf(current).let { found ->
+        if (found >= 0) found else pages.indexOfLast { it < current }.coerceAtLeast(0)
+    }
+    val onLastPage = index == pages.lastIndex
     // Whether the tools page has applied its recommended starting selection.
     // Hoisted here (not in the page) so leaving and revisiting the page
     // can't re-apply it over the user's choices.
@@ -125,7 +131,7 @@ internal fun OnboardingScreen(
                     .padding(start = 24.dp, end = 8.dp, top = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                PageDots(page, pageCount)
+                PageDots(index, pages.size)
                 Spacer(Modifier.weight(1f))
                 TextButton(onClick = finish) { Text("Skip") }
             }
@@ -135,26 +141,26 @@ internal fun OnboardingScreen(
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = 8.dp),
             ) {
-                when (page) {
-                    0 -> WelcomePage(
+                when (pages[index]) {
+                    OnboardingPage.WELCOME -> WelcomePage(
                         onReady = {
                             if (!welcomeAutoAdvanced) {
                                 welcomeAutoAdvanced = true
-                                page++
+                                current = pages[(index + 1).coerceAtMost(pages.lastIndex)]
                             }
                         },
                     )
-                    1 -> LanguagesPage(repository, settings)
-                    2 -> LookPage(repository, settings)
-                    3 -> EmojiPage(repository, settings)
-                    4 -> FeedbackPage(repository, settings)
-                    5 -> GesturesPage(repository, settings)
-                    6 -> ToolsPage(
+                    OnboardingPage.LANGUAGES -> LanguagesPage(repository, settings)
+                    OnboardingPage.LOOK -> LookPage(repository, settings)
+                    OnboardingPage.EMOJI -> EmojiPage(repository, settings, missingEmoji ?: 0)
+                    OnboardingPage.FEEDBACK -> FeedbackPage(repository, settings)
+                    OnboardingPage.GESTURES -> GesturesPage(repository, settings)
+                    OnboardingPage.TOOLS -> ToolsPage(
                         repository, settings,
                         seeded = toolsSeeded,
                         onSeeded = { toolsSeeded = true },
                     )
-                    7 -> ToolSetupPage(repository, settings)
+                    OnboardingPage.TOOL_SETUP -> ToolSetupPage(repository, settings)
                 }
             }
             Row(
@@ -162,16 +168,56 @@ internal fun OnboardingScreen(
                     .fillMaxWidth()
                     .padding(16.dp),
             ) {
-                if (page > 0) {
-                    OutlinedButton(onClick = { page-- }) { Text("Back") }
+                if (index > 0) {
+                    OutlinedButton(onClick = { current = pages[index - 1] }) { Text("Back") }
                 }
                 Spacer(Modifier.weight(1f))
-                Button(onClick = { if (page == pageCount - 1) finish() else page++ }) {
-                    Text(if (page == pageCount - 1) "Finish" else "Next")
+                Button(onClick = { if (onLastPage) finish() else current = pages[index + 1] }) {
+                    Text(if (onLastPage) "Finish" else "Next")
                 }
             }
         }
     }
+}
+
+/**
+ * The wizard's live page list. Two steps are conditional: the emoji page has
+ * nothing to say on a phone whose font already draws the whole catalog (and is
+ * held back until the count lands, so it never flashes in and out), and the
+ * tool-setup page only exists when a tool with first-run choices is enabled —
+ * which the tools page right before it decides.
+ */
+@Composable
+private fun visiblePages(
+    missingEmoji: Int?,
+    settings: KeyboardSettings,
+): List<OnboardingPage> = remember(missingEmoji, settings.enabledTools) {
+    OnboardingPage.entries.filter { page ->
+        when (page) {
+            OnboardingPage.EMOJI -> (missingEmoji ?: 0) > 0
+            OnboardingPage.TOOL_SETUP -> settings.enabledTools.any { it in ToolSetupTools }
+            else -> true
+        }
+    }
+}
+
+/**
+ * Counts the catalog emoji this phone's own emoji font can't draw. Runs off the
+ * main thread; null until the count lands.
+ */
+@Composable
+private fun rememberUnrenderableEmojiCount(): Int? {
+    val context = LocalContext.current
+    var count by remember { mutableStateOf<Int?>(null) }
+    LaunchedEffect(Unit) {
+        count = withContext(Dispatchers.Default) {
+            val catalog = runCatching {
+                context.assets.open("emoji/catalog.tsv").use { EmojiCatalog.load(it) }
+            }.getOrDefault(emptyList())
+            EmojiRenderCheck.unrenderable(catalog.map { it.emoji }, null).size
+        }
+    }
+    return count
 }
 
 @Composable
@@ -439,35 +485,25 @@ private fun OnboardingThemeCard(
     ) { content() }
 }
 
+/**
+ * Only reached when the phone's font is actually missing emoji — [missingCount]
+ * is how many, and the wizard drops this page entirely when it's zero.
+ */
 @Composable
-private fun EmojiPage(repository: SettingsRepository, settings: KeyboardSettings) {
+private fun EmojiPage(
+    repository: SettingsRepository,
+    settings: KeyboardSettings,
+    missingCount: Int,
+) {
     val scope = rememberCoroutineScope()
-    val context = LocalContext.current
-    // How many catalog emoji the phone's own font can't draw. Counted off the
-    // main thread; null while still counting.
-    var missingCount by remember { mutableStateOf<Int?>(null) }
-    LaunchedEffect(Unit) {
-        missingCount = withContext(Dispatchers.Default) {
-            val catalog = runCatching {
-                context.assets.open("emoji/catalog.tsv").use { EmojiCatalog.load(it) }
-            }.getOrDefault(emptyList())
-            EmojiRenderCheck.unrenderable(catalog.map { it.emoji }, null).size
-        }
-    }
     PageHeader(
         "Emoji",
         "Every phone ships its own emoji drawings, and older ones can't draw the " +
             "newest emoji — those show up as an empty box.",
     )
-    val count = missingCount
     Text(
-        when {
-            count == null -> "Checking which emoji this phone can display…"
-            count == 0 -> "Good news — this phone can display every emoji in the catalog, " +
-                "so there's nothing to hide."
-            else -> "This phone can't display $count of the emoji in the catalog. They'd " +
-                "show up as empty boxes."
-        },
+        "This phone can't display $missingCount of the emoji in the catalog. They'd " +
+            "show up as empty boxes.",
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
@@ -498,6 +534,17 @@ private fun EmojiPage(repository: SettingsRepository, settings: KeyboardSettings
 @Composable
 private fun FeedbackPage(repository: SettingsRepository, settings: KeyboardSettings) {
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    // The system haptic styles are played through a real view, so hand the
+    // player one — without it they fall back to a generic hardware click and
+    // the chips all feel the same.
+    val view = LocalView.current
+    // Persisting the style is a suspending DataStore write; the buzz has to be
+    // fired straight from the click instead of waiting for it to land, or the
+    // chip feels dead.
+    fun preview(style: HapticStyle) = HapticPlayer.preview(
+        context, style, settings.hapticAmplitude, settings.hapticStrengthMs, view,
+    )
     PageHeader(
         "Typing feedback",
         "Some people want every press confirmed, others want silence. " +
@@ -509,7 +556,10 @@ private fun FeedbackPage(repository: SettingsRepository, settings: KeyboardSetti
         trailingContent = {
             Switch(
                 checked = settings.hapticFeedback,
-                onCheckedChange = { scope.launch { repository.setHapticFeedback(it) } },
+                onCheckedChange = { enable ->
+                    scope.launch { repository.setHapticFeedback(enable) }
+                    if (enable) preview(settings.hapticStyle)
+                },
             )
         },
     )
@@ -518,6 +568,12 @@ private fun FeedbackPage(repository: SettingsRepository, settings: KeyboardSetti
             "Haptic style",
             style = MaterialTheme.typography.bodyLarge,
             modifier = Modifier.padding(start = 16.dp, top = 8.dp),
+        )
+        Text(
+            "Tap one to feel it.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(start = 16.dp, top = 2.dp),
         )
         FlowRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -528,7 +584,10 @@ private fun FeedbackPage(repository: SettingsRepository, settings: KeyboardSetti
             HapticStyle.entries.forEach { style ->
                 FilterChip(
                     selected = settings.hapticStyle == style,
-                    onClick = { scope.launch { repository.setHapticStyle(style) } },
+                    onClick = {
+                        scope.launch { repository.setHapticStyle(style) }
+                        preview(style)
+                    },
                     label = { Text(style.label, maxLines = 1) },
                 )
             }
@@ -567,15 +626,15 @@ private enum class SpacebarChoice(
     val short: SpaceSwipeAction,
     val long: SpaceSwipeAction,
 ) {
-    BOTH(
-        "Language + cursor (recommended)",
-        "Quick swipe switches language · hold, then swipe moves the cursor",
-        SpaceSwipeAction.LANGUAGE, SpaceSwipeAction.CURSOR,
-    ),
-    BOTH_REVERSED(
-        "Cursor + language",
+    CURSOR_THEN_LANGUAGE(
+        "Cursor + language (recommended)",
         "Quick swipe moves the cursor · hold, then swipe switches language",
         SpaceSwipeAction.CURSOR, SpaceSwipeAction.LANGUAGE,
+    ),
+    LANGUAGE_THEN_CURSOR(
+        "Language + cursor",
+        "Quick swipe switches language · hold, then swipe moves the cursor",
+        SpaceSwipeAction.LANGUAGE, SpaceSwipeAction.CURSOR,
     ),
     LANGUAGE_ONLY(
         "Only switch language",
@@ -644,7 +703,7 @@ private fun GesturesPage(repository: SettingsRepository, settings: KeyboardSetti
 
 /** Tools with a first-run choice worth asking about on the setup page. */
 private val ToolSetupTools = setOf(
-    ToolbarTool.CALENDAR, ToolbarTool.WEATHER, ToolbarTool.COMPASS, ToolbarTool.AI,
+    ToolbarTool.CALENDAR, ToolbarTool.WEATHER, ToolbarTool.COMPASS,
 )
 
 /**
@@ -685,6 +744,10 @@ private fun ToolSetupPage(repository: SettingsRepository, settings: KeyboardSett
     }
     if (ToolbarTool.WEATHER in settings.enabledTools) {
         SectionTitle("Weather")
+        // The tool is dead without a place, so the same search-or-coordinates
+        // editor the settings screen uses is right here rather than a pointer
+        // to it.
+        WeatherLocationSetting(repository, settings)
         ListItem(
             headlineContent = { Text("Fahrenheit") },
             supportingContent = { Text("Off shows temperatures in Celsius") },
@@ -694,12 +757,6 @@ private fun ToolSetupPage(repository: SettingsRepository, settings: KeyboardSett
                     onCheckedChange = { scope.launch { repository.setWeatherFahrenheit(it) } },
                 )
             },
-        )
-        Text(
-            "The weather tool needs a saved place — set it under Tools → Weather.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = 16.dp),
         )
     }
     if (ToolbarTool.COMPASS in settings.enabledTools) {
@@ -721,153 +778,13 @@ private fun ToolSetupPage(repository: SettingsRepository, settings: KeyboardSett
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 16.dp),
             )
-        }
-    }
-    if (ToolbarTool.AI in settings.enabledTools) {
-        AiSetupSection(repository, settings)
-    }
-}
-
-/**
- * Compact AI first-run setup: pick a provider, then just the one credential
- * (or starter-model download) it needs to work. The full options — models,
- * prompts, the whole on-device catalog — live under Tools → AI.
- */
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun AiSetupSection(repository: SettingsRepository, settings: KeyboardSettings) {
-    val scope = rememberCoroutineScope()
-    SectionTitle("AI writing tools")
-    FlowRow(
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        modifier = Modifier.padding(horizontal = 16.dp),
-    ) {
-        val providers = AiProvider.entries.filter {
-            it != AiProvider.ON_DEVICE || BuildConfig.ENABLE_LOCAL_LLM
-        }
-        for (provider in providers) {
-            FilterChip(
-                selected = settings.aiProvider == provider,
-                onClick = { scope.launch { repository.setAiProvider(provider) } },
-                label = { Text(provider.label) },
-            )
-        }
-    }
-    when (settings.aiProvider) {
-        AiProvider.ANTHROPIC -> ApiKeyField(
-            label = "Anthropic API key",
-            value = settings.aiAnthropicKey,
-            builtInAvailable = false,
-            emptyHint = "From console.anthropic.com → API keys",
-        ) { repository.setAiAnthropicKey(it) }
-        AiProvider.OPENAI -> ApiKeyField(
-            label = "OpenAI API key",
-            value = settings.aiOpenAiKey,
-            builtInAvailable = false,
-            emptyHint = "From platform.openai.com → API keys",
-        ) { repository.setAiOpenAiKey(it) }
-        AiProvider.GEMINI -> ApiKeyField(
-            label = "Gemini API key",
-            value = settings.aiGeminiKey,
-            builtInAvailable = false,
-            emptyHint = "Free tier from aistudio.google.com",
-        ) { repository.setAiGeminiKey(it) }
-        AiProvider.OLLAMA -> ApiKeyField(
-            label = "Ollama server address",
-            value = settings.aiOllamaUrl,
-            builtInAvailable = false,
-            emptyHint = "e.g. http://192.168.0.10:11434",
-        ) { repository.setAiOllamaUrl(it) }
-        AiProvider.LM_STUDIO -> ApiKeyField(
-            label = "LM Studio server address",
-            value = settings.aiLmStudioUrl,
-            builtInAvailable = false,
-            emptyHint = "e.g. http://192.168.0.10:1234",
-        ) { repository.setAiLmStudioUrl(it) }
-        AiProvider.ON_DEVICE -> StarterModelDownload(repository, settings)
-    }
-    Text(
-        "You can switch providers, change models and edit every prompt later " +
-            "under Tools → AI.",
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-    )
-}
-
-/**
- * One-tap download of the smallest ungated catalog model so on-device AI
- * works right after onboarding; it auto-selects when the download lands.
- */
-@Composable
-private fun StarterModelDownload(repository: SettingsRepository, settings: KeyboardSettings) {
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    val filesDir = context.filesDir
-    val model = remember { LocalLlmCatalog.models.first { !it.gated } }
-    val states by LocalLlmDownloadManager.states.collectAsState()
-    val status = states[model.id] ?: LocalLlmDownloadManager.DownloadStatus.NotDownloaded
-
-    LaunchedEffect(Unit) { LocalLlmDownloadManager.refresh(filesDir) }
-    LaunchedEffect(status) {
-        if (status is LocalLlmDownloadManager.DownloadStatus.Downloaded &&
-            settings.aiLocalModelId.isBlank()
-        ) {
-            repository.setAiLocalModelId(model.id)
-        }
-    }
-
-    ListItem(
-        headlineContent = { Text("${model.displayName} — starter model") },
-        supportingContent = {
-            when (status) {
-                is LocalLlmDownloadManager.DownloadStatus.Downloading -> Column {
-                    val progress = if (status.total > 0) {
-                        (status.bytes.toFloat() / status.total).coerceIn(0f, 1f)
-                    } else null
-                    if (progress != null) {
-                        LinearProgressIndicator(
-                            progress = { progress },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(top = 6.dp),
-                        )
-                    } else {
-                        LinearProgressIndicator(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(top = 6.dp),
-                        )
-                    }
-                }
-                is LocalLlmDownloadManager.DownloadStatus.Downloaded ->
-                    Text("Downloaded — AI now runs fully on this phone")
-                is LocalLlmDownloadManager.DownloadStatus.Failed -> Text(status.message)
-                else -> Text(
-                    "${formatBytes(model.sizeBytes)} · runs offline, nothing " +
-                        "leaves the phone. Bigger models are under Tools → AI.",
-                )
+            // Same place, so only offer the editor here when the weather
+            // section above isn't already showing one.
+            if (ToolbarTool.WEATHER !in settings.enabledTools) {
+                WeatherLocationSetting(repository, settings)
             }
-        },
-        trailingContent = {
-            when (status) {
-                is LocalLlmDownloadManager.DownloadStatus.Downloaded ->
-                    Icon(Icons.Outlined.Check, contentDescription = "Downloaded")
-                is LocalLlmDownloadManager.DownloadStatus.Downloading ->
-                    TextButton(onClick = { LocalLlmDownloadManager.cancel() }) { Text("Cancel") }
-                else -> TextButton(
-                    onClick = { LocalLlmDownloadManager.start(filesDir, model, settings.hfToken) },
-                    enabled = !LocalLlmDownloadManager.isBusy,
-                ) {
-                    Text(
-                        if (status is LocalLlmDownloadManager.DownloadStatus.Paused) {
-                            "Resume"
-                        } else "Download",
-                    )
-                }
-            }
-        },
-    )
+        }
+    }
 }
 
 @Composable
