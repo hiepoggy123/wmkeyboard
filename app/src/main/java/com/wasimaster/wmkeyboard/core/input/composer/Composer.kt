@@ -130,4 +130,6 @@ fun composerFor(script: ScriptDef, type: ComposerType): Composer = when (type) {
     ComposerType.STROKE -> StrokeComposer
     ComposerType.T9_PINYIN -> T9PinyinComposer
     ComposerType.ZHUYIN -> ZhuyinComposer
+    ComposerType.CANGJIE -> CangjieComposer
+    ComposerType.CANGJIE_QUICK -> CangjieQuickComposer
 }

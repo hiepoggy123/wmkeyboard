@@ -14,4 +14,7 @@ object CjkDictionaries {
 
     /** Stroke-order → Hanzi table for the 笔画 input method (downloadable pack). */
     @Volatile var stroke: CodeTableDictionary = CodeTableDictionary.EMPTY
+
+    /** Radical-code → Hanzi table shared by Cangjie 倉頡 and Quick 速成. */
+    @Volatile var cangjie: CodeTableDictionary = CodeTableDictionary.EMPTY
 }

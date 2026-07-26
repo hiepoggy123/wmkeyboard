@@ -3345,6 +3345,15 @@ open class WMKeyboardService : InputMethodService() {
                     }.getOrNull()
                 }
                 ?: CodeTableDictionary.EMPTY
+            CjkDictionaries.cangjie = CjkDictStore.downloadedFileFor(filesDir, "cangjie")
+                ?.let { file ->
+                    runCatching {
+                        file.bufferedReader().useLines {
+                            CodeTableDictionary.parse(it, CodeTableDictionary.CANGJIE_CODE)
+                        }
+                    }.getOrNull()
+                }
+                ?: CodeTableDictionary.EMPTY
             // The pinyin syllable inventory is tiny static reference data (~1.8 KB),
             // the only bundled CJK asset — segmentation is ready without a download,
             // though candidates still need the pinyin pack above.

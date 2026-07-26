@@ -76,6 +76,12 @@ enum class ComposerType {
 
     /** Chinese: 注音 bopomofo symbols with tone marks, Taiwan's standard method. */
     ZHUYIN,
+
+    /** Chinese: 倉頡 Cangjie radical decomposition, typed as the letters a-y. */
+    CANGJIE,
+
+    /** Chinese: 速成 Quick — a character's first and last Cangjie radical only. */
+    CANGJIE_QUICK,
 }
 
 /**

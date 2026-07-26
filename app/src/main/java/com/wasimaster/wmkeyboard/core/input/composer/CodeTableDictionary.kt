@@ -30,6 +30,25 @@ class CodeTableDictionary private constructor(
         return rank(hits, limit)
     }
 
+    /**
+     * Characters whose code starts with [first] and ends with [last] — Cangjie
+     * Quick (速成), which types only the first and last radical of a character
+     * instead of all of them. Served from the same table as full Cangjie: no
+     * second pack, because Quick is a different *query* over one code set, not a
+     * different code set.
+     *
+     * Costs two binary searches to reach the [first] bucket, then a scan bounded
+     * to that one bucket — never the whole table, unlike the wildcard path. A
+     * length-1 code matches when its single char is both first and last.
+     */
+    fun quickCandidates(first: Char, last: Char, limit: Int = 24): List<String> {
+        if (codes.isEmpty()) return emptyList()
+        val lo = lowerBound(first.toString())
+        val hi = lowerBound(first.toString() + '￿')
+        val hits = (lo until hi).filter { codes[it].last() == last }
+        return rank(hits, limit)
+    }
+
     /** Indices whose code starts with [prefix], via the sorted range [lo, hi). */
     private fun prefixHits(prefix: String): List<Int> {
         val lo = lowerBound(prefix)

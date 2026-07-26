@@ -69,6 +69,16 @@ object CjkDictCatalog {
             sha256 = "87d790c976b28e54107aef1af4ea3cea6e608500de0bcb3c01af7d8f1f8c52e8",
             fileName = "stroke.tsv",
         ),
+        CjkDictPack(
+            id = "cangjie",
+            langId = "zh",
+            displayName = "Cangjie (倉頡) dictionary",
+            description = "Radical-code → Hanzi table. Required for the Cangjie and Quick keyboards.",
+            url = "",
+            sizeBytes = 0L,
+            sha256 = "",
+            fileName = "cangjie.tsv",
+        ),
     )
 
     init {
