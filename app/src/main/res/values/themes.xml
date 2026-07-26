@@ -1,4 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <style name="Theme.WMKeyboard" parent="Theme.AppCompat.DayNight.NoActionBar" />
+
+    <!--
+        Opening a keyboard file shows one dialog, not a screen. The window
+        itself is invisible so whatever the user was looking at stays behind
+        it; the Compose dialog draws its own scrim, so the window must not dim
+        as well or the two stack up.
+    -->
+    <style name="Theme.WMKeyboard.Import" parent="Theme.WMKeyboard">
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:backgroundDimEnabled">false</item>
+        <item name="android:windowAnimationStyle">@null</item>
+    </style>
 </resources>

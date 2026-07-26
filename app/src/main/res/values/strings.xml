@@ -4,6 +4,12 @@
     <!-- Shown in Settings › Notification access for the media-control tool's
          listener; names why the app appears in that list. -->
     <string name="media_listener_label">WM Keyboard media controls</string>
+    <!--
+      Shown in the "open with" chooser for the keyboard's own files
+      (.wmtheme.json, .wmlayout.json, .wmconfig.json, .wmstickers, …), so it
+      has to read as an action rather than as the app's name.
+    -->
+    <string name="import_file_label">Import into WM Keyboard</string>
     <string name="subtype_english">English</string>
     <!--
       OS subtype label when "app name first" is on. The framework substitutes

@@ -90,6 +90,91 @@
             </intent-filter>
         </activity>
 
+        <!--
+             Where an opened .wmtheme.json / .wmlayout.json / .wmsettings.json /
+             .wmconfig.json / .wmstickers lands: one confirm dialog, the import,
+             a result. Deliberately not MainActivity — tapping a theme in a file
+             manager should not drop anyone into the settings app.
+        -->
+        <activity
+            android:name="com.wasimaster.wmkeyboard.app.ImportFileActivity"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:label="@string/import_file_label"
+            android:theme="@style/Theme.WMKeyboard.Import">
+            <!--
+                 File associations for the keyboard's own export formats. Every one
+                 of them is JSON or a ZIP, so filtering on MIME type would claim
+                 every .json and every archive on the device; these match on the
+                 file name instead, which is why the exports write compound
+                 extensions (.wmtheme.json, never plain .json).
+
+                 pathPattern has no backtracking, so ".*\\.wmtheme\\.json" alone
+                 fails on a name that already contains a dot ("my.theme.wmtheme.json")
+                 — hence one extra ".*\\." variant per additional dot. Path matching
+                 is also only applied when an authority is declared, hence host="*",
+                 which in turn rules out file:// URIs; nothing has sent those since
+                 API 24. Two filters because an intent with no type only ever matches
+                 a filter with no type.
+
+                 Keep in step with WMFileTypes.EXTENSIONS.
+            -->
+            <intent-filter android:label="@string/import_file_label">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="content" />
+                <data android:host="*" />
+                <data android:mimeType="*/*" />
+                <data android:pathPattern=".*\\.wmtheme\\.json" />
+                <data android:pathPattern=".*\\..*\\.wmtheme\\.json" />
+                <data android:pathPattern=".*\\..*\\..*\\.wmtheme\\.json" />
+                <data android:pathPattern=".*\\..*\\..*\\..*\\.wmtheme\\.json" />
+                <data android:pathPattern=".*\\.wmlayout\\.json" />
+                <data android:pathPattern=".*\\..*\\.wmlayout\\.json" />
+                <data android:pathPattern=".*\\..*\\..*\\.wmlayout\\.json" />
+                <data android:pathPattern=".*\\..*\\..*\\..*\\.wmlayout\\.json" />
+                <data android:pathPattern=".*\\.wmsettings\\.json" />
+                <data android:pathPattern=".*\\..*\\.wmsettings\\.json" />
+                <data android:pathPattern=".*\\..*\\..*\\.wmsettings\\.json" />
+                <data android:pathPattern=".*\\..*\\..*\\..*\\.wmsettings\\.json" />
+                <data android:pathPattern=".*\\.wmconfig\\.json" />
+                <data android:pathPattern=".*\\..*\\.wmconfig\\.json" />
+                <data android:pathPattern=".*\\..*\\..*\\.wmconfig\\.json" />
+                <data android:pathPattern=".*\\..*\\..*\\..*\\.wmconfig\\.json" />
+                <data android:pathPattern=".*\\.wmstickers" />
+                <data android:pathPattern=".*\\..*\\.wmstickers" />
+                <data android:pathPattern=".*\\..*\\..*\\.wmstickers" />
+                <data android:pathPattern=".*\\..*\\..*\\..*\\.wmstickers" />
+            </intent-filter>
+
+            <intent-filter android:label="@string/import_file_label">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="content" />
+                <data android:host="*" />
+                <data android:pathPattern=".*\\.wmtheme\\.json" />
+                <data android:pathPattern=".*\\..*\\.wmtheme\\.json" />
+                <data android:pathPattern=".*\\..*\\..*\\.wmtheme\\.json" />
+                <data android:pathPattern=".*\\..*\\..*\\..*\\.wmtheme\\.json" />
+                <data android:pathPattern=".*\\.wmlayout\\.json" />
+                <data android:pathPattern=".*\\..*\\.wmlayout\\.json" />
+                <data android:pathPattern=".*\\..*\\..*\\.wmlayout\\.json" />
+                <data android:pathPattern=".*\\..*\\..*\\..*\\.wmlayout\\.json" />
+                <data android:pathPattern=".*\\.wmsettings\\.json" />
+                <data android:pathPattern=".*\\..*\\.wmsettings\\.json" />
+                <data android:pathPattern=".*\\..*\\..*\\.wmsettings\\.json" />
+                <data android:pathPattern=".*\\..*\\..*\\..*\\.wmsettings\\.json" />
+                <data android:pathPattern=".*\\.wmconfig\\.json" />
+                <data android:pathPattern=".*\\..*\\.wmconfig\\.json" />
+                <data android:pathPattern=".*\\..*\\..*\\.wmconfig\\.json" />
+                <data android:pathPattern=".*\\..*\\..*\\..*\\.wmconfig\\.json" />
+                <data android:pathPattern=".*\\.wmstickers" />
+                <data android:pathPattern=".*\\..*\\.wmstickers" />
+                <data android:pathPattern=".*\\..*\\..*\\.wmstickers" />
+                <data android:pathPattern=".*\\..*\\..*\\..*\\.wmstickers" />
+            </intent-filter>
+        </activity>
+
         <!-- Invisible one-shot activity: the IME cannot show the runtime
              permission dialog itself, so the camera tool bounces through
              this to request android.permission.CAMERA. -->

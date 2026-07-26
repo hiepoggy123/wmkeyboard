@@ -1,0 +1,410 @@
+package com.wasimaster.wmkeyboard.app
+
+import android.net.Uri
+import android.os.Bundle
+import android.provider.OpenableColumns
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.wasimaster.wmkeyboard.core.layout.AssetLayouts
+import com.wasimaster.wmkeyboard.core.layout.ImportedLayout
+import com.wasimaster.wmkeyboard.core.layout.LayoutFile
+import com.wasimaster.wmkeyboard.core.settings.ConfigBackup
+import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
+import com.wasimaster.wmkeyboard.core.settings.SettingsBackup
+import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
+import com.wasimaster.wmkeyboard.core.stickers.StickerImportResult
+import com.wasimaster.wmkeyboard.core.stickers.StickerPackFile
+import com.wasimaster.wmkeyboard.core.stickers.StickerPackStore
+import com.wasimaster.wmkeyboard.core.theme.ThemeCodec
+import com.wasimaster.wmkeyboard.core.theme.ThemeSpec
+import com.wasimaster.wmkeyboard.core.theme.withExtractedImages
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
+
+/**
+ * Opening one of the keyboard's own files from outside the app — a file
+ * manager, a chat app's "open with", a downloads notification.
+ *
+ * Every format the keyboard exports is either JSON or a ZIP, so a MIME-typed
+ * intent filter would claim every `.json` and every archive on the device.
+ * The manifest filters on the *file name* instead (`pathPattern` per
+ * extension), which is why each export writes a compound extension:
+ * `.wmtheme.json` rather than `.json`. Files whose content URI carries no
+ * name — a downloads-provider `msf:1234`, say — simply don't match, and the
+ * user opens them through the in-app pickers as before. That miss is the
+ * intended trade for not being offered as a JSON viewer.
+ *
+ * The extension only gets the file here. What is actually *done* with it is
+ * decided by reading it: every format but the theme carries a format tag, so
+ * a `.wmlayout.json` holding a backup still restores a backup.
+ */
+object WMFileTypes {
+
+    /**
+     * Extensions the manifest's intent filters match, and what to keep them in
+     * step with. Each is a compound extension so that plain `.json` stays
+     * unclaimed.
+     */
+    val EXTENSIONS: List<String> = listOf(
+        ThemeCodec.FILE_EXTENSION,
+        LayoutFile.FILE_EXTENSION,
+        SettingsBackup.FILE_EXTENSION,
+        ConfigBackup.FILE_EXTENSION,
+        StickerPackFile.FILE_EXTENSION,
+    )
+
+    /** First four bytes of every ZIP local file header. */
+    private val ZIP_MAGIC = byteArrayOf(0x50, 0x4B, 0x03, 0x04)
+
+    /** What a file at [uri] turned out to be. */
+    sealed interface Opened {
+        data class Theme(val theme: ThemeSpec) : Opened
+        data class Layout(val layout: ImportedLayout) : Opened
+        data class Config(val text: String, val parsed: ConfigBackup.Parsed) : Opened
+
+        /** The older standalone `wmsettings.json`. */
+        data class Settings(val text: String, val parsed: SettingsBackup.Parsed) : Opened
+
+        /**
+         * A ZIP. Nothing is parsed here — [StickerPackFile.import] streams the
+         * archive itself and does the format check, so this re-opens [uri].
+         */
+        data object Stickers : Opened
+
+        /** Readable, but not one of ours. */
+        data object Unrecognized : Opened
+
+        /** Gone, or no permission, or not readable at all. */
+        data object Unreadable : Opened
+    }
+
+    /**
+     * Reads enough of [uri] to say what it is. [name] is the display name, used
+     * only for the theme check — see below. Blocking; call off the main thread.
+     */
+    fun identify(context: android.content.Context, uri: Uri, name: String): Opened {
+        val head = runCatching {
+            context.contentResolver.openInputStream(uri)!!.use { input ->
+                val buffer = ByteArray(4)
+                var read = 0
+                while (read < buffer.size) {
+                    val n = input.read(buffer, read, buffer.size - read)
+                    if (n <= 0) break
+                    read += n
+                }
+                buffer.copyOf(read)
+            }
+        }.getOrNull() ?: return Opened.Unreadable
+        if (head.contentEquals(ZIP_MAGIC)) return Opened.Stickers
+
+        val text = runCatching {
+            context.contentResolver.openInputStream(uri)!!.use { it.readBytes().decodeToString() }
+        }.getOrNull() ?: return Opened.Unreadable
+
+        // Tagged formats first, and in the order a tag can only mean one thing.
+        ConfigBackup.decode(text)?.let { return Opened.Config(text, it) }
+        SettingsBackup.decode(text)?.let { return Opened.Settings(text, it) }
+        LayoutFile.decode(text)?.let { return Opened.Layout(it) }
+        // A theme has no tag and every field has a default, so decoding any JSON
+        // object at all succeeds and yields an all-defaults theme. The file name
+        // is the only evidence there is that this one was meant to be a theme.
+        if (name.endsWith(".${ThemeCodec.FILE_EXTENSION}", ignoreCase = true)) {
+            ThemeCodec.decode(text)?.let { return Opened.Theme(it) }
+        }
+        return Opened.Unrecognized
+    }
+
+    /** The provider's display name for [uri], or its last path segment. */
+    fun displayName(context: android.content.Context, uri: Uri): String {
+        val fromProvider = runCatching {
+            context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
+                ?.use { cursor ->
+                    if (cursor.moveToFirst() && !cursor.isNull(0)) cursor.getString(0) else null
+                }
+        }.getOrNull()
+        return fromProvider ?: uri.lastPathSegment.orEmpty()
+    }
+}
+
+/**
+ * The activity the manifest's file associations point at: a single confirm
+ * dialog over whatever was on screen, then the import, then a result. It never
+ * opens the settings UI — someone who tapped a theme in their downloads wants
+ * the theme, not a tour of the app.
+ */
+class ImportFileActivity : ComponentActivity() {
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        val uri = intent?.data
+        if (uri == null) {
+            finish()
+            return
+        }
+        val repository = SettingsRepository(applicationContext)
+        // A layout import resolves against the asset layouts, same as the
+        // settings app does before its first frame.
+        AssetLayouts.load(applicationContext.assets)
+        setContent {
+            val settings by repository.settings
+                .collectAsStateWithLifecycle(null as KeyboardSettings?)
+            settings?.let { loaded ->
+                AppTheme(loaded) {
+                    ImportFileDialog(repository, uri) { finish() }
+                }
+            }
+        }
+    }
+}
+
+/** The pending import, once the file has been read and named. */
+private data class ImportProposal(
+    val title: String,
+    val body: String,
+    /** Lines describing what had to be fixed to make the file usable. */
+    val repairs: List<String> = emptyList(),
+    val confirmLabel: String = "Import",
+    val apply: (suspend () -> String)? = null,
+)
+
+@Composable
+private fun ImportFileDialog(
+    repository: SettingsRepository,
+    uri: Uri,
+    onClose: () -> Unit,
+) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    var opened by remember { mutableStateOf<WMFileTypes.Opened?>(null) }
+    var message by remember { mutableStateOf<String?>(null) }
+    var working by remember { mutableStateOf(false) }
+
+    LaunchedEffect(uri) {
+        opened = withContext(Dispatchers.IO) {
+            WMFileTypes.identify(context, uri, WMFileTypes.displayName(context, uri))
+        }
+    }
+
+    if (message != null) {
+        AlertDialog(
+            onDismissRequest = onClose,
+            text = { Text(message!!) },
+            confirmButton = { TextButton(onClick = onClose) { Text("OK") } },
+        )
+        return
+    }
+
+    val state = opened
+    if (state == null || working) {
+        // Reading a backup with sticker packs in it is not instant, and neither
+        // is writing one back out.
+        AlertDialog(
+            onDismissRequest = {},
+            title = { Text(if (working) "Importing…" else "Reading file…") },
+            text = { CircularProgressIndicator() },
+            confirmButton = {},
+        )
+        return
+    }
+
+    val proposal = rememberProposal(state, repository, context, uri)
+    AlertDialog(
+        onDismissRequest = onClose,
+        title = { Text(proposal.title) },
+        text = {
+            Column {
+                Text(proposal.body)
+                if (proposal.repairs.isNotEmpty()) {
+                    Spacer(Modifier.height(8.dp))
+                    Text("Changed on the way in:", fontWeight = FontWeight.Medium)
+                    for (line in proposal.repairs) Text("• $line")
+                }
+            }
+        },
+        confirmButton = {
+            val apply = proposal.apply
+            if (apply == null) {
+                TextButton(onClick = onClose) { Text("OK") }
+            } else {
+                TextButton(onClick = {
+                    working = true
+                    scope.launch { message = apply(); working = false }
+                }) { Text(proposal.confirmLabel) }
+            }
+        },
+        dismissButton = {
+            if (proposal.apply != null) TextButton(onClick = onClose) { Text("Cancel") }
+        },
+    )
+}
+
+/**
+ * Turns a read file into what the dialog should say and do. Every branch mirrors
+ * the equivalent in-app import so an opened file and a picked file behave the
+ * same — including reading first and asking before anything is written.
+ */
+@Composable
+private fun rememberProposal(
+    state: WMFileTypes.Opened,
+    repository: SettingsRepository,
+    context: android.content.Context,
+    uri: Uri,
+): ImportProposal = remember(state) {
+    when (state) {
+        is WMFileTypes.Opened.Theme -> ImportProposal(
+            title = "Import ${state.theme.name.ifBlank { "theme" }}?",
+            body = "The theme is added to your themes and applied to the keyboard.",
+            apply = {
+                val id = "custom_${System.currentTimeMillis()}"
+                // Fresh id first, so extracted image filenames key off it and
+                // stay unique against the themes already saved.
+                repository.upsertCustomTheme(
+                    state.theme.copy(id = id)
+                        .withExtractedImages(File(context.filesDir, "theme_images").apply { mkdirs() }),
+                )
+                repository.setKeyboardThemeId(id)
+                "Imported ${state.theme.name.ifBlank { "theme" }}."
+            },
+        )
+
+        is WMFileTypes.Opened.Layout -> ImportProposal(
+            title = "Import ${state.layout.layout.name}?",
+            body = "It is added to your layouts but not switched on — turn it on " +
+                "under Languages when you are ready to type with it.",
+            repairs = state.layout.repairs,
+            apply = {
+                repository.upsertCustomLayout(
+                    state.layout.layout.copy(id = "custom_${System.currentTimeMillis()}"),
+                )
+                "Imported ${state.layout.layout.name}."
+            },
+        )
+
+        is WMFileTypes.Opened.Config -> {
+            val counts = repository.describeConfig(state.parsed)
+            val hasSecrets = repository.configContainsSecrets(state.parsed)
+            ImportProposal(
+                title = "Import backup?",
+                body = buildString {
+                    append("This file contains:\n")
+                    for ((section, count) in counts) {
+                        append("\n• ${sectionLabel(section)}: ")
+                        append(sectionSummary(section, count))
+                    }
+                    append("\n\nSettings merge into your current ones; dictionary, ")
+                    append("clipboard and snippets replace what's on this device.")
+                    if (hasSecrets) {
+                        append("\n\nThe file includes API keys, which will replace the ")
+                        append("ones set here.")
+                    }
+                },
+                apply = {
+                    when (val result = repository.importConfig(state.text)) {
+                        is SettingsRepository.ConfigImportResult.Applied -> buildString {
+                            if (result.restored.isEmpty()) {
+                                append("Nothing to restore from that file.")
+                            } else {
+                                append("Restored ")
+                                append(result.restored.joinToString { sectionLabel(it).lowercase() })
+                                append(".")
+                            }
+                            if (result.settingsFailed) {
+                                append("\n\nThe settings couldn't be applied and were left unchanged.")
+                            }
+                        }
+                        SettingsRepository.ConfigImportResult.NotABackup ->
+                            "That file is not a WMKeyboard backup."
+                    }
+                },
+            )
+        }
+
+        is WMFileTypes.Opened.Settings -> ImportProposal(
+            title = "Import settings?",
+            body = buildString {
+                append("This will overwrite ${state.parsed.entries.size} settings ")
+                append("with the values in that file.")
+                if (state.parsed.containsSecrets) {
+                    append("\n\nThe file includes API keys, which will replace the ones set here.")
+                }
+                if (state.parsed.skipped > 0) {
+                    append("\n\n${state.parsed.skipped} entries could not be read and will be skipped.")
+                }
+            },
+            apply = {
+                when (val result = repository.importSettings(state.text)) {
+                    is SettingsRepository.ImportResult.Applied ->
+                        "Restored ${result.settings} settings."
+                    SettingsRepository.ImportResult.RolledBack ->
+                        "That backup could not be applied — your settings are unchanged."
+                    SettingsRepository.ImportResult.NotABackup ->
+                        "That file is not a WMKeyboard settings backup."
+                }
+            },
+        )
+
+        WMFileTypes.Opened.Stickers -> ImportProposal(
+            title = "Import sticker pack?",
+            body = "The pack is added to your own stickers, and its images are copied " +
+                "onto this device.",
+            apply = {
+                val store = StickerPackStore.get(context)
+                val result = withContext(Dispatchers.IO) {
+                    runCatching {
+                        context.contentResolver.openInputStream(uri)!!
+                            .use { StickerPackFile.import(it, store) }
+                    }.getOrDefault(StickerImportResult.Failed)
+                }
+                when (result) {
+                    is StickerImportResult.Imported -> buildString {
+                        append("Imported ${result.pack.name} — ${result.pack.stickers.size} stickers.")
+                        if (result.repairs.isNotEmpty()) {
+                            append("\n\nChanged on the way in:")
+                            for (line in result.repairs) append("\n• $line")
+                        }
+                    }
+                    StickerImportResult.NotAStickerPack ->
+                        "That file is not a WMKeyboard sticker pack."
+                    StickerImportResult.TooManyPacks ->
+                        "You already have ${StickerPackStore.MAX_PACKS} packs. Delete one first."
+                    StickerImportResult.Failed -> "That file could not be read."
+                }
+            },
+        )
+
+        WMFileTypes.Opened.Unrecognized -> ImportProposal(
+            title = "Not a WM Keyboard file",
+            body = "That file doesn't hold a theme, layout, sticker pack or backup " +
+                "this keyboard can read.",
+            apply = null,
+        )
+
+        WMFileTypes.Opened.Unreadable -> ImportProposal(
+            title = "Couldn't open that file",
+            body = "It may have been moved or deleted, or the app that shared it no " +
+                "longer allows reading it.",
+            apply = null,
+        )
+    }
+}

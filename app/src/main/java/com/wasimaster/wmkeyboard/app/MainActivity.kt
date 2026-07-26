@@ -323,7 +323,7 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-private fun AppTheme(settings: KeyboardSettings, content: @Composable () -> Unit) {
+internal fun AppTheme(settings: KeyboardSettings, content: @Composable () -> Unit) {
     val context = LocalContext.current
     val systemDark = isSystemInDarkTheme()
     val dark = when (settings.themeMode) {
@@ -3615,7 +3615,7 @@ private fun BlacklistSettings(repository: SettingsRepository, settings: Keyboard
 // ---- backup ----
 
 /** Human name for a bundle section, used in toggles and the import dialog. */
-private fun sectionLabel(section: ConfigBackup.Section): String = when (section) {
+internal fun sectionLabel(section: ConfigBackup.Section): String = when (section) {
     ConfigBackup.Section.SETTINGS -> "Settings"
     ConfigBackup.Section.THEMES -> "Themes"
     ConfigBackup.Section.DICTIONARY -> "Dictionary"
@@ -3625,7 +3625,7 @@ private fun sectionLabel(section: ConfigBackup.Section): String = when (section)
 }
 
 /** "3 themes", "1 snippet" — the count line shown per section on import. */
-private fun sectionSummary(section: ConfigBackup.Section, count: Int): String = when (section) {
+internal fun sectionSummary(section: ConfigBackup.Section, count: Int): String = when (section) {
     ConfigBackup.Section.SETTINGS -> "$count settings"
     ConfigBackup.Section.THEMES -> if (count == 1) "1 custom theme" else "$count custom themes"
     ConfigBackup.Section.DICTIONARY -> if (count == 1) "1 learned word" else "$count learned words"
