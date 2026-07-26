@@ -107,6 +107,8 @@ import com.wasimaster.wmkeyboard.core.settings.applyMode
 import com.wasimaster.wmkeyboard.core.settings.resolveKeyboardMode
 import com.wasimaster.wmkeyboard.core.snippets.Snippet
 import com.wasimaster.wmkeyboard.core.snippets.SnippetStore
+import com.wasimaster.wmkeyboard.core.stickers.StickerAddResult
+import com.wasimaster.wmkeyboard.core.stickers.StickerImage
 import com.wasimaster.wmkeyboard.core.settings.GifSourceMode
 import com.wasimaster.wmkeyboard.core.text.EmojiGraphemes
 import com.wasimaster.wmkeyboard.core.text.WordDelete
@@ -245,6 +247,7 @@ open class WMKeyboardService : InputMethodService() {
     /** Auto-hide timer for the recently-copied strip chip (see [showClipboardSuggestion]). */
     private var clipboardSuggestionJob: Job? = null
     private lateinit var snippetStore: SnippetStore
+    private lateinit var stickerPackStore: com.wasimaster.wmkeyboard.core.stickers.StickerPackStore
 
     /** Latest settings straight from DataStore, before mode overrides. */
     private var baseSettings: KeyboardSettings? = null
@@ -758,6 +761,7 @@ open class WMKeyboardService : InputMethodService() {
             imagesDir = File(filesDir, "clipboard/images"),
         )
         snippetStore = SnippetStore(File(filesDir, "snippets/snippets.json"))
+        stickerPackStore = com.wasimaster.wmkeyboard.core.stickers.StickerPackStore.get(this)
 
         // Tops up an upgraded install's stored mode list with modes added
         // since it was first seeded. No-op once it has run.
@@ -1148,6 +1152,10 @@ open class WMKeyboardService : InputMethodService() {
                 onMediaRetry = ::onMediaRetry,
                 onGifSelect = ::onGifSelect,
                 onGifSourceSelect = ::onGifSourceSelect,
+                onStickerLongPress = ::onStickerLongPress,
+                onStickerPackFilter = ::onStickerPackFilter,
+                onStickerSaveToPack = ::onStickerSaveToPack,
+                onStickerActionDismiss = ::onStickerActionDismiss,
                 onWebResult = ::onWebResultSelect,
                 onWebResultOpen = ::onWebResultOpen,
                 onImageResult = ::onImageResultSelect,
@@ -3766,6 +3774,8 @@ open class WMKeyboardService : InputMethodService() {
         vibrate()
         // The settings app edits snippets in the same file; re-read on open.
         if (panel == PanelMode.SNIPPETS) snippetStore.reload()
+        // Same for sticker packs, which the settings app owns outright.
+        if (panel == PanelMode.STICKER) stickerPackStore.reloadIfChanged()
         if (panel == PanelMode.CLIPBOARD) fetchLinkPreviews()
         _uiState.update {
             val closing = it.panel == panel
@@ -3794,6 +3804,9 @@ open class WMKeyboardService : InputMethodService() {
                     next == PanelMode.TRANSLATE || next == PanelMode.QR_GEN ||
                     (next == PanelMode.WIKIPEDIA && it.wiki !is WikiUi.Article && it.wiki !is WikiUi.SearchResults),
                 mediaDownloadingId = null,
+                stickerPacks = stickerPackStore.packs(),
+                stickerPackId = null,
+                stickerAction = null,
                 translate = TranslateUi(),
                 grammar = GrammarUi(available = GrammarChecker.available),
             )
@@ -5873,7 +5886,7 @@ open class WMKeyboardService : InputMethodService() {
     /** Search-bar tap on a media panel: toggle typing-into-the-query mode. */
     fun onMediaQueryTap() {
         vibrate()
-        _uiState.update { it.copy(mediaSearchActive = !it.mediaSearchActive) }
+        _uiState.update { it.copy(mediaSearchActive = !it.mediaSearchActive, stickerAction = null) }
     }
 
     /**
@@ -5945,17 +5958,18 @@ open class WMKeyboardService : InputMethodService() {
             _uiState.update { if (sticker) it.copy(sticker = ui) else it.copy(gif = ui) }
         }
         val settings = state.settings
-        val sources = ToolApiKeys.gifSources(settings)
+        // Stickers add the user's own packs, which need no key — so only the
+        // GIF tool can end up with nothing to ask.
+        val sources = if (sticker) ToolApiKeys.stickerSources(settings) else ToolApiKeys.gifSources(settings)
         if (sources.isEmpty()) {
             setUi(MediaUi.NeedKey)
             return
         }
-        val targets = if (settings.gifSourceMode == GifSourceMode.TABS) {
-            val selected = state.mediaSource.takeIf { it in sources } ?: sources.first()
+        val tabs = settings.gifSourceMode == GifSourceMode.TABS
+        val targets = GifSources.targets(sources, state.mediaSource, tabs)
+        if (tabs) {
+            val selected = targets.first()
             if (selected != state.mediaSource) _uiState.update { it.copy(mediaSource = selected) }
-            listOf(selected)
-        } else {
-            sources
         }
         mediaFetchJob?.cancel()
         setUi(MediaUi.Loading)
@@ -5993,13 +6007,15 @@ open class WMKeyboardService : InputMethodService() {
             KlipyClient.search(query, ToolApiKeys.klipy(settings), sticker, settings.gifContentFilter)
         GifSource.GIPHY ->
             GiphyClient.search(query, ToolApiKeys.giphy(settings), sticker, settings.gifContentFilter)
+        GifSource.LOCAL ->
+            stickerPackStore.searchAsGifItems(query, _uiState.value.stickerPackId)
     }
 
     /** Provider chip on the GIF/sticker panel (tabs mode). */
     fun onGifSourceSelect(source: GifSource) {
         vibrate()
         if (_uiState.value.mediaSource == source) return
-        _uiState.update { it.copy(mediaSource = source) }
+        _uiState.update { it.copy(mediaSource = source, stickerAction = null, stickerPackId = null) }
         refreshMedia(_uiState.value.mediaQuery.trim())
     }
 
@@ -6077,7 +6093,94 @@ open class WMKeyboardService : InputMethodService() {
         } else {
             settings.gifSendMode
         }
+        if (item.source == GifSource.LOCAL) {
+            insertLocalSticker(item, sendMode)
+            return
+        }
         insertDownloadedImage(item.id, item.fullUrl, item.mime, sendMode)
+    }
+
+    /**
+     * Commits a sticker the user owns. Nothing to download, so this skips the
+     * cache and the cell spinner entirely. A file that went missing behind the
+     * store's back (manual wipe, restore) heals the manifest instead of
+     * failing silently.
+     */
+    private fun insertLocalSticker(item: GifItem, sendMode: MediaSendMode) {
+        vibrate()
+        val found = stickerPackStore.findByItemId(item.id)
+        val file = found?.let { (pack, sticker) -> stickerPackStore.fileFor(pack.id, sticker) }
+        if (found == null || file == null || !file.exists()) {
+            found?.let { (pack, sticker) -> stickerPackStore.removeSticker(pack.id, sticker.id) }
+            Toast.makeText(this, "That sticker's file is gone", Toast.LENGTH_SHORT).show()
+            _uiState.update { it.copy(stickerPacks = stickerPackStore.packs()) }
+            refreshMedia(_uiState.value.mediaQuery.trim())
+            return
+        }
+        commitImageFile(file, item.mime, sendMode)
+    }
+
+    /** Pack chip on the "My stickers" tab; null means every pack. */
+    fun onStickerPackFilter(packId: String?) {
+        vibrate()
+        if (_uiState.value.stickerPackId == packId) return
+        _uiState.update { it.copy(stickerPackId = packId, stickerAction = null) }
+        refreshMedia(_uiState.value.mediaQuery.trim())
+    }
+
+    /** Long-pressed a sticker cell: open its action sheet. */
+    fun onStickerLongPress(item: GifItem) {
+        if (_uiState.value.panel != PanelMode.STICKER) return
+        vibrate()
+        _uiState.update { it.copy(stickerAction = item) }
+    }
+
+    fun onStickerActionDismiss() {
+        _uiState.update { it.copy(stickerAction = null) }
+    }
+
+    /**
+     * "Save to pack" on a provider sticker: download it, normalise it to the
+     * sticker spec, and file it under [packId] (null creates a first pack).
+     */
+    fun onStickerSaveToPack(item: GifItem, packId: String?) {
+        if (_uiState.value.mediaDownloadingId != null) return
+        vibrate()
+        _uiState.update { it.copy(stickerAction = null, mediaDownloadingId = item.id) }
+        mediaInsertJob = serviceScope.launch {
+            val result = withContext(Dispatchers.IO) {
+                val target = packId
+                    ?: stickerPackStore.packs().firstOrNull()?.id
+                    ?: stickerPackStore.createPack("My stickers")?.id
+                    ?: return@withContext null
+                val bytes = runCatching {
+                    val dir = File(cacheDir, "media").apply { mkdirs() }
+                    val temp = File(dir, "sticker_${item.fullUrl.hashCode().toUInt()}")
+                    ToolHttp.download(
+                        item.fullUrl,
+                        temp,
+                        maxBytes = StickerImage.MAX_SOURCE_BYTES,
+                    )
+                    temp.readBytes().also { temp.delete() }
+                }.getOrNull() ?: return@withContext null
+                when (val processed = StickerImage.process(bytes)) {
+                    is StickerImage.Result.Ok ->
+                        stickerPackStore.addSticker(target, processed.sticker)
+                    StickerImage.Result.TooLarge -> StickerAddResult.WriteFailed
+                    StickerImage.Result.NotAnImage -> StickerAddResult.WriteFailed
+                }
+            }
+            _uiState.update {
+                it.copy(mediaDownloadingId = null, stickerPacks = stickerPackStore.packs())
+            }
+            val message = when (result) {
+                is StickerAddResult.Added -> "Saved to your stickers"
+                StickerAddResult.PackFull -> "That pack is full"
+                StickerAddResult.PackMissing -> "That pack is gone"
+                else -> "Couldn't save that sticker"
+            }
+            Toast.makeText(this@WMKeyboardService, message, Toast.LENGTH_SHORT).show()
+        }
     }
 
     /** Tapped an image-search cell: download the full image and commit it. */
@@ -7146,7 +7249,9 @@ open class WMKeyboardService : InputMethodService() {
         val dispatcher = window?.window?.onBackInvokedDispatcher ?: return
         if (panelOpen && panelBackCallback == null) {
             val callback = android.window.OnBackInvokedCallback {
-                if (_uiState.value.voice.strip) {
+                if (_uiState.value.stickerAction != null) {
+                    onStickerActionDismiss()
+                } else if (_uiState.value.voice.strip) {
                     closeVoiceStrip()
                 } else {
                     val panel = _uiState.value.panel
@@ -7194,7 +7299,13 @@ open class WMKeyboardService : InputMethodService() {
         if (keyCode == KeyEvent.KEYCODE_BACK && isInputViewShown &&
             (panel != PanelMode.NONE || _uiState.value.voice.strip)
         ) {
-            if (_uiState.value.voice.strip) closeVoiceStrip() else onPanelChange(panel)
+            when {
+                // The sticker action sheet is a layer above the panel, so back
+                // closes it first rather than the panel underneath it.
+                _uiState.value.stickerAction != null -> onStickerActionDismiss()
+                _uiState.value.voice.strip -> closeVoiceStrip()
+                else -> onPanelChange(panel)
+            }
             return true
         }
         // Swallow the UP too, so the system never sees half a volume event.

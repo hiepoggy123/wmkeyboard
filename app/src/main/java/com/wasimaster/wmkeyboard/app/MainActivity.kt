@@ -473,6 +473,17 @@ private fun SettingsNavHost(
                 KeyLayoutsScreen(repository, settings) { route -> navController.navigate(route) }
             }
         }
+        composable("sticker_packs") {
+            SettingsScreen("Sticker packs", { navController.popBackStack() }) {
+                StickerPacksScreen { route -> navController.navigate(route) }
+            }
+        }
+        composable("sticker_pack/{packId}") { backStackEntry ->
+            val packId = backStackEntry.arguments?.getString("packId").orEmpty()
+            SettingsScreen("Edit sticker pack", { navController.popBackStack() }) {
+                StickerPackScreen(packId)
+            }
+        }
         composable("keymap_edit/{layoutId}") { backStackEntry ->
             val layoutId = backStackEntry.arguments?.getString("layoutId").orEmpty()
             SettingsScreen("Edit layout", { navController.popBackStack() }) {
@@ -3473,6 +3484,7 @@ private fun sectionLabel(section: ConfigBackup.Section): String = when (section)
     ConfigBackup.Section.DICTIONARY -> "Dictionary"
     ConfigBackup.Section.CLIPBOARD -> "Clipboard"
     ConfigBackup.Section.SNIPPETS -> "Snippets"
+    ConfigBackup.Section.STICKERS -> "Sticker packs"
 }
 
 /** "3 themes", "1 snippet" — the count line shown per section on import. */
@@ -3482,6 +3494,7 @@ private fun sectionSummary(section: ConfigBackup.Section, count: Int): String = 
     ConfigBackup.Section.DICTIONARY -> if (count == 1) "1 learned word" else "$count learned words"
     ConfigBackup.Section.CLIPBOARD -> if (count == 1) "1 clip" else "$count clips"
     ConfigBackup.Section.SNIPPETS -> if (count == 1) "1 snippet" else "$count snippets"
+    ConfigBackup.Section.STICKERS -> if (count == 1) "1 sticker" else "$count stickers"
 }
 
 /** A file picked for import, once we know which of the two formats it is. */
@@ -3503,6 +3516,9 @@ private fun BackupSettings(repository: SettingsRepository) {
     var includeSettings by remember { mutableStateOf(true) }
     var includeThemes by remember { mutableStateOf(true) }
     var includeSnippets by remember { mutableStateOf(true) }
+    // Off by default only because the images make the file large, not because
+    // there's anything private about them.
+    var includeStickers by remember { mutableStateOf(false) }
     var includeDictionary by remember { mutableStateOf(false) }
     var includeClipboard by remember { mutableStateOf(false) }
     var includeSecrets by remember { mutableStateOf(false) }
@@ -3516,6 +3532,7 @@ private fun BackupSettings(repository: SettingsRepository) {
         if (includeDictionary) add(ConfigBackup.Section.DICTIONARY)
         if (includeClipboard) add(ConfigBackup.Section.CLIPBOARD)
         if (includeSnippets) add(ConfigBackup.Section.SNIPPETS)
+        if (includeStickers) add(ConfigBackup.Section.STICKERS)
     }
 
     val exportLauncher = rememberLauncherForActivityResult(
@@ -3635,6 +3652,16 @@ private fun BackupSettings(repository: SettingsRepository) {
                 "Your saved text snippets",
                 includeSnippets,
             ) { includeSnippets = it }
+        }
+        item {
+            ToggleSetting(
+                "Sticker packs",
+                "Your own sticker packs, images and all",
+                includeStickers,
+                info = "The images travel inside the backup, so a restore on another " +
+                    "phone gets working packs — but it can add megabytes to the file. " +
+                    "For one pack, exporting a .wmstickers file is smaller.",
+            ) { includeStickers = it }
         }
     }
 
@@ -5146,6 +5173,17 @@ private fun ToolDetailSettings(
             )
         }
         ToolbarTool.GIF, ToolbarTool.STICKER -> {
+            if (tool == ToolbarTool.STICKER) {
+                SettingsGroup("Your stickers") {
+                    item {
+                        NavRow(
+                            "Sticker packs",
+                            "Make, edit, import and export packs of your own",
+                            onClick = { onNavigate("sticker_packs") },
+                        )
+                    }
+                }
+            }
             SettingsGroup("Layout") {
                 item {
                     ToggleSetting(

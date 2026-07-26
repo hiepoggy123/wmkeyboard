@@ -38,6 +38,7 @@ object ConfigBackup {
         DICTIONARY("dictionary"),
         CLIPBOARD("clipboard"),
         SNIPPETS("snippets"),
+        STICKERS("stickers"),
     }
 
     private val json = Json { prettyPrint = true }

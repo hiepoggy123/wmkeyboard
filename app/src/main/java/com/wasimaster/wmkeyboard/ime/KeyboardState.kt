@@ -753,6 +753,12 @@ data class KeyboardUiState(
         com.wasimaster.wmkeyboard.core.tools.GifSource.KLIPY,
     val gif: MediaUi = MediaUi.Loading,
     val sticker: MediaUi = MediaUi.Loading,
+    /** The user's own sticker packs, mirrored for the sticker panel. */
+    val stickerPacks: List<com.wasimaster.wmkeyboard.core.stickers.StickerPack> = emptyList(),
+    /** Pack chip on the "My stickers" tab; null shows every pack. */
+    val stickerPackId: String? = null,
+    /** Long-pressed sticker cell, showing its action sheet. */
+    val stickerAction: com.wasimaster.wmkeyboard.core.tools.GifItem? = null,
     val webSearch: WebSearchUi = WebSearchUi.Idle,
     val imageSearch: ImageSearchUi = ImageSearchUi.Idle,
     val translate: TranslateUi = TranslateUi(),

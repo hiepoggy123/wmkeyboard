@@ -3,6 +3,8 @@
     <files-path name="clipboard_images" path="clipboard/images/" />
     <files-path name="camera_captures" path="camera/" />
     <files-path name="doc_scans" path="docscan/" />
+    <!-- The user's own sticker packs, committed straight from storage. -->
+    <files-path name="sticker_packs" path="stickers/" />
     <!-- Downloaded GIFs/stickers/search images, committed via commitContent. -->
     <cache-path name="media_cache" path="media/" />
 </paths>

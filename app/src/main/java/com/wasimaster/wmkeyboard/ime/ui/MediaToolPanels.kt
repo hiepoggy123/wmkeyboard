@@ -3,7 +3,10 @@ package com.wasimaster.wmkeyboard.ime.ui
 import android.os.Build
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -149,7 +152,7 @@ private fun SearchCaret(color: Color, fontSize: TextUnit, restartKey: Any?) {
 
 /** One ImageLoader per composition with animated GIF/WebP support. */
 @Composable
-private fun rememberMediaImageLoader(): ImageLoader {
+internal fun rememberMediaImageLoader(): ImageLoader {
     val context = LocalContext.current
     return remember {
         ImageLoader.Builder(context)
@@ -330,16 +333,17 @@ private fun PanelSpinner() {
 private fun gifNoun(stickers: Boolean): String = if (stickers) "stickers" else "GIFs"
 
 /** "via Klipy · GIPHY" — whichever providers this grid is actually pulling from. */
-private fun gifAttribution(state: KeyboardUiState): String? {
-    val sources = ToolApiKeys.gifSources(state.settings)
-    return when {
-        sources.isEmpty() -> null
-        state.settings.gifSourceMode == GifSourceMode.TABS -> "via " + GifSources.displayName(
-            state.mediaSource.takeIf { it in sources } ?: sources.first(),
-        )
-        else -> "via " + sources.joinToString(" · ") { GifSources.displayName(it) }
-    }
+private fun gifAttribution(state: KeyboardUiState, stickers: Boolean = false): String? {
+    val sources = gifSourcesFor(state, stickers)
+    val tabs = state.settings.gifSourceMode == GifSourceMode.TABS
+    val targets = GifSources.targets(sources, state.mediaSource, tabs)
+    // Nothing to credit for the user's own packs.
+    if (targets.isEmpty() || targets == listOf(GifSource.LOCAL)) return null
+    return "via " + targets.joinToString(" · ") { GifSources.displayName(it) }
 }
+
+private fun gifSourcesFor(state: KeyboardUiState, stickers: Boolean): List<GifSource> =
+    if (stickers) ToolApiKeys.stickerSources(state.settings) else ToolApiKeys.gifSources(state.settings)
 
 /** The GIF/sticker search box sized for a [FullBleedTool] header row. */
 @Composable
@@ -352,7 +356,7 @@ internal fun RowScope.GifHeaderSearchBar(
         state = state,
         placeholder = "Search ${gifNoun(stickers)}",
         onQueryTap = onQueryTap,
-        attribution = gifAttribution(state),
+        attribution = gifAttribution(state, stickers),
     )
 }
 
@@ -371,12 +375,19 @@ internal fun GifPanel(
     onSourceSelect: (GifSource) -> Unit,
     onOpenToolSettings: (ToolbarTool) -> Unit,
     fullBleed: Boolean = false,
+    onLongPress: (GifItem) -> Unit = {},
+    onPackFilter: (String?) -> Unit = {},
+    onSaveToPack: (GifItem, String?) -> Unit = { _, _ -> },
+    onDismissAction: () -> Unit = {},
+    onOpenRoute: (String) -> Unit = {},
 ) {
     val ui = if (stickers) state.sticker else state.gif
     val tool = if (stickers) ToolbarTool.STICKER else ToolbarTool.GIF
     val noun = gifNoun(stickers)
-    val sources = ToolApiKeys.gifSources(state.settings)
+    val sources = gifSourcesFor(state, stickers)
     val tabsMode = state.settings.gifSourceMode == GifSourceMode.TABS
+    val chips = GifSources.chips(sources, tabsMode)
+    val localGrid = GifSources.targets(sources, state.mediaSource, tabsMode) == listOf(GifSource.LOCAL)
     val sizing = if (fullBleed) {
         Modifier.fillMaxSize()
     } else {
@@ -385,50 +396,108 @@ internal fun GifPanel(
             .fillMaxWidth()
             .height(height)
     }
-    Column(modifier = sizing) {
-        if (!fullBleed) {
-            MediaSearchBar(
-                state = state,
-                placeholder = "Search $noun",
-                onQueryTap = onQueryTap,
-                attribution = gifAttribution(state),
-            )
-        }
-        if (tabsMode && sources.size > 1 && !state.mediaSearchActive) {
-            GifSourceChips(
-                sources = sources,
-                selected = state.mediaSource.takeIf { it in sources } ?: sources.first(),
-                onSelect = onSourceSelect,
-            )
-        }
-        when (ui) {
-            MediaUi.NeedKey -> PanelNotice(
-                "The $noun tool needs an API key — Klipy or GIPHY (both free). " +
-                    "Add one in the tool's settings.",
-                actionLabel = "Open settings",
-                onAction = { onOpenToolSettings(tool) },
-            )
-            MediaUi.Loading -> PanelSpinner()
-            is MediaUi.Error -> PanelNotice(ui.message, actionLabel = "Retry", onAction = onRetry)
-            is MediaUi.Ready -> {
-                if (ui.items.isEmpty()) {
-                    PanelNotice(
-                        if (ui.query.isBlank()) "Nothing trending right now"
-                        else "No $noun for “${ui.query}”",
-                    )
-                } else {
-                    GifGrid(items = ui.items, downloadingId = state.mediaDownloadingId, onSelect = onSelect)
+    Box(modifier = sizing) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            if (!fullBleed) {
+                MediaSearchBar(
+                    state = state,
+                    placeholder = "Search $noun",
+                    onQueryTap = onQueryTap,
+                    attribution = gifAttribution(state, stickers),
+                )
+            }
+            if (chips.isNotEmpty() && !state.mediaSearchActive) {
+                GifSourceChips(
+                    chips = chips,
+                    selectedIndex = GifSources.selectedChip(chips, state.mediaSource),
+                    onSelect = onSourceSelect,
+                )
+            }
+            if (localGrid && state.stickerPacks.size > 1 && !state.mediaSearchActive) {
+                StickerPackChips(
+                    packs = state.stickerPacks,
+                    selected = state.stickerPackId,
+                    onSelect = onPackFilter,
+                )
+            }
+            when (ui) {
+                MediaUi.NeedKey -> PanelNotice(
+                    "The $noun tool needs an API key — Klipy or GIPHY (both free). " +
+                        "Add one in the tool's settings.",
+                    actionLabel = "Open settings",
+                    onAction = { onOpenToolSettings(tool) },
+                )
+                MediaUi.Loading -> PanelSpinner()
+                is MediaUi.Error -> PanelNotice(ui.message, actionLabel = "Retry", onAction = onRetry)
+                is MediaUi.Ready -> {
+                    if (ui.items.isEmpty()) {
+                        LocalStickerEmptyNotice(
+                            localGrid = localGrid,
+                            state = state,
+                            query = ui.query,
+                            noun = noun,
+                            onOpenRoute = onOpenRoute,
+                        )
+                    } else {
+                        GifGrid(
+                            items = ui.items,
+                            downloadingId = state.mediaDownloadingId,
+                            onSelect = onSelect,
+                            onLongPress = if (stickers) onLongPress else null,
+                        )
+                    }
                 }
             }
+        }
+        val action = state.stickerAction
+        if (stickers && action != null) {
+            StickerActionSheet(
+                item = action,
+                packs = state.stickerPacks,
+                onSaveToPack = onSaveToPack,
+                onOpenRoute = onOpenRoute,
+                onDismiss = onDismissAction,
+            )
         }
     }
 }
 
-/** Provider chips (tabs mode): Klipy / GIPHY. */
+/** The empty grid: local packs have their own way of being empty. */
+@Composable
+private fun LocalStickerEmptyNotice(
+    localGrid: Boolean,
+    state: KeyboardUiState,
+    query: String,
+    noun: String,
+    onOpenRoute: (String) -> Unit,
+) {
+    when {
+        !localGrid -> PanelNotice(
+            if (query.isBlank()) "Nothing trending right now" else "No $noun for “$query”",
+        )
+        query.isNotBlank() -> PanelNotice("No stickers of yours match “$query”")
+        state.stickerPacks.isEmpty() -> PanelNotice(
+            "No sticker packs yet. Make one in settings, or long-press a sticker " +
+                "from Klipy or GIPHY to save it here.",
+            actionLabel = "Manage packs",
+            onAction = { onOpenRoute(STICKER_PACKS_ROUTE) },
+        )
+        else -> PanelNotice(
+            "This pack is empty.",
+            actionLabel = "Manage packs",
+            onAction = { onOpenRoute(STICKER_PACKS_ROUTE) },
+        )
+    }
+}
+
+/** Settings route hosting the sticker pack manager. */
+internal const val STICKER_PACKS_ROUTE = "sticker_packs"
+
+/** Source chips: Klipy / GIPHY / My stickers, or Online / My stickers when mixed. */
 @Composable
 private fun GifSourceChips(
-    sources: List<GifSource>,
-    selected: GifSource,
+    chips: List<com.wasimaster.wmkeyboard.core.tools.SourceChip>,
+    selectedIndex: Int,
     onSelect: (GifSource) -> Unit,
 ) {
     val kb = LocalKbTheme.current
@@ -438,22 +507,118 @@ private fun GifSourceChips(
             .padding(horizontal = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        for (source in sources) {
-            val active = source == selected
+        chips.forEachIndexed { index, chip ->
+            val active = index == selectedIndex
             Text(
-                GifSources.displayName(source),
+                chip.label,
                 color = if (active) kb.toolCircleActiveIcon else kb.suggestionText,
                 fontSize = 12.sp,
                 fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
                 textAlign = TextAlign.Center,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
                 modifier = Modifier
                     .weight(1f)
                     .background(if (active) kb.toolCircleActive else kb.chip, RoundedCornerShape(12.dp))
-                    .clickable { onSelect(source) }
+                    .clickable { onSelect(chip.source) }
                     .padding(horizontal = 12.dp, vertical = 4.dp),
             )
         }
     }
+}
+
+/** Pack chips under the "My stickers" tab: All, then one per pack. */
+@Composable
+private fun StickerPackChips(
+    packs: List<com.wasimaster.wmkeyboard.core.stickers.StickerPack>,
+    selected: String?,
+    onSelect: (String?) -> Unit,
+) {
+    val kb = LocalKbTheme.current
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState())
+            .padding(horizontal = 8.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        val entries = listOf<Pair<String?, String>>(null to "All") + packs.map { it.id to it.name }
+        for ((id, label) in entries) {
+            val active = id == selected
+            Text(
+                label,
+                color = if (active) kb.toolCircleActiveIcon else kb.suggestionText,
+                fontSize = 11.sp,
+                fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
+                maxLines = 1,
+                modifier = Modifier
+                    .background(if (active) kb.toolCircleActive else kb.chip, RoundedCornerShape(10.dp))
+                    .clickable { onSelect(id) }
+                    .padding(horizontal = 10.dp, vertical = 3.dp),
+            )
+        }
+    }
+}
+
+/**
+ * Long-press menu over the sticker grid.
+ *
+ * An IME can't put up a dialog — it has no activity window — so this is a
+ * scrim plus a panel-local surface, dismissed by tapping outside.
+ */
+@Composable
+private fun StickerActionSheet(
+    item: GifItem,
+    packs: List<com.wasimaster.wmkeyboard.core.stickers.StickerPack>,
+    onSaveToPack: (GifItem, String?) -> Unit,
+    onOpenRoute: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val kb = LocalKbTheme.current
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.45f))
+            .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                onDismiss()
+            },
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(
+            modifier = Modifier
+                .padding(horizontal = 24.dp)
+                .widthIn(max = 320.dp)
+                .clip(RoundedCornerShape(14.dp))
+                .background(kb.popup)
+                .verticalScroll(rememberScrollState())
+                .padding(vertical = 6.dp),
+        ) {
+            if (item.source == GifSource.LOCAL) {
+                StickerActionRow("Manage packs") { onOpenRoute(STICKER_PACKS_ROUTE) }
+            } else if (packs.isEmpty()) {
+                StickerActionRow("Save to a new pack") { onSaveToPack(item, null) }
+            } else {
+                for (pack in packs) {
+                    StickerActionRow("Save to ${pack.name}") { onSaveToPack(item, pack.id) }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun StickerActionRow(label: String, onClick: () -> Unit) {
+    Text(
+        label,
+        color = LocalKbTheme.current.popupText,
+        fontSize = 14.sp,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() }
+            .padding(horizontal = 18.dp, vertical = 12.dp),
+    )
 }
 
 @Composable
@@ -461,6 +626,7 @@ private fun GifGrid(
     items: List<GifItem>,
     downloadingId: String?,
     onSelect: (GifItem) -> Unit,
+    onLongPress: ((GifItem) -> Unit)? = null,
 ) {
     val loader = rememberMediaImageLoader()
     LazyVerticalGrid(
@@ -476,7 +642,11 @@ private fun GifGrid(
                     .height(86.dp)
                     .clip(RoundedCornerShape(8.dp))
                     .background(LocalKbTheme.current.chip)
-                    .clickable(enabled = downloadingId == null) { onSelect(item) },
+                    .combinedClickable(
+                        enabled = downloadingId == null,
+                        onClick = { onSelect(item) },
+                        onLongClick = onLongPress?.let { { it(item) } },
+                    ),
             ) {
                 AsyncImage(
                     model = item.previewUrl,

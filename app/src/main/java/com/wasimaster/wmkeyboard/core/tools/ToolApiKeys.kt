@@ -25,6 +25,14 @@ object ToolApiKeys {
         if (giphy(settings).isNotBlank()) add(GifSource.GIPHY)
     }
 
+    /**
+     * Sources the sticker tool can offer. The user's own packs need no key,
+     * so this is never empty — the sticker panel can't reach a "needs a key"
+     * state the way the GIF panel can.
+     */
+    fun stickerSources(settings: KeyboardSettings): List<GifSource> =
+        gifSources(settings) + GifSource.LOCAL
+
     fun brave(settings: KeyboardSettings): String =
         settings.braveApiKey.ifBlank { BuildConfig.BRAVE_API_KEY }
 

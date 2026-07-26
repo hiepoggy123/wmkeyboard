@@ -592,6 +592,10 @@ fun KeyboardScreen(
     onMediaRetry: () -> Unit = {},
     onGifSelect: (GifItem) -> Unit = {},
     onGifSourceSelect: (GifSource) -> Unit = {},
+    onStickerLongPress: (GifItem) -> Unit = {},
+    onStickerPackFilter: (String?) -> Unit = {},
+    onStickerSaveToPack: (GifItem, String?) -> Unit = { _, _ -> },
+    onStickerActionDismiss: () -> Unit = {},
     onWebResult: (WebResult) -> Unit = {},
     onWebResultOpen: (WebResult) -> Unit = {},
     onImageResult: (ImageResult) -> Unit = {},
@@ -814,6 +818,10 @@ fun KeyboardScreen(
                 onMediaRetry = onMediaRetry,
                 onGifSelect = onGifSelect,
                 onGifSourceSelect = onGifSourceSelect,
+                onStickerLongPress = onStickerLongPress,
+                onStickerPackFilter = onStickerPackFilter,
+                onStickerSaveToPack = onStickerSaveToPack,
+                onStickerActionDismiss = onStickerActionDismiss,
                 onWebResult = onWebResult,
                 onWebResultOpen = onWebResultOpen,
                 onImageResult = onImageResult,
@@ -3886,6 +3894,10 @@ private fun KeyboardBody(
     onMediaRetry: () -> Unit,
     onGifSelect: (GifItem) -> Unit,
     onGifSourceSelect: (GifSource) -> Unit,
+    onStickerLongPress: (GifItem) -> Unit,
+    onStickerPackFilter: (String?) -> Unit,
+    onStickerSaveToPack: (GifItem, String?) -> Unit,
+    onStickerActionDismiss: () -> Unit,
     onWebResult: (WebResult) -> Unit,
     onWebResultOpen: (WebResult) -> Unit,
     onImageResult: (ImageResult) -> Unit,
@@ -4219,6 +4231,11 @@ private fun KeyboardBody(
                                 onSourceSelect = onGifSourceSelect,
                                 onOpenToolSettings = onOpenToolSettings,
                                 fullBleed = true,
+                                onLongPress = onStickerLongPress,
+                                onPackFilter = onStickerPackFilter,
+                                onSaveToPack = onStickerSaveToPack,
+                                onDismissAction = onStickerActionDismiss,
+                                onOpenRoute = onOpenRoute,
                             )
                         }
                     } else {
@@ -4230,6 +4247,11 @@ private fun KeyboardBody(
                             onSelect = onGifSelect,
                             onSourceSelect = onGifSourceSelect,
                             onOpenToolSettings = onOpenToolSettings,
+                            onLongPress = onStickerLongPress,
+                            onPackFilter = onStickerPackFilter,
+                            onSaveToPack = onStickerSaveToPack,
+                            onDismissAction = onStickerActionDismiss,
+                            onOpenRoute = onOpenRoute,
                         )
                     }
                 }

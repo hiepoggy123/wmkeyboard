@@ -29,6 +29,8 @@ import com.wasimaster.wmkeyboard.core.script.NumeralSystem
 import com.wasimaster.wmkeyboard.core.script.ScriptDef
 import com.wasimaster.wmkeyboard.core.script.ScriptId
 import com.wasimaster.wmkeyboard.core.script.ScriptRegistry
+import android.util.Base64
+import com.wasimaster.wmkeyboard.core.stickers.StickerPackStore
 import com.wasimaster.wmkeyboard.core.theme.DEFAULT_THEME_ID
 import com.wasimaster.wmkeyboard.core.theme.ThemeCodec
 import com.wasimaster.wmkeyboard.core.theme.ThemeSpec
@@ -2989,6 +2991,80 @@ class SettingsRepository(private val context: Context) {
         return buildJsonObject { put("items", JsonArray(kept)) }
     }
 
+    /** Relative path of the sticker manifest, the one file that isn't binary. */
+    private val stickerManifestPath =
+        "${StickerPackStore.DIR_NAME}/packs.json"
+
+    /**
+     * Pack and file names a restore will accept: exactly the shape this app
+     * generates. No separators, and no leading dot, so "." and ".." can't
+     * match at all.
+     */
+    private val SAFE_STICKER_NAME = Regex("""[A-Za-z0-9_-]+(\.[A-Za-z0-9]+)?""")
+
+    /**
+     * Sticker packs as `{manifest, files}`, with every image base64'd beside
+     * the manifest the way theme backgrounds travel. A manifest alone would
+     * restore a list of pack names with no pictures in them.
+     */
+    private fun stickerSection(): JsonElement? {
+        val manifest = readStore(stickerManifestPath) ?: return null
+        val root = File(context.filesDir, StickerPackStore.DIR_NAME)
+        val files = buildJsonObject {
+            for (pack in StickerPackStore.get(context).packs()) {
+                for (sticker in pack.stickers) {
+                    val file = File(File(root, pack.id), sticker.fileName)
+                    if (!file.isFile) continue
+                    val bytes = runCatching { file.readBytes() }.getOrNull() ?: continue
+                    put(
+                        "${pack.id}/${sticker.fileName}",
+                        JsonPrimitive(Base64.encodeToString(bytes, Base64.NO_WRAP)),
+                    )
+                }
+            }
+        }
+        if (files.isEmpty()) return null
+        return buildJsonObject {
+            put("manifest", manifest)
+            put("files", files)
+        }
+    }
+
+    /** Replaces the sticker directory with the bundle's packs and images. */
+    private fun restoreStickers(section: JsonObject): Boolean {
+        val manifest = section["manifest"] as? JsonObject ?: return false
+        val files = section["files"] as? JsonObject ?: JsonObject(emptyMap())
+        val root = File(context.filesDir, StickerPackStore.DIR_NAME)
+        return runCatching {
+            root.deleteRecursively()
+            root.mkdirs()
+            val rootPath = root.canonicalPath
+            for ((path, value) in files) {
+                // Keys come from a file someone else wrote. Split them
+                // ourselves, and accept only names that could have been
+                // generated here — then confirm against the canonical path,
+                // so no combination of dots or separators can land outside.
+                val parts = path.split('/')
+                if (parts.size != 2) continue
+                val (packId, name) = parts
+                if (!SAFE_STICKER_NAME.matches(packId) || !SAFE_STICKER_NAME.matches(name)) continue
+                val packDir = File(root, packId)
+                val target = File(packDir, name)
+                if (packDir.canonicalPath != "$rootPath${File.separator}$packId") continue
+                if (target.canonicalPath != "${packDir.canonicalPath}${File.separator}$name") continue
+                val bytes = (value as? JsonPrimitive)?.contentOrNull
+                    ?.let { runCatching { Base64.decode(it, Base64.DEFAULT) }.getOrNull() }
+                    ?: continue
+                target.parentFile?.mkdirs()
+                target.writeBytes(bytes)
+            }
+            File(root, "packs.json").writeText(manifest.toString())
+            // Whatever the bundle claimed but couldn't deliver is dropped here.
+            StickerPackStore.get(context).reload()
+            true
+        }.getOrDefault(false)
+    }
+
     /**
      * Builds a full-config bundle from the chosen [sections]. A section whose
      * store is empty or absent is simply left out of the file.
@@ -3027,6 +3103,9 @@ class SettingsRepository(private val context: Context) {
         if (ConfigBackup.Section.SNIPPETS in sections) {
             readStore("snippets/snippets.json")?.let { out[ConfigBackup.Section.SNIPPETS] = it }
         }
+        if (ConfigBackup.Section.STICKERS in sections) {
+            stickerSection()?.let { out[ConfigBackup.Section.STICKERS] = it }
+        }
         return ConfigBackup.encode(appVersion, appVersionName, out)
     }
 
@@ -3041,6 +3120,7 @@ class SettingsRepository(private val context: Context) {
                     ConfigBackup.Section.DICTIONARY -> element.jsonObject["words"]?.jsonObject?.size ?: 0
                     ConfigBackup.Section.CLIPBOARD -> element.jsonObject["items"]?.jsonArray?.size ?: 0
                     ConfigBackup.Section.SNIPPETS -> element.jsonObject["snippets"]?.jsonArray?.size ?: 0
+                    ConfigBackup.Section.STICKERS -> element.jsonObject["files"]?.jsonObject?.size ?: 0
                 }
             }.getOrDefault(0)
             counts[section] = count
@@ -3118,6 +3198,9 @@ class SettingsRepository(private val context: Context) {
         }
         (parsed.sections[ConfigBackup.Section.SNIPPETS] as? JsonObject)?.let { obj ->
             if (writeStore("snippets/snippets.json", obj)) restored.add(ConfigBackup.Section.SNIPPETS)
+        }
+        (parsed.sections[ConfigBackup.Section.STICKERS] as? JsonObject)?.let { obj ->
+            if (restoreStickers(obj)) restored.add(ConfigBackup.Section.STICKERS)
         }
 
         return ConfigImportResult.Applied(restored, settingsFailed)
