@@ -14,6 +14,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.wasimaster.wmkeyboard.BuildConfig
+import com.wasimaster.wmkeyboard.core.icons.IconOverrides
 import com.wasimaster.wmkeyboard.core.layout.BuiltInLayouts
 import com.wasimaster.wmkeyboard.core.layout.LayoutCodec
 import com.wasimaster.wmkeyboard.core.layout.LayoutSpec
@@ -946,6 +947,8 @@ data class KeyboardSettings(
      * default (see [com.wasimaster.wmkeyboard.core.ui.toolAccentColor]).
      */
     val toolColorOverrides: Map<ToolbarTool, Long> = emptyMap(),
+    /** Which glyph each customisable icon draws (see [IconSettings]). */
+    val icons: IconSettings = IconSettings(),
     val incognito: Boolean = false,
     val toolbarTools: List<ToolbarTool> = DefaultToolbarTools,
     /** Toolbar enable/behaviour/layout switches (see [ToolbarBehavior]). */
@@ -1450,6 +1453,35 @@ data class GestureSettings(
 )
 
 /**
+ * Which glyph each customisable icon draws, grouped into its own class rather
+ * than sitting flat on [KeyboardSettings] because that class's primary
+ * constructor is at the JVM's 255-argument ceiling (see [ToolbarBehavior]).
+ * Both fields still persist under their own DataStore key.
+ *
+ * Resolution order is [overrides], then [activePackId], then the built-in
+ * glyph — a single icon the user picked by hand outranks the pack they
+ * installed, which outranks the app's own default. See
+ * `com.wasimaster.wmkeyboard.core.icons.IconSlots` for the slot ids and
+ * `ime/ui/IconResolver.kt` for the lookup itself.
+ */
+data class IconSettings(
+    /**
+     * The installed icon pack supplying icons for every slot the user hasn't
+     * overridden individually. Blank means the built-in icons.
+     */
+    val activePackId: String = "",
+    /**
+     * Slot id → icon source, for slots the user changed one at a time.
+     *
+     * A source is `b:<name>` for one of the bundled Material icons (see
+     * `BuiltinIcons`) or `p:<packId>` to take that slot from a specific
+     * installed pack. An entry naming a pack or an icon that no longer exists
+     * falls back to the default rather than drawing nothing.
+     */
+    val overrides: Map<String, String> = emptyMap(),
+)
+
+/**
  * Assorted layout & gesture behaviours layered on top of the base keyboard,
  * grouped into their own class rather than sitting flat on [KeyboardSettings]
  * because that class's primary constructor is at the JVM's 255-argument
@@ -1843,6 +1875,8 @@ class SettingsRepository(private val context: Context) {
         private val EMOJI_TOOLBAR = booleanPreferencesKey("emoji_toolbar")
         private val COLORED_TOOL_ICONS = booleanPreferencesKey("colored_tool_icons")
         private val TOOL_COLOR_OVERRIDES = stringPreferencesKey("tool_color_overrides")
+        private val ICON_PACK_ID = stringPreferencesKey("icon_pack_id")
+        private val ICON_OVERRIDES = stringPreferencesKey("icon_overrides")
         private val INCOGNITO = booleanPreferencesKey("incognito")
         private val TOOLBAR_TOOLS = stringPreferencesKey("toolbar_tools")
         private val TOOLBAR_GREEDY = booleanPreferencesKey("toolbar_greedy")
@@ -2281,6 +2315,10 @@ class SettingsRepository(private val context: Context) {
             emojiToolbar = p[EMOJI_TOOLBAR] ?: defaults.emojiToolbar,
             coloredToolIcons = p[COLORED_TOOL_ICONS] ?: defaults.coloredToolIcons,
             toolColorOverrides = decodeToolColors(p[TOOL_COLOR_OVERRIDES]),
+            icons = IconSettings(
+                activePackId = p[ICON_PACK_ID] ?: defaults.icons.activePackId,
+                overrides = IconOverrides.decode(p[ICON_OVERRIDES]),
+            ),
             incognito = p[INCOGNITO] ?: defaults.incognito,
             // Empty stored string is a valid state (everything in the toolbox),
             // distinct from never-set (defaults apply).
@@ -2557,6 +2595,7 @@ class SettingsRepository(private val context: Context) {
 
     private fun encodeToolColors(map: Map<ToolbarTool, Long>): String =
         map.entries.joinToString(",") { (tool, color) -> "${tool.name}=%08X".format(color) }
+
 
     /**
      * Stored order, made complete: tools the saved CSV doesn't know (added in
@@ -3910,6 +3949,43 @@ class SettingsRepository(private val context: Context) {
     /** Drop every per-tool colour override, restoring all built-in defaults. */
     suspend fun clearToolColors() =
         context.dataStore.edit { it.remove(TOOL_COLOR_OVERRIDES) }
+
+    /** Switch icon packs; a blank [packId] goes back to the built-in icons. */
+    suspend fun setIconPack(packId: String) =
+        context.dataStore.edit { it[ICON_PACK_ID] = packId }
+
+    /** Override one slot's icon; a null [source] restores its default. */
+    suspend fun setIconOverride(slot: String, source: String?) =
+        context.dataStore.edit { prefs ->
+            val current = IconOverrides.decode(prefs[ICON_OVERRIDES]).toMutableMap()
+            if (source == null) current.remove(slot) else current[slot] = source
+            prefs[ICON_OVERRIDES] = IconOverrides.encode(current)
+        }
+
+    /**
+     * Drop every per-slot override *and* the active pack, so every icon is the
+     * built-in one again. Uninstalling the packs themselves is separate — this
+     * is "stop using them", not "delete them".
+     */
+    suspend fun clearIconOverrides() =
+        context.dataStore.edit {
+            it.remove(ICON_OVERRIDES)
+            it.remove(ICON_PACK_ID)
+        }
+
+    /**
+     * Forgets [packId] everywhere it is referenced, for when a pack is deleted:
+     * the active pack falls back to the built-ins and any slot pinned to it
+     * loses its override, rather than both silently resolving to nothing.
+     */
+    suspend fun forgetIconPack(packId: String) =
+        context.dataStore.edit { prefs ->
+            if (prefs[ICON_PACK_ID] == packId) prefs.remove(ICON_PACK_ID)
+            val kept = IconOverrides.decode(prefs[ICON_OVERRIDES])
+                .filterValues { it != IconOverrides.packSource(packId) }
+            if (kept.isEmpty()) prefs.remove(ICON_OVERRIDES)
+            else prefs[ICON_OVERRIDES] = IconOverrides.encode(kept)
+        }
 
     suspend fun setEmojiTabMode(value: EmojiTabMode) =
         context.dataStore.edit { it[EMOJI_TAB_MODE] = value.name }

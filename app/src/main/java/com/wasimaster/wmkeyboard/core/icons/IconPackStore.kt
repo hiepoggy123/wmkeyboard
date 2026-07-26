@@ -1,0 +1,313 @@
+package com.wasimaster.wmkeyboard.core.icons
+
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+import java.io.File
+import java.util.UUID
+
+/**
+ * Installed icon packs, persisted under `filesDir/iconpacks/`:
+ *
+ * ```
+ * iconpacks/
+ * ├── packs.json          manifest
+ * └── <packId>/<slotId>.svg
+ * ```
+ *
+ * Modelled on [com.wasimaster.wmkeyboard.core.stickers.StickerPackStore] and
+ * for the same reason: the IME and the settings app run in one process and both
+ * mutate packs, so there is one store per process and every mutator writes the
+ * manifest immediately. [revision] is how the keyboard notices.
+ *
+ * The store also owns the *parsed* form. [docs] caches the [SvgDoc] for a pack
+ * so the keyboard's render path is a map lookup — parsing an SVG per frame
+ * would be visible as jank on every keystroke.
+ */
+class IconPackStore(private val baseDir: File?) {
+
+    @Serializable
+    private data class Snapshot(val version: Int = FORMAT_VERSION, val packs: List<IconPack> = emptyList())
+
+    private val packs = ArrayList<IconPack>()
+    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+
+    /** packId → parsed icons, dropped whenever that pack changes. */
+    private val docCache = HashMap<String, Map<String, SvgDoc>>()
+
+    private val _revision = MutableStateFlow(0)
+
+    /**
+     * Bumped on every change to the installed packs.
+     *
+     * The keyboard collects this to know when to rebuild its icon set. It has
+     * to be an in-memory signal rather than the manifest's mtime, because a
+     * composable reads it on every recomposition — and the keyboard recomposes
+     * on every keystroke, so a `stat` here would be a syscall per key. One
+     * store per process (see [get]) is what makes in-memory sufficient.
+     */
+    val revision: StateFlow<Int> = _revision.asStateFlow()
+
+    init {
+        reload()
+    }
+
+    companion object {
+        @Volatile
+        private var shared: IconPackStore? = null
+
+        fun get(context: android.content.Context): IconPackStore =
+            shared ?: synchronized(this) {
+                shared ?: IconPackStore(
+                    File(context.applicationContext.filesDir, DIR_NAME),
+                ).also { shared = it }
+            }
+
+        private const val FORMAT_VERSION = 1
+
+        const val DIR_NAME = "iconpacks"
+        const val MAX_PACKS = 20
+
+        /**
+         * The pack a single-slot SVG import lands in. Reserved so "import one
+         * icon" and "install a pack" are the same mechanism underneath: the
+         * user is building a pack whether they think of it that way or not,
+         * and Export writes exactly what they built.
+         */
+        const val MINE_ID = "mine"
+
+        /** Staging directories an import is still filling; skipped by reconcile. */
+        private const val STAGING_PREFIX = ".staging_"
+
+        /** File name for a slot. Derived, never taken from untrusted input. */
+        fun fileNameFor(slot: String): String = "$slot.svg"
+    }
+
+    // ---- reading -------------------------------------------------------
+
+    @Synchronized
+    fun packs(): List<IconPack> = packs.toList()
+
+    @Synchronized
+    fun pack(packId: String?): IconPack? = packs.firstOrNull { it.id == packId }
+
+    /** Absolute file backing [slot] in [packId], whether or not it exists. */
+    fun fileFor(packId: String, slot: String): File? =
+        baseDir?.let { File(File(it, packId), fileNameFor(slot)) }
+
+    /**
+     * Parsed icons for [packId], slot id → document. Blocking on the first call
+     * for a pack (it reads and parses every SVG); cached after that, so callers
+     * should warm it off the main thread the way the dictionaries are warmed.
+     */
+    @Synchronized
+    fun docs(packId: String): Map<String, SvgDoc> {
+        docCache[packId]?.let { return it }
+        val pack = pack(packId)
+        val dir = baseDir?.let { File(it, packId) }
+        val parsed = if (pack == null || dir == null) {
+            emptyMap()
+        } else {
+            buildMap {
+                for (slot in pack.slots) {
+                    val file = File(dir, fileNameFor(slot))
+                    if (!file.isFile || file.length() > SvgParser.MAX_SOURCE_BYTES) continue
+                    val doc = runCatching { SvgParser.parse(file.readText()) }.getOrNull() ?: continue
+                    put(slot, doc)
+                }
+            }
+        }
+        docCache[packId] = parsed
+        return parsed
+    }
+
+    // ---- packs ---------------------------------------------------------
+
+    /** Creates a pack, or returns null when [MAX_PACKS] is already reached. */
+    @Synchronized
+    fun createPack(name: String, id: String? = null, now: Long = System.currentTimeMillis()): IconPack? {
+        if (packs.size >= MAX_PACKS) return null
+        val packId = id ?: freePackId(now)
+        if (packs.any { it.id == packId }) return null
+        val pack = IconPack(
+            id = packId,
+            name = uniqueName(name.trim().ifBlank { "My icons" }),
+            createdAt = now,
+        )
+        baseDir?.let { File(it, pack.id).mkdirs() }
+        packs.add(pack)
+        save()
+        return pack
+    }
+
+    /** The "My icons" pack, created on first use. */
+    @Synchronized
+    fun mine(now: Long = System.currentTimeMillis()): IconPack? =
+        pack(MINE_ID) ?: createPack("My icons", id = MINE_ID, now = now)
+
+    /** Registers a pack whose directory was already filled (the import path). */
+    @Synchronized
+    fun adoptPack(pack: IconPack): IconPack? {
+        if (packs.size >= MAX_PACKS) return null
+        val adopted = pack.copy(name = uniqueName(pack.name))
+        packs.add(adopted)
+        docCache.remove(adopted.id)
+        save()
+        return adopted
+    }
+
+    /** A pack id whose directory doesn't exist yet. */
+    @Synchronized
+    fun freePackId(now: Long = System.currentTimeMillis()): String {
+        var candidate = "pack_$now"
+        var suffix = 1
+        while (packs.any { it.id == candidate } || baseDir?.let { File(it, candidate).exists() } == true) {
+            candidate = "pack_${now}_${suffix++}"
+        }
+        return candidate
+    }
+
+    /** Directory a pack's files live in, created if needed. */
+    fun packDir(packId: String): File? =
+        baseDir?.let { File(it, packId).apply { mkdirs() } }
+
+    @Synchronized
+    fun deletePack(packId: String) {
+        if (!packs.removeAll { it.id == packId }) return
+        baseDir?.let { File(it, packId).deleteRecursively() }
+        docCache.remove(packId)
+        save()
+    }
+
+    // ---- icons ---------------------------------------------------------
+
+    /**
+     * Writes [svg] as [slot]'s icon in [packId]. Returns false when the slot is
+     * unknown, the SVG is unusable, or the write failed — the caller reports
+     * that rather than silently registering a slot with no file behind it.
+     */
+    @Synchronized
+    fun setIcon(packId: String, slot: String, svg: String): Boolean {
+        val index = packs.indexOfFirst { it.id == packId }
+        if (index < 0) return false
+        if (!IconSlots.isWellFormed(slot) || IconSlots.byId(slot) == null) return false
+        if (svg.length > SvgParser.MAX_SOURCE_BYTES) return false
+        // Parse before writing: an SVG the renderer can't use is not worth
+        // storing, and finding out now lets the picker say so.
+        if (SvgParser.parse(svg) == null) return false
+        val dir = packDir(packId) ?: return false
+        val fileName = fileNameFor(slot)
+        val written = runCatching {
+            val part = File(dir, "$fileName.part")
+            part.writeText(svg)
+            val target = File(dir, fileName)
+            if (!part.renameTo(target)) {
+                target.delete()
+                if (!part.renameTo(target)) {
+                    part.delete()
+                    return@runCatching false
+                }
+            }
+            true
+        }.getOrDefault(false)
+        if (!written) return false
+
+        if (slot !in packs[index].slots) {
+            packs[index] = packs[index].copy(slots = packs[index].slots + slot)
+        }
+        docCache.remove(packId)
+        save()
+        return true
+    }
+
+    @Synchronized
+    fun removeIcon(packId: String, slot: String) {
+        val index = packs.indexOfFirst { it.id == packId }
+        if (index < 0 || slot !in packs[index].slots) return
+        packs[index] = packs[index].copy(slots = packs[index].slots - slot)
+        fileFor(packId, slot)?.delete()
+        docCache.remove(packId)
+        save()
+    }
+
+    // ---- persistence ---------------------------------------------------
+
+    private fun manifestFile(): File? = baseDir?.let { File(it, "packs.json") }
+
+    @Synchronized
+    fun save() {
+        val file = manifestFile() ?: return
+        runCatching {
+            file.parentFile?.mkdirs()
+            val part = File(file.parentFile, "packs.json.part")
+            part.writeText(json.encodeToString(Snapshot(packs = packs.toList())))
+            if (!part.renameTo(file)) {
+                file.delete()
+                part.renameTo(file)
+            }
+        }
+        _revision.value++
+    }
+
+    @Synchronized
+    fun reload() {
+        packs.clear()
+        docCache.clear()
+        val dir = baseDir ?: return
+        val file = manifestFile() ?: return
+        var readable = true
+        if (file.exists()) {
+            readable = runCatching {
+                val snapshot = json.decodeFromString<Snapshot>(file.readText())
+                packs.addAll(snapshot.packs.take(MAX_PACKS))
+            }.isSuccess
+        }
+        // A manifest that exists but won't parse means we don't know what the
+        // directories hold — sweeping them would destroy the user's icons on
+        // the strength of a bad read.
+        reconcile(dir, sweepUnknown = readable)
+        _revision.value++
+    }
+
+    /**
+     * Makes the manifest and the files on disk agree: slots without a file are
+     * dropped, files and directories nothing references are deleted. Staging
+     * directories belong to an import in flight and are left alone.
+     */
+    private fun reconcile(dir: File, sweepUnknown: Boolean) {
+        var changed = false
+        for (i in packs.indices) {
+            val pack = packs[i]
+            val packDir = File(dir, pack.id)
+            val alive = pack.slots.filter { File(packDir, fileNameFor(it)).isFile }
+            if (alive.size != pack.slots.size) {
+                packs[i] = pack.copy(slots = alive)
+                changed = true
+            }
+            val referenced = alive.mapTo(HashSet()) { fileNameFor(it) }
+            packDir.listFiles()?.forEach { if (it.name !in referenced) it.deleteRecursively() }
+        }
+        val known = packs.mapTo(HashSet()) { it.id }
+        if (sweepUnknown) dir.listFiles()?.forEach { child ->
+            if (!child.isDirectory) return@forEach
+            if (child.name in known || child.name.startsWith(STAGING_PREFIX)) return@forEach
+            child.deleteRecursively()
+        }
+        if (changed) save()
+    }
+
+    /** A directory an import can fill before the pack is registered. */
+    fun stagingDir(): File? =
+        baseDir?.let { File(it, STAGING_PREFIX + UUID.randomUUID().toString().take(8)).apply { mkdirs() } }
+
+    private fun uniqueName(name: String, exceptId: String? = null): String {
+        val taken = packs.filter { it.id != exceptId }.mapTo(HashSet()) { it.name }
+        if (name !in taken) return name
+        var n = 2
+        while ("$name ($n)" in taken) n++
+        return "$name ($n)"
+    }
+}

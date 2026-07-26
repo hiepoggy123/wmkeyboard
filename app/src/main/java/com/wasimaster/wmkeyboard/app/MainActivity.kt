@@ -42,16 +42,12 @@ import androidx.compose.foundation.verticalScroll
 import android.view.KeyEvent
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
-import androidx.compose.material.icons.automirrored.outlined.FactCheck
 import androidx.compose.material.icons.automirrored.outlined.HelpOutline
-import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
-import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.automirrored.outlined.Redo
 import androidx.compose.material.icons.automirrored.outlined.Undo
 import androidx.compose.material.icons.outlined.Accessibility
 import androidx.compose.material.icons.outlined.AspectRatio
-import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.foundation.focusable
@@ -78,45 +74,21 @@ import com.wasimaster.wmkeyboard.core.tools.formatChord
 import com.wasimaster.wmkeyboard.core.tools.formatLeader
 import com.wasimaster.wmkeyboard.core.tools.parseLeader
 import androidx.compose.material.icons.outlined.CheckCircle
-import androidx.compose.material.icons.outlined.ContentPaste
-import androidx.compose.material.icons.outlined.DarkMode
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.DragHandle
-import androidx.compose.material.icons.outlined.Dialpad
 import androidx.compose.material.icons.outlined.Draw
 import androidx.compose.material.icons.outlined.Edit
-import androidx.compose.material.icons.outlined.EditNote
 import androidx.compose.material.icons.outlined.EmojiEmotions
-import androidx.compose.material.icons.outlined.Explore
-import androidx.compose.material.icons.outlined.FlashlightOn
-import androidx.compose.material.icons.outlined.FirstPage
 import androidx.compose.material.icons.outlined.Keyboard
-import androidx.compose.material.icons.outlined.HighlightAlt
-import androidx.compose.material.icons.outlined.ViewHeadline
-import androidx.compose.material.icons.outlined.KeyboardArrowDown
-import androidx.compose.material.icons.outlined.KeyboardArrowUp
-import androidx.compose.material.icons.outlined.KeyboardDoubleArrowDown
-import androidx.compose.material.icons.outlined.KeyboardDoubleArrowLeft
-import androidx.compose.material.icons.outlined.KeyboardDoubleArrowRight
-import androidx.compose.material.icons.outlined.KeyboardDoubleArrowUp
-import androidx.compose.material.icons.outlined.KeyboardHide
 import androidx.compose.material.icons.outlined.Language
-import androidx.compose.material.icons.automirrored.outlined.LastPage
 import androidx.compose.material.icons.outlined.GridOn
 import androidx.compose.material.icons.outlined.Palette
-import androidx.compose.material.icons.outlined.Mic
-import androidx.compose.material.icons.outlined.PhotoCamera
 import androidx.compose.material.icons.outlined.Save
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Security
-import androidx.compose.material.icons.outlined.PictureInPictureAlt
 import androidx.compose.material.icons.outlined.Settings
-import androidx.compose.material.icons.outlined.Smartphone
-import androidx.compose.material.icons.outlined.Spellcheck
-import androidx.compose.material.icons.outlined.Straighten
-import androidx.compose.material.icons.automirrored.outlined.TextSnippet
 import androidx.compose.material.icons.outlined.TouchApp
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material.icons.outlined.Vibration
@@ -124,27 +96,10 @@ import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.ArrowDownward
 import androidx.compose.material.icons.outlined.ArrowUpward
 import androidx.compose.material.icons.outlined.ViewAgenda
-import androidx.compose.material.icons.outlined.VerticalSplit
-import androidx.compose.material.icons.outlined.VisibilityOff
-import androidx.compose.material.icons.outlined.AutoAwesome
-import androidx.compose.material.icons.outlined.DocumentScanner
-import androidx.compose.material.icons.outlined.GifBox
-import androidx.compose.material.icons.outlined.ImageSearch
 import androidx.compose.material.icons.outlined.Calculate
-import androidx.compose.material.icons.outlined.CurrencyExchange
-import androidx.compose.material.icons.outlined.Functions
 import androidx.compose.material.icons.outlined.Password
-import androidx.compose.material.icons.outlined.MusicNote
 import androidx.compose.material.icons.outlined.Speed
-import androidx.compose.material.icons.automirrored.outlined.StickyNote2
-import androidx.compose.material.icons.outlined.Public
-import androidx.compose.material.icons.outlined.QrCode2
-import androidx.compose.material.icons.outlined.QrCodeScanner
-import androidx.compose.material.icons.outlined.SwapHoriz
-import androidx.compose.material.icons.outlined.TextFields
 import androidx.compose.material.icons.outlined.Translate
-import androidx.compose.material.icons.outlined.TravelExplore
-import androidx.compose.material.icons.outlined.WbSunny
 import androidx.compose.material.icons.outlined.Widgets
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -181,6 +136,7 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -227,7 +183,13 @@ import com.wasimaster.wmkeyboard.core.settings.EmojiBarCountRange
 import com.wasimaster.wmkeyboard.core.settings.EmojiBarMode
 import com.wasimaster.wmkeyboard.core.settings.EmojiFontChoice
 import com.wasimaster.wmkeyboard.core.settings.EmojiSkinTone
+import com.wasimaster.wmkeyboard.core.icons.IconPackStore
+import com.wasimaster.wmkeyboard.core.icons.IconSlots
+import com.wasimaster.wmkeyboard.ime.ui.IconDefaults
 import com.wasimaster.wmkeyboard.ime.ui.KeyboardFonts
+import com.wasimaster.wmkeyboard.ime.ui.LocalIconSet
+import com.wasimaster.wmkeyboard.ime.ui.SlotIcon
+import com.wasimaster.wmkeyboard.ime.ui.rememberIconSet
 import com.wasimaster.wmkeyboard.ime.ui.ModeIcons
 import com.wasimaster.wmkeyboard.core.settings.EmojiInsertMode
 import com.wasimaster.wmkeyboard.core.settings.EmojiTabMode
@@ -366,7 +328,13 @@ internal fun AppTheme(settings: KeyboardSettings, content: @Composable () -> Uni
     if (settings.themeMode == ThemeMode.AMOLED) {
         scheme = scheme.copy(background = Color.Black, surface = Color.Black)
     }
-    MaterialTheme(colorScheme = scheme, content = content)
+    // Every settings surface draws tool icons, so the user's icon set is
+    // provided here rather than per screen — the Tools list and the keyboard
+    // must not disagree about what a tool looks like.
+    val iconSet by rememberIconSet(settings.icons)
+    MaterialTheme(colorScheme = scheme) {
+        CompositionLocalProvider(LocalIconSet provides iconSet, content = content)
+    }
 }
 
 @Composable
@@ -483,6 +451,7 @@ private fun SettingsNavHost(
                     repository, settings,
                     onOpenThemes = { navController.navigate("themes") },
                     onOpenFonts = { navController.navigate("fonts") },
+                    onOpenIcons = { navController.navigate("icons") },
                 )
             }
         }
@@ -494,6 +463,11 @@ private fun SettingsNavHost(
         composable("fonts") {
             SettingsScreen("Keyboard font", { navController.popBackStack() }) {
                 FontSettings(repository, settings)
+            }
+        }
+        composable("icons") {
+            SettingsScreen("Icons", { navController.popBackStack() }) {
+                IconsScreen(repository, settings)
             }
         }
         composable("themes") {
@@ -2106,7 +2080,7 @@ private fun HardwareShortcutsSettings(repository: SettingsRepository, settings: 
                             { CaptionText("Turned off in Tools") }
                         } else null,
                         leadingContent = {
-                            Icon(toolIconFor(tool), contentDescription = null)
+                            SlotIcon(IconSlots.forTool(tool), contentDescription = null)
                         },
                         trailingContent = {
                             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -2791,6 +2765,7 @@ private fun AppearanceSettings(
     settings: KeyboardSettings,
     onOpenThemes: () -> Unit,
     onOpenFonts: () -> Unit,
+    onOpenIcons: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
     // Turning the toolbar off is guarded — it hides suggestions and every tool.
@@ -2813,6 +2788,21 @@ private fun AppearanceSettings(
                 "Google Fonts, or import your own font file",
                 value = KeyboardFonts.displayName(settings.keyFontId, settings.customFontName),
                 onClick = onOpenFonts,
+            )
+        }
+        item {
+            val active = settings.icons.activePackId
+            val changed = settings.icons.overrides.size
+            NavRow(
+                "Icons",
+                "Swap any tool or key icon, or install an icon pack",
+                value = when {
+                    active.isNotEmpty() ->
+                        IconPackStore.get(LocalContext.current).pack(active)?.name ?: "Default"
+                    changed > 0 -> "$changed changed"
+                    else -> "Default"
+                },
+                onClick = onOpenIcons,
             )
         }
     }
@@ -4890,66 +4880,8 @@ internal fun toolDescription(tool: ToolbarTool): String = when (tool) {
     ToolbarTool.HIDE_KEYBOARD -> "Dismiss the keyboard in one tap"
 }
 
-internal fun toolIconFor(tool: ToolbarTool): androidx.compose.ui.graphics.vector.ImageVector = when (tool) {
-    ToolbarTool.EMOJI -> Icons.Outlined.EmojiEmotions
-    ToolbarTool.CLIPBOARD -> Icons.Outlined.ContentPaste
-    ToolbarTool.SNIPPETS -> Icons.AutoMirrored.Outlined.TextSnippet
-    ToolbarTool.TEXT_EDIT -> Icons.Outlined.EditNote
-    ToolbarTool.ONE_HANDED -> Icons.Outlined.Smartphone
-    ToolbarTool.SPLIT -> Icons.Outlined.VerticalSplit
-    ToolbarTool.FLOATING -> Icons.Outlined.PictureInPictureAlt
-    ToolbarTool.SETTINGS -> Icons.Outlined.Settings
-    ToolbarTool.FLASHLIGHT -> Icons.Outlined.FlashlightOn
-    ToolbarTool.COMPASS -> Icons.Outlined.Explore
-    ToolbarTool.LEVEL -> Icons.Outlined.Straighten
-    ToolbarTool.UNDO -> Icons.AutoMirrored.Outlined.Undo
-    ToolbarTool.REDO -> Icons.AutoMirrored.Outlined.Redo
-    ToolbarTool.MOON_PHASE -> Icons.Outlined.DarkMode
-    ToolbarTool.WEATHER -> Icons.Outlined.WbSunny
-    ToolbarTool.CALENDAR -> Icons.Outlined.CalendarMonth
-    ToolbarTool.INCOGNITO -> Icons.Outlined.VisibilityOff
-    ToolbarTool.THEMES -> Icons.Outlined.Palette
-    ToolbarTool.AUTOCORRECT -> Icons.Outlined.Spellcheck
-    ToolbarTool.SOUND_HAPTICS -> Icons.Outlined.Vibration
-    ToolbarTool.NUMPAD -> Icons.Outlined.Dialpad
-    ToolbarTool.HANDWRITING -> Icons.Outlined.Draw
-    ToolbarTool.CAMERA -> Icons.Outlined.PhotoCamera
-    ToolbarTool.DICTIONARY -> Icons.AutoMirrored.Outlined.MenuBook
-    ToolbarTool.TRANSLATE -> Icons.Outlined.Translate
-    ToolbarTool.GIF -> Icons.Outlined.GifBox
-    ToolbarTool.STICKER -> Icons.AutoMirrored.Outlined.StickyNote2
-    ToolbarTool.WEB_SEARCH -> Icons.Outlined.TravelExplore
-    ToolbarTool.IMAGE_SEARCH -> Icons.Outlined.ImageSearch
-    ToolbarTool.OCR -> Icons.Outlined.TextFields
-    ToolbarTool.QR_SCAN -> Icons.Outlined.QrCodeScanner
-    ToolbarTool.DOC_SCAN -> Icons.Outlined.DocumentScanner
-    ToolbarTool.VOICE -> Icons.Outlined.Mic
-    ToolbarTool.GRAMMAR -> Icons.AutoMirrored.Outlined.FactCheck
-    ToolbarTool.WIKIPEDIA -> Icons.Outlined.Public
-    ToolbarTool.SYMBOLS -> Icons.Outlined.Functions
-    ToolbarTool.CALCULATOR -> Icons.Outlined.Calculate
-    ToolbarTool.UNIT_CONVERT -> Icons.Outlined.SwapHoriz
-    ToolbarTool.CURRENCY -> Icons.Outlined.CurrencyExchange
-    ToolbarTool.QR_GEN -> Icons.Outlined.QrCode2
-    ToolbarTool.PASSWORD_GEN -> Icons.Outlined.Password
-    ToolbarTool.TYPING_TEST -> Icons.Outlined.Speed
-    ToolbarTool.MEDIA_CONTROL -> Icons.Outlined.MusicNote
-    ToolbarTool.AI -> Icons.Outlined.AutoAwesome
-    ToolbarTool.MODES -> Icons.Outlined.Tune
-    ToolbarTool.CURSOR_LEFT -> Icons.AutoMirrored.Outlined.KeyboardArrowLeft
-    ToolbarTool.CURSOR_RIGHT -> Icons.AutoMirrored.Outlined.KeyboardArrowRight
-    ToolbarTool.CURSOR_WORD_LEFT -> Icons.Outlined.KeyboardDoubleArrowLeft
-    ToolbarTool.CURSOR_WORD_RIGHT -> Icons.Outlined.KeyboardDoubleArrowRight
-    ToolbarTool.CURSOR_UP -> Icons.Outlined.KeyboardArrowUp
-    ToolbarTool.CURSOR_DOWN -> Icons.Outlined.KeyboardArrowDown
-    ToolbarTool.CURSOR_HOME -> Icons.Outlined.FirstPage
-    ToolbarTool.CURSOR_END -> Icons.AutoMirrored.Outlined.LastPage
-    ToolbarTool.PAGE_UP -> Icons.Outlined.KeyboardDoubleArrowUp
-    ToolbarTool.PAGE_DOWN -> Icons.Outlined.KeyboardDoubleArrowDown
-    ToolbarTool.SELECT_WORD -> Icons.Outlined.HighlightAlt
-    ToolbarTool.SELECT_LINE -> Icons.Outlined.ViewHeadline
-    ToolbarTool.HIDE_KEYBOARD -> Icons.Outlined.KeyboardHide
-}
+internal fun toolIconFor(tool: ToolbarTool): androidx.compose.ui.graphics.vector.ImageVector =
+    IconDefaults.forTool(tool)
 
 /**
  * The tool menu, grouped by what the tools do. Everything else — the
@@ -5031,8 +4963,8 @@ private fun ToolsSettings(
                 item {
                     ListItem(
                         leadingContent = {
-                            Icon(
-                                toolIconFor(tool),
+                            SlotIcon(
+                                IconSlots.forTool(tool),
                                 contentDescription = null,
                                 tint = if (settings.coloredToolIcons)
                                     toolAccentColor(tool, settings.toolColorOverrides)

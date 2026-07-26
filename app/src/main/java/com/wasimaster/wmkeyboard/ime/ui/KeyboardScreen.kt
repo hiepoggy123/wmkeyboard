@@ -83,29 +83,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material.icons.automirrored.outlined.Backspace
-import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowLeft
-import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
-import androidx.compose.material.icons.automirrored.outlined.KeyboardReturn
-import androidx.compose.material.icons.automirrored.outlined.KeyboardTab
 import androidx.compose.material.icons.automirrored.outlined.Redo
 import androidx.compose.material.icons.automirrored.outlined.Send
 import androidx.compose.material.icons.automirrored.outlined.Undo
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.outlined.AudioFile
-import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Description
-import androidx.compose.material.icons.outlined.FirstPage
 import androidx.compose.material.icons.outlined.Folder
-import androidx.compose.material.icons.outlined.HighlightAlt
-import androidx.compose.material.icons.outlined.ViewHeadline
-import androidx.compose.material.icons.outlined.KeyboardArrowDown
-import androidx.compose.material.icons.outlined.KeyboardArrowUp
-import androidx.compose.material.icons.outlined.KeyboardHide
-import androidx.compose.material.icons.outlined.KeyboardDoubleArrowDown
-import androidx.compose.material.icons.outlined.KeyboardDoubleArrowLeft
-import androidx.compose.material.icons.outlined.KeyboardDoubleArrowRight
-import androidx.compose.material.icons.outlined.KeyboardDoubleArrowUp
-import androidx.compose.material.icons.automirrored.outlined.LastPage
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.automirrored.outlined.InsertDriveFile
 import androidx.compose.material.icons.outlined.Link
@@ -113,74 +97,26 @@ import androidx.compose.material.icons.outlined.PictureAsPdf
 import androidx.compose.material.icons.outlined.VideoFile
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material.icons.outlined.ChevronLeft
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.ContentPaste
 import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.outlined.DarkMode
 import androidx.compose.material.icons.outlined.DeleteSweep
-import androidx.compose.material.icons.outlined.Dialpad
-import androidx.compose.material.icons.outlined.DirectionsCar
 import androidx.compose.material.icons.outlined.DragHandle
 import androidx.compose.material.icons.outlined.Draw
-import androidx.compose.material.icons.outlined.EditNote
-import androidx.compose.material.icons.outlined.Explore
-import androidx.compose.material.icons.outlined.FlashlightOn
 import androidx.compose.material.icons.outlined.EmojiEmotions
-import androidx.compose.material.icons.outlined.EmojiNature
-import androidx.compose.material.icons.outlined.EmojiObjects
-import androidx.compose.material.icons.outlined.EmojiPeople
-import androidx.compose.material.icons.outlined.EmojiSymbols
-import androidx.compose.material.icons.outlined.Fastfood
 import androidx.compose.material.icons.outlined.Fullscreen
-import androidx.compose.material.icons.outlined.GridView
 import androidx.compose.material.icons.outlined.Language
-import androidx.compose.material.icons.outlined.Palette
-import androidx.compose.material.icons.outlined.Pets
-import androidx.compose.material.icons.outlined.DocumentScanner
-import androidx.compose.material.icons.outlined.PhotoCamera
-import androidx.compose.material.icons.outlined.QrCode2
-import androidx.compose.material.icons.outlined.QrCodeScanner
-import androidx.compose.material.icons.outlined.TextFields
-import androidx.compose.material.icons.outlined.Calculate
-import androidx.compose.material.icons.outlined.CurrencyExchange
-import androidx.compose.material.icons.outlined.Functions
 import androidx.compose.material.icons.outlined.Password
-import androidx.compose.material.icons.outlined.MusicNote
-import androidx.compose.material.icons.outlined.Speed
 import androidx.compose.material.icons.outlined.Psychology
-import androidx.compose.material.icons.outlined.Public
-import androidx.compose.material.icons.outlined.SwapHoriz
-import androidx.compose.material.icons.automirrored.outlined.FactCheck
-import androidx.compose.material.icons.automirrored.outlined.MenuBook
-import androidx.compose.material.icons.outlined.Mic
-import androidx.compose.material.icons.outlined.PictureInPictureAlt
 import androidx.compose.material.icons.outlined.PushPin
-import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material.icons.outlined.StarBorder
-import androidx.compose.material.icons.automirrored.outlined.StickyNote2
 import androidx.compose.material.icons.outlined.Settings
-import androidx.compose.material.icons.outlined.Smartphone
-import androidx.compose.material.icons.outlined.Spellcheck
-import androidx.compose.material.icons.outlined.SportsSoccer
-import androidx.compose.material.icons.outlined.Straighten
-import androidx.compose.material.icons.outlined.Vibration
-import androidx.compose.material.icons.outlined.VisibilityOff
-import androidx.compose.material.icons.outlined.WbSunny
-import androidx.compose.material.icons.outlined.VerticalSplit
-import androidx.compose.material.icons.automirrored.outlined.TextSnippet
-import androidx.compose.material.icons.outlined.EmojiFlags
 import androidx.compose.material.icons.outlined.AutoAwesome
-import androidx.compose.material.icons.outlined.GifBox
-import androidx.compose.material.icons.outlined.ImageSearch
 import androidx.compose.material.icons.outlined.Translate
-import androidx.compose.material.icons.outlined.TravelExplore
 import androidx.compose.material.icons.outlined.ArrowDropDown
-import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -283,6 +219,7 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import com.wasimaster.wmkeyboard.core.settings.ScreenReaderMode
 import kotlinx.coroutines.delay
+import com.wasimaster.wmkeyboard.core.icons.IconSlots
 import com.wasimaster.wmkeyboard.core.clipboard.ClipItem
 import com.wasimaster.wmkeyboard.core.clipboard.ClipKind
 import com.wasimaster.wmkeyboard.core.clipboard.ClipLinks
@@ -475,15 +412,7 @@ private fun rememberTouchExploration(): Boolean {
  * [KeyboardUiState.enterActionLabel], and everyone else falls back to the
  * newline glyph — which is what onEnter does with a blank label anyway.
  */
-internal fun enterActionIcon(action: EnterAction): ImageVector = when (action) {
-    EnterAction.SEARCH -> Icons.Outlined.Search
-    EnterAction.SEND -> Icons.AutoMirrored.Outlined.Send
-    EnterAction.GO -> Icons.AutoMirrored.Outlined.ArrowForward
-    EnterAction.NEXT -> Icons.AutoMirrored.Outlined.KeyboardTab
-    EnterAction.PREVIOUS -> Icons.AutoMirrored.Outlined.ArrowBack
-    EnterAction.DONE -> Icons.Outlined.Check
-    EnterAction.DEFAULT, EnterAction.CUSTOM -> Icons.AutoMirrored.Outlined.KeyboardReturn
-}
+internal fun enterActionIcon(action: EnterAction): ImageVector = IconDefaults.forEnterAction(action)
 
 /** What to call the enter key in this field, for screen readers. */
 internal fun enterActionName(state: KeyboardUiState): String = when (state.enterAction) {
@@ -718,8 +647,13 @@ fun KeyboardScreen(
         rawState.copy(settings = rawState.settings.resolvedFor(variant))
     }
 
+    // Resolved off the main thread, so the first frame or two after a cold
+    // start draw the built-in icons and a pack swaps in behind them.
+    val iconSet by rememberIconSet(state.settings.icons)
+
     val body: @Composable ColumnScope.(KeyboardUiState) -> Unit = { bodyState ->
         CompositionLocalProvider(
+            LocalIconSet provides iconSet,
             LocalKeyPressFeedback provides onKeyPressed,
             LocalHapticFeedback provides onHaptic,
             LocalKeySound provides onKeySound,
@@ -1630,7 +1564,7 @@ private fun TopBar(
         } else {
             if (state.settings.emojiToolbar && ToolbarTool.EMOJI in state.settings.enabledTools) {
                 ToolCircle(
-                    icon = toolIcon(ToolbarTool.EMOJI),
+                    slot = IconSlots.CHROME_EMOJI_SHORTCUT,
                     description = "Emoji",
                     active = false,
                     // Same icon the toolbar pins: it slides between the two
@@ -2219,7 +2153,7 @@ private fun ModesPanel(
                 modifier = Modifier.weight(1f),
             )
             ToolCircle(
-                icon = Icons.Outlined.Settings,
+                slot = IconSlots.forTool(ToolbarTool.SETTINGS),
                 description = "Mode settings",
                 active = false,
                 onClick = onOpenSettings,
@@ -2343,66 +2277,7 @@ private fun ModeRow(
 
 // ---- customizable toolbar & toolbox ----
 
-internal fun toolIcon(tool: ToolbarTool): ImageVector = when (tool) {
-    ToolbarTool.EMOJI -> Icons.Outlined.EmojiEmotions
-    ToolbarTool.CLIPBOARD -> Icons.Outlined.ContentPaste
-    ToolbarTool.SNIPPETS -> Icons.AutoMirrored.Outlined.TextSnippet
-    ToolbarTool.TEXT_EDIT -> Icons.Outlined.EditNote
-    ToolbarTool.ONE_HANDED -> Icons.Outlined.Smartphone
-    ToolbarTool.SPLIT -> Icons.Outlined.VerticalSplit
-    ToolbarTool.FLOATING -> Icons.Outlined.PictureInPictureAlt
-    ToolbarTool.SETTINGS -> Icons.Outlined.Settings
-    ToolbarTool.FLASHLIGHT -> Icons.Outlined.FlashlightOn
-    ToolbarTool.COMPASS -> Icons.Outlined.Explore
-    ToolbarTool.LEVEL -> Icons.Outlined.Straighten
-    ToolbarTool.UNDO -> Icons.AutoMirrored.Outlined.Undo
-    ToolbarTool.REDO -> Icons.AutoMirrored.Outlined.Redo
-    ToolbarTool.MOON_PHASE -> Icons.Outlined.DarkMode
-    ToolbarTool.WEATHER -> Icons.Outlined.WbSunny
-    ToolbarTool.CALENDAR -> Icons.Outlined.CalendarMonth
-    ToolbarTool.INCOGNITO -> Icons.Outlined.VisibilityOff
-    ToolbarTool.THEMES -> Icons.Outlined.Palette
-    ToolbarTool.AUTOCORRECT -> Icons.Outlined.Spellcheck
-    ToolbarTool.SOUND_HAPTICS -> Icons.Outlined.Vibration
-    ToolbarTool.NUMPAD -> Icons.Outlined.Dialpad
-    ToolbarTool.HANDWRITING -> Icons.Outlined.Draw
-    ToolbarTool.CAMERA -> Icons.Outlined.PhotoCamera
-    ToolbarTool.DICTIONARY -> Icons.AutoMirrored.Outlined.MenuBook
-    ToolbarTool.TRANSLATE -> Icons.Outlined.Translate
-    ToolbarTool.GIF -> Icons.Outlined.GifBox
-    ToolbarTool.STICKER -> Icons.AutoMirrored.Outlined.StickyNote2
-    ToolbarTool.WEB_SEARCH -> Icons.Outlined.TravelExplore
-    ToolbarTool.IMAGE_SEARCH -> Icons.Outlined.ImageSearch
-    ToolbarTool.OCR -> Icons.Outlined.TextFields
-    ToolbarTool.QR_SCAN -> Icons.Outlined.QrCodeScanner
-    ToolbarTool.DOC_SCAN -> Icons.Outlined.DocumentScanner
-    ToolbarTool.VOICE -> Icons.Outlined.Mic
-    ToolbarTool.GRAMMAR -> Icons.AutoMirrored.Outlined.FactCheck
-    ToolbarTool.WIKIPEDIA -> Icons.Outlined.Public
-    ToolbarTool.SYMBOLS -> Icons.Outlined.Functions
-    ToolbarTool.CALCULATOR -> Icons.Outlined.Calculate
-    ToolbarTool.UNIT_CONVERT -> Icons.Outlined.SwapHoriz
-    ToolbarTool.CURRENCY -> Icons.Outlined.CurrencyExchange
-    ToolbarTool.QR_GEN -> Icons.Outlined.QrCode2
-    ToolbarTool.PASSWORD_GEN -> Icons.Outlined.Password
-    ToolbarTool.TYPING_TEST -> Icons.Outlined.Speed
-    ToolbarTool.MEDIA_CONTROL -> Icons.Outlined.MusicNote
-    ToolbarTool.AI -> Icons.Outlined.AutoAwesome
-    ToolbarTool.MODES -> Icons.Outlined.Tune
-    ToolbarTool.CURSOR_LEFT -> Icons.AutoMirrored.Outlined.KeyboardArrowLeft
-    ToolbarTool.CURSOR_RIGHT -> Icons.AutoMirrored.Outlined.KeyboardArrowRight
-    ToolbarTool.CURSOR_WORD_LEFT -> Icons.Outlined.KeyboardDoubleArrowLeft
-    ToolbarTool.CURSOR_WORD_RIGHT -> Icons.Outlined.KeyboardDoubleArrowRight
-    ToolbarTool.CURSOR_UP -> Icons.Outlined.KeyboardArrowUp
-    ToolbarTool.CURSOR_DOWN -> Icons.Outlined.KeyboardArrowDown
-    ToolbarTool.CURSOR_HOME -> Icons.Outlined.FirstPage
-    ToolbarTool.CURSOR_END -> Icons.AutoMirrored.Outlined.LastPage
-    ToolbarTool.HIDE_KEYBOARD -> Icons.Outlined.KeyboardHide
-    ToolbarTool.PAGE_UP -> Icons.Outlined.KeyboardDoubleArrowUp
-    ToolbarTool.PAGE_DOWN -> Icons.Outlined.KeyboardDoubleArrowDown
-    ToolbarTool.SELECT_WORD -> Icons.Outlined.HighlightAlt
-    ToolbarTool.SELECT_LINE -> Icons.Outlined.ViewHeadline
-}
+internal fun toolIcon(tool: ToolbarTool): ImageVector = IconDefaults.forTool(tool)
 
 internal fun toolLabel(tool: ToolbarTool): String = when (tool) {
     ToolbarTool.EMOJI -> "Emoji"
@@ -3007,7 +2882,7 @@ private fun Modifier.animateSharedPlacement(
  */
 @Composable
 private fun ToolCircle(
-    icon: ImageVector,
+    slot: String,
     description: String,
     active: Boolean,
     modifier: Modifier = Modifier,
@@ -3064,8 +2939,8 @@ private fun ToolCircle(
                     .background(background, shape),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(
-                    icon,
+                SlotIcon(
+                    slot,
                     contentDescription = description,
                     modifier = Modifier.size(20.dp),
                     tint = iconTint,
@@ -3091,8 +2966,8 @@ private fun ToolCircle(
             .then(click),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(
-            icon,
+        SlotIcon(
+            slot,
             contentDescription = description,
             modifier = Modifier.size(20.dp),
             tint = iconTint,
@@ -3140,8 +3015,8 @@ private fun GhostToolCircle(tool: ToolbarTool, modifier: Modifier = Modifier) {
             .border(1.dp, kb.toolbarIcon.copy(alpha = 0.35f), shape),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(
-            toolIcon(tool),
+        SlotIcon(
+            IconSlots.forTool(tool),
             contentDescription = null,
             modifier = Modifier.size(20.dp),
             tint = kb.toolbarIcon.copy(alpha = 0.45f),
@@ -3257,7 +3132,7 @@ private fun RowScope.ToolbarRow(
                     contentAlignment = Alignment.Center,
                 ) {
                     ToolCircle(
-                        icon = Icons.Outlined.ChevronLeft,
+                        slot = IconSlots.CHROME_PANEL_BACK,
                         description = "Back to keyboard",
                         active = false,
                         longPressLabel = "Back to keyboard",
@@ -3267,7 +3142,7 @@ private fun RowScope.ToolbarRow(
         }
         Box(cell, contentAlignment = Alignment.Center) {
             ToolCircle(
-                icon = Icons.Outlined.GridView,
+                slot = IconSlots.CHROME_TOOLBOX,
                 description = "Toolbox",
                 active = customizing,
                 modifier = Modifier
@@ -3315,7 +3190,7 @@ private fun RowScope.ToolbarRow(
                             onTap = { onToolTap(tool) },
                         ) { dragModifier ->
                             ToolCircle(
-                                icon = toolIcon(tool),
+                                slot = IconSlots.forTool(tool),
                                 description = toolLabel(tool),
                                 active = toolActive(tool, state),
                                 label = if (labels) toolLabel(tool) else null,
@@ -3397,8 +3272,8 @@ private fun RowScope.ToolbarRow(
         }
     }
     if (state.incognitoOn) {
-        Icon(
-            KeyboardIcons.Incognito,
+        SlotIcon(
+            IconSlots.CHROME_INCOGNITO,
             contentDescription = "Incognito is on",
             modifier = Modifier
                 .padding(end = 6.dp)
@@ -3715,7 +3590,7 @@ private fun ToolboxPanel(
                                 GhostToolCircle(shown)
                             } else {
                                 ToolCircle(
-                                    icon = toolIcon(shown),
+                                    slot = IconSlots.forTool(shown),
                                     description = toolLabel(shown),
                                     active = toolActive(shown, state),
                                     interactive = false,
@@ -3825,7 +3700,7 @@ private fun FullBleedTool(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             ToolCircle(
-                icon = Icons.Outlined.ChevronLeft,
+                slot = IconSlots.CHROME_PANEL_BACK,
                 description = "Back to keyboard",
                 active = false,
                 onClick = onClose,
@@ -4478,7 +4353,7 @@ private fun KeyboardBody(
                             Spacer(Modifier.width(5.dp))
                         }
                         ToolCircle(
-                            icon = Icons.Outlined.Settings,
+                            slot = IconSlots.forTool(ToolbarTool.SETTINGS),
                             description = "AI settings",
                             active = false,
                         ) { onOpenToolSettings(ToolbarTool.AI) }
@@ -4553,8 +4428,8 @@ private fun KeyboardBody(
                     .background(kb.toolCircleActive, CircleShape),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(
-                    toolIcon(tool),
+                SlotIcon(
+                    IconSlots.forTool(tool),
                     contentDescription = null,
                     modifier = Modifier.size(22.dp),
                     tint = kb.toolCircleActiveIcon,
@@ -6058,11 +5933,11 @@ private fun layoutSwitchLabel(
 private fun KeyContent(key: Key, state: KeyboardUiState, contentColor: Color) {
     val fontScale = state.settings.fontScale
     when (key.action) {
-        KeyAction.Shift -> Icon(
+        KeyAction.Shift -> SlotIcon(
             when (state.shiftState) {
-                ShiftState.CAPS_LOCK -> KeyboardIcons.ShiftLock
-                ShiftState.ON -> KeyboardIcons.ShiftFilled
-                ShiftState.OFF -> KeyboardIcons.Shift
+                ShiftState.CAPS_LOCK -> IconSlots.KEY_SHIFT_LOCK
+                ShiftState.ON -> IconSlots.KEY_SHIFT_ON
+                ShiftState.OFF -> IconSlots.KEY_SHIFT
             },
             contentDescription = when (state.shiftState) {
                 ShiftState.CAPS_LOCK -> "Caps lock on"
@@ -6071,14 +5946,16 @@ private fun KeyContent(key: Key, state: KeyboardUiState, contentColor: Color) {
             },
             tint = if (state.shiftState != ShiftState.OFF) MaterialTheme.colorScheme.primary else contentColor,
         )
-        KeyAction.Delete -> Icon(
-            Icons.AutoMirrored.Outlined.Backspace,
+        KeyAction.Delete -> SlotIcon(
+            IconSlots.KEY_BACKSPACE,
             contentDescription = "Delete",
             tint = contentColor,
         )
         // An app-supplied actionLabel is drawn as text — that is the whole
         // point of it, and no icon can stand in for wording the app chose.
         // It is clipped to one line so a long label cannot blow up the row.
+        // CUSTOM is also the one enter action with no icon slot, for the same
+        // reason: there is nothing to replace.
         KeyAction.Enter -> if (state.enterAction == EnterAction.CUSTOM &&
             state.enterActionLabel != null
         ) {
@@ -6092,19 +5969,19 @@ private fun KeyContent(key: Key, state: KeyboardUiState, contentColor: Color) {
                 modifier = Modifier.padding(horizontal = 4.dp),
             )
         } else {
-            Icon(
-                enterActionIcon(state.enterAction),
+            SlotIcon(
+                IconDefaults.enterActionSlot(state.enterAction) ?: IconSlots.KEY_ENTER,
                 contentDescription = "Enter",
                 tint = contentColor,
             )
         }
-        KeyAction.LanguageSwitch -> Icon(
-            Icons.Outlined.Language,
+        KeyAction.LanguageSwitch -> SlotIcon(
+            IconSlots.KEY_GLOBE,
             contentDescription = "Switch language",
             tint = contentColor,
         )
-        KeyAction.Emoji -> Icon(
-            Icons.Outlined.EmojiEmotions,
+        KeyAction.Emoji -> SlotIcon(
+            IconSlots.KEY_EMOJI,
             contentDescription = "Emoji",
             tint = contentColor,
         )
@@ -6819,20 +6696,15 @@ private fun textArtTabLabel(tab: String): String? = when (tab) {
     else -> null
 }
 
-/** Category → tab icon; falls back to the smiley for unknown categories. */
-private fun emojiTabIcon(tab: String): ImageVector = when (tab) {
-    RECENT_TAB -> Icons.Outlined.Schedule
-    "smileys" -> Icons.Outlined.EmojiEmotions
-    "people" -> Icons.Outlined.EmojiPeople
-    "animals" -> Icons.Outlined.Pets
-    "nature" -> Icons.Outlined.EmojiNature
-    "food" -> Icons.Outlined.Fastfood
-    "travel" -> Icons.Outlined.DirectionsCar
-    "activities" -> Icons.Outlined.SportsSoccer
-    "objects" -> Icons.Outlined.EmojiObjects
-    "symbols" -> Icons.Outlined.EmojiSymbols
-    "flags" -> Icons.Outlined.EmojiFlags
-    else -> Icons.Outlined.EmojiEmotions
+/**
+ * Tab key → icon slot. The history tab is two slots, not one: "recent" and
+ * "most used" are different orderings and wear different glyphs, so a pack can
+ * replace them independently. The text-art tabs have no slot — they draw
+ * [textArtTabLabel] instead of an icon.
+ */
+private fun emojiTabSlot(tab: String, mostUsed: Boolean): String = when (tab) {
+    RECENT_TAB -> if (mostUsed) IconSlots.EMOJI_TAB_MOST_USED else IconSlots.EMOJI_TAB_RECENT
+    else -> IconSlots.forEmojiCategory(tab)
 }
 
 /**
@@ -6842,7 +6714,7 @@ private fun emojiTabIcon(tab: String): ImageVector = when (tab) {
  */
 @Composable
 private fun RowScope.EmojiTab(
-    icon: ImageVector,
+    slot: String,
     description: String,
     selected: Boolean,
     onClick: () -> Unit,
@@ -6874,8 +6746,8 @@ private fun RowScope.EmojiTab(
                     modifier = Modifier.semantics { contentDescription = description },
                 )
             } else {
-                Icon(
-                    icon,
+                SlotIcon(
+                    slot,
                     contentDescription = description,
                     modifier = Modifier.size(20.dp),
                     tint = tint,
@@ -7088,7 +6960,7 @@ private fun EmojiPanel(
     val focusedTab = state.focusedIndex(FocusRegion.CHIPS)
     val tabStrip: @Composable RowScope.() -> Unit = {
         EmojiTab(
-            icon = Icons.Outlined.Search,
+            slot = IconSlots.EMOJI_TAB_SEARCH,
             description = "Search emoji",
             selected = false,
             focused = state.focusedIndex(FocusRegion.SEARCH) == 0,
@@ -7096,11 +6968,7 @@ private fun EmojiPanel(
         )
         tabs.forEachIndexed { index, tab ->
             EmojiTab(
-                icon = if (tab == RECENT_TAB && historyMode == EmojiTabMode.MOST_USED) {
-                    Icons.Outlined.BarChart
-                } else {
-                    emojiTabIcon(tab)
-                },
+                slot = emojiTabSlot(tab, historyMode == EmojiTabMode.MOST_USED),
                 description = when (tab) {
                     KAOMOJI_TAB -> "Kaomoji"
                     EMOTICON_TAB -> "Emoticons"
@@ -7134,7 +7002,7 @@ private fun EmojiPanel(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 ToolCircle(
-                    icon = Icons.Outlined.ChevronLeft,
+                    slot = IconSlots.CHROME_PANEL_BACK,
                     description = "Back to keyboard",
                     active = false,
                     onClick = onClose,
@@ -8131,7 +7999,7 @@ private fun SnippetsPanel(
                 modifier = Modifier.weight(1f),
             )
             ToolCircle(
-                icon = Icons.Outlined.Settings,
+                slot = IconSlots.forTool(ToolbarTool.SETTINGS),
                 description = "Snippet settings",
                 active = false,
                 onClick = onOpenSettings,

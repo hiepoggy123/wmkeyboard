@@ -74,7 +74,12 @@ object StickerPackFile {
         "application/octet-stream",
     )
 
-    private const val MANIFEST = "pack.json"
+    /**
+     * Public because it is not private to this format: the icon pack uses the
+     * same manifest name, and [com.wasimaster.wmkeyboard.app.WMFileTypes] has
+     * to read it to tell the two archives apart.
+     */
+    const val MANIFEST = "pack.json"
     private const val STICKER_DIR = "stickers/"
 
     /** Zip-bomb guards: nothing legitimate comes close to either. */

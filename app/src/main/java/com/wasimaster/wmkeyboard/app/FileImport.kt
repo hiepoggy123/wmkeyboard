@@ -23,6 +23,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.wasimaster.wmkeyboard.core.icons.IconImportResult
+import com.wasimaster.wmkeyboard.core.icons.IconPackFile
+import com.wasimaster.wmkeyboard.core.icons.IconPackStore
 import com.wasimaster.wmkeyboard.core.layout.AssetLayouts
 import com.wasimaster.wmkeyboard.core.layout.ImportedLayout
 import com.wasimaster.wmkeyboard.core.layout.LayoutFile
@@ -71,6 +74,7 @@ object WMFileTypes {
         SettingsBackup.FILE_EXTENSION,
         ConfigBackup.FILE_EXTENSION,
         StickerPackFile.FILE_EXTENSION,
+        IconPackFile.FILE_EXTENSION,
     )
 
     /** First four bytes of every ZIP local file header. */
@@ -86,10 +90,12 @@ object WMFileTypes {
         data class Settings(val text: String, val parsed: SettingsBackup.Parsed) : Opened
 
         /**
-         * A ZIP. Nothing is parsed here — [StickerPackFile.import] streams the
-         * archive itself and does the format check, so this re-opens [uri].
+         * A ZIP whose manifest claims one of the archive formats. Only the
+         * manifest is read here — each importer streams the archive itself and
+         * repeats the format check, so both re-open [uri].
          */
         data object Stickers : Opened
+        data object Icons : Opened
 
         /** Readable, but not one of ours. */
         data object Unrecognized : Opened
@@ -115,7 +121,7 @@ object WMFileTypes {
                 buffer.copyOf(read)
             }
         }.getOrNull() ?: return Opened.Unreadable
-        if (head.contentEquals(ZIP_MAGIC)) return Opened.Stickers
+        if (head.contentEquals(ZIP_MAGIC)) return identifyArchive(context, uri)
 
         val text = runCatching {
             context.contentResolver.openInputStream(uri)!!.use { it.readBytes().decodeToString() }
@@ -133,6 +139,57 @@ object WMFileTypes {
         }
         return Opened.Unrecognized
     }
+
+    /**
+     * Which archive format a ZIP holds, from the `format` tag in its manifest.
+     *
+     * Sticker packs and icon packs are both ZIPs with a `pack.json` at the
+     * root, so the magic bytes alone can't tell them apart — reading the
+     * manifest is the only way, and guessing would send every icon pack to the
+     * sticker importer.
+     */
+    private fun identifyArchive(context: android.content.Context, uri: Uri): Opened {
+        val manifest = runCatching {
+            context.contentResolver.openInputStream(uri)!!.use { input ->
+                java.util.zip.ZipInputStream(input.buffered()).use { zip ->
+                    var scanned = 0
+                    while (scanned++ < MANIFEST_SCAN_LIMIT) {
+                        val entry = zip.nextEntry ?: break
+                        if (entry.isDirectory) continue
+                        if (entry.name != StickerPackFile.MANIFEST) continue
+                        // Both manifests are small; the tag is near the front.
+                        // (InputStream.readNBytes is API 33; minSdk here is 24.)
+                        val out = java.io.ByteArrayOutputStream()
+                        val buffer = ByteArray(8 * 1024)
+                        while (out.size() < MAX_MANIFEST_BYTES) {
+                            val n = zip.read(buffer, 0, minOf(buffer.size, MAX_MANIFEST_BYTES - out.size()))
+                            if (n <= 0) break
+                            out.write(buffer, 0, n)
+                        }
+                        return@use out.toByteArray().decodeToString()
+                    }
+                    null
+                }
+            }
+        }.getOrNull() ?: return Opened.Unrecognized
+
+        return when {
+            manifest.contains("\"${IconPackFile.FORMAT}\"") -> Opened.Icons
+            manifest.contains("\"${StickerPackFile.FORMAT}\"") -> Opened.Stickers
+            else -> Opened.Unrecognized
+        }
+    }
+
+    /**
+     * Entries to look at before giving up on finding the manifest. Matches the
+     * cap the importers use, so a pack that zips its manifest last is still
+     * recognised here rather than being refused by a check the import itself
+     * would have passed.
+     */
+    private const val MANIFEST_SCAN_LIMIT = 400
+
+    /** Enough of a manifest to carry its format tag, with room to spare. */
+    private const val MAX_MANIFEST_BYTES = 64 * 1024
 
     /** The provider's display name for [uri], or its last path segment. */
     fun displayName(context: android.content.Context, uri: Uri): String {
@@ -393,10 +450,27 @@ private fun rememberProposal(
             },
         )
 
+        WMFileTypes.Opened.Icons -> ImportProposal(
+            title = "Import icon pack?",
+            body = "The pack is installed and switched on, so its icons replace the " +
+                "built-in ones. Icons you set yourself are kept.",
+            apply = {
+                val store = IconPackStore.get(context)
+                val result = withContext(Dispatchers.IO) {
+                    runCatching {
+                        context.contentResolver.openInputStream(uri)!!
+                            .use { IconPackFile.import(it, store) }
+                    }.getOrDefault(IconImportResult.Failed)
+                }
+                if (result is IconImportResult.Imported) repository.setIconPack(result.pack.id)
+                describeImport(result)
+            },
+        )
+
         WMFileTypes.Opened.Unrecognized -> ImportProposal(
             title = "Not a WM Keyboard file",
-            body = "That file doesn't hold a theme, layout, sticker pack or backup " +
-                "this keyboard can read.",
+            body = "That file doesn't hold a theme, layout, sticker pack, icon pack " +
+                "or backup this keyboard can read.",
             apply = null,
         )
 

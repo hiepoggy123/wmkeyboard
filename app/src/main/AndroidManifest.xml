@@ -145,6 +145,10 @@
                 <data android:pathPattern=".*\\..*\\.wmstickers" />
                 <data android:pathPattern=".*\\..*\\..*\\.wmstickers" />
                 <data android:pathPattern=".*\\..*\\..*\\..*\\.wmstickers" />
+                <data android:pathPattern=".*\\.wmicons" />
+                <data android:pathPattern=".*\\..*\\.wmicons" />
+                <data android:pathPattern=".*\\..*\\..*\\.wmicons" />
+                <data android:pathPattern=".*\\..*\\..*\\..*\\.wmicons" />
             </intent-filter>
 
             <intent-filter android:label="@string/import_file_label">
@@ -172,6 +176,10 @@
                 <data android:pathPattern=".*\\..*\\.wmstickers" />
                 <data android:pathPattern=".*\\..*\\..*\\.wmstickers" />
                 <data android:pathPattern=".*\\..*\\..*\\..*\\.wmstickers" />
+                <data android:pathPattern=".*\\.wmicons" />
+                <data android:pathPattern=".*\\..*\\.wmicons" />
+                <data android:pathPattern=".*\\..*\\..*\\.wmicons" />
+                <data android:pathPattern=".*\\..*\\..*\\..*\\.wmicons" />
             </intent-filter>
         </activity>
 
