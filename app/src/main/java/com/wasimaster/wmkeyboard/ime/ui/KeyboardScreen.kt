@@ -251,6 +251,7 @@ import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.round
 import androidx.compose.ui.unit.sp
@@ -289,6 +290,7 @@ import com.wasimaster.wmkeyboard.core.script.mapDigits
 import com.wasimaster.wmkeyboard.core.script.resolveNumeralDigits
 import com.wasimaster.wmkeyboard.core.settings.BarRow
 import com.wasimaster.wmkeyboard.core.settings.EmojiBarContent
+import com.wasimaster.wmkeyboard.core.settings.EmojiBarCountRange
 import com.wasimaster.wmkeyboard.core.settings.GrammarDialect
 import com.wasimaster.wmkeyboard.core.settings.KeyboardMode
 import com.wasimaster.wmkeyboard.core.settings.EmojiBarMode
@@ -1995,6 +1997,8 @@ private fun EmojiBarStrip(
         EmojiBarContent.RECENTS -> state.emojiRecents
         EmojiBarContent.FAVOURITES -> state.emojiFavourites
     }.ifEmpty { DEFAULT_BAR_EMOJIS }
+    val scrollable = state.settings.emoji.barScrollable
+    val count = state.settings.emoji.barCount.coerceIn(EmojiBarCountRange)
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -2009,26 +2013,65 @@ private fun EmojiBarStrip(
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        // SpaceEvenly kicks in while the content is narrower than the row,
-        // so a handful of emojis spread across the full width instead of
-        // huddling left; once there are enough to overflow it scrolls.
-        LazyRow(
-            modifier = Modifier.weight(1f),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceEvenly,
-        ) {
-            lazyRowItems(emojis) { emoji ->
-                Text(
-                    text = emoji,
-                    modifier = Modifier
-                        .clickable { onEmoji(emoji) }
-                        .padding(horizontal = 7.dp, vertical = 6.dp),
-                    fontSize = 24.sp,
-                    fontFamily = LocalEmojiFontFamily.current,
-                )
+        // One slot width drives both layouts: `count` emoji span the leftover
+        // width either way, and the glyphs shrink into their slot, so a
+        // tighter setting packs more in instead of clipping or overflowing.
+        // Scrolling only decides whether the emoji past those slots are
+        // reachable — off (the default), the row is a fixed set of taps and a
+        // sideways swipe can't slide it out from under a finger.
+        BoxWithConstraints(modifier = Modifier.weight(1f)) {
+            val slot = maxWidth / count
+            val fontScale = LocalDensity.current.fontScale
+            // Cap at the historical 24sp; below that the glyph is sized in dp
+            // (slot-relative) and converted back, so a large system font scale
+            // can't push emoji wider than their slot.
+            val fontSize = minOf(24f, slot.value * 0.74f / fontScale).sp
+            if (scrollable) {
+                LazyRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                ) {
+                    lazyRowItems(emojis) { emoji ->
+                        EmojiBarCell(emoji, slot, fontSize, onEmoji)
+                    }
+                }
+            } else {
+                // SpaceEvenly spreads the cells when there are fewer emoji
+                // than slots, so a short favourites list doesn't huddle left.
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                ) {
+                    emojis.take(count).forEach { emoji ->
+                        EmojiBarCell(emoji, slot, fontSize, onEmoji)
+                    }
+                }
             }
         }
     }
+}
+
+/** One tappable emoji slot of [EmojiBarStrip], sized by the row's packing. */
+@Composable
+private fun EmojiBarCell(
+    emoji: String,
+    width: Dp,
+    fontSize: TextUnit,
+    onEmoji: (String) -> Unit,
+) {
+    Text(
+        text = emoji,
+        modifier = Modifier
+            .width(width)
+            .clickable { onEmoji(emoji) }
+            .padding(vertical = 6.dp),
+        fontSize = fontSize,
+        fontFamily = LocalEmojiFontFamily.current,
+        textAlign = TextAlign.Center,
+        maxLines = 1,
+    )
 }
 
 /** Height of the dedicated symbol row (chips are text, not emoji). */

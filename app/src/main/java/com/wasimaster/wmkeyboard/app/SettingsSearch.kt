@@ -158,6 +158,8 @@ private val SettingRows: List<SettingsSearchEntry> = listOfNotNull(
     entry("Emoji descriptions", "Name the emoji at the top of its long-press popup", "Emoji", "emoji"),
     entry("Emoji row", "A dedicated row of your emojis, like Gboard", "Emoji", "emoji"),
     entry("Emoji row content", "Favourites always come first", "Emoji", "emoji"),
+    entry("Emojis in the row", "How many fit across — higher packs them tighter", "Emoji", "emoji"),
+    entry("Scroll the emoji row", "Swipe sideways for the emoji past the visible ones", "Emoji", "emoji"),
     entry("Emoji font", "How emojis look on the keyboard itself", "Emoji", "emoji"),
     entry("Default skin tone", "Skin tone for toned emoji in suggestions and search", "Emoji", "emoji"),
     entry("Override with last used", "Prefer the tone last picked over the default", "Emoji", "emoji"),

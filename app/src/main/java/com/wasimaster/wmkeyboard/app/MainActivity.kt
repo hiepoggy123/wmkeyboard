@@ -191,6 +191,7 @@ import com.wasimaster.wmkeyboard.core.feedback.HapticPlayer
 import com.wasimaster.wmkeyboard.core.feedback.KeySoundPlayer
 import com.wasimaster.wmkeyboard.core.handwriting.HandwritingModels
 import com.wasimaster.wmkeyboard.core.settings.EmojiBarContent
+import com.wasimaster.wmkeyboard.core.settings.EmojiBarCountRange
 import com.wasimaster.wmkeyboard.core.settings.EmojiBarMode
 import com.wasimaster.wmkeyboard.core.settings.EmojiFontChoice
 import com.wasimaster.wmkeyboard.core.settings.EmojiSkinTone
@@ -3166,6 +3167,30 @@ private fun EmojiSettings(repository: SettingsRepository, settings: KeyboardSett
                     ),
                     selected = settings.emojiBarContent,
                 ) { scope.launch { repository.setEmojiBarContent(it) } }
+            }
+            item {
+                SliderSetting(
+                    title = "Emojis in the row",
+                    subtitle = "How many fit across — higher packs them tighter",
+                    value = settings.emoji.barCount.toFloat(),
+                    range = EmojiBarCountRange.first.toFloat()..EmojiBarCountRange.last.toFloat(),
+                    display = "${settings.emoji.barCount}",
+                    info = "The row splits its width into this many slots and shrinks the " +
+                        "emoji to fit them, so a higher number means smaller, more tightly " +
+                        "packed emoji. With scrolling off, emoji past the last slot are not " +
+                        "shown at all; with it on, they are a swipe away.",
+                ) { scope.launch { repository.setEmojiBarCount(it.roundToInt()) } }
+            }
+            item {
+                ToggleSetting(
+                    "Scroll the emoji row",
+                    "Swipe sideways for the emoji past the visible ones",
+                    settings.emoji.barScrollable,
+                    info = "Off (the default) the row is a fixed set of taps: it shows only " +
+                        "as many emoji as fit and never moves, so a sideways swipe can't " +
+                        "slide it out from under your finger. On, the extras stay reachable " +
+                        "by scrolling.",
+                ) { scope.launch { repository.setEmojiBarScrollable(it) } }
             }
         }
     }

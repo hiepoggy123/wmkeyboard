@@ -1263,7 +1263,22 @@ data class EmojiSettings(
      * Emoji → Emoji font makes everything renderable again.
      */
     val hideUnrenderable: Boolean = false,
+    /**
+     * Let the emoji row scroll sideways to reach the emoji past its visible
+     * slots. Off (the default) shows exactly [barCount] emoji and drops the
+     * rest, so a sideways swipe can't slide the row out from under a tap.
+     */
+    val barScrollable: Boolean = false,
+    /**
+     * How many emoji the row fits across its width — equally, how tightly it
+     * packs them, since each glyph shrinks to its slot. Beyond this the emoji
+     * are only reachable with [barScrollable] on. See [EmojiBarCountRange].
+     */
+    val barCount: Int = 8,
 )
+
+/** Bounds for [EmojiSettings.barCount]; the settings slider shares them. */
+val EmojiBarCountRange = 3..16
 
 /** Glide-typing behaviour and swipe-trail appearance. See [KeyboardSettings.gesture]. */
 data class GestureSettings(
@@ -1675,6 +1690,8 @@ class SettingsRepository(private val context: Context) {
             booleanPreferencesKey("emoji_tone_override_last_used")
         private val EMOJI_CLOSE_AFTER_INSERT = booleanPreferencesKey("emoji_close_after_insert")
         private val EMOJI_HIDE_UNRENDERABLE = booleanPreferencesKey("emoji_hide_unrenderable")
+        private val EMOJI_BAR_SCROLLABLE = booleanPreferencesKey("emoji_bar_scrollable")
+        private val EMOJI_BAR_COUNT = intPreferencesKey("emoji_bar_count")
         // Stored as the DISABLED set so tools added in future versions
         // default to enabled even for users who already toggled some off.
         private val DISABLED_TOOLS = stringPreferencesKey("disabled_tools")
@@ -2106,6 +2123,9 @@ class SettingsRepository(private val context: Context) {
                     ?: defaults.emoji.toneOverrideByLastUsed,
                 closeAfterInsert = p[EMOJI_CLOSE_AFTER_INSERT] ?: defaults.emoji.closeAfterInsert,
                 hideUnrenderable = p[EMOJI_HIDE_UNRENDERABLE] ?: defaults.emoji.hideUnrenderable,
+                barScrollable = p[EMOJI_BAR_SCROLLABLE] ?: defaults.emoji.barScrollable,
+                barCount = p[EMOJI_BAR_COUNT]?.coerceIn(EmojiBarCountRange)
+                    ?: defaults.emoji.barCount,
             ),
             enabledTools = ToolbarTool.entries - decodeDisabledTools(p[DISABLED_TOOLS]),
             toolboxOrder = decodeToolOrder(p[TOOLBOX_ORDER]),
@@ -3516,6 +3536,12 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setEmojiBarContent(value: EmojiBarContent) =
         context.dataStore.edit { it[EMOJI_BAR_CONTENT] = value.name }
+
+    suspend fun setEmojiBarScrollable(value: Boolean) =
+        context.dataStore.edit { it[EMOJI_BAR_SCROLLABLE] = value }
+
+    suspend fun setEmojiBarCount(value: Int) =
+        context.dataStore.edit { it[EMOJI_BAR_COUNT] = value.coerceIn(EmojiBarCountRange) }
 
     suspend fun setEmojiInsertMode(value: EmojiInsertMode) =
         context.dataStore.edit { it[EMOJI_INSERT_MODE] = value.name }
