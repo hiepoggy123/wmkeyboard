@@ -51,7 +51,8 @@ object JyutpingComposer : Composer {
         val dict = CjkDictionaries.jyutping
         val segs = JyutpingSyllables.segment(buffer)
         if (segs.isEmpty()) {
-            return dict.candidates(buffer, LIMIT).map { Cand(it, buffer.length) }
+            return dict.candidates(buffer, LIMIT)
+                .map { Cand(HanVariant.toTraditional(it), buffer.length) }
         }
         // Each cumulative prefix: its toneless reading and total consumed input.
         val prefixes = ArrayList<Pair<String, Int>>(segs.size)
@@ -64,7 +65,8 @@ object JyutpingComposer : Composer {
         }
         val out = LinkedHashMap<String, Cand>()
         for ((run, cons) in prefixes.asReversed()) {
-            for (w in dict.exact(run)) {
+            for (raw in dict.exact(run)) {
+                val w = HanVariant.toTraditional(raw)
                 out.getOrPut(w) { Cand(w, cons) }
                 if (out.size >= LIMIT) break
             }

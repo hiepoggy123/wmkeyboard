@@ -43,5 +43,5 @@ object StrokeComposer : Composer {
     }
 
     override fun candidates(buffer: String): List<String> =
-        CjkDictionaries.stroke.candidates(normalize(buffer))
+        CjkDictionaries.stroke.candidates(normalize(buffer)).map(HanVariant::toTraditional)
 }

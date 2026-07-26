@@ -23,6 +23,14 @@ object CjkConfig {
      */
     @Volatile
     var doublePinyin: DoublePinyinScheme = DoublePinyinScheme.OFF
+
+    /**
+     * Convert candidate output to Traditional characters. Read by [HanVariant]
+     * inside each composer's ranking, never applied to a finished candidate list —
+     * see [HanVariant] for why that distinction is load-bearing.
+     */
+    @Volatile
+    var traditionalOutput: Boolean = false
 }
 
 /**

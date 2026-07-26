@@ -33,6 +33,8 @@ class CjkComposerTest {
         JyutpingSyllables.valid = emptySet()
         CjkConfig.fuzzyPinyin = false
         CjkConfig.doublePinyin = DoublePinyinScheme.OFF
+        CjkConfig.traditionalOutput = false
+        HanVariant.s2t = emptyMap()
     }
 
     @Test
@@ -543,6 +545,83 @@ class CjkComposerTest {
         CjkDictionaries.jyutping = ConversionDictionary.parse(sequenceOf("nei\tN1\t100"))
         assertEquals(listOf("N1"), JyutpingComposer.candidates("nei"))
         assertEquals(3, JyutpingComposer.consumedFor("nei", "N1"))
+    }
+
+    // --- Traditional output (Phase 12) -------------------------------------------
+    // Stand-ins: "S" maps to "T" the way a simplified char maps to a traditional
+    // one, so the conversion is exercised without a Hanzi table.
+
+    private fun loadS2t() {
+        HanVariant.s2t = HanVariant.parse(sequenceOf("S\tT", "X\tY"))
+    }
+
+    @Test
+    fun `traditional conversion is identity when off or unloaded`() {
+        loadS2t()
+        // Loaded but toggled off.
+        assertEquals("S", HanVariant.toTraditional("S"))
+        // Toggled on but no map.
+        HanVariant.s2t = emptyMap()
+        CjkConfig.traditionalOutput = true
+        assertEquals("S", HanVariant.toTraditional("S"))
+        // Both: converts, and leaves unmapped characters alone.
+        loadS2t()
+        assertEquals("T", HanVariant.toTraditional("S"))
+        assertEquals("TY", HanVariant.toTraditional("SX"))
+        assertEquals("AB", HanVariant.toTraditional("AB"))
+    }
+
+    @Test
+    fun `traditional parse skips identity and multi-character rows`() {
+        val map = HanVariant.parse(
+            sequenceOf("S\tT", "A\tA", "AB\tCD", "# comment", "bad-line"),
+        )
+        assertEquals(mapOf('S' to 'T'), map)
+    }
+
+    @Test
+    fun `traditional output keeps prefix commit working`() {
+        // The regression this phase exists to prevent: consumedFor finds the chosen
+        // candidate by string equality against what ranked() produced. Convert the
+        // list *after* the composer and the converted string matches nothing, so
+        // consumedFor silently falls back to the whole buffer length and every
+        // multi-syllable commit starts eating the tail.
+        PinyinSyllables.valid = setOf("ni", "hao")
+        CjkDictionaries.pinyin = ConversionDictionary.parse(
+            sequenceOf("ni\tS\t100", "hao\tH1\t100", "nihao\tX\t50"),
+        )
+        loadS2t()
+        CjkConfig.traditionalOutput = true
+        // Candidates come back converted: X→Y (whole phrase), S→T (leading syllable).
+        assertEquals(listOf("Y", "T"), PinyinComposer.candidates("nihao"))
+        // And the converted strings still resolve to their real consumed lengths,
+        // not the 5-char buffer-length fallback.
+        assertEquals(5, PinyinComposer.consumedFor("nihao", "Y"))
+        assertEquals(2, PinyinComposer.consumedFor("nihao", "T"))
+    }
+
+    @Test
+    fun `traditional output converts a code-table composer too`() {
+        CjkDictionaries.cangjie = CodeTableDictionary.parse(
+            sequenceOf("a\tS\t10"),
+            CodeTableDictionary.CANGJIE_CODE,
+        )
+        loadS2t()
+        CjkConfig.traditionalOutput = true
+        assertEquals(listOf("T"), CangjieComposer.candidates("a"))
+        // One code run spells one character, so the whole buffer is consumed
+        // whatever the candidate converted to.
+        assertEquals(1, CangjieComposer.consumedFor("a", "T"))
+    }
+
+    @Test
+    fun `traditional output leaves japanese alone`() {
+        // Simplified/Traditional is a Chinese distinction; Japanese shinjitai is a
+        // separate system this toggle must not touch.
+        CjkDictionaries.japanese = ConversionDictionary.parse(sequenceOf("に\tS\t100"))
+        loadS2t()
+        CjkConfig.traditionalOutput = true
+        assertTrue("S" in JapaneseComposer.candidates("ni"))
     }
 
     @Test

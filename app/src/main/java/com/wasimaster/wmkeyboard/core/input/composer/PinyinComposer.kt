@@ -83,7 +83,8 @@ object PinyinComposer : Composer {
         val dict = CjkDictionaries.pinyin
         val segs = segments(buffer)
         if (segs.isEmpty()) {
-            return dict.candidates(buffer, LIMIT).map { Cand(it, buffer.length) }
+            return dict.candidates(buffer, LIMIT)
+                .map { Cand(HanVariant.toTraditional(it), buffer.length) }
         }
         // Each cumulative prefix: its syllables and total consumed input length.
         val prefixes = ArrayList<Pair<List<String>, Int>>(segs.size)
@@ -98,7 +99,8 @@ object PinyinComposer : Composer {
         val out = LinkedHashMap<String, Cand>()
         for ((run, cons) in prefixes.asReversed()) {
             for (reading in readingVariants(run)) {
-                for (w in dict.exact(reading)) {
+                for (raw in dict.exact(reading)) {
+                    val w = HanVariant.toTraditional(raw)
                     out.getOrPut(w) { Cand(w, cons) }
                     if (out.size >= LIMIT) break
                 }

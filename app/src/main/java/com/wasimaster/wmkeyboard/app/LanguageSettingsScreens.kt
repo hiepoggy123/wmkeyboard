@@ -462,6 +462,17 @@ private fun CjkDictPackManager(
             }
         }
 
+        // Traditional output suits both Chinese (Taiwan) and Cantonese (Hong Kong),
+        // so unlike the pinyin options below it is not gated to zh.
+        item {
+            ToggleSetting(
+                "Traditional characters",
+                "Convert candidates to Traditional (繁體). Per-character, so a few " +
+                    "context-dependent forms may be wrong (发 → 發 / 髮).",
+                settings.cjk.traditionalOutput,
+            ) { on -> scope.launch { repository.setCjkTraditionalOutput(on) } }
+        }
+
         // Chinese-only: fuzzy pinyin + Double Pinyin scheme.
         if (langId == "zh") {
             item {

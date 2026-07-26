@@ -99,7 +99,8 @@ object T9PinyinComposer : Composer {
         val out = LinkedHashMap<String, Cand>()
         for ((run, cons) in prefixes.asReversed()) {
             for (reading in readingVariants(run)) {
-                for (w in dict.exact(reading)) {
+                for (raw in dict.exact(reading)) {
+                    val w = HanVariant.toTraditional(raw)
                     out.getOrPut(w) { Cand(w, cons, reading) }
                     if (out.size >= LIMIT) break
                 }

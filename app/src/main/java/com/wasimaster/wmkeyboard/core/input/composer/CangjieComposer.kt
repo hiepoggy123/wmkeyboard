@@ -55,7 +55,7 @@ object CangjieComposer : Composer {
     override fun composeBuffer(buffer: String): String = cangjieGlyphs(buffer)
 
     override fun candidates(buffer: String): List<String> =
-        CjkDictionaries.cangjie.candidates(cangjieNormalize(buffer))
+        CjkDictionaries.cangjie.candidates(cangjieNormalize(buffer)).map(HanVariant::toTraditional)
 }
 
 /**
@@ -78,6 +78,6 @@ object CangjieQuickComposer : Composer {
             // first-and-last match.
             code.length == 1 -> CjkDictionaries.cangjie.candidates(code)
             else -> CjkDictionaries.cangjie.quickCandidates(code.first(), code.last())
-        }
+        }.map(HanVariant::toTraditional)
     }
 }

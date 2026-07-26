@@ -196,6 +196,7 @@ import com.wasimaster.wmkeyboard.core.layout.LayoutSpec
 import com.wasimaster.wmkeyboard.core.input.composer.composerFor
 import com.wasimaster.wmkeyboard.core.input.composer.CjkConfig
 import com.wasimaster.wmkeyboard.core.input.composer.CjkDictionaries
+import com.wasimaster.wmkeyboard.core.input.composer.HanVariant
 import com.wasimaster.wmkeyboard.core.input.composer.Kana
 import com.wasimaster.wmkeyboard.core.input.composer.CjkDictStore
 import com.wasimaster.wmkeyboard.core.input.composer.JyutpingSyllables
@@ -969,6 +970,7 @@ open class WMKeyboardService : InputMethodService() {
                 // parameter-less singleton). Pushed from the same block, like above.
                 CjkConfig.fuzzyPinyin = settings.cjk.pinyinFuzzy
                 CjkConfig.doublePinyin = settings.cjk.pinyinDoublePinyin
+                CjkConfig.traditionalOutput = settings.cjk.traditionalOutput
                 // Only English drives the bundled English word list; every other
                 // language (with no bundled dictionary) drops it so autocorrect
                 // and completions never offer English for their words. Bengali
@@ -3369,6 +3371,13 @@ open class WMKeyboardService : InputMethodService() {
             // T9's digit-code index and Zhuyin's bopomofo table are both derived
             // from that inventory rather than loaded — the 9-key pad, the 注音 pad
             // and the full keyboard share one syllable set and one conversion pack.
+            // Simplified→Traditional map for the output toggle; optional, and the
+            // conversion is the identity until it loads.
+            runCatching {
+                assets.open("dictionaries/s2t.txt").bufferedReader().useLines {
+                    HanVariant.s2t = HanVariant.parse(it)
+                }
+            }
             // Cantonese has its own inventory: the readings share no syllable set
             // with Mandarin, so it cannot be derived like the two above. Optional —
             // absent, Jyutping segments nothing and commits the raw roman letters.

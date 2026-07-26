@@ -54,7 +54,8 @@ object ZhuyinComposer : Composer {
         }
         val out = LinkedHashMap<String, Cand>()
         for ((run, cons) in prefixes.asReversed()) {
-            for (w in dict.exact(run)) {
+            for (raw in dict.exact(run)) {
+                val w = HanVariant.toTraditional(raw)
                 out.getOrPut(w) { Cand(w, cons) }
                 if (out.size >= LIMIT) break
             }
