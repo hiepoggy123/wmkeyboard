@@ -21,12 +21,17 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
@@ -258,8 +263,9 @@ private fun WelcomePage(onReady: () -> Unit) {
     val context = LocalContext.current
     PageHeader(
         "Welcome to WM Keyboard",
-        "An offline English + বাংলা keyboard: Avro phonetic typing, fixed Bengali " +
-            "layouts, gesture typing, themes and more. First, make it your keyboard.",
+        "An offline multilingual keyboard: ${LanguageRegistry.all.size} languages " +
+            "built in, phonetic and native layouts, gesture typing, themes and " +
+            "more. First, make it your keyboard.",
     )
     Box(modifier = Modifier.padding(horizontal = 16.dp)) {
         SetupCard(context, onReady = onReady)
@@ -280,14 +286,14 @@ private fun LanguagesPage(repository: SettingsRepository, settings: KeyboardSett
     val scope = rememberCoroutineScope()
     PageHeader(
         "Your languages",
-        "You'll type in these to start — switch between them with a quick swipe " +
-            "on the spacebar (or the 🌐 key). Add any of the " +
-            "${LanguageRegistry.all.size} available languages anytime in " +
+        "Type in as many as you like — switch between them with a quick swipe on " +
+            "the spacebar (or the 🌐 key). All ${LanguageRegistry.all.size} " +
+            "languages are built in, so add whichever you need now or later in " +
             "Settings → Languages.",
     )
     // The enabled set, grouped by language (deduped, in switch order); toggling
-    // a layout off is how you drop one during setup. Adding new languages lives
-    // in the full Settings screen, which scales past a first-run page.
+    // a layout off is how you drop one during setup, and the search below adds
+    // any of the rest.
     for (language in settings.enabledLanguages) {
         Text(
             language.displayName,
@@ -319,6 +325,80 @@ private fun LanguagesPage(repository: SettingsRepository, settings: KeyboardSett
             )
             HorizontalDivider()
         }
+    }
+    AddLanguageSection(repository, settings)
+}
+
+/**
+ * How many not-yet-added languages the onboarding list draws at once. The
+ * wizard scrolls its pages in a plain `Column`, so the whole registry cannot be
+ * composed the way the lazy Settings screen composes it; the search narrows the
+ * list long before the cap bites, and the cap announces itself when it does.
+ */
+private const val ONBOARDING_LANGUAGE_LIMIT = 30
+
+/**
+ * Adds any language in the registry, without leaving the wizard. Tapping one
+ * enables its default layout — the layouts it also ships, and secondary
+ * suggestion sources, stay in Settings → Languages, which has room for them.
+ */
+@Composable
+private fun AddLanguageSection(repository: SettingsRepository, settings: KeyboardSettings) {
+    val scope = rememberCoroutineScope()
+    var query by rememberSaveable { mutableStateOf("") }
+    val enabledLangIds = settings.enabledLanguages.mapTo(HashSet()) { it.id }
+    val q = query.trim().lowercase()
+    val matches = LanguageRegistry.all.filter { it.id !in enabledLangIds && it.matchesQuery(q) }
+
+    Text(
+        "Add a language",
+        style = MaterialTheme.typography.titleSmall,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(start = 16.dp, top = 20.dp, bottom = 4.dp),
+    )
+    OutlinedTextField(
+        value = query,
+        onValueChange = { query = it },
+        placeholder = { Text("Search languages") },
+        leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null) },
+        singleLine = true,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+    )
+    for (language in matches.take(ONBOARDING_LANGUAGE_LIMIT)) {
+        ListItem(
+            headlineContent = { Text(language.displayName) },
+            supportingContent = { Text(languageRowSubtitle(language)) },
+            trailingContent = {
+                Icon(Icons.Outlined.Add, contentDescription = "Add ${language.englishName}")
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable {
+                    // A language joins by its default layout; the rest of its
+                    // layouts are then togglable in the list above.
+                    val first = language.layoutIds.firstOrNull() ?: return@clickable
+                    scope.launch {
+                        repository.setEnabledLayoutIds(
+                            (settings.enabledLayoutIds + first).distinct(),
+                        )
+                    }
+                    query = ""
+                },
+        )
+        HorizontalDivider()
+    }
+    if (matches.isEmpty()) {
+        CaptionText(
+            if (q.isEmpty()) "Every language is already added."
+            else "No languages match “$query”.",
+        )
+    } else if (matches.size > ONBOARDING_LANGUAGE_LIMIT) {
+        CaptionText(
+            "…and ${matches.size - ONBOARDING_LANGUAGE_LIMIT} more — search to " +
+                "narrow the list.",
+        )
     }
 }
 

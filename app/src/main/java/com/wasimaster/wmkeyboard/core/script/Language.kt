@@ -40,10 +40,11 @@ data class LanguageDef(
 }
 
 /**
- * Every language the keyboard offers. Seeded with the current five; Phase 5
- * expands it toward ~60. Lookups are plain map reads — the exhaustive `when`s the
- * old enums forced (`InputMode.language`, `forMode`, `hintedMode`) collapse to
- * these.
+ * Every language the keyboard offers — English and Bengali remain the two with
+ * bundled dictionaries and gesture typing, but the registry now spans dozens of
+ * languages picked from Settings → Languages. Lookups are plain map reads — the
+ * exhaustive `when`s the old enums forced (`InputMode.language`, `forMode`,
+ * `hintedMode`) collapse to these.
  *
  * [byId] never throws: an id this build does not know (an asset or custom layout
  * from a newer version) resolves to a generic Latin language so the keyboard

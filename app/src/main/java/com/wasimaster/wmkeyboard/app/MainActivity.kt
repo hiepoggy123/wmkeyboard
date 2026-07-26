@@ -4423,10 +4423,10 @@ private fun CustomDictionarySettings(repository: SettingsRepository, settings: K
 
     Text(
         "Import your own word lists so the keyboard can complete and correct " +
-            "words it does not ship with. French, German and Spanish have no " +
-            "bundled dictionary at all, so a list here is what gives them " +
-            "suggestions; for English and Bengali your lists stack on top of " +
-            "the built-in one.\n\n" +
+            "words it does not ship with. Most languages have no bundled " +
+            "dictionary, so a list here — imported, or downloaded from " +
+            "Settings → Languages — is what gives them suggestions; where one " +
+            "is bundled, your lists stack on top of it.\n\n" +
             "Format: one word per line, optionally followed by a space and a " +
             "frequency number. Lines starting with # are ignored. Imported " +
             "words are never autocorrected away.",
@@ -4852,7 +4852,7 @@ internal fun toolDescription(tool: ToolbarTool): String = when (tool) {
     ToolbarTool.OCR -> "Point the camera at printed text and type it — pick just the words you need"
     ToolbarTool.QR_SCAN -> "Scan a QR code or barcode and insert its text"
     ToolbarTool.DOC_SCAN -> "Scan a document with Google's scanner and send it as an image"
-    ToolbarTool.VOICE -> "Dictate text with the device's speech recognizer — English and Bengali"
+    ToolbarTool.VOICE -> "Dictate text with the device's speech recognizer — any language it supports"
     ToolbarTool.GRAMMAR -> "Check the text you're writing for grammar issues — fully offline (Harper)"
     ToolbarTool.WIKIPEDIA -> "Search Wikipedia, read summaries and insert text or links"
     ToolbarTool.SYMBOLS -> "Fractions, math, Greek, arrows and more — one tap to type"

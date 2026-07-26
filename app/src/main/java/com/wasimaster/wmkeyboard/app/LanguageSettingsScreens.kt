@@ -58,14 +58,33 @@ import kotlinx.coroutines.launch
  */
 
 /** A human label for a language's script, e.g. LATIN → "Latin". */
-private fun scriptLabel(lang: LanguageDef): String =
+internal fun scriptLabel(lang: LanguageDef): String =
     lang.script.name.lowercase().replaceFirstChar { it.uppercase() }
 
 /**
- * The searchable add-language list, over every [LanguageRegistry] entry. Filters
- * on endonym, English name, id and locale so "german", "deutsch", "de" and
- * "de-DE" all find it. Tapping a not-yet-added language enables its default
- * layout, then opens its detail so the user can pick others or a secondary.
+ * The one-line subtitle a language gets wherever it is offered for adding — here
+ * and on the onboarding languages page, which browses the same registry.
+ */
+internal fun languageRowSubtitle(lang: LanguageDef): String =
+    scriptLabel(lang) + if (lang.bundledDictionary) " · dictionary included" else ""
+
+/**
+ * Matches a language against an already-lowercased search term on endonym,
+ * English name, id and locale, so "german", "deutsch", "de" and "de-DE" all find
+ * it. An empty term matches everything.
+ */
+internal fun LanguageDef.matchesQuery(query: String): Boolean =
+    query.isEmpty() ||
+        displayName.lowercase().contains(query) ||
+        englishName.lowercase().contains(query) ||
+        id.lowercase().contains(query) ||
+        localeTag.lowercase().contains(query)
+
+/**
+ * The searchable add-language list, over every [LanguageRegistry] entry — see
+ * [matchesQuery] for what a search term is compared against. Tapping a
+ * not-yet-added language enables its default layout, then opens its detail so
+ * the user can pick others or a secondary.
  */
 @Composable
 internal fun AddLanguageScreen(
@@ -77,13 +96,7 @@ internal fun AddLanguageScreen(
     var query by remember { mutableStateOf("") }
     val enabledLangIds = settings.enabledLanguages.mapTo(HashSet()) { it.id }
     val q = query.trim().lowercase()
-    val matches = LanguageRegistry.all.filter { lang ->
-        q.isEmpty() ||
-            lang.displayName.lowercase().contains(q) ||
-            lang.englishName.lowercase().contains(q) ||
-            lang.id.lowercase().contains(q) ||
-            lang.localeTag.lowercase().contains(q)
-    }
+    val matches = LanguageRegistry.all.filter { it.matchesQuery(q) }
 
     OutlinedTextField(
         value = query,
@@ -101,8 +114,7 @@ internal fun AddLanguageScreen(
                 val added = lang.id in enabledLangIds
                 NavRow(
                     lang.displayName,
-                    subtitle = scriptLabel(lang) +
-                        if (lang.bundledDictionary) " · dictionary included" else "",
+                    subtitle = languageRowSubtitle(lang),
                     value = if (added) "Added" else null,
                 ) {
                     if (!added) {
