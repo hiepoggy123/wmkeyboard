@@ -2160,13 +2160,13 @@ private fun SymbolRowStrip(
                     .padding(start = 10.dp, end = 2.dp, top = 4.dp, bottom = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(
-                    active.name,
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                )
                 if (enabledSets.size > 1) {
+                    Text(
+                        active.name,
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                    )
                     Icon(
                         Icons.Outlined.ArrowDropDown,
                         contentDescription = "Switch symbol set",
