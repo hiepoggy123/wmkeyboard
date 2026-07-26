@@ -88,6 +88,42 @@ feed the query instead of the app.
   sets are small, append-mostly, and the KSP/AGP compatibility surface during
   the AGP 9 transition wasn't worth it. Revisit if any store outgrows JSON.
 
+### Direct boot
+
+The IME service is `directBootAware`, because the keyboard is what the user
+types their PIN on — a keyboard that cannot run before the first unlock is one
+the platform silently replaces on the lock screen.
+
+In that window there is no credential-encrypted storage at all: no `filesDir`,
+no settings DataStore, no learned words. The keyboard runs on what
+device-protected storage can hold, which deliberately excludes anything of the
+user's:
+
+- **Settings** — `LockedSettings` keeps a mirror of the DataStore in
+  device-protected storage, rewritten on every change while unlocked and read
+  (never as a source of truth) while locked. `SettingsBackup.SECRET_KEYS` — the
+  API keys and tokens — is filtered out on the way in, since that storage is
+  not covered by the user's credential.
+- **Personal stores** — the learned lexicon, clipboard, snippets, emoji history
+  and sticker packs are constructed with a null file, which every one of them
+  already treats as "memory only, never persisted". A locked session learns
+  nothing and writes nothing.
+- **Dictionaries** — the bundled `.wmdict` lists are inflated into
+  device-protected storage (they come out of the APK, so nothing is exposed by
+  it) and serve both states from one copy. Downloaded and imported lists stay
+  behind the credential, so prediction while locked knows only the words that
+  shipped with the app.
+- **Everything else** — `KeyboardSettings.restrictedToDirectBoot()` switches
+  off, in one place, every feature whose data is unreadable: custom fonts and
+  theme images, contact and app-name suggestions, offline dictation, and the
+  tools that fail the `isDirectBootSafeTool` test. Downstream code — toolbar,
+  toolbox, shortcuts, renderer — needs no direct-boot awareness of its own.
+
+`ACTION_USER_UNLOCKED` arrives while the keyboard is often still on screen, so
+the service re-attaches the real stores, rebuilds the suggestion engine around
+them and flips the repository back to the DataStore in place, rather than
+waiting for the process to be restarted.
+
 ### Performance
 
 - Dictionaries and the emoji catalog load on `Dispatchers.Default` after

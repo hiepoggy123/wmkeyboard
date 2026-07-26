@@ -1,5 +1,6 @@
 package com.wasimaster.wmkeyboard.core.icons
 
+import com.wasimaster.wmkeyboard.core.directboot.DirectBoot
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -27,7 +28,7 @@ import java.util.UUID
  * so the keyboard's render path is a map lookup — parsing an SVG per frame
  * would be visible as jank on every keystroke.
  */
-class IconPackStore(private val baseDir: File?) {
+class IconPackStore(private var baseDir: File?) {
 
     @Serializable
     private data class Snapshot(val version: Int = FORMAT_VERSION, val packs: List<IconPack> = emptyList())
@@ -59,11 +60,28 @@ class IconPackStore(private val baseDir: File?) {
         @Volatile
         private var shared: IconPackStore? = null
 
+        /**
+         * The one store for this process. Created with no directory at all
+         * during direct boot — `filesDir` does not exist yet — and pointed at
+         * the real one by [attach] when the user unlocks, so the keyboard that
+         * drew stock icons on the lock screen picks the user's packs up
+         * through [revision] rather than waiting for a restart.
+         */
         fun get(context: android.content.Context): IconPackStore =
             shared ?: synchronized(this) {
-                shared ?: IconPackStore(
-                    File(context.applicationContext.filesDir, DIR_NAME),
-                ).also { shared = it }
+                shared ?: IconPackStore(packsDir(context)).also { shared = it }
+            }
+
+        /** Re-points the shared store after a direct-boot unlock. */
+        fun attach(context: android.content.Context) {
+            get(context).attach(packsDir(context))
+        }
+
+        private fun packsDir(context: android.content.Context): File? =
+            if (DirectBoot.isUserUnlocked(context)) {
+                File(context.applicationContext.filesDir, DIR_NAME)
+            } else {
+                null
             }
 
         private const val FORMAT_VERSION = 1
@@ -250,6 +268,18 @@ class IconPackStore(private val baseDir: File?) {
             }
         }
         _revision.value++
+    }
+
+    /**
+     * Points the store at [dir] and re-reads it, bumping [revision] so the
+     * keyboard rebuilds its icon set. Only ever called with a real directory
+     * after a null one — the direct-boot unlock.
+     */
+    @Synchronized
+    fun attach(dir: File?) {
+        if (dir?.absolutePath == baseDir?.absolutePath) return
+        baseDir = dir
+        reload()
     }
 
     @Synchronized

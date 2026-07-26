@@ -57,6 +57,16 @@ object DictionaryStore {
         runCatching { File(File(root(filesDir), langId), "source").writeText(entryId) }
     }
 
+    /**
+     * Removes the bundled copies an older install inflated into
+     * credential-encrypted storage, now that [ensureBundled] extracts into the
+     * device-protected area instead. Pure housekeeping — a few megabytes — and
+     * a no-op on a fresh install.
+     */
+    fun deleteLegacyBundled(filesDir: File) {
+        runCatching { bundledDir(filesDir).deleteRecursively() }
+    }
+
     /** Language ids that have a completed downloaded dictionary on disk. */
     fun downloadedLanguageIds(filesDir: File): List<String> =
         root(filesDir).listFiles { file -> file.isDirectory && file.name != BUNDLED_DIR }
@@ -85,6 +95,11 @@ object DictionaryStore {
      * plain file and returns it, inflating `assets/dictionaries/<baseName>.wmdict`
      * on first run or after an app update. Returns null if the asset is missing
      * or the copy fails (disk full) — callers degrade to an empty dictionary.
+     *
+     * The IME passes a *device-protected* context here so that one extracted
+     * copy serves both a normal run and a direct boot, where credential
+     * encrypted storage does not exist yet. These bytes come out of the APK, so
+     * nothing of the user's is exposed by living outside their encryption.
      */
     fun ensureBundled(context: Context, baseName: String): File? {
         val dir = bundledDir(context.filesDir)

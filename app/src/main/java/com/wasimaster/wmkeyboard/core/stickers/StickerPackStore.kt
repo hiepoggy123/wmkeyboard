@@ -1,5 +1,6 @@
 package com.wasimaster.wmkeyboard.core.stickers
 
+import com.wasimaster.wmkeyboard.core.directboot.DirectBoot
 import com.wasimaster.wmkeyboard.core.media.MediaMime
 import com.wasimaster.wmkeyboard.core.tools.GifItem
 import com.wasimaster.wmkeyboard.core.tools.GifSource
@@ -29,7 +30,7 @@ import java.util.UUID
  * references are deleted — that's the recovery path for a crash between
  * writing bytes and writing the manifest.
  */
-class StickerPackStore(private val baseDir: File?) {
+class StickerPackStore(private var baseDir: File?) {
 
     @Serializable
     private data class Snapshot(val version: Int = FORMAT_VERSION, val packs: List<StickerPack> = emptyList())
@@ -53,9 +54,23 @@ class StickerPackStore(private val baseDir: File?) {
          */
         fun get(context: android.content.Context): StickerPackStore =
             shared ?: synchronized(this) {
-                shared ?: StickerPackStore(
-                    File(context.applicationContext.filesDir, DIR_NAME),
-                ).also { shared = it }
+                shared ?: StickerPackStore(packsDir(context)).also { shared = it }
+            }
+
+        /**
+         * Re-points the shared store after a direct-boot unlock. Until then it
+         * has no directory at all — `filesDir` does not exist that early — and
+         * reads as a user with no packs.
+         */
+        fun attach(context: android.content.Context) {
+            get(context).attach(packsDir(context))
+        }
+
+        private fun packsDir(context: android.content.Context): File? =
+            if (DirectBoot.isUserUnlocked(context)) {
+                File(context.applicationContext.filesDir, DIR_NAME)
+            } else {
+                null
             }
 
         private const val FORMAT_VERSION = 1
@@ -357,6 +372,16 @@ class StickerPackStore(private val baseDir: File?) {
     }
 
     @Synchronized
+    /**
+     * Points the store at [dir] and re-reads it. Only ever called with a real
+     * directory after a null one — the direct-boot unlock.
+     */
+    fun attach(dir: File?) {
+        if (dir?.absolutePath == baseDir?.absolutePath) return
+        baseDir = dir
+        reload()
+    }
+
     fun reload() {
         packs.clear()
         loadedToken = currentToken()

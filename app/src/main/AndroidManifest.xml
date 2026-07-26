@@ -249,8 +249,20 @@
                 android:resource="@xml/clipboard_file_paths" />
         </provider>
 
+        <!--
+             directBootAware: the keyboard has to run before the user has ever
+             unlocked the phone — that is the screen where they type the PIN
+             that does the unlocking, and the platform silently swaps in a
+             different IME for any keyboard that cannot. In that window there is
+             no credential-encrypted storage: no filesDir, no settings
+             DataStore, no learned words. See
+             com.wasimaster.wmkeyboard.core.directboot.DirectBoot for what the
+             service reads instead, and DirectBootSettings for what it turns off
+             until the unlock arrives.
+        -->
         <service
             android:name="com.wasimaster.wmkeyboard.ime.WMKeyboardService"
+            android:directBootAware="true"
             android:exported="true"
             android:label="@string/ime_name"
             android:permission="android.permission.BIND_INPUT_METHOD">

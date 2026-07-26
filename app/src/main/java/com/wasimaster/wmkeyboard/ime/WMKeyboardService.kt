@@ -4,11 +4,13 @@ import android.app.AppOpsManager
 import android.app.KeyguardManager
 import android.app.NotificationManager
 import android.app.usage.UsageStatsManager
+import android.content.BroadcastReceiver
 import android.content.ClipboardManager
 import android.content.ComponentCallbacks2
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.res.Configuration
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraManager
@@ -35,6 +37,7 @@ import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.IntSize
 import android.content.ClipDescription
 import android.widget.Toast
+import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.core.view.inputmethod.EditorInfoCompat
 import androidx.core.view.inputmethod.InputConnectionCompat
@@ -104,6 +107,8 @@ import com.wasimaster.wmkeyboard.core.settings.OneHandedMode
 import com.wasimaster.wmkeyboard.core.settings.OneHandedSide
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
+import com.wasimaster.wmkeyboard.core.settings.restrictedToDirectBoot
+import com.wasimaster.wmkeyboard.core.directboot.DirectBoot
 import com.wasimaster.wmkeyboard.core.settings.applyMode
 import com.wasimaster.wmkeyboard.core.settings.isSupportedTool
 import com.wasimaster.wmkeyboard.core.settings.resolveKeyboardMode
@@ -815,27 +820,57 @@ open class WMKeyboardService : InputMethodService() {
         }
     }
 
+    /**
+     * Whether credential-encrypted storage is readable — false only during
+     * direct boot, between the phone powering on and the first unlock. The
+     * service is `directBootAware` (see the manifest), so it really does get
+     * created and drawn in that window, and every path that would touch
+     * `filesDir` or the settings DataStore has to check this first.
+     *
+     * Distinct from [KeyboardUiState.deviceLocked], which is the keyguard being
+     * up — a much more common state, and one where all storage works.
+     */
+    private var userUnlocked = true
+
+    private var unlockReceiverRegistered = false
+
+    /**
+     * The user finished unlocking while the keyboard was already running. Their
+     * real settings, word lists and personal stores exist from this moment on,
+     * so everything that was stubbed out gets re-established in place — the
+     * alternative is a keyboard that stays in its reduced state until the
+     * process happens to be killed.
+     */
+    private val unlockReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == Intent.ACTION_USER_UNLOCKED) onUserUnlocked()
+        }
+    }
+
     override fun onCreate() {
         super.onCreate()
         lifecycleOwner = KeyboardViewLifecycleOwner()
         lifecycleOwner.onCreate()
 
+        userUnlocked = DirectBoot.isUserUnlocked(this)
         settingsRepository = SettingsRepository(this)
         // Decode the synthesized key sounds up front so the first press plays.
         KeySoundPlayer.warmUp(this)
-        userLexicon = UserLexicon(File(filesDir, "learning/user_lexicon.json"))
-        languageMixConfidence = LanguageMixConfidence(File(filesDir, "learning/language_mix.json"))
-        emojiUsage = EmojiUsage(File(filesDir, "learning/emoji_usage.json"))
-        clipboardStore = ClipboardStore(
-            File(filesDir, "clipboard/history.json"),
-            imagesDir = File(filesDir, "clipboard/images"),
-        )
-        snippetStore = SnippetStore(File(filesDir, "snippets/snippets.json"))
-        stickerPackStore = com.wasimaster.wmkeyboard.core.stickers.StickerPackStore.get(this)
+        attachPersonalStores()
+        // Direct boot: nothing below can read credential-encrypted storage yet,
+        // so wait for the unlock rather than for the next process start — the
+        // keyboard is very often the app that is *on screen* when it happens.
+        if (!userUnlocked) {
+            ContextCompat.registerReceiver(
+                this, unlockReceiver, IntentFilter(Intent.ACTION_USER_UNLOCKED),
+                ContextCompat.RECEIVER_NOT_EXPORTED,
+            )
+            unlockReceiverRegistered = true
+        }
 
         // Tops up an upgraded install's stored mode list with modes added
         // since it was first seeded. No-op once it has run.
-        serviceScope.launch { settingsRepository.seedNewDefaultModes() }
+        if (userUnlocked) serviceScope.launch { settingsRepository.seedNewDefaultModes() }
 
         serviceScope.launch {
             var lexiconVersion = -1
@@ -849,7 +884,12 @@ open class WMKeyboardService : InputMethodService() {
             // Recompute the hidden-emoji set only when the toggle or the font
             // behind it actually changes, not on every unrelated settings save.
             var hiddenEmojiKey: Pair<Boolean, EmojiFontChoice>? = null
-            settingsRepository.settings.collect { settings ->
+            settingsRepository.settings.collect { stored ->
+                // Direct boot: everything backed by credential-encrypted
+                // storage is switched off once, here, so that nothing below —
+                // nor anything reading the ui state afterwards — has to know
+                // why the fonts, contacts and half the tools are missing.
+                val settings = if (userUnlocked) stored else stored.restrictedToDirectBoot()
                 val nextHiddenKey = settings.emoji.hideUnrenderable to settings.emojiFont
                 if (hiddenEmojiKey != nextHiddenKey) {
                     hiddenEmojiKey = nextHiddenKey
@@ -987,13 +1027,116 @@ open class WMKeyboardService : InputMethodService() {
             }
         }
 
-        // Dictionaries and the emoji catalog load off the main thread; the
-        // keyboard is usable immediately and suggestions appear when ready. The
-        // JSON asset layouts load alongside them (idempotent) so a language
-        // whose grid is a file resolves once the user switches to it.
+        loadDictionariesAndEmoji()
+
+        (getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager)
+            .addPrimaryClipChangedListener(clipboardListener)
+
+        serviceScope.launch {
+            uiState
+                .map { it.panel != PanelMode.NONE || it.voice.strip }
+                .distinctUntilChanged()
+                .collect { open ->
+                    updatePanelBackCallback(open)
+                    // The same signal restores the input view a shortcut forced
+                    // open. One collector, one definition of "something is open",
+                    // and it already accounts for the dictation strip.
+                    if (!open) releaseForcedInputView()
+                }
+        }
+
+        // Mirror the torch state so the flashlight tool lights up even when
+        // the torch is toggled from outside the keyboard.
+        val cameraManager = getSystemService(Context.CAMERA_SERVICE) as CameraManager
+        torchCameraId = runCatching {
+            cameraManager.cameraIdList.firstOrNull { id ->
+                cameraManager.getCameraCharacteristics(id)
+                    .get(CameraCharacteristics.FLASH_INFO_AVAILABLE) == true
+            }
+        }.getOrNull()
+        if (torchCameraId != null) {
+            cameraManager.registerTorchCallback(torchCallback, null)
+        }
+    }
+
+    /**
+     * (Re)points the personal stores — learned words, language mix, emoji
+     * history, clipboard, snippets, sticker packs — at their files.
+     *
+     * During direct boot every one of them gets a null file, which each store
+     * already reads as "in memory, never persisted". So a locked session types
+     * with no learned vocabulary, no clipboard history and no snippets, and
+     * nothing it does is written anywhere: the in-memory copies are thrown away
+     * by [onUserUnlocked], which re-attaches the real files.
+     */
+    private fun attachPersonalStores() {
+        fun store(path: String): File? = if (userUnlocked) File(filesDir, path) else null
+        userLexicon = UserLexicon(store("learning/user_lexicon.json"))
+        languageMixConfidence = LanguageMixConfidence(store("learning/language_mix.json"))
+        emojiUsage = EmojiUsage(store("learning/emoji_usage.json"))
+        clipboardStore = ClipboardStore(
+            store("clipboard/history.json"),
+            imagesDir = store("clipboard/images"),
+        )
+        snippetStore = SnippetStore(store("snippets/snippets.json"))
+        // These two are process singletons that the settings app shares, so
+        // they know about direct boot themselves: [attach] re-points them at
+        // filesDir once it exists, and the icon store's revision flow is what
+        // makes the keyboard redraw with the user's own icons.
+        com.wasimaster.wmkeyboard.core.stickers.StickerPackStore.attach(this)
+        com.wasimaster.wmkeyboard.core.icons.IconPackStore.attach(this)
+        stickerPackStore = com.wasimaster.wmkeyboard.core.stickers.StickerPackStore.get(this)
+    }
+
+    /**
+     * Credential-encrypted storage just became readable. Swaps the stubbed
+     * stores for the real ones, rebuilds the suggestion engine around them
+     * (it holds the lexicon by reference), and flips the settings repository
+     * back to the real DataStore — which re-emits, so the UI picks up the
+     * user's own theme, fonts and full tool set on the next frame.
+     */
+    private fun onUserUnlocked() {
+        if (userUnlocked) return
+        userUnlocked = true
+        if (unlockReceiverRegistered) {
+            runCatching { unregisterReceiver(unlockReceiver) }
+            unlockReceiverRegistered = false
+        }
+        attachPersonalStores()
+        // The bundled lists were inflated into device-protected storage, which
+        // stays valid; only the user's own lists were unreachable. Forcing the
+        // token stale makes the next field focus re-mmap everything.
+        loadedDictToken = Int.MIN_VALUE
+        loadDictionariesAndEmoji()
+        serviceScope.launch { settingsRepository.seedNewDefaultModes() }
+        settingsRepository.onUserUnlocked()
+        _uiState.update {
+            it.copy(
+                clipboardItems = clipboardStore.items(),
+                snippets = snippetStore.items(),
+            )
+        }
+    }
+
+    /**
+     * Dictionaries and the emoji catalog load off the main thread; the
+     * keyboard is usable immediately and suggestions appear when ready. The
+     * JSON asset layouts load alongside them (idempotent) so a language
+     * whose grid is a file resolves once the user switches to it.
+     *
+     * Run again after a direct-boot unlock ([onUserUnlocked]): the word sources
+     * that were unreachable while locked — the downloaded lists, the imported
+     * ones — become readable, and the suggestion engine has to be rebuilt
+     * around the personal stores that came back with them.
+     */
+    private fun loadDictionariesAndEmoji() {
         serviceScope.launch {
             val loaded = withContext(Dispatchers.Default) {
                 AssetLayouts.load(assets)
+                // Older installs inflated the bundled lists into
+                // credential-encrypted storage; they live in the
+                // device-protected area now (see [openLanguageDictionary]).
+                if (userUnlocked) DictionaryStore.deleteLegacyBundled(filesDir)
                 // Bundled lists ship as compiled .wmdict binaries and are
                 // memory-mapped, not parsed: the trie stays out of the Java
                 // heap and "loading" is one mmap call. A downloaded list for
@@ -1053,7 +1196,7 @@ open class WMKeyboardService : InputMethodService() {
                 }
             }
             loadedDictToken = withContext(Dispatchers.Default) {
-                DictionaryStore.stateToken(filesDir)
+                if (userUnlocked) DictionaryStore.stateToken(filesDir) else Int.MIN_VALUE
             }
             suggestionEngine = SuggestionEngine(
                 english ?: PackedTrie.EMPTY,
@@ -1098,35 +1241,6 @@ open class WMKeyboardService : InputMethodService() {
             // The catalog is what the hidden-emoji check runs over; now that it
             // is loaded, populate the set if the feature is already on.
             recomputeHiddenEmoji(_uiState.value.settings)
-        }
-
-        (getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager)
-            .addPrimaryClipChangedListener(clipboardListener)
-
-        serviceScope.launch {
-            uiState
-                .map { it.panel != PanelMode.NONE || it.voice.strip }
-                .distinctUntilChanged()
-                .collect { open ->
-                    updatePanelBackCallback(open)
-                    // The same signal restores the input view a shortcut forced
-                    // open. One collector, one definition of "something is open",
-                    // and it already accounts for the dictation strip.
-                    if (!open) releaseForcedInputView()
-                }
-        }
-
-        // Mirror the torch state so the flashlight tool lights up even when
-        // the torch is toggled from outside the keyboard.
-        val cameraManager = getSystemService(Context.CAMERA_SERVICE) as CameraManager
-        torchCameraId = runCatching {
-            cameraManager.cameraIdList.firstOrNull { id ->
-                cameraManager.getCameraCharacteristics(id)
-                    .get(CameraCharacteristics.FLASH_INFO_AVAILABLE) == true
-            }
-        }.getOrNull()
-        if (torchCameraId != null) {
-            cameraManager.registerTorchCallback(torchCallback, null)
         }
     }
 
@@ -1787,6 +1901,10 @@ open class WMKeyboardService : InputMethodService() {
     override fun onDestroy() {
         (getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager)
             .removePrimaryClipChangedListener(clipboardListener)
+        if (unlockReceiverRegistered) {
+            runCatching { unregisterReceiver(unlockReceiver) }
+            unlockReceiverRegistered = false
+        }
         if (torchCameraId != null) {
             (getSystemService(Context.CAMERA_SERVICE) as CameraManager)
                 .unregisterTorchCallback(torchCallback)
@@ -8582,6 +8700,11 @@ open class WMKeyboardService : InputMethodService() {
      * double-weight their words.
      */
     private fun loadCustomDictionaries(): Map<String, WordSource> {
+        // Direct boot: the user's imported and downloaded lists are behind
+        // their credential. The bundled list still loads (see
+        // [openLanguageDictionary]), so prediction works — it just knows only
+        // the words that shipped with the app.
+        if (!userUnlocked) return emptyMap()
         CustomDictionaries.migrateLegacyFolders(filesDir)
         return LanguageRegistry.all.associate { lang ->
             val imported = CustomDictionaries.trie(filesDir, lang.id)
@@ -8599,9 +8722,22 @@ open class WMKeyboardService : InputMethodService() {
      * downloaded `.wmdict` (bigger, user-chosen size) when present, else the
      * bundled binary inflated out of the APK. Memory-mapped either way.
      */
-    private fun openLanguageDictionary(langId: String): MappedTrie? =
-        MappedTrie.open(DictionaryStore.downloadedFile(filesDir, langId))
-            ?: DictionaryStore.ensureBundled(this, langId)?.let { MappedTrie.open(it) }
+    private fun openLanguageDictionary(langId: String): MappedTrie? {
+        // The bundled copy is inflated into device-protected storage, so the
+        // same file serves a locked boot and a normal one. A *downloaded* list
+        // is the user's own and stays credential-encrypted.
+        val bundled = { DictionaryStore.ensureBundled(dictionaryContext, langId)?.let { MappedTrie.open(it) } }
+        if (!userUnlocked) return bundled()
+        return MappedTrie.open(DictionaryStore.downloadedFile(filesDir, langId)) ?: bundled()
+    }
+
+    /**
+     * Where the bundled dictionaries are inflated: always the device-protected
+     * area, so the copy made on a normal run is the same copy a direct boot
+     * reads. They come out of the APK, so nothing of the user's is exposed by
+     * putting them there.
+     */
+    private val dictionaryContext: Context by lazy { DirectBoot.deviceContext(this) }
 
     /** Downloaded-dictionary state the word sources were last (re)built from. */
     private var loadedDictToken = Int.MIN_VALUE
@@ -8613,6 +8749,9 @@ open class WMKeyboardService : InputMethodService() {
      * completed in Settings goes live the next time a field is focused.
      */
     private suspend fun reloadDownloadedDictionaries() = withContext(Dispatchers.Default) {
+        // Nothing to reload while locked: no download can have finished, and
+        // the directory the token is computed over is unreadable.
+        if (!userUnlocked) return@withContext
         val token = DictionaryStore.stateToken(filesDir)
         if (token == loadedDictToken || suggestionEngine == null) return@withContext
         loadedDictToken = token
@@ -8639,7 +8778,11 @@ open class WMKeyboardService : InputMethodService() {
      */
     private fun buildBengaliIndex(): BengaliPhoneticIndex =
         BengaliPhoneticIndex(
-            bengaliAssetEntries + CustomDictionaries.entries(filesDir, "bn"),
+            if (userUnlocked) {
+                bengaliAssetEntries + CustomDictionaries.entries(filesDir, "bn")
+            } else {
+                bengaliAssetEntries
+            },
         )
 
     fun openSettings() {

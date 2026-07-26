@@ -14,6 +14,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.wasimaster.wmkeyboard.BuildConfig
+import com.wasimaster.wmkeyboard.core.directboot.DirectBoot
 import com.wasimaster.wmkeyboard.core.icons.IconOverrides
 import com.wasimaster.wmkeyboard.core.layout.BuiltInLayouts
 import com.wasimaster.wmkeyboard.core.layout.LayoutCodec
@@ -49,9 +50,14 @@ import com.wasimaster.wmkeyboard.core.tools.SymbolSet
 import com.wasimaster.wmkeyboard.core.tools.SymbolSetCodec
 import com.wasimaster.wmkeyboard.core.tools.TypingTestMode
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.serialization.json.Json
+import kotlinx.coroutines.flow.onEach
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -214,6 +220,32 @@ val CursorTools: List<ToolbarTool> = listOf(
 )
 
 fun isSupportedTool(tool: ToolbarTool): Boolean = when {
+/**
+ * Tools that still work during direct boot — before the user has ever unlocked
+ * the device, when the keyboard has no credential-encrypted storage, no
+ * personal data, and (usually) no network.
+ *
+ * The rule is what a tool *reads*, not what it looks like: anything backed by a
+ * file under `filesDir` (clipboard, snippets, stickers, camera shots, the
+ * downloaded speech and LLM models, ML Kit's models), anything that needs a
+ * credential the mirror deliberately does not carry (translate, the searches,
+ * AI), anything that queries a content provider behind the lock (calendar), and
+ * anything that has to start an activity (the settings app, the document
+ * scanner) is out. What is left is arithmetic, sensors, and the keyboard's own
+ * controls — which is roughly what anyone wants from a lock screen anyway.
+ */
+fun isDirectBootSafeTool(tool: ToolbarTool): Boolean = when (tool) {
+    ToolbarTool.EMOJI, ToolbarTool.TEXT_EDIT, ToolbarTool.NUMPAD, ToolbarTool.SYMBOLS,
+    ToolbarTool.ONE_HANDED, ToolbarTool.SPLIT, ToolbarTool.FLOATING, ToolbarTool.HIDE_KEYBOARD,
+    ToolbarTool.THEMES, ToolbarTool.AUTOCORRECT, ToolbarTool.SOUND_HAPTICS, ToolbarTool.INCOGNITO,
+    ToolbarTool.MODES, ToolbarTool.UNDO, ToolbarTool.REDO,
+    ToolbarTool.CALCULATOR, ToolbarTool.UNIT_CONVERT, ToolbarTool.PASSWORD_GEN, ToolbarTool.QR_GEN,
+    ToolbarTool.FLASHLIGHT, ToolbarTool.COMPASS, ToolbarTool.LEVEL, ToolbarTool.MOON_PHASE,
+    -> true
+    // The cursor moves only touch the input connection.
+    else -> tool in CursorTools
+}
+
     !BuildConfig.ENABLE_ML_KIT_HANDWRITING && tool == ToolbarTool.HANDWRITING -> false
     !BuildConfig.ENABLE_ML_KIT_SCANNERS && tool in setOf(
         ToolbarTool.OCR, ToolbarTool.QR_SCAN, ToolbarTool.DOC_SCAN
@@ -1674,6 +1706,22 @@ private fun decodeScriptFontIds(raw: String): Map<String, String> =
 class SettingsRepository(private val context: Context) {
 
     companion object {
+    /**
+     * The device-protected copy of these settings, and the only one readable
+     * during direct boot. See [LockedSettings] for what it does and does not
+     * carry.
+     */
+    private val locked = LockedSettings(context)
+
+    /**
+     * Whether credential-encrypted storage is readable. Starts as whatever the
+     * platform says at construction and only ever goes true — via
+     * [onUserUnlocked], which the IME calls when the platform broadcasts the
+     * unlock. Every read and write below routes on it, so a single flip moves
+     * the whole repository from the mirror back to the real store.
+     */
+    private val unlocked = MutableStateFlow(DirectBoot.isUserUnlocked(context))
+
         private val Context.dataStore by preferencesDataStore(name = "keyboard_settings")
 
         // input_mode and enabled_modes are kept as the compatibility mirror of
@@ -2051,7 +2099,56 @@ class SettingsRepository(private val context: Context) {
         private val AI_PANEL_MODEL_PICKER = booleanPreferencesKey("ai_panel_model_picker")
     }
 
-    val settings: Flow<KeyboardSettings> = context.dataStore.data.map { p ->
+    /**
+     * The live settings.
+     *
+     * Unlocked, this is the DataStore, and each emission republishes the
+     * device-protected mirror so the next direct boot draws the keyboard the
+     * user actually configured. Locked, it is the mirror itself — the DataStore
+     * is not merely empty then but unreadable, so it is never touched.
+     *
+     * The switch is a [flatMapLatest] on [unlocked]: an unlock while the
+     * keyboard is on screen tears down the mirror flow and re-collects the real
+     * one, and existing collectors just see one more emission.
+     */
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    val settings: Flow<KeyboardSettings> = unlocked
+        .flatMapLatest { isUnlocked ->
+            if (isUnlocked) {
+                context.dataStore.data
+                    .onEach { locked.write(it) }
+                    // The mirror write is disk work; keep it off whichever
+                    // dispatcher the collector (the IME's main-thread scope)
+                    // happens to be on.
+                    .flowOn(Dispatchers.IO)
+            } else {
+                locked.snapshots()
+            }
+        }
+        .map { mapPreferences(it) }
+
+    /**
+     * Called when the platform broadcasts that credential-encrypted storage has
+     * become readable ([android.content.Intent.ACTION_USER_UNLOCKED]). Flips
+     * every read and write back to the real store and re-emits [settings] from
+     * it, discarding whatever the locked session wrote to the mirror.
+     */
+    fun onUserUnlocked() {
+        unlocked.value = true
+    }
+
+    /**
+     * Every write goes through here so that exactly one place knows which store
+     * is writable. Locked, edits land in the device-protected mirror: the
+     * keyboard's own toggles keep working on the lock screen, and the first
+     * emission after unlock overwrites them.
+     */
+    private suspend fun editPrefs(transform: suspend (MutablePreferences) -> Unit) {
+        if (unlocked.value) context.dataStore.edit { transform(it) }
+        else locked.edit { transform(it) }
+    }
+
+    private fun mapPreferences(p: Preferences): KeyboardSettings {
         val defaults = KeyboardSettings()
         // Layouts resolve first: the input mode is read off the active layout,
         // so it has to be known before the settings object is built. The
@@ -2067,7 +2164,7 @@ class SettingsRepository(private val context: Context) {
             defaultActiveId = defaults.activeLayoutId,
             defaultEnabledIds = defaults.enabledLayoutIds,
         )
-        KeyboardSettings(
+        return KeyboardSettings(
             activeLayoutId = layoutSelection.active.id,
             enabledLayoutIds = layoutSelection.enabledLayoutIds,
             customLayouts = customLayouts,
@@ -2557,7 +2654,7 @@ class SettingsRepository(private val context: Context) {
      * skips disabled entries, so re-enabling restores the old position.
      */
     suspend fun setToolEnabled(tool: ToolbarTool, enabled: Boolean) =
-        context.dataStore.edit { prefs ->
+        editPrefs { prefs ->
             val disabled = decodeDisabledTools(prefs[DISABLED_TOOLS])
             val next = if (enabled) disabled - tool else (disabled + tool).distinct()
             prefs[DISABLED_TOOLS] = next.joinToString(",") { it.name }
@@ -2565,18 +2662,18 @@ class SettingsRepository(private val context: Context) {
 
     /** Replaces the whole enabled set at once (the onboarding tools page). */
     suspend fun setEnabledTools(enabled: Collection<ToolbarTool>) =
-        context.dataStore.edit { prefs ->
+        editPrefs { prefs ->
             prefs[DISABLED_TOOLS] =
                 (ToolbarTool.entries - enabled.toSet()).joinToString(",") { it.name }
         }
 
     suspend fun setToolboxOrder(order: List<ToolbarTool>) =
-        context.dataStore.edit {
+        editPrefs {
             it[TOOLBOX_ORDER] = order.distinct().joinToString(",") { tool -> tool.name }
         }
 
     suspend fun setToolboxHintDismissed(value: Boolean) =
-        context.dataStore.edit { it[TOOLBOX_HINT_DISMISSED] = value }
+        editPrefs { it[TOOLBOX_HINT_DISMISSED] = value }
 
     private fun decodeDisabledTools(csv: String?): List<ToolbarTool> =
         csv?.split(',')?.mapNotNull { runCatching { ToolbarTool.valueOf(it) }.getOrNull() }
@@ -2626,35 +2723,35 @@ class SettingsRepository(private val context: Context) {
     }
 
     suspend fun setFlashlightAutoOff(value: Boolean) =
-        context.dataStore.edit { it[FLASHLIGHT_AUTO_OFF] = value }
+        editPrefs { it[FLASHLIGHT_AUTO_OFF] = value }
 
     suspend fun setCompassShowDegrees(value: Boolean) =
-        context.dataStore.edit { it[COMPASS_SHOW_DEGREES] = value }
+        editPrefs { it[COMPASS_SHOW_DEGREES] = value }
 
     suspend fun setCompassShowQibla(value: Boolean) =
-        context.dataStore.edit { it[COMPASS_SHOW_QIBLA] = value }
+        editPrefs { it[COMPASS_SHOW_QIBLA] = value }
 
     suspend fun setKeySoundStyle(value: KeySoundStyle) =
-        context.dataStore.edit { it[KEY_SOUND_STYLE] = value.name }
+        editPrefs { it[KEY_SOUND_STYLE] = value.name }
 
     suspend fun setKeySoundVolume(value: Float) =
-        context.dataStore.edit { it[KEY_SOUND_VOLUME] = value.coerceIn(0.05f, 1f) }
+        editPrefs { it[KEY_SOUND_VOLUME] = value.coerceIn(0.05f, 1f) }
 
     suspend fun setLevelShowAngles(value: Boolean) =
-        context.dataStore.edit { it[LEVEL_SHOW_ANGLES] = value }
+        editPrefs { it[LEVEL_SHOW_ANGLES] = value }
 
     suspend fun setRedoUsesCtrlY(value: Boolean) =
-        context.dataStore.edit { it[REDO_USES_CTRL_Y] = value }
+        editPrefs { it[REDO_USES_CTRL_Y] = value }
 
     suspend fun setMoonSouthernHemisphere(value: Boolean) =
-        context.dataStore.edit { it[MOON_SOUTHERN] = value }
+        editPrefs { it[MOON_SOUTHERN] = value }
 
     suspend fun setWeatherFahrenheit(value: Boolean) =
-        context.dataStore.edit { it[WEATHER_FAHRENHEIT] = value }
+        editPrefs { it[WEATHER_FAHRENHEIT] = value }
 
     /** Passing nulls clears the stored location. */
     suspend fun setWeatherLocation(latitude: Float?, longitude: Float?, place: String) =
-        context.dataStore.edit { prefs ->
+        editPrefs { prefs ->
             if (latitude == null || longitude == null) {
                 prefs.remove(WEATHER_LAT)
                 prefs.remove(WEATHER_LON)
@@ -2667,10 +2764,10 @@ class SettingsRepository(private val context: Context) {
         }
 
     suspend fun setCalendarAltOne(value: AltCalendar) =
-        context.dataStore.edit { it[CALENDAR_ALT_ONE] = value.id }
+        editPrefs { it[CALENDAR_ALT_ONE] = value.id }
 
     suspend fun setCalendarAltTwo(value: AltCalendar) =
-        context.dataStore.edit { it[CALENDAR_ALT_TWO] = value.id }
+        editPrefs { it[CALENDAR_ALT_TWO] = value.id }
 
     /**
      * One of the two alternate-calendar slots. Installs from before the picker
@@ -2696,172 +2793,172 @@ class SettingsRepository(private val context: Context) {
     }
 
     suspend fun setHijriAdjustDays(value: Int) =
-        context.dataStore.edit { it[HIJRI_ADJUST_DAYS] = value.coerceIn(-2, 2) }
+        editPrefs { it[HIJRI_ADJUST_DAYS] = value.coerceIn(-2, 2) }
 
     suspend fun setHandwritingStylusOnly(value: Boolean) =
-        context.dataStore.edit { it[HANDWRITING_STYLUS_ONLY] = value }
+        editPrefs { it[HANDWRITING_STYLUS_ONLY] = value }
 
     suspend fun setHandwritingCommitDelayMs(value: Int) =
-        context.dataStore.edit { it[HANDWRITING_COMMIT_DELAY] = value.coerceIn(300, 2000) }
+        editPrefs { it[HANDWRITING_COMMIT_DELAY] = value.coerceIn(300, 2000) }
 
     suspend fun setHandwritingAutoSpace(value: Boolean) =
-        context.dataStore.edit { it[HANDWRITING_AUTO_SPACE] = value }
+        editPrefs { it[HANDWRITING_AUTO_SPACE] = value }
 
     suspend fun setVoiceStripMode(value: Boolean) =
-        context.dataStore.edit { it[VOICE_STRIP_MODE] = value }
+        editPrefs { it[VOICE_STRIP_MODE] = value }
 
     suspend fun setVoiceContinuous(value: Boolean) =
-        context.dataStore.edit { it[VOICE_CONTINUOUS] = value }
+        editPrefs { it[VOICE_CONTINUOUS] = value }
 
     suspend fun setVoiceSpokenPunctuation(value: Boolean) =
-        context.dataStore.edit { it[VOICE_SPOKEN_PUNCTUATION] = value }
+        editPrefs { it[VOICE_SPOKEN_PUNCTUATION] = value }
 
     suspend fun setVoiceEngine(value: String) =
-        context.dataStore.edit { it[VOICE_ENGINE] = value }
+        editPrefs { it[VOICE_ENGINE] = value }
 
     suspend fun setWhisperModelId(value: String) =
-        context.dataStore.edit { it[WHISPER_MODEL_ID] = value }
+        editPrefs { it[WHISPER_MODEL_ID] = value }
 
     /**
      * Pins [languageId] to a Whisper model, or drops the entry when [modelId] is
      * blank so that language goes back to being resolved automatically.
      */
     suspend fun setWhisperModelForLanguage(languageId: String, modelId: String) =
-        context.dataStore.edit { prefs ->
+        editPrefs { prefs ->
             val current = prefs[WHISPER_MODEL_BY_LANG]?.let { decodeWhisperModelByLang(it) } ?: emptyMap()
             val next =
                 if (modelId.isBlank()) current - languageId else current + (languageId to modelId)
-            if (next == current) return@edit
+            if (next == current) return@editPrefs
             prefs[WHISPER_MODEL_BY_LANG] = encodeWhisperModelByLang(next)
         }
 
     /** Drops every language pinned to [modelId] — used when that model is deleted. */
     suspend fun clearWhisperModelAssignments(modelId: String) =
-        context.dataStore.edit { prefs ->
+        editPrefs { prefs ->
             val current = prefs[WHISPER_MODEL_BY_LANG]?.let { decodeWhisperModelByLang(it) } ?: emptyMap()
             val next = current.filterValues { it != modelId }
-            if (next == current) return@edit
+            if (next == current) return@editPrefs
             prefs[WHISPER_MODEL_BY_LANG] = encodeWhisperModelByLang(next)
         }
 
     suspend fun setWhisperTranslate(value: Boolean) =
-        context.dataStore.edit { it[WHISPER_TRANSLATE] = value }
+        editPrefs { it[WHISPER_TRANSLATE] = value }
 
     suspend fun setCameraPreferFront(value: Boolean) =
-        context.dataStore.edit { it[CAMERA_PREFER_FRONT] = value }
+        editPrefs { it[CAMERA_PREFER_FRONT] = value }
 
     suspend fun setCameraMirrorFront(value: Boolean) =
-        context.dataStore.edit { it[CAMERA_MIRROR_FRONT] = value }
+        editPrefs { it[CAMERA_MIRROR_FRONT] = value }
 
     suspend fun setCameraShutterSound(value: Boolean) =
-        context.dataStore.edit { it[CAMERA_SHUTTER_SOUND] = value }
+        editPrefs { it[CAMERA_SHUTTER_SOUND] = value }
 
     suspend fun setCameraHaptics(value: Boolean) =
-        context.dataStore.edit { it[CAMERA_HAPTICS] = value }
+        editPrefs { it[CAMERA_HAPTICS] = value }
 
     suspend fun setCameraSaveToGallery(value: Boolean) =
-        context.dataStore.edit { it[CAMERA_SAVE_TO_GALLERY] = value }
+        editPrefs { it[CAMERA_SAVE_TO_GALLERY] = value }
 
     suspend fun setDocScanSaveToGallery(value: Boolean) =
-        context.dataStore.edit { it[DOC_SCAN_SAVE_TO_GALLERY] = value }
+        editPrefs { it[DOC_SCAN_SAVE_TO_GALLERY] = value }
 
     suspend fun setQrSaveToGallery(value: Boolean) =
-        context.dataStore.edit { it[QR_SAVE_TO_GALLERY] = value }
+        editPrefs { it[QR_SAVE_TO_GALLERY] = value }
 
     suspend fun setStickerSendMode(value: MediaSendMode) =
-        context.dataStore.edit { it[STICKER_SEND_MODE] = value.name }
+        editPrefs { it[STICKER_SEND_MODE] = value.name }
 
     suspend fun setGifSendMode(value: MediaSendMode) =
-        context.dataStore.edit { it[GIF_SEND_MODE] = value.name }
+        editPrefs { it[GIF_SEND_MODE] = value.name }
 
     suspend fun setQrSendMode(value: MediaSendMode) =
-        context.dataStore.edit { it[QR_SEND_MODE] = value.name }
+        editPrefs { it[QR_SEND_MODE] = value.name }
 
     suspend fun setTextEditRepeatMs(value: Int) =
-        context.dataStore.edit { it[TEXT_EDIT_REPEAT_MS] = value.coerceIn(30, 200) }
+        editPrefs { it[TEXT_EDIT_REPEAT_MS] = value.coerceIn(30, 200) }
 
     suspend fun setNumpadPhoneLayout(value: Boolean) =
-        context.dataStore.edit { it[NUMPAD_PHONE_LAYOUT] = value }
+        editPrefs { it[NUMPAD_PHONE_LAYOUT] = value }
 
     suspend fun setIncognitoPausesClipboard(value: Boolean) =
-        context.dataStore.edit { it[INCOGNITO_PAUSES_CLIPBOARD] = value }
+        editPrefs { it[INCOGNITO_PAUSES_CLIPBOARD] = value }
 
     suspend fun setIncognitoPausesLearning(value: Boolean) =
-        context.dataStore.edit { it[INCOGNITO_PAUSES_LEARNING] = value }
+        editPrefs { it[INCOGNITO_PAUSES_LEARNING] = value }
 
     suspend fun setAutoIncognito(value: Boolean) =
-        context.dataStore.edit { it[AUTO_INCOGNITO] = value }
+        editPrefs { it[AUTO_INCOGNITO] = value }
 
     suspend fun setOcrAutoSelectWords(value: Boolean) =
-        context.dataStore.edit { it[OCR_AUTO_SELECT_WORDS] = value }
+        editPrefs { it[OCR_AUTO_SELECT_WORDS] = value }
 
     suspend fun setQrScanHaptics(value: Boolean) =
-        context.dataStore.edit { it[QR_SCAN_HAPTICS] = value }
+        editPrefs { it[QR_SCAN_HAPTICS] = value }
 
     suspend fun setQrScanAutoInsert(value: Boolean) =
-        context.dataStore.edit { it[QR_SCAN_AUTO_INSERT] = value }
+        editPrefs { it[QR_SCAN_AUTO_INSERT] = value }
 
     suspend fun setQrScanLinkPreviews(value: Boolean) =
-        context.dataStore.edit { it[QR_SCAN_LINK_PREVIEWS] = value }
+        editPrefs { it[QR_SCAN_LINK_PREVIEWS] = value }
 
     suspend fun setCurrencyDecimals(value: Int) =
-        context.dataStore.edit { it[CURRENCY_DECIMALS] = value.coerceIn(0, 6) }
+        editPrefs { it[CURRENCY_DECIMALS] = value.coerceIn(0, 6) }
 
     suspend fun setCurrencyCacheHours(value: Int) =
-        context.dataStore.edit { it[CURRENCY_CACHE_HOURS] = value.coerceIn(1, 48) }
+        editPrefs { it[CURRENCY_CACHE_HOURS] = value.coerceIn(1, 48) }
 
     suspend fun setGrammarDebounceMs(value: Int) =
-        context.dataStore.edit { it[GRAMMAR_DEBOUNCE_MS] = value.coerceIn(100, 1500) }
+        editPrefs { it[GRAMMAR_DEBOUNCE_MS] = value.coerceIn(100, 1500) }
 
     suspend fun setUnitConvertLast(value: String) =
-        context.dataStore.edit { it[UNIT_CONVERT_LAST] = value }
+        editPrefs { it[UNIT_CONVERT_LAST] = value }
 
     suspend fun setDictionaryAutoLookup(value: Boolean) =
-        context.dataStore.edit { it[DICTIONARY_AUTO_LOOKUP] = value }
+        editPrefs { it[DICTIONARY_AUTO_LOOKUP] = value }
 
     suspend fun setToolboxColumns(value: Int) =
-        context.dataStore.edit { it[TOOLBOX_COLUMNS] = value.coerceIn(3, 6) }
+        editPrefs { it[TOOLBOX_COLUMNS] = value.coerceIn(3, 6) }
 
     suspend fun setEmojiRowAboveToolbar(value: Boolean) =
-        context.dataStore.edit { it[EMOJI_ROW_ABOVE_TOOLBAR] = value }
+        editPrefs { it[EMOJI_ROW_ABOVE_TOOLBAR] = value }
 
     suspend fun setToolbarTools(tools: List<ToolbarTool>) =
-        context.dataStore.edit {
+        editPrefs {
             it[TOOLBAR_TOOLS] = tools.distinct().joinToString(",") { tool -> tool.name }
         }
 
     suspend fun setToolbarGreedy(value: Boolean) =
-        context.dataStore.edit { it[TOOLBAR_GREEDY] = value }
+        editPrefs { it[TOOLBAR_GREEDY] = value }
 
     suspend fun setToolbarEnabled(value: Boolean) =
-        context.dataStore.edit { it[TOOLBAR_ENABLED] = value }
+        editPrefs { it[TOOLBAR_ENABLED] = value }
 
     suspend fun setToolbarSwipeDownHide(value: Boolean) =
-        context.dataStore.edit { it[TOOLBAR_SWIPE_DOWN_HIDE] = value }
+        editPrefs { it[TOOLBAR_SWIPE_DOWN_HIDE] = value }
 
     suspend fun setToolbarOnlyWithHardwareKeyboard(value: Boolean) =
-        context.dataStore.edit { it[TOOLBAR_ONLY_HW_KEYBOARD] = value }
+        editPrefs { it[TOOLBAR_ONLY_HW_KEYBOARD] = value }
 
     suspend fun setReverseToolbarForRtl(value: Boolean) =
-        context.dataStore.edit { it[REVERSE_TOOLBAR_RTL] = value }
+        editPrefs { it[REVERSE_TOOLBAR_RTL] = value }
 
     suspend fun setToolbarHeightDp(value: Int) =
-        context.dataStore.edit { it[TOOLBAR_HEIGHT] = value.coerceIn(32, 80) }
+        editPrefs { it[TOOLBAR_HEIGHT] = value.coerceIn(32, 80) }
 
     suspend fun setToolbarScrollable(value: Boolean) =
-        context.dataStore.edit { it[TOOLBAR_SCROLLABLE] = value }
+        editPrefs { it[TOOLBAR_SCROLLABLE] = value }
 
     suspend fun setToolbarHideWhenLocked(value: Boolean) =
-        context.dataStore.edit { it[TOOLBAR_HIDE_WHEN_LOCKED] = value }
+        editPrefs { it[TOOLBAR_HIDE_WHEN_LOCKED] = value }
 
     suspend fun setToolbarLabels(value: Boolean) =
-        context.dataStore.edit { it[TOOLBAR_LABELS] = value }
+        editPrefs { it[TOOLBAR_LABELS] = value }
 
     suspend fun setToolbarLabelSize(value: Int) =
-        context.dataStore.edit { it[TOOLBAR_LABEL_SIZE] = value.coerceIn(7, 14) }
+        editPrefs { it[TOOLBAR_LABEL_SIZE] = value.coerceIn(7, 14) }
 
     suspend fun setToolCircleRadiusDp(value: Int) =
-        context.dataStore.edit { it[TOOL_CIRCLE_RADIUS] = value.coerceIn(0, 20) }
+        editPrefs { it[TOOL_CIRCLE_RADIUS] = value.coerceIn(0, 20) }
 
     /**
      * Moving emoji onto the comma key also pulls the emoji tool off the
@@ -2869,7 +2966,7 @@ class SettingsRepository(private val context: Context) {
      * toolbox. Turning the setting off leaves the toolbar as-is.
      */
     suspend fun setCommaAsEmoji(value: Boolean) =
-        context.dataStore.edit { prefs ->
+        editPrefs { prefs ->
             prefs[COMMA_AS_EMOJI] = value
             if (value) {
                 val current = prefs[TOOLBAR_TOOLS]
@@ -2890,7 +2987,7 @@ class SettingsRepository(private val context: Context) {
      * a delete key, because you cannot fix the typo that lost you the key.
      */
     suspend fun setActiveLayoutId(id: String) =
-        context.dataStore.edit { prefs ->
+        editPrefs { prefs ->
             val custom = prefs[CUSTOM_LAYOUTS]?.let { LayoutCodec.decodeList(it) } ?: emptyList()
             val stored = custom.firstOrNull { it.id == id }
             // resolveLayout falls back to the default, so an id whose layout was
@@ -2906,15 +3003,15 @@ class SettingsRepository(private val context: Context) {
         }
 
     suspend fun setRawClipboardShortcuts(value: Boolean) =
-        context.dataStore.edit { it[RAW_CLIPBOARD_SHORTCUTS] = value }
+        editPrefs { it[RAW_CLIPBOARD_SHORTCUTS] = value }
 
     /** Replaces the secondary-language map (primary langId → secondary langIds). */
     suspend fun setSecondaryLanguages(map: Map<String, List<String>>) =
-        context.dataStore.edit { it[SECONDARY_LANGUAGES] = encodeSecondaryLanguages(map) }
+        editPrefs { it[SECONDARY_LANGUAGES] = encodeSecondaryLanguages(map) }
 
     /** The layouts the 🌐 key cycles; an empty pick falls back to the default. */
     suspend fun setEnabledLayoutIds(ids: List<String>) =
-        context.dataStore.edit { prefs ->
+        editPrefs { prefs ->
             val next = ids.distinct().ifEmpty { listOf(BuiltInLayouts.DEFAULT_ID) }
             prefs[ENABLED_LAYOUT_IDS] = next.joinToString(",")
         }
@@ -2929,7 +3026,7 @@ class SettingsRepository(private val context: Context) {
      * user's hands: import, and [setActiveLayoutId].
      */
     suspend fun upsertCustomLayout(layout: LayoutSpec) =
-        context.dataStore.edit { prefs ->
+        editPrefs { prefs ->
             val current = prefs[CUSTOM_LAYOUTS]?.let { LayoutCodec.decodeList(it) } ?: emptyList()
             prefs[CUSTOM_LAYOUTS] =
                 LayoutCodec.encodeList(current.filter { it.id != layout.id } + layout)
@@ -2950,7 +3047,7 @@ class SettingsRepository(private val context: Context) {
      * silently doing nothing.
      */
     suspend fun updateCustomLayout(id: String, transform: (LayoutSpec) -> LayoutSpec) =
-        context.dataStore.edit { prefs ->
+        editPrefs { prefs ->
             val current = prefs[CUSTOM_LAYOUTS]?.let { LayoutCodec.decodeList(it) } ?: emptyList()
             val next = transform(resolveLayout(current, id))
             prefs[CUSTOM_LAYOUTS] =
@@ -2965,10 +3062,10 @@ class SettingsRepository(private val context: Context) {
      * is why the reference cleanup below is skipped for those.
      */
     suspend fun deleteCustomLayout(id: String) =
-        context.dataStore.edit { prefs ->
+        editPrefs { prefs ->
             val current = prefs[CUSTOM_LAYOUTS]?.let { LayoutCodec.decodeList(it) } ?: emptyList()
             prefs[CUSTOM_LAYOUTS] = LayoutCodec.encodeList(current.filter { it.id != id })
-            if (BuiltInLayouts.byId(id) != null) return@edit
+            if (BuiltInLayouts.byId(id) != null) return@editPrefs
             prefs[ENABLED_LAYOUT_IDS]?.let { stored ->
                 val kept = stored.split(',')
                     .filter { it.isNotEmpty() && it != id }
@@ -2981,26 +3078,26 @@ class SettingsRepository(private val context: Context) {
         }
 
     suspend fun setThemeMode(mode: ThemeMode) =
-        context.dataStore.edit { it[THEME_MODE] = mode.name }
+        editPrefs { it[THEME_MODE] = mode.name }
 
     suspend fun setDynamicColor(value: Boolean) =
-        context.dataStore.edit { it[DYNAMIC_COLOR] = value }
+        editPrefs { it[DYNAMIC_COLOR] = value }
 
     suspend fun setKeyboardThemeId(id: String) =
-        context.dataStore.edit { it[KEYBOARD_THEME_ID] = id }
+        editPrefs { it[KEYBOARD_THEME_ID] = id }
 
     suspend fun setAutoThemeEnabled(value: Boolean) =
-        context.dataStore.edit { it[AUTO_THEME_ENABLED] = value }
+        editPrefs { it[AUTO_THEME_ENABLED] = value }
 
     suspend fun setAutoThemeLightId(id: String) =
-        context.dataStore.edit { it[AUTO_THEME_LIGHT_ID] = id }
+        editPrefs { it[AUTO_THEME_LIGHT_ID] = id }
 
     suspend fun setAutoThemeDarkId(id: String) =
-        context.dataStore.edit { it[AUTO_THEME_DARK_ID] = id }
+        editPrefs { it[AUTO_THEME_DARK_ID] = id }
 
     /** Adds the theme or replaces the stored theme with the same id. */
     suspend fun upsertCustomTheme(theme: ThemeSpec) =
-        context.dataStore.edit { prefs ->
+        editPrefs { prefs ->
             val current = prefs[CUSTOM_THEMES]?.let { ThemeCodec.decodeList(it) } ?: emptyList()
             val next = current.filter { it.id != theme.id } + theme
             prefs[CUSTOM_THEMES] = ThemeCodec.encodeList(next)
@@ -3008,39 +3105,39 @@ class SettingsRepository(private val context: Context) {
 
     /** Deletes a custom theme; falls back to the default theme if it was selected. */
     suspend fun deleteCustomTheme(id: String) =
-        context.dataStore.edit { prefs ->
+        editPrefs { prefs ->
             val current = prefs[CUSTOM_THEMES]?.let { ThemeCodec.decodeList(it) } ?: emptyList()
             prefs[CUSTOM_THEMES] = ThemeCodec.encodeList(current.filter { it.id != id })
             if (prefs[KEYBOARD_THEME_ID] == id) prefs[KEYBOARD_THEME_ID] = DEFAULT_THEME_ID
         }
 
     suspend fun setKeyHeightDp(value: Int) =
-        context.dataStore.edit { it[KEY_HEIGHT] = value.coerceIn(32, 100) }
+        editPrefs { it[KEY_HEIGHT] = value.coerceIn(32, 100) }
 
     suspend fun setNumberRowHeightDp(value: Int) =
-        context.dataStore.edit { it[NUMBER_ROW_HEIGHT] = value.coerceIn(32, 100) }
+        editPrefs { it[NUMBER_ROW_HEIGHT] = value.coerceIn(32, 100) }
 
     suspend fun setSplitKeyboard(value: Boolean) =
-        context.dataStore.edit { it[SPLIT_KEYBOARD] = value }
+        editPrefs { it[SPLIT_KEYBOARD] = value }
 
     suspend fun setSplitGapPercent(value: Int) =
-        context.dataStore.edit { it[SPLIT_GAP_PERCENT] = value.coerceIn(5, 40) }
+        editPrefs { it[SPLIT_GAP_PERCENT] = value.coerceIn(5, 40) }
 
     suspend fun setFloatingKeyboard(value: Boolean) =
-        context.dataStore.edit { it[FLOATING_KEYBOARD] = value }
+        editPrefs { it[FLOATING_KEYBOARD] = value }
 
     suspend fun setFloatingWidthDp(value: Int) =
-        context.dataStore.edit { it[FLOATING_WIDTH] = value.coerceIn(240, 500) }
+        editPrefs { it[FLOATING_WIDTH] = value.coerceIn(240, 500) }
 
     /** Both axes from one resize-grip gesture, persisted in a single edit. */
     suspend fun setFloatingSize(widthDp: Int, heightScale: Float) =
-        context.dataStore.edit {
+        editPrefs {
             it[FLOATING_WIDTH] = widthDp.coerceIn(240, 500)
             it[FLOATING_HEIGHT_SCALE] = heightScale.coerceIn(0.6f, 1.6f)
         }
 
     suspend fun setFloatingPosition(x: Float, y: Float) =
-        context.dataStore.edit {
+        editPrefs {
             it[FLOATING_X] = x.coerceIn(0f, 1f)
             it[FLOATING_Y] = y.coerceIn(0f, 1f)
         }
@@ -3081,7 +3178,7 @@ class SettingsRepository(private val context: Context) {
      */
     suspend fun setVariantKeyboardScale(variant: ScreenVariant, value: Float?) {
         if (!variant.isOverride) return
-        context.dataStore.edit {
+        editPrefs {
             val v = value?.coerceIn(0.5f, 1.5f)
             if (v == null) it.remove(keyboardScaleKey(variant)) else it[keyboardScaleKey(variant)] = v
         }
@@ -3090,7 +3187,7 @@ class SettingsRepository(private val context: Context) {
     /** Clears every override on [variant], returning it to the portrait values. */
     suspend fun clearVariantSizing(variant: ScreenVariant) {
         if (!variant.isOverride) return
-        context.dataStore.edit {
+        editPrefs {
             it.remove(keyHeightKey(variant))
             it.remove(numberRowHeightKey(variant))
             it.remove(bottomPaddingKey(variant))
@@ -3106,41 +3203,41 @@ class SettingsRepository(private val context: Context) {
         baseKey: Preferences.Key<T>,
         overrideKey: Preferences.Key<T>,
         value: T?,
-    ) = context.dataStore.edit { prefs ->
+    ) = editPrefs { prefs ->
         val key = if (variant.isOverride) overrideKey else baseKey
         if (value == null) prefs.remove(key) else prefs[key] = value
     }
 
     suspend fun setKeyboardWidthPercent(value: Int) =
-        context.dataStore.edit { it[KEYBOARD_WIDTH_PERCENT] = value.coerceIn(50, 100) }
+        editPrefs { it[KEYBOARD_WIDTH_PERCENT] = value.coerceIn(50, 100) }
 
     suspend fun setKeyboardAlignment(value: KeyboardAlignment) =
-        context.dataStore.edit { it[KEYBOARD_ALIGNMENT] = value.name }
+        editPrefs { it[KEYBOARD_ALIGNMENT] = value.name }
 
     suspend fun setBottomPaddingDp(value: Int) =
-        context.dataStore.edit { it[BOTTOM_PADDING] = value.coerceIn(0, 40) }
+        editPrefs { it[BOTTOM_PADDING] = value.coerceIn(0, 40) }
 
     suspend fun setKeyCornerRadiusDp(value: Int) =
-        context.dataStore.edit { it[KEY_CORNER_RADIUS] = value.coerceIn(0, 28) }
+        editPrefs { it[KEY_CORNER_RADIUS] = value.coerceIn(0, 28) }
 
     suspend fun setKeyGapScale(value: Float) =
-        context.dataStore.edit { it[KEY_GAP_SCALE] = value.coerceIn(0f, 2f) }
+        editPrefs { it[KEY_GAP_SCALE] = value.coerceIn(0f, 2f) }
 
     suspend fun setFontScale(value: Float) =
-        context.dataStore.edit { it[FONT_SCALE] = value.coerceIn(0.7f, 1.5f) }
+        editPrefs { it[FONT_SCALE] = value.coerceIn(0.7f, 1.5f) }
 
     suspend fun setKeyFontId(value: String) =
-        context.dataStore.edit { it[KEY_FONT_ID] = value }
+        editPrefs { it[KEY_FONT_ID] = value }
 
     /** Records both the imported file's display name and selects it. */
     suspend fun setCustomFont(name: String) =
-        context.dataStore.edit {
+        editPrefs {
             it[CUSTOM_FONT_NAME] = name
             it[KEY_FONT_ID] = "custom"
         }
 
     suspend fun setBengaliFontId(value: String) =
-        context.dataStore.edit { it[BENGALI_FONT_ID] = value }
+        editPrefs { it[BENGALI_FONT_ID] = value }
 
     /**
      * Selects [fontId] for [script] (a [com.wasimaster.wmkeyboard.core.script.ScriptId]
@@ -3148,16 +3245,16 @@ class SettingsRepository(private val context: Context) {
      * Noto face and the map stays compact.
      */
     suspend fun setScriptFontId(script: String, fontId: String) =
-        context.dataStore.edit { prefs ->
+        editPrefs { prefs ->
             val current = prefs[SCRIPT_FONT_IDS]?.let { decodeScriptFontIds(it) } ?: emptyMap()
             val next = if (fontId == "default") current - script else current + (script to fontId)
-            if (next == current) return@edit
+            if (next == current) return@editPrefs
             prefs[SCRIPT_FONT_IDS] = encodeScriptFontIds(next)
         }
 
     /** Records the imported Bengali font's display name and selects it. */
     suspend fun setCustomBengaliFont(name: String) =
-        context.dataStore.edit {
+        editPrefs {
             it[CUSTOM_BENGALI_FONT_NAME] = name
             it[BENGALI_FONT_ID] = "custom_bn"
         }
@@ -3199,10 +3296,10 @@ class SettingsRepository(private val context: Context) {
     suspend fun importSettings(text: String): ImportResult {
         val parsed = SettingsBackup.decode(text) ?: return ImportResult.NotABackup
         val snapshot = context.dataStore.data.first()
-        context.dataStore.edit { prefs -> parsed.entries.forEach { prefs.put(it) } }
+        editPrefs { prefs -> parsed.entries.forEach { prefs.put(it) } }
         val readable = runCatching { settings.first() }.isSuccess
         if (!readable) {
-            context.dataStore.edit { prefs ->
+            editPrefs { prefs ->
                 prefs.clear()
                 for ((key, value) in snapshot.asMap()) {
                     @Suppress("UNCHECKED_CAST")
@@ -3212,21 +3309,6 @@ class SettingsRepository(private val context: Context) {
             return ImportResult.RolledBack
         }
         return ImportResult.Applied(parsed.entries.size, parsed.skipped)
-    }
-
-    private fun MutablePreferences.put(entry: SettingsBackup.Entry) {
-        when (entry.type) {
-            "boolean" -> set(booleanPreferencesKey(entry.name), entry.value as Boolean)
-            "int" -> set(intPreferencesKey(entry.name), entry.value as Int)
-            "long" -> set(longPreferencesKey(entry.name), entry.value as Long)
-            "float" -> set(floatPreferencesKey(entry.name), entry.value as Float)
-            "double" -> set(doublePreferencesKey(entry.name), entry.value as Double)
-            "string" -> set(stringPreferencesKey(entry.name), entry.value as String)
-            "stringSet" -> {
-                @Suppress("UNCHECKED_CAST")
-                set(stringSetPreferencesKey(entry.name), entry.value as Set<String>)
-            }
-        }
     }
 
     // ---- full-config bundle ----
@@ -3448,11 +3530,11 @@ class SettingsRepository(private val context: Context) {
         (parsed.sections[ConfigBackup.Section.SETTINGS] as? JsonObject)?.let { obj ->
             val (entries, _) = SettingsBackup.decodeSettings(obj)
             val snapshot = context.dataStore.data.first()
-            context.dataStore.edit { prefs -> entries.forEach { prefs.put(it) } }
+            editPrefs { prefs -> entries.forEach { prefs.put(it) } }
             if (runCatching { settings.first() }.isSuccess) {
                 restored.add(ConfigBackup.Section.SETTINGS)
             } else {
-                context.dataStore.edit { prefs ->
+                editPrefs { prefs ->
                     prefs.clear()
                     for ((key, value) in snapshot.asMap()) {
                         @Suppress("UNCHECKED_CAST")
@@ -3470,7 +3552,7 @@ class SettingsRepository(private val context: Context) {
                 // strip the base64 before persisting the themes.
                 val dir = File(context.filesDir, "theme_images")
                 val extracted = themes.map { it.withExtractedImages(dir) }
-                context.dataStore.edit { it[CUSTOM_THEMES] = ThemeCodec.encodeList(extracted) }
+                editPrefs { it[CUSTOM_THEMES] = ThemeCodec.encodeList(extracted) }
                 restored.add(ConfigBackup.Section.THEMES)
             }
         }
@@ -3495,160 +3577,160 @@ class SettingsRepository(private val context: Context) {
     }
 
     suspend fun bumpLexiconVersion() =
-        context.dataStore.edit { it[LEXICON_VERSION] = (it[LEXICON_VERSION] ?: 0) + 1 }
+        editPrefs { it[LEXICON_VERSION] = (it[LEXICON_VERSION] ?: 0) + 1 }
 
     suspend fun bumpCustomDictVersion() =
-        context.dataStore.edit { it[CUSTOM_DICT_VERSION] = (it[CUSTOM_DICT_VERSION] ?: 0) + 1 }
+        editPrefs { it[CUSTOM_DICT_VERSION] = (it[CUSTOM_DICT_VERSION] ?: 0) + 1 }
 
     suspend fun setEmojiFont(value: EmojiFontChoice) =
-        context.dataStore.edit { it[EMOJI_FONT] = value.name }
+        editPrefs { it[EMOJI_FONT] = value.name }
 
     suspend fun setAutoApostrophe(value: Boolean) =
-        context.dataStore.edit { it[AUTO_APOSTROPHE] = value }
+        editPrefs { it[AUTO_APOSTROPHE] = value }
 
     suspend fun setHapticFeedback(value: Boolean) =
-        context.dataStore.edit { it[HAPTIC] = value }
+        editPrefs { it[HAPTIC] = value }
 
     suspend fun setHapticStrengthMs(value: Int) =
-        context.dataStore.edit { it[HAPTIC_STRENGTH] = value.coerceIn(5, 60) }
+        editPrefs { it[HAPTIC_STRENGTH] = value.coerceIn(5, 60) }
 
     suspend fun setHapticAmplitude(value: Int) =
-        context.dataStore.edit { it[HAPTIC_AMPLITUDE] = value.coerceIn(1, 255) }
+        editPrefs { it[HAPTIC_AMPLITUDE] = value.coerceIn(1, 255) }
 
     suspend fun setHapticStyle(value: HapticStyle) =
-        context.dataStore.edit { it[HAPTIC_STYLE] = value.name }
+        editPrefs { it[HAPTIC_STYLE] = value.name }
 
     suspend fun setHapticOnLongPress(value: Boolean) =
-        context.dataStore.edit { it[HAPTIC_ON_LONG_PRESS] = value }
+        editPrefs { it[HAPTIC_ON_LONG_PRESS] = value }
 
     suspend fun setHapticOnLongPressRelease(value: Boolean) =
-        context.dataStore.edit { it[HAPTIC_ON_LONG_PRESS_RELEASE] = value }
+        editPrefs { it[HAPTIC_ON_LONG_PRESS_RELEASE] = value }
 
     suspend fun setVibrateOnSpace(value: Boolean) =
-        context.dataStore.edit { it[FEEDBACK_VIBRATE_SPACE] = value }
+        editPrefs { it[FEEDBACK_VIBRATE_SPACE] = value }
 
     suspend fun setVibrateOnDeleteSwipe(value: Boolean) =
-        context.dataStore.edit { it[FEEDBACK_VIBRATE_DELETE_SWIPE] = value }
+        editPrefs { it[FEEDBACK_VIBRATE_DELETE_SWIPE] = value }
 
     suspend fun setVibrateOnRepeat(value: Boolean) =
-        context.dataStore.edit { it[FEEDBACK_VIBRATE_REPEAT] = value }
+        editPrefs { it[FEEDBACK_VIBRATE_REPEAT] = value }
 
     suspend fun setToastOnCopy(value: Boolean) =
-        context.dataStore.edit { it[FEEDBACK_TOAST_ON_COPY] = value }
+        editPrefs { it[FEEDBACK_TOAST_ON_COPY] = value }
 
     suspend fun setHapticsRespectDnd(value: Boolean) =
-        context.dataStore.edit { it[FEEDBACK_HAPTICS_RESPECT_DND] = value }
+        editPrefs { it[FEEDBACK_HAPTICS_RESPECT_DND] = value }
 
     suspend fun setKeySound(value: Boolean) =
-        context.dataStore.edit { it[KEY_SOUND] = value }
+        editPrefs { it[KEY_SOUND] = value }
 
     suspend fun setKeyPopup(value: Boolean) =
-        context.dataStore.edit { it[KEY_POPUP] = value }
+        editPrefs { it[KEY_POPUP] = value }
 
     suspend fun setKeyPopupMinDurationMs(value: Int) =
-        context.dataStore.edit { it[KEY_POPUP_MIN_DURATION] = value.coerceIn(0, 300) }
+        editPrefs { it[KEY_POPUP_MIN_DURATION] = value.coerceIn(0, 300) }
 
     suspend fun setKeyPopupMaxDurationMs(value: Int) =
-        context.dataStore.edit { it[KEY_POPUP_MAX_DURATION] = value.coerceIn(400, 2000) }
+        editPrefs { it[KEY_POPUP_MAX_DURATION] = value.coerceIn(400, 2000) }
 
     suspend fun setKeyPopupOnKey(value: Boolean) =
-        context.dataStore.edit { it[KEY_POPUP_ON_KEY] = value }
+        editPrefs { it[KEY_POPUP_ON_KEY] = value }
 
     suspend fun setKeyPopupInNumericFields(value: Boolean) =
-        context.dataStore.edit { it[KEY_POPUP_IN_NUMERIC] = value }
+        editPrefs { it[KEY_POPUP_IN_NUMERIC] = value }
 
     suspend fun setPopupFontScale(value: Float) =
-        context.dataStore.edit { it[POPUP_FONT_SCALE] = value.coerceIn(0.7f, 1.6f) }
+        editPrefs { it[POPUP_FONT_SCALE] = value.coerceIn(0.7f, 1.6f) }
 
     suspend fun setKeyPopupHeightDp(value: Int) =
-        context.dataStore.edit { it[KEY_POPUP_HEIGHT] = value.coerceIn(32, 160) }
+        editPrefs { it[KEY_POPUP_HEIGHT] = value.coerceIn(32, 160) }
 
     // ---- accessibility ----
 
     suspend fun setColorVisionFilter(value: ColorVisionFilter) =
-        context.dataStore.edit { it[COLOR_VISION_FILTER] = value.name }
+        editPrefs { it[COLOR_VISION_FILTER] = value.name }
 
     suspend fun setHighContrastKeys(value: Boolean) =
-        context.dataStore.edit { it[HIGH_CONTRAST_KEYS] = value }
+        editPrefs { it[HIGH_CONTRAST_KEYS] = value }
 
     suspend fun setKeyOutlines(value: Boolean) =
-        context.dataStore.edit { it[KEY_OUTLINES] = value }
+        editPrefs { it[KEY_OUTLINES] = value }
 
     suspend fun setBoldKeyLabels(value: Boolean) =
-        context.dataStore.edit { it[BOLD_KEY_LABELS] = value }
+        editPrefs { it[BOLD_KEY_LABELS] = value }
 
     suspend fun setReduceMotion(value: Boolean) =
-        context.dataStore.edit { it[REDUCE_MOTION] = value }
+        editPrefs { it[REDUCE_MOTION] = value }
 
     suspend fun setScreenReaderMode(value: ScreenReaderMode) =
-        context.dataStore.edit { it[SCREEN_READER_MODE] = value.name }
+        editPrefs { it[SCREEN_READER_MODE] = value.name }
 
     suspend fun setKeyDebounceMs(value: Int) =
-        context.dataStore.edit { it[KEY_DEBOUNCE_MS] = value.coerceIn(0, 500) }
+        editPrefs { it[KEY_DEBOUNCE_MS] = value.coerceIn(0, 500) }
 
     suspend fun setNumberRow(value: Boolean) =
-        context.dataStore.edit { it[NUMBER_ROW] = value }
+        editPrefs { it[NUMBER_ROW] = value }
 
     suspend fun setAutocorrect(value: Boolean) =
-        context.dataStore.edit { it[AUTOCORRECT] = value }
+        editPrefs { it[AUTOCORRECT] = value }
 
     /** Bounds mirror `SuggestionEngine.MIN/MAX_AUTOCORRECT_CONFIDENCE`. */
     suspend fun setAutocorrectConfidence(value: Float) =
-        context.dataStore.edit { it[AUTOCORRECT_CONFIDENCE] = value.coerceIn(1.5f, 10f) }
+        editPrefs { it[AUTOCORRECT_CONFIDENCE] = value.coerceIn(1.5f, 10f) }
 
     suspend fun setRevertAutocorrectOnBackspace(value: Boolean) =
-        context.dataStore.edit { it[REVERT_AUTOCORRECT_ON_BACKSPACE] = value }
+        editPrefs { it[REVERT_AUTOCORRECT_ON_BACKSPACE] = value }
 
     suspend fun setAutocorrectSkipAllCaps(value: Boolean) =
-        context.dataStore.edit { it[AUTOCORRECT_SKIP_ALL_CAPS] = value }
+        editPrefs { it[AUTOCORRECT_SKIP_ALL_CAPS] = value }
 
     suspend fun setAutoCapitalize(value: Boolean) =
-        context.dataStore.edit { it[AUTO_CAPITALIZE] = value }
+        editPrefs { it[AUTO_CAPITALIZE] = value }
 
     suspend fun setDoubleSpacePeriod(value: Boolean) =
-        context.dataStore.edit { it[DOUBLE_SPACE_PERIOD] = value }
+        editPrefs { it[DOUBLE_SPACE_PERIOD] = value }
 
     suspend fun setDoubleSpaceTab(value: Boolean) =
-        context.dataStore.edit { it[DOUBLE_SPACE_TAB] = value }
+        editPrefs { it[DOUBLE_SPACE_TAB] = value }
 
     suspend fun setWrapSelectionWithPair(value: Boolean) =
-        context.dataStore.edit { it[WRAP_SELECTION_WITH_PAIR] = value }
+        editPrefs { it[WRAP_SELECTION_WITH_PAIR] = value }
 
     suspend fun setRecapitalizeSelectionWithShift(value: Boolean) =
-        context.dataStore.edit { it[RECAPITALIZE_SELECTION_WITH_SHIFT] = value }
+        editPrefs { it[RECAPITALIZE_SELECTION_WITH_SHIFT] = value }
 
     suspend fun setSuggestions(value: Boolean) =
-        context.dataStore.edit { it[SUGGESTIONS] = value }
+        editPrefs { it[SUGGESTIONS] = value }
 
     suspend fun setShowSuggestionsInAllFields(value: Boolean) =
-        context.dataStore.edit { it[SHOW_SUGGESTIONS_ALL_FIELDS] = value }
+        editPrefs { it[SHOW_SUGGESTIONS_ALL_FIELDS] = value }
 
     suspend fun setSuggestionsFirst(value: Boolean) =
-        context.dataStore.edit { it[SUGGESTIONS_FIRST] = value }
+        editPrefs { it[SUGGESTIONS_FIRST] = value }
 
     suspend fun setSuggestionPrimaryCenter(value: Boolean) =
-        context.dataStore.edit { it[SUGGESTION_PRIMARY_CENTER] = value }
+        editPrefs { it[SUGGESTION_PRIMARY_CENTER] = value }
 
     suspend fun setBlockOffensiveWords(value: Boolean) =
-        context.dataStore.edit { it[BLOCK_OFFENSIVE_WORDS] = value }
+        editPrefs { it[BLOCK_OFFENSIVE_WORDS] = value }
 
     suspend fun setContactSuggestions(value: Boolean) =
-        context.dataStore.edit { it[CONTACT_SUGGESTIONS] = value }
+        editPrefs { it[CONTACT_SUGGESTIONS] = value }
 
     suspend fun setContactEmailSuggestions(value: Boolean) =
-        context.dataStore.edit { it[CONTACT_EMAIL_SUGGESTIONS] = value }
+        editPrefs { it[CONTACT_EMAIL_SUGGESTIONS] = value }
 
     suspend fun setContactEmailSuggestionsInEmailFields(value: Boolean) =
-        context.dataStore.edit { it[CONTACT_EMAIL_SUGGESTIONS_IN_EMAIL_FIELDS] = value }
+        editPrefs { it[CONTACT_EMAIL_SUGGESTIONS_IN_EMAIL_FIELDS] = value }
 
     suspend fun setAppNameSuggestions(value: Boolean) =
-        context.dataStore.edit { it[APP_NAME_SUGGESTIONS] = value }
+        editPrefs { it[APP_NAME_SUGGESTIONS] = value }
 
     /** Adds a word to the never-suggest blacklist (lowercased, trimmed). */
     suspend fun addSuggestionBlacklistWord(word: String) {
         val normalized = word.trim().lowercase()
         if (normalized.isEmpty()) return
-        context.dataStore.edit {
+        editPrefs {
             it[SUGGESTION_BLACKLIST] = (it[SUGGESTION_BLACKLIST].orEmpty() + normalized)
         }
     }
@@ -3656,73 +3738,73 @@ class SettingsRepository(private val context: Context) {
     /** Removes a word from the never-suggest blacklist. */
     suspend fun removeSuggestionBlacklistWord(word: String) {
         val normalized = word.trim().lowercase()
-        context.dataStore.edit {
+        editPrefs {
             it[SUGGESTION_BLACKLIST] = (it[SUGGESTION_BLACKLIST].orEmpty() - normalized)
         }
     }
 
     suspend fun setInlineEmojiSearch(value: Boolean) =
-        context.dataStore.edit { it[INLINE_EMOJI_SEARCH] = value }
+        editPrefs { it[INLINE_EMOJI_SEARCH] = value }
 
     suspend fun setInlineAutofill(value: Boolean) =
-        context.dataStore.edit { it[INLINE_AUTOFILL] = value }
+        editPrefs { it[INLINE_AUTOFILL] = value }
 
     suspend fun setGestureTyping(value: Boolean) =
-        context.dataStore.edit { it[GESTURE_TYPING] = value }
+        editPrefs { it[GESTURE_TYPING] = value }
 
     suspend fun setLetterSwipeAction(value: LetterSwipeAction) =
-        context.dataStore.edit { it[LETTER_SWIPE_ACTION] = value.name }
+        editPrefs { it[LETTER_SWIPE_ACTION] = value.name }
 
     suspend fun setGestureSpaceMultiWord(value: Boolean) =
-        context.dataStore.edit { it[GESTURE_SPACE_MULTI_WORD] = value }
+        editPrefs { it[GESTURE_SPACE_MULTI_WORD] = value }
 
     suspend fun setGestureStartThresholdSlop(value: Float) =
-        context.dataStore.edit { it[GESTURE_START_THRESHOLD_SLOP] = value.coerceIn(0.5f, 4f) }
+        editPrefs { it[GESTURE_START_THRESHOLD_SLOP] = value.coerceIn(0.5f, 4f) }
 
     suspend fun setGesturePostTypeCooldownMs(value: Int) =
-        context.dataStore.edit { it[GESTURE_POST_TYPE_COOLDOWN_MS] = value.coerceIn(0, 500) }
+        editPrefs { it[GESTURE_POST_TYPE_COOLDOWN_MS] = value.coerceIn(0, 500) }
 
     suspend fun setGestureHandwriteDotCooldownMs(value: Int) =
-        context.dataStore.edit { it[GESTURE_HANDWRITE_DOT_COOLDOWN_MS] = value.coerceIn(0, 1500) }
+        editPrefs { it[GESTURE_HANDWRITE_DOT_COOLDOWN_MS] = value.coerceIn(0, 1500) }
 
     suspend fun setGestureTrailWidthDp(value: Float) =
-        context.dataStore.edit { it[GESTURE_TRAIL_WIDTH_DP] = value.coerceIn(2f, 24f) }
+        editPrefs { it[GESTURE_TRAIL_WIDTH_DP] = value.coerceIn(2f, 24f) }
 
     suspend fun setGestureTrailDurationMs(value: Int) =
-        context.dataStore.edit { it[GESTURE_TRAIL_DURATION_MS] = value.coerceIn(100, 1200) }
+        editPrefs { it[GESTURE_TRAIL_DURATION_MS] = value.coerceIn(100, 1200) }
 
     suspend fun setGestureTrailOpacity(value: Float) =
-        context.dataStore.edit { it[GESTURE_TRAIL_OPACITY] = value.coerceIn(0.1f, 1f) }
+        editPrefs { it[GESTURE_TRAIL_OPACITY] = value.coerceIn(0.1f, 1f) }
 
     suspend fun setSpaceShortSwipe(value: SpaceSwipeAction) =
-        context.dataStore.edit { it[SPACE_SHORT_SWIPE] = value.name }
+        editPrefs { it[SPACE_SHORT_SWIPE] = value.name }
 
     suspend fun setSpaceLongSwipe(value: SpaceSwipeAction) =
-        context.dataStore.edit { it[SPACE_LONG_SWIPE] = value.name }
+        editPrefs { it[SPACE_LONG_SWIPE] = value.name }
 
     suspend fun setSpacebarLanguageArrows(value: Boolean) =
-        context.dataStore.edit { it[SPACEBAR_LANGUAGE_ARROWS] = value }
+        editPrefs { it[SPACEBAR_LANGUAGE_ARROWS] = value }
 
     suspend fun setSpacebarLabel(value: String) =
-        context.dataStore.edit { it[SPACEBAR_LABEL] = value.trim() }
+        editPrefs { it[SPACEBAR_LABEL] = value.trim() }
 
     suspend fun setSymbolsLongPressNumpad(value: Boolean) =
-        context.dataStore.edit { it[SYMBOLS_LONGPRESS_NUMPAD] = value }
+        editPrefs { it[SYMBOLS_LONGPRESS_NUMPAD] = value }
 
     suspend fun setSpaceSwipeDownHide(value: Boolean) =
-        context.dataStore.edit { it[SPACE_SWIPE_DOWN_HIDE] = value }
+        editPrefs { it[SPACE_SWIPE_DOWN_HIDE] = value }
 
     suspend fun setSpaceCursor2d(value: Boolean) =
-        context.dataStore.edit { it[SPACE_CURSOR_2D] = value }
+        editPrefs { it[SPACE_CURSOR_2D] = value }
 
     suspend fun setHintFontScale(value: Float) =
-        context.dataStore.edit { it[HINT_FONT_SCALE] = value.coerceIn(0.5f, 2.0f) }
+        editPrefs { it[HINT_FONT_SCALE] = value.coerceIn(0.5f, 2.0f) }
 
     suspend fun setNumberRowShiftSymbols(value: Boolean) =
-        context.dataStore.edit { it[NUMBER_ROW_SHIFT_SYMBOLS] = value }
+        editPrefs { it[NUMBER_ROW_SHIFT_SYMBOLS] = value }
 
     suspend fun setSmartHitDetection(value: Boolean) =
-        context.dataStore.edit { it[SMART_HIT_DETECTION] = value }
+        editPrefs { it[SMART_HIT_DETECTION] = value }
 
     /**
      * Picks [value] as [langId]'s numeral system. [NumeralSystem.AUTO] drops the
@@ -3730,50 +3812,50 @@ class SettingsRepository(private val context: Context) {
      * compact.
      */
     suspend fun setNumeralSystemForLanguage(langId: String, value: NumeralSystem) =
-        context.dataStore.edit { prefs ->
+        editPrefs { prefs ->
             val current = prefs[NUMERAL_SYSTEM_BY_LANG]?.let { decodeNumeralSystems(it) } ?: emptyMap()
             val next =
                 if (value == NumeralSystem.AUTO) current - langId else current + (langId to value)
-            if (next == current) return@edit
+            if (next == current) return@editPrefs
             prefs[NUMERAL_SYSTEM_BY_LANG] = encodeNumeralSystems(next)
         }
 
     suspend fun setSpacebarDisplay(value: SpacebarDisplay) =
-        context.dataStore.edit { it[SPACEBAR_DISPLAY] = value.name }
+        editPrefs { it[SPACEBAR_DISPLAY] = value.name }
 
     suspend fun setNumeralCommitScope(value: NumeralCommitScope) =
-        context.dataStore.edit { it[NUMERAL_COMMIT_SCOPE] = value.name }
+        editPrefs { it[NUMERAL_COMMIT_SCOPE] = value.name }
 
     suspend fun setBackspaceSwipeDelete(value: Boolean) =
-        context.dataStore.edit { it[BACKSPACE_SWIPE_DELETE] = value }
+        editPrefs { it[BACKSPACE_SWIPE_DELETE] = value }
 
     suspend fun setHardwareKeyboardInput(value: Boolean) =
-        context.dataStore.edit { it[HARDWARE_KEYBOARD_INPUT] = value }
+        editPrefs { it[HARDWARE_KEYBOARD_INPUT] = value }
 
     suspend fun setHwShortcutsEnabled(value: Boolean) =
-        context.dataStore.edit { it[HW_SHORTCUTS_ENABLED] = value }
+        editPrefs { it[HW_SHORTCUTS_ENABLED] = value }
 
     suspend fun setHwPanelNavigation(value: Boolean) =
-        context.dataStore.edit { it[HW_PANEL_NAVIGATION] = value }
+        editPrefs { it[HW_PANEL_NAVIGATION] = value }
 
     suspend fun setHwEscClosesPanel(value: Boolean) =
-        context.dataStore.edit { it[HW_ESC_CLOSES_PANEL] = value }
+        editPrefs { it[HW_ESC_CLOSES_PANEL] = value }
 
     suspend fun setHwSuggestionHotkeys(value: SuggestionHotkeyMode) =
-        context.dataStore.edit { it[HW_SUGGESTION_HOTKEYS] = value.name }
+        editPrefs { it[HW_SUGGESTION_HOTKEYS] = value.name }
 
     suspend fun setHwAutoShowUi(value: Boolean) =
-        context.dataStore.edit { it[HW_AUTO_SHOW_UI] = value }
+        editPrefs { it[HW_AUTO_SHOW_UI] = value }
 
     /** Stores the leader in its canonical text form; junk is refused, not persisted. */
     suspend fun setHwLeader(value: String) {
         val canonical = parseLeader(value)?.let(::formatLeader) ?: return
-        context.dataStore.edit { it[HW_LEADER] = canonical }
+        editPrefs { it[HW_LEADER] = canonical }
     }
 
     /** The whole table at once — the shortcut editor's save and its reset button. */
     suspend fun setHwToolLetters(map: Map<Char, ToolbarTool>) =
-        context.dataStore.edit { it[HW_TOOL_LETTERS] = encodeToolLetters(map) }
+        editPrefs { it[HW_TOOL_LETTERS] = encodeToolLetters(map) }
 
     /**
      * Binds one letter, or unbinds it when [tool] is null. Read-modify-write in a
@@ -3782,7 +3864,7 @@ class SettingsRepository(private val context: Context) {
      * one tool answers to one letter.
      */
     suspend fun setHwToolLetter(letter: Char, tool: ToolbarTool?) =
-        context.dataStore.edit { prefs ->
+        editPrefs { prefs ->
             val current = prefs[HW_TOOL_LETTERS]?.let(::decodeToolLetters) ?: DefaultToolLetters
             val next = current.toMutableMap()
             next.remove(letter.uppercaseChar())
@@ -3794,54 +3876,54 @@ class SettingsRepository(private val context: Context) {
         }
 
     suspend fun setVolumeCursor(value: Boolean) =
-        context.dataStore.edit { it[VOLUME_CURSOR] = value }
+        editPrefs { it[VOLUME_CURSOR] = value }
 
     suspend fun setVolumeCursorMediaAware(value: Boolean) =
-        context.dataStore.edit { it[VOLUME_CURSOR_MEDIA_AWARE] = value }
+        editPrefs { it[VOLUME_CURSOR_MEDIA_AWARE] = value }
 
     suspend fun setGlobeAsEmoji(value: Boolean) =
-        context.dataStore.edit { it[GLOBE_AS_EMOJI] = value }
+        editPrefs { it[GLOBE_AS_EMOJI] = value }
 
     suspend fun setOsLanguageSwitcher(value: Boolean) =
-        context.dataStore.edit { it[OS_LANGUAGE_SWITCHER] = value }
+        editPrefs { it[OS_LANGUAGE_SWITCHER] = value }
 
     suspend fun setSubtypeAppNameFirst(value: Boolean) =
-        context.dataStore.edit { it[SUBTYPE_APP_NAME_FIRST] = value }
+        editPrefs { it[SUBTYPE_APP_NAME_FIRST] = value }
 
     suspend fun setRememberLayoutPerApp(value: Boolean) =
-        context.dataStore.edit { it[PER_APP_LANGUAGE_ENABLED] = value }
+        editPrefs { it[PER_APP_LANGUAGE_ENABLED] = value }
 
     /** Records [layoutId] as the last explicitly-picked layout for [packageName]. */
     suspend fun setAppLayout(packageName: String, layoutId: String) =
-        context.dataStore.edit { prefs ->
+        editPrefs { prefs ->
             val current = prefs[PER_APP_LAYOUT_MAP]?.let { decodePerAppLayouts(it) } ?: emptyMap()
-            if (current[packageName] == layoutId) return@edit
+            if (current[packageName] == layoutId) return@editPrefs
             prefs[PER_APP_LAYOUT_MAP] = encodePerAppLayouts(current + (packageName to layoutId))
         }
 
     suspend fun setOnboardingDone(value: Boolean) =
-        context.dataStore.edit { it[ONBOARDING_DONE] = value }
+        editPrefs { it[ONBOARDING_DONE] = value }
 
     suspend fun setConjunctBackspace(value: Boolean) =
-        context.dataStore.edit { it[CONJUNCT_BACKSPACE] = value }
+        editPrefs { it[CONJUNCT_BACKSPACE] = value }
 
     suspend fun setOneHandedMode(value: OneHandedMode) =
-        context.dataStore.edit { it[ONE_HANDED_MODE] = value.name }
+        editPrefs { it[ONE_HANDED_MODE] = value.name }
 
     suspend fun setOneHandedWidthPercent(landscape: Boolean, value: Int) =
-        context.dataStore.edit {
+        editPrefs {
             it[oneHandedWidthKey(landscape)] =
                 value.coerceIn(ONE_HANDED_WIDTH_MIN, ONE_HANDED_WIDTH_MAX)
         }
 
     suspend fun setOneHandedHeightScale(landscape: Boolean, value: Int) =
-        context.dataStore.edit {
+        editPrefs {
             it[oneHandedHeightScaleKey(landscape)] =
                 value.coerceIn(ONE_HANDED_HEIGHT_SCALE_MIN, ONE_HANDED_HEIGHT_SCALE_MAX)
         }
 
     suspend fun setOneHandedSide(landscape: Boolean, value: OneHandedSide) =
-        context.dataStore.edit { it[oneHandedSideKey(landscape)] = value.name }
+        editPrefs { it[oneHandedSideKey(landscape)] = value.name }
 
     /**
      * Reads one orientation's one-handed profile. A missing dock side falls
@@ -3867,80 +3949,80 @@ class SettingsRepository(private val context: Context) {
     }
 
     suspend fun setLearnFromTyping(value: Boolean) =
-        context.dataStore.edit { it[LEARN_FROM_TYPING] = value }
+        editPrefs { it[LEARN_FROM_TYPING] = value }
 
     suspend fun setAddWordsToSystemDictionary(value: Boolean) =
-        context.dataStore.edit { it[ADD_WORDS_TO_SYSTEM_DICTIONARY] = value }
+        editPrefs { it[ADD_WORDS_TO_SYSTEM_DICTIONARY] = value }
 
     suspend fun setClipboardHistory(value: Boolean) =
-        context.dataStore.edit { it[CLIPBOARD_HISTORY] = value }
+        editPrefs { it[CLIPBOARD_HISTORY] = value }
 
     suspend fun setClipboardExpiryHours(value: Int) =
-        context.dataStore.edit { it[CLIPBOARD_EXPIRY_HOURS] = value.coerceIn(0, 24 * 7) }
+        editPrefs { it[CLIPBOARD_EXPIRY_HOURS] = value.coerceIn(0, 24 * 7) }
 
     suspend fun setClipboardLinkPreviews(value: Boolean) =
-        context.dataStore.edit { it[CLIPBOARD_LINK_PREVIEWS] = value }
+        editPrefs { it[CLIPBOARD_LINK_PREVIEWS] = value }
 
     suspend fun setClipboardTrackSource(value: Boolean) =
-        context.dataStore.edit { it[CLIPBOARD_TRACK_SOURCE] = value }
+        editPrefs { it[CLIPBOARD_TRACK_SOURCE] = value }
 
     suspend fun setClipboardSuggestRecent(value: Boolean) =
-        context.dataStore.edit { it[CLIPBOARD_SUGGEST_RECENT] = value }
+        editPrefs { it[CLIPBOARD_SUGGEST_RECENT] = value }
 
     suspend fun setPunctuationSuggestions(value: Boolean) =
-        context.dataStore.edit { it[PUNCTUATION_SUGGESTIONS] = value }
+        editPrefs { it[PUNCTUATION_SUGGESTIONS] = value }
 
     suspend fun setClipboardBottomRow(value: Boolean) =
-        context.dataStore.edit { it[CLIPBOARD_BOTTOM_ROW] = value }
+        editPrefs { it[CLIPBOARD_BOTTOM_ROW] = value }
 
     suspend fun setClipboardPinnedLast(value: Boolean) =
-        context.dataStore.edit { it[CLIPBOARD_PINNED_LAST] = value }
+        editPrefs { it[CLIPBOARD_PINNED_LAST] = value }
 
     suspend fun setClipboardSearch(value: Boolean) =
-        context.dataStore.edit { it[CLIPBOARD_SEARCH] = value }
+        editPrefs { it[CLIPBOARD_SEARCH] = value }
 
     suspend fun setClipboardUserScreenshots(value: Boolean) =
-        context.dataStore.edit { it[CLIPBOARD_USER_SCREENSHOTS] = value }
+        editPrefs { it[CLIPBOARD_USER_SCREENSHOTS] = value }
 
     suspend fun setClipboardClearAfterPasswordPaste(value: Boolean) =
-        context.dataStore.edit { it[CLIPBOARD_CLEAR_AFTER_PASSWORD_PASTE] = value }
+        editPrefs { it[CLIPBOARD_CLEAR_AFTER_PASSWORD_PASTE] = value }
 
     suspend fun setLongPressDelayMs(value: Int) =
-        context.dataStore.edit { it[LONG_PRESS_DELAY] = value.coerceIn(150, 700) }
+        editPrefs { it[LONG_PRESS_DELAY] = value.coerceIn(150, 700) }
 
     suspend fun setKeyRepeatIntervalMs(value: Int) =
-        context.dataStore.edit { it[KEY_REPEAT_INTERVAL] = value.coerceIn(20, 200) }
+        editPrefs { it[KEY_REPEAT_INTERVAL] = value.coerceIn(20, 200) }
 
     suspend fun setLongPressHints(value: Boolean) =
-        context.dataStore.edit { it[LONG_PRESS_HINTS] = value }
+        editPrefs { it[LONG_PRESS_HINTS] = value }
 
     suspend fun setLongPressASelectAll(value: Boolean) =
-        context.dataStore.edit { it[LONG_PRESS_A_SELECT_ALL] = value }
+        editPrefs { it[LONG_PRESS_A_SELECT_ALL] = value }
 
     suspend fun setLongPressCCopy(value: Boolean) =
-        context.dataStore.edit { it[LONG_PRESS_C_COPY] = value }
+        editPrefs { it[LONG_PRESS_C_COPY] = value }
 
     suspend fun setLongPressVPaste(value: Boolean) =
-        context.dataStore.edit { it[LONG_PRESS_V_PASTE] = value }
+        editPrefs { it[LONG_PRESS_V_PASTE] = value }
 
     suspend fun setLongPressXCut(value: Boolean) =
-        context.dataStore.edit { it[LONG_PRESS_X_CUT] = value }
+        editPrefs { it[LONG_PRESS_X_CUT] = value }
 
     suspend fun setLongPressZUndo(value: Boolean) =
-        context.dataStore.edit { it[LONG_PRESS_Z_UNDO] = value }
+        editPrefs { it[LONG_PRESS_Z_UNDO] = value }
 
     suspend fun setLongPressYRedo(value: Boolean) =
-        context.dataStore.edit { it[LONG_PRESS_Y_REDO] = value }
+        editPrefs { it[LONG_PRESS_Y_REDO] = value }
 
     suspend fun setEmojiToolbar(value: Boolean) =
-        context.dataStore.edit { it[EMOJI_TOOLBAR] = value }
+        editPrefs { it[EMOJI_TOOLBAR] = value }
 
     suspend fun setColoredToolIcons(value: Boolean) =
-        context.dataStore.edit { it[COLORED_TOOL_ICONS] = value }
+        editPrefs { it[COLORED_TOOL_ICONS] = value }
 
     /** Override one tool's accent colour; a null [color] restores its default. */
     suspend fun setToolColor(tool: ToolbarTool, color: Long?) =
-        context.dataStore.edit { prefs ->
+        editPrefs { prefs ->
             val current = decodeToolColors(prefs[TOOL_COLOR_OVERRIDES]).toMutableMap()
             if (color == null) current.remove(tool) else current[tool] = color
             prefs[TOOL_COLOR_OVERRIDES] = encodeToolColors(current)
@@ -3948,15 +4030,15 @@ class SettingsRepository(private val context: Context) {
 
     /** Drop every per-tool colour override, restoring all built-in defaults. */
     suspend fun clearToolColors() =
-        context.dataStore.edit { it.remove(TOOL_COLOR_OVERRIDES) }
+        editPrefs { it.remove(TOOL_COLOR_OVERRIDES) }
 
     /** Switch icon packs; a blank [packId] goes back to the built-in icons. */
     suspend fun setIconPack(packId: String) =
-        context.dataStore.edit { it[ICON_PACK_ID] = packId }
+        editPrefs { it[ICON_PACK_ID] = packId }
 
     /** Override one slot's icon; a null [source] restores its default. */
     suspend fun setIconOverride(slot: String, source: String?) =
-        context.dataStore.edit { prefs ->
+        editPrefs { prefs ->
             val current = IconOverrides.decode(prefs[ICON_OVERRIDES]).toMutableMap()
             if (source == null) current.remove(slot) else current[slot] = source
             prefs[ICON_OVERRIDES] = IconOverrides.encode(current)
@@ -3968,7 +4050,7 @@ class SettingsRepository(private val context: Context) {
      * is "stop using them", not "delete them".
      */
     suspend fun clearIconOverrides() =
-        context.dataStore.edit {
+        editPrefs {
             it.remove(ICON_OVERRIDES)
             it.remove(ICON_PACK_ID)
         }
@@ -3979,7 +4061,7 @@ class SettingsRepository(private val context: Context) {
      * loses its override, rather than both silently resolving to nothing.
      */
     suspend fun forgetIconPack(packId: String) =
-        context.dataStore.edit { prefs ->
+        editPrefs { prefs ->
             if (prefs[ICON_PACK_ID] == packId) prefs.remove(ICON_PACK_ID)
             val kept = IconOverrides.decode(prefs[ICON_OVERRIDES])
                 .filterValues { it != IconOverrides.packSource(packId) }
@@ -3988,92 +4070,92 @@ class SettingsRepository(private val context: Context) {
         }
 
     suspend fun setEmojiTabMode(value: EmojiTabMode) =
-        context.dataStore.edit { it[EMOJI_TAB_MODE] = value.name }
+        editPrefs { it[EMOJI_TAB_MODE] = value.name }
 
     suspend fun setEmojiClearRecentsButton(value: Boolean) =
-        context.dataStore.edit { it[EMOJI_CLEAR_RECENTS_BUTTON] = value }
+        editPrefs { it[EMOJI_CLEAR_RECENTS_BUTTON] = value }
 
     suspend fun setEmojiLongPressName(value: Boolean) =
-        context.dataStore.edit { it[EMOJI_LONG_PRESS_NAME] = value }
+        editPrefs { it[EMOJI_LONG_PRESS_NAME] = value }
 
     suspend fun setEmojiPrediction(value: Boolean) =
-        context.dataStore.edit { it[EMOJI_PREDICTION] = value }
+        editPrefs { it[EMOJI_PREDICTION] = value }
 
     suspend fun setEmojiBarMode(value: EmojiBarMode) =
-        context.dataStore.edit { it[EMOJI_BAR_MODE] = value.name }
+        editPrefs { it[EMOJI_BAR_MODE] = value.name }
 
     suspend fun setEmojiBarContent(value: EmojiBarContent) =
-        context.dataStore.edit { it[EMOJI_BAR_CONTENT] = value.name }
+        editPrefs { it[EMOJI_BAR_CONTENT] = value.name }
 
     suspend fun setEmojiBarScrollable(value: Boolean) =
-        context.dataStore.edit { it[EMOJI_BAR_SCROLLABLE] = value }
+        editPrefs { it[EMOJI_BAR_SCROLLABLE] = value }
 
     suspend fun setEmojiBarCount(value: Int) =
-        context.dataStore.edit { it[EMOJI_BAR_COUNT] = value.coerceIn(EmojiBarCountRange) }
+        editPrefs { it[EMOJI_BAR_COUNT] = value.coerceIn(EmojiBarCountRange) }
 
     suspend fun setEmojiInsertMode(value: EmojiInsertMode) =
-        context.dataStore.edit { it[EMOJI_INSERT_MODE] = value.name }
+        editPrefs { it[EMOJI_INSERT_MODE] = value.name }
 
     suspend fun setEmojiDefaultSkinTone(value: EmojiSkinTone) =
-        context.dataStore.edit { it[EMOJI_DEFAULT_SKIN_TONE] = value.name }
+        editPrefs { it[EMOJI_DEFAULT_SKIN_TONE] = value.name }
 
     suspend fun setEmojiToneOverrideByLastUsed(value: Boolean) =
-        context.dataStore.edit { it[EMOJI_TONE_OVERRIDE_LAST_USED] = value }
+        editPrefs { it[EMOJI_TONE_OVERRIDE_LAST_USED] = value }
 
     suspend fun setEmojiCloseAfterInsert(value: Boolean) =
-        context.dataStore.edit { it[EMOJI_CLOSE_AFTER_INSERT] = value }
+        editPrefs { it[EMOJI_CLOSE_AFTER_INSERT] = value }
 
     suspend fun setHideUnrenderableEmoji(value: Boolean) =
-        context.dataStore.edit { it[EMOJI_HIDE_UNRENDERABLE] = value }
+        editPrefs { it[EMOJI_HIDE_UNRENDERABLE] = value }
 
     suspend fun setEmojiKaomojiTabs(value: Boolean) =
-        context.dataStore.edit { it[EMOJI_KAOMOJI_TABS] = value }
+        editPrefs { it[EMOJI_KAOMOJI_TABS] = value }
 
     suspend fun setIncognito(value: Boolean) =
-        context.dataStore.edit { it[INCOGNITO] = value }
+        editPrefs { it[INCOGNITO] = value }
 
     suspend fun setTranslateTargetLang(value: String) =
-        context.dataStore.edit { it[TRANSLATE_TARGET_LANG] = value }
+        editPrefs { it[TRANSLATE_TARGET_LANG] = value }
 
     suspend fun setGrammarDialect(value: GrammarDialect) =
-        context.dataStore.edit { it[GRAMMAR_DIALECT] = value.name }
+        editPrefs { it[GRAMMAR_DIALECT] = value.name }
 
     suspend fun setSpellCheckerNoSuggestions(value: Boolean) =
-        context.dataStore.edit { it[SPELL_CHECKER_NO_SUGGESTIONS] = value }
+        editPrefs { it[SPELL_CHECKER_NO_SUGGESTIONS] = value }
 
     suspend fun setTranslateApiKey(value: String) =
-        context.dataStore.edit { it[TRANSLATE_API_KEY] = value.trim() }
+        editPrefs { it[TRANSLATE_API_KEY] = value.trim() }
 
     suspend fun setKlipyApiKey(value: String) =
-        context.dataStore.edit { it[KLIPY_API_KEY] = value.trim() }
+        editPrefs { it[KLIPY_API_KEY] = value.trim() }
 
     suspend fun setBraveApiKey(value: String) =
-        context.dataStore.edit { it[BRAVE_API_KEY] = value.trim() }
+        editPrefs { it[BRAVE_API_KEY] = value.trim() }
 
     suspend fun setGiphyApiKey(value: String) =
-        context.dataStore.edit { it[GIPHY_API_KEY] = value.trim() }
+        editPrefs { it[GIPHY_API_KEY] = value.trim() }
 
     suspend fun setGifSourceMode(value: GifSourceMode) =
-        context.dataStore.edit { it[GIF_SOURCE_MODE] = value.name }
+        editPrefs { it[GIF_SOURCE_MODE] = value.name }
 
     suspend fun setGifContentFilter(value: GifContentFilter) =
-        context.dataStore.edit { it[GIF_CONTENT_FILTER] = value.name }
+        editPrefs { it[GIF_CONTENT_FILTER] = value.name }
 
     suspend fun setSearchSafe(value: Boolean) =
-        context.dataStore.edit { it[SEARCH_SAFE] = value }
+        editPrefs { it[SEARCH_SAFE] = value }
 
     suspend fun setSearchResultCount(value: Int) =
-        context.dataStore.edit { it[SEARCH_RESULT_COUNT] = value.coerceIn(1, 10) }
+        editPrefs { it[SEARCH_RESULT_COUNT] = value.coerceIn(1, 10) }
 
     suspend fun setWikiLanguage(value: String) =
-        context.dataStore.edit { it[WIKI_LANGUAGE] = value.trim().lowercase() }
+        editPrefs { it[WIKI_LANGUAGE] = value.trim().lowercase() }
 
     suspend fun setWikiLinksMarkdown(value: Boolean) =
-        context.dataStore.edit { it[WIKI_LINKS_MARKDOWN] = value }
+        editPrefs { it[WIKI_LINKS_MARKDOWN] = value }
 
     /** Pushes one symbol to the front of the recents row (capped, deduped). */
     suspend fun addSymbolRecent(symbol: String) =
-        context.dataStore.edit { prefs ->
+        editPrefs { prefs ->
             val current = prefs[SYMBOL_RECENTS]?.split('\t')?.filter { it.isNotEmpty() }
                 ?: emptyList()
             prefs[SYMBOL_RECENTS] =
@@ -4081,21 +4163,21 @@ class SettingsRepository(private val context: Context) {
         }
 
     suspend fun clearSymbolRecents() =
-        context.dataStore.edit { it.remove(SYMBOL_RECENTS) }
+        editPrefs { it.remove(SYMBOL_RECENTS) }
 
     suspend fun setSymbolRowEnabled(value: Boolean) =
-        context.dataStore.edit { it[SYMBOL_ROW_ENABLED] = value }
+        editPrefs { it[SYMBOL_ROW_ENABLED] = value }
 
     /** The sets the row's picker offers; an empty pick falls back to defaults. */
     suspend fun setSymbolRowSetIds(ids: List<String>) =
-        context.dataStore.edit { it[SYMBOL_ROW_SETS] = ids.distinct().joinToString("\t") }
+        editPrefs { it[SYMBOL_ROW_SETS] = ids.distinct().joinToString("\t") }
 
     suspend fun setSymbolRowActiveSet(id: String) =
-        context.dataStore.edit { it[SYMBOL_ROW_ACTIVE_SET] = id }
+        editPrefs { it[SYMBOL_ROW_ACTIVE_SET] = id }
 
     /** Adds the set or replaces the stored set with the same id. */
     suspend fun upsertSymbolSet(set: SymbolSet) =
-        context.dataStore.edit { prefs ->
+        editPrefs { prefs ->
             val current = prefs[CUSTOM_SYMBOL_SETS]?.let { SymbolSetCodec.decodeList(it) }
                 ?: emptyList()
             val next = current.filter { it.id != set.id } + set
@@ -4104,13 +4186,13 @@ class SettingsRepository(private val context: Context) {
 
     /** Deletes a custom set and drops every reference to it. */
     suspend fun deleteSymbolSet(id: String) =
-        context.dataStore.edit { prefs ->
+        editPrefs { prefs ->
             val current = prefs[CUSTOM_SYMBOL_SETS]?.let { SymbolSetCodec.decodeList(it) }
                 ?: emptyList()
             prefs[CUSTOM_SYMBOL_SETS] = SymbolSetCodec.encodeList(current.filter { it.id != id })
             // Deleting an edited built-in only drops the override — the
             // shipped set comes back, so every reference to it stays valid.
-            if (BuiltInSymbolSets.byId(id) != null) return@edit
+            if (BuiltInSymbolSets.byId(id) != null) return@editPrefs
             prefs[SYMBOL_ROW_SETS]?.let { stored ->
                 prefs[SYMBOL_ROW_SETS] = stored.split('\t').filter { it.isNotEmpty() && it != id }
                     .joinToString("\t")
@@ -4127,21 +4209,21 @@ class SettingsRepository(private val context: Context) {
         }
 
     suspend fun setBarOrder(rows: List<BarRow>) =
-        context.dataStore.edit {
+        editPrefs {
             it[BAR_ORDER] = sanitizeBarOrder(rows).joinToString(",") { row -> row.name }
         }
 
     suspend fun setEmojiFullBleed(value: Boolean) =
-        context.dataStore.edit { it[EMOJI_FULL_BLEED] = value }
+        editPrefs { it[EMOJI_FULL_BLEED] = value }
 
     suspend fun setMediaFullBleed(value: Boolean) =
-        context.dataStore.edit { it[MEDIA_FULL_BLEED] = value }
+        editPrefs { it[MEDIA_FULL_BLEED] = value }
 
     suspend fun setModeToolOrderEdits(value: Boolean) =
-        context.dataStore.edit { it[MODE_TOOL_ORDER_EDITS] = value }
+        editPrefs { it[MODE_TOOL_ORDER_EDITS] = value }
 
     suspend fun setModeToolOrderHintSeen(value: Boolean) =
-        context.dataStore.edit { it[MODE_TOOL_ORDER_HINT] = value }
+        editPrefs { it[MODE_TOOL_ORDER_HINT] = value }
 
     /**
      * Rewrites one mode's pinned toolbar, so a drag made while that mode is
@@ -4151,7 +4233,7 @@ class SettingsRepository(private val context: Context) {
      * re-appending would shuffle it behind the global pins.
      */
     suspend fun setModeToolbarTools(modeId: String, tools: List<ToolbarTool>) =
-        context.dataStore.edit { prefs ->
+        editPrefs { prefs ->
             val modes = prefs[KEYBOARD_MODES]?.let { KeyboardModeCodec.decodeList(it) }
                 ?: DefaultKeyboardModes
             prefs[KEYBOARD_MODES] = KeyboardModeCodec.encodeList(
@@ -4171,7 +4253,7 @@ class SettingsRepository(private val context: Context) {
      * global order stays the tiebreaker for anything the mode never names.
      */
     suspend fun setModeToolboxOrder(modeId: String, order: List<ToolbarTool>) =
-        context.dataStore.edit { prefs ->
+        editPrefs { prefs ->
             val modes = prefs[KEYBOARD_MODES]?.let { KeyboardModeCodec.decodeList(it) }
                 ?: DefaultKeyboardModes
             prefs[KEYBOARD_MODES] = KeyboardModeCodec.encodeList(
@@ -4191,25 +4273,25 @@ class SettingsRepository(private val context: Context) {
      * covered. Idempotent; safe to call on every start.
      */
     suspend fun seedNewDefaultModes() =
-        context.dataStore.edit { prefs ->
+        editPrefs { prefs ->
             val seeded = prefs[MODE_SEED_VERSION] ?: 0
-            if (seeded >= CurrentModeSeedVersion) return@edit
+            if (seeded >= CurrentModeSeedVersion) return@editPrefs
             val stored = prefs[KEYBOARD_MODES]?.let { KeyboardModeCodec.decodeList(it) }
             prefs[MODE_SEED_VERSION] = CurrentModeSeedVersion
             // No stored list at all: the read path already falls back to the
             // full defaults, so there is nothing to top up.
-            if (stored == null) return@edit
+            if (stored == null) return@editPrefs
             val have = stored.map { it.id }.toSet()
             val missing = DefaultKeyboardModes.filter {
                 it.id !in have && it.id in ModesAddedInSeedVersion2
             }
-            if (missing.isEmpty()) return@edit
+            if (missing.isEmpty()) return@editPrefs
             prefs[KEYBOARD_MODES] = KeyboardModeCodec.encodeList(stored + missing)
         }
 
     /** Adds the mode or replaces the stored mode with the same id. */
     suspend fun upsertKeyboardMode(mode: KeyboardMode) =
-        context.dataStore.edit { prefs ->
+        editPrefs { prefs ->
             val current = prefs[KEYBOARD_MODES]?.let { KeyboardModeCodec.decodeList(it) }
                 ?: DefaultKeyboardModes
             val next =
@@ -4219,7 +4301,7 @@ class SettingsRepository(private val context: Context) {
         }
 
     suspend fun deleteKeyboardMode(id: String) =
-        context.dataStore.edit { prefs ->
+        editPrefs { prefs ->
             val current = prefs[KEYBOARD_MODES]?.let { KeyboardModeCodec.decodeList(it) }
                 ?: DefaultKeyboardModes
             prefs[KEYBOARD_MODES] = KeyboardModeCodec.encodeList(current.filter { it.id != id })
@@ -4237,82 +4319,82 @@ class SettingsRepository(private val context: Context) {
     }
 
     suspend fun setSmartSuggestions(value: Boolean) =
-        context.dataStore.edit { it[SMART_SUGGESTIONS] = value }
+        editPrefs { it[SMART_SUGGESTIONS] = value }
 
     suspend fun setSmartCalc(value: Boolean) =
-        context.dataStore.edit { it[SMART_CALC] = value }
+        editPrefs { it[SMART_CALC] = value }
 
     suspend fun setSmartCurrency(value: Boolean) =
-        context.dataStore.edit { it[SMART_CURRENCY] = value }
+        editPrefs { it[SMART_CURRENCY] = value }
 
     suspend fun setSmartUnits(value: Boolean) =
-        context.dataStore.edit { it[SMART_UNITS] = value }
+        editPrefs { it[SMART_UNITS] = value }
 
     suspend fun setSmartToolKeywords(value: Boolean) =
-        context.dataStore.edit { it[SMART_TOOL_KEYWORDS] = value }
+        editPrefs { it[SMART_TOOL_KEYWORDS] = value }
 
     /** Replaces one tool's trigger words; an empty list silences that tool. */
     suspend fun setToolKeywords(tool: ToolbarTool, words: List<String>) =
-        context.dataStore.edit {
+        editPrefs {
             it[TOOL_KEYWORDS] = SmartSuggest.withKeywords(it[TOOL_KEYWORDS].orEmpty(), tool, words)
         }
 
     suspend fun setCalcDegrees(value: Boolean) =
-        context.dataStore.edit { it[CALC_DEGREES] = value }
+        editPrefs { it[CALC_DEGREES] = value }
 
     suspend fun setCalcPrecision(value: Int) =
-        context.dataStore.edit { it[CALC_PRECISION] = value.coerceIn(0, 12) }
+        editPrefs { it[CALC_PRECISION] = value.coerceIn(0, 12) }
 
     suspend fun setCurrencyPair(from: String, to: String) =
-        context.dataStore.edit {
+        editPrefs {
             it[CURRENCY_FROM] = from.trim().uppercase()
             it[CURRENCY_TO] = to.trim().uppercase()
         }
 
     suspend fun setPwLength(value: Int) =
-        context.dataStore.edit { it[PW_LENGTH] = value.coerceIn(4, 64) }
+        editPrefs { it[PW_LENGTH] = value.coerceIn(4, 64) }
 
     suspend fun setPwUppercase(value: Boolean) =
-        context.dataStore.edit { it[PW_UPPERCASE] = value }
+        editPrefs { it[PW_UPPERCASE] = value }
 
     suspend fun setPwDigits(value: Boolean) =
-        context.dataStore.edit { it[PW_DIGITS] = value }
+        editPrefs { it[PW_DIGITS] = value }
 
     suspend fun setPwSymbols(value: Boolean) =
-        context.dataStore.edit { it[PW_SYMBOLS] = value }
+        editPrefs { it[PW_SYMBOLS] = value }
 
     suspend fun setPwExcludeAmbiguous(value: Boolean) =
-        context.dataStore.edit { it[PW_EXCLUDE_AMBIGUOUS] = value }
+        editPrefs { it[PW_EXCLUDE_AMBIGUOUS] = value }
 
     suspend fun setPwPassphraseMode(value: Boolean) =
-        context.dataStore.edit { it[PW_PASSPHRASE_MODE] = value }
+        editPrefs { it[PW_PASSPHRASE_MODE] = value }
 
     suspend fun setPpWordCount(value: Int) =
-        context.dataStore.edit { it[PP_WORD_COUNT] = value.coerceIn(2, 10) }
+        editPrefs { it[PP_WORD_COUNT] = value.coerceIn(2, 10) }
 
     suspend fun setPpSeparator(value: String) =
-        context.dataStore.edit { it[PP_SEPARATOR] = value.take(3) }
+        editPrefs { it[PP_SEPARATOR] = value.take(3) }
 
     suspend fun setPpCapitalize(value: Boolean) =
-        context.dataStore.edit { it[PP_CAPITALIZE] = value }
+        editPrefs { it[PP_CAPITALIZE] = value }
 
     suspend fun setPpIncludeDigit(value: Boolean) =
-        context.dataStore.edit { it[PP_INCLUDE_DIGIT] = value }
+        editPrefs { it[PP_INCLUDE_DIGIT] = value }
 
     suspend fun setTypingTestMode(value: TypingTestMode) =
-        context.dataStore.edit { it[TT_MODE] = value.name }
+        editPrefs { it[TT_MODE] = value.name }
 
     suspend fun setTypingTestDuration(value: Int) =
-        context.dataStore.edit { it[TT_DURATION] = value.coerceIn(5, 600) }
+        editPrefs { it[TT_DURATION] = value.coerceIn(5, 600) }
 
     suspend fun setTypingTestWordCount(value: Int) =
-        context.dataStore.edit { it[TT_WORD_COUNT] = value.coerceIn(5, 500) }
+        editPrefs { it[TT_WORD_COUNT] = value.coerceIn(5, 500) }
 
     suspend fun setTypingTestPunctuation(value: Boolean) =
-        context.dataStore.edit { it[TT_PUNCTUATION] = value }
+        editPrefs { it[TT_PUNCTUATION] = value }
 
     suspend fun setTypingTestNumbers(value: Boolean) =
-        context.dataStore.edit { it[TT_NUMBERS] = value }
+        editPrefs { it[TT_NUMBERS] = value }
 
     /**
      * Files a finished run: appends it to the history, bumps the counter,
@@ -4320,7 +4402,7 @@ class SettingsRepository(private val context: Context) {
      * has already checked whether the record fell).
      */
     suspend fun recordTypingResult(history: String, bests: String?) =
-        context.dataStore.edit { p ->
+        editPrefs { p ->
             p[TT_HISTORY] = history
             if (bests != null) p[TT_BESTS] = bests
             p[TT_COMPLETED] = (p[TT_COMPLETED] ?: 0) + 1
@@ -4328,59 +4410,59 @@ class SettingsRepository(private val context: Context) {
 
     /** Wipes the personal bests and the score history. */
     suspend fun clearTypingStats() =
-        context.dataStore.edit {
+        editPrefs {
             it[TT_BESTS] = ""
             it[TT_HISTORY] = ""
             it[TT_COMPLETED] = 0
         }
 
     suspend fun setQrSizePx(value: Int) =
-        context.dataStore.edit { it[QR_SIZE_PX] = value.coerceIn(256, 2048) }
+        editPrefs { it[QR_SIZE_PX] = value.coerceIn(256, 2048) }
 
     suspend fun setQrEcc(value: QrEccLevel) =
-        context.dataStore.edit { it[QR_ECC] = value.name }
+        editPrefs { it[QR_ECC] = value.name }
 
     suspend fun setAiProvider(value: AiProvider) =
-        context.dataStore.edit { it[AI_PROVIDER] = value.name }
+        editPrefs { it[AI_PROVIDER] = value.name }
 
     suspend fun setAiAnthropicKey(value: String) =
-        context.dataStore.edit { it[AI_ANTHROPIC_KEY] = value.trim() }
+        editPrefs { it[AI_ANTHROPIC_KEY] = value.trim() }
 
     suspend fun setAiOpenAiKey(value: String) =
-        context.dataStore.edit { it[AI_OPENAI_KEY] = value.trim() }
+        editPrefs { it[AI_OPENAI_KEY] = value.trim() }
 
     suspend fun setAiGeminiKey(value: String) =
-        context.dataStore.edit { it[AI_GEMINI_KEY] = value.trim() }
+        editPrefs { it[AI_GEMINI_KEY] = value.trim() }
 
     suspend fun setAiAnthropicModel(value: String) =
-        context.dataStore.edit { it[AI_ANTHROPIC_MODEL] = value.trim() }
+        editPrefs { it[AI_ANTHROPIC_MODEL] = value.trim() }
 
     suspend fun setAiOpenAiModel(value: String) =
-        context.dataStore.edit { it[AI_OPENAI_MODEL] = value.trim() }
+        editPrefs { it[AI_OPENAI_MODEL] = value.trim() }
 
     suspend fun setAiGeminiModel(value: String) =
-        context.dataStore.edit { it[AI_GEMINI_MODEL] = value.trim() }
+        editPrefs { it[AI_GEMINI_MODEL] = value.trim() }
 
     suspend fun setAiOllamaUrl(value: String) =
-        context.dataStore.edit { it[AI_OLLAMA_URL] = value.trim().trimEnd('/') }
+        editPrefs { it[AI_OLLAMA_URL] = value.trim().trimEnd('/') }
 
     suspend fun setAiOllamaModel(value: String) =
-        context.dataStore.edit { it[AI_OLLAMA_MODEL] = value.trim() }
+        editPrefs { it[AI_OLLAMA_MODEL] = value.trim() }
 
     suspend fun setAiLmStudioUrl(value: String) =
-        context.dataStore.edit { it[AI_LM_STUDIO_URL] = value.trim().trimEnd('/') }
+        editPrefs { it[AI_LM_STUDIO_URL] = value.trim().trimEnd('/') }
 
     suspend fun setAiLmStudioModel(value: String) =
-        context.dataStore.edit { it[AI_LM_STUDIO_MODEL] = value.trim() }
+        editPrefs { it[AI_LM_STUDIO_MODEL] = value.trim() }
 
     suspend fun setAiMaxTokens(value: Int) =
-        context.dataStore.edit { it[AI_MAX_TOKENS] = value.coerceIn(64, 8192) }
+        editPrefs { it[AI_MAX_TOKENS] = value.coerceIn(64, 8192) }
 
     suspend fun setAiTranslateTo(value: String) =
-        context.dataStore.edit { it[AI_TRANSLATE_TO] = value.trim() }
+        editPrefs { it[AI_TRANSLATE_TO] = value.trim() }
 
     suspend fun setAiPrompt(action: AiAction, value: String) =
-        context.dataStore.edit {
+        editPrefs {
             val key = when (action) {
                 AiAction.REWRITE -> AI_PROMPT_REWRITE
                 AiAction.SUMMARIZE -> AI_PROMPT_SUMMARIZE
@@ -4390,23 +4472,23 @@ class SettingsRepository(private val context: Context) {
                 AiAction.EXPLAIN -> AI_PROMPT_EXPLAIN
                 AiAction.CONTINUE -> AI_PROMPT_CONTINUE
                 // Custom's prompt is typed at run time — nothing to persist.
-                AiAction.CUSTOM -> return@edit
+                AiAction.CUSTOM -> return@editPrefs
             }
             it[key] = value
         }
 
     suspend fun setAiLocalModelId(value: String) =
-        context.dataStore.edit { it[AI_LOCAL_MODEL_ID] = value }
+        editPrefs { it[AI_LOCAL_MODEL_ID] = value }
 
     suspend fun setAiLocalBackend(value: LocalLlmBackend) =
-        context.dataStore.edit { it[AI_LOCAL_BACKEND] = value.name }
+        editPrefs { it[AI_LOCAL_BACKEND] = value.name }
 
     suspend fun setHfToken(value: String) =
-        context.dataStore.edit { it[HF_TOKEN] = value.trim() }
+        editPrefs { it[HF_TOKEN] = value.trim() }
 
     suspend fun setAiShowThinking(value: Boolean) =
-        context.dataStore.edit { it[AI_SHOW_THINKING] = value }
+        editPrefs { it[AI_SHOW_THINKING] = value }
 
     suspend fun setAiPanelModelPicker(value: Boolean) =
-        context.dataStore.edit { it[AI_PANEL_MODEL_PICKER] = value }
+        editPrefs { it[AI_PANEL_MODEL_PICKER] = value }
 }

@@ -1,6 +1,14 @@
 package com.wasimaster.wmkeyboard.core.settings
 
+import androidx.datastore.preferences.core.MutablePreferences
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.doublePreferencesKey
+import androidx.datastore.preferences.core.floatPreferencesKey
+import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
+import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -46,6 +54,10 @@ object SettingsBackup {
      * Credentials, kept out of an export unless explicitly asked for. A
      * settings file is the kind of thing people mail to themselves or drop
      * in a shared folder, and these grant real spend on the user's account.
+     *
+     * The same set is what [LockedSettings] refuses to copy into
+     * device-protected storage, where a credential would sit outside the
+     * user's own encryption. Add new credentials here and both follow.
      */
     val SECRET_KEYS = setOf(
         "translate_api_key",
@@ -55,6 +67,7 @@ object SettingsBackup {
         "ai_anthropic_key",
         "ai_openai_key",
         "ai_gemini_key",
+        "hf_token",
     )
 
     /**
@@ -184,5 +197,26 @@ object SettingsBackup {
             else -> return null
         }
         return Entry(name, type, value)
+    }
+}
+
+/**
+ * Writes one decoded [SettingsBackup.Entry] back into a preference set, under
+ * the key type its tag names. Shared by the backup import, the full-config
+ * restore, and [LockedSettings] — all three turn the same typed JSON back into
+ * DataStore preferences.
+ */
+fun MutablePreferences.put(entry: SettingsBackup.Entry) {
+    when (entry.type) {
+        "boolean" -> set(booleanPreferencesKey(entry.name), entry.value as Boolean)
+        "int" -> set(intPreferencesKey(entry.name), entry.value as Int)
+        "long" -> set(longPreferencesKey(entry.name), entry.value as Long)
+        "float" -> set(floatPreferencesKey(entry.name), entry.value as Float)
+        "double" -> set(doublePreferencesKey(entry.name), entry.value as Double)
+        "string" -> set(stringPreferencesKey(entry.name), entry.value as String)
+        "stringSet" -> {
+            @Suppress("UNCHECKED_CAST")
+            set(stringSetPreferencesKey(entry.name), entry.value as Set<String>)
+        }
     }
 }
