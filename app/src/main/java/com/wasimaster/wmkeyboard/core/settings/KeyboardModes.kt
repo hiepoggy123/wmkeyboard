@@ -180,6 +180,7 @@ private val WritingApps = listOf(
     "com.google.android.keep",
     "com.google.android.apps.docs.editors.docs",
     "com.samsung.android.app.notes",
+    "com.microsoft.office.word",
     "com.microsoft.office.onenote",
     "md.obsidian",
     "notion.id",
