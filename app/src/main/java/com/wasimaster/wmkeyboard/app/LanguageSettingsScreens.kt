@@ -468,7 +468,7 @@ private fun CjkDictPackManager(
                 ToggleSetting(
                     "Fuzzy Pinyin",
                     "Match confusable sounds: zh↔z, ch↔c, sh↔s, n↔l, an↔ang, in↔ing…",
-                    settings.pinyinFuzzy,
+                    settings.cjk.pinyinFuzzy,
                 ) { on -> scope.launch { repository.setPinyinFuzzy(on) } }
             }
             item {
@@ -490,7 +490,7 @@ private fun CjkDictPackManager(
                         },
                         trailingContent = {
                             RadioButton(
-                                selected = settings.pinyinDoublePinyin == scheme,
+                                selected = settings.cjk.pinyinDoublePinyin == scheme,
                                 enabled = ready,
                                 onClick = select,
                             )

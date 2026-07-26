@@ -967,8 +967,8 @@ open class WMKeyboardService : InputMethodService() {
                 suggestionEngine?.skipAllCapsAutocorrect = settings.autocorrectSkipAllCaps
                 // Chinese Pinyin options the composer reads at call time (it stays a
                 // parameter-less singleton). Pushed from the same block, like above.
-                CjkConfig.fuzzyPinyin = settings.pinyinFuzzy
-                CjkConfig.doublePinyin = settings.pinyinDoublePinyin
+                CjkConfig.fuzzyPinyin = settings.cjk.pinyinFuzzy
+                CjkConfig.doublePinyin = settings.cjk.pinyinDoublePinyin
                 // Only English drives the bundled English word list; every other
                 // language (with no bundled dictionary) drops it so autocorrect
                 // and completions never offer English for their words. Bengali

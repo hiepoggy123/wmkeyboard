@@ -905,10 +905,8 @@ data class KeyboardSettings(
     val perAppLanguage: PerAppLanguageSettings = PerAppLanguageSettings(),
     val onboardingDone: Boolean = false,
     val conjunctBackspace: Boolean = false,
-    /** Chinese: treat confusable pinyin initials/finals as equivalent (zh↔z, an↔ang…). */
-    val pinyinFuzzy: Boolean = false,
-    /** Chinese: the Double Pinyin scheme, or OFF for full pinyin. */
-    val pinyinDoublePinyin: DoublePinyinScheme = DoublePinyinScheme.OFF,
+    /** Chinese/Cantonese conversion-IME options (see [CjkSettings] for why nested). */
+    val cjk: CjkSettings = CjkSettings(),
     val oneHandedMode: OneHandedMode = OneHandedMode.OFF,
     /** Per-orientation one-handed width, height scale and dock side. */
     val oneHanded: OneHandedSettings = OneHandedSettings(),
@@ -1246,6 +1244,28 @@ data class KeyboardSettings(
  * cohesive families like this one are split off to keep it loadable — the
  * DataStore keys stay flat, so this is purely an in-memory grouping.
  */
+/**
+ * Chinese and Cantonese conversion-IME options, grouped rather than flat.
+ *
+ * [KeyboardSettings] sits at the JVM's `copy$default` argument ceiling — the same
+ * reason [CameraSettings] and [LongPressLetterActions] were split out — so a
+ * cohesive family like this one lives in its own class. Folding the two existing
+ * pinyin options in here alongside the new one leaves the parent with fewer
+ * fields than before, not more.
+ *
+ * The DataStore keys are unchanged by the nesting (`pinyin_fuzzy`,
+ * `pinyin_double_pinyin`), so no existing preference is lost — only the Kotlin
+ * path moved.
+ */
+data class CjkSettings(
+    /** Chinese: treat confusable pinyin initials/finals as equivalent (zh↔z, an↔ang…). */
+    val pinyinFuzzy: Boolean = false,
+    /** Chinese: the Double Pinyin scheme, or OFF for full pinyin. */
+    val pinyinDoublePinyin: DoublePinyinScheme = DoublePinyinScheme.OFF,
+    /** Convert candidate output to Traditional characters (Taiwan, Hong Kong). */
+    val traditionalOutput: Boolean = false,
+)
+
 data class CameraSettings(
     /** Camera tool opens on the selfie camera. */
     val preferFront: Boolean = false,
@@ -1840,6 +1860,7 @@ class SettingsRepository(private val context: Context) {
         private val CONJUNCT_BACKSPACE = booleanPreferencesKey("conjunct_backspace")
         private val PINYIN_FUZZY = booleanPreferencesKey("pinyin_fuzzy")
         private val PINYIN_DOUBLE_PINYIN = stringPreferencesKey("pinyin_double_pinyin")
+        private val CJK_TRADITIONAL_OUTPUT = booleanPreferencesKey("cjk_traditional_output")
         private val ONE_HANDED_MODE = stringPreferencesKey("one_handed_mode")
         // One-handed width leaves room for the rail on the inner edge, so it is
         // capped below 100%. Height scale never grows the keys, only shrinks.
@@ -2255,10 +2276,13 @@ class SettingsRepository(private val context: Context) {
             ),
             onboardingDone = p[ONBOARDING_DONE] ?: defaults.onboardingDone,
             conjunctBackspace = p[CONJUNCT_BACKSPACE] ?: defaults.conjunctBackspace,
-            pinyinFuzzy = p[PINYIN_FUZZY] ?: defaults.pinyinFuzzy,
-            pinyinDoublePinyin = p[PINYIN_DOUBLE_PINYIN]
-                ?.let { runCatching { DoublePinyinScheme.valueOf(it) }.getOrNull() }
-                ?: defaults.pinyinDoublePinyin,
+            cjk = CjkSettings(
+                pinyinFuzzy = p[PINYIN_FUZZY] ?: defaults.cjk.pinyinFuzzy,
+                pinyinDoublePinyin = p[PINYIN_DOUBLE_PINYIN]
+                    ?.let { runCatching { DoublePinyinScheme.valueOf(it) }.getOrNull() }
+                    ?: defaults.cjk.pinyinDoublePinyin,
+                traditionalOutput = p[CJK_TRADITIONAL_OUTPUT] ?: defaults.cjk.traditionalOutput,
+            ),
             oneHandedMode = p[ONE_HANDED_MODE]
                 ?.let { runCatching { OneHandedMode.valueOf(it) }.getOrNull() }
                 ?: defaults.oneHandedMode,
@@ -3841,6 +3865,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setPinyinDoublePinyin(value: DoublePinyinScheme) =
         context.dataStore.edit { it[PINYIN_DOUBLE_PINYIN] = value.name }
+
+    suspend fun setCjkTraditionalOutput(value: Boolean) =
+        context.dataStore.edit { it[CJK_TRADITIONAL_OUTPUT] = value }
 
     suspend fun setOneHandedMode(value: OneHandedMode) =
         context.dataStore.edit { it[ONE_HANDED_MODE] = value.name }
