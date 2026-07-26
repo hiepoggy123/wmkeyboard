@@ -3,6 +3,7 @@ package com.wasimaster.wmkeyboard.core.input.composer
 import com.wasimaster.wmkeyboard.core.script.ComposerType
 import com.wasimaster.wmkeyboard.core.script.ScriptId
 import com.wasimaster.wmkeyboard.core.script.ScriptRegistry
+import java.io.File
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertSame
@@ -26,6 +27,7 @@ class CjkComposerTest {
         CjkDictionaries.japanese = ConversionDictionary.EMPTY
         PinyinSyllables.valid = emptySet()
         T9Pinyin.index = emptyMap()
+        ZhuyinSyllables.table = emptyMap()
         CjkConfig.fuzzyPinyin = false
         CjkConfig.doublePinyin = DoublePinyinScheme.OFF
     }
@@ -38,6 +40,7 @@ class CjkComposerTest {
         assertSame(PinyinComposer, composerFor(han, ComposerType.PINYIN))
         assertSame(StrokeComposer, composerFor(han, ComposerType.STROKE))
         assertSame(T9PinyinComposer, composerFor(han, ComposerType.T9_PINYIN))
+        assertSame(ZhuyinComposer, composerFor(han, ComposerType.ZHUYIN))
     }
 
     @Test
@@ -334,6 +337,82 @@ class CjkComposerTest {
         // Consumed length is in KEYS: 2 per syllable.
         assertEquals(4, PinyinComposer.consumedFor("nihc", "NH"))
         assertEquals(2, PinyinComposer.consumedFor("nihc", "N1"))
+    }
+
+    // --- Zhuyin / Bopomofo 注音 ---------------------------------------------------
+
+    @Test
+    fun `zhuyin encodes pinyin syllables to bopomofo`() {
+        assertEquals("ㄋㄧ", ZhuyinSyllables.encode("ni"))
+        assertEquals("ㄏㄠ", ZhuyinSyllables.encode("hao"))
+        assertEquals("ㄓㄨㄤ", ZhuyinSyllables.encode("zhuang"))
+        // The seven whose written -i is no vowel at all: zhi is bare ㄓ.
+        assertEquals("ㄓ", ZhuyinSyllables.encode("zhi"))
+        assertEquals("ㄙ", ZhuyinSyllables.encode("si"))
+        // Zero-initial y-/w- spellings carry the medial alone.
+        assertEquals("ㄧ", ZhuyinSyllables.encode("yi"))
+        assertEquals("ㄨㄥ", ZhuyinSyllables.encode("weng"))
+        assertEquals("ㄩㄥ", ZhuyinSyllables.encode("yong"))
+        // After j/q/x the letter u always spells ü.
+        assertEquals("ㄐㄩ", ZhuyinSyllables.encode("ju"))
+        assertEquals("ㄑㄩㄢ", ZhuyinSyllables.encode("quan"))
+        // v is the inventory's spelling of ü elsewhere.
+        assertEquals("ㄌㄩ", ZhuyinSyllables.encode("lv"))
+        // Outside the standard set → unencodable, left out of the table.
+        assertEquals("", ZhuyinSyllables.encode("hm"))
+    }
+
+    @Test
+    fun `zhuyin encodes every syllable the shipped inventory contains`() {
+        // The guardrail for the mapping rules: the bopomofo table is derived from
+        // this asset at runtime, so a syllable the rules cannot spell would be
+        // silently untypeable on the 注音 pad. Read from disk the way
+        // AssetLayoutsTest reaches the shipped layouts.
+        val inventory = File("src/main/assets/dictionaries/pinyin_syllables.txt")
+            .readText().lineSequence().let(PinyinSyllables::parse)
+        assertTrue("inventory asset is missing or empty", inventory.size > 400)
+        val unencodable = inventory.filter { ZhuyinSyllables.encode(it).isEmpty() }.sorted()
+        assertEquals("syllables with no bopomofo spelling: $unencodable", emptyList<String>(), unencodable)
+        // And the mapping is injective — two pinyin syllables sharing a bopomofo
+        // form would make one of them unreachable.
+        val table = ZhuyinSyllables.buildTable(inventory)
+        assertEquals(inventory.size, table.size)
+    }
+
+    @Test
+    fun `zhuyin folds a tone mark into the syllable it follows`() {
+        val table = ZhuyinSyllables.buildTable(setOf("ni", "hao"))
+        val toned = ZhuyinSyllables.segment("ㄋㄧˇㄏㄠˇ", table)
+        assertEquals(listOf("ni", "hao"), toned.map { it.pinyin })
+        // The tone mark is counted in the span (so a prefix commit deletes it)
+        // but never reaches the reading.
+        assertEquals(listOf(3, 3), toned.map { it.inputLen })
+        // Tone 1 is unmarked, so an untoned buffer still segments cleanly.
+        val untoned = ZhuyinSyllables.segment("ㄋㄧㄏㄠ", table)
+        assertEquals(listOf("ni", "hao"), untoned.map { it.pinyin })
+        assertEquals(listOf(2, 2), untoned.map { it.inputLen })
+    }
+
+    @Test
+    fun `zhuyin ranks whole-phrase above leading syllable and consumes bopomofo`() {
+        PinyinSyllables.valid = setOf("ni", "hao")
+        ZhuyinSyllables.table = ZhuyinSyllables.buildTable(PinyinSyllables.valid)
+        CjkDictionaries.pinyin = ConversionDictionary.parse(
+            sequenceOf("ni\tN1\t100", "hao\tH1\t100", "nihao\tNH\t50"),
+        )
+        assertEquals(listOf("NH", "N1"), ZhuyinComposer.candidates("ㄋㄧㄏㄠ"))
+        // Consumed lengths are in BOPOMOFO chars, though lookup happened in pinyin.
+        assertEquals(4, ZhuyinComposer.consumedFor("ㄋㄧㄏㄠ", "NH"))
+        assertEquals(2, ZhuyinComposer.consumedFor("ㄋㄧㄏㄠ", "N1"))
+        // Tone marks count toward the span they were typed into.
+        assertEquals(6, ZhuyinComposer.consumedFor("ㄋㄧˇㄏㄠˇ", "NH"))
+        assertEquals(3, ZhuyinComposer.consumedFor("ㄋㄧˇㄏㄠˇ", "N1"))
+    }
+
+    @Test
+    fun `zhuyin without a table commits the raw bopomofo`() {
+        assertEquals(emptyList<String>(), ZhuyinComposer.candidates("ㄋㄧ"))
+        assertEquals("ㄋㄧ", ZhuyinComposer.composeBuffer("ㄋㄧ"))
     }
 
     // --- T9 / 九宫格 pinyin -------------------------------------------------------

@@ -1003,6 +1003,7 @@ object LanguageRegistry {
             layoutIds = listOf(
                 AssetLayouts.ZH_PINYIN_ID,
                 AssetLayouts.ZH_PINYIN_T9_ID,
+                AssetLayouts.ZH_ZHUYIN_ID,
                 AssetLayouts.ZH_STROKE_ID,
             ),
         ),

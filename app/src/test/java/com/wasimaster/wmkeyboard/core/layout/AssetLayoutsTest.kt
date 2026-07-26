@@ -108,6 +108,30 @@ class AssetLayoutsTest {
     }
 
     @Test
+    fun `the zhuyin layout carries the full bopomofo alphabet and its tone marks`() {
+        val file = layoutFiles.first { it.name == "zh_zhuyin.${LayoutFile.FILE_EXTENSION}" }
+        val layout = LayoutFile.decode(file.readText())!!.layout
+        val typed = layout.layers.values.flatMap { it.rows.flatten() }
+            .filter { it.action == KeyAction.Text }
+            .map { it.output ?: it.label }
+        // All 37 bopomofo symbols must be reachable, or some syllable becomes
+        // untypeable — ㄅ through ㄦ is the contiguous Unicode block.
+        val bopomofo = ('ㄅ'..'ㄩ').toSet()
+        val missing = bopomofo.filter { it.toString() !in typed }
+        assertTrue("bopomofo with no key: $missing", missing.isEmpty())
+        // Tones 2/3/4 and the neutral tone; tone 1 is unmarked by design.
+        for (tone in listOf("ˊ", "ˇ", "ˋ", "˙")) {
+            assertTrue("no key types tone mark $tone", tone in typed)
+        }
+        // Standard 大千 positions: first key of each symbol row.
+        val rows = layout.layers.getValue("letters").rows
+        assertEquals("ㄅ", rows[0].first().label)
+        assertEquals("ㄆ", rows[1].first().label)
+        assertEquals("ㄇ", rows[2].first().label)
+        assertEquals("ㄈ", rows[3].first().label)
+    }
+
+    @Test
     fun `asset layout ids are unique and never shadow a built-in`() {
         val builtInIds = BuiltInLayouts.all.mapTo(HashSet()) { it.id }
         val seen = mutableSetOf<String>()
