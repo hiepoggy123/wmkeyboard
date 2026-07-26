@@ -33,6 +33,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.outlined.ArrowDropDown
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.SwapVert
 import androidx.compose.material3.CircularProgressIndicator
@@ -47,6 +48,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
@@ -311,6 +313,39 @@ private fun PanelNotice(
     }
 }
 
+/**
+ * Standing bar across the top of a media grid: this field takes no rich
+ * content, so nothing here can be sent into it. Deliberately not a toast —
+ * the limitation belongs to the field, not to the tap, so it stays visible
+ * for as long as that field is focused.
+ */
+@Composable
+private fun MediaUnsupportedNotice(noun: String) {
+    val kb = LocalKbTheme.current
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp, vertical = 4.dp)
+            .background(kb.toolCircle, RoundedCornerShape(10.dp))
+            .padding(horizontal = 10.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            Icons.Outlined.Info,
+            contentDescription = null,
+            modifier = Modifier.size(14.dp),
+            tint = kb.toolbarIcon,
+        )
+        Spacer(Modifier.width(6.dp))
+        Text(
+            "This field doesn't accept $noun — try a chat or notes app",
+            color = kb.toolbarIcon,
+            fontSize = 11.sp,
+            maxLines = 2,
+        )
+    }
+}
+
 @Composable
 private fun PanelSpinner() {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -420,6 +455,14 @@ internal fun GifPanel(
                     onSelect = onPackFilter,
                 )
             }
+            // The field publishes the MIME types it accepts; when none of them
+            // is an image, nothing this panel can send will ever arrive. Say so
+            // once, up front, instead of letting every tap end in a download
+            // and a "copied, paste it instead" toast.
+            val unsupported = !state.acceptsRichMedia
+            // Not while the search box is up — the panel is squeezed to a couple
+            // of rows there, and the notice is waiting when the results land.
+            if (unsupported && !state.mediaSearchActive) MediaUnsupportedNotice(noun)
             when (ui) {
                 MediaUi.NeedKey -> PanelNotice(
                     "The $noun tool needs an API key — Klipy or GIPHY (both free). " +
@@ -439,12 +482,17 @@ internal fun GifPanel(
                             onOpenRoute = onOpenRoute,
                         )
                     } else {
-                        GifGrid(
-                            items = ui.items,
-                            downloadingId = state.mediaDownloadingId,
-                            onSelect = onSelect,
-                            onLongPress = if (stickers) onLongPress else null,
-                        )
+                        // Dimmed rather than removed when the field can't take
+                        // them: long-press (save to a pack) still works, and the
+                        // user can see what they'd get in a field that accepts it.
+                        Box(modifier = Modifier.alpha(if (unsupported) 0.45f else 1f)) {
+                            GifGrid(
+                                items = ui.items,
+                                downloadingId = state.mediaDownloadingId,
+                                onSelect = onSelect,
+                                onLongPress = if (stickers) onLongPress else null,
+                            )
+                        }
                     }
                 }
             }

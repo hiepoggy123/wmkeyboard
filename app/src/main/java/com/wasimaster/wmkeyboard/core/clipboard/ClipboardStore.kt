@@ -59,6 +59,47 @@ data class ClipItem(
     val sourceApp: String? = null,
 )
 
+/**
+ * Everything about a clip that its search query is matched against: the text
+ * itself, a file's name, a link's fetched metadata, the source app, and the
+ * kind/format words ("image", "png", "folder") so a clip with no text of its
+ * own — an image, a screenshot — is still findable by what it is.
+ */
+fun ClipItem.searchHaystack(): String = buildList {
+    add(text)
+    fileName?.let(::add)
+    linkPreview?.let { preview ->
+        if (!preview.failed) {
+            add(preview.title)
+            add(preview.description)
+            add(preview.siteName)
+        }
+    }
+    sourceApp?.let(::add)
+    add(
+        when (kind) {
+            ClipKind.TEXT -> "text"
+            ClipKind.HTML -> "text rich text html"
+            ClipKind.LINK -> "link url"
+            ClipKind.IMAGE -> "image picture screenshot"
+            ClipKind.FILE -> "file"
+            ClipKind.FOLDER -> "folder directory"
+        },
+    )
+    mimeType.substringAfterLast('/').takeIf { it.isNotBlank() }?.let(::add)
+}.joinToString(" ")
+
+/**
+ * Whether this clip should be shown for [query]. A blank query matches
+ * everything; otherwise the query is a case-insensitive substring of
+ * [searchHaystack]. The clipboard panel's filter and [ClipboardStore.search]
+ * both go through here so the two can never drift apart.
+ */
+fun ClipItem.matchesQuery(query: String): Boolean {
+    val trimmed = query.trim()
+    return trimmed.isEmpty() || searchHaystack().contains(trimmed, ignoreCase = true)
+}
+
 /** Recognises clips that are a bare URL, so they can be shown as links. */
 object ClipLinks {
 
@@ -307,15 +348,7 @@ class ClipboardStore(
     }
 
     @Synchronized
-    fun search(query: String): List<ClipItem> =
-        items().filter {
-            when {
-                it.kind.isTextual -> it.text.contains(query, ignoreCase = true)
-                it.kind == ClipKind.FILE || it.kind == ClipKind.FOLDER ->
-                    it.fileName.orEmpty().contains(query, ignoreCase = true)
-                else -> false
-            }
-        }
+    fun search(query: String): List<ClipItem> = items().filter { it.matchesQuery(query) }
 
     @Synchronized
     fun save() {

@@ -1421,6 +1421,12 @@ open class WMKeyboardService : InputMethodService() {
                 // onUpdateSelection re-derives it once the new field settles,
                 // but that can lag the switch, leaving a stale chip up.
                 smart = null,
+                // What this editor takes through commitContent, read once here
+                // rather than at send time so the media panels can show up
+                // front that a GIF has nowhere to land (see [acceptsRichMedia]).
+                fieldContentMimeTypes = info
+                    ?.let { EditorInfoCompat.getContentMimeTypes(it).toList() }
+                    .orEmpty(),
                 secureField = secure,
                 deviceLocked = isDeviceLocked(),
                 shiftState = autoCapitalizeShift(),
@@ -1642,12 +1648,11 @@ open class WMKeyboardService : InputMethodService() {
     // callback (onKeyPressed) so feedback lands on touch, not on release.
     fun onKey(key: Key) {
         stopVoiceForManualInput()
-        // Typing real content dismisses the recent-copy strip chip (Gboard
-        // style): once the user is writing, the quick-paste offer has passed —
-        // and clearing it here keeps it from flashing between committed words.
-        if (key.action == KeyAction.Text || key.action == KeyAction.Space) {
-            clearClipboardSuggestion()
-        }
+        // Typing deliberately does NOT dismiss the recent-copy strip chip. It
+        // used to (Gboard style), but the common case is typing a few words and
+        // *then* wanting the copy — a username before a pasted password, a
+        // sentence before a pasted link. The chip has its own dismiss button and
+        // shares the strip with candidates, so it costs nothing to leave up.
         // Shift keeps the gesture word so alternates can be re-cased;
         // Delete keeps it so one backspace can undo the whole swipe.
         if (key.action != KeyAction.Shift && key.action != KeyAction.Delete) {
@@ -6199,6 +6204,15 @@ open class WMKeyboardService : InputMethodService() {
      */
     fun onGifSelect(item: GifItem) {
         val settings = _uiState.value.settings
+        // The field advertises what it can receive; when it advertises nothing
+        // the send has nowhere to land. Stop here rather than downloading the
+        // file and dead-ending in the clipboard fallback and its "copied,
+        // paste it instead" toast — the panel already shows a standing notice
+        // (see GifPanel), so a silent no-op is the honest answer.
+        if (!_uiState.value.acceptsRichMedia) {
+            vibrate()
+            return
+        }
         val sendMode = if (_uiState.value.panel == PanelMode.STICKER) {
             settings.stickerSendMode
         } else {
@@ -6687,7 +6701,10 @@ open class WMKeyboardService : InputMethodService() {
                 maybeToastCopied()
                 _uiState.update { it.copy(textEditSelecting = false) }
             }
-            TextEditAction.PASTE -> ic.performContextMenuAction(android.R.id.paste)
+            TextEditAction.PASTE -> {
+                ic.performContextMenuAction(android.R.id.paste)
+                purgeAfterPasswordPaste()
+            }
             TextEditAction.BACKSPACE -> sendDownUpKeyEvents(KeyEvent.KEYCODE_DEL)
         }
     }
@@ -6734,7 +6751,10 @@ open class WMKeyboardService : InputMethodService() {
                 ic.performContextMenuAction(android.R.id.cut)
                 _uiState.update { it.copy(textEditSelecting = false) }
             }
-            ClipboardKeyAction.PASTE -> ic.performContextMenuAction(android.R.id.paste)
+            ClipboardKeyAction.PASTE -> {
+                ic.performContextMenuAction(android.R.id.paste)
+                purgeAfterPasswordPaste()
+            }
             ClipboardKeyAction.UNDO, ClipboardKeyAction.REDO -> Unit
         }
     }
@@ -7091,6 +7111,71 @@ open class WMKeyboardService : InputMethodService() {
         }
         // Whether tapped from the panel or the strip chip, the recent-copy chip
         // has served its purpose once something was pasted.
+        clearClipboardSuggestion()
+        purgeAfterPasswordPaste(item)
+    }
+
+    /**
+     * Privacy sweep after a paste into a password field: drop what was pasted
+     * from clipboard history and wipe it off the system clipboard.
+     *
+     * A password pasted out of a manager is the most sensitive thing the
+     * clipboard ever holds, and every app on the device can read the primary
+     * clip — leaving it there until the expiry timer runs out is the wrong
+     * default. Opt out with [ClipboardSettings.clearAfterPasswordPaste].
+     *
+     * [item] is the history entry the user tapped, or null for a paste that
+     * went through the editor's own paste action (Ctrl+V, hold-V, the
+     * text-editing panel) — there the pasted content *is* the primary clip, so
+     * the matching history row is looked up from it.
+     */
+    private fun purgeAfterPasswordPaste(
+        item: com.wasimaster.wmkeyboard.core.clipboard.ClipItem? = null,
+    ) {
+        val state = _uiState.value
+        if (!state.secureField || !state.settings.clipboard.clearAfterPasswordPaste) return
+        val manager = runCatching {
+            getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        }.getOrNull() ?: return
+        val current = runCatching { manager.primaryClip?.getItemAt(0) }.getOrNull()
+        val currentText = current?.coerceToText(this)?.toString()?.trim()
+        val currentUri = current?.uri?.toString()
+
+        // Which history row just left the clipboard, and whether the primary
+        // clip still holds it — a tap on an older entry must not wipe whatever
+        // the user copied since.
+        val pasted: com.wasimaster.wmkeyboard.core.clipboard.ClipItem?
+        val clearPrimary: Boolean
+        if (item != null) {
+            pasted = item
+            clearPrimary = when {
+                item.kind.isTextual -> currentText == item.text
+                item.uriString != null -> currentUri == item.uriString
+                // An image clip's bytes live in our own store; a URI still on
+                // the clipboard at this point is the copy it came from.
+                else -> currentUri != null
+            }
+        } else {
+            pasted = clipboardStore.items().firstOrNull {
+                (it.kind.isTextual && currentText != null && it.text == currentText) ||
+                    (it.uriString != null && it.uriString == currentUri)
+            }
+            clearPrimary = currentText != null || currentUri != null
+        }
+
+        if (pasted != null) {
+            clipboardStore.remove(pasted.id)
+            clipboardStore.save()
+            _uiState.update { it.copy(clipboardItems = clipboardStore.items()) }
+        }
+        if (!clearPrimary) return
+        runCatching {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                manager.clearPrimaryClip()
+            } else {
+                manager.setPrimaryClip(android.content.ClipData.newPlainText("", ""))
+            }
+        }
         clearClipboardSuggestion()
     }
 
@@ -7539,17 +7624,18 @@ open class WMKeyboardService : InputMethodService() {
                 )
         return composingMode || state.emojiSearchActive ||
             (state.mediaSearchActive && state.panel.hasMediaSearch) ||
-            state.dictionarySearchActive || state.typingTestActive
+            state.dictionarySearchActive || state.clipboardSearchActive ||
+            state.typingTestActive
     }
 
     /**
-     * The [onKey] preamble a hardware character or space needs: drop the recent-
-     * copy paste chip, the swipe-undo word, and any armed auto-space, exactly as
-     * a soft key does. Backspace is deliberately excluded — it keeps the swipe
-     * word so one press can undo a whole glide.
+     * The [onKey] preamble a hardware character or space needs: drop the
+     * swipe-undo word and any armed auto-space, exactly as a soft key does.
+     * Backspace is deliberately excluded — it keeps the swipe word so one press
+     * can undo a whole glide. The recent-copy chip survives typing here too
+     * (see [onKey]).
      */
     private fun clearForHardwareTyping() {
-        clearClipboardSuggestion()
         lastGestureWord = null
         pendingAutoSpace = false
     }
@@ -7905,8 +7991,13 @@ open class WMKeyboardService : InputMethodService() {
         )
         /** Cap on files recorded from one multi-select copy. */
         private const val MAX_FILE_CLIPS_PER_COPY = 20
-        /** How long the recently-copied paste chip lingers on the strip before auto-hiding. */
-        private const val CLIPBOARD_SUGGESTION_TIMEOUT_MS = 60_000L
+        /**
+         * How long the recently-copied paste chip lingers on the strip before
+         * auto-hiding. Generous because typing no longer dismisses it: the chip
+         * is meant to survive writing the message it will be pasted into, and
+         * the user can dismiss it outright at any point.
+         */
+        private const val CLIPBOARD_SUGGESTION_TIMEOUT_MS = 5L * 60 * 1000
         /** Links fetched per panel open, so a history of links isn't a request storm. */
         private const val MAX_LINK_PREVIEWS = 8
 

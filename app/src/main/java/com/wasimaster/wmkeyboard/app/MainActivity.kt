@@ -4685,6 +4685,19 @@ private fun ToolDetailSettings(
             }
             item {
                 ToggleSetting(
+                    "Forget after pasting a password",
+                    "Delete a clip from history and from the system clipboard as " +
+                        "soon as it is pasted into a password field.",
+                    settings.clipboard.clearAfterPasswordPaste,
+                    info = "Every app on the device can read the system clipboard, so a " +
+                        "password pasted out of a manager would otherwise sit there " +
+                        "readable until it expired. Applies to pastes made with the " +
+                        "keyboard — the clipboard panel, the paste chip, hold-V and " +
+                        "Ctrl+V — into a password field. On by default.",
+                ) { scope.launch { repository.setClipboardClearAfterPasswordPaste(it) } }
+            }
+            item {
+                ToggleSetting(
                     "Link previews",
                     "Fetch the page title of copied links and show it in the panel. " +
                         "This contacts the linked site.",

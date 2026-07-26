@@ -42,6 +42,7 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -60,6 +61,9 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items as lazyRowItems
+import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
+import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
+import androidx.compose.foundation.lazy.staggeredgrid.items as staggeredItems
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.horizontalScroll
@@ -275,6 +279,7 @@ import kotlinx.coroutines.delay
 import com.wasimaster.wmkeyboard.core.clipboard.ClipItem
 import com.wasimaster.wmkeyboard.core.clipboard.ClipKind
 import com.wasimaster.wmkeyboard.core.clipboard.ClipLinks
+import com.wasimaster.wmkeyboard.core.clipboard.matchesQuery
 import com.wasimaster.wmkeyboard.core.emoji.EmojiNames
 import com.wasimaster.wmkeyboard.core.emoji.EmojiVariantIndex
 import com.wasimaster.wmkeyboard.core.gesture.GesturePoint
@@ -4004,11 +4009,18 @@ private fun KeyboardBody(
             // and paste chip go with it) and block the clipboard panel, keeping
             // copied text and pinned tools off a screen anyone can wake.
             val lockHidden = state.deviceLocked && state.settings.toolbarBehavior.hideWhenLocked
+            // Same deal for the clipboard panel's search bar: the panel shrinks
+            // to its search field plus a couple of result rows and the keys come
+            // back underneath, so the query is actually typeable. Not while the
+            // lock screen has blocked the panel — the keys are already up in its
+            // place there, and a second set would double them.
+            val clipboardSearching = state.panel == PanelMode.CLIPBOARD &&
+                state.clipboardSearchActive && !lockHidden
             for (row in state.settings.barOrder) {
                 when (row) {
                     // Disabling the toolbar drops the whole strip — suggestions
                     // and tools alike — so the keys claim its height.
-                    BarRow.TOPBAR -> if (state.settings.toolbarBehavior.enabled && !fullBleed && !emojiSearching && !lockHidden) {
+                    BarRow.TOPBAR -> if (state.settings.toolbarBehavior.enabled && !fullBleed && !emojiSearching && !clipboardSearching && !lockHidden) {
                         TopBar(
                             state, onSuggestion, onEmoji, onEmojiSuggestion,
                             onPunctuation = onPunctuation,
@@ -4490,6 +4502,12 @@ private fun KeyboardBody(
             }
             // Same for a dictionary search: the query types on the key rows.
             if (state.panel == PanelMode.DICTIONARY && state.dictionarySearchActive) {
+                KeyRows(state, onKey, onText, onGesture, onGesturePreview, onCursorMove, onLayoutSelect)
+            }
+            // And for the clipboard panel's search bar. Without this the search
+            // pill captured the keystrokes with no keys on screen to make them
+            // with, so the filter could never be typed.
+            if (clipboardSearching) {
                 KeyRows(state, onKey, onText, onGesture, onGesturePreview, onCursorMove, onLayoutSelect)
             }
             // Same for a media panel's search box (translate is one now —
@@ -5439,13 +5457,15 @@ internal fun Key.roleIn(rowIndex: Int, lastRow: Int): KeyRole? = when {
  * A numeric field gets its keypad whatever the layout mode says — the pads
  * have no ?123 key to leave by, so the letter/symbol cycle does not apply.
  * The exception is anything that reroutes keystrokes away from the editor:
- * emoji, media and dictionary search boxes and the typing test all need
- * letters, and a digits-only pad would leave them impossible to type in.
+ * the emoji, media, dictionary and clipboard search boxes and the typing test
+ * all need letters, and a digits-only pad would leave them impossible to
+ * type in.
  */
 private fun numericPadActive(state: KeyboardUiState): Boolean =
     state.fieldKind.isNumericPad &&
         !state.emojiSearchActive &&
         !state.dictionarySearchActive &&
+        !state.clipboardSearchActive &&
         !(state.mediaSearchActive && state.panel.hasMediaSearch) &&
         !state.typingTestActive
 
@@ -7939,12 +7959,23 @@ private fun ClipboardPanel(
     onKey: (Key) -> Unit,
     onClose: () -> Unit,
 ) {
-    val showBottomRow = state.settings.clipboard.bottomRow
+    // Searching hands the key rows back (they are how the query gets typed), so
+    // the panel shrinks to its search field plus a couple of result rows and the
+    // bottom control row stands down — the real keys are right there.
+    val searching = state.clipboardSearchActive
+    val showBottomRow = state.settings.clipboard.bottomRow && !searching
     // The control row is carved out of the panel's own height (same size as the
     // emoji panel's), so the total stays exactly the key area's height and the
     // keyboard never grows when the row is on.
     val barHeight = state.settings.keyHeightDp.dp + keyGapV(state.settings) * 2
-    val contentHeight = keyRowsHeight(state) - if (showBottomRow) barHeight else 0.dp
+    // While searching the toolbar row is hidden too (see KeyboardBody), so the
+    // panel absorbs its height the way the emoji panel's search mode does.
+    val panelHeight = if (searching) {
+        ClipboardSearchHeight + topBarHeight(state.settings)
+    } else {
+        keyRowsHeight(state)
+    }
+    val contentHeight = panelHeight - if (showBottomRow) barHeight else 0.dp
     Column {
         ClipboardPanelContent(
             state, onClipboardItem, onClipboardPin, onClipboardDelete,
@@ -7957,17 +7988,8 @@ private fun ClipboardPanel(
     }
 }
 
-/**
- * Whether a clip matches the panel's search query — the same rule as
- * [com.wasimaster.wmkeyboard.core.clipboard.ClipboardStore.search]: textual
- * clips match on their text, files/folders on their name, others never.
- */
-private fun clipMatchesQuery(item: ClipItem, query: String): Boolean = when {
-    item.kind.isTextual -> item.text.contains(query, ignoreCase = true)
-    item.kind == ClipKind.FILE || item.kind == ClipKind.FOLDER ->
-        item.fileName.orEmpty().contains(query, ignoreCase = true)
-    else -> false
-}
+/** Panel height while the clipboard search bar is capturing the keys. */
+private val ClipboardSearchHeight = 132.dp
 
 /**
  * Search pill at the top of the clipboard panel. Tapping it routes the keys
@@ -8047,10 +8069,10 @@ private fun ClipboardPanelContent(
         return
     }
     val query = state.clipboardQuery.trim()
-    val shownItems = if (!showSearch || query.isEmpty()) {
+    val shownItems = if (query.isEmpty()) {
         state.clipboardItems
     } else {
-        state.clipboardItems.filter { clipMatchesQuery(it, query) }
+        state.clipboardItems.filter { it.matchesQuery(query) }
     }
     Column(modifier = Modifier.height(height)) {
         if (showSearch) {
@@ -8076,16 +8098,21 @@ private fun ClipboardPanelContent(
             }
             return@Column
         }
-        LazyVerticalGrid(
-            columns = GridCells.Fixed(2),
+        // Staggered, not a fixed grid: a fixed grid gives every cell in a row
+        // the height of the tallest one, so a single screenshot left a
+        // card-sized hole beside it and short clips floated in whitespace.
+        // Here each column packs independently — a tall image sits next to two
+        // or three stacked text clips and the panel fills edge to edge.
+        LazyVerticalStaggeredGrid(
+            columns = StaggeredGridCells.Fixed(2),
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f),
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(8.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(6.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalItemSpacing = 6.dp,
         ) {
-            items(shownItems, key = { it.id }) { item ->
+            staggeredItems(shownItems, key = { it.id }) { item ->
             // Deleting fades the card out and slides the survivors up into the
             // gap; pinning re-sorts the list, so the card glides to the front
             // instead of teleporting there.
@@ -8110,7 +8137,9 @@ private fun ClipboardPanelContent(
                                 onLongPress = { showInfo = true },
                             )
                         }
-                        .padding(10.dp),
+                        // An image card insets less: the picture is the content,
+                        // and a 10dp frame around it was pure dead space.
+                        .padding(if (item.kind == ClipKind.IMAGE) 5.dp else 10.dp),
                 ) {
                     if (showInfo) {
                         ClipInfoPopup(item, onDismiss = { showInfo = false })
@@ -8119,9 +8148,12 @@ private fun ClipboardPanelContent(
                         ClipKind.IMAGE -> ClipThumbnail(item)
                         ClipKind.FILE, ClipKind.FOLDER -> ClipFileBody(item)
                         ClipKind.LINK -> ClipLinkBody(item)
+                        // Longer clips run to six lines rather than three now
+                        // that a taller card costs its neighbour nothing — the
+                        // other column packs its own cards independently.
                         else -> Text(
                             text = item.text,
-                            maxLines = 3,
+                            maxLines = 6,
                             overflow = TextOverflow.Ellipsis,
                             fontSize = 13.sp,
                             color = MaterialTheme.colorScheme.onSurface,
@@ -8464,17 +8496,23 @@ private fun ClipThumbnail(item: ClipItem) {
     }
     val shape = RoundedCornerShape(8.dp)
     bitmap?.let {
-        // Fit, not crop: tall screenshots show whole, letterboxed against
-        // the card color, instead of a 64dp slice off the top.
+        // The card takes the image's own aspect ratio, so there is no
+        // letterboxing to leave dead space beside it — the staggered grid just
+        // makes this cell taller or shorter and packs the other column around
+        // it. Only the extremes are clamped (a panorama or a full-page
+        // screenshot would otherwise be a sliver or swallow the panel), and
+        // those are the one case that crops instead of fits.
+        val natural = it.width.toFloat() / it.height.coerceAtLeast(1)
+        val ratio = natural.coerceIn(MIN_THUMBNAIL_RATIO, MAX_THUMBNAIL_RATIO)
         Image(
             bitmap = it,
             contentDescription = "Copied image",
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(min = 48.dp, max = 160.dp)
+                .aspectRatio(ratio)
                 .background(MaterialTheme.colorScheme.surfaceContainerHigh, shape)
                 .clip(shape),
-            contentScale = ContentScale.Fit,
+            contentScale = if (ratio == natural) ContentScale.Fit else ContentScale.Crop,
         )
     } ?: Box(
         Modifier
@@ -8485,3 +8523,7 @@ private fun ClipThumbnail(item: ClipItem) {
 }
 
 private const val THUMBNAIL_TARGET_PX = 256
+
+/** Widest and tallest an image card may get before it crops instead. */
+private const val MIN_THUMBNAIL_RATIO = 0.62f
+private const val MAX_THUMBNAIL_RATIO = 2.2f

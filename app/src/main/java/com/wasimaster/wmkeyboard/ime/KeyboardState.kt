@@ -689,6 +689,13 @@ data class KeyboardUiState(
      */
     val clipboardSuggestion: ClipItem? = null,
     val snippets: List<Snippet> = emptyList(),
+    /**
+     * MIME types the focused editor advertises for commitContent
+     * (EditorInfo.contentMimeTypes). Empty means the field takes text only —
+     * a GIF or sticker sent there can never arrive, so the media panels say so
+     * up front instead of the send failing into a clipboard fallback.
+     */
+    val fieldContentMimeTypes: List<String> = emptyList(),
     val secureField: Boolean = false,
     /**
      * The device lock screen (keyguard) is showing. Refreshed on each field
@@ -811,6 +818,23 @@ data class KeyboardUiState(
      */
     val allowsTypingIntelligence: Boolean
         get() = !secureField && fieldKind == FieldKind.TEXT
+
+    /**
+     * Whether the focused field takes any image at all through commitContent.
+     * False for an ordinary text box: nothing an image tool sends can land
+     * there, so the GIF and sticker panels say so rather than letting a tap
+     * dead-end in "image copied, paste it instead".
+     */
+    val acceptsRichMedia: Boolean
+        get() = fieldContentMimeTypes.any {
+            android.content.ClipDescription.compareMimeTypes(it, "image/*")
+        }
+
+    /** Whether the field advertises something [mimeType] can be committed as. */
+    fun acceptsMediaMime(mimeType: String): Boolean =
+        fieldContentMimeTypes.any {
+            android.content.ClipDescription.compareMimeTypes(mimeType, it)
+        }
 
     /**
      * Whether keystrokes belong to a typing test rather than to the text

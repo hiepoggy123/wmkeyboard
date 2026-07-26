@@ -127,12 +127,38 @@ class ClipboardStoreTest {
         assertEquals("words", store.latestText(now = 3000))
     }
 
-    @Test fun searchSkipsImages() {
+    @Test fun blankSearchReturnsEverything() {
         val dir = Files.createTempDirectory("clips").toFile()
         val store = ClipboardStore(null, expiryMillis = 0, imagesDir = dir)
         store.addImage(tempImage(dir, "a.png"), "image/png", now = 1000)
         store.add("hello", now = 2000)
-        assertEquals(listOf("hello"), store.search("").map { it.text })
+        assertEquals(2, store.search("").size)
+    }
+
+    @Test fun searchOnTextSkipsImages() {
+        val dir = Files.createTempDirectory("clips").toFile()
+        val store = ClipboardStore(null, expiryMillis = 0, imagesDir = dir)
+        store.addImage(tempImage(dir, "a.png"), "image/png", now = 1000)
+        store.add("hello", now = 2000)
+        assertEquals(listOf("hello"), store.search("hell").map { it.text })
+    }
+
+    /** An image clip has no text of its own; its kind and format stand in. */
+    @Test fun searchFindsImagesByKindAndFormat() {
+        val dir = Files.createTempDirectory("clips").toFile()
+        val store = ClipboardStore(null, expiryMillis = 0, imagesDir = dir)
+        store.addImage(tempImage(dir, "a.png"), "image/png", now = 1000)
+        store.add("hello", now = 2000)
+        assertEquals(1, store.search("image").size)
+        assertEquals(1, store.search("png").size)
+    }
+
+    @Test fun searchMatchesFileNameAndSourceApp() {
+        val store = ClipboardStore(null, expiryMillis = 0)
+        store.addUri("content://x/1", "report.pdf", "application/pdf", isDirectory = false, now = 1000)
+        store.add("plain", sourceApp = "Firefox", now = 2000)
+        assertEquals(listOf("report.pdf"), store.search("report").map { it.text })
+        assertEquals(listOf("plain"), store.search("firefox").map { it.text })
     }
 
     @Test fun legacySnapshotWithoutNewFieldsLoads() {

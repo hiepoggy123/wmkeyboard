@@ -1234,6 +1234,14 @@ data class ClipboardSettings(
     val search: Boolean = false,
     /** Show user screenshots in the clipboard alongside copied text and images. */
     val userScreenshots: Boolean = false,
+    /**
+     * Delete a clip from history *and* from the system clipboard the moment it
+     * is pasted into a password field. A password pasted out of a manager is
+     * the single most sensitive thing the clipboard ever holds, and it would
+     * otherwise sit there — readable by every app — until it expired. On by
+     * default; turning it off keeps the clip like any other paste.
+     */
+    val clearAfterPasswordPaste: Boolean = true,
 )
 
 /**
@@ -1654,6 +1662,8 @@ class SettingsRepository(private val context: Context) {
         private val CLIPBOARD_PINNED_LAST = booleanPreferencesKey("clipboard_pinned_last")
         private val CLIPBOARD_SEARCH = booleanPreferencesKey("clipboard_search")
         private val CLIPBOARD_USER_SCREENSHOTS = booleanPreferencesKey("clipboard_user_screenshots")
+        private val CLIPBOARD_CLEAR_AFTER_PASSWORD_PASTE =
+            booleanPreferencesKey("clipboard_clear_after_password_paste")
         private val LONG_PRESS_DELAY = intPreferencesKey("long_press_delay")
         private val KEY_REPEAT_INTERVAL = intPreferencesKey("key_repeat_interval")
         private val LONG_PRESS_HINTS = booleanPreferencesKey("long_press_hints")
@@ -2035,6 +2045,8 @@ class SettingsRepository(private val context: Context) {
                 pinnedLast = p[CLIPBOARD_PINNED_LAST] ?: defaults.clipboard.pinnedLast,
                 search = p[CLIPBOARD_SEARCH] ?: defaults.clipboard.search,
                 userScreenshots = p[CLIPBOARD_USER_SCREENSHOTS] ?: defaults.clipboard.userScreenshots,
+                clearAfterPasswordPaste = p[CLIPBOARD_CLEAR_AFTER_PASSWORD_PASTE]
+                    ?: defaults.clipboard.clearAfterPasswordPaste,
             ),
             suggestionStrip = SuggestionStripSettings(
                 punctuation = p[PUNCTUATION_SUGGESTIONS] ?: defaults.suggestionStrip.punctuation,
@@ -3556,6 +3568,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setClipboardUserScreenshots(value: Boolean) =
         context.dataStore.edit { it[CLIPBOARD_USER_SCREENSHOTS] = value }
+
+    suspend fun setClipboardClearAfterPasswordPaste(value: Boolean) =
+        context.dataStore.edit { it[CLIPBOARD_CLEAR_AFTER_PASSWORD_PASTE] = value }
 
     suspend fun setLongPressDelayMs(value: Int) =
         context.dataStore.edit { it[LONG_PRESS_DELAY] = value.coerceIn(150, 700) }
