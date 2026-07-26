@@ -883,7 +883,7 @@ data class KeyboardSettings(
     val emojiBarMode: EmojiBarMode = EmojiBarMode.BUTTON,
     val emojiBarContent: EmojiBarContent = EmojiBarContent.MOST_USED,
     /** Whether an emoji suggestion replaces the typed word or follows it. */
-    val emojiInsertMode: EmojiInsertMode = EmojiInsertMode.APPEND,
+    val emojiInsertMode: EmojiInsertMode = EmojiInsertMode.REPLACE,
     /** Emoji options that didn't fit the flat field list (see [EmojiSettings]). */
     val emoji: EmojiSettings = EmojiSettings(),
     /** Tools available anywhere on the keyboard; disabled tools are hidden. */
