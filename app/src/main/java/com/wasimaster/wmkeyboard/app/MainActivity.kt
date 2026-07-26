@@ -721,7 +721,7 @@ private fun HomeScreen(settings: KeyboardSettings, onNavigate: (String) -> Unit)
 }
 
 @Composable
-internal fun SetupCard(context: Context) {
+internal fun SetupCard(context: Context, onReady: (() -> Unit)? = null) {
     val imm = remember { context.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager }
     // The IME picker is a system dialog, so the activity never pauses or
     // resumes when the user switches keyboards — poll while visible to
@@ -739,6 +739,12 @@ internal fun SetupCard(context: Context) {
     val selected = remember(refresh) {
         Settings.Secure.getString(context.contentResolver, Settings.Secure.DEFAULT_INPUT_METHOD)
             ?.substringBefore('/') == context.packageName
+    }
+    // Fires once per transition into the ready state, so the caller can
+    // advance onboarding without the user tapping Next after returning
+    // from Settings — mirrors how other keyboard apps auto-continue.
+    LaunchedEffect(enabled, selected) {
+        if (enabled && selected) onReady?.invoke()
     }
 
     if (enabled && selected) {

@@ -104,6 +104,10 @@ internal fun OnboardingScreen(
     // Hoisted here (not in the page) so leaving and revisiting the page
     // can't re-apply it over the user's choices.
     var toolsSeeded by rememberSaveable { mutableStateOf(false) }
+    // Guards the Welcome page's auto-advance so it fires once — otherwise
+    // navigating Back to it while already set up would bounce straight
+    // forward again, defeating the Back button.
+    var welcomeAutoAdvanced by rememberSaveable { mutableStateOf(false) }
     val finish: () -> Unit = {
         scope.launch { repository.setOnboardingDone(true) }
         onFinished()
@@ -132,7 +136,14 @@ internal fun OnboardingScreen(
                     .padding(horizontal = 8.dp),
             ) {
                 when (page) {
-                    0 -> WelcomePage()
+                    0 -> WelcomePage(
+                        onReady = {
+                            if (!welcomeAutoAdvanced) {
+                                welcomeAutoAdvanced = true
+                                page++
+                            }
+                        },
+                    )
                     1 -> LanguagesPage(repository, settings)
                     2 -> LookPage(repository, settings)
                     3 -> EmojiPage(repository, settings)
@@ -196,7 +207,7 @@ private fun PageHeader(title: String, subtitle: String) {
 // ---- pages ----
 
 @Composable
-private fun WelcomePage() {
+private fun WelcomePage(onReady: () -> Unit) {
     val context = LocalContext.current
     PageHeader(
         "Welcome to WM Keyboard",
@@ -204,7 +215,7 @@ private fun WelcomePage() {
             "layouts, gesture typing, themes and more. First, make it your keyboard.",
     )
     Box(modifier = Modifier.padding(horizontal = 16.dp)) {
-        SetupCard(context)
+        SetupCard(context, onReady = onReady)
     }
     Text(
         "The next few steps set up the things everyone likes differently — " +
