@@ -107,6 +107,12 @@ data class KeyPopupSettings(
     val onKey: Boolean = true,
     val fontScale: Float = 1.0f,
     val heightDp: Int = 110,
+    /**
+     * Whether the bubble also shows on the numeric keypads (number, phone,
+     * date and time fields). Off by default: on a PIN-style pad the floating
+     * character is noise at best and shoulder-surfable at worst.
+     */
+    val inNumericFields: Boolean = false,
 )
 
 /** Shrinks the keyboard toward one edge for thumb reach. */
@@ -1714,6 +1720,7 @@ class SettingsRepository(private val context: Context) {
         private val KEY_POPUP_MIN_DURATION = intPreferencesKey("key_popup_min_duration")
         private val KEY_POPUP_MAX_DURATION = intPreferencesKey("key_popup_max_duration")
         private val KEY_POPUP_ON_KEY = booleanPreferencesKey("key_popup_on_key")
+        private val KEY_POPUP_IN_NUMERIC = booleanPreferencesKey("key_popup_in_numeric_fields")
         private val POPUP_FONT_SCALE = floatPreferencesKey("popup_font_scale")
         private val KEY_POPUP_HEIGHT = intPreferencesKey("key_popup_height")
         private val COLOR_VISION_FILTER = stringPreferencesKey("color_vision_filter")
@@ -2116,6 +2123,7 @@ class SettingsRepository(private val context: Context) {
                 minDurationMs = p[KEY_POPUP_MIN_DURATION] ?: defaults.popup.minDurationMs,
                 maxDurationMs = p[KEY_POPUP_MAX_DURATION] ?: defaults.popup.maxDurationMs,
                 onKey = p[KEY_POPUP_ON_KEY] ?: defaults.popup.onKey,
+                inNumericFields = p[KEY_POPUP_IN_NUMERIC] ?: defaults.popup.inNumericFields,
                 fontScale = p[POPUP_FONT_SCALE] ?: defaults.popup.fontScale,
                 heightDp = p[KEY_POPUP_HEIGHT] ?: defaults.popup.heightDp,
             ),
@@ -3506,6 +3514,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setKeyPopupOnKey(value: Boolean) =
         context.dataStore.edit { it[KEY_POPUP_ON_KEY] = value }
+
+    suspend fun setKeyPopupInNumericFields(value: Boolean) =
+        context.dataStore.edit { it[KEY_POPUP_IN_NUMERIC] = value }
 
     suspend fun setPopupFontScale(value: Float) =
         context.dataStore.edit { it[POPUP_FONT_SCALE] = value.coerceIn(0.7f, 1.6f) }

@@ -314,6 +314,20 @@ open class WMKeyboardService : InputMethodService() {
     private var lastCaretScrubMs = 0L
     private var lastShiftTapTime = 0L
     private var suggestionJob: Job? = null
+    private var smartJob: Job? = null
+
+    /**
+     * Selection the editor last reported, seeded from EditorInfo on field start
+     * and kept current by [onUpdateSelection]. Lets the per-keystroke paths
+     * answer "is anything selected?" without a synchronous InputConnection
+     * round-trip — that binder call blocks the UI thread for as long as the
+     * target app's main thread is busy, which on a freshly-opened field (the
+     * app still animating the keyboard into place) was long enough to make the
+     * first keypress visibly lag and strand its preview bubble. -1 means
+     * unknown, and unknown falls back to asking the editor.
+     */
+    private var expectedSelStart = -1
+    private var expectedSelEnd = -1
 
     /** Rolling average of one suggestion computation, drives the debounce. */
     private var suggestionCostMs = 0L
@@ -1348,6 +1362,8 @@ open class WMKeyboardService : InputMethodService() {
         super.onStartInputView(info, restarting)
         lifecycleOwner.onResume()
         refreshHardwareKeyboardState()
+        expectedSelStart = info?.initialSelStart ?: -1
+        expectedSelEnd = info?.initialSelEnd ?: -1
         composing = StringBuilder()
         previousWord = null
         lastGestureWord = null
@@ -1486,6 +1502,24 @@ open class WMKeyboardService : InputMethodService() {
             )
         }
         refreshKarContext()
+        // Read the text already sitting around the caret now, on entry. A field
+        // that comes back with its text and caret unchanged (returning to a
+        // search bar after a search, re-opening a draft) never fires
+        // onUpdateSelection, so waiting for it left the keyboard blind to the
+        // existing text: no resumed word, no context, and edits fighting a
+        // state built for an empty field.
+        currentInputConnection?.let { ic ->
+            // Same collapsed-caret gate as the onUpdateSelection call site: a
+            // range selection has no word to resume.
+            if (info != null && info.initialSelStart >= 0 &&
+                info.initialSelStart == info.initialSelEnd
+            ) {
+                restartSuggestionsAtCursor(ic, info.initialSelStart)
+            } else {
+                syncPreviousWordFromField(ic)
+                refreshSuggestions()
+            }
+        }
         // A fresh field is a fresh view of the emoji row, so taps from the last
         // one can reorder it now (see [publishEmojiHistory]).
         publishEmojiHistory()
@@ -1517,6 +1551,8 @@ open class WMKeyboardService : InputMethodService() {
         candidatesEnd: Int,
     ) {
         super.onUpdateSelection(oldSelStart, oldSelEnd, newSelStart, newSelEnd, candidatesStart, candidatesEnd)
+        expectedSelStart = newSelStart
+        expectedSelEnd = newSelEnd
         val wasComposing = composing.isNotEmpty()
         // The candidate range is valid when positive/zero. The cursor moved away
         // from the composing region if it jumped strictly outside [candidatesStart, candidatesEnd].
@@ -2050,7 +2086,12 @@ open class WMKeyboardService : InputMethodService() {
         }
 
         val ic = currentInputConnection ?: return
-        text = fixedLayoutContextualVowel(text, ic.getTextBeforeCursor(1, 0)?.lastOrNull())
+        // contextualForm is the identity for every composer except the
+        // cluster-shaping (fixed Indic) ones, so only they are worth the
+        // synchronous getTextBeforeCursor round-trip on the keypress path.
+        if (state.composer.isClusterShaping) {
+            text = fixedLayoutContextualVowel(text, ic.getTextBeforeCursor(1, 0)?.lastOrNull())
+        }
 
         // Typing over a selection replaces it and puts the cursor after the
         // new character, like every other keyboard. Never route through the
@@ -2066,6 +2107,7 @@ open class WMKeyboardService : InputMethodService() {
             }
             if (closer != null) {
                 val selected = ic.getSelectedText(0)?.toString().orEmpty()
+                invalidateExpectedSelection()
                 composing = StringBuilder()
                 ic.beginBatchEdit()
                 ic.commitText("$text$selected$closer", 1)
@@ -2082,6 +2124,7 @@ open class WMKeyboardService : InputMethodService() {
                 }
                 return
             }
+            invalidateExpectedSelection()
             composing = StringBuilder()
             ic.commitText(text, 1)
             consumeShift()
@@ -2355,6 +2398,7 @@ open class WMKeyboardService : InputMethodService() {
         val ic = currentInputConnection ?: return
         // Deleting with an active selection removes the selected text only.
         if (hasSelection(ic)) {
+            invalidateExpectedSelection()
             ic.commitText("", 1)
             return
         }
@@ -2502,13 +2546,19 @@ open class WMKeyboardService : InputMethodService() {
                 (after.isNullOrEmpty() || !after[0].isLetterOrDigit())
             if (caretAtWordEnd) {
                 val word = before.toString().takeLastWhile { isComposingWordChar(it) }
-                if (word.isNotEmpty()) {
-                    // Mark the existing word as composing without disturbing it,
-                    // then mirror it into the buffer so a keystroke extends it
-                    // and a backspace shortens it. previousWord comes from the
-                    // text ahead of the word, not the caret (which is inside it).
-                    composing = StringBuilder(word)
+                // Mark the existing word as composing without disturbing it,
+                // then mirror it into the buffer so a keystroke extends it
+                // and a backspace shortens it. previousWord comes from the
+                // text ahead of the word, not the caret (which is inside it).
+                // Mirror ONLY if the editor accepted the region: some editors
+                // (web views, odd search boxes) refuse setComposingRegion, and
+                // a buffer with no region behind it makes the next
+                // setComposingText insert the whole word again at the caret —
+                // the word "reappears" and the existing text can't be edited.
+                if (word.isNotEmpty() &&
                     ic.setComposingRegion(newSelStart - word.length, newSelStart)
+                ) {
+                    composing = StringBuilder(word)
                     previousWord = completedWordBefore(before.subSequence(0, before.length - word.length))
                     _uiState.update { it.copy(composingPreview = word) }
                     refreshSuggestions()
@@ -2546,6 +2596,7 @@ open class WMKeyboardService : InputMethodService() {
         }
         val ic = currentInputConnection ?: return
         if (hasSelection(ic)) {
+            invalidateExpectedSelection()
             ic.commitText("", 1)
             return
         }
@@ -2907,6 +2958,20 @@ open class WMKeyboardService : InputMethodService() {
     }
 
     /**
+     * Inserts panel-produced text (an emoji, a paste, a translation, an AI
+     * result) at the cursor. Any word still being composed is committed as
+     * typed first: a bare commitText would *replace* the active composing
+     * region, eating the word — and skipping the flush leaves a stale buffer
+     * that the next setComposingText re-inserts wherever the cursor has
+     * moved to since, making the "previous word" reappear out of nowhere.
+     */
+    private fun commitToField(text: String) {
+        val ic = currentInputConnection ?: return
+        commitComposing(ic, autocorrect = false)
+        ic.commitText(text, 1)
+    }
+
+    /**
      * Commits the composing region. In Avro mode the top phonetic
      * suggestion wins (dictionary sibling over literal); in English mode
      * autocorrect may replace the typed word. Returns true if anything
@@ -3246,20 +3311,32 @@ open class WMKeyboardService : InputMethodService() {
             if (state.smart != null) _uiState.update { it.copy(smart = null) }
             return
         }
-        val before = currentInputConnection
-            ?.getTextBeforeCursor(SmartSuggest.LOOKBEHIND, 0)
-            ?.toString()
-            .orEmpty()
-        if (before == smartMutedAfter) {
+        val ic = currentInputConnection
+        if (ic == null) {
             if (state.smart != null) _uiState.update { it.copy(smart = null) }
             return
         }
-        smartMutedAfter = null
-        val hit = SmartSuggest.detect(before, smartContext(state))
-        if (hit != state.smart) _uiState.update { it.copy(smart = hit) }
-        // An amount was recognised but there are no rates to convert it
-        // with: fetch them, and the collector below redraws the chip.
-        if (hit?.pending == true) refreshCurrencyRates()
+        // The lookbehind is a synchronous editor round-trip and this runs on
+        // every keystroke, so it goes to a worker thread: with the target app
+        // busy (first key into a just-opened field, especially) the blocking
+        // read was the visible keypress lag — and the chip is advisory UI
+        // that can afford to land a frame later.
+        smartJob?.cancel()
+        smartJob = serviceScope.launch {
+            val before = withContext(Dispatchers.Default) {
+                ic.getTextBeforeCursor(SmartSuggest.LOOKBEHIND, 0)?.toString().orEmpty()
+            }
+            if (before == smartMutedAfter) {
+                if (_uiState.value.smart != null) _uiState.update { it.copy(smart = null) }
+                return@launch
+            }
+            smartMutedAfter = null
+            val hit = SmartSuggest.detect(before, smartContext(_uiState.value))
+            if (hit != _uiState.value.smart) _uiState.update { it.copy(smart = hit) }
+            // An amount was recognised but there are no rates to convert it
+            // with: fetch them, and the collector below redraws the chip.
+            if (hit?.pending == true) refreshCurrencyRates()
+        }
     }
 
     private fun smartContext(state: KeyboardUiState): SmartSuggest.Context =
@@ -5989,7 +6066,7 @@ open class WMKeyboardService : InputMethodService() {
         val ai = _uiState.value.ai as? AiUi.Ready ?: return
         vibrate()
         if (ai.action == AiAction.CONTINUE) {
-            currentInputConnection?.commitText(aiInsertableText(ai), 1)
+            commitToField(aiInsertableText(ai))
             return
         }
         replaceFieldText(aiInsertableText(ai))
@@ -5998,7 +6075,7 @@ open class WMKeyboardService : InputMethodService() {
     fun onAiInsert() {
         val ai = _uiState.value.ai as? AiUi.Ready ?: return
         vibrate()
-        currentInputConnection?.commitText(aiInsertableText(ai), 1)
+        commitToField(aiInsertableText(ai))
     }
 
     /**
@@ -6520,13 +6597,13 @@ open class WMKeyboardService : InputMethodService() {
     /** Long-pressed an image-search cell: insert the image's URL as text. */
     fun onImageResultLink(result: ImageResult) {
         vibrate()
-        currentInputConnection?.commitText(result.imageUrl, 1)
+        commitToField(result.imageUrl)
     }
 
     /** Tapped a web result: insert its URL at the cursor. */
     fun onWebResultSelect(result: WebResult) {
         vibrate()
-        currentInputConnection?.commitText(result.url, 1)
+        commitToField(result.url)
     }
 
     /** Open a web result in the browser (leaves the keyboard). */
@@ -6682,7 +6759,7 @@ open class WMKeyboardService : InputMethodService() {
         val translated = _uiState.value.translate.translated
         if (translated.isEmpty()) return
         vibrate()
-        currentInputConnection?.commitText(translated, 1)
+        commitToField(translated)
     }
 
     // ---- grammar tool (offline, Harper via JNI) ----
@@ -7150,7 +7227,7 @@ open class WMKeyboardService : InputMethodService() {
 
     fun onEmojiTapped(emoji: String) {
         vibrate()
-        currentInputConnection?.commitText(emoji, 1)
+        commitToField(emoji)
         learnEmoji(emoji)
         emojiUsage.record(emoji)
         emojiHistoryStale = true
@@ -7183,7 +7260,7 @@ open class WMKeyboardService : InputMethodService() {
      */
     fun onTextArtTapped(art: String) {
         vibrate()
-        currentInputConnection?.commitText(art, 1)
+        commitToField(art)
         // Same "return to keyboard after emoji" courtesy as a real emoji tap.
         if (_uiState.value.settings.emoji.closeAfterInsert &&
             _uiState.value.panel == PanelMode.EMOJI
@@ -7334,7 +7411,7 @@ open class WMKeyboardService : InputMethodService() {
             // to a text field, so insert its name and hand the URI back to the
             // system clipboard for a file manager to paste.
             ClipKind.FOLDER -> {
-                currentInputConnection?.commitText(item.fileName.orEmpty(), 1)
+                commitToField(item.fileName.orEmpty())
                 item.uriString?.let { copyUriToSystemClipboard(Uri.parse(it), item.fileName.orEmpty()) }
                 Toast.makeText(
                     this,
@@ -7342,7 +7419,7 @@ open class WMKeyboardService : InputMethodService() {
                     Toast.LENGTH_SHORT,
                 ).show()
             }
-            else -> currentInputConnection?.commitText(item.text, 1)
+            else -> commitToField(item.text)
         }
         // Whether tapped from the panel or the strip chip, the recent-copy chip
         // has served its purpose once something was pasted.
@@ -8397,7 +8474,23 @@ open class WMKeyboardService : InputMethodService() {
     // ---- helpers ----
 
     private fun hasSelection(ic: InputConnection): Boolean =
-        !ic.getSelectedText(0).isNullOrEmpty()
+        if (expectedSelStart >= 0 && expectedSelEnd >= 0) {
+            expectedSelStart != expectedSelEnd
+        } else {
+            !ic.getSelectedText(0).isNullOrEmpty()
+        }
+
+    /**
+     * Called right after an edit that consumed the tracked selection (typing
+     * or deleting over it). The editor will report the collapsed caret via
+     * [onUpdateSelection] shortly; until then the answer is unknown, so
+     * [hasSelection] falls back to asking the editor instead of replaying
+     * the stale range.
+     */
+    private fun invalidateExpectedSelection() {
+        expectedSelStart = -1
+        expectedSelEnd = -1
+    }
 
     /**
      * Re-evaluates the one-shot shift state after the cursor moved or text

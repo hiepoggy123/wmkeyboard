@@ -5880,7 +5880,13 @@ private fun KeyButton(
         // grows upward from the pressed key itself (stock-keyboard style,
         // key-wide with a large label near the top, clear of the finger);
         // otherwise it floats above the fingertip.
-        if (previewVisible && settings.popup.enabled && key.action == KeyAction.Text && !showAlternates) {
+        // Numeric keypads (number/phone/date/time fields) suppress the bubble
+        // unless the user opted back in — a floating digit over a PIN pad is
+        // noise, and easy shoulder-surfing.
+        val popupAllowedInField = settings.popup.inNumericFields || !state.fieldKind.isNumericPad
+        if (previewVisible && settings.popup.enabled && popupAllowedInField &&
+            key.action == KeyAction.Text && !showAlternates
+        ) {
             val onKeyStyle = settings.popup.onKey
             Popup(
                 popupPositionProvider = if (onKeyStyle) OnKeyPopupPositionProvider else popupPosition,

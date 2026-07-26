@@ -103,6 +103,7 @@ private val SettingRows: List<SettingsSearchEntry> = listOfNotNull(
     entry("Vibrate on key repeat", "Buzz on every auto-repeat while a key is held", "Key press", "keypress"),
     entry("Mute haptics in Do Not Disturb", "Stop keyboard vibration while Do Not Disturb is on", "Key press", "keypress"),
     entry("Key popup", "Show a character bubble above the pressed key", "Key press", "keypress"),
+    entry("Popup on number pads", "Also show the bubble on number, phone, and date fields", "Key press", "keypress"),
     entry("Minimum popup duration", "How long the bubble stays up even on a fast tap", "Key press", "keypress"),
     entry("Popup on key", "Grow the bubble upward from the pressed key itself", "Key press", "keypress"),
     entry("Popup font size", "Scale of the key preview bubble and long-press alternates", "Key press", "keypress"),

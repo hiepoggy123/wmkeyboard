@@ -2596,6 +2596,17 @@ private fun KeyPressSettings(repository: SettingsRepository, settings: KeyboardS
         }
         if (settings.popup.enabled) {
             item {
+                ToggleSetting(
+                    "Popup on number pads",
+                    "Also show the bubble on number, phone, and date fields",
+                    settings.popup.inNumericFields,
+                    info = "Number, phone, and date/time fields use a keypad, where the " +
+                        "floating character adds little — and over a PIN it echoes each " +
+                        "digit large enough to be read over your shoulder. Off hides the " +
+                        "bubble on those keypads; regular text fields are unaffected.",
+                ) { scope.launch { repository.setKeyPopupInNumericFields(it) } }
+            }
+            item {
                 SliderSetting(
                     "Minimum popup duration",
                     subtitle = "How long the bubble stays up even on a fast tap",
