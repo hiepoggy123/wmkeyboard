@@ -131,6 +131,7 @@ private val SettingRows: List<SettingsSearchEntry> = listOfNotNull(
     entry("Toolbox grid size", "Tools per row in the toolbox grid", "Appearance", "appearance"),
     entry("Number row", "Show a dedicated digit row above the letters", "Layout & size", "layout"),
     entry("Number row height", "Height of the digit row, independent of the letter keys", "Layout & size", "layout"),
+    entry("Type native digits in", "Where the native digits are actually inserted", "Layout & size", "layout"),
     entry("Key height", "Height of each key row — sets the overall input height", "Layout & size", "layout"),
     entry("Key spacing", "Gap between the keys", "Layout & size", "layout"),
     entry("Keyboard scale", "Shrink or grow the whole keyboard per screen (folded/unfolded)", "Layout & size", "layout"),

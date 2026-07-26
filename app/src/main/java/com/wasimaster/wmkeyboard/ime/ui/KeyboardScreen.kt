@@ -6204,7 +6204,10 @@ private fun displayLabel(key: Key, state: KeyboardUiState): String {
     // Digit keys draw the chosen numeral system's glyphs (in every commit
     // scope, including display-only). The layout data stays ASCII; the swap
     // happens here at draw time. Non-digit labels pass through untouched.
-    val digits = resolveNumeralDigits(state.settings.layoutBehavior.numeralSystem, state.language)
+    val digits = resolveNumeralDigits(
+        state.settings.layoutBehavior.numeralSystemFor(state.language.id),
+        state.language,
+    )
     val raw = when {
         state.shiftState != ShiftState.OFF && key.shiftLabel != null -> key.shiftLabel
         // Cased-script letter labels track the live shift state: lowercase

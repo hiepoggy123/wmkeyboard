@@ -7,9 +7,10 @@ package com.wasimaster.wmkeyboard.core.script
  * long-press data all keep seeing plain ASCII.
  *
  * [digits] is the ten glyphs for `0`..`9` in order, or null for a passthrough
- * (Latin, and [AUTO] before it is resolved against a language). [AUTO] means
- * "follow the active language's own [LanguageDef.numeralSystem]"; every other
- * value forces that system regardless of language.
+ * (Latin, and [AUTO] before it is resolved against a language). The choice is
+ * made per language: [AUTO] (the default for every language) means "follow this
+ * language's own [LanguageDef.numeralSystem]"; every other value forces that
+ * system while that language is active.
  */
 enum class NumeralSystem(val digits: String?, val label: String) {
     // Labels stay short — they render as segmented buttons in settings.
@@ -38,9 +39,9 @@ enum class NumeralCommitScope(val label: String) {
 }
 
 /**
- * The glyph set to apply for [setting] under [language], or null when no remap
- * is needed (Latin / an Auto language that stays Latin). [AUTO] defers to the
- * language's own default; anything else forces its own digits.
+ * The glyph set to apply for [setting] — [language]'s own per-language choice —
+ * or null when no remap is needed (Latin / an Auto language that stays Latin).
+ * [AUTO] defers to the language's own default; anything else forces its digits.
  */
 fun resolveNumeralDigits(setting: NumeralSystem, language: LanguageDef): String? =
     if (setting == NumeralSystem.AUTO) language.numeralSystem.digits else setting.digits

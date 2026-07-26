@@ -1412,20 +1412,26 @@ data class LayoutBehaviorSettings(
     val smartHitDetection: Boolean = false,
     /**
      * Which digit glyphs the number row and numpad draw, and (per
-     * [numeralCommitScope]) type. [NumeralSystem.AUTO] follows the active
-     * language's own default (Arabic → ٠-٩, Persian/Urdu → ۰-۹, Bengali → ০-৯,
-     * the Devanagari languages → ०-९, everything else Latin); any other value
-     * forces that system regardless of language.
+     * [numeralCommitScope]) type — chosen per language, keyed by
+     * [com.wasimaster.wmkeyboard.core.script.LanguageDef.id]. An absent language
+     * is [NumeralSystem.AUTO]: it follows its own default (Arabic → ٠-٩,
+     * Persian/Urdu → ۰-۹, Bengali → ০-৯, the Devanagari languages → ०-९,
+     * everything else Latin). Read it through [numeralSystemFor].
      */
-    val numeralSystem: NumeralSystem = NumeralSystem.AUTO,
+    val numeralSystemByLang: Map<String, NumeralSystem> = emptyMap(),
     /**
-     * Where a non-Latin [numeralSystem] rewrites committed digits. Default
+     * Where a non-Latin numeral system rewrites committed digits. Default
      * [NumeralCommitScope.TEXT_ONLY] keeps ASCII in numeric/phone/date/time
      * fields so those stay machine-parseable while typing native digits
      * elsewhere. Drawing is unaffected — the glyphs always show on the keys.
+     * Global on purpose: it is about what fields tolerate, not about a script.
      */
     val numeralCommitScope: NumeralCommitScope = NumeralCommitScope.TEXT_ONLY,
-)
+) {
+    /** [langId]'s numeral system, [NumeralSystem.AUTO] when it has no entry. */
+    fun numeralSystemFor(langId: String): NumeralSystem =
+        numeralSystemByLang[langId] ?: NumeralSystem.AUTO
+}
 
 /**
  * Suggestion-strip content options, grouped into their own object (see
@@ -1504,6 +1510,25 @@ private fun decodeWhisperModelByLang(raw: String): Map<String, String> =
             val eq = entry.indexOf('=')
             if (eq <= 0 || eq == entry.length - 1) return@mapNotNull null
             entry.substring(0, eq) to entry.substring(eq + 1)
+        }
+        .toMap()
+
+/** Serializes the per-language numeral map to a compact `lang=SYSTEM;...` string. */
+private fun encodeNumeralSystems(map: Map<String, NumeralSystem>): String =
+    map.entries
+        .filter { it.key.isNotEmpty() && it.value != NumeralSystem.AUTO }
+        .joinToString(";") { (language, system) -> "$language=${system.name}" }
+
+private fun decodeNumeralSystems(raw: String): Map<String, NumeralSystem> =
+    raw.split(';')
+        .filter { it.isNotEmpty() }
+        .mapNotNull { entry ->
+            val eq = entry.indexOf('=')
+            if (eq <= 0 || eq == entry.length - 1) return@mapNotNull null
+            val system = runCatching {
+                NumeralSystem.valueOf(entry.substring(eq + 1))
+            }.getOrNull() ?: return@mapNotNull null
+            entry.substring(0, eq) to system
         }
         .toMap()
 
@@ -1663,7 +1688,7 @@ class SettingsRepository(private val context: Context) {
         private val NUMBER_ROW_SHIFT_SYMBOLS = booleanPreferencesKey("number_row_shift_symbols")
         private val SMART_HIT_DETECTION = booleanPreferencesKey("smart_hit_detection")
         private val SPACEBAR_DISPLAY = stringPreferencesKey("spacebar_display")
-        private val NUMERAL_SYSTEM = stringPreferencesKey("numeral_system")
+        private val NUMERAL_SYSTEM_BY_LANG = stringPreferencesKey("numeral_system_by_lang")
         private val NUMERAL_COMMIT_SCOPE = stringPreferencesKey("numeral_commit_scope")
         private val BACKSPACE_SWIPE_DELETE = booleanPreferencesKey("backspace_swipe_delete")
         private val HARDWARE_KEYBOARD_INPUT = booleanPreferencesKey("hardware_keyboard_input")
@@ -2117,9 +2142,9 @@ class SettingsRepository(private val context: Context) {
                 spacebarDisplay = p[SPACEBAR_DISPLAY]
                     ?.let { runCatching { SpacebarDisplay.valueOf(it) }.getOrNull() }
                     ?: defaults.layoutBehavior.spacebarDisplay,
-                numeralSystem = p[NUMERAL_SYSTEM]
-                    ?.let { runCatching { NumeralSystem.valueOf(it) }.getOrNull() }
-                    ?: defaults.layoutBehavior.numeralSystem,
+                numeralSystemByLang = p[NUMERAL_SYSTEM_BY_LANG]
+                    ?.let { decodeNumeralSystems(it) }
+                    ?: defaults.layoutBehavior.numeralSystemByLang,
                 numeralCommitScope = p[NUMERAL_COMMIT_SCOPE]
                     ?.let { runCatching { NumeralCommitScope.valueOf(it) }.getOrNull() }
                     ?: defaults.layoutBehavior.numeralCommitScope,
@@ -3514,8 +3539,19 @@ class SettingsRepository(private val context: Context) {
     suspend fun setSmartHitDetection(value: Boolean) =
         context.dataStore.edit { it[SMART_HIT_DETECTION] = value }
 
-    suspend fun setNumeralSystem(value: NumeralSystem) =
-        context.dataStore.edit { it[NUMERAL_SYSTEM] = value.name }
+    /**
+     * Picks [value] as [langId]'s numeral system. [NumeralSystem.AUTO] drops the
+     * entry, so the language falls back to its own default and the map stays
+     * compact.
+     */
+    suspend fun setNumeralSystemForLanguage(langId: String, value: NumeralSystem) =
+        context.dataStore.edit { prefs ->
+            val current = prefs[NUMERAL_SYSTEM_BY_LANG]?.let { decodeNumeralSystems(it) } ?: emptyMap()
+            val next =
+                if (value == NumeralSystem.AUTO) current - langId else current + (langId to value)
+            if (next == current) return@edit
+            prefs[NUMERAL_SYSTEM_BY_LANG] = encodeNumeralSystems(next)
+        }
 
     suspend fun setSpacebarDisplay(value: SpacebarDisplay) =
         context.dataStore.edit { it[SPACEBAR_DISPLAY] = value.name }

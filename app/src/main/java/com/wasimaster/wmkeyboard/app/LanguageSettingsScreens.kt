@@ -38,6 +38,7 @@ import com.wasimaster.wmkeyboard.core.layout.language
 import com.wasimaster.wmkeyboard.core.layout.resolveLayout
 import com.wasimaster.wmkeyboard.core.script.LanguageDef
 import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
+import com.wasimaster.wmkeyboard.core.script.NumeralSystem
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import kotlinx.coroutines.launch
@@ -154,6 +155,25 @@ internal fun LanguageDetailScreen(
                     }
                 }
             }
+        }
+    }
+
+    // Numerals are per language: Arabic can type ٠-٩ while English beside it
+    // stays 0-9. Auto is the language's own default, so most languages never
+    // need touching.
+    SettingsGroup("Numerals") {
+        item {
+            ChoiceSetting(
+                "Numeral system",
+                subtitle = "Digits the number row and keypad show while typing " +
+                    "${lang.englishName}",
+                info = "Auto uses ${lang.englishName}'s own digits — " +
+                    "${lang.numeralSystem.label} — and any other choice forces that system for " +
+                    "this language only. The keys always display these glyphs; where they are " +
+                    "also typed is set in Layout & size → Numerals.",
+                options = NumeralSystem.entries.map { it to it.label },
+                selected = settings.layoutBehavior.numeralSystemFor(langId),
+            ) { scope.launch { repository.setNumeralSystemForLanguage(langId, it) } }
         }
     }
 

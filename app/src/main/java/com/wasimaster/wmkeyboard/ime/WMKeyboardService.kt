@@ -2120,7 +2120,10 @@ open class WMKeyboardService : InputMethodService() {
             NumeralCommitScope.TEXT_ONLY -> !state.fieldKind.isNumericPad
         }
         if (!apply) return text
-        val digits = resolveNumeralDigits(state.settings.layoutBehavior.numeralSystem, state.language)
+        val digits = resolveNumeralDigits(
+            state.settings.layoutBehavior.numeralSystemFor(state.language.id),
+            state.language,
+        )
         return mapDigits(text, digits)
     }
 
