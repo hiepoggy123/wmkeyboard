@@ -517,6 +517,25 @@ class CjkComposerTest {
     }
 
     @Test
+    fun `jyutping backtracks when a longer syllable would dead-end`() {
+        // aakek (啞劇) is aa + kek, but aak is also a real syllable, so a greedy
+        // longest-match takes aak and then dead-ends on the leftover ek — losing a
+        // real word. Jyutping finals include -p/-t/-k, so a syllable can borrow the
+        // first letter of a vowel-initial one that follows; the split has to be
+        // searched, not guessed.
+        val inv = setOf("aa", "aak", "kek")
+        assertEquals(
+            listOf("aa", "kek"),
+            JyutpingSyllables.segment("aakek", inv).map { it.syllable },
+        )
+        assertEquals(listOf(2, 3), JyutpingSyllables.segment("aakek", inv).map { it.inputLen })
+        // Where the longest match does work out it is still preferred.
+        assertEquals(listOf("aak"), JyutpingSyllables.segment("aak", inv).map { it.syllable })
+        // A trailing half-typed syllable is still left as raw input.
+        assertEquals(listOf("aa"), JyutpingSyllables.segment("aaz", inv).map { it.syllable })
+    }
+
+    @Test
     fun `jyutping ranks whole-phrase above leading syllable and reports consumed input`() {
         JyutpingSyllables.valid = jyutFixture
         CjkDictionaries.jyutping = ConversionDictionary.parse(
