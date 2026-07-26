@@ -4173,13 +4173,23 @@ open class WMKeyboardService : InputMethodService() {
     }
 
     /**
-     * The offline Whisper model to run, or null when Whisper isn't the selected
-     * engine, isn't built into this flavor, or has no model downloaded yet.
+     * The offline Whisper model to run for the language currently being typed in,
+     * or null when Whisper isn't the selected engine, isn't built into this
+     * flavor, or has no model downloaded yet.
+     *
+     * Resolving per language rather than globally is what lets dictation follow
+     * the layout the way the system recognizer's locale does: switching to the
+     * German layout switches to whatever model handles German.
      */
     private fun whisperModel(): WhisperModel? {
         val s = _uiState.value.settings
         if (!isWhisperEnabled() || s.whisper.engine != "whisper") return null
-        return WhisperStore.effectiveModel(filesDir, s.whisper.modelId)
+        return WhisperStore.modelForLanguage(
+            filesDir,
+            _uiState.value.language.id,
+            s.whisper.modelId,
+            s.whisper.modelByLang,
+        )
     }
 
     /**

@@ -1168,8 +1168,19 @@ data class CameraSettings(
 data class WhisperSettings(
     /** Dictation backend: "system" = OS SpeechRecognizer, "whisper" = offline LiteRT. */
     val engine: String = "system",
-    /** Selected Whisper catalog id; blank falls back to the sole downloaded model. */
+    /**
+     * The fallback Whisper catalog id — the model used for any language without
+     * an entry in [modelByLang]. Blank falls back to the best downloaded model
+     * for the language being typed in.
+     */
     val modelId: String = "",
+    /**
+     * Language id → Whisper catalog id, for languages the user has pinned to a
+     * specific model. Dictation resolves the model from the language of the
+     * active layout, so a German-only graph can be the German choice while
+     * everything else stays on a multilingual one.
+     */
+    val modelByLang: Map<String, String> = emptyMap(),
     /** Force Whisper to translate speech to English instead of transcribing verbatim. */
     val translate: Boolean = false,
 )
@@ -1474,6 +1485,22 @@ private fun decodePerAppLayouts(raw: String): Map<String, String> =
         }
         .toMap()
 
+/** Serializes the per-language Whisper model map to a compact `lang=modelId;...` string. */
+private fun encodeWhisperModelByLang(map: Map<String, String>): String =
+    map.entries
+        .filter { it.key.isNotEmpty() && it.value.isNotEmpty() }
+        .joinToString(";") { (language, modelId) -> "$language=$modelId" }
+
+private fun decodeWhisperModelByLang(raw: String): Map<String, String> =
+    raw.split(';')
+        .filter { it.isNotEmpty() }
+        .mapNotNull { entry ->
+            val eq = entry.indexOf('=')
+            if (eq <= 0 || eq == entry.length - 1) return@mapNotNull null
+            entry.substring(0, eq) to entry.substring(eq + 1)
+        }
+        .toMap()
+
 /** Serializes the per-script font map to a compact `SCRIPT=fontId;...` string. */
 private fun encodeScriptFontIds(map: Map<String, String>): String =
     map.entries
@@ -1741,6 +1768,7 @@ class SettingsRepository(private val context: Context) {
         private val VOICE_SPOKEN_PUNCTUATION = booleanPreferencesKey("voice_spoken_punctuation")
         private val VOICE_ENGINE = stringPreferencesKey("voice_engine")
         private val WHISPER_MODEL_ID = stringPreferencesKey("whisper_model_id")
+        private val WHISPER_MODEL_BY_LANG = stringPreferencesKey("whisper_model_by_lang")
         private val WHISPER_TRANSLATE = booleanPreferencesKey("whisper_translate")
         private val CAMERA_PREFER_FRONT = booleanPreferencesKey("camera_prefer_front")
         private val CAMERA_MIRROR_FRONT = booleanPreferencesKey("camera_mirror_front")
@@ -2177,6 +2205,8 @@ class SettingsRepository(private val context: Context) {
             whisper = WhisperSettings(
                 engine = p[VOICE_ENGINE] ?: defaults.whisper.engine,
                 modelId = p[WHISPER_MODEL_ID] ?: defaults.whisper.modelId,
+                modelByLang = p[WHISPER_MODEL_BY_LANG]?.let { decodeWhisperModelByLang(it) }
+                    ?: defaults.whisper.modelByLang,
                 translate = p[WHISPER_TRANSLATE] ?: defaults.whisper.translate,
             ),
             camera = CameraSettings(
@@ -2476,6 +2506,28 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setWhisperModelId(value: String) =
         context.dataStore.edit { it[WHISPER_MODEL_ID] = value }
+
+    /**
+     * Pins [languageId] to a Whisper model, or drops the entry when [modelId] is
+     * blank so that language goes back to being resolved automatically.
+     */
+    suspend fun setWhisperModelForLanguage(languageId: String, modelId: String) =
+        context.dataStore.edit { prefs ->
+            val current = prefs[WHISPER_MODEL_BY_LANG]?.let { decodeWhisperModelByLang(it) } ?: emptyMap()
+            val next =
+                if (modelId.isBlank()) current - languageId else current + (languageId to modelId)
+            if (next == current) return@edit
+            prefs[WHISPER_MODEL_BY_LANG] = encodeWhisperModelByLang(next)
+        }
+
+    /** Drops every language pinned to [modelId] — used when that model is deleted. */
+    suspend fun clearWhisperModelAssignments(modelId: String) =
+        context.dataStore.edit { prefs ->
+            val current = prefs[WHISPER_MODEL_BY_LANG]?.let { decodeWhisperModelByLang(it) } ?: emptyMap()
+            val next = current.filterValues { it != modelId }
+            if (next == current) return@edit
+            prefs[WHISPER_MODEL_BY_LANG] = encodeWhisperModelByLang(next)
+        }
 
     suspend fun setWhisperTranslate(value: Boolean) =
         context.dataStore.edit { it[WHISPER_TRANSLATE] = value }

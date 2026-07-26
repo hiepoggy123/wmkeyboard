@@ -1,24 +1,24 @@
 package com.wasimaster.wmkeyboard.core.voice.whisper
 
 /**
- * How much a Whisper model can be trusted, shown as a badge next to its name.
- * [STANDARD] is the unremarkable middle — it gets no badge. None of these are
- * device-verified on this keyboard yet, so nothing claims [RECOMMENDED] beyond
- * the one balanced default we point users at.
+ * Whether a model is the one we point users at. [STANDARD] is everything else
+ * and gets no badge — the catalog is all the same published conversions, so
+ * there is nothing useful to say about the rest beyond their size and languages.
  */
 enum class WhisperTier(val badge: String?) {
     RECOMMENDED("Recommended"),
     STANDARD(null),
-    UNTESTED("Untested"),
 }
 
-/** Size class of a Whisper graph, ordered smallest to largest. Drives grouping and filters. */
+/**
+ * Size class of a Whisper graph, ordered smallest to largest. Drives grouping
+ * and filters. Medium and Large are deliberately absent: they are 0.8–1.6 GB
+ * downloads that need about as much RAM to run, which is not a keyboard.
+ */
 enum class WhisperSize(val label: String) {
     TINY("Tiny"),
     BASE("Base"),
     SMALL("Small"),
-    MEDIUM("Medium"),
-    LARGE("Large"),
 }
 
 /**
@@ -110,10 +110,15 @@ data class WhisperModel(
  * Not included on purpose: `whisper-large-v3` and `whisper-turbo` need a
  * 128-bin mel spectrogram, and both [WhisperMel] and the shipped
  * `filters_vocab_*.bin` filterbanks are 80-bin, so they would decode garbage;
- * `whisper-small.tflite` forces no task and duplicates [small-multi].
+ * `whisper-small.tflite` forces no task and duplicates [small-multi]; Medium and
+ * Large (multilingual and `.en`) exist upstream but are 0.8–1.6 GB and need
+ * comparable RAM, so no phone should be offered them.
  *
  * Order is a suggested-pick ranking, not a size ranking — the settings list
  * renders in catalog order, so the balanced default sits first.
+ *
+ * Only the multi-language graphs are shown unconditionally; the single-language
+ * ones surface once their language is enabled. See [visibleFor].
  */
 object WhisperCatalog {
 
@@ -155,7 +160,7 @@ object WhisperCatalog {
                 langCodes = TOP_WORLD,
                 selectableLang = true,
                 supportsTranslate = true,
-                tier = WhisperTier.RECOMMENDED,
+                tier = WhisperTier.STANDARD,
                 description = "Forces the language you are typing in instead of guessing " +
                     "it, which is noticeably more reliable on short phrases. Best pick " +
                     "when your languages are in its list.",
@@ -174,7 +179,7 @@ object WhisperCatalog {
                 langCodes = EUROPEAN_UNION,
                 selectableLang = true,
                 supportsTranslate = true,
-                tier = WhisperTier.UNTESTED,
+                tier = WhisperTier.STANDARD,
                 description = "Same language-forcing as the 40-language model, trimmed to " +
                     "European languages and a smaller download.",
             ),
@@ -192,7 +197,7 @@ object WhisperCatalog {
                 langCodes = TOP_WORLD,
                 selectableLang = true,
                 supportsTranslate = true,
-                tier = WhisperTier.UNTESTED,
+                tier = WhisperTier.STANDARD,
                 description = "Language-forcing plus Small-model accuracy. The most accurate " +
                     "option that still fits comfortably on a phone.",
             ),
@@ -210,9 +215,9 @@ object WhisperCatalog {
                 modelBytes = 78_508_512L,
                 vocabBytes = VOCAB_MULTI_BYTES,
                 supportsTranslate = true,
-                tier = WhisperTier.RECOMMENDED,
-                description = "Balanced accuracy and speed, and the only kind that covers " +
-                    "every language Whisper knows. Safe starting point.",
+                tier = WhisperTier.STANDARD,
+                description = "Balanced accuracy and speed, and covers every language " +
+                    "Whisper knows. Step down to this if Small is too slow.",
             ),
         )
         add(
@@ -241,40 +246,10 @@ object WhisperCatalog {
                 modelBytes = 248_684_440L,
                 vocabBytes = VOCAB_MULTI_BYTES,
                 supportsTranslate = true,
-                tier = WhisperTier.STANDARD,
-                description = "Noticeably better on accents and noise than Base, slower and larger.",
-            ),
-        )
-        add(
-            WhisperModel(
-                id = "medium-multi",
-                displayName = "Whisper Medium",
-                size = WhisperSize.MEDIUM,
-                repo = REPO_NYADLA,
-                modelFile = "whisper-medium-transcribe-translate.tflite",
-                vocabFile = VOCAB_MULTI,
-                modelBytes = 775_637_984L,
-                vocabBytes = VOCAB_MULTI_BYTES,
-                supportsTranslate = true,
-                tier = WhisperTier.UNTESTED,
-                description = "Near-desktop accuracy. Expect several seconds per phrase and " +
-                    "close to a gigabyte of RAM while it runs.",
-            ),
-        )
-        add(
-            WhisperModel(
-                id = "large-multi",
-                displayName = "Whisper Large",
-                size = WhisperSize.LARGE,
-                repo = REPO_NYADLA,
-                modelFile = "whisper-large-transcribe-translate.tflite",
-                vocabFile = VOCAB_MULTI,
-                modelBytes = 1_559_228_864L,
-                vocabBytes = VOCAB_MULTI_BYTES,
-                supportsTranslate = true,
-                tier = WhisperTier.UNTESTED,
-                description = "The most accurate Whisper graph there is, and far too big for " +
-                    "most phones — a 1.5 GB download that only high-memory devices can load.",
+                tier = WhisperTier.RECOMMENDED,
+                description = "The best accuracy that still runs on a phone — noticeably " +
+                    "better on accents and background noise than Base, and covers every " +
+                    "language Whisper knows.",
             ),
         )
 
@@ -284,7 +259,6 @@ object WhisperCatalog {
                 Single("tiny-en", WhisperSize.TINY, "whisper-tiny.en.tflite", "en", REPO, 41_486_616L),
                 Single("base-en", WhisperSize.BASE, "whisper-base.en.tflite", "en", REPO_NYADLA, 77_642_600L),
                 Single("small-en", WhisperSize.SMALL, "whisper-small.en.tflite", "en", REPO_NYADLA, 247_048_280L),
-                Single("medium-en", WhisperSize.MEDIUM, "whisper-medium.en.tflite", "en", REPO_NYADLA, 772_442_720L),
                 Single("base-de", WhisperSize.BASE, "whisper-base.de.tflite", "de", REPO, 78_448_496L),
                 Single("base-es", WhisperSize.BASE, "whisper-base.es.tflite", "es", REPO, 78_448_496L),
                 Single("small-es", WhisperSize.SMALL, "whisper-small.es.tflite", "es", REPO_NYADLA, 247_025_152L),
@@ -335,7 +309,7 @@ object WhisperCatalog {
                 modelBytes = entry.bytes,
                 vocabBytes = if (english) VOCAB_EN_BYTES else VOCAB_MULTI_BYTES,
                 langCodes = setOf(entry.code),
-                tier = if (entry.id == "tiny-en") WhisperTier.STANDARD else WhisperTier.UNTESTED,
+                tier = WhisperTier.STANDARD,
                 description = "$name only — no language detection step, so it is faster and " +
                     "a little more accurate than a multilingual graph of the same size.",
             )
@@ -348,22 +322,61 @@ object WhisperCatalog {
     fun byId(id: String): WhisperModel? = models.firstOrNull { it.id == id }
 
     /**
+     * The catalog as it should be offered to someone whose enabled languages are
+     * [codes]: every multi-language graph, plus the single-language graphs for
+     * languages they actually type in. Showing a German-only model to someone who
+     * has never enabled German is noise — and downloading one would be a wasted
+     * 78 MB, since nothing would ever route dictation to it.
+     */
+    fun visibleFor(codes: Set<String>): List<WhisperModel> =
+        models.filter { model -> model.fixedLang?.let { it in codes } ?: true }
+
+    /** The single-language graphs for one language, smallest first. */
+    fun singleLanguageFor(code: String): List<WhisperModel> =
+        models.filter { it.fixedLang == code }.sortedBy { it.sizeBytes }
+
+    /**
+     * Ranks [candidates] by how well each transcribes [code], best first. Used
+     * both to suggest downloads and to pick which downloaded model handles a
+     * language when the user has not said explicitly.
+     *
+     * A graph built for exactly this language wins, then one that can be *told*
+     * the language, then a plain auto-detecting one; within a rank, more
+     * parameters means better transcription, so bigger wins. Models that cannot
+     * do the language at all are dropped.
+     */
+    fun rankedFor(code: String, candidates: List<WhisperModel> = models): List<WhisperModel> =
+        candidates.filter { it.covers(code) }.sortedWith(
+            compareBy<WhisperModel> {
+                when {
+                    it.fixedLang == code -> 0
+                    it.selectableLang -> 1
+                    else -> 2
+                }
+            }.thenByDescending { it.sizeBytes },
+        )
+
+    /**
      * The models worth suggesting for an enabled-language set, best first: the
      * grouped or single-language graphs that actually cover those languages,
      * falling back to the all-languages default. Capped at [limit] so the
      * settings screen stays a shortlist rather than a second full catalog.
      */
     fun recommendedFor(codes: Set<String>, limit: Int = 4): List<WhisperModel> {
-        if (codes.isEmpty()) return listOfNotNull(byId("base-multi"))
+        val default = byId("small-multi")
+        if (codes.isEmpty()) return listOfNotNull(default)
         val picks = LinkedHashSet<WhisperModel>()
-        // Vetted before small: a tier we have actually checked is worth more than
-        // shaving a few MB off the download.
+        // The one we point at first, then the smallest download, so a shortlist
+        // spans the accuracy/size trade-off instead of listing near-clones.
         val bestFirst = compareBy<WhisperModel>({ it.tier != WhisperTier.RECOMMENDED }, { it.sizeBytes })
 
-        // A grouped graph that covers everything the user types beats anything
-        // else: one download, language forced per phrase.
+        // A grouped graph that covers everything the user types is the standout
+        // pick: one download, and the language forced per phrase. Among those that
+        // fit, the widest one goes first — it is the one that still fits after the
+        // user enables another language — and only then the smallest download.
         models.filter { it.selectableLang && it.coverageOf(codes) == codes.size }
-            .minWithOrNull(bestFirst)
+            .sortedWith(compareByDescending<WhisperModel> { it.langCodes.size }.thenBy { it.sizeBytes })
+            .firstOrNull()
             ?.let { picks += it }
 
         // Then the single-language graphs, one per language, so a one-language
@@ -374,7 +387,7 @@ object WhisperCatalog {
 
         // Always leave an all-languages escape hatch — the only thing that
         // covers a language with no dedicated graph.
-        byId("base-multi")?.let { picks += it }
+        default?.let { picks += it }
 
         // Partial grouped coverage is still useful when nothing above fit well.
         models.filter { it.selectableLang && it.coverageOf(codes) > 0 }

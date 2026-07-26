@@ -51,9 +51,13 @@ object WhisperStore {
         return model.takeIf { isDownloaded(filesDir, it) }
     }
 
+    /** Every catalog model whose files are both on disk. */
+    fun downloadedModels(filesDir: File): List<WhisperModel> =
+        WhisperCatalog.models.filter { isDownloaded(filesDir, it) }
+
     /** The one downloaded model's id when exactly one exists — the "only model" fallback. */
     fun soleDownloadedId(filesDir: File): String? =
-        WhisperCatalog.models.filter { isDownloaded(filesDir, it) }.map { it.id }.singleOrNull()
+        downloadedModels(filesDir).map { it.id }.singleOrNull()
 
     /**
      * The effective model to run: the explicit selection if downloaded, else
@@ -62,6 +66,61 @@ object WhisperStore {
     fun effectiveModel(filesDir: File, whisperModelId: String): WhisperModel? =
         selectedModel(filesDir, whisperModelId)
             ?: soleDownloadedId(filesDir)?.let { WhisperCatalog.byId(it) }
+
+    /**
+     * The model that should transcribe [languageId] — the language of the layout
+     * being typed in, so dictation follows the keyboard the way the system
+     * recognizer's locale does.
+     *
+     * In order: the model the user pinned to this language; a single-language
+     * graph for it that is already downloaded (downloading `base.de` is itself
+     * the statement that German should use it); the fallback [defaultModelId];
+     * then the best of whatever else is on disk. The last step can return a model
+     * that does not cover the language at all — dictating then produces wrong
+     * words rather than nothing, which the settings screen warns about, and is
+     * still better than a mic that silently does nothing.
+     */
+    fun modelForLanguage(
+        filesDir: File,
+        languageId: String,
+        defaultModelId: String,
+        modelByLang: Map<String, String>,
+    ): WhisperModel? =
+        pickForLanguage(downloadedModels(filesDir), languageId, defaultModelId, modelByLang)
+
+    /**
+     * [modelForLanguage] over an already-known downloaded set — the settings screen
+     * tracks that set in state, so routing can be shown per language without
+     * walking the filesystem on every recomposition.
+     */
+    fun pickForLanguage(
+        downloaded: List<WhisperModel>,
+        languageId: String,
+        defaultModelId: String,
+        modelByLang: Map<String, String>,
+    ): WhisperModel? {
+        if (downloaded.isEmpty()) return null
+        val code = WhisperLanguages.codeForLanguage(languageId)
+
+        modelByLang[languageId]
+            ?.let { id -> downloaded.firstOrNull { it.id == id } }
+            ?.let { if (code == null || it.covers(code)) return it }
+
+        if (code != null) {
+            WhisperCatalog.singleLanguageFor(code)
+                .filter { model -> downloaded.any { it.id == model.id } }
+                .maxByOrNull { it.sizeBytes }
+                ?.let { return it }
+        }
+
+        downloaded.firstOrNull { it.id == defaultModelId }
+            ?.let { if (code == null || it.covers(code)) return it }
+
+        if (code != null) {
+            WhisperCatalog.rankedFor(code, downloaded).firstOrNull()?.let { return it }
+        }
+        return downloaded.firstOrNull { it.id == defaultModelId } ?: downloaded.first()
+    }
 
     /** Directories left by models dropped from the catalog — offered for cleanup. */
     fun orphanDirs(filesDir: File): List<File> {

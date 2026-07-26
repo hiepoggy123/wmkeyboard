@@ -58,6 +58,91 @@ class WhisperStoreTest {
         assertEquals(model.id, WhisperStore.effectiveModel(d, model.id)?.id)
     }
 
+    private fun models(vararg ids: String) = ids.map { WhisperCatalog.byId(it)!! }
+
+    private fun pick(
+        downloaded: List<WhisperModel>,
+        languageId: String,
+        fallback: String = "",
+        pinned: Map<String, String> = emptyMap(),
+    ) = WhisperStore.pickForLanguage(downloaded, languageId, fallback, pinned)?.id
+
+    @Test
+    fun `nothing downloaded means no model for any language`() {
+        assertNull(pick(emptyList(), "en"))
+    }
+
+    @Test
+    fun `a pinned model wins for its language only`() {
+        val disk = models("small-multi", "base-de")
+        assertEquals("base-de", pick(disk, "de", pinned = mapOf("de" to "base-de")))
+        // Pinning German says nothing about English.
+        assertEquals("small-multi", pick(disk, "en", pinned = mapOf("de" to "base-de")))
+    }
+
+    @Test
+    fun `a pin to a model that cannot do the language is ignored`() {
+        val disk = models("small-multi", "base-de")
+        // base-de is German-only; asking it for French falls through to the
+        // multilingual graph rather than transcribing French as German.
+        assertEquals("small-multi", pick(disk, "fr", pinned = mapOf("fr" to "base-de")))
+        // Same when the pinned model is not downloaded at all.
+        assertEquals("small-multi", pick(disk, "en", pinned = mapOf("en" to "small-en")))
+    }
+
+    @Test
+    fun `downloading a single-language graph routes that language to it`() {
+        // Downloading base-de is itself the statement that German uses it — no
+        // explicit pin needed — while everything else stays on the fallback.
+        val disk = models("small-multi", "base-de")
+        assertEquals("base-de", pick(disk, "de", fallback = "small-multi"))
+        assertEquals("small-multi", pick(disk, "fr", fallback = "small-multi"))
+    }
+
+    @Test
+    fun `the larger single-language graph wins when both sizes are downloaded`() {
+        assertEquals("small-ur", pick(models("base-ur", "small-ur"), "ur"))
+    }
+
+    @Test
+    fun `norwegian resolves through whisper's own code`() {
+        // Our id is "nb"; the grouped graph's token is "no".
+        assertEquals("base-world", pick(models("base-world"), "nb"))
+    }
+
+    @Test
+    fun `the fallback is used for languages with no dedicated graph`() {
+        val disk = models("base-multi", "small-multi")
+        assertEquals("base-multi", pick(disk, "bn", fallback = "base-multi"))
+        // With no fallback set, ranking picks the better of what is on disk.
+        assertEquals("small-multi", pick(disk, "bn"))
+    }
+
+    @Test
+    fun `a language nothing on disk covers still gets a model to dictate with`() {
+        // Only a German graph is downloaded and the user dictates Bangla: better
+        // to hand back something (settings warns about it) than a dead mic.
+        assertEquals("base-de", pick(models("base-de"), "bn"))
+    }
+
+    @Test
+    fun `a language whisper does not know at all falls back too`() {
+        // "tlh" (Klingon) is a keyboard language with no Whisper code.
+        assertEquals("small-multi", pick(models("small-multi"), "tlh", fallback = "small-multi"))
+    }
+
+    @Test
+    fun `modelForLanguage reads the same answer off disk`() {
+        val d = tmp.root
+        val de = WhisperCatalog.byId("base-de")!!
+        for (m in listOf(model, de)) {
+            materialize(WhisperStore.modelFile(d, m))
+            materialize(WhisperStore.vocabFile(d, m))
+        }
+        assertEquals("base-de", WhisperStore.modelForLanguage(d, "de", model.id, emptyMap())?.id)
+        assertEquals(model.id, WhisperStore.modelForLanguage(d, "en", model.id, emptyMap())?.id)
+    }
+
     @Test
     fun `orphan dir is detected and cleanable`() {
         val d = tmp.root

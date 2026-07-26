@@ -16,9 +16,12 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Delete
@@ -29,6 +32,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -67,11 +71,17 @@ import kotlinx.coroutines.withContext
 private const val WHISPER_METERED_CONFIRM_BYTES = 150_000_000L
 
 /**
- * The offline-Whisper model manager: what you have, what suits the languages
- * you actually type in, and the full catalog behind one expander so 25 entries
- * do not land on screen at once. Download state lives in
- * [WhisperDownloadManager], so navigating away or rotating never loses an
- * in-flight download. Shown only in the full flavor (gated by the caller).
+ * The offline-Whisper model manager. Two things are on this screen: which model
+ * transcribes each language you type in, and what you can download.
+ *
+ * There is deliberately no global "use this model" switch. Dictation resolves the
+ * model from the language of the active layout — the same way the system
+ * recognizer follows the layout's locale — so the meaningful choice is per
+ * language, and that is what [WhisperRoutingCard] edits.
+ *
+ * Download state lives in [WhisperDownloadManager], so navigating away or
+ * rotating never loses an in-flight download. Shown only in the full flavor
+ * (gated by the caller).
  */
 @Composable
 internal fun WhisperModelManager(repository: SettingsRepository, settings: KeyboardSettings) {
@@ -82,17 +92,17 @@ internal fun WhisperModelManager(repository: SettingsRepository, settings: Keybo
     var storageUsed by remember { mutableStateOf(0L) }
     var orphanBytes by remember { mutableStateOf(0L) }
     var meteredPending by remember { mutableStateOf<WhisperModel?>(null) }
+    var routingFor by remember { mutableStateOf<LanguageDef?>(null) }
     var browseOpen by remember { mutableStateOf(false) }
     var sizeFilter by remember { mutableStateOf<WhisperSize?>(null) }
-    var myLanguagesOnly by remember { mutableStateOf(true) }
     val expanded = remember { mutableStateMapOf<String, Boolean>() }
 
     LaunchedEffect(Unit) { WhisperDownloadManager.refresh(filesDir) }
     LaunchedEffect(states) {
         storageUsed = withContext(Dispatchers.IO) { WhisperStore.totalBytesUsed(filesDir) }
         orphanBytes = withContext(Dispatchers.IO) { WhisperStore.orphanBytes(filesDir) }
-        // The only model on disk needs no selection step: adopt it — covers
-        // both "first download just finished" and "selection was deleted".
+        // The only model on disk needs no choosing: adopt it as the fallback —
+        // covers both "first download just finished" and "the fallback was deleted".
         if (WhisperStore.selectedModel(filesDir, settings.whisper.modelId) == null) {
             WhisperStore.soleDownloadedId(filesDir)?.let { repository.setWhisperModelId(it) }
         }
@@ -121,9 +131,13 @@ internal fun WhisperModelManager(repository: SettingsRepository, settings: Keybo
     val onDisk = WhisperCatalog.models.filter {
         (states[it.id] ?: DownloadStatus.NotDownloaded) is DownloadStatus.Downloaded
     }
-    val yours = onDisk.sortedByDescending { it.id == settings.whisper.modelId }
-    val selectedId = settings.whisper.modelId.ifBlank { WhisperStore.soleDownloadedId(filesDir) }
-    val inUse = onDisk.firstOrNull { it.id == selectedId }
+    // Language id → the model that will actually transcribe it, so both the
+    // routing card and the "used for" chips read from one answer.
+    val routing = settings.enabledLanguages.associate { language ->
+        language.id to WhisperStore.pickForLanguage(
+            onDisk, language.id, settings.whisper.modelId, settings.whisper.modelByLang,
+        )
+    }
     val suggestions = WhisperCatalog.recommendedFor(enabledCodes) - onDisk.toSet()
 
     @Composable
@@ -131,36 +145,45 @@ internal fun WhisperModelManager(repository: SettingsRepository, settings: Keybo
         WhisperModelRow(
             model = model,
             status = states[model.id] ?: DownloadStatus.NotDownloaded,
-            selected = model.id == selectedId,
             downloadBusy = WhisperDownloadManager.isBusy,
             enabledCodes = enabledCodes,
+            usedFor = settings.enabledLanguages
+                .filter { routing[it.id]?.id == model.id }
+                .map { it.englishName },
+            isFallback = model.id == settings.whisper.modelId,
             expanded = expanded[model.id] == true,
             onToggleExpand = { expanded[model.id] = expanded[model.id] != true },
             onDownload = { requestDownload(model) },
             onCancel = { WhisperDownloadManager.cancel() },
-            onSelect = { scope.launch { repository.setWhisperModelId(model.id) } },
             onDelete = {
                 WhisperDownloadManager.delete(filesDir, model)
-                if (settings.whisper.modelId == model.id) {
-                    scope.launch { repository.setWhisperModelId("") }
+                scope.launch {
+                    repository.clearWhisperModelAssignments(model.id)
+                    if (settings.whisper.modelId == model.id) repository.setWhisperModelId("")
                 }
             },
         )
     }
 
+    WhisperRoutingCard(
+        languages = settings.enabledLanguages,
+        routing = routing,
+        pinned = settings.whisper.modelByLang,
+        anyDownloaded = onDisk.isNotEmpty(),
+        onEdit = { routingFor = it },
+    )
+
     WhisperSectionHeader(
         "Your voice models",
-        if (yours.isEmpty()) "" else formatBytes(yours.sumOf { it.sizeBytes }),
+        if (onDisk.isEmpty()) "" else formatBytes(onDisk.sumOf { it.sizeBytes }),
     )
-    if (yours.isEmpty()) {
+    if (onDisk.isEmpty()) {
         CaptionText("Nothing downloaded yet — pick one below to dictate fully offline.")
     } else {
         SettingsGroup {
-            for (model in yours) item { modelRow(model) }
+            for (model in onDisk) item { modelRow(model) }
         }
     }
-
-    WhisperCoverageCard(inUse, settings.enabledLanguages)
 
     if (suggestions.isNotEmpty()) {
         WhisperSectionHeader("Suggested for your languages", "")
@@ -172,12 +195,9 @@ internal fun WhisperModelManager(repository: SettingsRepository, settings: Keybo
     WhisperBrowseSection(
         open = browseOpen,
         onToggle = { browseOpen = !browseOpen },
-        total = WhisperCatalog.models.size,
+        visible = WhisperCatalog.visibleFor(enabledCodes),
         sizeFilter = sizeFilter,
         onSizeFilter = { sizeFilter = it },
-        myLanguagesOnly = myLanguagesOnly,
-        onMyLanguagesOnly = { myLanguagesOnly = it },
-        enabledCodes = enabledCodes,
         row = { modelRow(it) },
     )
 
@@ -199,6 +219,20 @@ internal fun WhisperModelManager(repository: SettingsRepository, settings: Keybo
                 }
             }) { Text("Free up ${formatBytes(orphanBytes)}") }
         }
+    }
+
+    routingFor?.let { language ->
+        WhisperRoutingDialog(
+            language = language,
+            downloaded = onDisk,
+            resolved = routing[language.id],
+            pinnedId = settings.whisper.modelByLang[language.id],
+            onPick = { id ->
+                scope.launch { repository.setWhisperModelForLanguage(language.id, id) }
+                routingFor = null
+            },
+            onDismiss = { routingFor = null },
+        )
     }
 
     meteredPending?.let { model ->
@@ -225,79 +259,183 @@ internal fun WhisperModelManager(repository: SettingsRepository, settings: Keybo
 }
 
 /**
- * The "does this model actually speak my languages" answer, as one chip per
- * enabled language tinted by whether the model in use covers it. This is the
- * trap worth surfacing: a grouped or single-language model transcribes a
- * language it was not built for into confident nonsense rather than failing.
+ * One row per enabled language, each naming the model that will transcribe it.
+ * This replaces the old single "use this model" selection: dictation picks the
+ * model from the language of the active layout, so the choice only means anything
+ * per language.
+ *
+ * The failure this surfaces is a model transcribing a language it was not built
+ * for — that produces confident wrong words rather than an error, so a language
+ * its model cannot handle is called out in the error colour.
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun WhisperCoverageCard(inUse: WhisperModel?, languages: List<LanguageDef>) {
+private fun WhisperRoutingCard(
+    languages: List<LanguageDef>,
+    routing: Map<String, WhisperModel?>,
+    pinned: Map<String, String>,
+    anyDownloaded: Boolean,
+    onEdit: (LanguageDef) -> Unit,
+) {
     if (languages.isEmpty()) return
-    // Classified up front rather than while emitting chips: the row's content
-    // lambda can recompose on its own, and appending to a list from there would
-    // grow it every pass.
-    val codes = languages.map { it to WhisperLanguages.codeForLanguage(it.id) }
-    val unknown = codes.filter { it.second == null }.map { it.first.englishName }
-    val missing = if (inUse == null) emptyList() else {
-        codes.filter { (_, code) -> code != null && !inUse.covers(code) }.map { it.first.englishName }
-    }
-    val note = when {
-        inUse == null -> "Download a model and these are the languages it needs to handle."
-        missing.isEmpty() && unknown.isEmpty() ->
-            "${inUse.displayName} handles every language you type in."
-        missing.isNotEmpty() ->
-            "${inUse.displayName} does not cover ${missing.joinToString(", ")} — " +
-                "dictating those produces wrong words rather than an error. " +
-                "The plain multilingual models cover all 99 languages Whisper knows."
-        else ->
-            "Whisper has no model for ${unknown.joinToString(", ")}; " +
-                "use the system recognizer for those."
-    }
-
-    SettingsGroup("Your languages") {
-        item {
-            Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
+    SettingsGroup("Model per language") {
+        for (language in languages) {
+            item {
+                val code = WhisperLanguages.codeForLanguage(language.id)
+                val model = routing[language.id]
+                val covered = code != null && model != null && model.covers(code)
+                val detail = when {
+                    code == null ->
+                        "Whisper has no model for this language — dictation falls back to " +
+                            "the system recognizer."
+                    model == null -> "No model downloaded yet."
+                    !covered ->
+                        "${model.displayName} cannot transcribe this language — it will " +
+                            "produce wrong words. Download one that covers it."
+                    pinned[language.id] == model.id -> "${model.displayName} · your choice"
+                    else -> "${model.displayName} · chosen automatically"
+                }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(18.dp))
+                        .then(
+                            if (code != null && anyDownloaded) {
+                                Modifier.clickable { onEdit(language) }
+                            } else {
+                                Modifier
+                            },
+                        )
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
                 ) {
-                    for ((language, code) in codes) {
-                        val covered = code != null && (inUse == null || inUse.covers(code))
-                        WhisperChip(
-                            language.englishName,
-                            tone = if (covered) WhisperChipTone.NEUTRAL else WhisperChipTone.WARN,
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(language.englishName, style = MaterialTheme.typography.bodyLarge)
+                        Text(
+                            detail,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (code != null && model != null && !covered) {
+                                MaterialTheme.colorScheme.error
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            },
+                            modifier = Modifier.padding(top = 2.dp),
+                        )
+                    }
+                    if (code != null && anyDownloaded) {
+                        Text(
+                            "Change",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(start = 12.dp),
                         )
                     }
                 }
-                Text(
-                    note,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = if (missing.isNotEmpty()) MaterialTheme.colorScheme.error
-                    else MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 10.dp),
-                )
             }
+        }
+    }
+    CaptionText(
+        "Dictation uses the language of the layout you are typing on. Models built " +
+            "for one language, and the multi-language ones that accept a language " +
+            "input, are told which language to expect instead of guessing it from a " +
+            "short clip.",
+    )
+}
+
+/** Picks the model for one language: automatic, or a specific downloaded one. */
+@Composable
+private fun WhisperRoutingDialog(
+    language: LanguageDef,
+    downloaded: List<WhisperModel>,
+    resolved: WhisperModel?,
+    pinnedId: String?,
+    onPick: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val code = WhisperLanguages.codeForLanguage(language.id) ?: return
+    // Ones that can actually do this language first; the rest stay pickable but
+    // are labelled, since choosing one is a mistake worth naming rather than hiding.
+    val ordered = WhisperCatalog.rankedFor(code, downloaded) +
+        downloaded.filterNot { it.covers(code) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Model for ${language.englishName}") },
+        text = {
+            Column(
+                modifier = Modifier
+                    .heightIn(max = 420.dp)
+                    .verticalScroll(rememberScrollState()),
+            ) {
+                WhisperRoutingOption(
+                    title = "Automatic",
+                    detail = resolved?.let { "Currently ${it.displayName}" }
+                        ?: "No model downloaded yet",
+                    selected = pinnedId == null,
+                    onClick = { onPick("") },
+                )
+                for (model in ordered) {
+                    WhisperRoutingOption(
+                        title = model.displayName,
+                        detail = when {
+                            !model.covers(code) -> "Does not cover ${language.englishName}"
+                            model.fixedLang == code -> "Built for ${language.englishName} only"
+                            model.selectableLang -> "Told to expect ${language.englishName}"
+                            else -> "Detects the language itself"
+                        },
+                        selected = pinnedId == model.id,
+                        warn = !model.covers(code),
+                        onClick = { onPick(model.id) },
+                    )
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Done") } },
+    )
+}
+
+@Composable
+private fun WhisperRoutingOption(
+    title: String,
+    detail: String,
+    selected: Boolean,
+    warn: Boolean = false,
+    onClick: () -> Unit,
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick)
+            .padding(vertical = 4.dp),
+    ) {
+        RadioButton(selected = selected, onClick = onClick)
+        Column(modifier = Modifier.padding(start = 4.dp)) {
+            Text(title, style = MaterialTheme.typography.bodyMedium)
+            Text(
+                detail,
+                style = MaterialTheme.typography.bodySmall,
+                color = if (warn) MaterialTheme.colorScheme.error
+                else MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }
 
 /**
- * The full catalog behind an expander, with a size filter and a "only my
- * languages" switch — 25 entries is a browse list, not something to scroll past
- * on the way to the rest of voice settings.
+ * The catalog behind an expander, split by whether a model handles any language
+ * or exactly one. Single-language entries only appear for languages that are
+ * actually enabled — see [WhisperCatalog.visibleFor] — so this list grows with
+ * the Languages screen instead of listing graphs nothing would ever route to.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun WhisperBrowseSection(
     open: Boolean,
     onToggle: () -> Unit,
-    total: Int,
+    visible: List<WhisperModel>,
     sizeFilter: WhisperSize?,
     onSizeFilter: (WhisperSize?) -> Unit,
-    myLanguagesOnly: Boolean,
-    onMyLanguagesOnly: (Boolean) -> Unit,
-    enabledCodes: Set<String>,
     row: @Composable (WhisperModel) -> Unit,
 ) {
     val turn by animateFloatAsState(if (open) 180f else 0f, label = "whisperBrowseChevron")
@@ -311,7 +449,7 @@ private fun WhisperBrowseSection(
             .padding(horizontal = 16.dp, vertical = 14.dp),
     ) {
         Text(
-            if (open) "All $total models" else "Browse all $total models",
+            if (open) "All ${visible.size} models" else "Browse all ${visible.size} models",
             style = MaterialTheme.typography.titleSmall,
             color = MaterialTheme.colorScheme.primary,
             modifier = Modifier.weight(1f),
@@ -325,19 +463,10 @@ private fun WhisperBrowseSection(
     }
     if (!open) return
 
-    // Filtering by language only means anything once Whisper knows the language.
-    val canFilterByLanguage = enabledCodes.isNotEmpty()
     FlowRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
     ) {
-        if (canFilterByLanguage) {
-            FilterChip(
-                selected = myLanguagesOnly,
-                onClick = { onMyLanguagesOnly(!myLanguagesOnly) },
-                label = { Text("My languages") },
-            )
-        }
         for (size in WhisperSize.entries) {
             FilterChip(
                 selected = sizeFilter == size,
@@ -347,22 +476,29 @@ private fun WhisperBrowseSection(
         }
     }
 
-    val shown = WhisperCatalog.models.filter { model ->
-        (sizeFilter == null || model.size == sizeFilter) &&
-            (!myLanguagesOnly || !canFilterByLanguage || model.coverageOf(enabledCodes) > 0)
-    }
+    val shown = visible.filter { sizeFilter == null || it.size == sizeFilter }
+    val anyLanguage = shown.filter { it.fixedLang == null }
+    val oneLanguage = shown.filter { it.fixedLang != null }
     if (shown.isEmpty()) {
-        CaptionText("No model matches those filters.")
-    } else {
+        CaptionText("No model matches that size.")
+    }
+    if (anyLanguage.isNotEmpty()) {
+        WhisperSectionHeader("Any language", "")
         SettingsGroup {
-            for (model in shown) item { row(model) }
+            for (model in anyLanguage) item { row(model) }
+        }
+    }
+    if (oneLanguage.isNotEmpty()) {
+        WhisperSectionHeader("Built for one language", "")
+        SettingsGroup {
+            for (model in oneLanguage) item { row(model) }
         }
     }
     CaptionText(
-        "Sizes go Tiny → Large: bigger is more accurate but slower to download " +
-            "and to transcribe, and Medium and Large need a lot of memory. " +
-            "Models marked Recommended are the ones checked on this keyboard; " +
-            "the rest come straight from the public conversions and are untested here.",
+        "Sizes go Tiny → Base → Small: bigger is more accurate but slower to " +
+            "download and to transcribe. A model built for one language beats a " +
+            "multi-language model of the same size at that language. Single-language " +
+            "models appear here once you enable the language on the Languages screen.",
     )
 }
 
@@ -392,29 +528,27 @@ private fun WhisperSectionHeader(title: String, trailing: String) {
 
 /**
  * One catalog entry: name, a chip row carrying the facts that used to run
- * together in a paragraph-long subtitle, and details on tap. A downloaded row
- * behaves like a radio option (tap selects); an undownloaded one expands.
+ * together in a paragraph-long subtitle, and details on tap. Which languages a
+ * downloaded model serves is shown here but chosen in [WhisperRoutingCard].
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun WhisperModelRow(
     model: WhisperModel,
     status: DownloadStatus,
-    selected: Boolean,
     downloadBusy: Boolean,
     enabledCodes: Set<String>,
+    usedFor: List<String>,
+    isFallback: Boolean,
     expanded: Boolean,
     onToggleExpand: () -> Unit,
     onDownload: () -> Unit,
     onCancel: () -> Unit,
-    onSelect: () -> Unit,
     onDelete: () -> Unit,
 ) {
-    val downloaded = status is DownloadStatus.Downloaded
-    val activeSelection = selected && downloaded
-    val showDetail = expanded || activeSelection
+    val inUse = status is DownloadStatus.Downloaded && usedFor.isNotEmpty()
     val background by animateColorAsState(
-        if (activeSelection) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+        if (inUse) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
         else Color.Transparent,
         animationSpec = tween(300),
         label = "whisperRowBackground",
@@ -425,7 +559,7 @@ private fun WhisperModelRow(
             .fillMaxWidth()
             .clip(RoundedCornerShape(18.dp))
             .background(background)
-            .clickable { if (downloaded && !selected) onSelect() else onToggleExpand() }
+            .clickable(onClick = onToggleExpand)
             .animateContentSize(),
     ) {
         Row(
@@ -436,15 +570,17 @@ private fun WhisperModelRow(
                 Text(
                     model.displayName,
                     style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = if (activeSelection) FontWeight.SemiBold else null,
+                    fontWeight = if (inUse) FontWeight.SemiBold else null,
                 )
                 Spacer(Modifier.height(6.dp))
                 FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
-                    if (activeSelection) WhisperChip("In use", WhisperChipTone.PRIMARY)
-                    if (model.tier == WhisperTier.RECOMMENDED && !activeSelection) {
+                    if (inUse) {
+                        WhisperChip("Used for ${usedFor.joinToString(", ")}", WhisperChipTone.PRIMARY)
+                    }
+                    if (model.tier == WhisperTier.RECOMMENDED && !inUse) {
                         WhisperChip("Recommended", WhisperChipTone.PRIMARY)
                     }
                     WhisperChip(model.sizeLabel, WhisperChipTone.NEUTRAL)
@@ -470,26 +606,21 @@ private fun WhisperModelRow(
             }
         }
 
-        if (showDetail) {
+        if (expanded) {
             Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 4.dp)) {
                 Text(
                     model.description,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                WhisperLanguageDetail(model, enabledCodes)
+                WhisperLanguageDetail(model, enabledCodes, isFallback)
             }
         }
 
         when (status) {
-            is DownloadStatus.NotDownloaded -> Unit
+            is DownloadStatus.NotDownloaded, is DownloadStatus.Downloaded -> Unit
             is DownloadStatus.Downloading -> WhisperDownloadProgress(status.bytes, status.total)
             is DownloadStatus.Paused -> CaptionText("Paused at ${formatBytes(status.bytes)}")
-            is DownloadStatus.Downloaded -> if (!selected) {
-                Row(modifier = Modifier.padding(horizontal = 8.dp)) {
-                    TextButton(onClick = onSelect) { Text("Use this model") }
-                }
-            }
             is DownloadStatus.Failed -> CaptionText(status.message, error = true)
         }
     }
@@ -497,9 +628,13 @@ private fun WhisperModelRow(
 
 /** The expanded row's language line: what it covers, and how that lands against your set. */
 @Composable
-private fun WhisperLanguageDetail(model: WhisperModel, enabledCodes: Set<String>) {
+private fun WhisperLanguageDetail(
+    model: WhisperModel,
+    enabledCodes: Set<String>,
+    isFallback: Boolean,
+) {
     val lines = buildList {
-        if (model.langCodes.isNotEmpty() && model.langCodes.size > 1) {
+        if (model.langCodes.size > 1) {
             add("Covers ${WhisperLanguages.labels(model.langCodes).joinToString(", ")}.")
         }
         if (enabledCodes.isNotEmpty()) {
@@ -511,6 +646,7 @@ private fun WhisperLanguageDetail(model: WhisperModel, enabledCodes: Set<String>
             }
         }
         if (model.supportsTranslate) add("Can translate speech to English.")
+        if (isFallback) add("Used for any language you have not chosen a model for.")
     }
     if (lines.isEmpty()) return
     Text(
@@ -521,7 +657,7 @@ private fun WhisperLanguageDetail(model: WhisperModel, enabledCodes: Set<String>
     )
 }
 
-private enum class WhisperChipTone { NEUTRAL, PRIMARY, WARN }
+private enum class WhisperChipTone { NEUTRAL, PRIMARY }
 
 /** A small fact chip — the row's metadata reads as chips instead of a run-on subtitle. */
 @Composable
@@ -529,12 +665,10 @@ private fun WhisperChip(text: String, tone: WhisperChipTone) {
     val container = when (tone) {
         WhisperChipTone.NEUTRAL -> MaterialTheme.colorScheme.surfaceVariant
         WhisperChipTone.PRIMARY -> MaterialTheme.colorScheme.primaryContainer
-        WhisperChipTone.WARN -> MaterialTheme.colorScheme.errorContainer
     }
     val content = when (tone) {
         WhisperChipTone.NEUTRAL -> MaterialTheme.colorScheme.onSurfaceVariant
         WhisperChipTone.PRIMARY -> MaterialTheme.colorScheme.onPrimaryContainer
-        WhisperChipTone.WARN -> MaterialTheme.colorScheme.onErrorContainer
     }
     Text(
         text,

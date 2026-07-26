@@ -97,16 +97,16 @@ class WhisperCatalogTest {
         // fallback is always offered.
         val german = WhisperCatalog.recommendedFor(setOf("de"))
         assertTrue(german.any { it.fixedLang == "de" })
-        assertTrue(german.any { it.id == "base-multi" })
+        assertTrue(german.any { it.id == "small-multi" })
 
         // Two languages both inside TOP_WORLD: the grouped graph leads.
         assertEquals("base-world", WhisperCatalog.recommendedFor(setOf("de", "fr")).first().id)
 
         // A language no grouped graph covers still gets the multilingual one.
-        assertTrue(WhisperCatalog.recommendedFor(setOf("bn")).any { it.id == "base-multi" })
+        assertTrue(WhisperCatalog.recommendedFor(setOf("bn")).any { it.id == "small-multi" })
 
         // No enabled languages at all still yields a sane default.
-        assertEquals(listOf("base-multi"), WhisperCatalog.recommendedFor(emptySet()).map { it.id })
+        assertEquals(listOf("small-multi"), WhisperCatalog.recommendedFor(emptySet()).map { it.id })
     }
 
     @Test
@@ -114,5 +114,71 @@ class WhisperCatalogTest {
         val many = setOf("en", "de", "fr", "es", "it", "pt", "ru", "zh")
         assertTrue(WhisperCatalog.recommendedFor(many).size <= 4)
         assertTrue(WhisperCatalog.recommendedFor(many, limit = 2).size <= 2)
+    }
+
+    @Test
+    fun `small multilingual is the one recommended model`() {
+        assertEquals(
+            listOf("small-multi"),
+            WhisperCatalog.models.filter { it.tier == WhisperTier.RECOMMENDED }.map { it.id },
+        )
+    }
+
+    @Test
+    fun `catalog stops at small — medium and large are too big for a phone`() {
+        assertEquals(listOf("Tiny", "Base", "Small"), WhisperSize.entries.map { it.label })
+        assertTrue(WhisperCatalog.models.none { it.sizeBytes > 400_000_000L })
+    }
+
+    @Test
+    fun `only multi-language models are visible until their language is enabled`() {
+        val anyLanguage = WhisperCatalog.models.filter { it.fixedLang == null }.map { it.id }
+
+        // Nothing enabled: exactly the models that work for any language.
+        assertEquals(anyLanguage, WhisperCatalog.visibleFor(emptySet()).map { it.id })
+
+        // Enabling German adds its graph and nothing else — the Urdu pair that
+        // used to show up regardless stays hidden.
+        val german = WhisperCatalog.visibleFor(setOf("de")).map { it.id }
+        assertEquals(anyLanguage + "base-de", german)
+        assertTrue(german.none { it.endsWith("-ur") })
+
+        // Every single-language graph for an enabled language shows, not just one:
+        // Urdu has both a Base and a Small.
+        val urdu = WhisperCatalog.visibleFor(setOf("ur")).map { it.id }
+        assertTrue(urdu.containsAll(listOf("base-ur", "small-ur")))
+    }
+
+    @Test
+    fun `ranking prefers a language's own graph, then a forceable one, then bigger`() {
+        val ids = WhisperCatalog.rankedFor("de").map { it.id }
+        assertEquals("base-de", ids.first())
+        // Grouped graphs take a language token, so they beat the auto-detecting
+        // ones even when those are larger.
+        assertTrue(ids.indexOf("small-world") < ids.indexOf("small-multi"))
+        // Within the auto-detecting group, more parameters wins.
+        assertTrue(ids.indexOf("small-multi") < ids.indexOf("base-multi"))
+        assertTrue(ids.indexOf("base-multi") < ids.indexOf("tiny-multi"))
+        // Nothing that cannot do German appears at all.
+        assertTrue(ids.none { it == "base-fr" || it == "tiny-en" })
+    }
+
+    @Test
+    fun `ranking a language no graph covers leaves only the all-language models`() {
+        val ids = WhisperCatalog.rankedFor("bn").map { it.id }
+        assertEquals(listOf("small-multi", "base-multi", "tiny-multi"), ids)
+    }
+
+    @Test
+    fun `single-language lookup lists every size for that language, smallest first`() {
+        assertEquals(
+            listOf("base-ur", "small-ur"),
+            WhisperCatalog.singleLanguageFor("ur").map { it.id },
+        )
+        assertEquals(
+            listOf("tiny-en", "base-en", "small-en"),
+            WhisperCatalog.singleLanguageFor("en").map { it.id },
+        )
+        assertTrue(WhisperCatalog.singleLanguageFor("bn").isEmpty())
     }
 }
