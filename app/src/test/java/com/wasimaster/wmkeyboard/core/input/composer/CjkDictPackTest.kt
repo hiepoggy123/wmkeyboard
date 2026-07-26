@@ -30,10 +30,8 @@ class CjkDictPackTest {
         // A pack is unavailable if either the URL or the checksum is missing.
         assertFalse(pinyin.copy(url = "").available)
         assertFalse(pinyin.copy(sha256 = "").available)
-        // Cangjie is registered but not yet hosted, so its row reads as unavailable
-        // rather than offering a download that cannot succeed.
-        assertFalse(CjkDictCatalog.byId("cangjie")!!.available)
-        assertFalse(CjkDictCatalog.byId("jyutping")!!.available)
+        // Every shipped pack is hosted, so none of them renders as unavailable.
+        assertTrue(CjkDictCatalog.packs.all { it.available })
     }
 
     @Test
