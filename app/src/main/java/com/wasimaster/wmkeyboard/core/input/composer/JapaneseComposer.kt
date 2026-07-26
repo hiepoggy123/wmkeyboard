@@ -24,12 +24,30 @@ object JapaneseComposer : Composer {
 
     private const val LIMIT = 12
 
+    /** Ranked depth for resolving a tap, so the expanded grid can be tapped too. */
+    private const val LOOKUP_LIMIT = 128
+
+    /** Mora count past which the lattice gives way; nobody types this far uncommitted. */
+    private const val MAX_LATTICE_UNITS = 24
+
     override fun composeBuffer(buffer: String): String = Kana.toHiragana(buffer)
 
-    override fun candidates(buffer: String): List<String> = ranked(buffer).map { it.text }
+    override fun candidates(buffer: String): List<String> = candidates(buffer, LIMIT)
+
+    override fun candidates(buffer: String, limit: Int): List<String> =
+        ranked(buffer, limit).map { it.text }
 
     override fun consumedFor(buffer: String, chosen: String): Int =
-        ranked(buffer).firstOrNull { it.text == chosen }?.consumed ?: buffer.length
+        ranked(buffer, LOOKUP_LIMIT).firstOrNull { it.text == chosen }?.consumed ?: buffer.length
+
+    /**
+     * Resolving by position matters more here than anywhere else: `ja_kana` lists
+     * 行 under い, いき, ゆき, こう and ぎょう, so for `ikitai` the same string is a
+     * candidate at a one-mora span and a two-mora one. By text, the first wins and
+     * silently eats a mora the user never chose.
+     */
+    override fun consumedForIndex(buffer: String, index: Int): Int =
+        ranked(buffer, LOOKUP_LIMIT).getOrNull(index)?.consumed ?: buffer.length
 
     /** A candidate word and the number of romaji input chars it covers. */
     private data class Cand(val text: String, val consumed: Int)
@@ -41,31 +59,33 @@ object JapaneseComposer : Composer {
      * of the whole reading follow as always-available trailing choices, each
      * consuming the entire buffer.
      */
-    private fun ranked(buffer: String): List<Cand> {
+    private fun ranked(buffer: String, limit: Int): List<Cand> {
         if (buffer.isEmpty()) return emptyList()
+        return cache.get(buffer, limit) { rank(buffer, limit) }
+    }
+
+    private fun rank(buffer: String, limit: Int): List<Cand> {
         val spans = Kana.transduce(buffer)
         if (spans.isEmpty()) return emptyList()
-        // Each cumulative mora prefix: the kana so far and the romaji it consumed.
-        val kanaSb = StringBuilder()
-        val prefixes = ArrayList<Pair<String, Int>>(spans.size)
-        var romaji = 0
-        for (sp in spans) {
-            kanaSb.append(sp.kana)
-            romaji += sp.romajiLen
-            prefixes.add(kanaSb.toString() to romaji)
-        }
-        val dict = CjkDictionaries.japanese
+        val whole = spans.joinToString("") { it.kana }
+        val romaji = spans.sumOf { it.romajiLen }
         val out = LinkedHashMap<String, Cand>()
-        // Longest reading first: にほん (whole) ranks above に (leading mora).
-        for ((kana, cons) in prefixes.asReversed()) {
-            for (w in dict.exact(kana)) {
-                out.getOrPut(w) { Cand(w, cons) }
-                if (out.size >= LIMIT) break
-            }
-            if (out.size >= LIMIT) break
+        if (spans.size <= MAX_LATTICE_UNITS) {
+            // One unit per transducer step, so a consumed *kana* prefix maps back
+            // to consumed *romaji* by the spans the transducer already tracked.
+            // charPerUnit is off: a kanji takes however many mora it takes, so the
+            // one-character-per-unit rule that sorts Chinese out is simply false.
+            val input = Lattice.input(spans.map { it.kana }, spans.map { it.romajiLen })
+            val decoded = Lattice.decode(
+                input,
+                CjkDictionaries.japanese,
+                CjkDictionaries.ngrams,
+                Lattice.Opts(limit = limit, charPerUnit = false),
+            )
+            for (cand in decoded) out.getOrPut(cand.text) { Cand(cand.text, cand.consumed) }
         }
-        // Trailing plain-kana choices for the whole buffer (romaji == buffer.length).
-        val whole = kanaSb.toString()
+        // Trailing plain-kana choices for the whole buffer, always available so
+        // this works as a kana keyboard with no conversion pack at all.
         out.getOrPut(whole) { Cand(whole, romaji) }
         val kata = Kana.toKatakana(whole)
         if (kata != whole) out.getOrPut(kata) { Cand(kata, romaji) }
@@ -75,8 +95,10 @@ object JapaneseComposer : Composer {
         // Stretch (not shipped): light okurigana / verb-conjugation would fold a
         // trailing kana inflection (…って, …した) back onto a stem reading before
         // dict lookup here, so 食べた converts from `tabeta`. Needs a conjugation
-        // table + stem index in the pack; left out until the ja_kana pack ships.
+        // table + stem index in the pack.
     }
+
+    private val cache = RankCache<List<Cand>>()
 }
 
 /** Romaji↔kana transliteration (Hepburn/wāpuro), longest-match. */

@@ -36,27 +36,80 @@ class ConversionDictionary private constructor(
     private val freqs: IntArray,
 ) {
 
-    private val size: Int get() = freqs.size
+    internal val size: Int get() = freqs.size
 
     val isEmpty: Boolean get() = size == 0
 
+    /**
+     * Total of every row's frequency — the denominator that turns a raw count
+     * into log P(word) for the decoder. Summed once at construction; a `Long`
+     * because a million rows of corpus counts overflow an `Int`.
+     */
+    val totalFreq: Long = run {
+        var sum = 0L
+        for (f in freqs) sum += f
+        sum
+    }
+
     /** Candidates for [reading] exactly, best first; empty when unknown. */
     fun exact(reading: String): List<String> {
-        if (reading.isEmpty() || size == 0) return emptyList()
-        var i = lowerBound(reading)
-        if (i >= size || !readingEquals(i, reading)) return emptyList()
+        val rows = rowsFor(reading)
+        if (rows.isEmpty()) return emptyList()
         // One reading's run is short (a few dozen rows at most), so collecting it
         // to sort by frequency costs nothing measurable.
-        val run = ArrayList<Int>(4)
-        while (i < size && readingEquals(i, reading)) {
-            run.add(i)
-            i++
-        }
-        return run
-            .sortedByDescending { freqs[it] }
-            .map { words.substring(wordAt[it], wordLen[it]) }
-            .distinct()
+        return rows.sortedByDescending { freqs[it] }.map { word(it) }.distinct()
     }
+
+    /**
+     * The contiguous rows whose reading is exactly [reading], empty when unknown.
+     *
+     * The row-level counterpart to [exact], for callers that score rows before
+     * deciding which ones are worth turning into strings. The decoder walks far
+     * more rows than it keeps, and cutting a `String` out of the arena for each
+     * one is the single largest allocation on that path.
+     */
+    fun rowsFor(reading: String): IntRange {
+        if (reading.isEmpty() || size == 0) return IntRange.EMPTY
+        val lo = lowerBound(reading)
+        if (lo >= size || !readingEquals(lo, reading)) return IntRange.EMPTY
+        var hi = lo
+        while (hi < size && readingEquals(hi, reading)) hi++
+        return lo until hi
+    }
+
+    /**
+     * The rows within [within] whose reading starts with [prefix].
+     *
+     * This is what lets the decoder enumerate multi-unit words without building
+     * their readings first. Extending a reading by one more unit narrows the
+     * range with two bounded binary searches, and an **empty range prunes the
+     * whole subtree** — so a buffer whose units are individually ambiguous (T9
+     * digits, fuzzy pinyin) costs what the dictionary actually contains rather
+     * than the product of the option lists.
+     */
+    fun prefixRange(prefix: String, within: IntRange = 0 until size): IntRange {
+        if (size == 0) return IntRange.EMPTY
+        val lo = within.first.coerceAtLeast(0)
+        val hi = (within.last + 1).coerceAtMost(size)
+        if (lo >= hi) return IntRange.EMPTY
+        if (prefix.isEmpty()) return lo until hi
+        val start = prefixBound(prefix, lo, hi, inclusive = false)
+        val end = prefixBound(prefix, start, hi, inclusive = true)
+        return start until end
+    }
+
+    /** The word at [row], materialized out of the arena. */
+    fun word(row: Int): String = words.substring(wordAt[row], wordLen[row])
+
+    /**
+     * Characters in the word at [row], without cutting it. One Hanzi spells one
+     * syllable, so this is the syllable-count test the ranking needs, and it runs
+     * on every enumerated row while [word] runs only on the survivors.
+     */
+    fun wordLength(row: Int): Int = wordLen[row]
+
+    /** The corpus frequency of the row at [row]; 0 when the pack listed none. */
+    fun frequency(row: Int): Int = freqs[row]
 
     /**
      * Candidates for a buffer being built up: the exact match first, then matches
@@ -84,6 +137,37 @@ class ConversionDictionary private constructor(
             if (readings.compare(readingAt[mid], readingLen[mid], key) < 0) lo = mid + 1 else hi = mid
         }
         return lo
+    }
+
+    /**
+     * First row in `[lo, hi)` that sorts after [prefix] — after the *last* row
+     * starting with it when [inclusive], before the first when not. Comparison
+     * looks only at [prefix]'s own length, so a longer reading that starts with
+     * it counts as equal and lands inside the range.
+     */
+    private fun prefixBound(prefix: String, lo: Int, hi: Int, inclusive: Boolean): Int {
+        var a = lo
+        var b = hi
+        while (a < b) {
+            val mid = (a + b) ushr 1
+            val c = comparePrefix(mid, prefix)
+            if (if (inclusive) c <= 0 else c < 0) a = mid + 1 else b = mid
+        }
+        return a
+    }
+
+    /** [row]'s reading against [prefix], over [prefix]'s length only. */
+    private fun comparePrefix(row: Int, prefix: String): Int {
+        val at = readingAt[row]
+        val len = readingLen[row]
+        val common = minOf(len, prefix.length)
+        for (i in 0 until common) {
+            val d = readings.charAt(at + i) - prefix[i]
+            if (d != 0) return d
+        }
+        // A reading that ran out early sorts before the prefix; one that matched
+        // every prefix char is a hit however much longer it goes on.
+        return if (len < prefix.length) -1 else 0
     }
 
     private fun readingEquals(row: Int, key: String): Boolean =

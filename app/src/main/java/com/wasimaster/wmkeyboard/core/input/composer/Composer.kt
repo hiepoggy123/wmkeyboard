@@ -86,6 +86,17 @@ interface Composer {
     fun candidates(buffer: String): List<String> = emptyList()
 
     /**
+     * [candidates] widened for a paging surface that shows more than the strip.
+     * The default narrows the base list, which is right for every composer whose
+     * ranking has no limit to raise.
+     *
+     * Implementations must keep the shorter list a prefix of the longer one —
+     * `candidates(b, 100).take(12) == candidates(b, 12)` — or the strip and the
+     * expanded grid would disagree about which candidate is which.
+     */
+    fun candidates(buffer: String, limit: Int): List<String> = candidates(buffer).take(limit)
+
+    /**
      * How many chars of the input [buffer] the [chosen] candidate consumed —
      * the linchpin of prefix commit. Picking 你 for `nihao` consumes only the
      * `ni` (2), so a commit deletes those chars and re-converts the `hao` tail
@@ -94,6 +105,18 @@ interface Composer {
      * default returns [buffer]'s length.
      */
     fun consumedFor(buffer: String, chosen: String): Int = buffer.length
+
+    /**
+     * [consumedFor] resolved by strip position rather than by text.
+     *
+     * A candidate's text does not identify it: `ja_kana` genuinely lists 行 under
+     * い, いき, ゆき and こう, so for the buffer `ikitai` the same string is
+     * reachable at a one-mora span and a two-mora one. Matching by text picks
+     * whichever comes first and silently eats a mora the user never chose. The
+     * index is unambiguous, and the caller always has it.
+     */
+    fun consumedForIndex(buffer: String, index: Int): Int =
+        consumedFor(buffer, candidates(buffer).getOrElse(index) { "" })
 
     /** A transliterator's buffer (roman, or jamo) rendered as script text. */
     fun composeBuffer(buffer: String): String = buffer

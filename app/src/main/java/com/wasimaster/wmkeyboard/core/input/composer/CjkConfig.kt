@@ -6,6 +6,9 @@ package com.wasimaster.wmkeyboard.core.input.composer
  * `composerFor` needs no new arguments and the `_uiState.copy` sites are
  * untouched), and the service pushes the user's settings in here from the same
  * `settings.collect` block that already feeds the suggestion engine.
+ *
+ * Every option here changes what the composers rank, so each one invalidates the
+ * cached rankings on assignment — see [CjkDictionaries.generation].
  */
 object CjkConfig {
 
@@ -15,6 +18,7 @@ object CjkConfig {
      */
     @Volatile
     var fuzzyPinyin: Boolean = false
+        set(value) { field = value; CjkDictionaries.invalidate() }
 
     /**
      * The Double Pinyin scheme in use, or [DoublePinyinScheme.OFF] for full
@@ -23,6 +27,7 @@ object CjkConfig {
      */
     @Volatile
     var doublePinyin: DoublePinyinScheme = DoublePinyinScheme.OFF
+        set(value) { field = value; CjkDictionaries.invalidate() }
 
     /**
      * Convert candidate output to Traditional characters. Read by [HanVariant]
@@ -31,6 +36,7 @@ object CjkConfig {
      */
     @Volatile
     var traditionalOutput: Boolean = false
+        set(value) { field = value; CjkDictionaries.invalidate() }
 }
 
 /**

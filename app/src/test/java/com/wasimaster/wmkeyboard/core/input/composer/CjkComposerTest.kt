@@ -736,16 +736,19 @@ class CjkComposerTest {
         // consumedFor silently falls back to the whole buffer length and every
         // multi-syllable commit starts eating the tail.
         PinyinSyllables.valid = setOf("ni", "hao")
+        // One character per syllable, as real Hanzi always is — the decoder drops
+        // a word too short to cover its span, which is what makes `xi'an` mean
+        // 西安 rather than 现.
         CjkDictionaries.pinyin = ConversionDictionary.parse(
-            sequenceOf("ni\tS\t100", "hao\tH1\t100", "nihao\tX\t50"),
+            sequenceOf("ni\tS\t100", "hao\tH\t100", "nihao\tSX\t50"),
         )
         loadS2t()
         CjkConfig.traditionalOutput = true
-        // Candidates come back converted: X→Y (whole phrase), S→T (leading syllable).
-        assertEquals(listOf("Y", "T"), PinyinComposer.candidates("nihao"))
+        // Candidates come back converted: SX→TY (whole phrase), S→T (leading).
+        assertEquals(listOf("TY", "T"), PinyinComposer.candidates("nihao"))
         // And the converted strings still resolve to their real consumed lengths,
         // not the 5-char buffer-length fallback.
-        assertEquals(5, PinyinComposer.consumedFor("nihao", "Y"))
+        assertEquals(5, PinyinComposer.consumedFor("nihao", "TY"))
         assertEquals(2, PinyinComposer.consumedFor("nihao", "T"))
     }
 

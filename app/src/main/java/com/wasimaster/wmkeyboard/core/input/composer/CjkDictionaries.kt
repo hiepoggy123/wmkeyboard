@@ -9,15 +9,52 @@ package com.wasimaster.wmkeyboard.core.input.composer
  * candidates.
  */
 object CjkDictionaries {
-    @Volatile var pinyin: ConversionDictionary = ConversionDictionary.EMPTY
-    @Volatile var japanese: ConversionDictionary = ConversionDictionary.EMPTY
+
+    /**
+     * Bumped whenever anything a composer's ranking depends on changes — a table
+     * swapped in below, a [CjkConfig] toggle, a learned pick. The composers cache
+     * their last decode against it, so this is what keeps a stale answer from
+     * outliving the tables it came from.
+     */
+    @Volatile
+    var generation: Int = 0
+        private set
+
+    /** Invalidate every composer's cached ranking. */
+    fun invalidate() {
+        generation++
+    }
+
+    // Each table invalidates on assignment rather than trusting its caller to
+    // remember: the tables are swapped in from a background load, from settings,
+    // and from tests, and a cache serving answers from a table that is no longer
+    // there is silent and very hard to spot.
+
+    @Volatile
+    var pinyin: ConversionDictionary = ConversionDictionary.EMPTY
+        set(value) { field = value; invalidate() }
+
+    @Volatile
+    var japanese: ConversionDictionary = ConversionDictionary.EMPTY
+        set(value) { field = value; invalidate() }
 
     /** Stroke-order → Hanzi table for the 笔画 input method (downloadable pack). */
-    @Volatile var stroke: CodeTableDictionary = CodeTableDictionary.EMPTY
+    @Volatile
+    var stroke: CodeTableDictionary = CodeTableDictionary.EMPTY
+        set(value) { field = value; invalidate() }
 
     /** Radical-code → Hanzi table shared by Cangjie 倉頡 and Quick 速成. */
-    @Volatile var cangjie: CodeTableDictionary = CodeTableDictionary.EMPTY
+    @Volatile
+    var cangjie: CodeTableDictionary = CodeTableDictionary.EMPTY
+        set(value) { field = value; invalidate() }
 
     /** Cantonese Jyutping reading → Hanzi; a table of its own, not shared with pinyin. */
-    @Volatile var jyutping: ConversionDictionary = ConversionDictionary.EMPTY
+    @Volatile
+    var jyutping: ConversionDictionary = ConversionDictionary.EMPTY
+        set(value) { field = value; invalidate() }
+
+    /** Word n-grams for the decoder. [CjkNgrams.EMPTY] until a pack ships one. */
+    @Volatile
+    var ngrams: CjkNgrams = CjkNgrams.EMPTY
+        set(value) { field = value; invalidate() }
 }

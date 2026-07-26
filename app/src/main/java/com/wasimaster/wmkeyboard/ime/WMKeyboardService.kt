@@ -2811,9 +2811,12 @@ open class WMKeyboardService : InputMethodService() {
         // plain space.
         if (composing.isNotEmpty() && state.composer.isConversion) {
             val buf = composing.toString()
-            val chosen = state.composer.candidates(buf).firstOrNull()
-                ?: state.composer.composeBuffer(buf)
-            commitConversionPrefix(ic, chosen)
+            val top = state.composer.candidates(buf).firstOrNull()
+            if (top != null) {
+                commitConversionPrefix(ic, top, index = 0)
+            } else {
+                commitConversionPrefix(ic, state.composer.composeBuffer(buf))
+            }
             lastSpaceTime = now
             return
         }
@@ -3266,8 +3269,13 @@ open class WMKeyboardService : InputMethodService() {
         var guard = 0
         while (composing.isNotEmpty() && guard++ < 64) {
             val buf = composing.toString()
-            val chosen = composer.candidates(buf).firstOrNull() ?: composer.composeBuffer(buf)
-            val consumed = composer.consumedFor(buf, chosen).coerceIn(1, composing.length)
+            val top = composer.candidates(buf).firstOrNull()
+            val chosen = top ?: composer.composeBuffer(buf)
+            val consumed = if (top != null) {
+                composer.consumedForIndex(buf, 0)
+            } else {
+                composer.consumedFor(buf, chosen)
+            }.coerceIn(1, composing.length)
             ic.commitText(chosen, 1)
             composing.delete(0, consumed)
         }
@@ -3285,11 +3293,18 @@ open class WMKeyboardService : InputMethodService() {
      * `nihao` commits 你 and leaves `hao` composing. Never learns (Hanzi/Kanji
      * are not lexicon words) and never adds a trailing space.
      */
-    private fun commitConversionPrefix(ic: InputConnection, chosen: String) {
+    private fun commitConversionPrefix(ic: InputConnection, chosen: String, index: Int = -1) {
         if (composing.isEmpty()) return
         val composer = _uiState.value.composer
         val buf = composing.toString()
-        val consumed = composer.consumedFor(buf, chosen).coerceIn(1, buf.length)
+        // By strip position when the caller knows it, which is exact even where a
+        // candidate's text is reachable at two different spans; by text otherwise,
+        // which is what the raw-reading fallback needs since it is in no list.
+        val consumed = if (index >= 0) {
+            composer.consumedForIndex(buf, index)
+        } else {
+            composer.consumedFor(buf, chosen)
+        }.coerceIn(1, buf.length)
         ic.commitText(chosen, 1)
         composing.delete(0, consumed)
         consumeShift()

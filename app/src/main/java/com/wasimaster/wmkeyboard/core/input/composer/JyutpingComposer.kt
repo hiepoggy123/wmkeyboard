@@ -26,15 +26,25 @@ object JyutpingComposer : Composer {
 
     private const val LIMIT = 12
 
+    /** Ranked depth for resolving a tap, so the expanded grid can be tapped too. */
+    private const val LOOKUP_LIMIT = 128
+
     /** The composing region shows the Jyutping as typed, tone digits and all. */
     override fun composeBuffer(buffer: String): String = buffer.lowercase()
 
-    override fun candidates(buffer: String): List<String> =
-        ranked(buffer.lowercase()).map { it.text }
+    override fun candidates(buffer: String): List<String> = candidates(buffer, LIMIT)
+
+    override fun candidates(buffer: String, limit: Int): List<String> =
+        ranked(buffer.lowercase(), limit).map { it.text }
 
     override fun consumedFor(buffer: String, chosen: String): Int {
         val b = buffer.lowercase()
-        return ranked(b).firstOrNull { it.text == chosen }?.consumed ?: b.length
+        return ranked(b, LOOKUP_LIMIT).firstOrNull { it.text == chosen }?.consumed ?: b.length
+    }
+
+    override fun consumedForIndex(buffer: String, index: Int): Int {
+        val b = buffer.lowercase()
+        return ranked(b, LOOKUP_LIMIT).getOrNull(index)?.consumed ?: b.length
     }
 
     /** A candidate word and the number of input chars (tone digits included) it covers. */
@@ -46,32 +56,23 @@ object JyutpingComposer : Composer {
      * back to the dictionary's own prefix matching when nothing segments yet — a
      * still-typing first syllable — mirroring [PinyinComposer].
      */
-    private fun ranked(buffer: String): List<Cand> {
+    private fun ranked(buffer: String, limit: Int): List<Cand> {
         if (buffer.isEmpty()) return emptyList()
+        return cache.get(buffer, limit) { rank(buffer, limit) }
+    }
+
+    private fun rank(buffer: String, limit: Int): List<Cand> {
         val dict = CjkDictionaries.jyutping
         val segs = JyutpingSyllables.segment(buffer)
         if (segs.isEmpty()) {
-            return dict.candidates(buffer, LIMIT)
+            return dict.candidates(buffer, limit)
                 .map { Cand(HanVariant.toTraditional(it), buffer.length) }
         }
-        // Each cumulative prefix: its toneless reading and total consumed input.
-        val prefixes = ArrayList<Pair<String, Int>>(segs.size)
-        val reading = StringBuilder()
-        var consumed = 0
-        for (seg in segs) {
-            reading.append(seg.syllable)
-            consumed += seg.inputLen
-            prefixes.add(reading.toString() to consumed)
-        }
-        val out = LinkedHashMap<String, Cand>()
-        for ((run, cons) in prefixes.asReversed()) {
-            for (raw in dict.exact(run)) {
-                val w = HanVariant.toTraditional(raw)
-                out.getOrPut(w) { Cand(w, cons) }
-                if (out.size >= LIMIT) break
-            }
-            if (out.size >= LIMIT) break
-        }
-        return out.values.toList()
+        val input = Lattice.input(segs.map { it.syllable }, segs.map { it.inputLen })
+        return Lattice.decode(input, dict, CjkDictionaries.ngrams, Lattice.Opts(limit = limit))
+            .map { Cand(HanVariant.toTraditional(it.text), it.consumed) }
+            .distinctBy { it.text }
     }
+
+    private val cache = RankCache<List<Cand>>()
 }

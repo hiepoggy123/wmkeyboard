@@ -28,8 +28,8 @@ object T9PinyinComposer : Composer {
 
     private const val LIMIT = 12
 
-    /** Ceiling on the readings one buffer expands to, so a long run can't blow up. */
-    private const val VARIANT_CAP = 24
+    /** Ranked depth for resolving a tap, so the expanded grid can be tapped too. */
+    private const val LOOKUP_LIMIT = 128
 
     /**
      * The composing region shows the pinyin of the best candidate rather than the
@@ -37,12 +37,18 @@ object T9PinyinComposer : Composer {
      * Falls back to the digits themselves when nothing segments yet.
      */
     override fun composeBuffer(buffer: String): String =
-        ranked(buffer).firstOrNull()?.reading ?: buffer
+        ranked(buffer, LIMIT).firstOrNull()?.reading ?: buffer
 
-    override fun candidates(buffer: String): List<String> = ranked(buffer).map { it.text }
+    override fun candidates(buffer: String): List<String> = candidates(buffer, LIMIT)
+
+    override fun candidates(buffer: String, limit: Int): List<String> =
+        ranked(buffer, limit).map { it.text }
 
     override fun consumedFor(buffer: String, chosen: String): Int =
-        ranked(buffer).firstOrNull { it.text == chosen }?.consumed ?: buffer.length
+        ranked(buffer, LOOKUP_LIMIT).firstOrNull { it.text == chosen }?.consumed ?: buffer.length
+
+    override fun consumedForIndex(buffer: String, index: Int): Int =
+        ranked(buffer, LOOKUP_LIMIT).getOrNull(index)?.consumed ?: buffer.length
 
     /** A candidate, the digits it covers, and the reading that produced it. */
     private data class Cand(val text: String, val consumed: Int, val reading: String)
@@ -61,56 +67,40 @@ object T9PinyinComposer : Composer {
         PinyinSyllables.segment(buffer, T9Pinyin.index.keys)
 
     /**
-     * Every pinyin reading a run of digit [codes] could spell: the cartesian
-     * product of each code's syllables, capped at [VARIANT_CAP].
-     */
-    private fun readingVariants(codes: List<String>): List<String> {
-        var acc = listOf("")
-        for (code in codes) {
-            val options = T9Pinyin.index[code] ?: return emptyList()
-            val next = ArrayList<String>(minOf(VARIANT_CAP, acc.size * options.size))
-            outer@ for (a in acc) for (o in options) {
-                next.add(a + o)
-                if (next.size >= VARIANT_CAP) break@outer
-            }
-            acc = next
-        }
-        return acc
-    }
-
-    /**
      * Candidates for [buffer], longest reading first so a whole-phrase entry
      * outranks its leading syllable, each tagged with the number of *digits* it
      * consumed. Mirrors [PinyinComposer.ranked]; with no segmentable code (a
      * digit run that spells no syllable) it yields nothing and the raw digits
      * commit, so the buffer never traps the user.
      */
-    private fun ranked(buffer: String): List<Cand> {
+    private fun ranked(buffer: String, limit: Int): List<Cand> {
         if (buffer.isEmpty()) return emptyList()
+        return cache.get(buffer, limit) { rank(buffer, limit) }
+    }
+
+    private fun rank(buffer: String, limit: Int): List<Cand> {
         val segs = segments(buffer)
         if (segs.isEmpty()) return emptyList()
-        val dict = CjkDictionaries.pinyin
-        // Each cumulative prefix: its digit codes and total consumed digits.
-        val prefixes = ArrayList<Pair<List<String>, Int>>(segs.size)
-        val codes = ArrayList<String>(segs.size)
-        var consumed = 0
-        for (seg in segs) {
-            codes.add(seg.syllable)
-            consumed += seg.inputLen
-            prefixes.add(codes.toList() to consumed)
-        }
-        val out = LinkedHashMap<String, Cand>()
-        for ((run, cons) in prefixes.asReversed()) {
-            for (reading in readingVariants(run)) {
-                for (raw in dict.exact(reading)) {
-                    val w = HanVariant.toTraditional(raw)
-                    out.getOrPut(w) { Cand(w, cons, reading) }
-                    if (out.size >= LIMIT) break
-                }
-                if (out.size >= LIMIT) break
-            }
-            if (out.size >= LIMIT) break
-        }
-        return out.values.toList()
+        // Each digit code stands for several syllables, and that ambiguity goes
+        // to the decoder as options rather than being multiplied out into
+        // readings. The old cartesian product needed a cap to stay bounded, and
+        // the cap cut alphabetically — for 726726726 every surviving reading
+        // began `pan`, so 三三三 was unreachable. Here an option no word starts
+        // with is pruned by one binary search and costs nothing.
+        val options = segs.map { T9Pinyin.index[it.syllable]?.toTypedArray() ?: return emptyList() }
+        val input = Lattice.options(options, segs.map { it.inputLen })
+        return Lattice.decode(
+            input,
+            CjkDictionaries.pinyin,
+            CjkDictionaries.ngrams,
+            // Every digit is ambiguous, so the ambiguity cap has to come off or
+            // later syllables get pinned to whichever one sorted first — the
+            // alphabetical bias this whole change removes.
+            Lattice.Opts(limit = limit, maxAmbiguousSpan = Int.MAX_VALUE),
+        )
+            .map { Cand(HanVariant.toTraditional(it.text), it.consumed, it.reading) }
+            .distinctBy { it.text }
     }
+
+    private val cache = RankCache<List<Cand>>()
 }
