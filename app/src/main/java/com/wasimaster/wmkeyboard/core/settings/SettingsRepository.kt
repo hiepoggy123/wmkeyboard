@@ -256,7 +256,7 @@ val DefaultToolOrder: List<ToolbarTool> =
  * tools" restores — global or, when a mode owns the tool order, for that mode.
  */
 val DefaultToolbarTools: List<ToolbarTool> =
-    listOf(ToolbarTool.EMOJI, ToolbarTool.CLIPBOARD, ToolbarTool.SNIPPETS, ToolbarTool.SETTINGS)
+    listOf(ToolbarTool.EMOJI, ToolbarTool.CLIPBOARD, ToolbarTool.SETTINGS)
 
 /**
  * The onboarding wizard's starting selection: the everyday tools most people

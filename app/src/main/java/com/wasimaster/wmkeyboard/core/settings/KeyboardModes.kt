@@ -281,7 +281,7 @@ val DefaultKeyboardModes: List<KeyboardMode> = listOf(
         // it (see isSupportedTool), leaving the rest of the bar untouched.
         toolbarTools = listOf(
             ToolbarTool.AI, ToolbarTool.TEXT_EDIT, ToolbarTool.VOICE,
-            ToolbarTool.CLIPBOARD, ToolbarTool.SNIPPETS, ToolbarTool.EMOJI,
+            ToolbarTool.CLIPBOARD, ToolbarTool.EMOJI,
         ),
         toolbarToolsAppend = false,
         toolboxOrder = listOf(
