@@ -1,6 +1,7 @@
 package com.wasimaster.wmkeyboard.app
 
 import android.Manifest
+import android.app.AppOpsManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.pm.PackageManager
@@ -178,6 +179,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.unit.sp
 import android.provider.OpenableColumns
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
@@ -936,6 +940,63 @@ internal fun InfoButton(title: String, detail: String) {
             confirmButton = { TextButton(onClick = { open = false }) { Text("Got it") } },
         )
     }
+}
+
+/**
+ * A permission's grant state, re-read every time the settings screen comes
+ * back to the foreground. Both the runtime permissions and the special ones
+ * (Usage Access) are granted on a system screen we leave the app for, so a
+ * plain read during composition stays stale until something unrelated
+ * recomposes — which is what made the "permission required" rows outlive the
+ * grant.
+ */
+@Composable
+private fun rememberGrantState(check: (Context) -> Boolean): Boolean {
+    val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+    var granted by remember { mutableStateOf(check(context)) }
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) granted = check(context)
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+    return granted
+}
+
+/** The permission that lets the clipboard read the user's screenshots. */
+private val ImagesPermission: String
+    get() = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        Manifest.permission.READ_MEDIA_IMAGES
+    } else {
+        Manifest.permission.READ_EXTERNAL_STORAGE
+    }
+
+private fun hasImagesPermission(context: Context): Boolean =
+    ContextCompat.checkSelfPermission(context, ImagesPermission) ==
+        PackageManager.PERMISSION_GRANTED
+
+/**
+ * Whether the user granted Usage Access — a special permission, so it is an
+ * app-op rather than a runtime grant. Mirrors the IME's own check.
+ */
+private fun hasUsageAccess(context: Context): Boolean {
+    val appOps = context.getSystemService(Context.APP_OPS_SERVICE) as? AppOpsManager
+        ?: return false
+    val mode = runCatching {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            appOps.unsafeCheckOpNoThrow(
+                AppOpsManager.OPSTR_GET_USAGE_STATS, android.os.Process.myUid(), context.packageName,
+            )
+        } else {
+            @Suppress("DEPRECATION")
+            appOps.checkOpNoThrow(
+                AppOpsManager.OPSTR_GET_USAGE_STATS, android.os.Process.myUid(), context.packageName,
+            )
+        }
+    }.getOrDefault(AppOpsManager.MODE_ERRORED)
+    return mode == AppOpsManager.MODE_ALLOWED
 }
 
 @Composable
@@ -4629,116 +4690,111 @@ private fun ToolDetailSettings(
             }
         }
         ToolbarTool.SNIPPETS -> SnippetSettings()
-        ToolbarTool.CLIPBOARD -> SettingsGroup("History") {
-            item {
-                ToggleSetting(
-                    "Clipboard history", "Save copied text for quick paste",
-                    settings.clipboard.history,
-                ) { scope.launch { repository.setClipboardHistory(it) } }
-            }
-            item {
-                ToggleSetting(
-                    "Suggest recent copy",
-                    "Show the last copied text as a chip on the suggestion strip, " +
-                        "one tap from pasting it.",
-                    settings.clipboard.suggestRecent,
-                ) { scope.launch { repository.setClipboardSuggestRecent(it) } }
-            }
-            item {
-                ToggleSetting(
-                    "Toast on copy",
-                    "Show a brief \"Copied\" pop-up when you copy or cut text from the keyboard.",
-                    settings.feedback.toastOnCopy,
-                    info = "Fires for the keyboard's own copy actions — the A/C/V/X clipboard " +
-                        "shortcuts and the text-editing panel's copy button — for fields that " +
-                        "give no copy feedback of their own. Off by default.",
-                ) { scope.launch { repository.setToastOnCopy(it) } }
-            }
-            item {
-                SliderSetting(
-                    "Clipboard expiry",
-                    subtitle = "Remove unpinned items after this long",
-                    value = settings.clipboard.expiryHours.toFloat(),
-                    range = 0f..168f,
-                    display = if (settings.clipboard.expiryHours == 0) "never"
-                        else "${settings.clipboard.expiryHours} h",
-                ) { scope.launch { repository.setClipboardExpiryHours(it.toInt()) } }
-            }
-            item {
-                ToggleSetting(
-                    "Bottom control row",
-                    "Show an abc, space and backspace row at the bottom of the " +
-                        "clipboard panel, like the emoji panel.",
-                    settings.clipboard.bottomRow,
-                ) { scope.launch { repository.setClipboardBottomRow(it) } }
-            }
-            item {
-                ToggleSetting(
-                    "Pinned entries last",
-                    "List pinned clips at the end of the panel instead of the top.",
-                    settings.clipboard.pinnedLast,
-                ) { scope.launch { repository.setClipboardPinnedLast(it) } }
-            }
-            item {
-                ToggleSetting(
-                    "Search bar",
-                    "Show a search bar at the top of the clipboard panel to filter " +
-                        "history as you type.",
-                    settings.clipboard.search,
-                ) { scope.launch { repository.setClipboardSearch(it) } }
-            }
-            item {
-                ToggleSetting(
-                    "Forget after pasting a password",
-                    "Delete a clip from history and from the system clipboard as " +
-                        "soon as it is pasted into a password field.",
-                    settings.clipboard.clearAfterPasswordPaste,
-                    info = "Every app on the device can read the system clipboard, so a " +
-                        "password pasted out of a manager would otherwise sit there " +
-                        "readable until it expired. Applies to pastes made with the " +
-                        "keyboard — the clipboard panel, the paste chip, hold-V and " +
-                        "Ctrl+V — into a password field. On by default.",
-                ) { scope.launch { repository.setClipboardClearAfterPasswordPaste(it) } }
-            }
-            item {
-                ToggleSetting(
-                    "Link previews",
-                    "Fetch the page title of copied links and show it in the panel. " +
-                        "This contacts the linked site.",
-                    settings.clipboard.linkPreviews,
-                ) { scope.launch { repository.setClipboardLinkPreviews(it) } }
-            }
-            item {
-                val context = LocalContext.current
-                ToggleSetting(
-                    "User screenshots",
-                    "Show user screenshots in the clipboard alongside copied text and images.",
-                    settings.clipboard.userScreenshots,
-                ) { on ->
-                    scope.launch { repository.setClipboardUserScreenshots(on) }
-                    if (on) {
-                        val permission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                            android.Manifest.permission.READ_MEDIA_IMAGES
-                        } else {
-                            android.Manifest.permission.READ_EXTERNAL_STORAGE
-                        }
-                        if (ContextCompat.checkSelfPermission(context, permission) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+        ToolbarTool.CLIPBOARD -> {
+            // Both grants happen on a system screen, so they are read through
+            // rememberGrantState: the rows below disappear as soon as we come back
+            // with the permission in hand, instead of on the next unrelated redraw.
+            val screenshotsGranted = rememberGrantState(::hasImagesPermission)
+            val usageAccessGranted = rememberGrantState(::hasUsageAccess)
+            SettingsGroup("History") {
+                item {
+                    ToggleSetting(
+                        "Clipboard history", "Save copied text for quick paste",
+                        settings.clipboard.history,
+                    ) { scope.launch { repository.setClipboardHistory(it) } }
+                }
+                item {
+                    ToggleSetting(
+                        "Suggest recent copy",
+                        "Show the last copied text as a chip on the suggestion strip, " +
+                            "one tap from pasting it.",
+                        settings.clipboard.suggestRecent,
+                    ) { scope.launch { repository.setClipboardSuggestRecent(it) } }
+                }
+                item {
+                    ToggleSetting(
+                        "Toast on copy",
+                        "Show a brief \"Copied\" pop-up when you copy or cut text from the keyboard.",
+                        settings.feedback.toastOnCopy,
+                        info = "Fires for the keyboard's own copy actions — the A/C/V/X clipboard " +
+                            "shortcuts and the text-editing panel's copy button — for fields that " +
+                            "give no copy feedback of their own. Off by default.",
+                    ) { scope.launch { repository.setToastOnCopy(it) } }
+                }
+                item {
+                    SliderSetting(
+                        "Clipboard expiry",
+                        subtitle = "Remove unpinned items after this long",
+                        value = settings.clipboard.expiryHours.toFloat(),
+                        range = 0f..168f,
+                        display = { if (it.toInt() == 0) "never" else "${it.toInt()} h" },
+                    ) { scope.launch { repository.setClipboardExpiryHours(it.toInt()) } }
+                }
+                item {
+                    ToggleSetting(
+                        "Bottom control row",
+                        "Show an abc, space and backspace row at the bottom of the " +
+                            "clipboard panel, like the emoji panel.",
+                        settings.clipboard.bottomRow,
+                    ) { scope.launch { repository.setClipboardBottomRow(it) } }
+                }
+                item {
+                    ToggleSetting(
+                        "Pinned entries last",
+                        "List pinned clips at the end of the panel instead of the top.",
+                        settings.clipboard.pinnedLast,
+                    ) { scope.launch { repository.setClipboardPinnedLast(it) } }
+                }
+                item {
+                    ToggleSetting(
+                        "Search bar",
+                        "Show a search bar at the top of the clipboard panel to filter " +
+                            "history as you type.",
+                        settings.clipboard.search,
+                    ) { scope.launch { repository.setClipboardSearch(it) } }
+                }
+                item {
+                    ToggleSetting(
+                        "Forget after pasting a password",
+                        "Delete a clip from history and from the system clipboard as " +
+                            "soon as it is pasted into a password field.",
+                        settings.clipboard.clearAfterPasswordPaste,
+                        info = "Every app on the device can read the system clipboard, so a " +
+                            "password pasted out of a manager would otherwise sit there " +
+                            "readable until it expired. Applies to pastes made with the " +
+                            "keyboard — the clipboard panel, the paste chip, hold-V and " +
+                            "Ctrl+V — into a password field. On by default.",
+                    ) { scope.launch { repository.setClipboardClearAfterPasswordPaste(it) } }
+                }
+                item {
+                    ToggleSetting(
+                        "Link previews",
+                        "Fetch the page title of copied links and show it in the panel. " +
+                            "This contacts the linked site.",
+                        settings.clipboard.linkPreviews,
+                    ) { scope.launch { repository.setClipboardLinkPreviews(it) } }
+                }
+                item {
+                    val context = LocalContext.current
+                    ToggleSetting(
+                        "User screenshots",
+                        "Show user screenshots in the clipboard alongside copied text and images.",
+                        settings.clipboard.userScreenshots,
+                    ) { on ->
+                        scope.launch { repository.setClipboardUserScreenshots(on) }
+                        if (on && !hasImagesPermission(context)) {
                             runCatching {
                                 context.startActivity(Intent(context, ImagesPermissionActivity::class.java))
                             }
                         }
                     }
                 }
-            }
-            if (settings.clipboard.userScreenshots) {
-                item {
-                    val context = LocalContext.current
-                    val permission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                        android.Manifest.permission.READ_MEDIA_IMAGES
-                    } else {
-                        android.Manifest.permission.READ_EXTERNAL_STORAGE
-                    }
-                    if (ContextCompat.checkSelfPermission(context, permission) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                // The guard sits outside item {} on purpose: an item whose body
+                // draws nothing still gets its own card, which showed up as a
+                // sliver of empty surface once the permission was granted.
+                if (settings.clipboard.userScreenshots && !screenshotsGranted) {
+                    item {
+                        val context = LocalContext.current
                         NavRow(
                             "Storage permission required",
                             "Open system settings to grant it",
@@ -4753,41 +4809,42 @@ private fun ToolDetailSettings(
                         }
                     }
                 }
-            }
-            item {
-                val context = LocalContext.current
-                ToggleSetting(
-                    "Show source app",
-                    "Record which app a clip was copied from, shown when you press " +
-                        "and hold an entry. Needs Usage Access permission.",
-                    settings.clipboard.trackSource,
-                    info = "Best-effort: it reads the foreground app at copy time via " +
-                        "Usage Access. Some copies (e.g. from background sync) may have no " +
-                        "source. Nothing about your app usage leaves the device.",
-                ) { on ->
-                    scope.launch { repository.setClipboardTrackSource(on) }
-                    // Sending the user to grant the permission the first time they
-                    // switch it on; the OS screen no-ops if already granted.
-                    if (on) runCatching {
-                        context.startActivity(
-                            Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)
-                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-                        )
-                    }
-                }
-            }
-            if (settings.clipboard.trackSource) {
                 item {
                     val context = LocalContext.current
-                    NavRow(
-                        "Usage Access permission",
-                        "Open system settings to grant or revoke it",
-                    ) {
-                        runCatching {
+                    ToggleSetting(
+                        "Show source app",
+                        "Record which app a clip was copied from, shown when you press " +
+                            "and hold an entry. Needs Usage Access permission.",
+                        settings.clipboard.trackSource,
+                        info = "Best-effort: it reads the foreground app at copy time via " +
+                            "Usage Access. Some copies (e.g. from background sync) may have no " +
+                            "source. Nothing about your app usage leaves the device.",
+                    ) { on ->
+                        scope.launch { repository.setClipboardTrackSource(on) }
+                        // Sending the user to grant the permission the first time they
+                        // switch it on — but not when it is already granted, which is
+                        // the common case for a toggle flipped off and on again.
+                        if (on && !hasUsageAccess(context)) runCatching {
                             context.startActivity(
                                 Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)
                                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
                             )
+                        }
+                    }
+                }
+                if (settings.clipboard.trackSource && !usageAccessGranted) {
+                    item {
+                        val context = LocalContext.current
+                        NavRow(
+                            "Usage Access permission required",
+                            "Without it, clips are saved with no source app",
+                        ) {
+                            runCatching {
+                                context.startActivity(
+                                    Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)
+                                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                                )
+                            }
                         }
                     }
                 }
