@@ -70,6 +70,9 @@ enum class ComposerType {
 
     /** Chinese: 笔画 stroke-class buffer (一丨丿丶乙) with Hanzi candidates. */
     STROKE,
+
+    /** Chinese: 九宫格 pinyin typed as ambiguous 9-key digit runs (64 → ni). */
+    T9_PINYIN,
 }
 
 /**

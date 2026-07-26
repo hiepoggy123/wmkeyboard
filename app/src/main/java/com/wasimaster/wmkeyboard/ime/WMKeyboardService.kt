@@ -199,6 +199,7 @@ import com.wasimaster.wmkeyboard.core.input.composer.CjkDictionaries
 import com.wasimaster.wmkeyboard.core.input.composer.Kana
 import com.wasimaster.wmkeyboard.core.input.composer.CjkDictStore
 import com.wasimaster.wmkeyboard.core.input.composer.PinyinSyllables
+import com.wasimaster.wmkeyboard.core.input.composer.T9Pinyin
 import com.wasimaster.wmkeyboard.core.input.composer.StrokeDictionary
 import com.wasimaster.wmkeyboard.core.input.composer.ConversionDictionary
 import com.wasimaster.wmkeyboard.core.script.LanguageDef
@@ -2229,10 +2230,15 @@ open class WMKeyboardService : InputMethodService() {
 
         // VNI spells Vietnamese tones/marks with digits, so a digit typed *while a
         // syllable is composing* feeds the buffer (the transducer eats it) instead
-        // of committing. A digit on an empty buffer is a literal digit as usual.
+        // of committing. A digit on an empty buffer is a literal digit as usual —
+        // except for a composer whose whole alphabet is digits (T9 pinyin), where
+        // that rule would make the first key of every word commit as a number.
         val isWordChar = text.length == 1 && (
             text[0].isLetter() || text[0] == '\'' ||
-                (state.composer.bufferDigits && text[0].isDigit() && composing.isNotEmpty())
+                (
+                    state.composer.bufferDigits && text[0].isDigit() &&
+                        (composing.isNotEmpty() || state.composer.digitsStartBuffer)
+                    )
             )
         // Avro is a transliterating input method: its composing must run even
         // in password fields and with the strip off, or the roman keys commit
@@ -3340,6 +3346,10 @@ open class WMKeyboardService : InputMethodService() {
                     PinyinSyllables.valid = PinyinSyllables.parse(it)
                 }
             }
+            // T9's digit-code index is derived from that inventory, so it is built
+            // here rather than loaded — the 9-key pad and the full keyboard share
+            // one syllable set and one conversion pack.
+            T9Pinyin.index = T9Pinyin.buildIndex(PinyinSyllables.valid)
             loadedCjkPackToken = token
         }
     }

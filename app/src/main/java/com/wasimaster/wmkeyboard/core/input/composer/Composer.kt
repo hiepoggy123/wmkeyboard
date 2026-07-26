@@ -43,10 +43,21 @@ interface Composer {
 
     /**
      * Whether digit keys feed the composing buffer instead of committing it and
-     * typing the digit. Only Vietnamese VNI needs this — its tones and marks are
-     * spelled with the digits 0–9, which the transducer consumes.
+     * typing the digit. Vietnamese VNI needs this — its tones and marks are
+     * spelled with the digits 0–9, which the transducer consumes — as does T9
+     * pinyin, whose whole alphabet is digits.
      */
     val bufferDigits: Boolean get() = false
+
+    /**
+     * Whether a digit may *begin* a composing buffer, not merely continue one.
+     * VNI's digits are tone marks applied to a syllable already being typed, so a
+     * digit on an empty buffer is a literal digit there; T9 pinyin is the opposite
+     * — every keystroke is a digit, so gating on a non-empty buffer would make the
+     * first key of every word commit as a number. Only meaningful with
+     * [bufferDigits].
+     */
+    val digitsStartBuffer: Boolean get() = false
 
     /**
      * A conversion IME (Chinese Pinyin, Japanese kana→kanji): the roman/kana
@@ -117,4 +128,5 @@ fun composerFor(script: ScriptDef, type: ComposerType): Composer = when (type) {
     ComposerType.ROMAJI -> JapaneseComposer
     ComposerType.PINYIN -> PinyinComposer
     ComposerType.STROKE -> StrokeComposer
+    ComposerType.T9_PINYIN -> T9PinyinComposer
 }
