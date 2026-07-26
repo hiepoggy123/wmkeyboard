@@ -8316,6 +8316,17 @@ private fun ClipLinkBody(item: ClipItem) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+        // Title/description replace the raw URL above, so show what actually
+        // gets pasted here — otherwise the real clip text is never visible.
+        if (preview != null) {
+            Text(
+                text = item.text,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                fontSize = 10.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         val host = ClipLinks.host(ClipLinks.asUrl(item.text) ?: item.text)
         if (host.isNotBlank()) {
             Text(
