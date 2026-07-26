@@ -142,9 +142,11 @@ internal fun AiPanel(
                         } else {
                             // An empty field has nothing to act on, so the chips
                             // are greyed out — say why rather than leaving the
-                            // user tapping a dead row.
-                            "Type or select some text first — the actions run on " +
-                                "what's in the field."
+                            // user tapping a dead row, and point at Custom,
+                            // which still works because it can write from
+                            // nothing.
+                            "Type or select some text for these — or tap Custom " +
+                                "to write something from scratch."
                         },
                         color = kb.secondaryText,
                         fontSize = 12.sp,
@@ -171,7 +173,14 @@ internal fun AiPanel(
                         .verticalScroll(rememberScrollState()),
                 ) {
                     Text(
-                        if (blank) "Type an instruction — e.g. “make this a haiku”" else ai.instruction,
+                        when {
+                            !blank -> ai.instruction
+                            // The example has to match what the instruction
+                            // will actually do: with an empty field there is
+                            // no "this" to make a haiku out of.
+                            state.aiHasText -> "Type an instruction — e.g. “make this a haiku”"
+                            else -> "Type an instruction — e.g. “write a haiku about rain”"
+                        },
                         color = if (blank) kb.secondaryText else kb.modifierKeyText,
                         fontSize = 13.sp,
                         lineHeight = 18.sp,
@@ -183,17 +192,17 @@ internal fun AiPanel(
                         .padding(top = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    // Needs both halves: an instruction to follow, and field
-                    // text to follow it on.
-                    val runnable = !blank && state.aiHasText
-                    ToolPanelChip("Run", selected = runnable, enabled = runnable) { onRunCustom() }
+                    // Only the instruction is required: with an empty field
+                    // Custom writes from scratch rather than transforming.
+                    ToolPanelChip("Run", selected = !blank, enabled = !blank) { onRunCustom() }
                     Spacer(Modifier.width(8.dp))
                     Text(
                         if (state.aiHasText) {
                             "Runs on the selected text, or the whole field — " +
                                 "via ${state.settings.aiProvider.label}."
                         } else {
-                            "Nothing in the field to run this on yet."
+                            "Field is empty — this writes new text, " +
+                                "via ${state.settings.aiProvider.label}."
                         },
                         color = kb.secondaryText,
                         fontSize = 11.sp,
@@ -277,8 +286,9 @@ internal fun AiPanel(
                             selected = action == ai.action,
                             // These re-run on the field, so they need field
                             // text — unlike Replace/Insert, which only need
-                            // the result already on screen.
-                            enabled = state.aiHasText,
+                            // the result already on screen. Custom is the
+                            // exception: it can write without any input.
+                            enabled = state.aiHasText || action.worksWithoutText,
                         ) { onAction(action) }
                     }
                 }
@@ -467,7 +477,8 @@ private fun ActionChips(
                 selected = action == running,
                 // The running chip stays lit rather than dimming — it is the
                 // label of what is in flight, not an offer to tap.
-                enabled = enabled && (running == null || action == running),
+                enabled = (enabled || action.worksWithoutText) &&
+                    (running == null || action == running),
             ) {
                 if (running == null) onAction(action)
             }

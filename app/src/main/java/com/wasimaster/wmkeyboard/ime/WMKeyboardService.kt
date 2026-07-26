@@ -5468,6 +5468,15 @@ open class WMKeyboardService : InputMethodService() {
     private var aiCustomInstruction = ""
 
     /**
+     * The last Custom run started from an empty field, so its instruction was
+     * the whole task rather than something to do *to* text. Held beside
+     * [aiCustomInstruction] for exactly the same reason — [onAiRetry] has to
+     * rebuild the same prompt, and picking the wrong one would turn "write a
+     * haiku" into an instruction to rewrite the haiku it just wrote.
+     */
+    private var aiCustomGenerate = false
+
+    /**
      * The on-device model to run: the explicit selection, or — when nothing
      * (valid) is selected — the only model on disk. So the first download
      * just works without a selection step, and a deleted selection heals
@@ -5592,15 +5601,14 @@ open class WMKeyboardService : InputMethodService() {
         vibrate()
         currentInputConnection?.let { commitComposing(it, autocorrect = false) }
         val source = aiInputText(AiAction.CUSTOM).trim()
-        if (source.isEmpty()) {
-            refreshAiHasText()
-            _uiState.update {
-                it.copy(ai = AiUi.Error(AiAction.CUSTOM, "Nothing to work on — type some text first."))
-            }
-            return
-        }
         aiCustomInstruction = instruction
-        runAi(AiAction.CUSTOM, source)
+        // Unlike the preset actions, Custom is useful with an empty field: the
+        // instruction can ask for text to be written rather than something to
+        // be done to text. The instruction then becomes the user message —
+        // sending a blank one is not an option, as several providers reject an
+        // empty user turn outright.
+        aiCustomGenerate = source.isEmpty()
+        runAi(AiAction.CUSTOM, source.ifEmpty { instruction })
     }
 
     private fun runAi(action: AiAction, source: String) {
@@ -5612,10 +5620,12 @@ open class WMKeyboardService : InputMethodService() {
         }
         aiJob = serviceScope.launch {
             val settings = _uiState.value.settings
-            val system = if (action == AiAction.CUSTOM) {
-                AiPrompts.customPrompt(aiCustomInstruction)
-            } else {
-                AiPrompts.systemPrompt(action, settings)
+            val system = when {
+                action != AiAction.CUSTOM -> AiPrompts.systemPrompt(action, settings)
+                // Generating from an empty field: the instruction rides in the
+                // user message, so the system prompt only has to frame it.
+                aiCustomGenerate -> AiPrompts.generatePrompt()
+                else -> AiPrompts.customPrompt(aiCustomInstruction)
             }
             val config = AiClient.config(settings)
             val result = withContext(Dispatchers.IO) {

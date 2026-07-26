@@ -296,6 +296,15 @@ enum class AiAction(val label: String) {
     REWRITE("Rewrite"), SUMMARIZE("Summarize"), TRANSLATE("Translate"),
     IMPROVE("Improve"), FIX_GRAMMAR("Fix grammar"), EXPLAIN("Explain"),
     CONTINUE("Continue"), CUSTOM("Custom"),
+    ;
+
+    /**
+     * Whether the action still means something with an empty field. Only
+     * [CUSTOM] does: its instruction can ask for text to be *written*, whereas
+     * every preset describes something to do to text that has to already
+     * exist. The AI panel keeps this one chip live when the others grey out.
+     */
+    val worksWithoutText: Boolean get() = this == CUSTOM
 }
 
 /** Error-correction level for generated QR codes (higher = more redundant). */

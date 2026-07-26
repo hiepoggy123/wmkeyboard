@@ -67,6 +67,21 @@ object AiPrompts {
         return ROLE + "Follow this instruction on the input text: " + task + GUARD + OUTPUT_ONLY
     }
 
+    /**
+     * System prompt for Custom when the field is empty: there is nothing to
+     * transform, so the user message *is* the instruction and the model writes
+     * the text from scratch.
+     *
+     * Deliberately carries no [GUARD]. That guard exists because field text is
+     * third-party data that must never be read as directives; in this mode
+     * there is no field text at all — the only input is what the user typed on
+     * their own keyboard, which is a directive by definition.
+     */
+    fun generatePrompt(): String =
+        "You are a writing assistant inside a mobile keyboard. The user " +
+            "message is an instruction describing text the user wants written. " +
+            "Write that text." + OUTPUT_ONLY
+
     /** Effective system prompt: the user's override, or the built-in. */
     fun systemPrompt(action: AiAction, settings: KeyboardSettings): String {
         val custom = when (action) {
