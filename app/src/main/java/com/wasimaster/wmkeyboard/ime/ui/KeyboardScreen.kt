@@ -4634,16 +4634,16 @@ private fun KeyRows(
     // instead of typing, so a two-part character can be completed without the
     // dot committing a letter.
     val lastHwStrokeTime = remember { mutableLongStateOf(0L) }
+    // Whether ink is still waiting to be recognized. The dot window only means
+    // anything while a character is unfinished: once the strokes have been
+    // recognized and committed there is nothing for a dot to join, so grabbing
+    // the tap would swallow it — neither typing the key nor adding to a glyph.
+    // Read live inside the gesture loop, which must not restart per stroke.
+    val hwPendingInk = rememberUpdatedState(state.handwriting.strokes.isNotEmpty())
     // Points of the handwriting stroke being drawn right now (box space); the
     // finished strokes waiting for recognition come back from service state.
     var hwActiveStroke by remember { mutableStateOf<List<Offset>>(emptyList()) }
 
-    LaunchedEffect(trail.isNotEmpty()) {
-        while (trail.isNotEmpty()) {
-            withFrameMillis { now ->
-                trailNow = now
-                // After finger-up the trail is left in place to fade out on
-                // its own; drop it once every point has expired.
     // Touch-exploration pass-through: while a screen reader is running and the
     // user picked that mode, the app's own accessibility service hands the key
     // grid's rectangle back to the keyboard so its gestures (spacebar cursor
@@ -4675,6 +4675,12 @@ private fun KeyRows(
         onDispose { KeyboardPassthrough.publishRegion(null) }
     }
 
+    LaunchedEffect(trail.isNotEmpty()) {
+        while (trail.isNotEmpty()) {
+            withFrameMillis { now ->
+                trailNow = now
+                // After finger-up the trail is left in place to fade out on
+                // its own; drop it once every point has expired.
                 if (trailReleased && trail.all { now - it.timeMs > trailMs }) {
                     trail = emptyList()
                 }
@@ -4803,6 +4809,7 @@ private fun KeyRows(
                     // over a letter, so space/enter still work; captured from the
                     // down so even a stationary tap is grabbed as ink.
                     val dotWindow = dotCooldownMs > 0 && keyWidth.value > 0f &&
+                        hwPendingInk.value &&
                         down.uptimeMillis - lastHwStrokeTime.longValue in 0 until dotCooldownMs.toLong() &&
                         nearLetterKey(down.position, keyCenters, keyWidth.value)
                     var isStroke = dotWindow
@@ -5049,6 +5056,16 @@ private fun KeyRows(
                 val inkWidth = 5.dp.toPx()
                 for (stroke in state.handwriting.strokes) {
                     val pts = stroke.points
+                    // A tapped dot or cross is a one-point stroke: it has no
+                    // segment to draw, so it needs a blob of its own or the
+                    // mark on an i/j/t is invisible until the glyph commits.
+                    if (pts.size == 1) {
+                        drawCircle(
+                            color = inkColor,
+                            radius = inkWidth / 2f,
+                            center = Offset(pts[0].x, pts[0].y),
+                        )
+                    }
                     for (i in 1 until pts.size) {
                         drawLine(
                             color = inkColor,
@@ -5697,6 +5714,14 @@ private fun KeyButton(
         else -> false
     }
     val label = spokenLabel(key, state)
+    // Nothing announces the keys once the window is passed through — TalkBack
+    // no longer sees the touches that would make it speak. The keyboard says
+    // the key itself on press; the press only commits on release, so a key can
+    // still be heard before it types.
+    val view = LocalView.current
+    val announce: (Boolean) -> Unit = remember(passthrough, label, view) {
+        { down -> if (passthrough && down) view.announceForAccessibility(label) }
+    }
 
     Box(
         modifier = modifier
@@ -5714,14 +5739,6 @@ private fun KeyButton(
                     Modifier
                 }
             )
-    // Nothing announces the keys once the window is passed through — TalkBack
-    // no longer sees the touches that would make it speak. The keyboard says
-    // the key itself on press; the press only commits on release, so a key can
-    // still be heard before it types.
-    val view = LocalView.current
-    val announce: (Boolean) -> Unit = remember(passthrough, label, view) {
-        { down -> if (passthrough && down) view.announceForAccessibility(label) }
-    }
             .then(
                 if (semanticsDriven) Modifier
                 else Modifier.pointerInputKey(

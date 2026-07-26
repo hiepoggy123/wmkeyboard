@@ -5164,12 +5164,21 @@ open class WMKeyboardService : InputMethodService() {
      * a longer pause the user set for themselves.
      */
     private fun handwritingRecognitionDelayMs(): Long {
-        val base = _uiState.value.settings.handwritingCommitDelayMs.toLong()
-        return if (_uiState.value.handwriting.languageTag == "bn") {
-            maxOf(base, BENGALI_HW_MIN_COMMIT_DELAY_MS)
-        } else {
-            base
+        val state = _uiState.value
+        var delay = state.settings.handwritingCommitDelayMs.toLong()
+        if (state.handwriting.languageTag == "bn") {
+            delay = maxOf(delay, BENGALI_HW_MIN_COMMIT_DELAY_MS)
         }
+        // Writing on the keys: for the dot leeway after a stroke, a tap over
+        // the letters is grabbed as the dot on an i/j/t. Committing while that
+        // window is still open would leave the dot with no character to join —
+        // it would neither type the key (the leeway already claimed the touch)
+        // nor land on the glyph. So the ink waits at least as long as the
+        // leeway the user set for it.
+        if (keyboardHandwriteActive(state)) {
+            delay = maxOf(delay, state.settings.gesture.handwriteDotCooldownMs.toLong())
+        }
+        return delay
     }
 
     /**
