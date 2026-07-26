@@ -23,11 +23,20 @@ class CodeTableDictionary private constructor(
 
     val isEmpty: Boolean get() = codes.isEmpty()
 
-    /** Characters whose code starts with [pattern], best (most frequent) first. */
+    /**
+     * Characters whose code starts with [pattern], best first: a character whose
+     * code is *exactly* what was typed leads, then the rest by frequency.
+     *
+     * Exactness has to outrank frequency here, because a shape code is a complete
+     * spelling of one character rather than a prefix of a word. Ranking on
+     * frequency alone buried 二 (code `11`, and rare) 271 places down its own
+     * prefix behind common characters that merely start with those two strokes —
+     * so typing a character's full code failed to offer it.
+     */
     fun candidates(pattern: String, limit: Int = 24): List<String> {
         if (pattern.isEmpty() || codes.isEmpty()) return emptyList()
         val hits = if ('.' in pattern) wildcardHits(pattern) else prefixHits(pattern)
-        return rank(hits, limit)
+        return rank(hits, limit) { codes[it].length == pattern.length }
     }
 
     /**
@@ -72,9 +81,16 @@ class CodeTableDictionary private constructor(
         return true
     }
 
-    /** Frequency-ranked, de-duplicated words for a set of row indices. */
-    private fun rank(hits: List<Int>, limit: Int): List<String> = hits
-        .sortedByDescending { freqs[it] }
+    /**
+     * De-duplicated words for a set of row indices: rows [preferred] (an exact
+     * code match) first, each group most-frequent first.
+     */
+    private fun rank(
+        hits: List<Int>,
+        limit: Int,
+        preferred: (Int) -> Boolean = { false },
+    ): List<String> = hits
+        .sortedWith(compareByDescending<Int> { preferred(it) }.thenByDescending { freqs[it] })
         .map { words[it] }
         .distinct()
         .take(limit)

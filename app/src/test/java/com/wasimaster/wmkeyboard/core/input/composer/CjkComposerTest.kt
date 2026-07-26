@@ -251,6 +251,32 @@ class CjkComposerTest {
         assertEquals(5, PinyinComposer.consumedFor("nihao", "??"))
     }
 
+    /**
+     * The dictionary keys a *joined* reading, so `xian` covers both the syllable
+     * xiàn and the two-syllable place name 西安 — which sits 81st of 82 by
+     * frequency in the shipped pack and so never reached a three-slot strip.
+     * Typing the boundary is the user saying which one they meant, and the
+     * syllable count is the only thing that carries that intent to the ranking.
+     */
+    @Test
+    fun `an apostrophe boundary surfaces the phrase over commoner single syllables`() {
+        PinyinSyllables.valid = setOf("xi", "an", "xian")
+        CjkDictionaries.pinyin = ConversionDictionary.parse(
+            sequenceOf(
+                "xian\t现\t911",
+                "xian\t见\t860",
+                "xian\t先\t789",
+                "xian\t西安\t7",
+            ),
+        )
+        // Two syllables spelled out → the two-character word leads.
+        assertEquals("西安", PinyinComposer.candidates("xi'an").first())
+        // Typed as one syllable, the common single characters keep their order.
+        assertEquals(listOf("现", "见", "先", "西安"), PinyinComposer.candidates("xian"))
+        // The phrase still consumes the whole buffer, apostrophe included.
+        assertEquals(5, PinyinComposer.consumedFor("xi'an", "西安"))
+    }
+
     @Test
     fun `pinyin without a loaded inventory falls back to whole-buffer lookup`() {
         // No syllable inventory → no segmentation → dictionary prefix matching,

@@ -99,8 +99,7 @@ object PinyinComposer : Composer {
         val out = LinkedHashMap<String, Cand>()
         for ((run, cons) in prefixes.asReversed()) {
             for (reading in readingVariants(run)) {
-                for (raw in dict.exact(reading)) {
-                    val w = HanVariant.toTraditional(raw)
+                for (w in matching(dict.exact(reading), run.size)) {
                     out.getOrPut(w) { Cand(w, cons) }
                     if (out.size >= LIMIT) break
                 }
@@ -110,4 +109,18 @@ object PinyinComposer : Composer {
         }
         return out.values.toList()
     }
+
+    /**
+     * [raw] in Traditional-or-not output order, with the words of [syllables]
+     * characters first — one Hanzi spells one syllable, so a reading segmented
+     * into two syllables means a two-character word.
+     *
+     * The dictionary keys a joined reading, so a phrase shares its key with every
+     * single character read the same way: 西安 and 现 both sit under `xian`, and
+     * on frequency alone the rare place-name lost to 80 common characters. The
+     * syllable count is what tells the two apart — it is the whole reason `xi'an`
+     * is worth typing over `xian`. Stable, so frequency still orders each group.
+     */
+    private fun matching(raw: List<String>, syllables: Int): List<String> =
+        raw.map(HanVariant::toTraditional).sortedBy { if (it.length == syllables) 0 else 1 }
 }

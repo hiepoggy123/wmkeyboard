@@ -31,8 +31,11 @@ class CangjieTest {
     }
 
     @Test
-    fun `prefix query returns matches frequency-ranked`() {
-        assertEquals(listOf("AB", "AC", "A", "ADB", "ADEB"), dict.candidates("a"))
+    fun `prefix query puts an exact code first, then frequency`() {
+        // "a" spells A outright, so it leads the characters that merely start
+        // with that radical; those follow most-frequent first.
+        assertEquals(listOf("A", "AB", "AC", "ADB", "ADEB"), dict.candidates("a"))
+        // No character is spelled "ad" exactly, so frequency alone orders it.
         assertEquals(listOf("ADB", "ADEB"), dict.candidates("ad"))
         assertEquals(listOf("BD"), dict.candidates("b"))
     }
@@ -64,8 +67,8 @@ class CangjieTest {
         CjkDictionaries.cangjie = dict
         // The on-screen keys type letters; a hardware keyboard or a pasted glyph
         // reaches the same code.
-        assertEquals(listOf("AB", "AC", "A", "ADB", "ADEB"), CangjieComposer.candidates("a"))
-        assertEquals(listOf("AB", "AC", "A", "ADB", "ADEB"), CangjieComposer.candidates("日"))
+        assertEquals(listOf("A", "AB", "AC", "ADB", "ADEB"), CangjieComposer.candidates("a"))
+        assertEquals(listOf("A", "AB", "AC", "ADB", "ADEB"), CangjieComposer.candidates("日"))
         assertEquals(listOf("ADB", "ADEB"), CangjieComposer.candidates("日木"))
         // Composing region shows radicals, not the raw letters.
         assertEquals("日木", CangjieComposer.composeBuffer("ad"))
