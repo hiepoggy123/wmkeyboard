@@ -9,7 +9,7 @@ import org.junit.Test
 class StrokeTest {
 
     // "Words" are ASCII stand-ins; the stroke code + prefix logic is script-agnostic.
-    private val dict = StrokeDictionary.parse(
+    private val dict = CodeTableDictionary.parse(
         sequenceOf(
             "1\tA\t10",
             "12\tB\t30",
@@ -17,11 +17,12 @@ class StrokeTest {
             "1234\tD\t5",
             "2\tE\t100",
         ),
+        CodeTableDictionary.STROKE_CODE,
     )
 
     @After
     fun reset() {
-        CjkDictionaries.stroke = StrokeDictionary.EMPTY
+        CjkDictionaries.stroke = CodeTableDictionary.EMPTY
     }
 
     @Test
@@ -41,7 +42,10 @@ class StrokeTest {
     fun `unknown prefix and malformed codes yield nothing`() {
         assertEquals(emptyList<String>(), dict.candidates("5"))
         // A code with a non-1..5 digit is dropped at parse time.
-        val d = StrokeDictionary.parse(sequenceOf("19\tX\t1", "13\tY\t1"))
+        val d = CodeTableDictionary.parse(
+            sequenceOf("19\tX\t1", "13\tY\t1"),
+            CodeTableDictionary.STROKE_CODE,
+        )
         assertEquals(listOf("Y"), d.candidates("1"))
     }
 

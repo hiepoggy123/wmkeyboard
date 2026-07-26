@@ -201,7 +201,7 @@ import com.wasimaster.wmkeyboard.core.input.composer.CjkDictStore
 import com.wasimaster.wmkeyboard.core.input.composer.PinyinSyllables
 import com.wasimaster.wmkeyboard.core.input.composer.T9Pinyin
 import com.wasimaster.wmkeyboard.core.input.composer.ZhuyinSyllables
-import com.wasimaster.wmkeyboard.core.input.composer.StrokeDictionary
+import com.wasimaster.wmkeyboard.core.input.composer.CodeTableDictionary
 import com.wasimaster.wmkeyboard.core.input.composer.ConversionDictionary
 import com.wasimaster.wmkeyboard.core.script.LanguageDef
 import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
@@ -3337,8 +3337,14 @@ open class WMKeyboardService : InputMethodService() {
                 ?.let { file -> runCatching { file.bufferedReader().useLines(ConversionDictionary::parse) }.getOrNull() }
                 ?: ConversionDictionary.EMPTY
             CjkDictionaries.stroke = CjkDictStore.downloadedFileFor(filesDir, "stroke")
-                ?.let { file -> runCatching { file.bufferedReader().useLines(StrokeDictionary::parse) }.getOrNull() }
-                ?: StrokeDictionary.EMPTY
+                ?.let { file ->
+                    runCatching {
+                        file.bufferedReader().useLines {
+                            CodeTableDictionary.parse(it, CodeTableDictionary.STROKE_CODE)
+                        }
+                    }.getOrNull()
+                }
+                ?: CodeTableDictionary.EMPTY
             // The pinyin syllable inventory is tiny static reference data (~1.8 KB),
             // the only bundled CJK asset — segmentation is ready without a download,
             // though candidates still need the pinyin pack above.

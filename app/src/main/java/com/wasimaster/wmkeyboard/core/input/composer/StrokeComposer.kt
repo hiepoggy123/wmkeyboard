@@ -3,7 +3,7 @@ package com.wasimaster.wmkeyboard.core.input.composer
 /**
  * Chinese stroke input (笔画). The buffer is a run of the five stroke classes,
  * typed as the keys h/s/p/n/z (or the digits 1–5), and the strip offers the Han
- * characters whose stroke order starts with what's typed ([StrokeDictionary]).
+ * characters whose stroke order starts with what's typed ([CodeTableDictionary]).
  *
  * Unlike Pinyin, one character is built from a single stroke run, so a commit
  * consumes the whole buffer (the default [consumedFor]) — there is no tail to

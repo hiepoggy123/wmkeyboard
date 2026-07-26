@@ -6,7 +6,7 @@ import com.wasimaster.wmkeyboard.core.input.composer.CjkDictCatalog
 import com.wasimaster.wmkeyboard.core.input.composer.CjkDictStore
 import com.wasimaster.wmkeyboard.core.input.composer.CjkDictionaries
 import com.wasimaster.wmkeyboard.core.input.composer.StrokeComposer
-import com.wasimaster.wmkeyboard.core.input.composer.StrokeDictionary
+import com.wasimaster.wmkeyboard.core.input.composer.CodeTableDictionary
 import com.wasimaster.wmkeyboard.core.layout.AssetLayouts
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -25,12 +25,12 @@ class CjkStrokeE2ETest {
     @Before
     @After
     fun resetGlobals() {
-        CjkDictionaries.stroke = StrokeDictionary.EMPTY
+        CjkDictionaries.stroke = CodeTableDictionary.EMPTY
     }
 
     @Test
     fun testP4_1_SingleStroke() {
-        CjkDictionaries.stroke = StrokeDictionary.parse(
+        CjkDictionaries.stroke = CodeTableDictionary.parse(
             sequenceOf(
                 "1\t一",
                 "1\t不",
@@ -50,7 +50,7 @@ class CjkStrokeE2ETest {
 
     @Test
     fun testP4_2_DoubleStroke() {
-        CjkDictionaries.stroke = StrokeDictionary.parse(
+        CjkDictionaries.stroke = CodeTableDictionary.parse(
             sequenceOf(
                 "11\t二",
                 "11\t于",
@@ -69,7 +69,7 @@ class CjkStrokeE2ETest {
 
     @Test
     fun testP4_3_StrokeCandidateCommit() {
-        CjkDictionaries.stroke = StrokeDictionary.parse(
+        CjkDictionaries.stroke = CodeTableDictionary.parse(
             sequenceOf("11\t天")
         )
 
@@ -94,9 +94,9 @@ class CjkStrokeE2ETest {
         val strokeFile = CjkDictStore.downloadedFileFor(filesDir, "stroke")
 
         if (strokeFile != null && strokeFile.isFile) {
-            CjkDictionaries.stroke = StrokeDictionary.parse(strokeFile.bufferedReader().useLines { it })
+            CjkDictionaries.stroke = CodeTableDictionary.parse(strokeFile.bufferedReader().useLines { it })
         } else {
-            CjkDictionaries.stroke = StrokeDictionary.parse(sequenceOf("12\t十", "13\t八"))
+            CjkDictionaries.stroke = CodeTableDictionary.parse(sequenceOf("12\t十", "13\t八"))
         }
 
         val composed = StrokeComposer.composeBuffer("一*")
