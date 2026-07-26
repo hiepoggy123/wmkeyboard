@@ -22,7 +22,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Backspace
-import androidx.compose.material.icons.automirrored.outlined.KeyboardReturn
 import androidx.compose.material.icons.automirrored.outlined.Undo
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.FileDownload
@@ -58,6 +57,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
+import com.wasimaster.wmkeyboard.ime.EnterAction
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
 import com.wasimaster.wmkeyboard.ime.VoiceModelState
 import com.wasimaster.wmkeyboard.ime.VoiceStatus
@@ -243,9 +243,13 @@ internal fun VoicePanel(
                 feedback()
                 onKey(Key(" ", action = KeyAction.Space))
             }
+            // Same icon the enter key on the key rows would show for this
+            // field — a search box gets a magnifier here too, so the rail is
+            // not quietly promising a newline it will not insert.
             VoiceRailKey(
-                description = "Enter",
-                icon = Icons.AutoMirrored.Outlined.KeyboardReturn,
+                description = enterActionName(state),
+                icon = enterActionIcon(state.enterAction),
+                label = state.enterActionLabel?.takeIf { state.enterAction == EnterAction.CUSTOM },
                 modifier = Modifier.weight(1f),
             ) {
                 feedback()
@@ -630,12 +634,17 @@ private fun hasMicPermission(context: android.content.Context): Boolean =
     ContextCompat.checkSelfPermission(context, android.Manifest.permission.RECORD_AUDIO) ==
         android.content.pm.PackageManager.PERMISSION_GRANTED
 
-/** One key on the panel's right-hand action rail (same look as handwriting's). */
+/**
+ * One key on the panel's right-hand action rail (same look as handwriting's).
+ * A non-null [label] is drawn as text instead of [icon] — for an app-supplied
+ * enter action, whose whole point is the wording the app chose.
+ */
 @Composable
 private fun VoiceRailKey(
     description: String,
     icon: ImageVector,
     modifier: Modifier = Modifier,
+    label: String? = null,
     repeatable: Boolean = false,
     onAction: () -> Unit,
 ) {
@@ -669,11 +678,24 @@ private fun VoiceRailKey(
             },
         contentAlignment = Alignment.Center,
     ) {
-        Icon(
-            icon,
-            contentDescription = description,
-            modifier = Modifier.size(22.dp),
-            tint = kb.modifierKeyText,
-        )
+        if (label != null) {
+            Text(
+                label,
+                color = kb.modifierKeyText,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Medium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(horizontal = 3.dp),
+            )
+        } else {
+            Icon(
+                icon,
+                contentDescription = description,
+                modifier = Modifier.size(22.dp),
+                tint = kb.modifierKeyText,
+            )
+        }
     }
 }

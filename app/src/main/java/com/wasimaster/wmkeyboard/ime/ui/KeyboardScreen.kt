@@ -451,6 +451,39 @@ private fun rememberTouchExploration(): Boolean {
 }
 
 /**
+ * The icon for the enter action the focused field asked for
+ * (EditorInfo.imeOptions). Shared, because a panel that draws its own enter
+ * button has to agree with the key rows — a search field showing a magnifier on
+ * one and a return arrow on the other is worse than either choice alone.
+ *
+ * [EnterAction.CUSTOM] has no icon of its own by design: the app supplied
+ * wording instead, so callers with room for text draw
+ * [KeyboardUiState.enterActionLabel], and everyone else falls back to the
+ * newline glyph — which is what onEnter does with a blank label anyway.
+ */
+internal fun enterActionIcon(action: EnterAction): ImageVector = when (action) {
+    EnterAction.SEARCH -> Icons.Outlined.Search
+    EnterAction.SEND -> Icons.AutoMirrored.Outlined.Send
+    EnterAction.GO -> Icons.AutoMirrored.Outlined.ArrowForward
+    EnterAction.NEXT -> Icons.AutoMirrored.Outlined.KeyboardTab
+    EnterAction.PREVIOUS -> Icons.AutoMirrored.Outlined.ArrowBack
+    EnterAction.DONE -> Icons.Outlined.Check
+    EnterAction.DEFAULT, EnterAction.CUSTOM -> Icons.AutoMirrored.Outlined.KeyboardReturn
+}
+
+/** What to call the enter key in this field, for screen readers. */
+internal fun enterActionName(state: KeyboardUiState): String = when (state.enterAction) {
+    EnterAction.SEARCH -> "Search"
+    EnterAction.SEND -> "Send"
+    EnterAction.GO -> "Go"
+    EnterAction.NEXT -> "Next"
+    EnterAction.PREVIOUS -> "Previous"
+    EnterAction.DONE -> "Done"
+    EnterAction.CUSTOM -> state.enterActionLabel ?: "Enter"
+    EnterAction.DEFAULT -> "Enter"
+}
+
+/**
  * What a screen reader should call this key. Punctuation and whitespace get
  * spoken names because TalkBack either skips them or reads them as silence,
  * which makes a symbol layout unusable by ear.
@@ -458,16 +491,7 @@ private fun rememberTouchExploration(): Boolean {
 private fun spokenLabel(key: Key, state: KeyboardUiState): String = when (key.action) {
     KeyAction.Space -> "Space"
     KeyAction.Delete -> "Delete"
-    KeyAction.Enter -> when (state.enterAction) {
-        EnterAction.SEARCH -> "Search"
-        EnterAction.SEND -> "Send"
-        EnterAction.GO -> "Go"
-        EnterAction.NEXT -> "Next"
-        EnterAction.PREVIOUS -> "Previous"
-        EnterAction.DONE -> "Done"
-        EnterAction.CUSTOM -> state.enterActionLabel ?: "Enter"
-        EnterAction.DEFAULT -> "Enter"
-    }
+    KeyAction.Enter -> enterActionName(state)
     KeyAction.Shift -> when (state.shiftState) {
         ShiftState.CAPS_LOCK -> "Caps lock on"
         ShiftState.ON -> "Shift on"
@@ -6019,18 +6043,7 @@ private fun KeyContent(key: Key, state: KeyboardUiState, contentColor: Color) {
             )
         } else {
             Icon(
-                when (state.enterAction) {
-                    EnterAction.SEARCH -> Icons.Outlined.Search
-                    EnterAction.SEND -> Icons.AutoMirrored.Outlined.Send
-                    EnterAction.GO -> Icons.AutoMirrored.Outlined.ArrowForward
-                    EnterAction.NEXT -> Icons.AutoMirrored.Outlined.KeyboardTab
-                    EnterAction.PREVIOUS -> Icons.AutoMirrored.Outlined.ArrowBack
-                    EnterAction.DONE -> Icons.Outlined.Check
-                    // CUSTOM without a usable label falls back to a newline
-                    // glyph, matching what onEnter does with a blank one.
-                    EnterAction.DEFAULT, EnterAction.CUSTOM ->
-                        Icons.AutoMirrored.Outlined.KeyboardReturn
-                },
+                enterActionIcon(state.enterAction),
                 contentDescription = "Enter",
                 tint = contentColor,
             )

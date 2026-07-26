@@ -133,6 +133,7 @@ import com.wasimaster.wmkeyboard.core.localllm.LocalLlmStore
 import com.wasimaster.wmkeyboard.core.tools.AiClient
 import com.wasimaster.wmkeyboard.core.tools.AiPrompts
 import com.wasimaster.wmkeyboard.core.tools.AiMarkdown
+import com.wasimaster.wmkeyboard.core.tools.AiPhase
 import com.wasimaster.wmkeyboard.core.tools.AiThinking
 import com.wasimaster.wmkeyboard.core.tools.CurrencyClient
 import com.wasimaster.wmkeyboard.core.tools.SmartSuggest
@@ -1504,6 +1505,9 @@ open class WMKeyboardService : InputMethodService() {
         // Translate deliberately does NOT — it translates its own typed
         // query, never the field.
         if (_uiState.value.panel == PanelMode.GRAMMAR) scheduleGrammarCheck()
+        // The AI panel's action chips are enabled by there being text to act
+        // on, so they follow the field the same way.
+        if (_uiState.value.panel == PanelMode.AI) refreshAiHasText()
     }
 
     /**
@@ -3837,7 +3841,14 @@ open class WMKeyboardService : InputMethodService() {
                 // tracks the field.
                 _uiState.update { it.copy(mediaQuery = extractFieldText().trim()) }
             }
-            PanelMode.AI -> _uiState.update { it.copy(ai = aiInitialState(it.settings)) }
+            PanelMode.AI -> {
+                // A half-typed word is part of what the actions would run on,
+                // so it has to be in the field before the chips are judged
+                // enabled or not.
+                currentInputConnection?.let { commitComposing(it, autocorrect = false) }
+                _uiState.update { it.copy(ai = aiInitialState(it.settings)) }
+                refreshAiHasText()
+            }
             PanelMode.TYPING_TEST -> {
                 // Flush the half-typed word first: the test swallows every
                 // key from here, so a composing word would otherwise hang
@@ -5473,6 +5484,28 @@ open class WMKeyboardService : InputMethodService() {
         return "qwen3" in name || "deepseek" in name
     }
 
+    /**
+     * Is there anything for an AI action to run on — a selection, or any text
+     * in the field? Drives [KeyboardUiState.aiHasText], which greys out the
+     * action chips; an action on an empty field has nothing to rewrite and
+     * would only make the model invent something.
+     */
+    private fun aiFieldHasText(): Boolean {
+        val ic = currentInputConnection ?: return false
+        if (!ic.getSelectedText(0).isNullOrBlank()) return true
+        return extractFieldText().isNotBlank()
+    }
+
+    /**
+     * Re-reads the field for [KeyboardUiState.aiHasText]. Called when the AI
+     * panel opens and on every cursor/text change while it is open — typing
+     * the first character has to enable the chips without a panel reopen.
+     */
+    private fun refreshAiHasText() {
+        val hasText = aiFieldHasText()
+        _uiState.update { if (it.aiHasText == hasText) it else it.copy(aiHasText = hasText) }
+    }
+
     /** What the AI panel should show before any action runs. */
     private fun aiInitialState(settings: KeyboardSettings): AiUi = when {
         settings.aiProvider == AiProvider.ON_DEVICE && BuildConfig.ENABLE_LOCAL_LLM &&
@@ -5525,6 +5558,10 @@ open class WMKeyboardService : InputMethodService() {
         currentInputConnection?.let { commitComposing(it, autocorrect = false) }
         val source = aiInputText(action).trim()
         if (source.isEmpty()) {
+            // Backstop for the chips being disabled: an empty field gives the
+            // model nothing to work from, so it would invent text rather than
+            // rewrite any. Never send the request.
+            refreshAiHasText()
             _uiState.update {
                 it.copy(ai = AiUi.Error(action, "Nothing to work on — type some text first."))
             }
@@ -5547,6 +5584,7 @@ open class WMKeyboardService : InputMethodService() {
         currentInputConnection?.let { commitComposing(it, autocorrect = false) }
         val source = aiInputText(AiAction.CUSTOM).trim()
         if (source.isEmpty()) {
+            refreshAiHasText()
             _uiState.update {
                 it.copy(ai = AiUi.Error(AiAction.CUSTOM, "Nothing to work on — type some text first."))
             }
@@ -5559,7 +5597,10 @@ open class WMKeyboardService : InputMethodService() {
     private fun runAi(action: AiAction, source: String) {
         aiJob?.cancel()
         val seq = ++aiRunSeq
-        _uiState.update { it.copy(ai = AiUi.Loading(action)) }
+        val startedAt = SystemClock.uptimeMillis()
+        _uiState.update {
+            it.copy(ai = AiUi.Loading(action, startedAtMs = startedAt))
+        }
         aiJob = serviceScope.launch {
             val settings = _uiState.value.settings
             val system = if (action == AiAction.CUSTOM) {
@@ -5573,9 +5614,7 @@ open class WMKeyboardService : InputMethodService() {
                     if (config.provider == AiProvider.ON_DEVICE) {
                         runAiOnDevice(seq, action, source, system, settings)
                     } else {
-                        AiClient.complete(
-                            config, system, source, AiClient.effectiveMaxTokens(settings),
-                        )
+                        runAiRemote(seq, action, source, system, settings, config, startedAt)
                     }
                 }
             }
@@ -5623,6 +5662,7 @@ open class WMKeyboardService : InputMethodService() {
         val modelFile = effectiveLocalModelFile(settings)
             ?: throw IOException("The selected model is gone — download it again in settings")
         val implicitThink = isReasoningModel(modelId)
+        val startedAt = SystemClock.uptimeMillis()
         var lastPartialAt = 0L
         return LocalLlmEngine.generate(
             context = applicationContext,
@@ -5632,29 +5672,100 @@ open class WMKeyboardService : InputMethodService() {
             user = source,
         ) { raw ->
             val now = SystemClock.uptimeMillis()
-            if (seq != aiRunSeq || now - lastPartialAt < 120) return@generate
+            if (seq != aiRunSeq || now - lastPartialAt < AI_PARTIAL_INTERVAL_MS) return@generate
             lastPartialAt = now
-            // Reasoning models: keep the spinner (marked "thinking") until
-            // real output starts, unless the user wants the raw stream.
-            val shown = if (settings.aiShowThinking) {
-                AiThinking.Split(raw, thinking = false)
-            } else {
-                AiThinking.split(raw, implicitThink)
-            }
-            _uiState.update {
-                it.copy(
-                    ai = when {
-                        shown.output.isBlank() && shown.thinking ->
-                            AiUi.Loading(action, thinking = true)
-                        shown.output.isBlank() -> it.ai // nothing visible yet
-                        else -> AiUi.Ready(
-                            action, shown.output, source,
-                            generating = true,
-                            stripMarkdown = (it.ai as? AiUi.Ready)?.stripMarkdown ?: true,
-                        )
-                    },
-                )
-            }
+            applyAiPartial(seq, action, source, raw, settings, implicitThink, startedAt)
+        }
+    }
+
+    /**
+     * Streaming cloud/server generation. Same shape as [runAiOnDevice] — the
+     * response is rendered as it forms — plus the connection phases, which
+     * only a network request has. Call under [Dispatchers.IO].
+     */
+    private fun runAiRemote(
+        seq: Int,
+        action: AiAction,
+        source: String,
+        system: String,
+        settings: KeyboardSettings,
+        config: AiClient.Config,
+        startedAt: Long,
+    ): String {
+        var lastPartialAt = 0L
+        return AiClient.completeStreaming(
+            config = config,
+            system = system,
+            user = source,
+            maxTokens = AiClient.effectiveMaxTokens(settings),
+            onPhase = { phase ->
+                if (seq == aiRunSeq) {
+                    _uiState.update {
+                        // Only advance a still-loading run: a partial may
+                        // already have promoted this to Ready, and a late
+                        // phase report must not drag it back to a spinner.
+                        val loading = it.ai as? AiUi.Loading
+                        if (loading == null) it else it.copy(ai = loading.copy(phase = phase))
+                    }
+                }
+            },
+            onPartial = { raw ->
+                val now = SystemClock.uptimeMillis()
+                if (seq == aiRunSeq && now - lastPartialAt >= AI_PARTIAL_INTERVAL_MS) {
+                    lastPartialAt = now
+                    // Cloud reasoning is wrapped in explicit <think> tags by
+                    // AiClient, so it never needs the implicit-think fallback.
+                    applyAiPartial(
+                        seq, action, source, raw, settings,
+                        implicitThink = false, startedAt,
+                    )
+                }
+            },
+            // A superseded or closed run stops reading here rather than holding
+            // the socket — and paying for tokens — until the model finishes.
+            isActive = { seq == aiRunSeq },
+        )
+    }
+
+    /**
+     * Renders one streamed partial: reasoning keeps the progress view (with a
+     * live character count, the only sign a silent reasoning model is alive),
+     * and the first answer text switches the panel to the streaming result.
+     */
+    private fun applyAiPartial(
+        seq: Int,
+        action: AiAction,
+        source: String,
+        raw: String,
+        settings: KeyboardSettings,
+        implicitThink: Boolean,
+        startedAt: Long,
+    ) {
+        // Reasoning models: keep the progress view (marked "thinking") until
+        // real output starts, unless the user wants the raw stream.
+        val shown = if (settings.aiShowThinking) {
+            AiThinking.Split(raw, thinking = false)
+        } else {
+            AiThinking.split(raw, implicitThink)
+        }
+        _uiState.update {
+            if (seq != aiRunSeq) return@update it
+            it.copy(
+                ai = when {
+                    shown.output.isBlank() && shown.thinking -> AiUi.Loading(
+                        action,
+                        phase = AiPhase.THINKING,
+                        thinkingChars = raw.length,
+                        startedAtMs = startedAt,
+                    )
+                    shown.output.isBlank() -> it.ai // nothing visible yet
+                    else -> AiUi.Ready(
+                        action, shown.output, source,
+                        generating = true,
+                        stripMarkdown = (it.ai as? AiUi.Ready)?.stripMarkdown ?: true,
+                    )
+                },
+            )
         }
     }
 
@@ -7764,6 +7875,12 @@ open class WMKeyboardService : InputMethodService() {
          */
         private const val BENGALI_HW_MIN_COMMIT_DELAY_MS = 1200L
         private const val WEATHER_CACHE_MS = 15L * 60 * 1000
+
+        /**
+         * Floor between AI partial renders. Both backends emit far faster than
+         * anyone can read, and every partial recomposes the panel.
+         */
+        private const val AI_PARTIAL_INTERVAL_MS = 120L
         private val SENTENCE_ENDERS = charArrayOf('.', '!', '?', '।')
         private const val SHIFT_DOUBLE_TAP_MS = 350L
 

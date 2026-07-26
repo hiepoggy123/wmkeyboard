@@ -22,6 +22,7 @@ import com.wasimaster.wmkeyboard.core.script.ScriptRegistry
 import com.wasimaster.wmkeyboard.core.transliteration.BengaliGraphemes
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.snippets.Snippet
+import com.wasimaster.wmkeyboard.core.tools.AiPhase
 import com.wasimaster.wmkeyboard.core.tools.SmartSuggest
 import com.wasimaster.wmkeyboard.core.tools.ToolPrefill
 import com.wasimaster.wmkeyboard.core.tools.TypedWord
@@ -452,8 +453,22 @@ sealed interface AiUi {
     data class CustomInput(val instruction: String = "") : AiUi
     data class Loading(
         val action: com.wasimaster.wmkeyboard.core.settings.AiAction,
-        /** A reasoning model is inside a `<think>` block (hidden by default). */
-        val thinking: Boolean = false,
+        /**
+         * Which step the request is on. [AiPhase.THINKING] is the old
+         * "a reasoning model is inside a `<think>` block" case.
+         */
+        val phase: AiPhase = AiPhase.PREPARING,
+        /**
+         * Reasoning characters received so far. Shown while [phase] is
+         * [AiPhase.THINKING] — a number that climbs is the only evidence a
+         * silent reasoning model is alive rather than hung.
+         */
+        val thinkingChars: Int = 0,
+        /**
+         * Clock start ([android.os.SystemClock.uptimeMillis]) for the elapsed
+         * readout, so a slow provider looks slow instead of broken.
+         */
+        val startedAtMs: Long = 0L,
     ) : AiUi
     data class Ready(
         val action: com.wasimaster.wmkeyboard.core.settings.AiAction,
@@ -766,6 +781,15 @@ data class KeyboardUiState(
     val wiki: WikiUi = WikiUi.Idle,
     val currency: CurrencyUi = CurrencyUi.Loading,
     val ai: AiUi = AiUi.Idle,
+    /**
+     * The focused field holds something an AI action could run on (a selection,
+     * or any field text). Kept beside [ai] rather than inside it so it survives
+     * a finished result — with an empty field, re-running an action is
+     * impossible but Replace/Insert of the result the user already has is not.
+     * Refreshed only while the AI panel is open; stale otherwise, and nothing
+     * else reads it.
+     */
+    val aiHasText: Boolean = false,
     val typingTest: TypingTestUi = TypingTestUi(),
 ) {
     /**

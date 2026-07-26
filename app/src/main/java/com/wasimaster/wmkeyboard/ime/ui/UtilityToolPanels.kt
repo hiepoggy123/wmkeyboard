@@ -47,6 +47,7 @@ import androidx.compose.ui.unit.sp
 import com.wasimaster.wmkeyboard.core.tools.CalcEngine
 import com.wasimaster.wmkeyboard.core.tools.CurrencyClient
 import com.wasimaster.wmkeyboard.core.tools.SymbolCatalog
+import androidx.compose.ui.graphics.Color
 import com.wasimaster.wmkeyboard.core.tools.ToolPrefill
 import com.wasimaster.wmkeyboard.core.tools.UnitConvert
 import com.wasimaster.wmkeyboard.ime.CurrencyUi
@@ -60,25 +61,33 @@ internal fun ToolPanelChip(
     label: String,
     selected: Boolean = false,
     modifier: Modifier = Modifier,
+    enabled: Boolean = true,
     onClick: () -> Unit,
 ) {
     val kb = LocalKbTheme.current
+    // Dimmed by scaling whatever alpha the theme already chose, not by pinning
+    // a new one: some themes draw chips translucent to begin with, and no theme
+    // defines a "disabled" colour pair that would stay legible across all of them.
+    fun Color.dim() = if (enabled) this else copy(alpha = alpha * DISABLED_ALPHA)
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(12.dp))
-            .background(if (selected) kb.toolCircleActive else kb.chip)
-            .clickable(onClick = onClick)
+            .background((if (selected) kb.toolCircleActive else kb.chip).dim())
+            .clickable(enabled = enabled, onClick = onClick)
             .padding(horizontal = 10.dp, vertical = 5.dp),
     ) {
         Text(
             label,
-            color = if (selected) kb.toolCircleActiveIcon else kb.modifierKeyText,
+            color = (if (selected) kb.toolCircleActiveIcon else kb.modifierKeyText).dim(),
             fontSize = 12.sp,
             fontWeight = FontWeight.Medium,
             maxLines = 1,
         )
     }
 }
+
+/** How far [ToolPanelChip] fades a chip that cannot be tapped. */
+private const val DISABLED_ALPHA = 0.4f
 
 @Composable
 private fun KeypadButton(

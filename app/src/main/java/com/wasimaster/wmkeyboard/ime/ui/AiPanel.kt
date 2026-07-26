@@ -21,9 +21,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import android.os.SystemClock
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Check
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -34,24 +34,31 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import com.wasimaster.wmkeyboard.core.localllm.LocalLlmCatalog
 import com.wasimaster.wmkeyboard.core.localllm.LocalLlmStore
 import com.wasimaster.wmkeyboard.BuildConfig
 import com.wasimaster.wmkeyboard.core.settings.AiAction
 import com.wasimaster.wmkeyboard.core.settings.AiProvider
+import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
 import com.wasimaster.wmkeyboard.core.tools.AiClient
 import com.wasimaster.wmkeyboard.core.tools.AiMarkdown
+import com.wasimaster.wmkeyboard.core.tools.AiPhase
 import com.wasimaster.wmkeyboard.ime.AiUi
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
+import kotlinx.coroutines.delay
 
 /**
  * AI writing tool: one-tap actions (rewrite, summarize, translate …) that
@@ -126,11 +133,19 @@ internal fun AiPanel(
                 ToolPanelChip("Download a model") { onOpenToolSettings(ToolbarTool.AI) }
             }
             AiUi.Idle -> Column(Modifier.fillMaxSize()) {
-                ActionChips(onAction)
+                ActionChips(onAction, enabled = state.aiHasText)
                 Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
                     Text(
-                        "Actions run on the selected text, or the whole field — " +
-                            "via ${state.settings.aiProvider.label}.",
+                        if (state.aiHasText) {
+                            "Actions run on the selected text, or the whole field — " +
+                                "via ${state.settings.aiProvider.label}."
+                        } else {
+                            // An empty field has nothing to act on, so the chips
+                            // are greyed out — say why rather than leaving the
+                            // user tapping a dead row.
+                            "Type or select some text first — the actions run on " +
+                                "what's in the field."
+                        },
                         color = kb.secondaryText,
                         fontSize = 12.sp,
                         textAlign = TextAlign.Center,
@@ -168,10 +183,18 @@ internal fun AiPanel(
                         .padding(top = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    ToolPanelChip("Run", selected = !blank) { onRunCustom() }
+                    // Needs both halves: an instruction to follow, and field
+                    // text to follow it on.
+                    val runnable = !blank && state.aiHasText
+                    ToolPanelChip("Run", selected = runnable, enabled = runnable) { onRunCustom() }
                     Spacer(Modifier.width(8.dp))
                     Text(
-                        "Runs on the selected text, or the whole field — via ${state.settings.aiProvider.label}.",
+                        if (state.aiHasText) {
+                            "Runs on the selected text, or the whole field — " +
+                                "via ${state.settings.aiProvider.label}."
+                        } else {
+                            "Nothing in the field to run this on yet."
+                        },
                         color = kb.secondaryText,
                         fontSize = 11.sp,
                     )
@@ -179,43 +202,12 @@ internal fun AiPanel(
             }
             is AiUi.Loading -> Column(Modifier.fillMaxSize()) {
                 ActionChips(onAction, running = ai.action)
-                Column(
-                    Modifier.weight(1f).fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center,
-                ) {
-                    if (ai.thinking) {
-                        LinearProgressIndicator(
-                            color = kb.accent,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 32.dp),
-                        )
-                    } else {
-                        CircularProgressIndicator(
-                            color = kb.accent,
-                            strokeWidth = 2.dp,
-                            modifier = Modifier.height(22.dp),
-                        )
-                    }
-                    Spacer(Modifier.height(6.dp))
-                    Text(
-                        when {
-                            ai.thinking ->
-                                "Reasoning… the answer streams in once it's done thinking."
-                            state.settings.aiProvider == AiProvider.ON_DEVICE ->
-                                "${ai.action.label} on-device… the first run also loads the model."
-                            else -> "${ai.action.label}…"
-                        },
-                        color = kb.secondaryText,
-                        fontSize = 12.sp,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(horizontal = 24.dp),
-                    )
+                Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    AiProgress(ai, state.settings)
                 }
             }
             is AiUi.Error -> Column(Modifier.fillMaxSize()) {
-                ActionChips(onAction)
+                ActionChips(onAction, enabled = state.aiHasText)
                 Column(
                     Modifier.weight(1f).fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -280,9 +272,14 @@ internal fun AiPanel(
                     horizontalArrangement = Arrangement.spacedBy(5.dp),
                 ) {
                     for (action in AiAction.entries) {
-                        ToolPanelChip(action.label, selected = action == ai.action) {
-                            onAction(action)
-                        }
+                        ToolPanelChip(
+                            action.label,
+                            selected = action == ai.action,
+                            // These re-run on the field, so they need field
+                            // text — unlike Replace/Insert, which only need
+                            // the result already on screen.
+                            enabled = state.aiHasText,
+                        ) { onAction(action) }
                     }
                 }
             }
@@ -454,16 +451,157 @@ private fun ModelPickerRow(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun ActionChips(onAction: (AiAction) -> Unit, running: AiAction? = null) {
+private fun ActionChips(
+    onAction: (AiAction) -> Unit,
+    running: AiAction? = null,
+    enabled: Boolean = true,
+) {
     FlowRow(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalArrangement = Arrangement.spacedBy(5.dp),
     ) {
         for (action in AiAction.entries) {
-            ToolPanelChip(action.label, selected = action == running) {
+            ToolPanelChip(
+                action.label,
+                selected = action == running,
+                // The running chip stays lit rather than dimming — it is the
+                // label of what is in flight, not an offer to tap.
+                enabled = enabled && (running == null || action == running),
+            ) {
                 if (running == null) onAction(action)
             }
         }
     }
+}
+
+/**
+ * What a request is actually doing, in place of the old anonymous spinner.
+ * Three things a bare indeterminate bar cannot say: which step it is on, how
+ * long it has been there, and — for a reasoning model that emits nothing
+ * visible for entire seconds — that anything is arriving at all.
+ */
+@Composable
+private fun AiProgress(ai: AiUi.Loading, settings: KeyboardSettings) {
+    val kb = LocalKbTheme.current
+    val onDevice = settings.aiProvider == AiProvider.ON_DEVICE
+    val steps = buildList {
+        add(AiPhase.PREPARING)
+        // On-device has no connection to make, so those steps would sit
+        // unreachable for the whole run.
+        if (!onDevice) {
+            add(AiPhase.CONNECTING)
+            add(AiPhase.WAITING)
+        }
+        // Only promise a reasoning step for a model that reasons — otherwise
+        // every plain request ends on a step it never reaches. The id sniff can
+        // be wrong, so a run that *is* reasoning shows it regardless.
+        if (AiClient.expectsReasoning(settings) || ai.phase == AiPhase.THINKING) {
+            add(AiPhase.THINKING)
+        }
+    }
+
+    // Ticks once a second purely to redraw the elapsed readout. Keyed on the
+    // run's start so a retry restarts the clock instead of continuing it.
+    var elapsedSeconds by remember(ai.startedAtMs) { mutableIntStateOf(0) }
+    LaunchedEffect(ai.startedAtMs) {
+        if (ai.startedAtMs == 0L) return@LaunchedEffect
+        while (true) {
+            elapsedSeconds = ((SystemClock.uptimeMillis() - ai.startedAtMs) / 1000).toInt()
+            delay(1000)
+        }
+    }
+
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            headline(ai, onDevice),
+            color = kb.modifierKeyText,
+            fontSize = 13.sp,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(Modifier.height(8.dp))
+        // Determinate: the bar's position means the step, so it stops implying
+        // a completion estimate nobody can give.
+        LinearProgressIndicator(
+            progress = { ai.phase.fraction },
+            color = kb.accent,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Spacer(Modifier.height(8.dp))
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.horizontalScroll(rememberScrollState()),
+        ) {
+            for ((index, step) in steps.withIndex()) {
+                if (index > 0) {
+                    Text("›", color = kb.secondaryText.copy(alpha = 0.5f), fontSize = 11.sp)
+                }
+                StepLabel(
+                    label = step.label,
+                    done = step.fraction < ai.phase.fraction,
+                    current = step == ai.phase,
+                )
+            }
+        }
+        val detail = detail(ai, elapsedSeconds)
+        if (detail != null) {
+            Spacer(Modifier.height(6.dp))
+            Text(detail, color = kb.secondaryText, fontSize = 11.sp)
+        }
+    }
+}
+
+/** One step in [AiProgress]'s breadcrumb: done, in progress, or still ahead. */
+@Composable
+private fun StepLabel(label: String, done: Boolean, current: Boolean) {
+    val kb = LocalKbTheme.current
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        if (done) {
+            Icon(
+                Icons.Outlined.Check,
+                contentDescription = null,
+                tint = kb.accent,
+                modifier = Modifier.size(10.dp),
+            )
+            Spacer(Modifier.width(2.dp))
+        }
+        Text(
+            label,
+            color = when {
+                current -> kb.accent
+                done -> kb.secondaryText
+                // Steps not reached yet are dimmer than finished ones, so the
+                // row reads left-to-right as progress.
+                else -> kb.secondaryText.copy(alpha = 0.45f)
+            },
+            fontSize = 11.sp,
+            fontWeight = if (current) FontWeight.Medium else FontWeight.Normal,
+            maxLines = 1,
+        )
+    }
+}
+
+/** The one-line "what's happening" above [AiProgress]'s bar. */
+private fun headline(ai: AiUi.Loading, onDevice: Boolean): String = when {
+    ai.phase == AiPhase.THINKING ->
+        "Reasoning… the answer streams in once it's done thinking."
+    onDevice -> "${ai.action.label} on-device… the first run also loads the model."
+    ai.phase == AiPhase.WAITING -> "${ai.action.label}… waiting for the first words."
+    else -> "${ai.action.label}…"
+}
+
+/**
+ * The sub-line under the steps: elapsed time, plus the reasoning size while
+ * thinking. Suppressed for the first second, where a timer reading "0s" is
+ * noise on a request that is about to come straight back.
+ */
+private fun detail(ai: AiUi.Loading, elapsedSeconds: Int): String? {
+    val time = if (elapsedSeconds >= 1) "${elapsedSeconds}s elapsed" else null
+    if (ai.phase != AiPhase.THINKING || ai.thinkingChars <= 0) return time
+    val reasoning = "${ai.thinkingChars} characters of reasoning"
+    return if (time == null) reasoning else "$reasoning · $time"
 }

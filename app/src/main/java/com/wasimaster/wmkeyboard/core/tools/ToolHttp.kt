@@ -100,6 +100,54 @@ internal object ToolHttp {
     }
 
     /**
+     * POSTs [body], then hands each response line to [onLine] as it arrives —
+     * for the streaming shapes the AI providers use (SSE, or the newline-
+     * delimited JSON Ollama returns). [onConnected] fires once the response
+     * headers are in, which is the moment the request stopped being "in
+     * flight" and started being "the model is working on it".
+     *
+     * [onLine] returns whether to keep reading: `false` closes the connection
+     * where it stands, so an abandoned request stops holding a socket (and, for
+     * a metered provider, stops being billed for tokens nobody will see).
+     * Throwing from it also aborts, which is how a mid-stream error event is
+     * surfaced.
+     */
+    fun postJsonStream(
+        url: String,
+        body: String,
+        timeoutMs: Int = 120_000,
+        headers: Map<String, String> = emptyMap(),
+        onConnected: () -> Unit = {},
+        onLine: (String) -> Boolean,
+    ) {
+        val connection = URL(url).openConnection() as HttpURLConnection
+        try {
+            connection.connectTimeout = 10_000
+            connection.readTimeout = timeoutMs
+            connection.setRequestProperty("User-Agent", USER_AGENT)
+            connection.requestMethod = "POST"
+            connection.doOutput = true
+            connection.setRequestProperty("Content-Type", "application/json; charset=UTF-8")
+            for ((name, value) in headers) connection.setRequestProperty(name, value)
+            connection.outputStream.use { it.write(body.toByteArray()) }
+            val status = connection.responseCode
+            if (status !in 200..299) {
+                val error = connection.errorStream?.bufferedReader()?.use { it.readText() }
+                throw IOException(apiErrorMessage(status, error))
+            }
+            onConnected()
+            connection.inputStream.bufferedReader().use { reader ->
+                while (true) {
+                    val line = reader.readLine() ?: break
+                    if (!onLine(line)) break
+                }
+            }
+        } finally {
+            connection.disconnect()
+        }
+    }
+
+    /**
      * Streams a URL into [target] (creating parent dirs); deletes the partial file on
      * failure. [maxBytes] aborts the transfer once exceeded rather than trusting a
      * (possibly absent or false) Content-Length header.
