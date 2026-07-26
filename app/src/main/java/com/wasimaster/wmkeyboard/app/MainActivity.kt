@@ -3083,12 +3083,12 @@ private fun EmojiSettings(repository: SettingsRepository, settings: KeyboardSett
                     "The emoji panel's own grid still follows the tone you last picked per " +
                     "emoji. \"None\" keeps the neutral yellow base.",
                 options = listOf(
-                    EmojiSkinTone.NONE to "None (yellow)",
-                    EmojiSkinTone.LIGHT to "Light 🏻",
-                    EmojiSkinTone.MEDIUM_LIGHT to "Medium-light 🏼",
-                    EmojiSkinTone.MEDIUM to "Medium 🏽",
-                    EmojiSkinTone.MEDIUM_DARK to "Medium-dark 🏾",
-                    EmojiSkinTone.DARK to "Dark 🏿",
+                    EmojiSkinTone.NONE to "✋",
+                    EmojiSkinTone.LIGHT to "✋🏻",
+                    EmojiSkinTone.MEDIUM_LIGHT to "✋🏼",
+                    EmojiSkinTone.MEDIUM to "✋🏽",
+                    EmojiSkinTone.MEDIUM_DARK to "✋🏾",
+                    EmojiSkinTone.DARK to "✋🏿",
                 ),
                 selected = settings.emoji.defaultSkinTone,
             ) { scope.launch { repository.setEmojiDefaultSkinTone(it) } }
