@@ -24,3 +24,7 @@ dependencyResolutionManagement {
 
 rootProject.name = "WM Keyboard"
 include(":app")
+// Host-side dictionary compiler: turns dictionaries-src/*.txt into the .wmdict
+// binary assets at build time, sharing the app's own trie/codec sources so the
+// written format can never drift from the reader.
+include(":tools:dictc")

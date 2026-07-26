@@ -25,13 +25,21 @@ data class SecondaryDictionary(val langId: String, val source: WordSource)
  *    common words (আছি) outrank raw phonetics (আসি).
  */
 class SuggestionEngine(
-    private val dictionary: WordSource,
+    dictionary: WordSource,
     bengaliIndex: BengaliPhoneticIndex,
     private val userLexicon: UserLexicon,
     private val loanwords: EnglishBengaliMap = EnglishBengaliMap.EMPTY,
     private val seedBigrams: SeedBigrams = SeedBigrams.EMPTY,
     private val mixConfidence: LanguageMixConfidence = LanguageMixConfidence(),
 ) {
+
+    /**
+     * The primary (bundled or downloaded) dictionary. A var so the IME can
+     * swap in a bigger downloaded English list the moment its download
+     * finishes, without rebuilding the engine.
+     */
+    @Volatile
+    var dictionary: WordSource = dictionary
 
     /**
      * Contact-name words, swapped in whenever the contacts permission and

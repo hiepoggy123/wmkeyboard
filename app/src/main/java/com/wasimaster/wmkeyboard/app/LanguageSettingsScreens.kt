@@ -1,21 +1,39 @@
 package com.wasimaster.wmkeyboard.app
 
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.ArrowDropDown
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.wasimaster.wmkeyboard.core.dictionaries.DictionaryCatalog
+import com.wasimaster.wmkeyboard.core.dictionaries.DictionaryEntry
+import com.wasimaster.wmkeyboard.core.dictionaries.WordlistDownloadManager
 import com.wasimaster.wmkeyboard.core.layout.language
 import com.wasimaster.wmkeyboard.core.layout.resolveLayout
 import com.wasimaster.wmkeyboard.core.script.LanguageDef
@@ -165,16 +183,27 @@ internal fun LanguageDetailScreen(
         }
     }
 
+    val wordlistEntries = DictionaryCatalog.forLanguage(langId)
     SettingsGroup("Dictionary") {
         item {
             CaptionText(
-                if (lang.bundledDictionary) {
-                    "A built-in dictionary ships with this language."
-                } else {
-                    "No dictionary is bundled — the keyboard learns your words as you " +
-                        "type, and you can import your own list."
+                when {
+                    lang.bundledDictionary && wordlistEntries.isNotEmpty() ->
+                        "A built-in dictionary ships with this language — download a " +
+                            "bigger one for better suggestions."
+                    lang.bundledDictionary ->
+                        "A built-in dictionary ships with this language."
+                    wordlistEntries.isNotEmpty() ->
+                        "No dictionary is bundled — download one for suggestions and " +
+                            "autocorrect, or import your own list."
+                    else ->
+                        "No dictionary is bundled — the keyboard learns your words as you " +
+                            "type, and you can import your own list."
                 },
             )
+        }
+        for (entry in wordlistEntries) {
+            item { WordlistRow(entry) }
         }
         item {
             NavRow("Custom dictionaries", "Import your own word lists") {
@@ -206,5 +235,126 @@ internal fun LanguageDetailScreen(
                 ) { Text("Remove ${lang.englishName}") }
             }
         }
+    }
+}
+
+/**
+ * Download/delete row for one [DictionaryCatalog] wordlist, driven by the
+ * process-level [WordlistDownloadManager] so progress survives navigation
+ * (same pattern as the Whisper model rows). Before downloading, the trailing
+ * dropdown picks how many of the most frequent words to keep — the choice is
+ * a download parameter, not a setting; it is recorded in the file itself.
+ */
+@Composable
+private fun WordlistRow(entry: DictionaryEntry) {
+    val filesDir = LocalContext.current.filesDir
+    val states by WordlistDownloadManager.states.collectAsState()
+    LaunchedEffect(entry.id) { WordlistDownloadManager.refresh(filesDir) }
+    val status = states[entry.id] ?: WordlistDownloadManager.DownloadStatus.NotDownloaded
+    var size by remember { mutableStateOf(DictionaryCatalog.DictionarySize.MEDIUM) }
+    var sizeMenu by remember { mutableStateOf(false) }
+    val effectiveWords = minOf(size.wordCap, entry.totalWordCount)
+
+    ListItem(
+        colors = transparentListColors(),
+        headlineContent = {
+            Text(entry.variant?.let { "Downloadable dictionary ($it)" } ?: "Downloadable dictionary")
+        },
+        supportingContent = {
+            Text(
+                when (status) {
+                    is WordlistDownloadManager.DownloadStatus.Downloaded ->
+                        "%,d words · %s".format(status.wordCount, formatBytes(status.sizeBytes))
+                    WordlistDownloadManager.DownloadStatus.Processing -> "Preparing dictionary…"
+                    is WordlistDownloadManager.DownloadStatus.Downloading -> "Downloading…"
+                    is WordlistDownloadManager.DownloadStatus.Failed -> status.message
+                    WordlistDownloadManager.DownloadStatus.NotDownloaded ->
+                        "%,d most frequent words".format(effectiveWords)
+                },
+                color = if (status is WordlistDownloadManager.DownloadStatus.Failed) {
+                    MaterialTheme.colorScheme.error
+                } else {
+                    androidx.compose.ui.graphics.Color.Unspecified
+                },
+            )
+        },
+        trailingContent = {
+            when (status) {
+                is WordlistDownloadManager.DownloadStatus.Downloaded ->
+                    IconButton(onClick = { WordlistDownloadManager.delete(filesDir, entry) }) {
+                        Icon(Icons.Outlined.Delete, contentDescription = "Delete dictionary")
+                    }
+                is WordlistDownloadManager.DownloadStatus.Downloading,
+                WordlistDownloadManager.DownloadStatus.Processing,
+                ->
+                    IconButton(onClick = { WordlistDownloadManager.cancel() }) {
+                        Icon(Icons.Outlined.Close, contentDescription = "Cancel download")
+                    }
+                WordlistDownloadManager.DownloadStatus.NotDownloaded,
+                is WordlistDownloadManager.DownloadStatus.Failed,
+                -> Row {
+                    // Hide the size picker when the whole list fits the
+                    // smallest tier anyway.
+                    if (entry.totalWordCount > DictionaryCatalog.DictionarySize.SMALL.wordCap) {
+                        TextButton(
+                            onClick = { sizeMenu = true },
+                            enabled = !WordlistDownloadManager.isBusy,
+                        ) {
+                            Text(size.label)
+                            Icon(Icons.Outlined.ArrowDropDown, contentDescription = "Dictionary size")
+                        }
+                        DropdownMenu(expanded = sizeMenu, onDismissRequest = { sizeMenu = false }) {
+                            for (option in DictionaryCatalog.DictionarySize.entries) {
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            "%s · %,d words".format(
+                                                option.label,
+                                                minOf(option.wordCap, entry.totalWordCount),
+                                            ),
+                                        )
+                                    },
+                                    onClick = {
+                                        size = option
+                                        sizeMenu = false
+                                    },
+                                )
+                            }
+                        }
+                    }
+                    TextButton(
+                        onClick = { WordlistDownloadManager.start(filesDir, entry, size) },
+                        enabled = !WordlistDownloadManager.isBusy,
+                    ) {
+                        Text(
+                            if (status is WordlistDownloadManager.DownloadStatus.Failed) "Retry"
+                            else "Download",
+                        )
+                    }
+                }
+            }
+        },
+        modifier = Modifier.padding(horizontal = 4.dp),
+    )
+    when (status) {
+        is WordlistDownloadManager.DownloadStatus.Downloading -> Column(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+        ) {
+            // Indeterminate on purpose: a capped download stops early, so
+            // bytes-of-total would count to a total it never reaches.
+            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+            Text(
+                "${formatBytes(status.bytes)} downloaded",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 4.dp),
+            )
+        }
+        WordlistDownloadManager.DownloadStatus.Processing -> Column(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+        ) {
+            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+        }
+        else -> Unit
     }
 }

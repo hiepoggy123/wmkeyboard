@@ -136,6 +136,54 @@ android {
     }
 }
 
+// Compiles dictionaries-src/*.txt into assets/dictionaries/*.wmdict via the
+// :tools:dictc host tool, which shares the app's own trie/codec sources so the
+// binary format cannot drift between writer and reader. Wired into every
+// variant's assets through the Variant API below.
+val dictc: Configuration by configurations.creating
+
+abstract class CompileDictionariesTask : DefaultTask() {
+    @get:InputDirectory
+    abstract val sourceDir: DirectoryProperty
+
+    @get:Classpath
+    abstract val toolClasspath: ConfigurableFileCollection
+
+    /** Assets root chosen by AGP; wordlists land in `dictionaries/` inside it. */
+    @get:OutputDirectory
+    abstract val outputDir: DirectoryProperty
+
+    @get:Inject
+    abstract val execOperations: org.gradle.process.ExecOperations
+
+    @TaskAction
+    fun run() {
+        execOperations.javaexec {
+            classpath = toolClasspath
+            mainClass.set("MainKt")
+            args(
+                sourceDir.get().asFile.absolutePath,
+                outputDir.get().asFile.resolve("dictionaries").absolutePath,
+            )
+        }
+    }
+}
+
+val compileBundledDictionaries =
+    tasks.register<CompileDictionariesTask>("compileBundledDictionaries") {
+        sourceDir.set(layout.projectDirectory.dir("dictionaries-src"))
+        toolClasspath.from(dictc)
+    }
+
+androidComponents {
+    onVariants { variant ->
+        variant.sources.assets?.addGeneratedSourceDirectory(
+            compileBundledDictionaries,
+            CompileDictionariesTask::outputDir,
+        )
+    }
+}
+
 kotlin {
     compilerOptions {
         jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
@@ -143,6 +191,8 @@ kotlin {
 }
 
 dependencies {
+    dictc(project(":tools:dictc"))
+
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
     implementation(libs.androidx.activity.compose)

@@ -24,14 +24,17 @@ import java.util.PriorityQueue
  *  - [maxSubtree]: highest word frequency anywhere in the node's subtree,
  *    the branch-and-bound key that keeps completion cost near `limit`.
  */
-class PackedTrie private constructor(
-    private val childStart: IntArray,
-    private val edgeLabel: CharArray,
-    private val edgeChild: IntArray,
-    private val freq: IntArray,
-    private val isWord: BooleanArray,
-    private val maxSubtree: IntArray,
+class PackedTrie internal constructor(
+    internal val childStart: IntArray,
+    internal val edgeLabel: CharArray,
+    internal val edgeChild: IntArray,
+    internal val freq: IntArray,
+    internal val isWord: BooleanArray,
+    internal val maxSubtree: IntArray,
 ) : WordSource {
+
+    /** Number of distinct words stored. */
+    val wordCount: Int get() = isWord.count { it }
 
     /** Node reached by walking [word] from the root, or -1 if absent. */
     private fun nodeFor(word: String): Int {

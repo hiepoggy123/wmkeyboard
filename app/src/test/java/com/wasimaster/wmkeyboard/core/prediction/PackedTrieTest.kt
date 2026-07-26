@@ -15,8 +15,8 @@ class PackedTrieTest {
 
     private fun realEntries(): List<Pair<String, Int>> {
         val candidates = listOf(
-            File("src/main/assets/dictionaries/en.txt"),
-            File("app/src/main/assets/dictionaries/en.txt"),
+            File("dictionaries-src/en.txt"),
+            File("app/dictionaries-src/en.txt"),
         )
         val file = candidates.firstOrNull { it.exists() }
             ?: error("en.txt not found (cwd=${File(".").absolutePath})")

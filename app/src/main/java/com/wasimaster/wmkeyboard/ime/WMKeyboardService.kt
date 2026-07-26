@@ -77,8 +77,11 @@ import com.wasimaster.wmkeyboard.core.input.DeadKeys
 import com.wasimaster.wmkeyboard.core.prediction.AppNames
 import com.wasimaster.wmkeyboard.core.prediction.ContactEmails
 import com.wasimaster.wmkeyboard.core.prediction.ContactNames
+import com.wasimaster.wmkeyboard.core.dictionaries.DictionaryStore
+import com.wasimaster.wmkeyboard.core.prediction.CompositeWordSource
 import com.wasimaster.wmkeyboard.core.prediction.CustomDictionaries
 import com.wasimaster.wmkeyboard.core.prediction.DictionaryLoader
+import com.wasimaster.wmkeyboard.core.prediction.MappedTrie
 import com.wasimaster.wmkeyboard.core.prediction.EnglishBengaliMap
 import com.wasimaster.wmkeyboard.core.prediction.KeyProximity
 import com.wasimaster.wmkeyboard.core.prediction.LanguageMixConfidence
@@ -917,12 +920,22 @@ open class WMKeyboardService : InputMethodService() {
         serviceScope.launch {
             val loaded = withContext(Dispatchers.Default) {
                 AssetLayouts.load(assets)
-                val englishEntries = assets.open("dictionaries/en.txt").use { DictionaryLoader.loadEntries(it) }
-                val bengaliEntries = assets.open("dictionaries/bn.txt").use { DictionaryLoader.loadEntries(it) }
+                // Bundled lists ship as compiled .wmdict binaries and are
+                // memory-mapped, not parsed: the trie stays out of the Java
+                // heap and "loading" is one mmap call. A downloaded list for
+                // the same language (bigger, user-chosen size) wins over the
+                // bundled copy.
+                val english = openLanguageDictionary("en")
+                val bengali = openLanguageDictionary("bn")
                 val catalog = assets.open("emoji/catalog.tsv").use { EmojiCatalog.load(it) }
-                Triple(englishEntries, bengaliEntries, catalog)
+                Triple(english, bengali, catalog)
             }
-            val (englishEntries, bengaliEntries, catalog) = loaded
+            val (english, bengali, catalog) = loaded
+            // Flat entry lists for the consumers that build their own indexes
+            // (gesture lexicon, Bengali phonetic index) — a one-off DFS walk.
+            val (englishEntries, bengaliEntries) = withContext(Dispatchers.Default) {
+                english?.entries().orEmpty() to bengali?.entries().orEmpty()
+            }
             val (loanwords, variants, seedBigrams) = withContext(Dispatchers.Default) {
                 val lw = assets.open("dictionaries/en_bn.tsv").use { EnglishBengaliMap.load(it) }
                 val v = runCatching {
@@ -933,7 +946,6 @@ open class WMKeyboardService : InputMethodService() {
                 }.getOrDefault(SeedBigrams.EMPTY)
                 Triple(lw, v, seeds)
             }
-            val english = PackedTrie.of(englishEntries)
             gestureLexicon = englishEntries
             invalidateGestureLexicon()
             bengaliAssetEntries = bengaliEntries
@@ -966,8 +978,11 @@ open class WMKeyboardService : InputMethodService() {
                     }
                 }
             }
+            loadedDictToken = withContext(Dispatchers.Default) {
+                DictionaryStore.stateToken(filesDir)
+            }
             suggestionEngine = SuggestionEngine(
-                english,
+                english ?: PackedTrie.EMPTY,
                 buildBengaliIndex(),
                 userLexicon,
                 loanwords,
@@ -1292,6 +1307,10 @@ open class WMKeyboardService : InputMethodService() {
         if (_uiState.value.settings.contactEmailSuggestions && contactEmails.isEmpty) {
             loadContactEmails()
         }
+        // A dictionary downloaded (or deleted) in Settings goes live here, on
+        // the next field focus — token-guarded, so this is a cheap no-op when
+        // nothing on disk changed.
+        serviceScope.launch { reloadDownloadedDictionaries() }
         hwJob?.cancel()
         hwGeneration++
         val secure = info.isSecureField()
@@ -7337,10 +7356,64 @@ open class WMKeyboardService : InputMethodService() {
         return delta
     }
 
-    /** Re-reads every imported word list from disk into per-language tries. */
+    /**
+     * Re-reads every language's word sources from disk: the user's imported
+     * lists, unioned with that language's downloaded dictionary when one is on
+     * disk. English and Bengali downloads are deliberately NOT unioned here —
+     * they already flow through the primary/phonetic path (see
+     * [openLanguageDictionary]), and repeating them in the custom slot would
+     * double-weight their words.
+     */
     private fun loadCustomDictionaries(): Map<String, WordSource> {
         CustomDictionaries.migrateLegacyFolders(filesDir)
-        return LanguageRegistry.all.associate { it.id to CustomDictionaries.trie(filesDir, it.id) }
+        return LanguageRegistry.all.associate { lang ->
+            val imported = CustomDictionaries.trie(filesDir, lang.id)
+            val downloaded = if (lang.id == "en" || lang.id == "bn") {
+                null
+            } else {
+                MappedTrie.open(DictionaryStore.downloadedFile(filesDir, lang.id))
+            }
+            lang.id to CompositeWordSource.of(listOfNotNull(downloaded, imported))
+        }
+    }
+
+    /**
+     * The primary dictionary for a language with a bundled list: the
+     * downloaded `.wmdict` (bigger, user-chosen size) when present, else the
+     * bundled binary inflated out of the APK. Memory-mapped either way.
+     */
+    private fun openLanguageDictionary(langId: String): MappedTrie? =
+        MappedTrie.open(DictionaryStore.downloadedFile(filesDir, langId))
+            ?: DictionaryStore.ensureBundled(this, langId)?.let { MappedTrie.open(it) }
+
+    /** Downloaded-dictionary state the word sources were last (re)built from. */
+    private var loadedDictToken = Int.MIN_VALUE
+
+    /**
+     * Re-mmaps and re-wires every source that can change when a dictionary
+     * download finishes or is deleted. Cheap no-op when nothing changed;
+     * called off the main thread from [onStartInputView], so a download
+     * completed in Settings goes live the next time a field is focused.
+     */
+    private suspend fun reloadDownloadedDictionaries() = withContext(Dispatchers.Default) {
+        val token = DictionaryStore.stateToken(filesDir)
+        if (token == loadedDictToken || suggestionEngine == null) return@withContext
+        loadedDictToken = token
+        val english = openLanguageDictionary("en")
+        val bengali = openLanguageDictionary("bn")
+        gestureLexicon = english?.entries().orEmpty()
+        invalidateGestureLexicon()
+        bengaliAssetEntries = bengali?.entries().orEmpty()
+        customDictionaries = loadCustomDictionaries()
+        suggestionEngine?.let { engine ->
+            engine.dictionary = english ?: PackedTrie.EMPTY
+            engine.bengaliIndex = buildBengaliIndex()
+            val lang = _uiState.value.language
+            engine.customDictionary = customDictionaries[lang.id] ?: PackedTrie.EMPTY
+            val secondaryIds = _uiState.value.settings.secondaryLanguages[lang.id].orEmpty()
+            engine.secondaryDictionaries = secondaryIds.filter { it != "en" }
+                .mapNotNull { id -> customDictionaries[id]?.let { SecondaryDictionary(id, it) } }
+        }
     }
 
     /**
