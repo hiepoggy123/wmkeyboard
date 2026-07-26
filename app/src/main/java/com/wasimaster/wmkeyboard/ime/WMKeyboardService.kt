@@ -317,6 +317,31 @@ open class WMKeyboardService : InputMethodService() {
     private var smartJob: Job? = null
 
     /**
+     * Gesture decode-and-commit runs in its own job, NOT [suggestionJob]: the
+     * strip refresh of the very next keystroke cancels [suggestionJob], and
+     * when the commit lived there a tap ~50 ms after a swipe cancelled the
+     * decode mid-flight and silently dropped the swiped word.
+     */
+    private var gestureJob: Job? = null
+
+    /**
+     * Caret anchor for the immediate-revert states ([lastAutocorrect],
+     * [lastGestureWord], [pendingAutoSpace]). Each is armed right after one of
+     * our own commits and is only valid while the caret still sits exactly
+     * where that commit left it — the text-equality probes alone would match
+     * an identical word anywhere in the document (tap after another "the ",
+     * press backspace → the wrong occurrence got reverted). -1 means the
+     * commit's own onUpdateSelection echo hasn't arrived yet; the first echo
+     * records the position, any later mismatch disarms all three.
+     */
+    private var revertAnchor = -1
+
+    /** Called right after arming any of the immediate-revert states. */
+    private fun armRevertGuard() {
+        revertAnchor = -1
+    }
+
+    /**
      * Selection the editor last reported, seeded from EditorInfo on field start
      * and kept current by [onUpdateSelection]. Lets the per-keystroke paths
      * answer "is anything selected?" without a synchronous InputConnection
@@ -1358,12 +1383,38 @@ open class WMKeyboardService : InputMethodService() {
     private fun isDeviceLocked(): Boolean =
         (getSystemService(Context.KEYGUARD_SERVICE) as? KeyguardManager)?.isKeyguardLocked == true
 
+    override fun onStartInput(attribute: EditorInfo?, restarting: Boolean) {
+        super.onStartInput(attribute, restarting)
+        // Runs for every field even while the soft view stays hidden
+        // (hardware-keyboard typing), where onStartInputView never fires:
+        // the previous field's cached selection and half-typed word must not
+        // leak into this one. `restarting` (same editor, e.g. a programmatic
+        // text change) keeps the buffer — web views restart input liberally
+        // and resetting there would chop words mid-typing.
+        expectedSelStart = attribute?.initialSelStart ?: -1
+        expectedSelEnd = attribute?.initialSelEnd ?: -1
+        if (!restarting) {
+            composing = StringBuilder()
+            previousWord = null
+            lastGestureWord = null
+            lastAutocorrect = null
+            pendingAutoSpace = false
+        }
+    }
+
     override fun onStartInputView(info: EditorInfo?, restarting: Boolean) {
         super.onStartInputView(info, restarting)
         lifecycleOwner.onResume()
         refreshHardwareKeyboardState()
         expectedSelStart = info?.initialSelStart ?: -1
         expectedSelEnd = info?.initialSelEnd ?: -1
+        // A job debounced against the previous field must not land its strip
+        // (or commit resolution) on this one — the secure-field gates in
+        // refreshSuggestions return before they ever cancel.
+        suggestionJob?.cancel()
+        smartJob?.cancel()
+        gestureJob?.cancel()
+        commitResolution = null
         composing = StringBuilder()
         previousWord = null
         lastGestureWord = null
@@ -1553,14 +1604,41 @@ open class WMKeyboardService : InputMethodService() {
         super.onUpdateSelection(oldSelStart, oldSelEnd, newSelStart, newSelEnd, candidatesStart, candidatesEnd)
         expectedSelStart = newSelStart
         expectedSelEnd = newSelEnd
+        // Immediate-revert states are only valid at the caret position their
+        // commit left behind; see [revertAnchor]. The first update after
+        // arming is the commit's own echo and records the anchor, anything
+        // that moves the caret afterwards disarms them.
+        if (lastAutocorrect != null || lastGestureWord != null || pendingAutoSpace) {
+            if (revertAnchor == -1) {
+                revertAnchor = newSelStart
+            } else if (newSelStart != revertAnchor || newSelEnd != revertAnchor) {
+                lastAutocorrect = null
+                lastGestureWord = null
+                pendingAutoSpace = false
+            }
+        }
         val wasComposing = composing.isNotEmpty()
         // The candidate range is valid when positive/zero. The cursor moved away
         // from the composing region if it jumped strictly outside [candidatesStart, candidatesEnd].
         // Invalid or un-reported candidate ranges (-1) must not erroneously cancel active composing.
         val cursorOutsideCandidates = candidatesStart >= 0 && candidatesEnd >= candidatesStart &&
             (newSelStart < candidatesStart || newSelEnd > candidatesEnd)
+        // A caret placed *inside* the composing word (a tap mid-word) also ends
+        // the composition. Keeping it meant the next keystroke rewrote the
+        // whole region via setComposingText — which snaps the cursor to the
+        // word's end, so the tap appeared to not move the cursor at all and
+        // the letter landed at the end of the word instead of where it was
+        // put. The keyboard's own composing edits always leave the collapsed
+        // caret exactly at candidatesEnd, so a caret strictly before it can
+        // only be the user's. Dropping composition here lets the fall-through
+        // below re-derive the context at the new caret, mid-word taps landing
+        // in the no-resume branch of restartSuggestionsAtCursor.
+        val cursorInsideCandidates = candidatesStart >= 0 && candidatesEnd > candidatesStart &&
+            newSelStart == newSelEnd &&
+            newSelStart >= candidatesStart && newSelStart < candidatesEnd
 
-        if (wasComposing && cursorOutsideCandidates) {
+        val composingDropped = wasComposing && (cursorOutsideCandidates || cursorInsideCandidates)
+        if (composingDropped) {
             composing = StringBuilder()
             currentInputConnection?.finishComposingText()
             suggestionJob?.cancel()
@@ -1585,7 +1663,7 @@ open class WMKeyboardService : InputMethodService() {
         // — via restartSuggestionsAtCursor (which folds in the chip refresh). An
         // active word still being composed in place, or a range selection being
         // dragged out, only refreshes the chips.
-        if (!wasComposing && composing.isEmpty() && newSelStart == newSelEnd) {
+        if ((!wasComposing || composingDropped) && composing.isEmpty() && newSelStart == newSelEnd) {
             currentInputConnection?.let { restartSuggestionsAtCursor(it, newSelStart) }
         } else {
             refreshSmartSuggestion()
@@ -1671,6 +1749,17 @@ open class WMKeyboardService : InputMethodService() {
     override fun onFinishInputView(finishingInput: Boolean) {
         super.onFinishInputView(finishingInput)
         lifecycleOwner.onPause()
+        // A word still composing settles into the field as typed. Leaving the
+        // editor's region active while our mirror is wiped on the next
+        // onStartInputView meant the first keystroke after a hide→reshow
+        // replaced the stranded region — deleting the half-typed word.
+        if (composing.isNotEmpty()) {
+            currentInputConnection?.finishComposingText()
+            composing = StringBuilder()
+            _uiState.update {
+                it.copy(composingPreview = "", suggestions = emptyList(), emojiSuggestions = emptyList())
+            }
+        }
         // Latches die with the keyboard, locked ones included.
         clearModifiers()
         resetHardwareKeyState()
@@ -2097,6 +2186,7 @@ open class WMKeyboardService : InputMethodService() {
         // new character, like every other keyboard. Never route through the
         // composing buffer in that case.
         if (hasSelection(ic)) {
+            dropComposingForSelectionEdit(ic)
             // Bracket/brace/quote over a selection wraps it in the pair
             // ("foo" → "(foo)") instead of replacing it, and leaves the inner
             // text selected so it can be wrapped or re-cased again.
@@ -2108,7 +2198,6 @@ open class WMKeyboardService : InputMethodService() {
             if (closer != null) {
                 val selected = ic.getSelectedText(0)?.toString().orEmpty()
                 invalidateExpectedSelection()
-                composing = StringBuilder()
                 ic.beginBatchEdit()
                 ic.commitText("$text$selected$closer", 1)
                 val end = ic.getExtractedText(ExtractedTextRequest(), 0)?.selectionEnd
@@ -2125,7 +2214,6 @@ open class WMKeyboardService : InputMethodService() {
                 return
             }
             invalidateExpectedSelection()
-            composing = StringBuilder()
             ic.commitText(text, 1)
             consumeShift()
             _uiState.update { it.copy(composingPreview = "", suggestions = emptyList(), emojiSuggestions = emptyList()) }
@@ -2299,6 +2387,7 @@ open class WMKeyboardService : InputMethodService() {
         if (selected.isEmpty()) return false
         val next = nextCaseForm(selected)
         if (next == selected) return false
+        dropComposingForSelectionEdit(ic)
         ic.beginBatchEdit()
         ic.commitText(next, 1)
         val end = ic.getExtractedText(ExtractedTextRequest(), 0)?.selectionEnd
@@ -2398,6 +2487,7 @@ open class WMKeyboardService : InputMethodService() {
         val ic = currentInputConnection ?: return
         // Deleting with an active selection removes the selected text only.
         if (hasSelection(ic)) {
+            dropComposingForSelectionEdit(ic)
             invalidateExpectedSelection()
             ic.commitText("", 1)
             return
@@ -2410,6 +2500,9 @@ open class WMKeyboardService : InputMethodService() {
                 val before = ic.getTextBeforeCursor(word.length, 0)?.toString()
                 if (before == word) {
                     ic.deleteSurroundingText(word.length, 0)
+                    // The undone word is gone as bigram context; whatever now
+                    // precedes the caret is the real one.
+                    syncPreviousWordFromField(ic)
                     // Both lists: the bar is up while either has content, so
                     // clearing only the words left a stale emoji row holding
                     // it open.
@@ -2430,8 +2523,10 @@ open class WMKeyboardService : InputMethodService() {
                 val expected = "$corrected "
                 val before = ic.getTextBeforeCursor(expected.length, 0)?.toString()
                 if (before == expected) {
+                    ic.beginBatchEdit()
                     ic.deleteSurroundingText(expected.length, 0)
                     ic.commitText("$typed ", 1)
+                    ic.endBatchEdit()
                     if (state.settings.learnFromTyping &&
                         !(state.incognitoOn && state.settings.incognitoPausesLearning) &&
                         !state.secureField
@@ -2526,15 +2621,32 @@ open class WMKeyboardService : InputMethodService() {
      */
     private fun restartSuggestionsAtCursor(ic: InputConnection, newSelStart: Int) {
         val state = _uiState.value
+        // The caret settling right after a swipe is the commit's own echo:
+        // keep the gesture alternates on the strip (tap-to-replace) instead
+        // of re-deriving completions for the word just committed. Any real
+        // caret move disarms lastGestureWord first (see revertAnchor), so
+        // this never suppresses a genuine context re-read.
+        if (lastGestureWord != null) {
+            refreshSmartSuggestion()
+            return
+        }
         val scrubbing = SystemClock.uptimeMillis() - lastCaretScrubMs < CARET_SCRUB_WINDOW_MS
+        // No resume while a panel owns the screen: a word re-armed as
+        // composing behind an open Grammar/AI/Translate panel hijacks that
+        // panel's replace-field commit onto the composing region. Write-on-
+        // keys handwriting and an in-flight Whisper transcription commit
+        // their own text the same way, so they must not race a resume either.
         val canResume = !scrubbing && state.settings.suggestions &&
+            state.panel == PanelMode.NONE &&
+            !keyboardHandwriteActive(state) &&
             !state.secureField && !state.fieldNoSuggestions &&
             state.allowsTypingIntelligence && state.language.gestureLexicon &&
             !state.typingTestActive && !state.emojiSearchActive &&
             !state.dictionarySearchActive && !state.mediaSearchActive &&
             !state.clipboardSearchActive &&
             state.voice.status != VoiceStatus.LISTENING &&
-            state.voice.status != VoiceStatus.FINISHING
+            state.voice.status != VoiceStatus.FINISHING &&
+            state.voice.status != VoiceStatus.TRANSCRIBING
 
         if (canResume && newSelStart >= 0) {
             val before = ic.getTextBeforeCursor(64, 0)
@@ -2596,6 +2708,7 @@ open class WMKeyboardService : InputMethodService() {
         }
         val ic = currentInputConnection ?: return
         if (hasSelection(ic)) {
+            dropComposingForSelectionEdit(ic)
             invalidateExpectedSelection()
             ic.commitText("", 1)
             return
@@ -2662,6 +2775,8 @@ open class WMKeyboardService : InputMethodService() {
 
         // Space over a selection replaces it; skip autocorrect/double-space.
         if (hasSelection(ic)) {
+            dropComposingForSelectionEdit(ic)
+            invalidateExpectedSelection()
             ic.commitText(" ", 1)
             lastSpaceTime = 0
             maybeAutoCapitalize()
@@ -2700,6 +2815,7 @@ open class WMKeyboardService : InputMethodService() {
                 lastSpaceTime = 0
                 // Arm the shift-to-cancel: a shift press now drops this space.
                 pendingAutoSpace = true
+                armRevertGuard()
                 maybeAutoCapitalize()
                 return
             }
@@ -2972,6 +3088,25 @@ open class WMKeyboardService : InputMethodService() {
     }
 
     /**
+     * Ends any active composition ahead of an edit that must target the
+     * *selection*. With a composing region alive, commitText targets the
+     * region instead (InputConnection contract) — replacing the whole word
+     * when only part of it is selected — and the stale local mirror would
+     * re-insert the word at the caret on the next keystroke. finishComposingText
+     * turns the region into ordinary text without touching the selection, so
+     * the caller's commitText then affects exactly the selected range.
+     */
+    private fun dropComposingForSelectionEdit(ic: InputConnection) {
+        ic.finishComposingText()
+        if (composing.isEmpty()) return
+        composing = StringBuilder()
+        suggestionJob?.cancel()
+        _uiState.update {
+            it.copy(composingPreview = "", suggestions = emptyList(), emojiSuggestions = emptyList())
+        }
+    }
+
+    /**
      * Commits the composing region. In Avro mode the top phonetic
      * suggestion wins (dictionary sibling over literal); in English mode
      * autocorrect may replace the typed word. Returns true if anything
@@ -2983,6 +3118,10 @@ open class WMKeyboardService : InputMethodService() {
         fixApostrophes: Boolean = false,
     ): Boolean {
         if (composing.isEmpty()) return false
+        // A strip refresh still debounced for this word must not land after
+        // the commit and repaint candidates for text that is no longer being
+        // composed (the tail of this function publishes the next-word strip).
+        suggestionJob?.cancel()
         val typed = composing.toString()
         val state = _uiState.value
 
@@ -3056,6 +3195,7 @@ open class WMKeyboardService : InputMethodService() {
             else -> typed
         }
         lastAutocorrect = corrected?.let { typed to it }
+        if (lastAutocorrect != null) armRevertGuard()
         ic.commitText(output, 1)
         // An autocorrected word was the engine's choice, not the user's —
         // it earns no personal-dictionary reinforcement, only the bigram.
@@ -3631,6 +3771,13 @@ open class WMKeyboardService : InputMethodService() {
         // address is committed. Not learned — an address is not a dictionary word,
         // and no trailing space, since an email is usually the whole field.
         if (emailFieldForceActive() && '@' in suggestion) {
+            // A transliterating composer (Avro) composes even in email fields;
+            // finish it so the token delete counts real committed text and no
+            // stale buffer survives the commit below.
+            if (composing.isNotEmpty()) {
+                ic.finishComposingText()
+                composing = StringBuilder()
+            }
             val token = emailTokenBeforeCursor(ic)
             if (token.isNotEmpty()) ic.deleteSurroundingText(token.length, 0)
             ic.commitText(suggestion, 1)
@@ -3649,7 +3796,12 @@ open class WMKeyboardService : InputMethodService() {
         val gestureWord = lastGestureWord
         if (composing.isEmpty() && gestureWord != null) {
             val before = ic.getTextBeforeCursor(gestureWord.length, 0)?.toString()
-            if (before == gestureWord) ic.deleteSurroundingText(gestureWord.length, 0)
+            if (before == gestureWord) {
+                ic.deleteSurroundingText(gestureWord.length, 0)
+                // The bigram for the pick below must chain off the word
+                // *before* the replaced one, not off the word being replaced.
+                syncPreviousWordFromField(ic)
+            }
         }
         lastGestureWord = null
         lastAutocorrect = null
@@ -3798,8 +3950,9 @@ open class WMKeyboardService : InputMethodService() {
         val shiftAtGesture = state.shiftState
         previewJob?.cancel()
         suggestionJob?.cancel()
+        gestureJob?.cancel()
         _uiState.update { it.copy(glideWord = null) }
-        suggestionJob = serviceScope.launch {
+        gestureJob = serviceScope.launch {
             val candidates = withContext(Dispatchers.Default) {
                 GestureDecoder(keys, keyWidthPx).decode(points, gestureDecodeLexicon())
             }
@@ -3827,6 +3980,7 @@ open class WMKeyboardService : InputMethodService() {
             ic.commitText(word, 1)
             learn(word)
             lastGestureWord = word
+            armRevertGuard()
             consumeShift()
             _uiState.update {
                 it.copy(suggestions = candidates.map { candidate -> candidate.word })
@@ -3853,8 +4007,9 @@ open class WMKeyboardService : InputMethodService() {
         val shiftAtGesture = state.shiftState
         previewJob?.cancel()
         suggestionJob?.cancel()
+        gestureJob?.cancel()
         _uiState.update { it.copy(glideWord = null) }
-        suggestionJob = serviceScope.launch {
+        gestureJob = serviceScope.launch {
             val decoder = GestureDecoder(keys, keyWidthPx)
             val lex = gestureDecodeLexicon()
             val ic = currentInputConnection ?: return@launch
@@ -3882,6 +4037,7 @@ open class WMKeyboardService : InputMethodService() {
                 ic.commitText(word, 1)
                 learn(word)
                 lastGestureWord = word
+                armRevertGuard()
                 lastWords = candidates.map { it.word }
                 committedAny = true
             }
@@ -4537,6 +4693,10 @@ open class WMKeyboardService : InputMethodService() {
         val processed = if (settings.voiceSpokenPunctuation) VoicePunctuation.apply(text, tag) else text
         val spaced = spacedVoiceText(processed)
         currentInputConnection?.let { connection ->
+            // A word resumed as composing while the transcription was in
+            // flight (a caret tap onto an existing word) must commit first,
+            // or the result replaces it.
+            commitComposing(connection, autocorrect = false)
             connection.commitText(spaced, 1)
             learn(processed)
             lastVoiceCommit = spaced
@@ -4954,9 +5114,14 @@ open class WMKeyboardService : InputMethodService() {
             }
             return
         }
+        // A half-typed word (write-on-keys mode interleaves taps and ink) or a
+        // word the caret settle re-armed as composing commits first, so the
+        // recognized word appends instead of replacing the composing region.
+        commitComposing(connection, autocorrect = false)
         connection.commitText(if (needsSpace) " $word" else word, 1)
         learn(word)
         lastGestureWord = word
+        armRevertGuard()
         _uiState.update {
             it.copy(
                 handwriting = it.handwriting.copy(strokes = emptyList(), recognizing = false),
@@ -6740,6 +6905,10 @@ open class WMKeyboardService : InputMethodService() {
         if (translated.isEmpty()) return
         vibrate()
         val ic = currentInputConnection ?: return
+        // End any editor-side composition too: with a region alive, the
+        // commitText below targets the region instead of the select-all,
+        // splicing the translation over one word.
+        ic.finishComposingText()
         composing = StringBuilder()
         ic.beginBatchEdit()
         val length = runCatching {
@@ -6807,6 +6976,9 @@ open class WMKeyboardService : InputMethodService() {
     /** Replaces the whole field with [newText] (same mechanics as translate). */
     private fun replaceFieldText(newText: String) {
         val ic = currentInputConnection ?: return
+        // See onTranslateReplace: an active composing region would hijack the
+        // commitText away from the select-all and splice instead of replace.
+        ic.finishComposingText()
         composing = StringBuilder()
         ic.beginBatchEdit()
         val length = runCatching {
@@ -6887,10 +7059,24 @@ open class WMKeyboardService : InputMethodService() {
                 !fix.text.equals(span, ignoreCase = true)
         }
         val multiWord = span.trim().any { it.isWhitespace() }
+        // Mirror each placement into the cache too, so a backspace before
+        // the editor echoes the new selection hits the right target.
         when {
-            multiWord -> ic.setSelection(start, start)
-            hasReplacement -> ic.setSelection(start, end)
-            else -> ic.setSelection(end, end)
+            multiWord -> {
+                ic.setSelection(start, start)
+                expectedSelStart = start
+                expectedSelEnd = start
+            }
+            hasReplacement -> {
+                ic.setSelection(start, end)
+                expectedSelStart = start
+                expectedSelEnd = end
+            }
+            else -> {
+                ic.setSelection(end, end)
+                expectedSelStart = end
+                expectedSelEnd = end
+            }
         }
     }
 
@@ -7098,6 +7284,11 @@ open class WMKeyboardService : InputMethodService() {
         while (end < n && isWord(text[end])) end++
         if (start == end) return
         ic.setSelection(start, end)
+        // The range is known; recording it directly closes the window where
+        // the cache still said "collapsed" and a fast backspace would have
+        // deleted the character before the selection instead of it.
+        expectedSelStart = start
+        expectedSelEnd = end
         _uiState.update { it.copy(textEditSelecting = true) }
     }
 
@@ -7120,6 +7311,8 @@ open class WMKeyboardService : InputMethodService() {
         while (end < n && !isLineBreak(text[end])) end++
         if (start == end) return
         ic.setSelection(start, end)
+        expectedSelStart = start
+        expectedSelEnd = end
         _uiState.update { it.copy(textEditSelecting = true) }
     }
 
@@ -7131,6 +7324,11 @@ open class WMKeyboardService : InputMethodService() {
             context = snippetContext(ic),
         )
         if (ic != null) {
+            ic.beginBatchEdit()
+            // A word still composing commits first — a bare commitText would
+            // replace the composing region with the snippet and leave the
+            // stale buffer to resurrect the word at the next keystroke.
+            commitComposing(ic, autocorrect = false)
             // Committing with newCursorPosition = 1 leaves the cursor at the
             // end; {cursor} then walks it back to the marked spot.
             ic.commitText(expanded.text, 1)
@@ -7139,6 +7337,7 @@ open class WMKeyboardService : InputMethodService() {
                 val end = ic.getExtractedText(ExtractedTextRequest(), 0)?.selectionEnd
                 if (end != null && end >= trailing) ic.setSelection(end - trailing, end - trailing)
             }
+            ic.endBatchEdit()
         }
         _uiState.update { it.copy(panel = PanelMode.NONE) }
     }
@@ -7334,11 +7533,18 @@ open class WMKeyboardService : InputMethodService() {
      */
     fun canDelete(): Boolean {
         val state = _uiState.value
+        // Branch order mirrors [onDelete] exactly — a case missing here makes
+        // the held-repeat loop poll against a different target than the one
+        // backspace actually edits (spinning forever, or stopping early).
         return when {
             (state.panel == PanelMode.HANDWRITING || keyboardHandwriteActive(state)) &&
                 state.handwriting.strokes.isNotEmpty() -> true
+            state.typingTestActive -> state.typingTest.current.isNotEmpty()
+            state.aiCustomInputActive ->
+                (state.ai as? AiUi.CustomInput)?.instruction?.isNotEmpty() == true
             state.emojiSearchActive -> state.emojiQuery.isNotEmpty()
             state.dictionarySearchActive -> state.dictionaryQuery.isNotEmpty()
+            state.clipboardSearchActive -> state.clipboardQuery.isNotEmpty()
             state.mediaSearchActive && state.panel.hasMediaSearch -> state.mediaQuery.isNotEmpty()
             else -> canDeleteField()
         }
