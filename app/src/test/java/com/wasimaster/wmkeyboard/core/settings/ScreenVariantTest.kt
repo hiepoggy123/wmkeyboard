@@ -24,6 +24,39 @@ class ScreenVariantTest {
         assertSame(settings, settings.resolvedFor(ScreenVariant.PORTRAIT))
     }
 
+    /**
+     * The service reads one-handed settings straight off its own raw state while
+     * the keyboard composable reads them through [resolvedFor] — the two must
+     * agree, or the toolbar's one-handed button and its hardware shortcut would
+     * dock the keyboard to different sides. They agree because sizing overrides
+     * carry nothing about one-handed mode; this pins that, so a new
+     * [SizingOverride] field cannot quietly break it.
+     */
+    @Test fun sizingOverridesNeverTouchOneHandedSettings() {
+        val settings = KeyboardSettings(
+            oneHandedMode = OneHandedMode.LEFT,
+            oneHanded = OneHandedSettings(
+                landscape = OneHandedProfile(side = OneHandedSide.RIGHT),
+            ),
+            sizingOverrides = ScreenVariant.entries.associateWith {
+                SizingOverride(
+                    keyHeightDp = 30,
+                    numberRowHeightDp = 20,
+                    bottomPaddingDp = 4,
+                    keyboardWidthPercent = 90,
+                    fontScale = 1.2f,
+                    keyboardAlignment = KeyboardAlignment.RIGHT,
+                    keyboardScale = 1.5f,
+                )
+            },
+        )
+        for (variant in ScreenVariant.entries) {
+            val resolved = settings.resolvedFor(variant)
+            assertEquals(variant.name, settings.oneHandedMode, resolved.oneHandedMode)
+            assertEquals(variant.name, settings.oneHanded, resolved.oneHanded)
+        }
+    }
+
     @Test fun unsetFieldsInheritPortrait() {
         val settings = KeyboardSettings(
             keyHeightDp = 48,

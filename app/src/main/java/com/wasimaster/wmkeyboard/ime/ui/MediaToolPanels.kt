@@ -26,7 +26,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -77,7 +81,9 @@ import com.wasimaster.wmkeyboard.core.tools.ImageResult
 import com.wasimaster.wmkeyboard.core.tools.TranslateClient
 import com.wasimaster.wmkeyboard.core.tools.WebResult
 import com.wasimaster.wmkeyboard.ime.ImageSearchUi
+import com.wasimaster.wmkeyboard.ime.FocusRegion
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
+import com.wasimaster.wmkeyboard.ime.PanelMode
 import com.wasimaster.wmkeyboard.ime.MediaUi
 import com.wasimaster.wmkeyboard.ime.WebSearchUi
 
@@ -233,6 +239,7 @@ private fun MediaSearchBar(
     placeholder: String,
     onQueryTap: () -> Unit,
     attribution: String? = null,
+    focused: Boolean = false,
 ) {
     val kb = LocalKbTheme.current
     Row(
@@ -245,6 +252,7 @@ private fun MediaSearchBar(
             modifier = Modifier
                 .weight(1f)
                 .background(kb.chip, RoundedCornerShape(20.dp))
+                .focusRing(focused, RoundedCornerShape(20.dp))
                 .clickable { onQueryTap() }
                 .padding(horizontal = 12.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -433,19 +441,37 @@ internal fun GifPanel(
     }
     Box(modifier = sizing) {
         Column(modifier = Modifier.fillMaxSize()) {
+            PanelFocusTarget(
+                panel = state.panel,
+                region = FocusRegion.SEARCH,
+                count = 1,
+                columns = 1,
+                onActivate = { onQueryTap() },
+            )
             if (!fullBleed) {
                 MediaSearchBar(
                     state = state,
                     placeholder = "Search $noun",
                     onQueryTap = onQueryTap,
                     attribution = gifAttribution(state, stickers),
+                    focused = state.focusedIndex(FocusRegion.SEARCH) == 0,
                 )
             }
             if (chips.isNotEmpty() && !state.mediaSearchActive) {
+                // Tab reaches the source chips: results are useless if the
+                // keyboard can browse them but not switch where they come from.
+                PanelFocusTarget(
+                    panel = state.panel,
+                    region = FocusRegion.CHIPS,
+                    count = chips.size,
+                    columns = chips.size,
+                    onActivate = { index -> chips.getOrNull(index)?.let { onSourceSelect(it.source) } },
+                )
                 GifSourceChips(
                     chips = chips,
                     selectedIndex = GifSources.selectedChip(chips, state.mediaSource),
                     onSelect = onSourceSelect,
+                    focused = state.focusedIndex(FocusRegion.CHIPS),
                 )
             }
             if (localGrid && state.stickerPacks.size > 1 && !state.mediaSearchActive) {
@@ -491,6 +517,8 @@ internal fun GifPanel(
                                 downloadingId = state.mediaDownloadingId,
                                 onSelect = onSelect,
                                 onLongPress = if (stickers) onLongPress else null,
+                                panel = state.panel,
+                                focused = state.focusedIndex(),
                             )
                         }
                     }
@@ -547,6 +575,7 @@ private fun GifSourceChips(
     chips: List<com.wasimaster.wmkeyboard.core.tools.SourceChip>,
     selectedIndex: Int,
     onSelect: (GifSource) -> Unit,
+    focused: Int? = null,
 ) {
     val kb = LocalKbTheme.current
     Row(
@@ -568,6 +597,7 @@ private fun GifSourceChips(
                 modifier = Modifier
                     .weight(1f)
                     .background(if (active) kb.toolCircleActive else kb.chip, RoundedCornerShape(12.dp))
+                    .focusRing(index == focused, RoundedCornerShape(12.dp))
                     .clickable { onSelect(chip.source) }
                     .padding(horizontal = 12.dp, vertical = 4.dp),
             )
@@ -675,21 +705,33 @@ private fun GifGrid(
     downloadingId: String?,
     onSelect: (GifItem) -> Unit,
     onLongPress: ((GifItem) -> Unit)? = null,
+    panel: PanelMode = PanelMode.GIF,
+    focused: Int? = null,
 ) {
     val loader = rememberMediaImageLoader()
+    val gridState = rememberLazyGridState()
+    PanelFocusTarget(
+        panel = panel,
+        count = items.size,
+        columns = 3,
+        onActivate = { index -> items.getOrNull(index)?.let(onSelect) },
+    )
+    ScrollFocusIntoView(focused) { gridState.animateScrollToItem(it) }
     LazyVerticalGrid(
+        state = gridState,
         columns = GridCells.Fixed(3),
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(4.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        items(items, key = { it.id }) { item ->
+        itemsIndexed(items, key = { _, item -> item.id }) { index, item ->
             Box(
                 modifier = Modifier
                     .height(86.dp)
                     .clip(RoundedCornerShape(8.dp))
                     .background(LocalKbTheme.current.chip)
+                    .focusRing(index == focused, RoundedCornerShape(8.dp))
                     .combinedClickable(
                         enabled = downloadingId == null,
                         onClick = { onSelect(item) },
@@ -751,12 +793,24 @@ internal fun WebSearchPanel(
                 if (ui.results.isEmpty()) {
                     PanelNotice("No results for “${ui.query}”")
                 } else {
-                    LazyColumn(modifier = Modifier.fillMaxSize()) {
-                        items(ui.results) { result ->
+                    val focused = state.focusedIndex()
+                    val listState = rememberLazyListState()
+                    PanelFocusTarget(
+                        panel = PanelMode.WEB_SEARCH,
+                        count = ui.results.size,
+                        columns = 1,
+                        // The open-in-browser icon stays touch-only; Enter does
+                        // what a tap on the row does, which is insert.
+                        onActivate = { index -> ui.results.getOrNull(index)?.let(onResult) },
+                    )
+                    ScrollFocusIntoView(focused) { listState.animateScrollToItem(it) }
+                    LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
+                        itemsIndexed(ui.results) { index, result ->
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clickable { onResult(result) }
+                                    .focusRing(index == focused, RoundedCornerShape(8.dp))
                                     .padding(horizontal = 12.dp, vertical = 6.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
@@ -836,6 +890,7 @@ internal fun ImageSearchPanel(
                         downloadingId = state.mediaDownloadingId,
                         onResult = onResult,
                         onResultLink = onResultLink,
+                        focused = state.focusedIndex(),
                     )
                 }
             }
@@ -849,25 +904,39 @@ private fun ImageGrid(
     downloadingId: String?,
     onResult: (ImageResult) -> Unit,
     onResultLink: (ImageResult) -> Unit,
+    focused: Int? = null,
 ) {
     val loader = rememberMediaImageLoader()
     // imageUrl is the LazyGrid key, which must be unique — Brave can return the
     // same full-image URL for two results (a widely-reposted image), and a
     // duplicate key throws during composition and crashes the IME. Dedup first.
     val uniqueResults = remember(results) { results.distinctBy { it.imageUrl } }
+    val gridState = rememberLazyGridState()
+    // Indexed against the deduped list, which is what the grid actually draws.
+    PanelFocusTarget(
+        panel = PanelMode.IMAGE_SEARCH,
+        count = uniqueResults.size,
+        columns = 3,
+        onActivate = { index ->
+            if (downloadingId == null) uniqueResults.getOrNull(index)?.let(onResult)
+        },
+    )
+    ScrollFocusIntoView(focused) { gridState.animateScrollToItem(it) }
     LazyVerticalGrid(
+        state = gridState,
         columns = GridCells.Fixed(3),
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(4.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        items(uniqueResults, key = { it.imageUrl }) { result ->
+        itemsIndexed(uniqueResults, key = { _, result -> result.imageUrl }) { index, result ->
             Box(
                 modifier = Modifier
                     .height(86.dp)
                     .clip(RoundedCornerShape(8.dp))
                     .background(LocalKbTheme.current.chip)
+                    .focusRing(index == focused, RoundedCornerShape(8.dp))
                     .pointerInput(result.imageUrl, downloadingId == null) {
                         detectTapGestures(
                             onTap = { if (downloadingId == null) onResult(result) },

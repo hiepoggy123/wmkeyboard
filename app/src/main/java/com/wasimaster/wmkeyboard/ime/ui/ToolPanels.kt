@@ -40,6 +40,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Backspace
@@ -110,6 +112,7 @@ import com.wasimaster.wmkeyboard.core.tools.MoonPhase
 import com.wasimaster.wmkeyboard.core.tools.Qibla
 import com.wasimaster.wmkeyboard.core.tools.WeatherClient
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
+import com.wasimaster.wmkeyboard.ime.PanelMode
 import com.wasimaster.wmkeyboard.ime.SoundHapticAction
 import com.wasimaster.wmkeyboard.ime.WeatherUi
 import com.wasimaster.wmkeyboard.core.layout.Key
@@ -1329,7 +1332,23 @@ internal fun ThemesPanel(
                 modifier = Modifier.height(32.dp).width(120.dp),
             ) { onOpenSettings() }
         }
+        // Index 0 is the leading "Auto" card, so a theme sits one past its own
+        // position. Read-only while auto-theme owns the choice, exactly as taps are.
+        PanelFocusTarget(
+            panel = PanelMode.THEMES,
+            count = themes.size + 1,
+            columns = 2,
+            onActivate = { index ->
+                if (autoOn) return@PanelFocusTarget
+                if (index == 0) onThemeSelect(DEFAULT_THEME_ID)
+                else themes.getOrNull(index - 1)?.let { onThemeSelect(it.id) }
+            },
+        )
+        val focused = state.focusedIndex()
+        val gridState = rememberLazyGridState()
+        ScrollFocusIntoView(focused) { gridState.animateScrollToItem(it) }
         LazyVerticalGrid(
+            state = gridState,
             columns = GridCells.Fixed(2),
             modifier = Modifier
                 .fillMaxWidth()
@@ -1343,14 +1362,16 @@ internal fun ThemesPanel(
                     name = "Auto",
                     selected = selectedId == DEFAULT_THEME_ID,
                     nameOnDark = auto.board.luminance() < 0.5f,
+                    focused = focused == 0,
                     onClick = { if (!autoOn) onThemeSelect(DEFAULT_THEME_ID) },
                 ) { AutoThemePreview(auto) }
             }
-            items(themes, key = { it.id }) { theme ->
+            itemsIndexed(themes, key = { _, theme -> theme.id }) { index, theme ->
                 ThemeCard(
                     name = theme.name,
                     selected = selectedId == theme.id,
                     nameOnDark = Color(theme.boardBackground.toInt()).luminance() < 0.5f,
+                    focused = focused == index + 1,
                     onClick = { if (!autoOn) onThemeSelect(theme.id) },
                 ) { ThemePreview(theme) }
             }
@@ -1365,6 +1386,7 @@ private fun ThemeCard(
     selected: Boolean,
     nameOnDark: Boolean,
     onClick: () -> Unit,
+    focused: Boolean = false,
     preview: @Composable () -> Unit,
 ) {
     val kb = LocalKbTheme.current
@@ -1376,6 +1398,10 @@ private fun ThemeCard(
                 if (selected) Modifier.border(2.dp, kb.accent, RoundedCornerShape(10.dp))
                 else Modifier.border(1.dp, kb.divider, RoundedCornerShape(10.dp))
             )
+            // Concentric with the selection border above, and it carries an
+            // accent *fill* — the border alone already means "this is the
+            // theme in use", so an outline could not tell the two apart.
+            .focusRing(focused, RoundedCornerShape(10.dp))
             .clickable(onClick = onClick),
     ) {
         preview()

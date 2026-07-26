@@ -87,6 +87,12 @@ private val SettingRows: List<SettingsSearchEntry> = listOfNotNull(
     entry("Swipe to delete words", "Drag sideways on backspace to delete whole words", "Typing", "typing"),
     entry("Volume cursor control", "Volume up and down move the text cursor", "Typing", "typing"),
     entry("Release while audio plays", "Keep volume control when something is playing", "Typing", "typing"),
+    entry("Process hardware keys", "Transliterate, correct and suggest as you type on a physical keyboard", "Typing", "typing"),
+    entry("Tool shortcuts", "Open tools from a physical keyboard without touching the screen", "Typing", "typing"),
+    entry("Arrow keys move a highlight", "Arrows move a highlight in tool panels, Enter picks it, Esc closes", "Typing", "typing"),
+    entry("Esc closes the tool", "Escape shuts an open tool instead of going to the app", "Typing", "typing"),
+    entry("Number keys pick suggestions", "Commit a suggestion by its number in the strip", "Typing", "typing"),
+    entry("Show the keyboard for shortcuts", "A shortcut that opens a tool also brings the keyboard up", "Typing", "typing"),
     entry("Key press haptics", "Vibrate on every key press", "Key press", "keypress"),
     entry("Haptic strength", "Vibration length per key press", "Key press", "keypress"),
     entry("Haptic intensity", "Vibration amplitude per key press", "Key press", "keypress"),
@@ -341,6 +347,7 @@ private val SectionRows: List<SettingsSearchEntry> = listOf(
     entry("Personal dictionary", "Words the keyboard has learned", "Typing", "dictionary"),
     entry("Custom dictionaries", "Import your own word lists, per language", "Typing", "customdictionaries"),
     entry("Suggestion blacklist", "Words to never suggest or autocorrect to", "Typing", "blacklist"),
+    entry("Tool shortcuts list", "Which letter opens which tool from a physical keyboard", "Typing", "hwshortcuts"),
     entry("Open-source licences", "Libraries and data bundled in this build", "About", "licenses"),
 )
 

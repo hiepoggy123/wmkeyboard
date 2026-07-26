@@ -38,6 +38,11 @@ import com.wasimaster.wmkeyboard.core.theme.ThemeSpec
 import com.wasimaster.wmkeyboard.core.theme.withEmbeddedImages
 import com.wasimaster.wmkeyboard.core.theme.withExtractedImages
 import com.wasimaster.wmkeyboard.core.tools.BuiltInSymbolSets
+import com.wasimaster.wmkeyboard.core.tools.DefaultToolLetters
+import com.wasimaster.wmkeyboard.core.tools.decodeToolLetters
+import com.wasimaster.wmkeyboard.core.tools.encodeToolLetters
+import com.wasimaster.wmkeyboard.core.tools.formatLeader
+import com.wasimaster.wmkeyboard.core.tools.parseLeader
 import com.wasimaster.wmkeyboard.core.tools.SmartSuggest
 import com.wasimaster.wmkeyboard.core.tools.SymbolSet
 import com.wasimaster.wmkeyboard.core.tools.SymbolSetCodec
@@ -494,6 +499,74 @@ data class ToolbarBehavior(
 )
 
 /**
+ * How the suggestion strip is reachable from a physical keyboard, where nothing
+ * is tappable.
+ */
+enum class SuggestionHotkeyMode(val label: String) {
+    OFF("Off"),
+
+    /** The leader, then a digit. Collides with nothing, at the cost of one extra key. */
+    LEADER_DIGIT("After the shortcut key"),
+
+    /**
+     * Alt+1 … Alt+9 directly. One keystroke, but browsers, editors and chat apps
+     * all claim modifier+digit for tab and workspace switching, so it is opt-in.
+     */
+    ALT_DIGIT("Alt + number"),
+}
+
+/**
+ * Physical-keyboard shortcuts and panel navigation: opening a tool and driving
+ * it without touching the screen. Grouped into their own class rather than
+ * sitting flat on [KeyboardSettings] because that class's primary constructor is
+ * at the JVM's 255-argument ceiling — each field still persists under its own
+ * DataStore key via the matching setter.
+ *
+ * The older flat [KeyboardSettings.hardwareKeyboardInput] stays where it is: it
+ * governs *typing*, which these do not touch.
+ */
+data class HardwareKeyboardSettings(
+    /**
+     * Master switch for the leader key and its tool letters. On by default: the
+     * default leader is a double-tapped modifier, which produces no character
+     * and is passed through to the app either way.
+     */
+    val shortcutsEnabled: Boolean = true,
+    /**
+     * Arrow keys move a highlight through an open panel, Enter picks it. Without
+     * this, a shortcut can open a tool but not use one.
+     */
+    val panelNavigation: Boolean = true,
+    /**
+     * Escape closes an open panel. Only ever consumed when the keyboard actually
+     * has something open — a bare Escape belongs to the app, which may be a
+     * browser loading a page or an editor leaving insert mode.
+     */
+    val escClosesPanel: Boolean = true,
+    val suggestionHotkeys: SuggestionHotkeyMode = SuggestionHotkeyMode.LEADER_DIGIT,
+    /**
+     * A shortcut that opens a tool also shows the keyboard, which a physical
+     * keyboard usually hides. Restored to however it was as soon as the tool closes.
+     */
+    val autoShowUi: Boolean = true,
+    /**
+     * What arms the tool picker, in the canonical text form parsed by
+     * `HardwareShortcuts.parseLeader` — `"doubletap:ctrl"` or `"ctrl+shift+K"`.
+     * Kept as a string so this class needs no `KeyEvent` and the DataStore
+     * round-trip is the identity.
+     */
+    val leader: String = "doubletap:ctrl",
+    /** How long the armed picker waits for its letter. */
+    val pickerTimeoutMs: Int = 3000,
+    /**
+     * Letter → the tool it opens, the complete map rather than a delta: the
+     * default is non-empty, so "absent means default" could never express the
+     * user unbinding a letter.
+     */
+    val toolByLetter: Map<Char, ToolbarTool> = DefaultToolLetters,
+)
+
+/**
  * Fine-grained feedback gates that don't fit the master haptic/sound toggles:
  * which key events buzz, whether a copy shows a toast, and whether Do Not
  * Disturb mutes haptics. Grouped into their own class rather than sitting flat
@@ -789,6 +862,12 @@ data class KeyboardSettings(
      * shortcuts (Ctrl+C), cursor keys and function keys stay with the system.
      */
     val hardwareKeyboardInput: Boolean = true,
+    /**
+     * Opening and driving the tools from a physical keyboard: the leader key,
+     * its tool letters, the focus ring. Separate from [hardwareKeyboardInput],
+     * which is only about how typed characters are processed.
+     */
+    val hardwareKeyboard: HardwareKeyboardSettings = HardwareKeyboardSettings(),
     /** Volume up/down move the text cursor while the keyboard is showing. */
     val volumeCursor: Boolean = false,
     /**
@@ -1698,6 +1777,14 @@ class SettingsRepository(private val context: Context) {
         private val NUMERAL_COMMIT_SCOPE = stringPreferencesKey("numeral_commit_scope")
         private val BACKSPACE_SWIPE_DELETE = booleanPreferencesKey("backspace_swipe_delete")
         private val HARDWARE_KEYBOARD_INPUT = booleanPreferencesKey("hardware_keyboard_input")
+        private val HW_SHORTCUTS_ENABLED = booleanPreferencesKey("hw_shortcuts_enabled")
+        private val HW_PANEL_NAVIGATION = booleanPreferencesKey("hw_panel_navigation")
+        private val HW_ESC_CLOSES_PANEL = booleanPreferencesKey("hw_esc_closes_panel")
+        private val HW_SUGGESTION_HOTKEYS = stringPreferencesKey("hw_suggestion_hotkeys")
+        private val HW_AUTO_SHOW_UI = booleanPreferencesKey("hw_auto_show_ui")
+        private val HW_LEADER = stringPreferencesKey("hw_leader")
+        private val HW_PICKER_TIMEOUT_MS = intPreferencesKey("hw_picker_timeout_ms")
+        private val HW_TOOL_LETTERS = stringPreferencesKey("hw_tool_letters")
         private val VOLUME_CURSOR = booleanPreferencesKey("volume_cursor")
         private val VOLUME_CURSOR_MEDIA_AWARE = booleanPreferencesKey("volume_cursor_media_aware")
         private val GLOBE_AS_EMOJI = booleanPreferencesKey("globe_as_emoji")
@@ -2092,6 +2179,21 @@ class SettingsRepository(private val context: Context) {
             spacebarLabel = p[SPACEBAR_LABEL] ?: defaults.spacebarLabel,
             backspaceSwipeDelete = p[BACKSPACE_SWIPE_DELETE] ?: defaults.backspaceSwipeDelete,
             hardwareKeyboardInput = p[HARDWARE_KEYBOARD_INPUT] ?: defaults.hardwareKeyboardInput,
+            hardwareKeyboard = HardwareKeyboardSettings(
+                shortcutsEnabled = p[HW_SHORTCUTS_ENABLED] ?: defaults.hardwareKeyboard.shortcutsEnabled,
+                panelNavigation = p[HW_PANEL_NAVIGATION] ?: defaults.hardwareKeyboard.panelNavigation,
+                escClosesPanel = p[HW_ESC_CLOSES_PANEL] ?: defaults.hardwareKeyboard.escClosesPanel,
+                suggestionHotkeys = p[HW_SUGGESTION_HOTKEYS]
+                    ?.let { raw -> runCatching { SuggestionHotkeyMode.valueOf(raw) }.getOrNull() }
+                    ?: defaults.hardwareKeyboard.suggestionHotkeys,
+                autoShowUi = p[HW_AUTO_SHOW_UI] ?: defaults.hardwareKeyboard.autoShowUi,
+                leader = p[HW_LEADER] ?: defaults.hardwareKeyboard.leader,
+                pickerTimeoutMs = p[HW_PICKER_TIMEOUT_MS] ?: defaults.hardwareKeyboard.pickerTimeoutMs,
+                // Absent, not empty, means "never edited": an empty stored map is
+                // a user who unbound every letter, and must stay empty.
+                toolByLetter = p[HW_TOOL_LETTERS]?.let(::decodeToolLetters)
+                    ?: defaults.hardwareKeyboard.toolByLetter,
+            ),
             volumeCursor = p[VOLUME_CURSOR] ?: defaults.volumeCursor,
             volumeCursorMediaAware = p[VOLUME_CURSOR_MEDIA_AWARE] ?: defaults.volumeCursorMediaAware,
             globeAsEmoji = p[GLOBE_AS_EMOJI] ?: defaults.globeAsEmoji,
@@ -3597,6 +3699,49 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setHardwareKeyboardInput(value: Boolean) =
         context.dataStore.edit { it[HARDWARE_KEYBOARD_INPUT] = value }
+
+    suspend fun setHwShortcutsEnabled(value: Boolean) =
+        context.dataStore.edit { it[HW_SHORTCUTS_ENABLED] = value }
+
+    suspend fun setHwPanelNavigation(value: Boolean) =
+        context.dataStore.edit { it[HW_PANEL_NAVIGATION] = value }
+
+    suspend fun setHwEscClosesPanel(value: Boolean) =
+        context.dataStore.edit { it[HW_ESC_CLOSES_PANEL] = value }
+
+    suspend fun setHwSuggestionHotkeys(value: SuggestionHotkeyMode) =
+        context.dataStore.edit { it[HW_SUGGESTION_HOTKEYS] = value.name }
+
+    suspend fun setHwAutoShowUi(value: Boolean) =
+        context.dataStore.edit { it[HW_AUTO_SHOW_UI] = value }
+
+    /** Stores the leader in its canonical text form; junk is refused, not persisted. */
+    suspend fun setHwLeader(value: String) {
+        val canonical = parseLeader(value)?.let(::formatLeader) ?: return
+        context.dataStore.edit { it[HW_LEADER] = canonical }
+    }
+
+    /** The whole table at once — the shortcut editor's save and its reset button. */
+    suspend fun setHwToolLetters(map: Map<Char, ToolbarTool>) =
+        context.dataStore.edit { it[HW_TOOL_LETTERS] = encodeToolLetters(map) }
+
+    /**
+     * Binds one letter, or unbinds it when [tool] is null. Read-modify-write in a
+     * single edit so two rows saved at once cannot lose each other, and it keeps
+     * the table unambiguous in both directions: one letter opens one tool, and
+     * one tool answers to one letter.
+     */
+    suspend fun setHwToolLetter(letter: Char, tool: ToolbarTool?) =
+        context.dataStore.edit { prefs ->
+            val current = prefs[HW_TOOL_LETTERS]?.let(::decodeToolLetters) ?: DefaultToolLetters
+            val next = current.toMutableMap()
+            next.remove(letter.uppercaseChar())
+            if (tool != null) {
+                next.entries.removeAll { it.value == tool }
+                next[letter.uppercaseChar()] = tool
+            }
+            prefs[HW_TOOL_LETTERS] = encodeToolLetters(next)
+        }
 
     suspend fun setVolumeCursor(value: Boolean) =
         context.dataStore.edit { it[VOLUME_CURSOR] = value }

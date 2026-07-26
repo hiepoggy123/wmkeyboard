@@ -246,6 +246,64 @@ val PanelMode.hasMediaSearch: Boolean
         // encodes what the user types rather than the field's text.
         this == PanelMode.QR_GEN
 
+/**
+ * Which strip of an open panel the hardware focus ring is in. Tab cycles the
+ * regions the open panel offers ([panelFocusRegions]); the arrows move within
+ * one.
+ */
+enum class FocusRegion {
+    /** The panel's search pill, whose only "item" is the pill itself. */
+    SEARCH,
+
+    /** Category, source or pack chips above the results. */
+    CHIPS,
+
+    /** The grid or list of results. */
+    RESULTS,
+}
+
+/**
+ * Where the hardware focus ring sits inside the open panel. Null on
+ * [KeyboardUiState] means touch mode — nothing is drawn at all, so a phone user
+ * never sees a highlight they did not ask for.
+ */
+data class PanelFocus(val region: FocusRegion, val index: Int)
+
+/**
+ * The leader was pressed and the next letter picks a tool. [cheatSheet] promotes
+ * the compact hint to the full legend — deliberately the same state, so the
+ * picker and the cheat sheet are one mechanism with one way out of them.
+ */
+data class ToolPickerState(val armedAt: Long, val cheatSheet: Boolean = false)
+
+/**
+ * Tab order for a panel: the regions it actually has, results last so the ring
+ * starts where the content is. Exhaustive on purpose — a new [PanelMode] is a
+ * compile error here rather than a panel that silently cannot be navigated.
+ */
+fun panelFocusRegions(panel: PanelMode): List<FocusRegion> = when (panel) {
+    // Query, then the chips that scope it, then what came back.
+    PanelMode.EMOJI -> listOf(FocusRegion.SEARCH, FocusRegion.CHIPS, FocusRegion.RESULTS)
+    PanelMode.GIF, PanelMode.STICKER -> listOf(FocusRegion.SEARCH, FocusRegion.CHIPS, FocusRegion.RESULTS)
+    PanelMode.SYMBOLS -> listOf(FocusRegion.CHIPS, FocusRegion.RESULTS)
+    PanelMode.CLIPBOARD, PanelMode.DICTIONARY,
+    PanelMode.WEB_SEARCH, PanelMode.IMAGE_SEARCH, PanelMode.WIKIPEDIA,
+    -> listOf(FocusRegion.SEARCH, FocusRegion.RESULTS)
+    PanelMode.TOOLBOX, PanelMode.SNIPPETS, PanelMode.THEMES, PanelMode.MODES,
+    -> listOf(FocusRegion.RESULTS)
+    // Panels the keyboard cannot drive: sensors, cameras, ink, button grids
+    // whose keys the field already receives.
+    PanelMode.NONE, PanelMode.TEXT_EDIT, PanelMode.COMPASS, PanelMode.LEVEL,
+    PanelMode.MOON_PHASE, PanelMode.WEATHER, PanelMode.CALENDAR,
+    PanelMode.SOUND_HAPTICS, PanelMode.NUMPAD, PanelMode.HANDWRITING,
+    PanelMode.CAMERA, PanelMode.TRANSLATE, PanelMode.OCR, PanelMode.QR_SCAN,
+    PanelMode.VOICE, PanelMode.GRAMMAR, PanelMode.CALCULATOR,
+    PanelMode.UNIT_CONVERT, PanelMode.CURRENCY, PanelMode.QR_GEN,
+    PanelMode.PASSWORD_GEN, PanelMode.AI, PanelMode.TYPING_TEST,
+    PanelMode.MEDIA_CONTROL,
+    -> emptyList()
+}
+
 /** Readiness of the handwriting panel's recognition model. */
 enum class HandwritingStatus { CHECKING, NEED_MODEL, DOWNLOADING, READY, ERROR }
 
@@ -614,6 +672,18 @@ data class KeyboardUiState(
      */
     val modifiers: Modifiers = Modifiers.None,
     /**
+     * The physical keyboard's leader was pressed and the next letter opens a
+     * tool. Session state beside [modifiers] for the same reason: an armed
+     * picker must not survive the field it was armed in.
+     */
+    val toolPicker: ToolPickerState? = null,
+    /**
+     * Where the hardware focus ring is inside the open panel, or null for touch
+     * mode. Stays null until the user presses the leader, an arrow or Tab, so
+     * the ring is only ever an answer to a keystroke.
+     */
+    val panelFocus: PanelFocus? = null,
+    /**
      * Layer the Fn key was pressed from, so a one-shot Fn springs back to where
      * the user was rather than always to the letters. Null off the Fn layer.
      */
@@ -852,4 +922,12 @@ data class KeyboardUiState(
      */
     val aiCustomInputActive: Boolean
         get() = panel == PanelMode.AI && ai is AiUi.CustomInput
+
+    /**
+     * The item a panel should ring in [region], or null when the ring is
+     * elsewhere or absent. Lets a panel ask `state.focusedIndex() == i` without
+     * unpacking [panelFocus] itself.
+     */
+    fun focusedIndex(region: FocusRegion = FocusRegion.RESULTS): Int? =
+        panelFocus?.takeIf { it.region == region }?.index
 }

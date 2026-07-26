@@ -39,6 +39,7 @@ import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import android.view.KeyEvent
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.FactCheck
@@ -52,6 +53,30 @@ import androidx.compose.material.icons.outlined.Accessibility
 import androidx.compose.material.icons.outlined.AspectRatio
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.foundation.focusable
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import com.wasimaster.wmkeyboard.core.settings.SuggestionHotkeyMode
+import com.wasimaster.wmkeyboard.core.tools.CheatSheetLetter
+import com.wasimaster.wmkeyboard.core.tools.DefaultLeader
+import com.wasimaster.wmkeyboard.core.tools.DefaultToolLetters
+import com.wasimaster.wmkeyboard.core.tools.KeyChord
+import com.wasimaster.wmkeyboard.core.tools.LeaderTrigger
+import com.wasimaster.wmkeyboard.core.tools.ReservedChords
+import com.wasimaster.wmkeyboard.core.tools.ReservedLetters
+import com.wasimaster.wmkeyboard.core.tools.TapModifier
+import com.wasimaster.wmkeyboard.core.tools.ToolboxLetter
+import com.wasimaster.wmkeyboard.core.tools.describeChord
+import com.wasimaster.wmkeyboard.core.tools.describeLeader
+import com.wasimaster.wmkeyboard.core.tools.formatChord
+import com.wasimaster.wmkeyboard.core.tools.formatLeader
+import com.wasimaster.wmkeyboard.core.tools.parseLeader
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.ContentPaste
 import androidx.compose.material.icons.outlined.DarkMode
@@ -418,6 +443,7 @@ private fun SettingsNavHost(
                     onOpenDictionary = { navController.navigate("dictionary") },
                     onOpenCustomDictionaries = { navController.navigate("customdictionaries") },
                     onOpenBlacklist = { navController.navigate("blacklist") },
+                    onOpenHardwareShortcuts = { navController.navigate("hwshortcuts") },
                 )
             }
         }
@@ -444,6 +470,11 @@ private fun SettingsNavHost(
         composable("blacklist") {
             SettingsScreen("Suggestion blacklist", { navController.popBackStack() }) {
                 BlacklistSettings(repository, settings)
+            }
+        }
+        composable("hwshortcuts") {
+            SettingsScreen("Tool shortcuts list", { navController.popBackStack() }) {
+                HardwareShortcutsSettings(repository, settings)
             }
         }
         composable("appearance") {
@@ -1308,6 +1339,7 @@ private fun TypingSettings(
     onOpenDictionary: () -> Unit,
     onOpenCustomDictionaries: () -> Unit,
     onOpenBlacklist: () -> Unit,
+    onOpenHardwareShortcuts: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
     SettingsGroup("Automatic corrections") {
@@ -1951,7 +1983,349 @@ private fun TypingSettings(
                     "physical keyboard's own layout own input entirely.",
             ) { scope.launch { repository.setHardwareKeyboardInput(it) } }
         }
+        val hw = settings.hardwareKeyboard
+        item {
+            ToggleSetting(
+                "Tool shortcuts",
+                "Open tools from a physical keyboard without touching the screen",
+                hw.shortcutsEnabled,
+                info = "Press the shortcut key, then a letter: the letter opens that tool. " +
+                    "T opens the full toolbox and ? shows the list of letters.\n\n" +
+                    "The shortcut key is a double-tapped Ctrl by default, which no app uses — a " +
+                    "lone Ctrl produces no character, and it is still passed through either way. " +
+                    "Both the shortcut key and every letter can be changed below.",
+            ) { scope.launch { repository.setHwShortcutsEnabled(it) } }
+        }
+        if (hw.shortcutsEnabled) {
+            item {
+                NavRow(
+                    "Tool shortcuts list",
+                    "Which letter opens which tool",
+                    value = describeLeader(parseLeader(hw.leader) ?: DefaultLeader),
+                    onClick = onOpenHardwareShortcuts,
+                )
+            }
+        }
+        item {
+            ToggleSetting(
+                "Arrow keys move a highlight",
+                "Arrows move a highlight in tool panels, Enter picks it, Esc closes",
+                hw.panelNavigation,
+                info = "Inside a tool, the arrow keys move a highlight over the emojis, clips or " +
+                    "results, Enter uses the highlighted one, and Tab moves between the search box, " +
+                    "the category chips and the results.\n\n" +
+                    "The highlight only appears once you press a key — it never shows up while " +
+                    "you are using the keyboard by touch.",
+            ) { scope.launch { repository.setHwPanelNavigation(it) } }
+        }
+        item {
+            ToggleSetting(
+                "Esc closes the tool",
+                "Escape shuts an open tool instead of going to the app",
+                hw.escClosesPanel,
+                info = "Escape only ever closes something the keyboard itself has open. With no " +
+                    "tool open it goes straight to the app, so it still stops a page loading or " +
+                    "leaves insert mode in an editor.",
+            ) { scope.launch { repository.setHwEscClosesPanel(it) } }
+        }
+        item {
+            ChoiceSetting(
+                "Number keys pick suggestions",
+                subtitle = "Commit a suggestion by its number in the strip",
+                info = "The suggestion strip cannot be tapped while you type on a physical " +
+                    "keyboard, so a number can commit one instead.\n\n" +
+                    "\"After the shortcut key\" is the safe choice: nothing else uses it. " +
+                    "\"Alt + number\" is one keystroke fewer, but browsers, editors and chat apps " +
+                    "use modifier+number to switch tabs and workspaces.",
+                options = SuggestionHotkeyMode.entries.map { it to it.label },
+                selected = hw.suggestionHotkeys,
+            ) { scope.launch { repository.setHwSuggestionHotkeys(it) } }
+        }
+        item {
+            ToggleSetting(
+                "Show the keyboard for shortcuts",
+                "A shortcut that opens a tool also brings the keyboard up",
+                hw.autoShowUi,
+                info = "A physical keyboard normally means no on-screen keyboard at all, which " +
+                    "leaves a tool nowhere to draw. With this on, opening a tool by shortcut shows " +
+                    "the keyboard, and closing the tool hides it again.",
+            ) { scope.launch { repository.setHwAutoShowUi(it) } }
+        }
     }
+}
+
+/**
+ * The letter that opens each tool from a physical keyboard, plus the shortcut key
+ * that arms them.
+ *
+ * The rows are every supported tool rather than a list the user builds, so there
+ * is no "add" — a tool either has a letter or it does not, and the unbound ones
+ * are still reachable through the toolbox.
+ */
+@Composable
+private fun HardwareShortcutsSettings(repository: SettingsRepository, settings: KeyboardSettings) {
+    val scope = rememberCoroutineScope()
+    val hw = settings.hardwareKeyboard
+    val leader = parseLeader(hw.leader) ?: DefaultLeader
+    var editingLeader by remember { mutableStateOf(false) }
+    var editing by remember { mutableStateOf<ToolbarTool?>(null) }
+    var confirmReset by remember { mutableStateOf(false) }
+
+    val tools = remember(hw.toolByLetter, settings.enabledTools) {
+        val letterOf = hw.toolByLetter.entries.associate { (letter, tool) -> tool to letter }
+        // Bound tools first, in letter order, so the table reads as "what my
+        // keyboard does" before "what else could be bound".
+        ToolbarTool.entries.filter(::isSupportedTool)
+            .sortedWith(compareBy({ letterOf[it] == null }, { letterOf[it] ?: ' ' }, { it.name }))
+    }
+    val letterOf = hw.toolByLetter.entries.associate { (letter, tool) -> tool to letter }
+
+    Column {
+        CaptionText(
+            "Press the shortcut key, then a letter. $ToolboxLetter opens the toolbox and " +
+                "$CheatSheetLetter shows this list on the keyboard.",
+        )
+        SettingsGroup("Shortcut key") {
+            item {
+                NavRow(
+                    "Shortcut key",
+                    "What arms the tool letters",
+                    value = describeLeader(leader),
+                    onClick = { editingLeader = true },
+                )
+            }
+        }
+        SettingsGroup("Tools") {
+            for (tool in tools) {
+                item {
+                    val letter = letterOf[tool]
+                    ListItem(
+                        colors = transparentListColors(),
+                        headlineContent = { Text(toolTitle(tool)) },
+                        supportingContent = if (tool !in settings.enabledTools) {
+                            { CaptionText("Turned off in Tools") }
+                        } else null,
+                        leadingContent = {
+                            Icon(toolIconFor(tool), contentDescription = null)
+                        },
+                        trailingContent = {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    letter?.toString() ?: "—",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = if (letter == null) {
+                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                    } else {
+                                        MaterialTheme.colorScheme.primary
+                                    },
+                                )
+                                if (letter != null) {
+                                    IconButton(onClick = {
+                                        scope.launch { repository.setHwToolLetter(letter, null) }
+                                    }) {
+                                        Icon(
+                                            Icons.Outlined.Close,
+                                            contentDescription = "Unbind ${toolTitle(tool)}",
+                                        )
+                                    }
+                                }
+                            }
+                        },
+                        modifier = Modifier.clickable { editing = tool },
+                    )
+                }
+            }
+        }
+        TextButton(
+            onClick = { confirmReset = true },
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+        ) { Text("Reset to defaults") }
+    }
+
+    if (editingLeader) {
+        LeaderCaptureDialog(
+            current = leader,
+            onDismiss = { editingLeader = false },
+            onPick = { picked ->
+                editingLeader = false
+                scope.launch { repository.setHwLeader(formatLeader(picked)) }
+            },
+        )
+    }
+    editing?.let { tool ->
+        LetterCaptureDialog(
+            tool = tool,
+            current = letterOf[tool],
+            takenBy = { letter -> hw.toolByLetter[letter] },
+            onDismiss = { editing = null },
+            onPick = { letter ->
+                editing = null
+                scope.launch { repository.setHwToolLetter(letter, tool) }
+            },
+        )
+    }
+    if (confirmReset) {
+        AlertDialog(
+            onDismissRequest = { confirmReset = false },
+            title = { Text("Reset tool shortcuts?") },
+            text = { Text("Every letter goes back to its default tool.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmReset = false
+                    scope.launch {
+                        repository.setHwToolLetters(DefaultToolLetters)
+                        repository.setHwLeader(formatLeader(DefaultLeader))
+                    }
+                }) { Text("Reset") }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmReset = false }) { Text("Cancel") }
+            },
+        )
+    }
+}
+
+/**
+ * Picks the shortcut key: a double-tapped modifier, or a chord pressed on an
+ * attached keyboard.
+ *
+ * The double-tap choices matter more than the capture field — most people
+ * editing this screen are holding a phone with no keyboard plugged in, and a
+ * "press a key" prompt would leave them stuck.
+ */
+@Composable
+private fun LeaderCaptureDialog(
+    current: LeaderTrigger,
+    onDismiss: () -> Unit,
+    onPick: (LeaderTrigger) -> Unit,
+) {
+    var captured by remember { mutableStateOf<KeyChord?>(null) }
+    val requester = remember { FocusRequester() }
+    LaunchedEffect(Unit) { runCatching { requester.requestFocus() } }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Shortcut key") },
+        text = {
+            Column {
+                CaptionText("Double-tap a modifier — nothing else uses it.")
+                for (modifier in TapModifier.entries) {
+                    val trigger = LeaderTrigger.DoubleTap(modifier)
+                    ListItem(
+                        colors = transparentListColors(),
+                        headlineContent = { Text("Double-tap ${modifier.label}") },
+                        trailingContent = {
+                            if (current == trigger && captured == null) {
+                                Icon(Icons.Outlined.Check, contentDescription = "Current")
+                            }
+                        },
+                        modifier = Modifier.clickable { onPick(trigger) },
+                    )
+                }
+                Spacer(Modifier.height(8.dp))
+                CaptionText("…or press a shortcut on the attached keyboard.")
+                // A real focusable window, unlike the keyboard's own, so Compose
+                // focus is the right tool here.
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp)
+                        .focusRequester(requester)
+                        .focusable()
+                        .onPreviewKeyEvent { event ->
+                            if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                            val native = event.nativeKeyEvent
+                            // Wait for the key the modifiers are qualifying.
+                            if (KeyEvent.isModifierKey(native.keyCode)) return@onPreviewKeyEvent true
+                            val chord = KeyChord(
+                                keyCode = native.keyCode,
+                                ctrl = native.isCtrlPressed,
+                                alt = native.isAltPressed,
+                                shift = native.isShiftPressed,
+                                meta = native.isMetaPressed,
+                            )
+                            // A bare key would swallow ordinary typing, and a
+                            // chord this app cannot name cannot be stored.
+                            captured = chord.takeIf { it.hasModifier && formatChord(it) != null }
+                            true
+                        },
+                ) {
+                    Text(
+                        captured?.let(::describeChord) ?: "Waiting for a key…",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
+                captured?.let { chord ->
+                    if (chord in ReservedChords) {
+                        CaptionText(
+                            "${describeChord(chord)} is usually the app's own shortcut.",
+                            error = true,
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = captured != null,
+                onClick = { captured?.let { onPick(LeaderTrigger.Chord(it)) } },
+            ) { Text("Use shortcut") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
+}
+
+/**
+ * Picks the letter for one tool. Typed rather than captured: this is a single
+ * character, and a text field works with or without a keyboard attached.
+ */
+@Composable
+private fun LetterCaptureDialog(
+    tool: ToolbarTool,
+    current: Char?,
+    takenBy: (Char) -> ToolbarTool?,
+    onDismiss: () -> Unit,
+    onPick: (Char) -> Unit,
+) {
+    var text by remember { mutableStateOf(current?.toString() ?: "") }
+    val letter = text.trim().uppercase().firstOrNull()
+    val valid = letter != null && (letter in 'A'..'Z' || letter in '0'..'9') &&
+        letter !in ReservedLetters
+    val clash = letter?.let(takenBy)?.takeIf { it != tool }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(toolTitle(tool)) },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = { text = it.takeLast(1) },
+                    label = { Text("Letter") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(
+                        capitalization = KeyboardCapitalization.Characters,
+                    ),
+                )
+                Spacer(Modifier.height(8.dp))
+                when {
+                    letter in ReservedLetters -> CaptionText(
+                        "$letter is reserved: $ToolboxLetter opens the toolbox and " +
+                            "$CheatSheetLetter shows the list.",
+                        error = true,
+                    )
+                    clash != null -> CaptionText(
+                        "$letter currently opens ${toolTitle(clash)}, which will lose its letter.",
+                    )
+                    else -> CaptionText("A single letter or digit.")
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(enabled = valid, onClick = { letter?.let(onPick) }) {
+                Text(if (clash != null) "Reassign" else "Save")
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
 }
 
 // ---- key press ----

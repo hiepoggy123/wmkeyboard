@@ -20,6 +20,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -29,6 +31,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -51,7 +54,9 @@ import androidx.compose.ui.graphics.Color
 import com.wasimaster.wmkeyboard.core.tools.ToolPrefill
 import com.wasimaster.wmkeyboard.core.tools.UnitConvert
 import com.wasimaster.wmkeyboard.ime.CurrencyUi
+import com.wasimaster.wmkeyboard.ime.FocusRegion
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
+import com.wasimaster.wmkeyboard.ime.PanelMode
 
 // Shared building blocks for the utility tool panels (symbols, calculator,
 // unit & currency converters): a pill chip and a compact keypad button.
@@ -138,6 +143,7 @@ internal fun RowScope.SymbolCategoryChips(
         if (recents.isNotEmpty()) add("Recents")
         SymbolCatalog.categories.forEach { add(it.name) }
     }
+    val focusedChip = state.focusedIndex(FocusRegion.CHIPS)
     Row(
         modifier = Modifier
             .weight(1f)
@@ -145,8 +151,12 @@ internal fun RowScope.SymbolCategoryChips(
             .padding(horizontal = 6.dp),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        for (name in categoryNames) {
-            ToolPanelChip(name, selected = name == selected) { onSelect(name) }
+        categoryNames.forEachIndexed { index, name ->
+            ToolPanelChip(
+                name,
+                selected = name == selected,
+                modifier = Modifier.focusRing(index == focusedChip, RoundedCornerShape(12.dp)),
+            ) { onSelect(name) }
         }
     }
 }
@@ -156,22 +166,55 @@ internal fun SymbolsPanel(
     state: KeyboardUiState,
     onSymbol: (String) -> Unit,
     selectedCategory: String,
+    onSelectCategory: (String) -> Unit = {},
 ) {
     val kb = LocalKbTheme.current
     val recents = state.settings.symbolRecents
     val symbols = if (selectedCategory == "Recents") recents
     else SymbolCatalog.categories.firstOrNull { it.name == selectedCategory }?.symbols.orEmpty()
 
+    val gridState = rememberLazyGridState()
+    // The grid is Adaptive, so its width in cells is only knowable after layout.
+    val columns by remember {
+        derivedStateOf {
+            gridState.layoutInfo.visibleItemsInfo.maxOfOrNull { it.column }?.plus(1) ?: 1
+        }
+    }
+    PanelFocusTarget(
+        panel = PanelMode.SYMBOLS,
+        count = symbols.size,
+        columns = columns,
+        onActivate = { index -> symbols.getOrNull(index)?.let(onSymbol) },
+    )
+    // Tab reaches the category chips, which are drawn in the panel header by
+    // [SymbolCategoryChips] — the names are recomputed here rather than hoisted,
+    // so the header keeps owning its own selection.
+    val categoryNames = buildList {
+        if (recents.isNotEmpty()) add("Recents")
+        SymbolCatalog.categories.forEach { add(it.name) }
+    }
+    PanelFocusTarget(
+        panel = PanelMode.SYMBOLS,
+        region = FocusRegion.CHIPS,
+        count = categoryNames.size,
+        columns = categoryNames.size.coerceAtLeast(1),
+        onActivate = { index -> categoryNames.getOrNull(index)?.let(onSelectCategory) },
+    )
+    val focused = state.focusedIndex()
+    ScrollFocusIntoView(focused) { gridState.animateScrollToItem(it) }
+
     LazyVerticalGrid(
+        state = gridState,
         columns = GridCells.Adaptive(minSize = 44.dp),
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
     ) {
-        items(symbols, key = { it }) { symbol ->
+        itemsIndexed(symbols, key = { _, symbol -> symbol }) { index, symbol ->
             Box(
                 modifier = Modifier
                     .height(42.dp)
                     .clip(RoundedCornerShape(8.dp))
+                    .focusRing(index == focused)
                     .clickable { onSymbol(symbol) },
                 contentAlignment = Alignment.Center,
             ) {

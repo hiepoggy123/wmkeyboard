@@ -61,10 +61,16 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items as lazyRowItems
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
 import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
 import androidx.compose.foundation.lazy.staggeredgrid.items as staggeredItems
+import androidx.compose.foundation.lazy.staggeredgrid.itemsIndexed as staggeredItemsIndexed
+import androidx.compose.foundation.lazy.staggeredgrid.rememberLazyStaggeredGridState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.horizontalScroll
@@ -327,6 +333,7 @@ import com.wasimaster.wmkeyboard.ime.FieldKind
 import com.wasimaster.wmkeyboard.ime.isNumericPad
 import com.wasimaster.wmkeyboard.ime.hasMediaSearch
 import com.wasimaster.wmkeyboard.ime.HandwritingStatus
+import com.wasimaster.wmkeyboard.ime.FocusRegion
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
 import com.wasimaster.wmkeyboard.ime.ModifierState
 import com.wasimaster.wmkeyboard.ime.authoredNumberRow
@@ -541,6 +548,11 @@ private val punctuationNames = mapOf(
 @Composable
 fun KeyboardScreen(
     stateFlow: StateFlow<KeyboardUiState>,
+    /**
+     * Where the open panel publishes what its hardware focus ring can move
+     * over. Owned by the service, which reads it on every arrow key.
+     */
+    panelFocus: PanelFocusController = remember { PanelFocusController() },
     onKey: (Key) -> Unit,
     onKeyPressed: () -> Unit = {},
     onHaptic: () -> Unit = onKeyPressed,
@@ -576,6 +588,12 @@ fun KeyboardScreen(
     /** A kaomoji or emoticon tapped in the emoji panel's text-art tabs. */
     onTextArt: (String) -> Unit = {},
     onTextEdit: (TextEditAction) -> Unit = {},
+    /**
+     * One entry point for every toolbar/toolbox tool — opens its panel or runs
+     * its action. Owned by the service so a physical-keyboard shortcut and a tap
+     * cannot drift apart.
+     */
+    onToolTap: (ToolbarTool) -> Unit = {},
     onPanelChange: (PanelMode) -> Unit,
     onClipboardItem: (ClipItem) -> Unit,
     onClipboardPin: (ClipItem) -> Unit,
@@ -700,81 +718,6 @@ fun KeyboardScreen(
         rawState.copy(settings = rawState.settings.resolvedFor(variant))
     }
 
-    // One entry point for every toolbar/toolbox tool.
-    val onToolTap: (ToolbarTool) -> Unit = { tool ->
-        when (tool) {
-            ToolbarTool.EMOJI -> onPanelChange(PanelMode.EMOJI)
-            ToolbarTool.CLIPBOARD -> onPanelChange(PanelMode.CLIPBOARD)
-            ToolbarTool.SNIPPETS -> onPanelChange(PanelMode.SNIPPETS)
-            ToolbarTool.TEXT_EDIT -> onPanelChange(PanelMode.TEXT_EDIT)
-            ToolbarTool.SETTINGS -> onOpenSettings()
-            ToolbarTool.ONE_HANDED -> onOneHanded(
-                if (state.settings.oneHandedMode == OneHandedMode.OFF) {
-                    // Enable on this orientation's preferred side.
-                    val landscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
-                    state.settings.oneHanded.forLandscape(landscape).side.toMode()
-                } else OneHandedMode.OFF
-            )
-            ToolbarTool.SPLIT -> onToggleSplit()
-            ToolbarTool.FLOATING -> onFloatingChange(!state.settings.floatingKeyboard)
-            ToolbarTool.FLASHLIGHT -> onFlashlightToggle()
-            ToolbarTool.COMPASS -> onPanelChange(PanelMode.COMPASS)
-            ToolbarTool.LEVEL -> onPanelChange(PanelMode.LEVEL)
-            ToolbarTool.UNDO -> onUndoRedo(false)
-            ToolbarTool.REDO -> onUndoRedo(true)
-            ToolbarTool.MOON_PHASE -> onPanelChange(PanelMode.MOON_PHASE)
-            ToolbarTool.WEATHER -> onPanelChange(PanelMode.WEATHER)
-            ToolbarTool.CALENDAR -> onPanelChange(PanelMode.CALENDAR)
-            ToolbarTool.INCOGNITO -> onIncognitoToggle()
-            ToolbarTool.THEMES -> onPanelChange(PanelMode.THEMES)
-            ToolbarTool.AUTOCORRECT -> onAutocorrectToggle()
-            ToolbarTool.SOUND_HAPTICS -> onPanelChange(PanelMode.SOUND_HAPTICS)
-            ToolbarTool.NUMPAD -> onPanelChange(PanelMode.NUMPAD)
-            ToolbarTool.HANDWRITING ->
-                if (BuildConfig.ENABLE_ML_KIT_HANDWRITING) onPanelChange(PanelMode.HANDWRITING)
-            ToolbarTool.CAMERA -> onPanelChange(PanelMode.CAMERA)
-            ToolbarTool.DICTIONARY -> onPanelChange(PanelMode.DICTIONARY)
-            ToolbarTool.TRANSLATE -> onPanelChange(PanelMode.TRANSLATE)
-            ToolbarTool.GIF -> onPanelChange(PanelMode.GIF)
-            ToolbarTool.STICKER -> onPanelChange(PanelMode.STICKER)
-            ToolbarTool.WEB_SEARCH -> onPanelChange(PanelMode.WEB_SEARCH)
-            ToolbarTool.IMAGE_SEARCH -> onPanelChange(PanelMode.IMAGE_SEARCH)
-            ToolbarTool.OCR -> if (BuildConfig.ENABLE_ML_KIT_SCANNERS) onPanelChange(PanelMode.OCR)
-            ToolbarTool.QR_SCAN -> if (BuildConfig.ENABLE_ML_KIT_SCANNERS) onPanelChange(PanelMode.QR_SCAN)
-            // Not a panel: the scanner is a full-screen Google activity.
-            ToolbarTool.DOC_SCAN -> if (BuildConfig.ENABLE_ML_KIT_SCANNERS) onDocScan()
-            ToolbarTool.VOICE -> onPanelChange(PanelMode.VOICE)
-            ToolbarTool.GRAMMAR -> if (BuildConfig.ENABLE_GRAMMAR) onPanelChange(PanelMode.GRAMMAR)
-            ToolbarTool.WIKIPEDIA -> onPanelChange(PanelMode.WIKIPEDIA)
-            ToolbarTool.SYMBOLS -> onPanelChange(PanelMode.SYMBOLS)
-            ToolbarTool.CALCULATOR -> onPanelChange(PanelMode.CALCULATOR)
-            ToolbarTool.UNIT_CONVERT -> onPanelChange(PanelMode.UNIT_CONVERT)
-            ToolbarTool.CURRENCY -> onPanelChange(PanelMode.CURRENCY)
-            ToolbarTool.QR_GEN -> onPanelChange(PanelMode.QR_GEN)
-            ToolbarTool.PASSWORD_GEN -> onPanelChange(PanelMode.PASSWORD_GEN)
-            ToolbarTool.TYPING_TEST -> onPanelChange(PanelMode.TYPING_TEST)
-            ToolbarTool.MEDIA_CONTROL -> onPanelChange(PanelMode.MEDIA_CONTROL)
-            ToolbarTool.AI -> onPanelChange(PanelMode.AI)
-            ToolbarTool.MODES -> onPanelChange(PanelMode.MODES)
-            // Same moves the text-editing panel offers, one tap deep instead
-            // of two. Selection still extends when the panel's select mode is
-            // on, since onTextEdit reads that state itself.
-            ToolbarTool.CURSOR_LEFT -> onTextEdit(TextEditAction.LEFT)
-            ToolbarTool.CURSOR_RIGHT -> onTextEdit(TextEditAction.RIGHT)
-            ToolbarTool.CURSOR_WORD_LEFT -> onTextEdit(TextEditAction.WORD_LEFT)
-            ToolbarTool.CURSOR_WORD_RIGHT -> onTextEdit(TextEditAction.WORD_RIGHT)
-            ToolbarTool.CURSOR_UP -> onTextEdit(TextEditAction.UP)
-            ToolbarTool.CURSOR_DOWN -> onTextEdit(TextEditAction.DOWN)
-            ToolbarTool.CURSOR_HOME -> onTextEdit(TextEditAction.HOME)
-            ToolbarTool.CURSOR_END -> onTextEdit(TextEditAction.END)
-            ToolbarTool.PAGE_UP -> onTextEdit(TextEditAction.PAGE_UP)
-            ToolbarTool.PAGE_DOWN -> onTextEdit(TextEditAction.PAGE_DOWN)
-            ToolbarTool.SELECT_WORD -> onTextEdit(TextEditAction.SELECT_WORD)
-            ToolbarTool.SELECT_LINE -> onTextEdit(TextEditAction.SELECT_LINE)
-            ToolbarTool.HIDE_KEYBOARD -> onHideKeyboard()
-        }
-    }
-
     val body: @Composable ColumnScope.(KeyboardUiState) -> Unit = { bodyState ->
         CompositionLocalProvider(
             LocalKeyPressFeedback provides onKeyPressed,
@@ -787,6 +730,7 @@ fun KeyboardScreen(
             LocalCursorMoveVertical provides onCursorMoveVertical,
             LocalHideKeyboard provides onHideKeyboard,
             LocalTouchExploration provides rememberTouchExploration(),
+            LocalPanelFocus provides panelFocus,
         ) {
             KeyboardBody(
                 state = bodyState,
@@ -2281,21 +2225,36 @@ private fun ModesPanel(
                 onClick = onOpenSettings,
             )
         }
-        LazyColumn(modifier = Modifier.weight(1f)) {
+        // Index 0 is the leading "Automatic" row, so a mode sits at its own
+        // position plus one — the same offset the activate lambda undoes.
+        PanelFocusTarget(
+            panel = PanelMode.MODES,
+            count = modes.size + 1,
+            columns = 1,
+            onActivate = { index ->
+                if (index == 0) onModeSelect(null) else modes.getOrNull(index - 1)?.let { onModeSelect(it.id) }
+            },
+        )
+        val focused = state.focusedIndex()
+        val listState = rememberLazyListState()
+        ScrollFocusIntoView(focused) { listState.animateScrollToItem(it) }
+        LazyColumn(state = listState, modifier = Modifier.weight(1f)) {
             item {
                 ModeRow(
                     title = "Automatic",
                     subtitle = "Follow each mode's app and field bindings",
                     icon = Icons.Outlined.AutoAwesome,
                     selected = state.activeModeId == null,
+                    focused = focused == 0,
                 ) { onModeSelect(null) }
             }
-            lazyRowItems(modes) { mode ->
+            itemsIndexed(modes) { index, mode ->
                 ModeRow(
                     title = mode.name,
                     subtitle = modeSummary(mode),
                     icon = ModeIcons.icon(mode.icon),
                     selected = state.activeModeId == mode.id,
+                    focused = focused == index + 1,
                 ) { onModeSelect(mode.id) }
             }
         }
@@ -2332,6 +2291,7 @@ private fun ModeRow(
     subtitle: String,
     icon: ImageVector,
     selected: Boolean,
+    focused: Boolean = false,
     onClick: () -> Unit,
 ) {
     val kb = LocalKbTheme.current
@@ -2339,6 +2299,9 @@ private fun ModeRow(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
+            // Fill and outline both, since the accent alone already means
+            // "this is the active mode" on the icon and the title weight.
+            .focusRing(focused, RoundedCornerShape(10.dp))
             .padding(horizontal = 20.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -3590,6 +3553,27 @@ private fun ToolboxPanel(
         // same trap the per-cell handler documented.
         val toolsNow by rememberUpdatedState(available)
         val columnsNow by rememberUpdatedState(columns)
+        // Indexed against `available`, never `display`: the drop preview inserts
+        // a null ghost slot into `display`, which would shift every index past it
+        // and open the wrong tool. The ring is hidden mid-drag anyway (below),
+        // but the count published here must match what Enter will resolve.
+        PanelFocusTarget(
+            panel = PanelMode.TOOLBOX,
+            count = available.size,
+            columns = columns,
+            onActivate = { index -> available.getOrNull(index)?.let(onToolTap) },
+        )
+        val gridScroll = rememberScrollState()
+        // No lazy state to scroll by index, so scroll by row: every cell reports
+        // the same size, and the drag controller already collects it.
+        val focusedTool = state.focusedIndex().takeIf { drag.dragging == null }
+        ScrollFocusIntoView(focusedTool) { index ->
+            val rowHeight = drag.toolboxCellSize.height
+            if (rowHeight > 0f) {
+                val target = (index / columns) * rowHeight
+                gridScroll.animateScrollTo(target.toInt().coerceIn(0, gridScroll.maxValue))
+            }
+        }
         // One FlowRow, so a part-full last line still lines up with the ones
         // above it, and one gesture handler for the whole grid rather than one
         // per cell. Hoisting it is what lets a cell be disposed mid-drag: the
@@ -3597,7 +3581,7 @@ private fun ToolboxPanel(
         // and the rest can close up behind it.
         FlowRow(
             modifier = Modifier
-                .verticalScroll(rememberScrollState())
+                .verticalScroll(gridScroll)
                 .onGloballyPositioned {
                     gridCoords = it
                     gridOrigin = it.positionInRoot()
@@ -3681,7 +3665,7 @@ private fun ToolboxPanel(
                 },
             maxItemsInEachRow = columns,
         ) {
-            for (tool in display) {
+            display.forEachIndexed { slot, tool ->
                 // The ghost's key encodes its slot so a move is a structural
                 // remove+add, not a same-key reorder. FlowRow re-measures and
                 // re-places its children on a structural change, but on a pure
@@ -3719,6 +3703,11 @@ private fun ToolboxPanel(
                                 .animatePlacement(
                                     enabled = !state.settings.reduceMotion,
                                 ) { gridCoords }
+                                // `slot` indexes `display`, which equals
+                                // `available` whenever the ring is drawn at all —
+                                // focusedTool is null for the whole of a drag,
+                                // and only a drag makes the two lists differ.
+                                .focusRing(slot == focusedTool, RoundedCornerShape(12.dp))
                                 .padding(vertical = 10.dp),
                             horizontalAlignment = Alignment.CenterHorizontally,
                         ) {
@@ -4079,6 +4068,13 @@ private fun KeyboardBody(
             // already on screen, which flashed it at full strength first.
             // Animating the swap needs the panels to be layered rather than
             // exchanged; until then the cut is the honest option.
+        // A panel that has left the composition must stop claiming the focus
+        // ring: its counts and its activate lambdas outlive it by a frame
+        // otherwise, and the service would act on an item nothing is drawing.
+        val focusController = LocalPanelFocus.current
+        DisposableEffect(state.panel) {
+            onDispose { focusController.reset() }
+        }
         when (if (lockHidden && state.panel == PanelMode.CLIPBOARD) PanelMode.NONE else state.panel) {
                 PanelMode.EMOJI -> EmojiPanel(
                     state, onEmoji, onEmojiVariant, onEmojiFavourite, onEmojiQueryTap, onEmojiRecentsClear,
@@ -4383,7 +4379,14 @@ private fun KeyboardBody(
                                 onSelect = { symbolCategory = it },
                             )
                         },
-                    ) { SymbolsPanel(state, onSymbolInsert, symbolCategory) }
+                    ) {
+                        SymbolsPanel(
+                            state,
+                            onSymbolInsert,
+                            symbolCategory,
+                            onSelectCategory = { symbolCategory = it },
+                        )
+                    }
                 }
                 PanelMode.CALCULATOR -> FullBleedTool(
                     state, "Calculator",
@@ -4558,6 +4561,9 @@ private fun KeyboardBody(
                 )
             }
         }
+        // Last in the Box, so the armed picker's hint floats over the top strip
+        // instead of pushing the keys down — arming must not resize the keyboard.
+        ToolPickerOverlay(state, modifier = Modifier.align(Alignment.TopCenter))
     }
 }
 
@@ -6835,11 +6841,13 @@ private fun RowScope.EmojiTab(
     selected: Boolean,
     onClick: () -> Unit,
     label: String? = null,
+    focused: Boolean = false,
 ) {
     Column(
         modifier = Modifier
             .weight(1f)
             .height(32.dp)
+            .focusRing(focused, RoundedCornerShape(8.dp))
             .clickable(onClick = onClick),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
@@ -7049,11 +7057,35 @@ private fun EmojiPanel(
     // Compact icon strip: search plus every category, split evenly across
     // the width so everything fits with no scrolling — Material's Tab has a
     // 90dp min width that forced a ScrollableTabRow here before.
+    // Tab (the key) reaches the category strip. The pager page is the selection,
+    // so activating a chip is just scrolling the pager — no state to hoist.
+    val goToTab: (Int) -> Unit = { index ->
+        scope.launch {
+            if (state.settings.reduceMotion) pagerState.scrollToPage(index)
+            else pagerState.animateScrollToPage(index)
+        }
+    }
+    PanelFocusTarget(
+        panel = PanelMode.EMOJI,
+        region = FocusRegion.CHIPS,
+        count = tabs.size,
+        columns = tabs.size.coerceAtLeast(1),
+        onActivate = goToTab,
+    )
+    PanelFocusTarget(
+        panel = PanelMode.EMOJI,
+        region = FocusRegion.SEARCH,
+        count = 1,
+        columns = 1,
+        onActivate = { onEmojiQueryTap() },
+    )
+    val focusedTab = state.focusedIndex(FocusRegion.CHIPS)
     val tabStrip: @Composable RowScope.() -> Unit = {
         EmojiTab(
             icon = Icons.Outlined.Search,
             description = "Search emoji",
             selected = false,
+            focused = state.focusedIndex(FocusRegion.SEARCH) == 0,
             onClick = onEmojiQueryTap,
         )
         tabs.forEachIndexed { index, tab ->
@@ -7072,14 +7104,10 @@ private fun EmojiPanel(
                 },
                 label = textArtTabLabel(tab),
                 selected = tab == selectedTab,
-                onClick = {
-                    // Tapping a tab slides there too, matching the swipe;
-                    // reduce-motion jumps instead.
-                    scope.launch {
-                        if (state.settings.reduceMotion) pagerState.scrollToPage(index)
-                        else pagerState.animateScrollToPage(index)
-                    }
-                },
+                focused = index == focusedTab,
+                // Tapping a tab slides there too, matching the swipe;
+                // reduce-motion jumps instead.
+                onClick = { goToTab(index) },
             )
         }
     }
@@ -7149,12 +7177,24 @@ private fun EmojiPanel(
             val results = remember(state.emojiResults) {
                 state.emojiResults.map { it.emoji }.distinct()
             }
+            val resultsGrid = rememberLazyGridState()
+            val focusedResult = state.focusedIndex()
+            PanelFocusTarget(
+                panel = PanelMode.EMOJI,
+                count = results.size,
+                columns = adaptiveColumns(resultsGrid),
+                onActivate = { index ->
+                    results.getOrNull(index)?.let { onEmoji(emojiSearchDisplay(state, it)) }
+                },
+            )
+            ScrollFocusIntoView(focusedResult) { resultsGrid.animateScrollToItem(it) }
             LazyVerticalGrid(
+                state = resultsGrid,
                 columns = GridCells.Adaptive(minSize = 44.dp),
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(8.dp),
             ) {
-                items(results, key = { it }) { emoji ->
+                itemsIndexed(results, key = { _, emoji -> emoji }) { index, emoji ->
                     EmojiCell(
                         base = emoji,
                         // Search honours the global default skin tone (and the
@@ -7166,6 +7206,7 @@ private fun EmojiPanel(
                         onPick = { variant -> onEmojiVariant(emoji, variant) },
                         onFavourite = onEmojiFavourite,
                         onReorderFavourites = onReorderFavourite,
+                        focused = index == focusedResult,
                     )
                 }
             }
@@ -7225,18 +7266,34 @@ private fun EmojiPanel(
                                 }
                             }
                         }
+                        val historyGrid = rememberLazyGridState()
+                        // Only the page in front owns the ring; the pager keeps
+                        // its neighbours composed, and two pages publishing
+                        // would race over one region.
+                        val focusedHistory = state.focusedIndex()
+                            .takeIf { page == pagerState.currentPage }
+                        if (page == pagerState.currentPage) {
+                            PanelFocusTarget(
+                                panel = PanelMode.EMOJI,
+                                count = history.size,
+                                columns = adaptiveColumns(historyGrid),
+                                onActivate = { index -> history.getOrNull(index)?.let(onEmoji) },
+                            )
+                        }
+                        ScrollFocusIntoView(focusedHistory) { historyGrid.animateScrollToItem(it) }
                         LazyVerticalGrid(
+                            state = historyGrid,
                             columns = GridCells.Adaptive(minSize = 44.dp),
                             modifier = Modifier.fillMaxSize(),
                             contentPadding = PaddingValues(8.dp),
                         ) {
-                            // Keyed by emoji: this list reorders on every tap
-                            // (the tapped emoji jumps to the front), so on a
-                            // positional key a cell's open popup stayed behind
-                            // with the slot and reappeared over a different
-                            // emoji. EmojiUsage.pinned() is distinct(), so the
-                            // key is unique.
-                            items(history, key = { it }) { emoji ->
+                            // Keyed by emoji: this list reorders under the grid
+                            // (favouriting pins to the front, removing closes a
+                            // gap), so on a positional key a cell's open popup
+                            // stayed behind with the slot and reappeared over a
+                            // different emoji. EmojiUsage.pinned() is
+                            // distinct(), so the key is unique.
+                            itemsIndexed(history, key = { _, emoji -> emoji }) { index, emoji ->
                                 // History cells are exact sequences: no variant
                                 // pref to remember, taps in the popup commit
                                 // directly.
@@ -7250,6 +7307,7 @@ private fun EmojiPanel(
                                     onFavourite = onEmojiFavourite,
                                     onReorderFavourites = onReorderFavourite,
                                     onRemove = onRecentRemove,
+                                    focused = index == focusedHistory,
                                 )
                             }
                         }
@@ -7263,7 +7321,24 @@ private fun EmojiPanel(
                             }
                             .map { it.emoji }
                     }
+                    val categoryGrid = rememberLazyGridState()
+                    val focusedEmoji = state.focusedIndex()
+                        .takeIf { page == pagerState.currentPage }
+                    if (page == pagerState.currentPage) {
+                        PanelFocusTarget(
+                            panel = PanelMode.EMOJI,
+                            count = emojis.size,
+                            columns = adaptiveColumns(categoryGrid),
+                            onActivate = { index ->
+                                emojis.getOrNull(index)?.let {
+                                    onEmoji(state.emojiVariantPrefs[it] ?: it)
+                                }
+                            },
+                        )
+                    }
+                    ScrollFocusIntoView(focusedEmoji) { categoryGrid.animateScrollToItem(it) }
                     LazyVerticalGrid(
+                        state = categoryGrid,
                         columns = GridCells.Adaptive(minSize = 44.dp),
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(8.dp),
@@ -7273,7 +7348,7 @@ private fun EmojiPanel(
                         // key that state stays with the slot while the list
                         // under it changes — the popup jumped to whatever
                         // emoji landed in that position.
-                        items(emojis, key = { it }) { emoji ->
+                        itemsIndexed(emojis, key = { _, emoji -> emoji }) { index, emoji ->
                             EmojiCell(
                                 base = emoji,
                                 display = state.emojiVariantPrefs[emoji] ?: emoji,
@@ -7283,6 +7358,7 @@ private fun EmojiPanel(
                                 onPick = { variant -> onEmojiVariant(emoji, variant) },
                                 onFavourite = onEmojiFavourite,
                                 onReorderFavourites = onReorderFavourite,
+                                focused = index == focusedEmoji,
                             )
                         }
                     }
@@ -7538,6 +7614,7 @@ private fun EmojiCell(
     onFavourite: (String) -> Unit,
     onReorderFavourites: (() -> Unit)? = null,
     onRemove: ((String) -> Unit)? = null,
+    focused: Boolean = false,
 ) {
     var showVariants by remember { mutableStateOf(false) }
     val onHaptic = LocalHapticFeedback.current
@@ -7545,6 +7622,7 @@ private fun EmojiCell(
         Text(
             text = display,
             modifier = Modifier
+                .focusRing(focused)
                 .pointerInput(base, display) {
                     detectTapGestures(
                         onTap = { onTap(display) },
@@ -8053,7 +8131,17 @@ private fun SnippetsPanel(
                 onClick = onOpenSettings,
             )
         }
+        PanelFocusTarget(
+            panel = PanelMode.SNIPPETS,
+            count = state.snippets.size,
+            columns = 2,
+            onActivate = { index -> state.snippets.getOrNull(index)?.let(onSnippet) },
+        )
+        val gridState = rememberLazyGridState()
+        val focused = state.focusedIndex()
+        ScrollFocusIntoView(focused) { gridState.animateScrollToItem(it) }
         LazyVerticalGrid(
+            state = gridState,
             columns = GridCells.Fixed(2),
             modifier = Modifier
                 .fillMaxWidth()
@@ -8062,9 +8150,10 @@ private fun SnippetsPanel(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            items(state.snippets, key = { it.id }) { snippet ->
+            itemsIndexed(state.snippets, key = { _, snippet -> snippet.id }) { index, snippet ->
                 Column(
                     modifier = Modifier
+                        .focusRing(index == focused, RoundedCornerShape(12.dp))
                         .animateItem(
                             fadeInSpec = tween(160),
                             placementSpec = spring(
@@ -8225,6 +8314,25 @@ private fun ClipboardPanelContent(
     } else {
         state.clipboardItems.filter { it.matchesQuery(query) }
     }
+    PanelFocusTarget(
+        panel = PanelMode.CLIPBOARD,
+        count = shownItems.size,
+        columns = 2,
+        onActivate = { index -> shownItems.getOrNull(index)?.let(onClipboardItem) },
+    )
+    if (showSearch) {
+        // The search pill is one "item": Tab reaches it, Enter toggles it.
+        PanelFocusTarget(
+            panel = PanelMode.CLIPBOARD,
+            region = FocusRegion.SEARCH,
+            count = 1,
+            columns = 1,
+            onActivate = { onClipboardSearchToggle() },
+        )
+    }
+    val focused = state.focusedIndex()
+    val gridState = rememberLazyStaggeredGridState()
+    ScrollFocusIntoView(focused) { gridState.animateScrollToItem(it) }
     Column(modifier = Modifier.height(height)) {
         if (showSearch) {
             ClipboardSearchField(
@@ -8232,7 +8340,11 @@ private fun ClipboardPanelContent(
                 onToggle = onClipboardSearchToggle,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 8.dp, end = 8.dp, top = 8.dp),
+                    .padding(start = 8.dp, end = 8.dp, top = 8.dp)
+                    .focusRing(
+                        state.focusedIndex(FocusRegion.SEARCH) == 0,
+                        RoundedCornerShape(18.dp),
+                    ),
             )
         }
         if (shownItems.isEmpty()) {
@@ -8255,6 +8367,7 @@ private fun ClipboardPanelContent(
         // Here each column packs independently — a tall image sits next to two
         // or three stacked text clips and the panel fills edge to edge.
         LazyVerticalStaggeredGrid(
+            state = gridState,
             columns = StaggeredGridCells.Fixed(2),
             modifier = Modifier
                 .fillMaxWidth()
@@ -8263,7 +8376,7 @@ private fun ClipboardPanelContent(
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalItemSpacing = 6.dp,
         ) {
-            staggeredItems(shownItems, key = { it.id }) { item ->
+            staggeredItemsIndexed(shownItems, key = { _, item -> item.id }) { index, item ->
             // Deleting fades the card out and slides the survivors up into the
             // gap; pinning re-sorts the list, so the card glides to the front
             // instead of teleporting there.
@@ -8282,6 +8395,7 @@ private fun ClipboardPanelContent(
                 Column(
                     modifier = Modifier
                         .background(MaterialTheme.colorScheme.surfaceContainer, RoundedCornerShape(12.dp))
+                        .focusRing(index == focused, RoundedCornerShape(12.dp))
                         .pointerInput(item.id) {
                             detectTapGestures(
                                 onTap = { onClipboardItem(item) },

@@ -95,6 +95,7 @@ import com.wasimaster.wmkeyboard.core.prediction.WordSource
 import com.wasimaster.wmkeyboard.core.settings.EmojiFontChoice
 import com.wasimaster.wmkeyboard.core.settings.EmojiInsertMode
 import com.wasimaster.wmkeyboard.core.settings.HapticStyle
+import com.wasimaster.wmkeyboard.core.settings.HardwareKeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.KeyboardMode
 import com.wasimaster.wmkeyboard.core.settings.LetterSwipeAction
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
@@ -104,6 +105,7 @@ import com.wasimaster.wmkeyboard.core.settings.OneHandedSide
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
 import com.wasimaster.wmkeyboard.core.settings.applyMode
+import com.wasimaster.wmkeyboard.core.settings.isSupportedTool
 import com.wasimaster.wmkeyboard.core.settings.resolveKeyboardMode
 import com.wasimaster.wmkeyboard.core.snippets.Snippet
 import com.wasimaster.wmkeyboard.core.snippets.SnippetStore
@@ -112,7 +114,19 @@ import com.wasimaster.wmkeyboard.core.stickers.StickerImage
 import com.wasimaster.wmkeyboard.core.settings.GifSourceMode
 import com.wasimaster.wmkeyboard.core.text.EmojiGraphemes
 import com.wasimaster.wmkeyboard.core.text.WordDelete
+import com.wasimaster.wmkeyboard.core.settings.SuggestionHotkeyMode
 import com.wasimaster.wmkeyboard.core.tools.BraveSearchClient
+import com.wasimaster.wmkeyboard.core.tools.CheatSheetLetter
+import com.wasimaster.wmkeyboard.core.tools.DefaultLeader
+import com.wasimaster.wmkeyboard.core.tools.DoubleTapDetector
+import com.wasimaster.wmkeyboard.core.tools.LeaderTrigger
+import com.wasimaster.wmkeyboard.core.tools.ToolboxLetter
+import com.wasimaster.wmkeyboard.core.tools.matches
+import com.wasimaster.wmkeyboard.core.tools.parseLeader
+import com.wasimaster.wmkeyboard.core.tools.pickerLetter
+import com.wasimaster.wmkeyboard.core.tools.resolvedToolLetters
+import com.wasimaster.wmkeyboard.core.tools.step
+import com.wasimaster.wmkeyboard.ime.ui.PanelFocusController
 import com.wasimaster.wmkeyboard.core.tools.DictionaryClient
 import com.wasimaster.wmkeyboard.core.tools.GifItem
 import com.wasimaster.wmkeyboard.core.grammar.GrammarChecker
@@ -259,6 +273,12 @@ open class WMKeyboardService : InputMethodService() {
     private var clipboardSuggestionJob: Job? = null
     private lateinit var snippetStore: SnippetStore
     private lateinit var stickerPackStore: com.wasimaster.wmkeyboard.core.stickers.StickerPackStore
+
+    /**
+     * How the open panel reports what the hardware focus ring can move over.
+     * Written by the panels during composition, read here on every arrow key.
+     */
+    private val panelFocus = PanelFocusController()
 
     /** Latest settings straight from DataStore, before mode overrides. */
     private var baseSettings: KeyboardSettings? = null
@@ -1048,7 +1068,13 @@ open class WMKeyboardService : InputMethodService() {
             uiState
                 .map { it.panel != PanelMode.NONE || it.voice.strip }
                 .distinctUntilChanged()
-                .collect { updatePanelBackCallback(it) }
+                .collect { open ->
+                    updatePanelBackCallback(open)
+                    // The same signal restores the input view a shortcut forced
+                    // open. One collector, one definition of "something is open",
+                    // and it already accounts for the dictation strip.
+                    if (!open) releaseForcedInputView()
+                }
         }
 
         // Mirror the torch state so the flashlight tool lights up even when
@@ -1080,6 +1106,7 @@ open class WMKeyboardService : InputMethodService() {
         view.setContent {
             KeyboardScreen(
                 stateFlow = uiState,
+                panelFocus = panelFocus,
                 onKey = ::onKey,
                 onKeyPressed = ::vibrate,
                 onHaptic = ::vibrateOnly,
@@ -1109,6 +1136,7 @@ open class WMKeyboardService : InputMethodService() {
                 onEmojiRowShown = { publishEmojiHistory() },
                 onTextArt = ::onTextArtTapped,
                 onTextEdit = ::onTextEdit,
+                onToolTap = ::onToolTap,
                 onPanelChange = ::onPanelChange,
                 onClipboardItem = ::onClipboardItemTapped,
                 onClipboardPin = ::onClipboardPin,
@@ -1281,6 +1309,10 @@ open class WMKeyboardService : InputMethodService() {
      * the toolbar (with the keys gated off in Compose) would never show.
      */
     override fun onEvaluateInputViewShown(): Boolean {
+        // A physical-keyboard shortcut asked for a tool, so there has to be
+        // somewhere to draw it — even though a hardware keyboard would normally
+        // mean no input view at all. Dropped again when the tool closes.
+        if (forcedInputView) return true
         val toolbar = _uiState.value.settings.toolbarBehavior
         // Nothing to force-show when the toolbar itself is off — that would be a
         // blank sliver (no toolbar, and the keys are gated off too).
@@ -1321,6 +1353,7 @@ open class WMKeyboardService : InputMethodService() {
         lastGestureWord = null
         lastAutocorrect = null
         smartMutedAfter = null
+        resetHardwareKeyState()
         // Covers the permission being granted after the setting was on.
         if (_uiState.value.settings.contactSuggestions && contactNames.isEmpty) {
             loadContactNames()
@@ -1604,6 +1637,7 @@ open class WMKeyboardService : InputMethodService() {
         lifecycleOwner.onPause()
         // Latches die with the keyboard, locked ones included.
         clearModifiers()
+        resetHardwareKeyState()
         // Credentials for the field just left must not linger over the next
         // one, which may belong to another app entirely.
         if (_uiState.value.inlineSuggestions.isNotEmpty()) {
@@ -1990,14 +2024,14 @@ open class WMKeyboardService : InputMethodService() {
 
         if (state.emojiSearchActive) {
             text = fixedLayoutContextualVowel(text, state.emojiQuery.lastOrNull())
-            _uiState.update { it.copy(emojiQuery = it.emojiQuery + text) }
+            updateQuery { it.copy(emojiQuery = it.emojiQuery + text) }
             refreshKarContext()
             refreshEmojiResults()
             return
         }
         if (state.mediaSearchActive && state.panel.hasMediaSearch) {
             text = fixedLayoutContextualVowel(text, state.mediaQuery.lastOrNull())
-            _uiState.update { it.copy(mediaQuery = it.mediaQuery + text) }
+            updateQuery { it.copy(mediaQuery = it.mediaQuery + text) }
             refreshKarContext()
             // QR encodes locally as you type — no network search to schedule.
             if (state.panel != PanelMode.QR_GEN) scheduleMediaLiveSearch()
@@ -2005,12 +2039,12 @@ open class WMKeyboardService : InputMethodService() {
         }
 
         if (state.dictionarySearchActive) {
-            _uiState.update { it.copy(dictionaryQuery = it.dictionaryQuery + text) }
+            updateQuery { it.copy(dictionaryQuery = it.dictionaryQuery + text) }
             consumeShift()
             return
         }
         if (state.clipboardSearchActive) {
-            _uiState.update { it.copy(clipboardQuery = it.clipboardQuery + text) }
+            updateQuery { it.copy(clipboardQuery = it.clipboardQuery + text) }
             consumeShift()
             return
         }
@@ -2280,7 +2314,7 @@ open class WMKeyboardService : InputMethodService() {
         }
         if (state.emojiSearchActive) {
             if (state.emojiQuery.isNotEmpty()) {
-                _uiState.update { it.copy(emojiQuery = it.emojiQuery.dropLast(1)) }
+                updateQuery { it.copy(emojiQuery = it.emojiQuery.dropLast(1)) }
                 refreshKarContext()
                 refreshEmojiResults()
             }
@@ -2288,19 +2322,19 @@ open class WMKeyboardService : InputMethodService() {
         }
         if (state.dictionarySearchActive) {
             if (state.dictionaryQuery.isNotEmpty()) {
-                _uiState.update { it.copy(dictionaryQuery = it.dictionaryQuery.dropLast(1)) }
+                updateQuery { it.copy(dictionaryQuery = it.dictionaryQuery.dropLast(1)) }
             }
             return
         }
         if (state.clipboardSearchActive) {
             if (state.clipboardQuery.isNotEmpty()) {
-                _uiState.update { it.copy(clipboardQuery = it.clipboardQuery.dropLast(1)) }
+                updateQuery { it.copy(clipboardQuery = it.clipboardQuery.dropLast(1)) }
             }
             return
         }
         if (state.mediaSearchActive && state.panel.hasMediaSearch) {
             if (state.mediaQuery.isNotEmpty()) {
-                _uiState.update { it.copy(mediaQuery = it.mediaQuery.dropLast(1)) }
+                updateQuery { it.copy(mediaQuery = it.mediaQuery.dropLast(1)) }
                 refreshKarContext()
                 scheduleMediaLiveSearch()
             }
@@ -2559,19 +2593,19 @@ open class WMKeyboardService : InputMethodService() {
         val now = System.currentTimeMillis()
 
         if (state.emojiSearchActive) {
-            _uiState.update { it.copy(emojiQuery = it.emojiQuery + " ") }
+            updateQuery { it.copy(emojiQuery = it.emojiQuery + " ") }
             refreshEmojiResults()
             return
         }
         if (state.mediaSearchActive && state.panel.hasMediaSearch) {
-            _uiState.update { it.copy(mediaQuery = it.mediaQuery + " ") }
+            updateQuery { it.copy(mediaQuery = it.mediaQuery + " ") }
             if (state.panel != PanelMode.QR_GEN) scheduleMediaLiveSearch()
             return
         }
 
         // Multi-word dictionary entries ("give up") are legitimate lookups.
         if (state.dictionarySearchActive) {
-            _uiState.update { it.copy(dictionaryQuery = it.dictionaryQuery + " ") }
+            updateQuery { it.copy(dictionaryQuery = it.dictionaryQuery + " ") }
             return
         }
 
@@ -2645,7 +2679,7 @@ open class WMKeyboardService : InputMethodService() {
         // QR builds its content as you type; Enter adds a newline to the
         // buffer (WiFi/vCard payloads span lines) rather than searching.
         if (state.mediaSearchActive && state.panel == PanelMode.QR_GEN) {
-            _uiState.update { it.copy(mediaQuery = it.mediaQuery + "\n") }
+            updateQuery { it.copy(mediaQuery = it.mediaQuery + "\n") }
             return
         }
         // Enter in a media search box runs the search instead of typing a
@@ -3783,6 +3817,105 @@ open class WMKeyboardService : InputMethodService() {
 
     // ---- panels ----
 
+    /**
+     * One entry point for every tool, whatever asked for it: the toolbar tap,
+     * the toolbox cell, and the physical keyboard's picker all land here, so a
+     * shortcut can never drift from what the button does.
+     *
+     * Most tools open a panel; the rest are one-shot actions with no panel of
+     * their own (a toggle, a cursor move, the settings app).
+     */
+    fun onToolTap(tool: ToolbarTool) {
+        // The toolbar never renders an unsupported or disabled tool, but a
+        // shortcut can still name one — a stored binding outlives the tool being
+        // switched off, and a lite build ships fewer tools than the enum lists.
+        if (!isSupportedTool(tool)) return
+        val settings = _uiState.value.settings
+        if (tool !in settings.enabledTools) return
+        when (tool) {
+            ToolbarTool.EMOJI -> onPanelChange(PanelMode.EMOJI)
+            ToolbarTool.CLIPBOARD -> onPanelChange(PanelMode.CLIPBOARD)
+            ToolbarTool.SNIPPETS -> onPanelChange(PanelMode.SNIPPETS)
+            ToolbarTool.TEXT_EDIT -> onPanelChange(PanelMode.TEXT_EDIT)
+            ToolbarTool.SETTINGS -> openSettings()
+            ToolbarTool.ONE_HANDED -> onOneHandedChange(
+                if (settings.oneHandedMode == OneHandedMode.OFF) {
+                    // Enable on this orientation's preferred side.
+                    val landscape =
+                        resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+                    settings.oneHanded.forLandscape(landscape).side.toMode()
+                } else OneHandedMode.OFF
+            )
+            ToolbarTool.SPLIT -> onToggleSplit()
+            ToolbarTool.FLOATING -> onFloatingChange(!settings.floatingKeyboard)
+            ToolbarTool.FLASHLIGHT -> onFlashlightToggle()
+            ToolbarTool.COMPASS -> onPanelChange(PanelMode.COMPASS)
+            ToolbarTool.LEVEL -> onPanelChange(PanelMode.LEVEL)
+            ToolbarTool.UNDO -> onUndoRedo(false)
+            ToolbarTool.REDO -> onUndoRedo(true)
+            ToolbarTool.MOON_PHASE -> onPanelChange(PanelMode.MOON_PHASE)
+            ToolbarTool.WEATHER -> onPanelChange(PanelMode.WEATHER)
+            ToolbarTool.CALENDAR -> onPanelChange(PanelMode.CALENDAR)
+            ToolbarTool.INCOGNITO -> onIncognitoToggle()
+            ToolbarTool.THEMES -> onPanelChange(PanelMode.THEMES)
+            ToolbarTool.AUTOCORRECT -> onAutocorrectToggle()
+            ToolbarTool.SOUND_HAPTICS -> onPanelChange(PanelMode.SOUND_HAPTICS)
+            ToolbarTool.NUMPAD -> onPanelChange(PanelMode.NUMPAD)
+            ToolbarTool.HANDWRITING -> onPanelChange(PanelMode.HANDWRITING)
+            ToolbarTool.CAMERA -> onPanelChange(PanelMode.CAMERA)
+            ToolbarTool.DICTIONARY -> onPanelChange(PanelMode.DICTIONARY)
+            ToolbarTool.TRANSLATE -> onPanelChange(PanelMode.TRANSLATE)
+            ToolbarTool.GIF -> onPanelChange(PanelMode.GIF)
+            ToolbarTool.STICKER -> onPanelChange(PanelMode.STICKER)
+            ToolbarTool.WEB_SEARCH -> onPanelChange(PanelMode.WEB_SEARCH)
+            ToolbarTool.IMAGE_SEARCH -> onPanelChange(PanelMode.IMAGE_SEARCH)
+            ToolbarTool.OCR -> onPanelChange(PanelMode.OCR)
+            ToolbarTool.QR_SCAN -> onPanelChange(PanelMode.QR_SCAN)
+            // Not a panel: the scanner is a full-screen Google activity.
+            ToolbarTool.DOC_SCAN -> onDocScanStart()
+            ToolbarTool.VOICE -> onPanelChange(PanelMode.VOICE)
+            ToolbarTool.GRAMMAR -> onPanelChange(PanelMode.GRAMMAR)
+            ToolbarTool.WIKIPEDIA -> onPanelChange(PanelMode.WIKIPEDIA)
+            ToolbarTool.SYMBOLS -> onPanelChange(PanelMode.SYMBOLS)
+            ToolbarTool.CALCULATOR -> onPanelChange(PanelMode.CALCULATOR)
+            ToolbarTool.UNIT_CONVERT -> onPanelChange(PanelMode.UNIT_CONVERT)
+            ToolbarTool.CURRENCY -> onPanelChange(PanelMode.CURRENCY)
+            ToolbarTool.QR_GEN -> onPanelChange(PanelMode.QR_GEN)
+            ToolbarTool.PASSWORD_GEN -> onPanelChange(PanelMode.PASSWORD_GEN)
+            ToolbarTool.TYPING_TEST -> onPanelChange(PanelMode.TYPING_TEST)
+            ToolbarTool.MEDIA_CONTROL -> onPanelChange(PanelMode.MEDIA_CONTROL)
+            ToolbarTool.AI -> onPanelChange(PanelMode.AI)
+            ToolbarTool.MODES -> onPanelChange(PanelMode.MODES)
+            // Same moves the text-editing panel offers, one tap deep instead
+            // of two. Selection still extends when the panel's select mode is
+            // on, since onTextEdit reads that state itself.
+            ToolbarTool.CURSOR_LEFT -> onTextEdit(TextEditAction.LEFT)
+            ToolbarTool.CURSOR_RIGHT -> onTextEdit(TextEditAction.RIGHT)
+            ToolbarTool.CURSOR_WORD_LEFT -> onTextEdit(TextEditAction.WORD_LEFT)
+            ToolbarTool.CURSOR_WORD_RIGHT -> onTextEdit(TextEditAction.WORD_RIGHT)
+            ToolbarTool.CURSOR_UP -> onTextEdit(TextEditAction.UP)
+            ToolbarTool.CURSOR_DOWN -> onTextEdit(TextEditAction.DOWN)
+            ToolbarTool.CURSOR_HOME -> onTextEdit(TextEditAction.HOME)
+            ToolbarTool.CURSOR_END -> onTextEdit(TextEditAction.END)
+            ToolbarTool.PAGE_UP -> onTextEdit(TextEditAction.PAGE_UP)
+            ToolbarTool.PAGE_DOWN -> onTextEdit(TextEditAction.PAGE_DOWN)
+            ToolbarTool.SELECT_WORD -> onTextEdit(TextEditAction.SELECT_WORD)
+            ToolbarTool.SELECT_LINE -> onTextEdit(TextEditAction.SELECT_LINE)
+            ToolbarTool.HIDE_KEYBOARD -> onHideKeyboard()
+        }
+    }
+
+    /**
+     * Edits an open panel's search buffer. Every query change drops the hardware
+     * focus ring: once the results are filtered differently, index 3 is a
+     * different item, and Enter on a stale ring would insert something the user
+     * never looked at. Cheaper and safer than trying to follow an item across a
+     * refiltered list.
+     */
+    private inline fun updateQuery(crossinline block: (KeyboardUiState) -> KeyboardUiState) {
+        _uiState.update { block(it).copy(panelFocus = null) }
+    }
+
     fun onPanelChange(panel: PanelMode) {
         // Strip mode reroutes the voice tool: no panel, just the compact
         // bar over the keys. A voice panel already open (setting flipped
@@ -3812,11 +3945,16 @@ open class WMKeyboardService : InputMethodService() {
                 // The strip is hidden behind the panel; a stale chip would
                 // reappear on close pointing at text that has since moved.
                 smart = null,
+                // A ring indexed into the panel being left would point at
+                // whatever happens to sit at that index in the new one; the
+                // keyboard path re-seeds it after this (see [openToolByKey]).
+                panelFocus = null,
+                // Arming is spent the moment a tool opens, however it opened.
+                toolPicker = null,
                 textEditSelecting = false,
                 emojiSearchActive = false,
                 emojiQuery = "",
                 emojiResults = emptyList(),
-                emojiRecents = emojiUsage.recents(),
                 clipboardItems = clipboardStore.items(),
                 snippets = snippetStore.items(),
                 dictionarySearchActive = false,
@@ -5905,7 +6043,7 @@ open class WMKeyboardService : InputMethodService() {
             // No word at the cursor but a previous lookup is still on
             // screen — keep it; the search chip is one tap away.
         } else {
-            _uiState.update { it.copy(dictionarySearchActive = true, dictionaryQuery = "") }
+            updateQuery { it.copy(dictionarySearchActive = true, dictionaryQuery = "") }
         }
     }
 
@@ -5969,7 +6107,11 @@ open class WMKeyboardService : InputMethodService() {
         _uiState.update {
             val active = !it.clipboardSearchActive
             // Closing search clears the filter so the full history is back.
-            it.copy(clipboardSearchActive = active, clipboardQuery = if (active) it.clipboardQuery else "")
+            it.copy(
+                clipboardSearchActive = active,
+                clipboardQuery = if (active) it.clipboardQuery else "",
+                panelFocus = null,
+            )
         }
     }
 
@@ -7179,7 +7321,7 @@ open class WMKeyboardService : InputMethodService() {
             val hidden = _uiState.value.hiddenEmoji
             val results = withContext(Dispatchers.Default) { search.search(query) }
             val shown = if (hidden.isEmpty()) results else results.filterNot { it.emoji in hidden }
-            _uiState.update { it.copy(emojiResults = shown) }
+            updateQuery { it.copy(emojiResults = shown) }
         }
     }
 
@@ -7537,16 +7679,7 @@ open class WMKeyboardService : InputMethodService() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
         val dispatcher = window?.window?.onBackInvokedDispatcher ?: return
         if (panelOpen && panelBackCallback == null) {
-            val callback = android.window.OnBackInvokedCallback {
-                if (_uiState.value.stickerAction != null) {
-                    onStickerActionDismiss()
-                } else if (_uiState.value.voice.strip) {
-                    closeVoiceStrip()
-                } else {
-                    val panel = _uiState.value.panel
-                    if (panel != PanelMode.NONE) onPanelChange(panel)
-                }
-            }
+            val callback = android.window.OnBackInvokedCallback { dismissTopLayer() }
             dispatcher.registerOnBackInvokedCallback(
                 android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT,
                 callback,
@@ -7555,6 +7688,41 @@ open class WMKeyboardService : InputMethodService() {
         } else if (!panelOpen && panelBackCallback != null) {
             panelBackCallback?.let { dispatcher.unregisterOnBackInvokedCallback(it) }
             panelBackCallback = null
+        }
+    }
+
+    /**
+     * Closes the topmost thing the keyboard is showing, innermost first, and
+     * reports whether there was anything to close.
+     *
+     * The one definition of "go back" for all three routes into it: the pre-T
+     * [onKeyUp] path, the Android 13+ back callback, and Escape on a physical
+     * keyboard. It used to be written out twice, and the two copies had already
+     * drifted on which layer they checked first.
+     */
+    private fun dismissTopLayer(): Boolean {
+        val state = _uiState.value
+        return when {
+            // The picker is armed over everything else and costs nothing to drop.
+            state.toolPicker != null -> {
+                disarmToolPicker()
+                true
+            }
+            // The sticker action sheet is a layer above the panel, so back
+            // closes it first rather than the panel underneath it.
+            state.stickerAction != null -> {
+                onStickerActionDismiss()
+                true
+            }
+            state.voice.strip -> {
+                closeVoiceStrip()
+                true
+            }
+            state.panel != PanelMode.NONE -> {
+                onPanelChange(state.panel)
+                true
+            }
+            else -> false
         }
     }
 
@@ -7570,6 +7738,10 @@ open class WMKeyboardService : InputMethodService() {
         ) {
             return true
         }
+        // Before the volume keys, so a leader remapped onto one still wins, and
+        // before [handleHardwareKeyDown], whose composing gate and input-connection
+        // check must not apply to opening a tool.
+        if (handleHardwareNav(event)) return true
         if (volumeCursorDelta(keyCode) != 0) {
             // Auto-repeat rides along for free: holding the key repeats DOWN.
             onCursorMove(volumeCursorDelta(keyCode))
@@ -7584,17 +7756,19 @@ open class WMKeyboardService : InputMethodService() {
         // never sees half a physical keypress. Checked before the BACK/volume
         // handling, which never registers its keys here.
         if (consumedHardwareKeys.remove(keyCode)) return true
-        val panel = _uiState.value.panel
-        if (keyCode == KeyEvent.KEYCODE_BACK && isInputViewShown &&
-            (panel != PanelMode.NONE || _uiState.value.voice.strip)
+        // A double-tap leader completes on the *release* of its second tap, so
+        // that the letter after it arrives with no modifier held. Never consumed:
+        // a lone Ctrl means nothing on its own, and eating it would break the
+        // chord it might still have been starting.
+        if (_uiState.value.settings.hardwareKeyboard.shortcutsEnabled &&
+            feedLeaderDetector(event)
         ) {
-            when {
-                // The sticker action sheet is a layer above the panel, so back
-                // closes it first rather than the panel underneath it.
-                _uiState.value.stickerAction != null -> onStickerActionDismiss()
-                _uiState.value.voice.strip -> closeVoiceStrip()
-                else -> onPanelChange(panel)
-            }
+            armToolPicker()
+        }
+        if (keyCode == KeyEvent.KEYCODE_BACK && isInputViewShown &&
+            (_uiState.value.panel != PanelMode.NONE || _uiState.value.voice.strip)
+        ) {
+            dismissTopLayer()
             return true
         }
         // Swallow the UP too, so the system never sees half a volume event.
@@ -7608,6 +7782,369 @@ open class WMKeyboardService : InputMethodService() {
      * chords can leave several keys down at once.
      */
     private val consumedHardwareKeys = HashSet<Int>()
+
+    /**
+     * Records that this IME ate [keyCode]'s DOWN, so [onKeyUp] swallows the
+     * matching UP. Every consuming branch returns through here — the bookkeeping
+     * is too easy to forget, and forgetting it hands the app half a keypress.
+     */
+    private fun consumeHardwareKey(keyCode: Int): Boolean {
+        consumedHardwareKeys.add(keyCode)
+        return true
+    }
+
+    // ---- physical keyboard: opening and driving the tools ----
+
+    /**
+     * Recognises the double-tap leader. Rebuilt whenever the setting changes,
+     * since the modifier it watches is part of its identity.
+     */
+    private var leaderDetector: DoubleTapDetector? = null
+    private var leaderDetectorFor: String? = null
+
+    /** The input view was forced visible for a shortcut and owes a restore. */
+    private var forcedInputView = false
+
+    /** Nothing physical is half-pressed and nothing is armed. */
+    private fun resetHardwareKeyState() {
+        consumedHardwareKeys.clear()
+        leaderDetector?.reset()
+        if (_uiState.value.toolPicker != null) disarmToolPicker()
+        releaseForcedInputView()
+    }
+
+    private fun hardwareShortcutSettings(): HardwareKeyboardSettings =
+        _uiState.value.settings.hardwareKeyboard
+
+    private fun leaderTrigger(): LeaderTrigger {
+        val stored = hardwareShortcutSettings().leader
+        return parseLeader(stored) ?: DefaultLeader
+    }
+
+    /**
+     * Feeds a modifier press to the double-tap detector. Called from both
+     * [onKeyDown] and [onKeyUp] because a tap is only a tap once released, and
+     * called for *every* key because anything else pressed in between is what
+     * tells a double tap apart from someone using Ctrl+C.
+     */
+    private fun feedLeaderDetector(event: KeyEvent): Boolean {
+        val trigger = leaderTrigger()
+        if (trigger !is LeaderTrigger.DoubleTap) {
+            leaderDetector = null
+            leaderDetectorFor = null
+            return false
+        }
+        val key = hardwareShortcutSettings().leader
+        val detector = leaderDetector?.takeIf { leaderDetectorFor == key }
+            ?: DoubleTapDetector(trigger.modifier).also {
+                leaderDetector = it
+                leaderDetectorFor = key
+            }
+        return detector.onEvent(
+            keyCode = event.keyCode,
+            down = event.action == KeyEvent.ACTION_DOWN,
+            repeat = event.repeatCount,
+            eventTime = event.eventTime,
+        )
+    }
+
+    /**
+     * Everything a physical keyboard can do that isn't typing: the leader, the
+     * armed picker, Escape, the focus ring, and the suggestion hotkeys.
+     *
+     * A sibling of [handleHardwareKeyDown] rather than a branch inside it,
+     * because none of its two gates should apply here — this must work with no
+     * input connection, and with [KeyboardSettings.hardwareKeyboardInput] off
+     * (that setting is about *typed characters*, and its own documentation
+     * promises shortcuts are none of its business).
+     */
+    private fun handleHardwareNav(event: KeyEvent): Boolean {
+        val config = hardwareShortcutSettings()
+        // Every key goes to the detector, not just the modifier it watches:
+        // anything else pressed in between is exactly what tells a double tap
+        // apart from someone holding Ctrl to use a shortcut. Arming itself
+        // happens on the release, in [onKeyUp].
+        if (config.shortcutsEnabled) feedLeaderDetector(event)
+        val keyCode = event.keyCode
+
+        // Bare modifiers are never consumed and never cancel: reaching '?' means
+        // holding Shift, and a chord the app owns starts with a lone modifier.
+        if (KeyEvent.isModifierKey(keyCode)) return false
+
+        expireToolPicker()
+        if (config.shortcutsEnabled) {
+            if (leaderTrigger().let { it is LeaderTrigger.Chord && it.chord.matches(keyCode, event.metaState) }) {
+                if (_uiState.value.toolPicker != null) disarmToolPicker() else armToolPicker()
+                return consumeHardwareKey(keyCode)
+            }
+            if (_uiState.value.toolPicker != null) return handleArmedKey(event)
+        }
+
+        if (keyCode == KeyEvent.KEYCODE_ESCAPE && config.escClosesPanel) {
+            // Only ours when we actually have something open. A bare Escape stops
+            // a page loading, leaves insert mode, cancels a dialog.
+            return if (dismissTopLayer()) consumeHardwareKey(keyCode) else false
+        }
+
+        if (config.suggestionHotkeys == SuggestionHotkeyMode.ALT_DIGIT &&
+            event.metaState and KeyEvent.META_ALT_ON != 0 &&
+            event.metaState and (KeyEvent.META_CTRL_ON or KeyEvent.META_META_ON) == 0
+        ) {
+            val digit = keyCode - KeyEvent.KEYCODE_1
+            if (digit in 0..8 && pickSuggestion(digit)) return consumeHardwareKey(keyCode)
+        }
+
+        return handlePanelNavKey(event)
+    }
+
+    /** Arrow, Enter and Tab inside an open panel: move, activate, change region. */
+    private fun handlePanelNavKey(event: KeyEvent): Boolean {
+        val state = _uiState.value
+        if (!state.settings.hardwareKeyboard.panelNavigation) return false
+        if (state.panel == PanelMode.NONE || !panelFocus.matches(state.panel)) return false
+        val keyCode = event.keyCode
+        return when (keyCode) {
+            KeyEvent.KEYCODE_DPAD_LEFT -> movePanelFocus(-1, 0) && consumeHardwareKey(keyCode)
+            KeyEvent.KEYCODE_DPAD_RIGHT -> movePanelFocus(1, 0) && consumeHardwareKey(keyCode)
+            KeyEvent.KEYCODE_DPAD_UP -> movePanelFocus(0, -1) && consumeHardwareKey(keyCode)
+            KeyEvent.KEYCODE_DPAD_DOWN -> movePanelFocus(0, 1) && consumeHardwareKey(keyCode)
+            KeyEvent.KEYCODE_TAB -> {
+                // Tab only belongs to the keyboard once the ring is up. Before
+                // that it is still field navigation, and in a terminal it is
+                // completion — an IME that eats it is broken.
+                if (state.panelFocus == null) false
+                else tabPanelFocus(event.isShiftPressed) && consumeHardwareKey(keyCode)
+            }
+            KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER -> {
+                // With no ring, Enter keeps its existing meaning: run the panel's
+                // search, or the field's editor action.
+                if (state.panelFocus == null) false
+                else {
+                    activatePanelFocus()
+                    consumeHardwareKey(keyCode)
+                }
+            }
+            else -> false
+        }
+    }
+
+    /**
+     * The key after the leader. Anything printable is consumed whether or not it
+     * is bound: the user is in picker mode, so the letter is a choice, not text.
+     */
+    private fun handleArmedKey(event: KeyEvent): Boolean {
+        val keyCode = event.keyCode
+        val config = hardwareShortcutSettings()
+        when (keyCode) {
+            KeyEvent.KEYCODE_ESCAPE -> {
+                disarmToolPicker()
+                return consumeHardwareKey(keyCode)
+            }
+            KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER -> {
+                // Swallowed rather than passed on: an armed Enter must not submit
+                // the form the user was typing into.
+                disarmToolPicker()
+                return consumeHardwareKey(keyCode)
+            }
+        }
+        // A chord the app owns wins outright, arming or not.
+        if (event.metaState and (KeyEvent.META_CTRL_ON or KeyEvent.META_META_ON) != 0) {
+            disarmToolPicker()
+            return false
+        }
+        val letter = pickerLetter(event.getUnicodeChar(0), keyCode)
+        if (letter == null) {
+            // An arrow or function key: hand it back, and deliberately do not
+            // register it as consumed — never wedge the user's keyboard.
+            disarmToolPicker()
+            return false
+        }
+        when {
+            letter == CheatSheetLetter -> {
+                // Stays armed: the legend is there to be read and then acted on.
+                _uiState.update { it.copy(toolPicker = it.toolPicker?.copy(cheatSheet = true)) }
+                vibrate()
+                return consumeHardwareKey(keyCode)
+            }
+            letter == ToolboxLetter -> {
+                disarmToolPicker()
+                openToolPanelByKey(PanelMode.TOOLBOX)
+                return consumeHardwareKey(keyCode)
+            }
+            letter in '1'..'9' && config.suggestionHotkeys != SuggestionHotkeyMode.OFF -> {
+                disarmToolPicker()
+                pickSuggestion(letter - '1')
+                return consumeHardwareKey(keyCode)
+            }
+        }
+        val tool = resolvedToolLetters(config.toolByLetter, _uiState.value.settings.enabledTools)[letter]
+        disarmToolPicker()
+        if (tool != null) openToolByKey(tool) else vibrate()
+        return consumeHardwareKey(keyCode)
+    }
+
+    private fun armToolPicker() {
+        vibrate()
+        val armedAt = SystemClock.uptimeMillis()
+        _uiState.update { it.copy(toolPicker = ToolPickerState(armedAt = armedAt)) }
+        ensureInputViewShown()
+        // Cosmetic only: hides the hint on time instead of leaving it up until
+        // the next keystroke. The authoritative check is [expireToolPicker], so a
+        // missed cancellation here costs nothing.
+        serviceScope.launch {
+            delay(hardwareShortcutSettings().pickerTimeoutMs.toLong())
+            val picker = _uiState.value.toolPicker
+            if (picker != null && !picker.cheatSheet && picker.armedAt == armedAt) disarmToolPicker()
+        }
+    }
+
+    private fun disarmToolPicker() {
+        _uiState.update { if (it.toolPicker == null) it else it.copy(toolPicker = null) }
+        // Nothing was opened, so the view forced up for the hint is owed back.
+        if (_uiState.value.panel == PanelMode.NONE) releaseForcedInputView()
+    }
+
+    /**
+     * Drops an armed picker the user has walked away from. Checked on each key
+     * rather than driven by a timer: a posted job would need cancelling on every
+     * one of the six ways out of picker mode, and one missed cancel leaves the
+     * next keystroke opening a tool.
+     */
+    private fun expireToolPicker() {
+        val picker = _uiState.value.toolPicker ?: return
+        // Someone reading the legend is not idle.
+        if (picker.cheatSheet) return
+        val timeout = hardwareShortcutSettings().pickerTimeoutMs.toLong()
+        if (SystemClock.uptimeMillis() - picker.armedAt > timeout) disarmToolPicker()
+    }
+
+    /** Opens a tool from the keyboard, then puts the ring on its first item. */
+    private fun openToolByKey(tool: ToolbarTool) {
+        onToolTap(tool)
+        ensureInputViewShown()
+        seedPanelFocus()
+    }
+
+    private fun openToolPanelByKey(panel: PanelMode) {
+        onPanelChange(panel)
+        ensureInputViewShown()
+        seedPanelFocus()
+    }
+
+    /**
+     * Puts the ring on the first item of a panel opened by keyboard. Deferred a
+     * frame: the panel has not composed yet, so nothing has published how many
+     * items it has.
+     */
+    private fun seedPanelFocus() {
+        if (!hardwareShortcutSettings().panelNavigation) return
+        val panel = _uiState.value.panel
+        if (panel == PanelMode.NONE || panelFocusRegions(panel).isEmpty()) return
+        serviceScope.launch {
+            // Two frames at 60Hz: enough for the panel to publish its geometry.
+            delay(32)
+            if (_uiState.value.panel != panel || !panelFocus.matches(panel)) return@launch
+            val region = preferredFocusRegion() ?: return@launch
+            _uiState.update {
+                if (it.panelFocus != null) it else it.copy(panelFocus = PanelFocus(region, 0))
+            }
+        }
+    }
+
+    /**
+     * Where the ring should appear first: the results, if the panel has any.
+     * Tab still runs search → chips → results, but landing on the search pill
+     * would mean two more keys before reaching what the user came for.
+     */
+    private fun preferredFocusRegion(): FocusRegion? =
+        FocusRegion.RESULTS.takeIf { panelFocus.grid(it).count > 0 }
+            ?: panelFocus.firstUsableRegion()
+
+    /** True when the ring moved (or first appeared), so the key was ours. */
+    private fun movePanelFocus(dx: Int, dy: Int): Boolean {
+        val state = _uiState.value
+        val current = state.panelFocus
+        if (current == null) {
+            // The first arrow press summons the ring rather than moving it.
+            val region = preferredFocusRegion() ?: return false
+            _uiState.update { it.copy(panelFocus = PanelFocus(region, 0)) }
+            return true
+        }
+        val next = panelFocus.grid(current.region).step(current.index, dx, dy)
+        if (next != null) {
+            _uiState.update { it.copy(panelFocus = current.copy(index = next)) }
+            return true
+        }
+        // Off the top or bottom of a region: step to the neighbouring one, so
+        // Up out of the results lands on the search box.
+        return if (dy != 0) moveFocusRegion(if (dy < 0) -1 else 1) else false
+    }
+
+    private fun tabPanelFocus(backwards: Boolean): Boolean =
+        moveFocusRegion(if (backwards) -1 else 1)
+
+    private fun moveFocusRegion(delta: Int): Boolean {
+        val regions = panelFocus.regions.filter { panelFocus.grid(it).count > 0 }
+        if (regions.isEmpty()) return false
+        val current = _uiState.value.panelFocus
+        val at = regions.indexOf(current?.region)
+        val next = when {
+            at < 0 -> 0
+            else -> at + delta
+        }
+        val target = regions.getOrNull(next) ?: return false
+        _uiState.update { it.copy(panelFocus = PanelFocus(target, 0)) }
+        vibrate()
+        return true
+    }
+
+    private fun activatePanelFocus() {
+        val focus = _uiState.value.panelFocus ?: return
+        if (!panelFocus.matches(_uiState.value.panel)) return
+        val grid = panelFocus.grid(focus.region)
+        if (focus.index !in 0 until grid.count) return
+        vibrate()
+        panelFocus.activate(focus.region, focus.index)
+    }
+
+    /**
+     * Commits the numbered suggestion, or reports false so the key goes back to
+     * the app — with an empty strip, Alt+1 belongs to whatever is switching tabs
+     * with it.
+     */
+    private fun pickSuggestion(index: Int): Boolean {
+        val state = _uiState.value
+        if (!hardwareIntercepts(state)) return false
+        val word = state.suggestions.getOrNull(index) ?: return false
+        // Already vibrates, stops dictation and handles the email/CJK/gesture
+        // cases — the hotkey must not reimplement any of that.
+        onSuggestionTapped(word)
+        return true
+    }
+
+    /**
+     * Shows the keyboard for a shortcut when a physical keyboard has hidden it.
+     * [updateInputViewShown] is what makes the framework re-ask
+     * [onEvaluateInputViewShown]; nothing here shows the IME window itself,
+     * which is already up whenever these key events arrive.
+     */
+    private fun ensureInputViewShown() {
+        if (!hardwareShortcutSettings().autoShowUi) return
+        if (isInputViewShown || forcedInputView) return
+        forcedInputView = true
+        updateInputViewShown()
+    }
+
+    /**
+     * Gives back a view that was forced up. Mandatory rather than tidy: left set,
+     * a hardware-keyboard user is stuck with a full on-screen keyboard they never
+     * asked for as soon as the tool closes.
+     */
+    private fun releaseForcedInputView() {
+        if (!forcedInputView) return
+        forcedInputView = false
+        updateInputViewShown()
+    }
 
     /**
      * Routes a physical-keyboard press through the same pipeline as the
@@ -7654,16 +8191,14 @@ open class WMKeyboardService : InputMethodService() {
             KeyEvent.KEYCODE_SPACE -> {
                 clearForHardwareTyping()
                 onSpace()
-                consumedHardwareKeys.add(keyCode)
-                true
+                consumeHardwareKey(keyCode)
             }
             KeyEvent.KEYCODE_DEL -> {
                 // Routed through onDelete so it edits the composing buffer, undoes
                 // a swipe/autocorrect, and deletes whole grapheme clusters — all
                 // of which a raw backspace against the field would get wrong.
                 onDelete()
-                consumedHardwareKeys.add(keyCode)
-                true
+                consumeHardwareKey(keyCode)
             }
             KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER -> {
                 // The soft Enter's own handler: commits the buffer, then runs the
@@ -7671,8 +8206,7 @@ open class WMKeyboardService : InputMethodService() {
                 // can't just pass through — runs an active panel/dictionary search
                 // instead of dropping a newline into the app behind the panel.
                 onEnter()
-                consumedHardwareKeys.add(keyCode)
-                true
+                consumeHardwareKey(keyCode)
             }
             KeyEvent.KEYCODE_TAB, KeyEvent.KEYCODE_ESCAPE,
             KeyEvent.KEYCODE_FORWARD_DEL,
@@ -7695,8 +8229,7 @@ open class WMKeyboardService : InputMethodService() {
                     // Literal: the char already carries the physical layout's
                     // shift/AltGr, so the soft shift state must not re-case it.
                     processTypedText(unicode.toChar().toString(), applyDeadKeys = false)
-                    consumedHardwareKeys.add(keyCode)
-                    true
+                    consumeHardwareKey(keyCode)
                 }
             }
         }

@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -45,6 +46,7 @@ import com.wasimaster.wmkeyboard.core.tools.DictEntry
 import com.wasimaster.wmkeyboard.core.tools.DictMeaning
 import com.wasimaster.wmkeyboard.ime.DictionaryUi
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
+import com.wasimaster.wmkeyboard.ime.PanelMode
 
 /**
  * English dictionary lookup in the tool viewbox. Opening the tool
@@ -130,7 +132,7 @@ internal fun DictionaryPanel(
             is DictionaryUi.NotFound -> DictionaryMessage(
                 "No entry found for “${dict.word}”. Check the spelling, or try the base form of the word.",
             )
-            is DictionaryUi.Ready -> DictionaryEntries(dict.entries, onLookup, onInsert)
+            is DictionaryUi.Ready -> DictionaryEntries(state, dict.entries, onLookup, onInsert)
         }
     }
 }
@@ -150,6 +152,7 @@ private fun DictionaryMessage(text: String) {
 
 @Composable
 private fun DictionaryEntries(
+    state: KeyboardUiState,
     entries: List<DictEntry>,
     onLookup: (String) -> Unit,
     onInsert: (String) -> Unit,
@@ -163,7 +166,25 @@ private fun DictionaryEntries(
     val player = remember { MediaPlayer() }
     DisposableEffect(Unit) { onDispose { player.release() } }
 
+    // Only the headwords are focusable — their action is Insert, and the
+    // meanings under them are prose with nothing to activate.
+    PanelFocusTarget(
+        panel = PanelMode.DICTIONARY,
+        count = entries.size,
+        columns = 1,
+        onActivate = { index -> entries.getOrNull(index)?.let { onInsert(it.word) } },
+    )
+    val focused = state.focusedIndex()
+    val listState = rememberLazyListState()
+    ScrollFocusIntoView(focused) { index ->
+        // Entry index is not lazy-item index here: each entry contributes its
+        // headword plus one item per meaning.
+        listState.animateScrollToItem(
+            entries.take(index).sumOf { 1 + it.meanings.size },
+        )
+    }
     LazyColumn(
+        state = listState,
         modifier = Modifier.fillMaxSize(),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(
             start = 14.dp, end = 14.dp, bottom = 10.dp,
@@ -174,6 +195,7 @@ private fun DictionaryEntries(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .focusRing(entryIndex == focused, RoundedCornerShape(8.dp))
                         .padding(top = if (entryIndex == 0) 2.dp else 14.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {

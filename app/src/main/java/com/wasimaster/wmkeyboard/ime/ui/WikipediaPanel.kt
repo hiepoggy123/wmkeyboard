@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
@@ -37,6 +38,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
+import com.wasimaster.wmkeyboard.ime.PanelMode
 import com.wasimaster.wmkeyboard.ime.WikiUi
 
 /** Tabs on an open Wikipedia article. */
@@ -125,7 +127,21 @@ internal fun WikipediaPanel(
                 if (wiki.results.isEmpty()) {
                     WikiMessage("Nothing found for “${wiki.query}”.")
                 } else {
+                    // Published from inside this branch, so the panel-local tab
+                    // state never has to be hoisted to say what is on screen.
+                    PanelFocusTarget(
+                        panel = PanelMode.WIKIPEDIA,
+                        count = wiki.results.size,
+                        columns = 1,
+                        onActivate = { index ->
+                            wiki.results.getOrNull(index)?.let { onOpen(it.title) }
+                        },
+                    )
+                    val focused = state.focusedIndex()
+                    val listState = rememberLazyListState()
+                    ScrollFocusIntoView(focused) { listState.animateScrollToItem(it) }
                     LazyColumn(
+                        state = listState,
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 2.dp),
                     ) {
@@ -136,6 +152,7 @@ internal fun WikipediaPanel(
                                     .fillMaxWidth()
                                     .clip(RoundedCornerShape(8.dp))
                                     .clickable { onOpen(result.title) }
+                                    .focusRing(index == focused, RoundedCornerShape(8.dp))
                                     .padding(horizontal = 6.dp, vertical = 6.dp),
                             ) {
                                 Text(
@@ -161,6 +178,7 @@ internal fun WikipediaPanel(
                 }
             }
             is WikiUi.Article -> WikiArticle(
+                focusedLink = state.focusedIndex(),
                 wiki = wiki,
                 markdownLinks = state.settings.wikiLinksMarkdown,
                 lang = state.settings.wikiLanguage,
@@ -177,6 +195,8 @@ internal fun WikipediaPanel(
 @Composable
 private fun WikiArticle(
     wiki: WikiUi.Article,
+    /** The link the hardware focus ring is on, or null in touch mode. */
+    focusedLink: Int?,
     markdownLinks: Boolean,
     lang: String,
     onBack: () -> Unit,
@@ -266,7 +286,18 @@ private fun WikiArticle(
             WikiTab.LINKS -> when {
                 wiki.loadingExtra && wiki.links == null -> WikiMessage("Loading links…")
                 wiki.links.isNullOrEmpty() -> WikiMessage("No outgoing article links found.")
-                else -> LazyColumn(
+                else -> {
+                    PanelFocusTarget(
+                        panel = PanelMode.WIKIPEDIA,
+                        count = wiki.links.size,
+                        columns = 1,
+                        onActivate = { index -> wiki.links.getOrNull(index)?.let(onOpen) },
+                    )
+                    val focused = focusedLink
+                    val listState = rememberLazyListState()
+                    ScrollFocusIntoView(focused) { listState.animateScrollToItem(it) }
+                    LazyColumn(
+                    state = listState,
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
                 ) {
@@ -277,6 +308,7 @@ private fun WikiArticle(
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(8.dp))
                                 .clickable { onOpen(title) }
+                                .focusRing(index == focused, RoundedCornerShape(8.dp))
                                 .padding(horizontal = 6.dp, vertical = 5.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
@@ -295,6 +327,7 @@ private fun WikiArticle(
                             }
                         }
                     }
+                }
                 }
             }
             WikiTab.FULL -> when {
