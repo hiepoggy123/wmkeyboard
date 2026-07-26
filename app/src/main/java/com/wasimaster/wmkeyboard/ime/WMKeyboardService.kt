@@ -1631,6 +1631,11 @@ open class WMKeyboardService : InputMethodService() {
         // The candidate range is valid when positive/zero. The cursor moved away
         // from the composing region if it jumped strictly outside [candidatesStart, candidatesEnd].
         // Invalid or un-reported candidate ranges (-1) must not erroneously cancel active composing.
+        // Demanding the caret sit exactly at candidatesEnd would mistake two ordinary
+        // events for a cursor jump: a field that reports no composing region (-1), and
+        // the update that trails our own commitText — which arrives after a CJK prefix
+        // commit has already re-composed the tail, so the abandon path would
+        // finishComposingText() that fresh region and drop `hao` from `nihao` as raw latin.
         val cursorOutsideCandidates = candidatesStart >= 0 && candidatesEnd >= candidatesStart &&
             (newSelStart < candidatesStart || newSelEnd > candidatesEnd)
         // A caret placed *inside* the composing word (a tap mid-word) also ends
