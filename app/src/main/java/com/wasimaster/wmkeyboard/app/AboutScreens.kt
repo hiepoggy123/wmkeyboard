@@ -1,5 +1,6 @@
 package com.wasimaster.wmkeyboard.app
 
+import android.content.Intent
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -36,6 +37,21 @@ import kotlinx.coroutines.withContext
  */
 
 internal const val SOURCE_URL = "https://github.com/wasi-master/WMKeyboard"
+private const val PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=${BuildConfig.APPLICATION_ID}"
+private const val FDROID_URL = "https://f-droid.org/packages/${BuildConfig.APPLICATION_ID}/"
+
+private const val SHARE_BLURB = "Try out an awesome keyboard app called WM Keyboard!"
+
+/** Opens the system share sheet with [SHARE_BLURB] and [url]. */
+private fun shareLink(context: android.content.Context, url: String) {
+    val intent = Intent(Intent.ACTION_SEND).apply {
+        type = "text/plain"
+        putExtra(Intent.EXTRA_TEXT, "$SHARE_BLURB\n$url")
+    }
+    context.startActivity(Intent.createChooser(intent, "Share WM Keyboard").apply {
+        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    })
+}
 
 /** One row in the licences list. [licenseAsset] is a file in `assets/licenses/`. */
 private data class Attribution(
@@ -246,7 +262,26 @@ internal fun AboutSettings(
     onOpenLicenseText: (String) -> Unit,
 ) {
     val uriHandler = LocalUriHandler.current
+    val context = LocalContext.current
     val flavor = BuildConfig.FLAVOR.replaceFirstChar { it.uppercase() }
+
+    SettingsGroup("Share") {
+        item {
+            NavRow("Share via Play Store", PLAY_STORE_URL.removePrefix("https://")) {
+                shareLink(context, PLAY_STORE_URL)
+            }
+        }
+        item {
+            NavRow("Share via F-Droid", FDROID_URL.removePrefix("https://")) {
+                shareLink(context, FDROID_URL)
+            }
+        }
+        item {
+            NavRow("Share via GitHub", SOURCE_URL.removePrefix("https://")) {
+                shareLink(context, SOURCE_URL)
+            }
+        }
+    }
 
     SettingsGroup("App") {
         item {
