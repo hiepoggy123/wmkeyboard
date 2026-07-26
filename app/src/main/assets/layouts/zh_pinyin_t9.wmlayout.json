@@ -1,0 +1,109 @@
+{
+  "format": "wmkeyboard-layout",
+  "version": 1,
+  "layout": {
+    "id": "asset_zh_pinyin_t9",
+    "name": "中文 九宫格拼音 (Chinese T9 Pinyin)",
+    "langId": "zh",
+    "composer": "T9_PINYIN",
+    "version": 1,
+    "layers": {
+      "letters": {
+        "rows": [
+          [
+            {
+              "label": "分词",
+              "output": "'"
+            },
+            {
+              "label": "ABC",
+              "output": "2"
+            },
+            {
+              "label": "DEF",
+              "output": "3"
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              }
+            }
+          ],
+          [
+            {
+              "label": "?123",
+              "action": {
+                "type": "symbols"
+              }
+            },
+            {
+              "label": "GHI",
+              "output": "4"
+            },
+            {
+              "label": "JKL",
+              "output": "5"
+            },
+            {
+              "label": "MNO",
+              "output": "6"
+            }
+          ],
+          [
+            {
+              "label": "，",
+              "longPress": [
+                "！",
+                "？",
+                "、"
+              ],
+              "role": "Comma"
+            },
+            {
+              "label": "PQRS",
+              "output": "7"
+            },
+            {
+              "label": "TUV",
+              "output": "8"
+            },
+            {
+              "label": "WXYZ",
+              "output": "9"
+            }
+          ],
+          [
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": "。",
+              "longPress": [
+                "…",
+                "：",
+                "；"
+              ],
+              "role": "Period"
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              }
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              }
+            }
+          ]
+        ]
+      }
+    }
+  }
+}

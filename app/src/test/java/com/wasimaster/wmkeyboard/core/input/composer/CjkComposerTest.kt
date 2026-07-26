@@ -25,6 +25,7 @@ class CjkComposerTest {
         CjkDictionaries.pinyin = ConversionDictionary.EMPTY
         CjkDictionaries.japanese = ConversionDictionary.EMPTY
         PinyinSyllables.valid = emptySet()
+        T9Pinyin.index = emptyMap()
         CjkConfig.fuzzyPinyin = false
         CjkConfig.doublePinyin = DoublePinyinScheme.OFF
     }
@@ -36,6 +37,7 @@ class CjkComposerTest {
         assertSame(JapaneseComposer, composerFor(japanese, ComposerType.ROMAJI))
         assertSame(PinyinComposer, composerFor(han, ComposerType.PINYIN))
         assertSame(StrokeComposer, composerFor(han, ComposerType.STROKE))
+        assertSame(T9PinyinComposer, composerFor(han, ComposerType.T9_PINYIN))
     }
 
     @Test
@@ -332,6 +334,80 @@ class CjkComposerTest {
         // Consumed length is in KEYS: 2 per syllable.
         assertEquals(4, PinyinComposer.consumedFor("nihc", "NH"))
         assertEquals(2, PinyinComposer.consumedFor("nihc", "N1"))
+    }
+
+    // --- T9 / 九宫格 pinyin -------------------------------------------------------
+
+    @Test
+    fun `t9 encodes syllables to keypad digits`() {
+        assertEquals("64", T9Pinyin.encode("ni"))
+        assertEquals("426", T9Pinyin.encode("hao"))
+        // z=9 h=4 a=2 n=6 g=4
+        assertEquals("94264", T9Pinyin.encode("zhang"))
+        // A letter the keypad cannot produce leaves the syllable unindexed.
+        assertEquals("", T9Pinyin.encode("nü"))
+    }
+
+    @Test
+    fun `t9 index groups syllables sharing a digit code`() {
+        val index = T9Pinyin.buildIndex(setOf("ni", "mi", "hao", "o"))
+        // 6=mno, 4=ghi → "64" spells both mi and ni.
+        assertEquals(listOf("mi", "ni"), index["64"])
+        assertEquals(listOf("hao"), index["426"])
+        assertEquals(listOf("o"), index["6"])
+    }
+
+    @Test
+    fun `t9 segments digit runs and reports consumed digits`() {
+        PinyinSyllables.valid = setOf("ni", "hao")
+        T9Pinyin.index = T9Pinyin.buildIndex(PinyinSyllables.valid)
+        CjkDictionaries.pinyin = ConversionDictionary.parse(
+            sequenceOf(
+                "ni\tN1\t100",
+                "hao\tH1\t100",
+                "nihao\tNH\t50",
+            ),
+        )
+        // 64 → ni, 426 → hao, so 64426 is the whole phrase.
+        assertEquals(listOf("NH", "N1"), T9PinyinComposer.candidates("64426"))
+        // Consumed lengths are in DIGITS: the phrase spans all 5, "ni" only 2.
+        assertEquals(5, T9PinyinComposer.consumedFor("64426", "NH"))
+        assertEquals(2, T9PinyinComposer.consumedFor("64426", "N1"))
+        assertEquals(5, T9PinyinComposer.consumedFor("64426", "??"))
+        // The composing region reads back the pinyin of the best candidate.
+        assertEquals("nihao", T9PinyinComposer.composeBuffer("64426"))
+    }
+
+    @Test
+    fun `t9 disambiguates a code shared by several syllables`() {
+        PinyinSyllables.valid = setOf("ni", "mi")
+        T9Pinyin.index = T9Pinyin.buildIndex(PinyinSyllables.valid)
+        CjkDictionaries.pinyin =
+            ConversionDictionary.parse(sequenceOf("ni\tN1\t100", "mi\tM1\t10"))
+        // One digit run, both readings tried — the dictionary's frequency decides.
+        val cands = T9PinyinComposer.candidates("64")
+        assertTrue("N1" in cands)
+        assertTrue("M1" in cands)
+        assertEquals(2, T9PinyinComposer.consumedFor("64", "M1"))
+    }
+
+    @Test
+    fun `t9 buffers digits from the very first keystroke`() {
+        // Its whole alphabet is digits, so unlike VNI a digit must be able to
+        // start the buffer — otherwise the first key of every word commits as a
+        // literal number.
+        assertTrue(T9PinyinComposer.bufferDigits)
+        assertTrue(T9PinyinComposer.digitsStartBuffer)
+        assertTrue(VietnameseVniComposer.bufferDigits)
+        assertTrue(!VietnameseVniComposer.digitsStartBuffer)
+    }
+
+    @Test
+    fun `t9 without an index commits the raw digits`() {
+        // No inventory loaded → nothing segments → no candidates, and the buffer
+        // shows the digits themselves rather than trapping the user.
+        assertEquals(emptyList<String>(), T9PinyinComposer.candidates("64"))
+        assertEquals("64", T9PinyinComposer.composeBuffer("64"))
     }
 
     @Test

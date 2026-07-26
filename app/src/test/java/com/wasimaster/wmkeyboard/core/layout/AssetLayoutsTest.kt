@@ -90,6 +90,24 @@ class AssetLayoutsTest {
     }
 
     @Test
+    fun `the t9 pinyin layout maps letter groups to keypad digits`() {
+        val file = layoutFiles.first { it.name == "zh_pinyin_t9.${LayoutFile.FILE_EXTENSION}" }
+        val keys = LayoutFile.decode(file.readText())!!.layout
+            .layers.values.flatMap { it.rows.flatten() }
+        // The pad types digits; the letters are only the label. 6=MNO, 4=GHI, 2=ABC
+        // is what makes 64 → ni and 426 → hao.
+        assertEquals("6", keys.first { it.label == "MNO" }.output)
+        assertEquals("4", keys.first { it.label == "GHI" }.output)
+        assertEquals("2", keys.first { it.label == "ABC" }.output)
+        assertEquals("9", keys.first { it.label == "WXYZ" }.output)
+        // 分词 types the apostrophe the segmenter treats as a forced boundary.
+        assertEquals("'", keys.first { it.label == "分词" }.output)
+        // Every letter group 2-9 is present exactly once.
+        val digits = keys.mapNotNull { it.output }.filter { it.length == 1 && it[0].isDigit() }
+        assertEquals(listOf("2", "3", "4", "5", "6", "7", "8", "9"), digits.sorted())
+    }
+
+    @Test
     fun `asset layout ids are unique and never shadow a built-in`() {
         val builtInIds = BuiltInLayouts.all.mapTo(HashSet()) { it.id }
         val seen = mutableSetOf<String>()
