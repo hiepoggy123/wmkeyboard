@@ -20,6 +20,9 @@ object PinyinComposer : Composer {
     override val isTransliterating: Boolean get() = true
     override val isConversion: Boolean get() = true
 
+    /** Reading space for learned picks: pinyin letters, whatever scheme typed them. */
+    private const val NAMESPACE = "pinyin"
+
     private const val LIMIT = 12
 
     /**
@@ -67,6 +70,12 @@ object PinyinComposer : Composer {
         val b = buffer.lowercase()
         return ranked(b).getOrNull(index)?.consumed ?: b.length
     }
+
+    override fun learnChoice(buffer: String, index: Int) {
+        val cand = ranked(buffer.lowercase()).getOrNull(index) ?: return
+        CjkLearning.learn(NAMESPACE, cand.reading, cand.text)
+    }
+
 
     private fun doublePinyinTable(): DoublePinyin.Table? {
         val scheme = CjkConfig.doublePinyin
@@ -132,17 +141,18 @@ object PinyinComposer : Composer {
             // before committing: fall back to plain prefix lookup, which cannot
             // offer a prefix commit but always answers.
             return dict.candidates(buffer, LOOKUP_LIMIT)
-                .map { Cand(HanVariant.toTraditional(it), buffer.length) }
+                .map { Cand(HanVariant.toTraditional(it), buffer.length, buffer) }
         }
-        return Lattice.decode(latticeInput(segs), dict, CjkDictionaries.ngrams, Lattice.Opts(limit = LOOKUP_LIMIT))
-            .map { Cand(HanVariant.toTraditional(it.text), it.consumed) }
+        val decoded = Lattice.decode(latticeInput(segs), dict, CjkDictionaries.ngrams, Lattice.Opts(limit = LOOKUP_LIMIT))
+            .map { Cand(HanVariant.toTraditional(it.text), it.consumed, it.reading) }
             // Converting to Traditional can merge two Simplified words onto one
             // form, so de-duplicate after the conversion rather than before it.
             .distinctBy { it.text }
+        return CjkLearning.rank(NAMESPACE, decoded, { it.text }, { it.reading })
     }
 
-    /** A candidate word and the number of input-buffer chars (keys) it covers. */
-    private data class Cand(val text: String, val consumed: Int)
+    /** A candidate word, the input chars (keys) it covers, and the reading behind it. */
+    private data class Cand(val text: String, val consumed: Int, val reading: String)
 
     private val cache = RankCache<List<Cand>>()
 }

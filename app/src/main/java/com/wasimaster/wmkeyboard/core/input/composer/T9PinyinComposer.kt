@@ -26,6 +26,9 @@ object T9PinyinComposer : Composer {
     override val bufferDigits: Boolean get() = true
     override val digitsStartBuffer: Boolean get() = true
 
+    /** Reading space for learned picks: digit codes, not pinyin letters. */
+    private const val NAMESPACE = "pinyin_t9"
+
     private const val LIMIT = 12
 
     /** Ranked depth for resolving a tap, so the expanded grid can be tapped too. */
@@ -49,6 +52,12 @@ object T9PinyinComposer : Composer {
 
     override fun consumedForIndex(buffer: String, index: Int): Int =
         ranked(buffer).getOrNull(index)?.consumed ?: buffer.length
+
+    override fun learnChoice(buffer: String, index: Int) {
+        val cand = ranked(buffer).getOrNull(index) ?: return
+        CjkLearning.learn(NAMESPACE, cand.reading, cand.text)
+    }
+
 
     /** A candidate, the digits it covers, and the reading that produced it. */
     private data class Cand(val text: String, val consumed: Int, val reading: String)
@@ -100,6 +109,7 @@ object T9PinyinComposer : Composer {
         )
             .map { Cand(HanVariant.toTraditional(it.text), it.consumed, it.reading) }
             .distinctBy { it.text }
+            .let { CjkLearning.rank(NAMESPACE, it, { c -> c.text }, { c -> c.reading }) }
     }
 
     private val cache = RankCache<List<Cand>>()

@@ -225,6 +225,7 @@ import com.wasimaster.wmkeyboard.core.script.NumeralCommitScope
 import com.wasimaster.wmkeyboard.core.script.ComposerType
 import com.wasimaster.wmkeyboard.core.script.ScriptId
 import com.wasimaster.wmkeyboard.core.script.ScriptRegistry
+import com.wasimaster.wmkeyboard.core.input.composer.CjkLearning
 import com.wasimaster.wmkeyboard.core.layout.AssetLayouts
 import com.wasimaster.wmkeyboard.core.layout.language
 import com.wasimaster.wmkeyboard.core.layout.resolveLayout
@@ -7229,6 +7230,10 @@ private fun PrivacySettings(repository: SettingsRepository, settings: KeyboardSe
                 OutlinedButton(onClick = {
                     java.io.File(context.filesDir, "learning/user_lexicon.json").delete()
                     java.io.File(context.filesDir, "learning/emoji_usage.json").delete()
+                    // Chinese/Japanese/Cantonese picks live apart from the Latin
+                    // lexicon, so clearing has to name them or they survive it.
+                    java.io.File(context.filesDir, "learning/cjk_history.json").delete()
+                    CjkLearning.store?.clear()
                 }) { Text("Clear learned words") }
             }
         }

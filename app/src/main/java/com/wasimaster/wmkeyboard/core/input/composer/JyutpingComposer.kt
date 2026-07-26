@@ -24,6 +24,9 @@ object JyutpingComposer : Composer {
      */
     override val bufferDigits: Boolean get() = true
 
+    /** Reading space for learned picks: Cantonese romanisation, not Mandarin. */
+    private const val NAMESPACE = "jyutping"
+
     private const val LIMIT = 12
 
     /** Ranked depth for resolving a tap, so the expanded grid can be tapped too. */
@@ -47,8 +50,14 @@ object JyutpingComposer : Composer {
         return ranked(b).getOrNull(index)?.consumed ?: b.length
     }
 
+    override fun learnChoice(buffer: String, index: Int) {
+        val cand = ranked(buffer.lowercase()).getOrNull(index) ?: return
+        CjkLearning.learn(NAMESPACE, cand.reading, cand.text)
+    }
+
+
     /** A candidate word and the number of input chars (tone digits included) it covers. */
-    private data class Cand(val text: String, val consumed: Int)
+    private data class Cand(val text: String, val consumed: Int, val reading: String)
 
     /**
      * Candidates for [buffer], longest reading first so a whole phrase outranks
@@ -66,12 +75,13 @@ object JyutpingComposer : Composer {
         val segs = JyutpingSyllables.segment(buffer)
         if (segs.isEmpty()) {
             return dict.candidates(buffer, LOOKUP_LIMIT)
-                .map { Cand(HanVariant.toTraditional(it), buffer.length) }
+                .map { Cand(HanVariant.toTraditional(it), buffer.length, buffer) }
         }
         val input = Lattice.input(segs.map { it.syllable }, segs.map { it.inputLen })
-        return Lattice.decode(input, dict, CjkDictionaries.ngrams, Lattice.Opts(limit = LOOKUP_LIMIT))
-            .map { Cand(HanVariant.toTraditional(it.text), it.consumed) }
+        val decoded = Lattice.decode(input, dict, CjkDictionaries.ngrams, Lattice.Opts(limit = LOOKUP_LIMIT))
+            .map { Cand(HanVariant.toTraditional(it.text), it.consumed, it.reading) }
             .distinctBy { it.text }
+        return CjkLearning.rank(NAMESPACE, decoded, { it.text }, { it.reading })
     }
 
     private val cache = RankCache<List<Cand>>()

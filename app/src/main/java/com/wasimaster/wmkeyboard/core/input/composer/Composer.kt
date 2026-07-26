@@ -121,6 +121,17 @@ interface Composer {
     fun consumedForIndex(buffer: String, index: Int): Int =
         consumedFor(buffer, candidates(buffer).getOrElse(index) { "" })
 
+    /**
+     * Records that the candidate at [index] was the one the user wanted, so the
+     * same reading offers it first from now on ([CjkLearning]).
+     *
+     * The composer does this rather than the service because only it knows which
+     * *reading* the pick covered — a commit consumes a prefix of the buffer, and
+     * that prefix is the key worth learning, not the whole thing — and which
+     * reading space it belongs to. A no-op for everything that does not convert.
+     */
+    fun learnChoice(buffer: String, index: Int) = Unit
+
     /** A transliterator's buffer (roman, or jamo) rendered as script text. */
     fun composeBuffer(buffer: String): String = buffer
 

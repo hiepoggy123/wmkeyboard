@@ -199,6 +199,8 @@ import com.wasimaster.wmkeyboard.core.input.composer.CjkDictionaries
 import com.wasimaster.wmkeyboard.core.input.composer.HanVariant
 import com.wasimaster.wmkeyboard.core.input.composer.Kana
 import com.wasimaster.wmkeyboard.core.input.composer.CjkDictStore
+import com.wasimaster.wmkeyboard.core.input.composer.CjkLearning
+import com.wasimaster.wmkeyboard.core.input.composer.CjkUserHistory
 import com.wasimaster.wmkeyboard.core.input.composer.JyutpingSyllables
 import com.wasimaster.wmkeyboard.core.input.composer.PinyinSyllables
 import com.wasimaster.wmkeyboard.core.input.composer.T9Pinyin
@@ -833,6 +835,8 @@ open class WMKeyboardService : InputMethodService() {
         // Decode the synthesized key sounds up front so the first press plays.
         KeySoundPlayer.warmUp(this)
         userLexicon = UserLexicon(File(filesDir, "learning/user_lexicon.json"))
+        // Its own file, so clearing one store never silently clears the other.
+        CjkLearning.store = CjkUserHistory(File(filesDir, "learning/cjk_history.json"))
         languageMixConfidence = LanguageMixConfidence(File(filesDir, "learning/language_mix.json"))
         emojiUsage = EmojiUsage(File(filesDir, "learning/emoji_usage.json"))
         clipboardStore = ClipboardStore(
@@ -971,6 +975,10 @@ open class WMKeyboardService : InputMethodService() {
                 CjkConfig.fuzzyPinyin = settings.cjk.pinyinFuzzy
                 CjkConfig.doublePinyin = settings.cjk.pinyinDoublePinyin
                 CjkConfig.traditionalOutput = settings.cjk.traditionalOutput
+                // The settings half of the learning gate; the per-field half
+                // (incognito, fields that forbid typing intelligence) is checked
+                // at the commit itself, where the field is known.
+                CjkLearning.enabled = settings.learnFromTyping
                 // Only English drives the bundled English word list; every other
                 // language (with no bundled dictionary) drops it so autocorrect
                 // and completions never offer English for their words. Bengali
@@ -1794,6 +1802,7 @@ open class WMKeyboardService : InputMethodService() {
         // user types in next.
         fieldLayoutOverride = null
         userLexicon.save()
+        CjkLearning.store?.save()
         languageMixConfidence.save()
         emojiUsage.save()
         if (_uiState.value.settings.flashlightAutoOff && _uiState.value.torchOn) {
@@ -1809,6 +1818,7 @@ open class WMKeyboardService : InputMethodService() {
                 .unregisterTorchCallback(torchCallback)
         }
         userLexicon.save()
+        CjkLearning.store?.save()
         emojiUsage.save()
         clipboardStore.save()
         voiceEngine.cancel()
@@ -3307,6 +3317,12 @@ open class WMKeyboardService : InputMethodService() {
         } else {
             composer.consumedFor(buf, chosen)
         }.coerceIn(1, buf.length)
+        // Only a real pick from the strip or grid, and never the raw-reading
+        // fallback: index is -1 there, and there is nothing to learn from a
+        // reading the dictionary could not convert. Not hooked into
+        // flushConversion either — that auto-commits whatever already ranked
+        // first, so learning it would only entrench the existing order.
+        if (index >= 0 && learningAllowed) composer.learnChoice(buf, index)
         ic.commitText(chosen, 1)
         composing.delete(0, consumed)
         consumeShift()
@@ -3453,15 +3469,25 @@ open class WMKeyboardService : InputMethodService() {
      * Multi-word commits ("of the" from a split suggestion) learn each
      * word and the bigrams linking them.
      */
+    /**
+     * Whether anything the user types may be remembered: the setting, incognito,
+     * and whether the field allows typing intelligence at all. Shared by the
+     * Latin lexicon and the CJK pick history so the two go quiet together.
+     */
+    private val learningAllowed: Boolean
+        get() {
+            val state = _uiState.value
+            return state.settings.learnFromTyping &&
+                !(state.incognitoOn && state.settings.incognitoPausesLearning) &&
+                state.allowsTypingIntelligence
+        }
+
     private fun learn(word: String, reinforcement: Int = 1) {
-        val state = _uiState.value
-        if (!state.settings.learnFromTyping ||
-            (state.incognitoOn && state.settings.incognitoPausesLearning) ||
-            !state.allowsTypingIntelligence
-        ) {
+        if (!learningAllowed) {
             previousWord = word
             return
         }
+        val state = _uiState.value
         var previous = previousWord
         var lastLearned: String? = null
         for (part in word.split(' ')) {

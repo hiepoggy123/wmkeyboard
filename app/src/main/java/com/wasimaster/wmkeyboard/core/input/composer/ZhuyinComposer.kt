@@ -18,6 +18,9 @@ object ZhuyinComposer : Composer {
     override val isTransliterating: Boolean get() = true
     override val isConversion: Boolean get() = true
 
+    /** Reading space for learned picks: bopomofo is its own notation. */
+    private const val NAMESPACE = "zhuyin"
+
     private const val LIMIT = 12
 
     /** Ranked depth for resolving a tap, so the expanded grid can be tapped too. */
@@ -34,11 +37,17 @@ object ZhuyinComposer : Composer {
     override fun consumedForIndex(buffer: String, index: Int): Int =
         ranked(buffer).getOrNull(index)?.consumed ?: buffer.length
 
+    override fun learnChoice(buffer: String, index: Int) {
+        val cand = ranked(buffer).getOrNull(index) ?: return
+        CjkLearning.learn(NAMESPACE, cand.reading, cand.text)
+    }
+
+
     override fun consumedFor(buffer: String, chosen: String): Int =
         ranked(buffer).firstOrNull { it.text == chosen }?.consumed ?: buffer.length
 
-    /** A candidate and the number of bopomofo chars (tone marks included) it covers. */
-    private data class Cand(val text: String, val consumed: Int)
+    /** A candidate, the bopomofo chars (tone marks included) it covers, and its reading. */
+    private data class Cand(val text: String, val consumed: Int, val reading: String)
 
     /**
      * Candidates for [buffer], longest reading first so a whole phrase outranks
@@ -58,9 +67,10 @@ object ZhuyinComposer : Composer {
         // Bopomofo is a second spelling of the same Mandarin syllables, so the
         // decoder sees the pinyin reading and the pack needs no Zhuyin of its own.
         val input = Lattice.input(segs.map { it.pinyin }, segs.map { it.inputLen })
-        return Lattice.decode(input, CjkDictionaries.pinyin, CjkDictionaries.ngrams, Lattice.Opts(limit = LOOKUP_LIMIT))
-            .map { Cand(HanVariant.toTraditional(it.text), it.consumed) }
+        val decoded = Lattice.decode(input, CjkDictionaries.pinyin, CjkDictionaries.ngrams, Lattice.Opts(limit = LOOKUP_LIMIT))
+            .map { Cand(HanVariant.toTraditional(it.text), it.consumed, it.reading) }
             .distinctBy { it.text }
+        return CjkLearning.rank(NAMESPACE, decoded, { it.text }, { it.reading })
     }
 
     private val cache = RankCache<List<Cand>>()
