@@ -125,9 +125,16 @@ class WhisperCatalogTest {
     }
 
     @Test
-    fun `catalog stops at small — medium and large are too big for a phone`() {
-        assertEquals(listOf("Tiny", "Base", "Small"), WhisperSize.entries.map { it.label })
-        assertTrue(WhisperCatalog.models.none { it.sizeBytes > 400_000_000L })
+    fun `every size class is represented and none is recommended past small`() {
+        val sizes = WhisperCatalog.models.mapTo(mutableSetOf()) { it.size }
+        assertEquals(WhisperSize.entries.toSet(), sizes)
+        // Medium and Large are offered but never steered towards: they are
+        // 0.8-1.6 GB downloads needing comparable RAM.
+        assertTrue(
+            WhisperCatalog.models
+                .filter { it.size > WhisperSize.SMALL }
+                .none { it.tier == WhisperTier.RECOMMENDED },
+        )
     }
 
     @Test
@@ -166,7 +173,10 @@ class WhisperCatalogTest {
     @Test
     fun `ranking a language no graph covers leaves only the all-language models`() {
         val ids = WhisperCatalog.rankedFor("bn").map { it.id }
-        assertEquals(listOf("small-multi", "base-multi", "tiny-multi"), ids)
+        assertEquals(
+            listOf("large-multi", "medium-multi", "small-multi", "base-multi", "tiny-multi"),
+            ids,
+        )
     }
 
     @Test
@@ -176,7 +186,7 @@ class WhisperCatalogTest {
             WhisperCatalog.singleLanguageFor("ur").map { it.id },
         )
         assertEquals(
-            listOf("tiny-en", "base-en", "small-en"),
+            listOf("tiny-en", "base-en", "small-en", "medium-en"),
             WhisperCatalog.singleLanguageFor("en").map { it.id },
         )
         assertTrue(WhisperCatalog.singleLanguageFor("bn").isEmpty())

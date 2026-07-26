@@ -495,10 +495,11 @@ private fun WhisperBrowseSection(
         }
     }
     CaptionText(
-        "Sizes go Tiny → Base → Small: bigger is more accurate but slower to " +
-            "download and to transcribe. A model built for one language beats a " +
-            "multi-language model of the same size at that language. Single-language " +
-            "models appear here once you enable the language on the Languages screen.",
+        "Sizes go Tiny → Large: bigger is more accurate but slower to download and " +
+            "to transcribe, and Medium and Large need close to a gigabyte of memory " +
+            "while they run. A model built for one language beats a multi-language " +
+            "model of the same size at that language. Single-language models appear " +
+            "here once you enable the language on the Languages screen.",
     )
 }
 

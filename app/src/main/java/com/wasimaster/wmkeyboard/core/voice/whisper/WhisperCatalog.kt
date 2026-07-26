@@ -10,15 +10,13 @@ enum class WhisperTier(val badge: String?) {
     STANDARD(null),
 }
 
-/**
- * Size class of a Whisper graph, ordered smallest to largest. Drives grouping
- * and filters. Medium and Large are deliberately absent: they are 0.8–1.6 GB
- * downloads that need about as much RAM to run, which is not a keyboard.
- */
+/** Size class of a Whisper graph, ordered smallest to largest. Drives grouping and filters. */
 enum class WhisperSize(val label: String) {
     TINY("Tiny"),
     BASE("Base"),
     SMALL("Small"),
+    MEDIUM("Medium"),
+    LARGE("Large"),
 }
 
 /**
@@ -110,9 +108,7 @@ data class WhisperModel(
  * Not included on purpose: `whisper-large-v3` and `whisper-turbo` need a
  * 128-bin mel spectrogram, and both [WhisperMel] and the shipped
  * `filters_vocab_*.bin` filterbanks are 80-bin, so they would decode garbage;
- * `whisper-small.tflite` forces no task and duplicates [small-multi]; Medium and
- * Large (multilingual and `.en`) exist upstream but are 0.8–1.6 GB and need
- * comparable RAM, so no phone should be offered them.
+ * `whisper-small.tflite` forces no task and duplicates [small-multi].
  *
  * Order is a suggested-pick ranking, not a size ranking — the settings list
  * renders in catalog order, so the balanced default sits first.
@@ -247,9 +243,41 @@ object WhisperCatalog {
                 vocabBytes = VOCAB_MULTI_BYTES,
                 supportsTranslate = true,
                 tier = WhisperTier.RECOMMENDED,
-                description = "The best accuracy that still runs on a phone — noticeably " +
-                    "better on accents and background noise than Base, and covers every " +
-                    "language Whisper knows.",
+                description = "The best accuracy that still runs comfortably on a phone — " +
+                    "noticeably better on accents and background noise than Base, and " +
+                    "covers every language Whisper knows.",
+            ),
+        )
+        add(
+            WhisperModel(
+                id = "medium-multi",
+                displayName = "Whisper Medium",
+                size = WhisperSize.MEDIUM,
+                repo = REPO_NYADLA,
+                modelFile = "whisper-medium-transcribe-translate.tflite",
+                vocabFile = VOCAB_MULTI,
+                modelBytes = 775_637_984L,
+                vocabBytes = VOCAB_MULTI_BYTES,
+                supportsTranslate = true,
+                tier = WhisperTier.STANDARD,
+                description = "Near-desktop accuracy. Expect several seconds per phrase and " +
+                    "close to a gigabyte of RAM while it runs.",
+            ),
+        )
+        add(
+            WhisperModel(
+                id = "large-multi",
+                displayName = "Whisper Large",
+                size = WhisperSize.LARGE,
+                repo = REPO_NYADLA,
+                modelFile = "whisper-large-transcribe-translate.tflite",
+                vocabFile = VOCAB_MULTI,
+                modelBytes = 1_559_228_864L,
+                vocabBytes = VOCAB_MULTI_BYTES,
+                supportsTranslate = true,
+                tier = WhisperTier.STANDARD,
+                description = "The most accurate Whisper graph there is, and far too big for " +
+                    "most phones — a 1.5 GB download that only high-memory devices can load.",
             ),
         )
 
@@ -259,6 +287,7 @@ object WhisperCatalog {
                 Single("tiny-en", WhisperSize.TINY, "whisper-tiny.en.tflite", "en", REPO, 41_486_616L),
                 Single("base-en", WhisperSize.BASE, "whisper-base.en.tflite", "en", REPO_NYADLA, 77_642_600L),
                 Single("small-en", WhisperSize.SMALL, "whisper-small.en.tflite", "en", REPO_NYADLA, 247_048_280L),
+                Single("medium-en", WhisperSize.MEDIUM, "whisper-medium.en.tflite", "en", REPO_NYADLA, 772_442_720L),
                 Single("base-de", WhisperSize.BASE, "whisper-base.de.tflite", "de", REPO, 78_448_496L),
                 Single("base-es", WhisperSize.BASE, "whisper-base.es.tflite", "es", REPO, 78_448_496L),
                 Single("small-es", WhisperSize.SMALL, "whisper-small.es.tflite", "es", REPO_NYADLA, 247_025_152L),
