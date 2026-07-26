@@ -1096,6 +1096,7 @@ open class WMKeyboardService : InputMethodService() {
                 onEmojiRecentRemove = ::onEmojiRecentRemoved,
                 onEmojiFavouritesReorder = ::onEmojiFavouritesReordered,
                 onEmojiSearchFieldDelete = ::onEmojiSearchFieldDelete,
+                onTextArt = ::onTextArtTapped,
                 onTextEdit = ::onTextEdit,
                 onPanelChange = ::onPanelChange,
                 onClipboardItem = ::onClipboardItemTapped,
@@ -6966,6 +6967,31 @@ open class WMKeyboardService : InputMethodService() {
                 emojiQuery = if (closeAfter) "" else it.emojiQuery,
                 emojiResults = if (closeAfter) emptyList() else it.emojiResults,
             )
+        }
+    }
+
+    /**
+     * A kaomoji or emoticon tapped in the emoji panel's text-art tabs.
+     *
+     * Committed as plain text and deliberately kept out of the emoji history
+     * and the bigram lexicon: "(╯°□°）╯︵ ┻━┻" is not an emoji, and both the
+     * recents grid and the emoji row size their cells for a single glyph.
+     */
+    fun onTextArtTapped(art: String) {
+        vibrate()
+        currentInputConnection?.commitText(art, 1)
+        // Same "return to keyboard after emoji" courtesy as a real emoji tap.
+        if (_uiState.value.settings.emoji.closeAfterInsert &&
+            _uiState.value.panel == PanelMode.EMOJI
+        ) {
+            _uiState.update {
+                it.copy(
+                    panel = PanelMode.NONE,
+                    emojiSearchActive = false,
+                    emojiQuery = "",
+                    emojiResults = emptyList(),
+                )
+            }
         }
     }
 

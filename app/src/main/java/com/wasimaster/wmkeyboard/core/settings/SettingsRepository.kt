@@ -1305,6 +1305,12 @@ data class EmojiSettings(
      * are only reachable with [barScrollable] on. See [EmojiBarCountRange].
      */
     val barCount: Int = 8,
+    /**
+     * Add Kaomoji ( ͡° ͜ʖ ͡°) and Emoticons :-) tabs to the end of the emoji
+     * panel's tab strip. Off by default — they push the tab strip narrower,
+     * and most users never reach for them.
+     */
+    val kaomojiTabs: Boolean = false,
 )
 
 /** Bounds for [EmojiSettings.barCount]; the settings slider shares them. */
@@ -1740,6 +1746,7 @@ class SettingsRepository(private val context: Context) {
         private val EMOJI_HIDE_UNRENDERABLE = booleanPreferencesKey("emoji_hide_unrenderable")
         private val EMOJI_BAR_SCROLLABLE = booleanPreferencesKey("emoji_bar_scrollable")
         private val EMOJI_BAR_COUNT = intPreferencesKey("emoji_bar_count")
+        private val EMOJI_KAOMOJI_TABS = booleanPreferencesKey("emoji_kaomoji_tabs")
         // Stored as the DISABLED set so tools added in future versions
         // default to enabled even for users who already toggled some off.
         private val DISABLED_TOOLS = stringPreferencesKey("disabled_tools")
@@ -2177,6 +2184,7 @@ class SettingsRepository(private val context: Context) {
                 barScrollable = p[EMOJI_BAR_SCROLLABLE] ?: defaults.emoji.barScrollable,
                 barCount = p[EMOJI_BAR_COUNT]?.coerceIn(EmojiBarCountRange)
                     ?: defaults.emoji.barCount,
+                kaomojiTabs = p[EMOJI_KAOMOJI_TABS] ?: defaults.emoji.kaomojiTabs,
             ),
             enabledTools = ToolbarTool.entries - decodeDisabledTools(p[DISABLED_TOOLS]),
             toolboxOrder = decodeToolOrder(p[TOOLBOX_ORDER]),
@@ -3716,6 +3724,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setHideUnrenderableEmoji(value: Boolean) =
         context.dataStore.edit { it[EMOJI_HIDE_UNRENDERABLE] = value }
+
+    suspend fun setEmojiKaomojiTabs(value: Boolean) =
+        context.dataStore.edit { it[EMOJI_KAOMOJI_TABS] = value }
 
     suspend fun setIncognito(value: Boolean) =
         context.dataStore.edit { it[INCOGNITO] = value }

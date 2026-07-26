@@ -155,6 +155,7 @@ private val SettingRows: List<SettingsSearchEntry> = listOfNotNull(
     entry("Emoji suggestion tap", "What happens to the word you typed", "Emoji", "emoji"),
     entry("History tab", "What the first emoji-panel tab shows", "Emoji", "emoji"),
     entry("Clear recents button", "A button on the Recent tab to wipe the recents list", "Emoji", "emoji"),
+    entry("Kaomoji and Emoticons", "Two extra tabs: ¯\\_(ツ)_/¯ and :-)", "Emoji", "emoji"),
     entry("Emoji descriptions", "Name the emoji at the top of its long-press popup", "Emoji", "emoji"),
     entry("Emoji row", "A dedicated row of your emojis, like Gboard", "Emoji", "emoji"),
     entry("Emoji row content", "Favourites always come first", "Emoji", "emoji"),

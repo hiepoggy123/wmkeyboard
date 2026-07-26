@@ -58,6 +58,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items as lazyRowItems
@@ -282,6 +283,7 @@ import com.wasimaster.wmkeyboard.core.clipboard.ClipLinks
 import com.wasimaster.wmkeyboard.core.clipboard.matchesQuery
 import com.wasimaster.wmkeyboard.core.emoji.EmojiNames
 import com.wasimaster.wmkeyboard.core.emoji.EmojiVariantIndex
+import com.wasimaster.wmkeyboard.core.emoji.TextArt
 import com.wasimaster.wmkeyboard.core.gesture.GesturePoint
 import com.wasimaster.wmkeyboard.core.theme.brush
 import com.wasimaster.wmkeyboard.core.ui.toolAccentColor
@@ -565,6 +567,8 @@ fun KeyboardScreen(
     onEmojiRecentRemove: (String) -> Unit = {},
     onEmojiFavouritesReorder: (List<String>) -> Unit = {},
     onEmojiSearchFieldDelete: () -> Unit = {},
+    /** A kaomoji or emoticon tapped in the emoji panel's text-art tabs. */
+    onTextArt: (String) -> Unit = {},
     onTextEdit: (TextEditAction) -> Unit = {},
     onPanelChange: (PanelMode) -> Unit,
     onClipboardItem: (ClipItem) -> Unit,
@@ -803,6 +807,7 @@ fun KeyboardScreen(
                 onEmojiRecentRemove = onEmojiRecentRemove,
                 onEmojiFavouritesReorder = onEmojiFavouritesReorder,
                 onEmojiSearchFieldDelete = onEmojiSearchFieldDelete,
+                onTextArt = onTextArt,
                 onTextEdit = onTextEdit,
                 onPanelChange = onPanelChange,
                 onClipboardItem = onClipboardItem,
@@ -3879,6 +3884,7 @@ private fun KeyboardBody(
     onEmojiRecentRemove: (String) -> Unit,
     onEmojiFavouritesReorder: (List<String>) -> Unit,
     onEmojiSearchFieldDelete: () -> Unit,
+    onTextArt: (String) -> Unit,
     onTextEdit: (TextEditAction) -> Unit,
     onPanelChange: (PanelMode) -> Unit,
     onClipboardItem: (ClipItem) -> Unit,
@@ -4068,6 +4074,7 @@ private fun KeyboardBody(
                     onRecentRemove = onEmojiRecentRemove,
                     onFavouritesReorder = onEmojiFavouritesReorder,
                     onSearchFieldDelete = onEmojiSearchFieldDelete,
+                    onTextArt = onTextArt,
                     onKey = onKey,
                     // Toggling the open panel closes it — back to the keys.
                     onClose = { onPanelChange(PanelMode.EMOJI) },
@@ -6771,6 +6778,21 @@ private fun Modifier.pointerInputKey(
 /** Sentinel tab id for the history tab; ★ avoids clashing with catalog categories. */
 private const val RECENT_TAB = "★recent"
 
+/** Sentinel tab ids for the two optional text-art tabs. See [TextArt]. */
+private const val KAOMOJI_TAB = "★kaomoji"
+private const val EMOTICON_TAB = "★emoticon"
+
+/**
+ * Tab-strip label for the text-art tabs. They get a glyph instead of an icon:
+ * two more smiley icons next to the existing ones would be indistinguishable,
+ * and the glyph says exactly what the tab holds.
+ */
+private fun textArtTabLabel(tab: String): String? = when (tab) {
+    KAOMOJI_TAB -> "^_^"
+    EMOTICON_TAB -> ":)"
+    else -> null
+}
+
 /** Category → tab icon; falls back to the smiley for unknown categories. */
 private fun emojiTabIcon(tab: String): ImageVector = when (tab) {
     RECENT_TAB -> Icons.Outlined.Schedule
@@ -6789,7 +6811,8 @@ private fun emojiTabIcon(tab: String): ImageVector = when (tab) {
 
 /**
  * One compact emoji tab: a 20dp icon over a 2dp selection bar, in a plain
- * weighted cell so search + every category share the row evenly.
+ * weighted cell so search + every category share the row evenly. [label]
+ * substitutes a short glyph for the icon (the text-art tabs use it).
  */
 @Composable
 private fun RowScope.EmojiTab(
@@ -6797,6 +6820,7 @@ private fun RowScope.EmojiTab(
     description: String,
     selected: Boolean,
     onClick: () -> Unit,
+    label: String? = null,
 ) {
     Column(
         modifier = Modifier
@@ -6806,13 +6830,29 @@ private fun RowScope.EmojiTab(
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
-            Icon(
-                icon,
-                contentDescription = description,
-                modifier = Modifier.size(20.dp),
-                tint = if (selected) MaterialTheme.colorScheme.onSurface
-                else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-            )
+            val tint = if (selected) MaterialTheme.colorScheme.onSurface
+            else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+            if (label != null) {
+                Text(
+                    text = label,
+                    // Never wraps: the cell is one tab wide and a broken
+                    // "^_^" would read as a rendering bug, not a label.
+                    maxLines = 1,
+                    softWrap = false,
+                    // Smaller than the 20dp icons it sits beside: with a dozen
+                    // categories every tab cell is barely 28dp wide.
+                    fontSize = 11.sp,
+                    color = tint,
+                    modifier = Modifier.semantics { contentDescription = description },
+                )
+            } else {
+                Icon(
+                    icon,
+                    contentDescription = description,
+                    modifier = Modifier.size(20.dp),
+                    tint = tint,
+                )
+            }
         }
         Box(
             modifier = Modifier
@@ -6931,6 +6971,7 @@ private fun EmojiPanel(
     onRecentRemove: (String) -> Unit,
     onFavouritesReorder: (List<String>) -> Unit,
     onSearchFieldDelete: () -> Unit,
+    onTextArt: (String) -> Unit,
     onKey: (Key) -> Unit,
     onClose: () -> Unit,
 ) {
@@ -6970,10 +7011,18 @@ private fun EmojiPanel(
         state.emojiCatalog.map { it.category }.distinct()
     }
     val hasHistory = history.isNotEmpty()
-    val tabs = remember(categories, hasHistory) {
+    // Kaomoji and emoticons sit after the Unicode categories: opt-in extras,
+    // and appending them leaves every existing tab where muscle memory
+    // expects it.
+    val textArtTabs = state.settings.emoji.kaomojiTabs
+    val tabs = remember(categories, hasHistory, textArtTabs) {
         buildList {
             if (hasHistory) add(RECENT_TAB)
             addAll(categories)
+            if (textArtTabs) {
+                add(KAOMOJI_TAB)
+                add(EMOTICON_TAB)
+            }
         }
     }
     val scope = rememberCoroutineScope()
@@ -7000,11 +7049,14 @@ private fun EmojiPanel(
                 } else {
                     emojiTabIcon(tab)
                 },
-                description = when {
-                    tab != RECENT_TAB -> tab.replaceFirstChar { it.uppercase() }
-                    historyMode == EmojiTabMode.MOST_USED -> "Most used"
-                    else -> "Recent"
+                description = when (tab) {
+                    KAOMOJI_TAB -> "Kaomoji"
+                    EMOTICON_TAB -> "Emoticons"
+                    RECENT_TAB ->
+                        if (historyMode == EmojiTabMode.MOST_USED) "Most used" else "Recent"
+                    else -> tab.replaceFirstChar { it.uppercase() }
                 },
+                label = textArtTabLabel(tab),
                 selected = tab == selectedTab,
                 onClick = {
                     // Tapping a tab slides there too, matching the swipe;
@@ -7131,7 +7183,9 @@ private fun EmojiPanel(
                 key = { tabs[it] },
             ) { page ->
                 val tab = tabs[page]
-                if (tab == RECENT_TAB) {
+                if (tab == KAOMOJI_TAB || tab == EMOTICON_TAB) {
+                    TextArtGrid(kaomoji = tab == KAOMOJI_TAB, onTap = onTextArt)
+                } else if (tab == RECENT_TAB) {
                     Column(modifier = Modifier.fillMaxSize()) {
                         // Kept inside the page so the pager height stays fixed
                         // across a swipe — a row that appeared or vanished
@@ -7237,6 +7291,89 @@ private fun EmojiPanel(
                 onFavouritesReorder(it)
             },
             onDismiss = { reorderOpen = false },
+        )
+    }
+}
+
+/**
+ * A text-art tab's grid — kaomoji when [kaomoji], Western emoticons
+ * otherwise. Grouped by mood behind full-width headers, because a flat 200-
+ * entry wall of faces is unskimmable.
+ *
+ * Kaomoji get much wider cells than emoticons: ":-)" is three characters and
+ * "(╯°□°）╯︵ ┻━┻" is thirteen, so one column width for both would either
+ * waste most of the row or squeeze the long ones to nothing.
+ */
+@Composable
+private fun TextArtGrid(kaomoji: Boolean, onTap: (String) -> Unit) {
+    val groups = if (kaomoji) TextArt.kaomoji else TextArt.emoticons
+    LazyVerticalGrid(
+        columns = GridCells.Adaptive(minSize = if (kaomoji) 132.dp else 64.dp),
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 4.dp),
+    ) {
+        groups.forEach { group ->
+            item(key = "§${group.name}", span = { GridItemSpan(maxLineSpan) }) {
+                Text(
+                    text = group.name,
+                    modifier = Modifier.padding(start = 4.dp, top = 8.dp, bottom = 2.dp),
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                )
+            }
+            // Keyed by group + entry: a handful of faces appear in more than
+            // one mood, and a bare entry key would collide across groups.
+            items(group.items, key = { "${group.name} $it" }) { art ->
+                TextArtCell(art = art, onTap = onTap)
+            }
+        }
+    }
+}
+
+/**
+ * One text-art cell: a key-coloured chip whose glyph shrinks until it fits on
+ * a single line. Wrapping or ellipsizing are both wrong here — half a kaomoji
+ * is unrecognisable, and the user is picking by shape, not by name.
+ */
+@Composable
+private fun TextArtCell(art: String, onTap: (String) -> Unit) {
+    val kb = LocalKbTheme.current
+    val feedback = LocalKeyPressFeedback.current
+    // Reset per entry: cells are recycled across scroll positions, so a size
+    // shrunk to fit a long kaomoji would otherwise stick to a short one.
+    var fontSize by remember(art) { mutableStateOf(15.sp) }
+    var settled by remember(art) { mutableStateOf(false) }
+    Box(
+        modifier = Modifier
+            .padding(3.dp)
+            .fillMaxWidth()
+            .height(38.dp)
+            .background(kb.key, kb.keyShape())
+            .clickable {
+                feedback()
+                onTap(art)
+            },
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = art,
+            modifier = Modifier
+                .padding(horizontal = 4.dp)
+                // Hidden until the shrink loop settles: the first frame is
+                // laid out at full size and would visibly overflow the chip.
+                .graphicsLayer { alpha = if (settled) 1f else 0f },
+            maxLines = 1,
+            softWrap = false,
+            fontSize = fontSize,
+            color = kb.keyText,
+            onTextLayout = { result ->
+                if (result.hasVisualOverflow && fontSize.value > 8f) {
+                    fontSize = (fontSize.value * 0.88f).sp
+                } else {
+                    settled = true
+                }
+            },
         )
     }
 }

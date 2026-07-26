@@ -3141,6 +3141,17 @@ private fun EmojiSettings(repository: SettingsRepository, settings: KeyboardSett
         }
         item {
             ToggleSetting(
+                "Kaomoji and Emoticons",
+                "Two extra tabs: ¯\\_(ツ)_/¯ and :-)",
+                settings.emoji.kaomojiTabs,
+                info = "Adds a Kaomoji tab (Japanese-style faces like (╯°□°）╯︵ ┻━┻) and an " +
+                    "Emoticons tab (Western ASCII ones like :-D and <3) to the end of the " +
+                    "emoji panel's tabs, each grouped by mood. Tapping one types it as plain " +
+                    "text — it isn't added to your emoji history.",
+            ) { scope.launch { repository.setEmojiKaomojiTabs(it) } }
+        }
+        item {
+            ToggleSetting(
                 "Emoji descriptions",
                 "Name the emoji at the top of its long-press popup",
                 settings.emojiLongPressName,
