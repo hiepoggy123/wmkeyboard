@@ -37,6 +37,9 @@ object StrokeComposer : Composer {
         for (c in buffer.lowercase()) TO_DIGIT[c]?.let { append(it) }
     }
 
+    /** The wildcard stroke is punctuation, so the buffer has to admit it by name. */
+    override fun buffersChar(c: Char): Boolean = TO_DIGIT[c] == '.'
+
     /** The composing region shows the stroke glyphs, not the raw letter keys. */
     override fun composeBuffer(buffer: String): String = buildString {
         for (c in normalize(buffer)) append(GLYPH[c] ?: c)

@@ -2244,6 +2244,7 @@ open class WMKeyboardService : InputMethodService() {
         // that rule would make the first key of every word commit as a number.
         val isWordChar = text.length == 1 && (
             text[0].isLetter() || text[0] == '\'' ||
+                state.composer.buffersChar(text[0]) ||
                 (
                     state.composer.bufferDigits && text[0].isDigit() &&
                         (composing.isNotEmpty() || state.composer.digitsStartBuffer)

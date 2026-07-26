@@ -60,6 +60,16 @@ interface Composer {
     val digitsStartBuffer: Boolean get() = false
 
     /**
+     * Whether [c] is a non-letter this composer still takes into its buffer. The
+     * buffer otherwise admits only letters, the apostrophe and (with
+     * [bufferDigits]) digits, which is exactly right for spelling-based methods
+     * — but 笔画 stroke input spells with `*`, its wildcard stroke. Without this
+     * the wildcard key commits whatever is composing and types a literal star
+     * instead of widening the search.
+     */
+    fun buffersChar(c: Char): Boolean = false
+
+    /**
      * A conversion IME (Chinese Pinyin, Japanese kana→kanji): the roman/kana
      * buffer maps to a *choice* of outputs shown in the suggestion strip, and the
      * user taps one to commit it — unlike a plain transliterator whose buffer has
