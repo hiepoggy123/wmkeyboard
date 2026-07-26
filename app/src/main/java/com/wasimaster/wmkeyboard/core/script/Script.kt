@@ -82,6 +82,9 @@ enum class ComposerType {
 
     /** Chinese: 速成 Quick — a character's first and last Cangjie radical only. */
     CANGJIE_QUICK,
+
+    /** Cantonese: 粵拼 Jyutping romanisation with optional tone digits 1-6. */
+    JYUTPING,
 }
 
 /**

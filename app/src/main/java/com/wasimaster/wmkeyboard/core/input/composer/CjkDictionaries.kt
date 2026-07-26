@@ -17,4 +17,7 @@ object CjkDictionaries {
 
     /** Radical-code → Hanzi table shared by Cangjie 倉頡 and Quick 速成. */
     @Volatile var cangjie: CodeTableDictionary = CodeTableDictionary.EMPTY
+
+    /** Cantonese Jyutping reading → Hanzi; a table of its own, not shared with pinyin. */
+    @Volatile var jyutping: ConversionDictionary = ConversionDictionary.EMPTY
 }

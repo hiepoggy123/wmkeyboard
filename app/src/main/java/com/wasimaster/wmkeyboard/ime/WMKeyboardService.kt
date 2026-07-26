@@ -198,6 +198,7 @@ import com.wasimaster.wmkeyboard.core.input.composer.CjkConfig
 import com.wasimaster.wmkeyboard.core.input.composer.CjkDictionaries
 import com.wasimaster.wmkeyboard.core.input.composer.Kana
 import com.wasimaster.wmkeyboard.core.input.composer.CjkDictStore
+import com.wasimaster.wmkeyboard.core.input.composer.JyutpingSyllables
 import com.wasimaster.wmkeyboard.core.input.composer.PinyinSyllables
 import com.wasimaster.wmkeyboard.core.input.composer.T9Pinyin
 import com.wasimaster.wmkeyboard.core.input.composer.ZhuyinSyllables
@@ -3345,6 +3346,9 @@ open class WMKeyboardService : InputMethodService() {
                     }.getOrNull()
                 }
                 ?: CodeTableDictionary.EMPTY
+            CjkDictionaries.jyutping = CjkDictStore.downloadedFileFor(filesDir, "jyutping")
+                ?.let { file -> runCatching { file.bufferedReader().useLines(ConversionDictionary::parse) }.getOrNull() }
+                ?: ConversionDictionary.EMPTY
             CjkDictionaries.cangjie = CjkDictStore.downloadedFileFor(filesDir, "cangjie")
                 ?.let { file ->
                     runCatching {
@@ -3365,6 +3369,14 @@ open class WMKeyboardService : InputMethodService() {
             // T9's digit-code index and Zhuyin's bopomofo table are both derived
             // from that inventory rather than loaded — the 9-key pad, the 注音 pad
             // and the full keyboard share one syllable set and one conversion pack.
+            // Cantonese has its own inventory: the readings share no syllable set
+            // with Mandarin, so it cannot be derived like the two above. Optional —
+            // absent, Jyutping segments nothing and commits the raw roman letters.
+            runCatching {
+                assets.open("dictionaries/jyutping_syllables.txt").bufferedReader().useLines {
+                    JyutpingSyllables.valid = JyutpingSyllables.parse(it)
+                }
+            }
             T9Pinyin.index = T9Pinyin.buildIndex(PinyinSyllables.valid)
             ZhuyinSyllables.table = ZhuyinSyllables.buildTable(PinyinSyllables.valid)
             loadedCjkPackToken = token

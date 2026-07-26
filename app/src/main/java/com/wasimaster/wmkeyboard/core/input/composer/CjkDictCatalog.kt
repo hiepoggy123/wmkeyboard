@@ -79,6 +79,16 @@ object CjkDictCatalog {
             sha256 = "",
             fileName = "cangjie.tsv",
         ),
+        CjkDictPack(
+            id = "jyutping",
+            langId = "yue",
+            displayName = "Cantonese Jyutping dictionary",
+            description = "Jyutping reading → Hanzi table. Required for Cantonese conversion.",
+            url = "",
+            sizeBytes = 0L,
+            sha256 = "",
+            fileName = "jyutping.tsv",
+        ),
     )
 
     init {
