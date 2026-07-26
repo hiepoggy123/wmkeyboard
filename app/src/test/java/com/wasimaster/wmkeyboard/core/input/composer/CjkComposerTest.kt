@@ -28,6 +28,7 @@ class CjkComposerTest {
         PinyinSyllables.valid = emptySet()
         T9Pinyin.index = emptyMap()
         ZhuyinSyllables.table = emptyMap()
+        CjkDictionaries.cangjie = CodeTableDictionary.EMPTY
         CjkConfig.fuzzyPinyin = false
         CjkConfig.doublePinyin = DoublePinyinScheme.OFF
     }
@@ -41,6 +42,8 @@ class CjkComposerTest {
         assertSame(StrokeComposer, composerFor(han, ComposerType.STROKE))
         assertSame(T9PinyinComposer, composerFor(han, ComposerType.T9_PINYIN))
         assertSame(ZhuyinComposer, composerFor(han, ComposerType.ZHUYIN))
+        assertSame(CangjieComposer, composerFor(han, ComposerType.CANGJIE))
+        assertSame(CangjieQuickComposer, composerFor(han, ComposerType.CANGJIE_QUICK))
     }
 
     @Test

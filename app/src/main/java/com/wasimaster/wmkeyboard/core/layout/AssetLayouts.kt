@@ -223,6 +223,8 @@ object AssetLayouts {
     const val ZH_PINYIN_ID = "asset_zh_pinyin"
     const val ZH_PINYIN_T9_ID = "asset_zh_pinyin_t9"
     const val ZH_ZHUYIN_ID = "asset_zh_zhuyin"
+    const val ZH_CANGJIE_ID = "asset_zh_cangjie"
+    const val ZH_CANGJIE_QUICK_ID = "asset_zh_cangjie_quick"
     const val ZH_STROKE_ID = "asset_zh_stroke"
 
     // --- Fancy Text: per-style Unicode "font" layouts (the 𝔣𝔞𝔫𝔠𝔶 𝕦𝕟𝕚𝕔𝕠𝕕𝕖

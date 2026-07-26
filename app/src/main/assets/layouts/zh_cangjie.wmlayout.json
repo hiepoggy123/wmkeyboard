@@ -1,0 +1,178 @@
+{
+  "format": "wmkeyboard-layout",
+  "version": 1,
+  "layout": {
+    "id": "asset_zh_cangjie",
+    "name": "中文 倉頡 (Chinese Cangjie)",
+    "langId": "zh",
+    "composer": "CANGJIE",
+    "version": 1,
+    "layers": {
+      "letters": {
+        "rows": [
+          [
+            {
+              "label": "手",
+              "output": "q"
+            },
+            {
+              "label": "田",
+              "output": "w"
+            },
+            {
+              "label": "水",
+              "output": "e"
+            },
+            {
+              "label": "口",
+              "output": "r"
+            },
+            {
+              "label": "廿",
+              "output": "t"
+            },
+            {
+              "label": "卜",
+              "output": "y"
+            },
+            {
+              "label": "山",
+              "output": "u"
+            },
+            {
+              "label": "戈",
+              "output": "i"
+            },
+            {
+              "label": "人",
+              "output": "o"
+            },
+            {
+              "label": "心",
+              "output": "p"
+            }
+          ],
+          [
+            {
+              "label": "日",
+              "output": "a"
+            },
+            {
+              "label": "尸",
+              "output": "s"
+            },
+            {
+              "label": "木",
+              "output": "d"
+            },
+            {
+              "label": "火",
+              "output": "f"
+            },
+            {
+              "label": "土",
+              "output": "g"
+            },
+            {
+              "label": "竹",
+              "output": "h"
+            },
+            {
+              "label": "十",
+              "output": "j"
+            },
+            {
+              "label": "大",
+              "output": "k"
+            },
+            {
+              "label": "中",
+              "output": "l"
+            }
+          ],
+          [
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              },
+              "width": 2
+            },
+            {
+              "label": "難",
+              "output": "x"
+            },
+            {
+              "label": "金",
+              "output": "c"
+            },
+            {
+              "label": "女",
+              "output": "v"
+            },
+            {
+              "label": "月",
+              "output": "b"
+            },
+            {
+              "label": "弓",
+              "output": "n"
+            },
+            {
+              "label": "一",
+              "output": "m"
+            },
+            {
+              "label": "，",
+              "longPress": [
+                "！",
+                "？",
+                "、"
+              ],
+              "role": "Comma",
+              "width": 2
+            }
+          ],
+          [
+            {
+              "label": "?123",
+              "action": {
+                "type": "symbols"
+              },
+              "width": 2
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 4
+            },
+            {
+              "label": "。",
+              "longPress": [
+                "…",
+                "：",
+                "；"
+              ],
+              "role": "Period"
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 2
+            }
+          ]
+        ]
+      }
+    }
+  }
+}

@@ -18,7 +18,10 @@ class CjkDictPackTest {
     fun `catalog maps packs to their language and is unavailable until hosted`() {
         val pinyin = CjkDictCatalog.byId("pinyin")!!
         assertEquals("zh", pinyin.langId)
-        assertEquals(listOf("pinyin", "stroke"), CjkDictCatalog.forLang("zh").map { it.id })
+        assertEquals(
+            listOf("pinyin", "stroke", "cangjie"),
+            CjkDictCatalog.forLang("zh").map { it.id },
+        )
         assertEquals(listOf("ja_kana"), CjkDictCatalog.forLang("ja").map { it.id })
         assertEquals(emptyList<CjkDictPack>(), CjkDictCatalog.forLang("en"))
         // The shipped packs are hosted (url + checksum present).
@@ -26,6 +29,9 @@ class CjkDictPackTest {
         // A pack is unavailable if either the URL or the checksum is missing.
         assertFalse(pinyin.copy(url = "").available)
         assertFalse(pinyin.copy(sha256 = "").available)
+        // Cangjie is registered but not yet hosted, so its row reads as unavailable
+        // rather than offering a download that cannot succeed.
+        assertFalse(CjkDictCatalog.byId("cangjie")!!.available)
     }
 
     @Test

@@ -132,6 +132,26 @@ class AssetLayoutsTest {
     }
 
     @Test
+    fun `the cangjie layouts carry all 25 radicals and type their letters`() {
+        for (name in listOf("zh_cangjie", "zh_cangjie_quick")) {
+            val file = layoutFiles.first { it.name == "$name.${LayoutFile.FILE_EXTENSION}" }
+            val keys = LayoutFile.decode(file.readText())!!.layout
+                .layers.values.flatMap { it.rows.flatten() }
+                .filter { it.action == KeyAction.Text && it.output != null }
+            // Cangjie's alphabet is a-y: 25 radicals, no z. A missing one makes
+            // every character spelled with it untypeable.
+            assertEquals(
+                "$name does not cover a-y",
+                ('a'..'y').map { it.toString() },
+                keys.mapNotNull { it.output }.filter { it.length == 1 }.sorted(),
+            )
+            // The key shows the radical but types the letter.
+            assertEquals("$name: a should be 日", "日", keys.first { it.output == "a" }.label)
+            assertEquals("$name: y should be 卜", "卜", keys.first { it.output == "y" }.label)
+        }
+    }
+
+    @Test
     fun `asset layout ids are unique and never shadow a built-in`() {
         val builtInIds = BuiltInLayouts.all.mapTo(HashSet()) { it.id }
         val seen = mutableSetOf<String>()
