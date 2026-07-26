@@ -167,8 +167,13 @@ internal fun HandwritingPanel(
 
             // Language chip: shows the active model, tap cycles through the
             // handwriting languages of the enabled modes.
-            val languages = state.settings.enabledLanguages.ifEmpty { listOf(LanguageRegistry.byId("en")) }
-            val distinctTags = languages.map { HandwritingModels.tagForLangId(it.id) }.distinct()
+            // Only languages ML Kit can actually recognize belong on the chip;
+            // cycling onto one with no model would strand the panel on a
+            // download that can never complete.
+            val languages = state.settings.enabledLanguages
+                .ifEmpty { listOf(LanguageRegistry.byId("en")) }
+                .filter { HandwritingModels.tagFor(it) != null }
+            val distinctTags = languages.mapNotNull { HandwritingModels.tagFor(it) }.distinct()
             if (distinctTags.size > 1) {
                 Text(
                     text = HandwritingModels.shortLabel(hw.languageTag),
@@ -185,7 +190,7 @@ internal fun HandwritingPanel(
                             val next = distinctTags[
                                 (distinctTags.indexOf(hw.languageTag) + 1).mod(distinctTags.size),
                             ]
-                            val targetLang = languages.first { HandwritingModels.tagForLangId(it.id) == next }
+                            val targetLang = languages.first { HandwritingModels.tagFor(it) == next }
                             val layoutId = targetLang.layoutIds.firstOrNull { it in state.settings.enabledLayoutIds }
                                 ?: targetLang.layoutIds.firstOrNull()
                             if (layoutId != null) onLayoutSelect(layoutId)

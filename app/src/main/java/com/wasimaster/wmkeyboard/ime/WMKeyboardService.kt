@@ -4475,7 +4475,19 @@ open class WMKeyboardService : InputMethodService() {
 
     // ---- handwriting ----
 
-    private fun hwLanguageTag(): String = HandwritingModels.tagForLangId(_uiState.value.language.id)
+    /**
+     * The ink model to recognize against. ML Kit covers most but not all of the
+     * keyboard's languages, so a language it cannot recognize hands over to the
+     * first enabled one it can — writing something is better than a panel that
+     * offers a download which could never succeed.
+     */
+    private fun hwLanguageTag(): String {
+        val state = _uiState.value
+        HandwritingModels.tagFor(state.language)?.let { return it }
+        state.settings.enabledLanguages.firstNotNullOfOrNull { HandwritingModels.tagFor(it) }
+            ?.let { return it }
+        return HandwritingModels.tagForLangId("en")
+    }
 
     /**
      * Letter-area swipes are drawing handwriting (rather than gliding a word):

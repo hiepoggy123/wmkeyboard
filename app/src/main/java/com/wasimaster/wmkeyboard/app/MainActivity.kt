@@ -5144,11 +5144,20 @@ private fun ToolDetailSettings(
             }
             SectionHeader("Recognition models")
             CaptionText(
-                "Recognition runs fully on-device with Google ML Kit. Each language " +
-                    "needs a one-time model download (about 20 MB); after that, " +
-                    "handwriting works offline.",
+                "One model per language you type in. Recognition runs fully on-device " +
+                    "with Google ML Kit; each language needs a one-time download (about " +
+                    "20 MB), and after that handwriting works offline.",
             )
-            HandwritingModelManager()
+            HandwritingModelManager(settings)
+            SettingsGroup {
+                item {
+                    NavRow(
+                        "Languages & layouts",
+                        "Add a language to get its handwriting model here",
+                        onClick = { onNavigate("languages") },
+                    )
+                }
+            }
         }
         ToolbarTool.THEMES -> SettingsGroup("Options") {
             item {
@@ -6401,22 +6410,38 @@ private fun openSpellCheckerSettings(context: Context) {
 }
 
 /**
- * Download/delete state for each supported handwriting model. Status is
- * re-read from ML Kit's model manager after every action.
+ * Download/delete state for the handwriting model of every language the user
+ * types in — drawn from ML Kit's full ink catalogue, then narrowed to the
+ * enabled languages so the list is only ever as long as it is useful. Status
+ * is re-read from ML Kit's model manager after every action.
  */
 @Composable
-private fun HandwritingModelManager() {
+private fun HandwritingModelManager(settings: KeyboardSettings) {
     val scope = rememberCoroutineScope()
+    val languages = remember(settings.enabledLanguages) {
+        HandwritingModels.modelsFor(settings.enabledLanguages)
+    }
+    val missing = remember(settings.enabledLanguages, languages) {
+        settings.enabledLanguages.distinctBy { it.id }
+            .filter { HandwritingModels.tagFor(it) == null }
+    }
     // tag -> "checking" | "missing" | "downloaded" | "downloading" | "error"
     val statuses = remember { mutableStateMapOf<String, String>() }
-    LaunchedEffect(Unit) {
-        for (language in HandwritingModels.supported) {
+    LaunchedEffect(languages) {
+        for (language in languages) {
             statuses[language.tag] =
                 if (HandwritingModels.isDownloaded(language.tag)) "downloaded" else "missing"
         }
     }
+    if (languages.isEmpty()) {
+        CaptionText(
+            "None of your enabled languages has an ML Kit handwriting model. " +
+                "Add a language under Languages & layouts and its model appears here.",
+        )
+        return
+    }
     SettingsGroup {
-        for (language in HandwritingModels.supported) {
+        for (language in languages) {
             item {
                 val status = statuses[language.tag] ?: "checking"
                 ListItem(
@@ -6464,6 +6489,13 @@ private fun HandwritingModelManager() {
                 )
             }
         }
+    }
+    if (missing.isNotEmpty()) {
+        CaptionText(
+            "No handwriting model exists for " +
+                missing.joinToString(", ") { it.englishName } +
+                " — writing switches to the nearest language that has one.",
+        )
     }
 }
 

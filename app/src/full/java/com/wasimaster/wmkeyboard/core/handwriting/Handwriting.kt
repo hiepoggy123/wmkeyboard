@@ -11,6 +11,9 @@ import com.google.mlkit.vision.digitalink.recognition.DigitalInkRecognizerOption
 import com.google.mlkit.vision.digitalink.recognition.Ink
 import com.google.mlkit.vision.digitalink.recognition.RecognitionContext
 import com.google.mlkit.vision.digitalink.recognition.WritingArea
+import com.wasimaster.wmkeyboard.core.script.LanguageDef
+import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
+import com.wasimaster.wmkeyboard.core.script.ScriptId
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -35,30 +38,95 @@ private suspend fun <T> Task<T>.await(): T = suspendCancellableCoroutine { cont 
  */
 object HandwritingModels {
 
-    /** Languages the keyboard offers handwriting for, in display order. */
-    val supported: List<HandwritingLanguage> = listOf(
-        HandwritingLanguage("en-US", "English"),
-        HandwritingLanguage("bn", "বাংলা (Bengali)"),
-        HandwritingLanguage("fr", "Français (French)"),
-        HandwritingLanguage("de", "Deutsch (German)"),
-        HandwritingLanguage("es", "Español (Spanish)"),
-    )
-
-    /** The recognition model tag for a language (ML Kit ink tags are BCP-47; en uses en-US). */
-    fun tagForLangId(langId: String): String = if (langId == "en") "en-US" else langId
-
-    /** Compact badge label for the in-panel language toggle. */
-    fun shortLabel(tag: String): String = when (tag) {
-        "en-US" -> "EN"
-        "bn" -> "বাং"
-        "fr" -> "FR"
-        "de" -> "DE"
-        "es" -> "ES"
-        else -> tag.uppercase()
+    /**
+     * ML Kit's own catalogue, minus the non-language recognizers (autodraw,
+     * emoji, shapes) and the gesture models, which all carry an `-x-` private
+     * subtag. Read once — it is a static table inside the library.
+     */
+    private val allIdentifiers: List<DigitalInkRecognitionModelIdentifier> by lazy {
+        runCatching {
+            DigitalInkRecognitionModelIdentifier.allModelIdentifiers()
+                .filter { !it.languageTag.contains("-x-") }
+        }.getOrDefault(emptyList())
     }
 
-    fun displayName(tag: String): String =
-        supported.firstOrNull { it.tag == tag }?.displayName ?: tag
+    /**
+     * Language ids whose ML Kit subtag is spelled differently. Only the ones
+     * the keyboard's own registry actually offers are worth listing.
+     */
+    private val SUBTAG_ALIASES = mapOf(
+        "nb" to "no",   // Bokmål — ML Kit ships plain Norwegian
+        "tl" to "fil",  // Tagalog — ML Kit ships Filipino
+    )
+
+    /** ISO 15924 codes, the way ML Kit spells its script subtags. */
+    private val SCRIPT_CODES = mapOf(
+        ScriptId.LATIN to "Latn", ScriptId.CYRILLIC to "Cyrl", ScriptId.GREEK to "Grek",
+        ScriptId.ARMENIAN to "Armn", ScriptId.GEORGIAN to "Geor", ScriptId.ARABIC to "Arab",
+        ScriptId.HEBREW to "Hebr", ScriptId.SYRIAC to "Syrc", ScriptId.DEVANAGARI to "Deva",
+        ScriptId.BENGALI to "Beng", ScriptId.GURMUKHI to "Guru", ScriptId.GUJARATI to "Gujr",
+        ScriptId.ORIYA to "Orya", ScriptId.TAMIL to "Taml", ScriptId.TELUGU to "Telu",
+        ScriptId.KANNADA to "Knda", ScriptId.MALAYALAM to "Mlym", ScriptId.SINHALA to "Sinh",
+        ScriptId.THAI to "Thai", ScriptId.LAO to "Laoo", ScriptId.KHMER to "Khmr",
+        ScriptId.MYANMAR to "Mymr", ScriptId.HANGUL to "Hang", ScriptId.ETHIOPIC to "Ethi",
+        ScriptId.THAANA to "Thaa", ScriptId.JAPANESE to "Jpan", ScriptId.HAN to "Hani",
+        ScriptId.TIFINAGH to "Tfng", ScriptId.CHEROKEE to "Cher", ScriptId.NKO to "Nkoo",
+        ScriptId.CANADIAN_ABORIGINAL_SYLLABICS to "Cans", ScriptId.TIBETAN to "Tibt",
+    )
+
+    /**
+     * The recognition model tag for one of the keyboard's languages, or null
+     * when ML Kit has no model for it. Among a language's variants: the one
+     * matching the language's own locale wins, then the bare tag, then one
+     * written in the language's own script — that last step is what keeps
+     * Sanskrit on `sa-Deva-IN` rather than the romanised `sa-Latn`.
+     */
+    fun tagFor(language: LanguageDef): String? {
+        val subtag = SUBTAG_ALIASES[language.id] ?: language.id
+        val candidates = allIdentifiers.filter { it.languageSubtag == subtag }
+        if (candidates.isEmpty()) return null
+        val locale = language.localeTag.lowercase()
+        val region = locale.substringAfter('-', "")
+        val script = SCRIPT_CODES[language.script]
+        return candidates.firstOrNull { it.languageTag.lowercase() == locale }?.languageTag
+            ?: candidates.firstOrNull { it.languageTag.lowercase() == subtag }?.languageTag
+            ?: candidates.filter { it.scriptSubtag == script }
+                .minByOrNull { it.languageTag.length }?.languageTag
+            ?: candidates.firstOrNull {
+                it.scriptSubtag.isNullOrEmpty() && it.regionSubtag.orEmpty().lowercase() == region
+            }?.languageTag
+            ?: candidates.minByOrNull { it.languageTag.length }?.languageTag
+    }
+
+    /** The recognition model tag for a language id; falls back to the id itself. */
+    fun tagForLangId(langId: String): String =
+        tagFor(LanguageRegistry.byId(langId)) ?: if (langId == "en") "en-US" else langId
+
+    /**
+     * The models worth offering: one per language the user actually types in,
+     * skipping the ones ML Kit cannot recognize. This is what the settings
+     * screen lists, so enabling a language is all it takes for its model to
+     * show up there.
+     */
+    fun modelsFor(languages: List<LanguageDef>): List<HandwritingLanguage> =
+        languages.distinctBy { it.id }.mapNotNull { language ->
+            tagFor(language)?.let { HandwritingLanguage(it, language.displayName) }
+        }.distinctBy { it.tag }
+
+    /**
+     * Compact badge for the in-panel language toggle. The keyboard's own
+     * language id rather than ML Kit's tag, so the badge reads NB and TL where
+     * the model is called `no` and `fil-Latn`.
+     */
+    fun shortLabel(tag: String): String =
+        (languageForTag(tag)?.id ?: tag.substringBefore('-')).uppercase()
+
+    fun displayName(tag: String): String = languageForTag(tag)?.displayName ?: tag
+
+    private fun languageForTag(tag: String): LanguageDef? {
+        val subtag = tag.substringBefore('-')
+        return LanguageRegistry.all.firstOrNull { (SUBTAG_ALIASES[it.id] ?: it.id) == subtag }
+    }
 
     private val manager = RemoteModelManager.getInstance()
 

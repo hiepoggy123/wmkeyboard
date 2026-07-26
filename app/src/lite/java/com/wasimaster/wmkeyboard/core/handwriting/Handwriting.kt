@@ -1,5 +1,6 @@
 package com.wasimaster.wmkeyboard.core.handwriting
 
+import com.wasimaster.wmkeyboard.core.script.LanguageDef
 
 /** One sampled point of a handwriting stroke, in canvas pixels. */
 data class HwPoint(val x: Float, val y: Float, val t: Long)
@@ -16,8 +17,10 @@ data class HandwritingLanguage(val tag: String, val displayName: String)
  */
 object HandwritingModels {
 
-    /** No downloadable models in lite builds. */
-    val supported: List<HandwritingLanguage> = emptyList()
+    /** No downloadable models in lite builds, whatever the user types in. */
+    fun modelsFor(languages: List<LanguageDef>): List<HandwritingLanguage> = emptyList()
+
+    fun tagFor(language: LanguageDef): String? = null
 
     /** Same tag mapping as the full flavor, so UI state stays coherent. */
     fun tagForLangId(langId: String): String = if (langId == "en") "en-US" else langId
