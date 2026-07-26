@@ -975,6 +975,7 @@ open class WMKeyboardService : InputMethodService() {
                 CjkConfig.fuzzyPinyin = settings.cjk.pinyinFuzzy
                 CjkConfig.doublePinyin = settings.cjk.pinyinDoublePinyin
                 CjkConfig.traditionalOutput = settings.cjk.traditionalOutput
+                CjkConfig.lazyJyutping = settings.cjk.jyutpingLazy
                 // The settings half of the learning gate; the per-field half
                 // (incognito, fields that forbid typing intelligence) is checked
                 // at the commit itself, where the field is known.

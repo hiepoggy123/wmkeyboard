@@ -1,5 +1,7 @@
 package com.wasimaster.wmkeyboard.core.input.composer
 
+import kotlin.math.ln
+
 /**
  * Cantonese Jyutping (粵拼) input. The roman buffer is Jyutping with optional
  * tone digits, and the strip offers Hanzi from the Cantonese pack — a table of
@@ -26,6 +28,17 @@ object JyutpingComposer : Composer {
 
     /** Reading space for learned picks: Cantonese romanisation, not Mandarin. */
     private const val NAMESPACE = "jyutping"
+
+    /** Lazy-pronunciation variants offered per syllable, beyond the one typed. */
+    private const val LAZY_VARIANTS = 2
+
+    /**
+     * What a lazy-pronunciation variant costs, per syllable that differs from
+     * what was typed — the same lean [PinyinComposer] applies to Fuzzy Pinyin, so
+     * the spelling the user chose still leads unless a merged reading is far
+     * likelier.
+     */
+    private val LAZY_PENALTY = ln(0.15)
 
     private const val LIMIT = 12
 
@@ -77,11 +90,41 @@ object JyutpingComposer : Composer {
             return dict.candidates(buffer, LOOKUP_LIMIT)
                 .map { Cand(HanVariant.toTraditional(it), buffer.length, buffer) }
         }
-        val input = Lattice.input(segs.map { it.syllable }, segs.map { it.inputLen })
+        val input = latticeInput(segs)
         val decoded = Lattice.decode(input, dict, CjkDictionaries.ngrams, Lattice.Opts(limit = LOOKUP_LIMIT))
             .map { Cand(HanVariant.toTraditional(it.text), it.consumed, it.reading) }
             .distinctBy { it.text }
         return CjkLearning.rank(NAMESPACE, decoded, { it.text }, { it.reading })
+    }
+
+    /**
+     * The lattice input for [segs]: one unit per syllable, offering the syllable
+     * as typed and — with lazy pronunciation on — a couple of merged spellings
+     * behind a penalty. Options rather than pre-built readings, so a merger no
+     * word starts with is pruned by one binary search.
+     */
+    private fun latticeInput(segs: List<Seg>): Lattice.Input {
+        val n = segs.size
+        val boundaries = IntArray(n + 1)
+        for (i in 0 until n) boundaries[i + 1] = boundaries[i] + segs[i].inputLen
+        if (!CjkConfig.lazyJyutping) {
+            return Lattice.Input(
+                boundaries,
+                Array(n) { arrayOf(segs[it].syllable) },
+                Array(n) { DoubleArray(1) },
+            )
+        }
+        val options = Array(n) { i ->
+            val typed = segs[i].syllable
+            val variants = JyutpingFuzzy.expand(typed, JyutpingSyllables.valid)
+                .filter { it != typed }
+                .take(LAZY_VARIANTS)
+            (listOf(typed) + variants).toTypedArray()
+        }
+        val penalties = Array(n) { i ->
+            DoubleArray(options[i].size) { o -> if (o == 0) 0.0 else LAZY_PENALTY }
+        }
+        return Lattice.Input(boundaries, options, penalties)
     }
 
     private val cache = RankCache<List<Cand>>()

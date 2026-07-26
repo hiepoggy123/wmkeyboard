@@ -473,6 +473,19 @@ private fun CjkDictPackManager(
             ) { on -> scope.launch { repository.setCjkTraditionalOutput(on) } }
         }
 
+        // Cantonese-only: the sound mergers most Hong Kong speakers have, and
+        // therefore spell — without this, someone who says 你 as lei5 types `lei`
+        // and the dictionary (which files it under nei5) offers nothing at all.
+        if (langId == "yue") {
+            item {
+                ToggleSetting(
+                    "Lazy pronunciation (懶音)",
+                    "Match merged sounds: n↔l, ng↔∅, gw→g before -o, -ng↔-n, -k↔-t…",
+                    settings.cjk.jyutpingLazy,
+                ) { on -> scope.launch { repository.setJyutpingLazy(on) } }
+            }
+        }
+
         // Chinese-only: fuzzy pinyin + Double Pinyin scheme.
         if (langId == "zh") {
             item {

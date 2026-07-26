@@ -37,6 +37,15 @@ object CjkConfig {
     @Volatile
     var traditionalOutput: Boolean = false
         set(value) { field = value; CjkDictionaries.invalidate() }
+
+    /**
+     * Cantonese lazy pronunciation (懶音): match the sound mergers most Hong Kong
+     * speakers have, so a syllable typed the way it is said still finds its
+     * characters. See [JyutpingFuzzy].
+     */
+    @Volatile
+    var lazyJyutping: Boolean = false
+        set(value) { field = value; CjkDictionaries.invalidate() }
 }
 
 /**
