@@ -1678,57 +1678,28 @@ private fun TopBar(
                 )
                 if (!suggestionsShowing) return@Row
             }
-            // The top candidates split the whole bar evenly (Gboard style),
-            // so each one gets the largest possible tap target.
-            Row(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxHeight()
-                    // Fades in a beat behind the emoji's slide as candidates
-                    // arrive, and out as they leave (see [stripContentAlpha]).
-                    .graphicsLayer { alpha = stripContentAlpha.value },
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                // The held set, so a cleared field fades the last words out
-                // rather than blanking them; taps are gated to the live ones.
-                val ranked = shownSuggestions.take(3)
-                // Gboard convention: the primary candidate sits in the middle
-                // slot with the runner-up on its left. The commit path still
-                // uses the engine's order — this is display-only.
-                val centerPrimary = state.settings.suggestionStrip.suggestionPrimaryCenter && ranked.size >= 2
-                val shown = if (centerPrimary) {
-                    listOf(ranked[1], ranked[0]) + ranked.drop(2)
-                } else {
-                    ranked
-                }
-                val primaryIndex = if (centerPrimary) 1 else 0
-                shown.forEachIndexed { index, suggestion ->
-                    if (index > 0) {
-                        VerticalDivider(
-                            modifier = Modifier.height(20.dp),
-                            color = MaterialTheme.colorScheme.outlineVariant,
-                        )
-                    }
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxHeight()
-                            .clickable(enabled = suggestionsShowing) { onSuggestion(suggestion) },
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(
-                            // Follows the live shift state, so pressing shift
-                            // re-cases the strip (matching the committed word).
-                            text = displayCaseForShift(suggestion, state.shiftState),
-                            modifier = Modifier.padding(horizontal = 6.dp),
-                            color = MaterialTheme.colorScheme.onSurface,
-                            fontWeight = if (index == primaryIndex) FontWeight.SemiBold else FontWeight.Normal,
-                            textAlign = TextAlign.Center,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
-                }
+            // Latin gets three wide chips; a conversion IME gets a scrolling
+            // row. Three is the right number when the engine is choosing for you
+            // and you only overrule it now and then, but a pinyin reading is
+            // genuinely ambiguous — the composer offers a dozen candidates and
+            // picking among them *is* the typing. Splitting here rather than
+            // widening the shared row keeps the Latin strip exactly as it was.
+            if (state.composer.isConversion) {
+                CandidateStrip(
+                    candidates = shownSuggestions,
+                    enabled = suggestionsShowing,
+                    alpha = { stripContentAlpha.value },
+                    onSuggestion = onSuggestion,
+                )
+            } else {
+                LatinSuggestionChips(
+                    candidates = shownSuggestions,
+                    enabled = suggestionsShowing,
+                    alpha = { stripContentAlpha.value },
+                    centerPrimaryEnabled = state.settings.suggestionStrip.suggestionPrimaryCenter,
+                    shiftState = state.shiftState,
+                    onSuggestion = onSuggestion,
+                )
             }
             // Emoji candidates ride along after the words: typing "birthday"
             // puts 🎂 🎉 🥳 🎁 one tap away. Held set, so they fade out with
@@ -1776,6 +1747,140 @@ private fun TopBar(
     }
     }
 }
+
+/**
+ * The Latin suggestion strip: the top three candidates splitting the bar evenly
+ * (Gboard style), so each gets the largest possible tap target.
+ *
+ * [candidates] is the *held* set, so a cleared field fades the last words out
+ * rather than blanking them; [enabled] gates taps to the live ones. [alpha] is
+ * read inside a graphics layer so the fade does not recompose the row.
+ */
+@Composable
+private fun RowScope.LatinSuggestionChips(
+    candidates: List<String>,
+    enabled: Boolean,
+    alpha: () -> Float,
+    centerPrimaryEnabled: Boolean,
+    shiftState: ShiftState,
+    onSuggestion: (String) -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .weight(1f)
+            .fillMaxHeight()
+            // Fades in a beat behind the emoji's slide as candidates arrive,
+            // and out as they leave (see [stripContentAlpha]).
+            .graphicsLayer { this.alpha = alpha() },
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        val ranked = candidates.take(3)
+        // Gboard convention: the primary candidate sits in the middle slot with
+        // the runner-up on its left. The commit path still uses the engine's
+        // order — this is display-only.
+        val centerPrimary = centerPrimaryEnabled && ranked.size >= 2
+        val shown = if (centerPrimary) {
+            listOf(ranked[1], ranked[0]) + ranked.drop(2)
+        } else {
+            ranked
+        }
+        val primaryIndex = if (centerPrimary) 1 else 0
+        shown.forEachIndexed { index, suggestion ->
+            if (index > 0) {
+                VerticalDivider(
+                    modifier = Modifier.height(20.dp),
+                    color = MaterialTheme.colorScheme.outlineVariant,
+                )
+            }
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .clickable(enabled = enabled) { onSuggestion(suggestion) },
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    // Follows the live shift state, so pressing shift re-cases
+                    // the strip (matching the committed word).
+                    text = displayCaseForShift(suggestion, shiftState),
+                    modifier = Modifier.padding(horizontal = 6.dp),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = if (index == primaryIndex) FontWeight.SemiBold else FontWeight.Normal,
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+    }
+}
+
+/**
+ * The conversion-IME candidate row: pinyin, zhuyin, kana, jyutping, cangjie and
+ * stroke candidates, scrolling horizontally.
+ *
+ * Deliberately unlike [LatinSuggestionChips] in three ways, all for the same
+ * reason — here the candidate list *is* the input method, not a hint about it:
+ *  - it scrolls, because the composers rank a dozen candidates and a reading
+ *    like `xian` genuinely has that many distinct characters behind it;
+ *  - chips are sized to their text and packed from the left, so the best
+ *    candidate is always in the same place. Splitting the bar evenly would put
+ *    a two-candidate list in two different spots than a three-candidate one;
+ *  - the primary is never moved to the centre. That convention reads as
+ *    "the middle one is the safe default", which is wrong when the space bar
+ *    commits index 0 and the eye has to track which chip that is.
+ *
+ * No shift re-casing either: Han characters and kana have no case.
+ */
+@Composable
+private fun RowScope.CandidateStrip(
+    candidates: List<String>,
+    enabled: Boolean,
+    alpha: () -> Float,
+    onSuggestion: (String) -> Unit,
+) {
+    LazyRow(
+        modifier = Modifier
+            .weight(1f)
+            .fillMaxHeight()
+            .graphicsLayer { this.alpha = alpha() },
+        horizontalArrangement = Arrangement.Start,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        itemsIndexed(candidates, key = { index, text -> "$index $text" }) { index, suggestion ->
+            if (index > 0) {
+                VerticalDivider(
+                    modifier = Modifier.height(20.dp),
+                    color = MaterialTheme.colorScheme.outlineVariant,
+                )
+            }
+            Box(
+                modifier = Modifier
+                    .widthIn(min = CandidateChipMinWidth)
+                    .fillMaxHeight()
+                    .clickable(enabled = enabled) { onSuggestion(suggestion) },
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = suggestion,
+                    modifier = Modifier.padding(horizontal = 10.dp),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontSize = CandidateFontSize,
+                    fontWeight = if (index == 0) FontWeight.SemiBold else FontWeight.Normal,
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+    }
+}
+
+/** Tap-target floor for a candidate chip; single Hanzi would be narrower. */
+private val CandidateChipMinWidth = 44.dp
+
+/** Han and kana need more size than Latin to stay legible at strip height. */
+private val CandidateFontSize = 20.sp
 
 /**
  * The recently-copied paste chip shown on the suggestion strip: an accent pill

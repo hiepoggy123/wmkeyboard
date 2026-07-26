@@ -3630,7 +3630,11 @@ open class WMKeyboardService : InputMethodService() {
         val state = _uiState.value
         val enabled = state.settings.smartSuggestions &&
             !state.secureField && !state.fieldNoSuggestions &&
-            state.panel == PanelMode.NONE
+            state.panel == PanelMode.NONE &&
+            // A smart chip takes the whole strip, and in a conversion IME that
+            // strip is the candidate list — losing it mid-reading would leave
+            // the user with a composing buffer and nothing to commit it with.
+            !state.composer.isConversion
         if (!enabled) {
             if (state.smart != null) _uiState.update { it.copy(smart = null) }
             return
