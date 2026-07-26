@@ -35,6 +35,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -1197,34 +1199,57 @@ private fun CalendarDayEvents(
         )
         else -> {
             val timeFormat = remember { SimpleDateFormat("h:mm a", Locale.getDefault()) }
-            Column(
-                modifier = modifier
-                    .padding(top = 2.dp)
-                    .verticalScroll(rememberScrollState()),
+            // A lazy list rather than a scrolling Column: a busy day's events
+            // are then always reachable by dragging inside the list, however
+            // little height the panel could spare for it. The cards keep their
+            // own breathing room, so a full day reads as a stack rather than a
+            // wall of text.
+            LazyColumn(
+                modifier = modifier.padding(top = 4.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+                contentPadding = PaddingValues(bottom = 4.dp),
             ) {
-                for (event in list) EventRow(event, timeFormat)
+                // No key: EVENT_ID repeats across the instances of a recurring
+                // event, and duplicate keys are a crash rather than a glitch.
+                items(list) { event -> EventRow(event, timeFormat) }
             }
         }
     }
 }
 
-/** One event line: a colour dot, the title, and its time (and location). */
+/**
+ * One event card: the calendar's own colour as a stripe down the left, the
+ * title, and the time (with the location after it, when there is one). The
+ * stripe rather than a dot means the colour still reads at a glance in a
+ * stack of events, and the card gives each event an edge of its own.
+ */
 @Composable
 private fun EventRow(event: DeviceCalendarEvent, timeFormat: SimpleDateFormat) {
     val kb = LocalKbTheme.current
+    val color = if (event.color != 0) Color(event.color) else kb.accent
+    val shape = RoundedCornerShape(kb.toolRadiusDp.dp)
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 3.dp),
+            // Intrinsic height so the stripe can fill the card: inside a lazy
+            // list the row's own height is otherwise unbounded and fillMaxHeight
+            // would have nothing to fill.
+            .height(IntrinsicSize.Min)
+            .clip(shape)
+            .background(kb.chip, shape),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
             modifier = Modifier
-                .size(8.dp)
-                .clip(CircleShape)
-                .background(if (event.color != 0) Color(event.color) else kb.accent),
+                .width(3.dp)
+                .fillMaxHeight()
+                .background(color),
         )
-        Column(modifier = Modifier.padding(start = 8.dp).weight(1f)) {
+        Column(
+            modifier = Modifier
+                .padding(start = 8.dp, end = 8.dp, top = 5.dp, bottom = 5.dp)
+                .weight(1f),
+        ) {
             Text(
                 event.title,
                 color = kb.modifierKeyText,
