@@ -163,7 +163,10 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.Stable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -268,6 +271,7 @@ import com.wasimaster.wmkeyboard.core.snippets.Snippet
 import com.wasimaster.wmkeyboard.core.snippets.SnippetStore
 import com.wasimaster.wmkeyboard.core.snippets.SnippetVariable
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.launch
 
 /**
@@ -1083,23 +1087,94 @@ internal fun ToggleSetting(
     }
 }
 
+/**
+ * How often a drag in progress is pushed through [SliderSetting]'s `onChange`,
+ * i.e. written to DataStore. Live previews still follow the finger closely, but
+ * a 100-pixel drag no longer queues 100 preference writes (each of which
+ * recomposes the whole settings screen).
+ */
+private const val SLIDER_WRITE_INTERVAL_MS = 40L
+
+/**
+ * The live position of a settings slider, held locally so the thumb follows the
+ * finger instead of the stored value: routing every touch event through a
+ * DataStore write and waiting for the settings flow to come back made the thumb
+ * visibly trail. Create one with [rememberLiveSlider], read [value] for both the
+ * thumb and the readout, and hand [onDrag]/[onRelease] to the `Slider`.
+ */
+@Stable
+internal class LiveSliderState(initial: Float) {
+    var value by mutableFloatStateOf(initial)
+        private set
+    internal var dragging by mutableStateOf(false)
+        private set
+
+    /** Replaced on every composition so the latest lambda is always called. */
+    internal var commit: (Float) -> Unit = {}
+
+    internal fun adopt(external: Float) {
+        if (!dragging) value = external
+    }
+
+    fun onDrag(next: Float) {
+        dragging = true
+        value = next
+    }
+
+    fun onRelease() {
+        dragging = false
+        commit(value)
+    }
+}
+
+/**
+ * A [LiveSliderState] wired to [value] and [onChange]. Writes are throttled to
+ * one per [SLIDER_WRITE_INTERVAL_MS] while dragging — enough for anything
+ * previewing the setting to keep up, without queueing a preference write (and a
+ * recomposition of the whole screen) per touch event — with a final write when
+ * the finger lifts. [value] is adopted only while no drag is in progress, so an
+ * edit from elsewhere (a reset, another screen showing the same setting) still
+ * moves the thumb but the user's own drag is never fought.
+ */
+@Composable
+internal fun rememberLiveSlider(value: Float, onChange: (Float) -> Unit): LiveSliderState {
+    val state = remember { LiveSliderState(value) }
+    state.commit = onChange
+    LaunchedEffect(value) { state.adopt(value) }
+    LaunchedEffect(state) {
+        snapshotFlow { state.value }
+            .conflate()
+            .collect {
+                if (state.dragging) state.commit(it)
+                delay(SLIDER_WRITE_INTERVAL_MS)
+            }
+    }
+    return state
+}
+
+/**
+ * A labelled slider row. [display] formats the *live* value rather than taking a
+ * pre-rendered string, so the readout tracks the thumb instead of the stored
+ * setting; see [rememberLiveSlider] for the rest.
+ */
 @Composable
 internal fun SliderSetting(
     title: String,
     subtitle: String? = null,
     value: Float,
     range: ClosedFloatingPointRange<Float>,
-    display: String,
+    display: (Float) -> String,
     info: String? = null,
     onChange: (Float) -> Unit,
 ) {
+    val slider = rememberLiveSlider(value, onChange)
     HighlightableRow(title) {
         Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text(title, style = MaterialTheme.typography.bodyLarge)
                 if (info != null) InfoButton(title, info)
                 Spacer(Modifier.weight(1f))
-                Text(display, style = MaterialTheme.typography.labelLarge)
+                Text(display(slider.value), style = MaterialTheme.typography.labelLarge)
             }
             if (subtitle != null) {
                 Text(
@@ -1108,7 +1183,12 @@ internal fun SliderSetting(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            Slider(value = value, onValueChange = onChange, valueRange = range)
+            Slider(
+                value = slider.value,
+                onValueChange = slider::onDrag,
+                onValueChangeFinished = slider::onRelease,
+                valueRange = range,
+            )
         }
     }
 }
@@ -1247,7 +1327,7 @@ private fun TypingSettings(
                     subtitle = "How sure a correction must be before it is applied",
                     value = settings.autocorrectConfidence,
                     range = 1.5f..10f,
-                    display = "×%.1f".format(settings.autocorrectConfidence),
+                    display = { "×%.1f".format(it) },
                     info = "A correction only fires when the best candidate outscores the " +
                         "runner-up by this factor. Low corrects eagerly and catches more " +
                         "typos, but guesses wrong more often; high only corrects when the " +
@@ -1654,7 +1734,7 @@ private fun TypingSettings(
                     subtitle = "How far to move before a glide begins — lower is more sensitive",
                     value = settings.gesture.startThresholdSlop,
                     range = 0.5f..4f,
-                    display = "${"%.1f".format(settings.gesture.startThresholdSlop)}×",
+                    display = { "${"%.1f".format(it)}×" },
                     info = "The finger travel that turns a press into a glide, as a multiple of " +
                         "the system's touch slop. Lower starts gliding sooner (more sensitive) but " +
                         "can trip on a stationary tap; higher needs a more deliberate swipe.",
@@ -1669,11 +1749,7 @@ private fun TypingSettings(
                         subtitle = "Briefly resist starting a glide right after a tap",
                         value = settings.gesture.postTypeCooldownMs.toFloat(),
                         range = 0f..500f,
-                        display = if (settings.gesture.postTypeCooldownMs == 0) {
-                            "Off"
-                        } else {
-                            "${settings.gesture.postTypeCooldownMs} ms"
-                        },
+                        display = { if (it.roundToInt() == 0) "Off" else "${it.roundToInt()} ms" },
                         info = "Just after you tap a key, a stray slide off it can be misread as a " +
                             "swipe-word. During this window a glide has to travel further before it " +
                             "takes over, and the extra distance fades away across the window, so fast " +
@@ -1694,11 +1770,7 @@ private fun TypingSettings(
                         subtitle = "Time to tap a dot or cross before it types instead",
                         value = settings.gesture.handwriteDotCooldownMs.toFloat(),
                         range = 0f..1500f,
-                        display = if (settings.gesture.handwriteDotCooldownMs == 0) {
-                            "Off"
-                        } else {
-                            "${settings.gesture.handwriteDotCooldownMs} ms"
-                        },
+                        display = { if (it.roundToInt() == 0) "Off" else "${it.roundToInt()} ms" },
                         info = "Letters like i, j and t need a separate mark after the main stroke. " +
                             "For this long after you draw a stroke, a tap over the letters is added " +
                             "to the same character as another stroke (the dot or cross) instead of " +
@@ -1713,7 +1785,7 @@ private fun TypingSettings(
                     subtitle = "Thickness of the glide trail",
                     value = settings.gesture.trailWidthDp,
                     range = 2f..24f,
-                    display = "${settings.gesture.trailWidthDp.roundToInt()} dp",
+                    display = { "${it.roundToInt()} dp" },
                 ) { scope.launch { repository.setGestureTrailWidthDp(it) } }
             }
             item {
@@ -1722,7 +1794,7 @@ private fun TypingSettings(
                     subtitle = "How long the trail lingers behind your finger",
                     value = settings.gesture.trailDurationMs.toFloat(),
                     range = 100f..1200f,
-                    display = "${settings.gesture.trailDurationMs} ms",
+                    display = { "${it.roundToInt()} ms" },
                 ) { scope.launch { repository.setGestureTrailDurationMs(it.roundToInt()) } }
             }
             item {
@@ -1730,7 +1802,7 @@ private fun TypingSettings(
                     "Trail opacity",
                     value = settings.gesture.trailOpacity,
                     range = 0.1f..1f,
-                    display = "${(settings.gesture.trailOpacity * 100).roundToInt()}%",
+                    display = { "${(it * 100).roundToInt()}%" },
                 ) { scope.launch { repository.setGestureTrailOpacity(it) } }
             }
         }
@@ -1959,7 +2031,7 @@ private fun KeySoundGroup(
                 subtitle = "Relative to the system media volume",
                 value = settings.keySoundVolume,
                 range = 0.05f..1f,
-                display = "${(settings.keySoundVolume * 100).roundToInt()}%",
+                display = { "${(it * 100).roundToInt()}%" },
             ) {
                 scope.launch { repository.setKeySoundVolume(it) }
                 // Debounced inside the player, so dragging previews smoothly.
@@ -2047,7 +2119,7 @@ private fun KeyPressSettings(repository: SettingsRepository, settings: KeyboardS
                     subtitle = "Vibration length per key press",
                     value = settings.hapticStrengthMs.toFloat(),
                     range = 5f..60f,
-                    display = "${settings.hapticStrengthMs} ms",
+                    display = { "${it.roundToInt()} ms" },
                     info = "Duration of the vibration pulse in milliseconds. Longer pulses feel " +
                         "stronger on most phones.",
                 ) {
@@ -2064,7 +2136,7 @@ private fun KeyPressSettings(repository: SettingsRepository, settings: KeyboardS
                     subtitle = "Vibration amplitude per key press",
                     value = settings.hapticAmplitude.toFloat(),
                     range = 1f..255f,
-                    display = "${settings.hapticAmplitude * 100 / 255}%",
+                    display = { "${it.roundToInt() * 100 / 255}%" },
                     info = "How hard the vibration motor is driven (1–255). For Sharp this scales " +
                         "the hardware click primitive; the length stays fixed, only the punch " +
                         "changes. For Custom it only takes effect on devices whose vibrator " +
@@ -2155,7 +2227,7 @@ private fun KeyPressSettings(repository: SettingsRepository, settings: KeyboardS
                     subtitle = "How long the bubble stays up even on a fast tap",
                     value = settings.popup.minDurationMs.toFloat(),
                     range = 0f..300f,
-                    display = "${settings.popup.minDurationMs} ms",
+                    display = { "${it.toInt()} ms" },
                     info = "On a quick tap the key is released almost instantly, which can make " +
                         "the bubble a barely-visible flicker. The bubble lingers after release " +
                         "until it has been shown for at least this long. 0 hides it the moment " +
@@ -2168,7 +2240,7 @@ private fun KeyPressSettings(repository: SettingsRepository, settings: KeyboardS
                     subtitle = "Safety cap that clears a bubble stuck by lag",
                     value = settings.popup.maxDurationMs.toFloat(),
                     range = 400f..2000f,
-                    display = "${settings.popup.maxDurationMs} ms",
+                    display = { "${it.toInt()} ms" },
                     info = "The bubble normally disappears when you lift your finger. If the " +
                         "keyboard lags — most often as a new line is inserted — the release can " +
                         "be missed and the bubble strands on screen. This is the hard ceiling on " +
@@ -2195,7 +2267,7 @@ private fun KeyPressSettings(repository: SettingsRepository, settings: KeyboardS
                 subtitle = "Scale of the key preview bubble and long-press alternates",
                 value = settings.popup.fontScale,
                 range = 0.7f..1.6f,
-                display = "×%.2f".format(settings.popup.fontScale),
+                display = { "×%.2f".format(it) },
                 info = "Multiplies the text size inside the character bubble shown while a key " +
                     "is pressed and in the long-press alternates popup, independently of the " +
                     "key label size.",
@@ -2207,7 +2279,7 @@ private fun KeyPressSettings(repository: SettingsRepository, settings: KeyboardS
                 subtitle = "Height of the key preview bubble",
                 value = settings.popup.heightDp.toFloat(),
                 range = 32f..160f,
-                display = "${settings.popup.heightDp} dp",
+                display = { "${it.toInt()} dp" },
                 info = "Height of the character bubble. With \"Popup on key\" enabled this is " +
                     "measured from the bottom of the pressed key, so anything taller than the " +
                     "key extends above it and stays visible past your finger.",
@@ -2222,7 +2294,7 @@ private fun KeyPressSettings(repository: SettingsRepository, settings: KeyboardS
                 subtitle = "Hold time before alternate characters appear",
                 value = settings.longPressDelayMs.toFloat(),
                 range = 150f..700f,
-                display = "${settings.longPressDelayMs} ms",
+                display = { "${it.toInt()} ms" },
                 info = "How long a key must be held before its long-press alternates (accents, " +
                     "digits, symbols) pop up. Lower is faster but easier to trigger by accident.",
             ) { scope.launch { repository.setLongPressDelayMs(it.toInt()) } }
@@ -2233,7 +2305,7 @@ private fun KeyPressSettings(repository: SettingsRepository, settings: KeyboardS
                 subtitle = "Speed of repeated delete while held",
                 value = settings.keyRepeatIntervalMs.toFloat(),
                 range = 20f..200f,
-                display = "${settings.keyRepeatIntervalMs} ms",
+                display = { "${it.toInt()} ms" },
                 info = "While delete (or space) is held it repeats at this interval. Lower " +
                     "values delete faster.",
             ) { scope.launch { repository.setKeyRepeatIntervalMs(it.toInt()) } }
@@ -2367,7 +2439,7 @@ private fun AppearanceSettings(
                 subtitle = "Roundness of the key corners",
                 value = settings.keyCornerRadiusDp.toFloat(),
                 range = 0f..28f,
-                display = "${settings.keyCornerRadiusDp} dp",
+                display = { "${it.toInt()} dp" },
                 info = "0 gives square keys, 28 gives fully pill-shaped keys.",
             ) { scope.launch { repository.setKeyCornerRadiusDp(it.toInt()) } }
         }
@@ -2377,7 +2449,7 @@ private fun AppearanceSettings(
                 subtitle = "Scale of the labels printed on the keys",
                 value = settings.fontScale,
                 range = 0.7f..1.5f,
-                display = "×%.2f".format(settings.fontScale),
+                display = { "×%.2f".format(it) },
                 info = "Multiplies the size of every label on the keys themselves. Popup " +
                     "bubbles have their own font size under Key press → Key popup.",
             ) { scope.launch { repository.setFontScale(it) } }
@@ -2388,7 +2460,7 @@ private fun AppearanceSettings(
                 subtitle = "Scale of the small corner hint character on each key",
                 value = settings.layoutBehavior.hintFontScale,
                 range = 0.5f..2.0f,
-                display = "×%.2f".format(settings.layoutBehavior.hintFontScale),
+                display = { "×%.2f".format(it) },
                 info = "Resizes the little long-press hint printed in the corner of a key " +
                     "(shown when \"Long-press hints\" is on). Larger values make the hints " +
                     "easier to read; ×1.00 is the default.",
@@ -2462,7 +2534,7 @@ private fun AppearanceSettings(
                 subtitle = "Height of the top toolbar / suggestion strip",
                 value = settings.toolbarHeightDp.toFloat(),
                 range = 32f..80f,
-                display = "${settings.toolbarHeightDp} dp",
+                display = { "${it.roundToInt()} dp" },
                 info = "The default is 44 dp. Taller gives bigger tap targets and room for " +
                     "tool labels; shorter reclaims screen height. This is the strip that " +
                     "carries both the word suggestions and the toolbar.",
@@ -2508,7 +2580,7 @@ private fun AppearanceSettings(
                     subtitle = "Font size of the toolbar tool labels",
                     value = settings.toolbarLabelSize.toFloat(),
                     range = 7f..14f,
-                    display = "${settings.toolbarLabelSize} sp",
+                    display = { "${it.roundToInt()} sp" },
                 ) { scope.launch { repository.setToolbarLabelSize(it.roundToInt()) } }
             }
         }
@@ -2521,7 +2593,7 @@ private fun AppearanceSettings(
                 subtitle = "Roundness of the circle behind each toolbar tool",
                 value = settings.toolCircleRadiusDp.toFloat(),
                 range = 0f..20f,
-                display = if (settings.toolCircleRadiusDp == 0) "off" else "${settings.toolCircleRadiusDp} dp",
+                display = { if (it.toInt() == 0) "off" else "${it.toInt()} dp" },
                 info = "20 draws a full circle behind every tool icon (Gboard style), " +
                     "smaller values give rounded squares, and 0 removes the background " +
                     "entirely, leaving bare icons.",
@@ -2533,7 +2605,7 @@ private fun AppearanceSettings(
                 subtitle = "Tools per row in the toolbox grid",
                 value = settings.toolboxColumns.toFloat(),
                 range = 3f..6f,
-                display = "${settings.toolboxColumns} per row",
+                display = { "${it.roundToInt()} per row" },
                 info = "The toolbox is the grid behind the toolbar's grid button. " +
                     "Fewer per row makes each tool bigger and easier to hit; more " +
                     "per row fits more tools without scrolling.",
@@ -2587,7 +2659,7 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
                     subtitle = "Height of the digit row, independent of the letter keys",
                     value = settings.numberRowHeightDp.toFloat(),
                     range = 32f..100f,
-                    display = "${settings.numberRowHeightDp} dp",
+                    display = { "${it.toInt()} dp" },
                     info = "A shorter digit row keeps quick number access without costing a " +
                         "full row of extra keyboard height.",
                 ) { scope.launch { repository.setNumberRowHeightDp(it.toInt()) } }
@@ -2637,7 +2709,7 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
                 subtitle = "Height of each key row — sets the overall input height",
                 value = settings.keyHeightDp.toFloat(),
                 range = 32f..100f,
-                display = "${settings.keyHeightDp} dp",
+                display = { "${it.toInt()} dp" },
                 info = "Taller keys are easier to hit but the keyboard covers more of the " +
                     "screen. The emoji, clipboard and snippet panels scale with this value too.",
             ) { scope.launch { repository.setKeyHeightDp(it.toInt()) } }
@@ -2648,7 +2720,7 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
                 subtitle = "Gap between the keys",
                 value = settings.keyGapScale,
                 range = 0f..2f,
-                display = "${(settings.keyGapScale * 100).toInt()}%",
+                display = { "${(it * 100).toInt()}%" },
                 info = "Adjusts the space around every key. Higher spreads the keys apart (and " +
                     "makes the keyboard a little taller, since the gap is part of each row); " +
                     "lower packs them tighter. 100% is the default.",
@@ -2660,7 +2732,7 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
                 subtitle = "Extra space below the keys, above the navigation bar",
                 value = settings.bottomPaddingDp.toFloat(),
                 range = 0f..40f,
-                display = "${settings.bottomPaddingDp} dp",
+                display = { "${it.toInt()} dp" },
                 info = "Raises the whole keyboard away from the bottom edge and the gesture " +
                     "navigation bar. Increase it if the bottom row feels cramped against the " +
                     "edge of the screen or you keep triggering system navigation.",
@@ -2672,7 +2744,7 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
                 subtitle = "Shrink the keyboard horizontally",
                 value = settings.keyboardWidthPercent.toFloat(),
                 range = 50f..100f,
-                display = "${settings.keyboardWidthPercent}%",
+                display = { "${it.toInt()}%" },
                 info = "Below 100% the keyboard no longer spans the whole screen; choose which " +
                     "edge it sits at below. Handy on very wide screens. One-handed mode " +
                     "(below) is a quick preset that overrides this while active.",
@@ -2727,7 +2799,7 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
                         subtitle = "Shrink or grow the whole keyboard for this screen",
                         value = values.keyboardScale ?: 1f,
                         range = 0.5f..1.5f,
-                        display = "${((values.keyboardScale ?: 1f) * 100).toInt()}%",
+                        display = { "${(it * 100).toInt()}%" },
                     ) { scope.launch { repository.setVariantKeyboardScale(variant, it) } }
                 }
                 item {
@@ -2735,7 +2807,7 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
                         "Key height",
                         value = (values.keyHeightDp ?: settings.keyHeightDp).toFloat(),
                         range = 32f..100f,
-                        display = "${values.keyHeightDp} dp",
+                        display = { "${it.toInt()} dp" },
                     ) { scope.launch { repository.setVariantKeyHeightDp(variant, it.toInt()) } }
                 }
                 if (settings.numberRow) {
@@ -2744,7 +2816,7 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
                             "Number row height",
                             value = (values.numberRowHeightDp ?: settings.numberRowHeightDp).toFloat(),
                             range = 32f..100f,
-                            display = "${values.numberRowHeightDp} dp",
+                            display = { "${it.toInt()} dp" },
                         ) {
                             scope.launch {
                                 repository.setVariantNumberRowHeightDp(variant, it.toInt())
@@ -2757,7 +2829,7 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
                         "Bottom padding",
                         value = (values.bottomPaddingDp ?: settings.bottomPaddingDp).toFloat(),
                         range = 0f..40f,
-                        display = "${values.bottomPaddingDp} dp",
+                        display = { "${it.toInt()} dp" },
                     ) { scope.launch { repository.setVariantBottomPaddingDp(variant, it.toInt()) } }
                 }
                 item {
@@ -2765,7 +2837,7 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
                         "Keyboard width",
                         value = (values.keyboardWidthPercent ?: settings.keyboardWidthPercent).toFloat(),
                         range = 50f..100f,
-                        display = "${values.keyboardWidthPercent}%",
+                        display = { "${it.toInt()}%" },
                     ) { scope.launch { repository.setVariantWidthPercent(variant, it.toInt()) } }
                 }
                 item {
@@ -2773,7 +2845,7 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
                         "Font size",
                         value = values.fontScale ?: settings.fontScale,
                         range = 0.7f..1.5f,
-                        display = "×%.2f".format(values.fontScale ?: settings.fontScale),
+                        display = { "×%.2f".format(it) },
                     ) { scope.launch { repository.setVariantFontScale(variant, it) } }
                 }
                 if ((values.keyboardWidthPercent ?: settings.keyboardWidthPercent) < 100) {
@@ -2827,7 +2899,7 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
                     value = profile.widthPercent.toFloat(),
                     range = SettingsRepository.ONE_HANDED_WIDTH_MIN.toFloat()..
                         SettingsRepository.ONE_HANDED_WIDTH_MAX.toFloat(),
-                    display = "${profile.widthPercent}%",
+                    display = { "${it.toInt()}%" },
                     info = "The keyboard's share of the screen width while one-handed is active. " +
                         "The rest holds the rail and empty space toward the centre.",
                 ) { scope.launch { repository.setOneHandedWidthPercent(landscape, it.toInt()) } }
@@ -2839,7 +2911,7 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
                     value = profile.heightScale.toFloat(),
                     range = SettingsRepository.ONE_HANDED_HEIGHT_SCALE_MIN.toFloat()..
                         SettingsRepository.ONE_HANDED_HEIGHT_SCALE_MAX.toFloat(),
-                    display = "${profile.heightScale}%",
+                    display = { "${it.toInt()}%" },
                     info = "Scales the key height while one-handed is active, bringing the top " +
                         "rows down into thumb reach. 100% keeps the normal height.",
                 ) { scope.launch { repository.setOneHandedHeightScale(landscape, it.toInt()) } }
@@ -2871,7 +2943,7 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
                     subtitle = "Width of the gap between the halves",
                     value = settings.splitGapPercent.toFloat(),
                     range = 5f..40f,
-                    display = "${settings.splitGapPercent}%",
+                    display = { "${it.toInt()}%" },
                     info = "The center gap, as a percentage of the keyboard width. Bigger gaps " +
                         "push the halves further toward the edges but make each key narrower.",
                 ) { scope.launch { repository.setSplitGapPercent(it.toInt()) } }
@@ -2894,7 +2966,7 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
                     subtitle = "Also adjustable by dragging the panel's corner grip",
                     value = settings.floatingWidthDp.toFloat(),
                     range = 240f..500f,
-                    display = "${settings.floatingWidthDp} dp",
+                    display = { "${it.toInt()} dp" },
                     info = "Width of the floating panel. Key heights still follow the sliders " +
                         "above.",
                 ) { scope.launch { repository.setFloatingWidthDp(it.toInt()) } }
@@ -3250,7 +3322,7 @@ private fun EmojiSettings(repository: SettingsRepository, settings: KeyboardSett
                     subtitle = "How many fit across — higher packs them tighter",
                     value = settings.emoji.barCount.toFloat(),
                     range = EmojiBarCountRange.first.toFloat()..EmojiBarCountRange.last.toFloat(),
-                    display = "${settings.emoji.barCount}",
+                    display = { "${it.roundToInt()}" },
                     info = "The row splits its width into this many slots and shrinks the " +
                         "emoji to fit them, so a higher number means smaller, more tightly " +
                         "packed emoji. With scrolling off, emoji past the last slot are not " +
@@ -4857,7 +4929,7 @@ private fun ToolDetailSettings(
                     subtitle = "Width of the gap between the halves",
                     value = settings.splitGapPercent.toFloat(),
                     range = 5f..40f,
-                    display = "${settings.splitGapPercent}%",
+                    display = { "${it.toInt()}%" },
                 ) { scope.launch { repository.setSplitGapPercent(it.toInt()) } }
             }
             item {
@@ -4875,7 +4947,7 @@ private fun ToolDetailSettings(
                     subtitle = "Also adjustable by dragging the panel's corner grip",
                     value = settings.floatingWidthDp.toFloat(),
                     range = 240f..500f,
-                    display = "${settings.floatingWidthDp} dp",
+                    display = { "${it.toInt()} dp" },
                 ) { scope.launch { repository.setFloatingWidthDp(it.toInt()) } }
             }
             item {
@@ -5103,7 +5175,7 @@ private fun ToolDetailSettings(
                         "backspace — lower is faster",
                     value = settings.textEditing.repeatMs.toFloat(),
                     range = 30f..200f,
-                    display = "${settings.textEditing.repeatMs} ms",
+                    display = { "${it.toInt()} ms" },
                 ) { scope.launch { repository.setTextEditRepeatMs(it.toInt()) } }
             }
         }
@@ -5205,7 +5277,7 @@ private fun ToolDetailSettings(
                         subtitle = "How long after the last stroke before the word is recognized",
                         value = settings.handwritingCommitDelayMs.toFloat(),
                         range = 300f..2000f,
-                        display = "${settings.handwritingCommitDelayMs} ms",
+                        display = { "${it.roundToInt()} ms" },
                         info = "Shorter feels snappier but can cut multi-stroke letters and " +
                             "Bengali conjuncts in half; longer gives you more time between " +
                             "strokes. Gboard uses roughly half a second.",
@@ -5435,7 +5507,7 @@ private fun ToolDetailSettings(
                         subtitle = "Each search uses one API request either way",
                         value = settings.searchResultCount.toFloat(),
                         range = 1f..10f,
-                        display = "${settings.searchResultCount}",
+                        display = { "${it.roundToInt()}" },
                     ) { scope.launch { repository.setSearchResultCount(it.roundToInt()) } }
                 }
             }
@@ -5594,7 +5666,7 @@ private fun ToolDetailSettings(
                             "lower feels snappier, higher churns less",
                         value = settings.grammarDebounceMs.toFloat(),
                         range = 100f..1500f,
-                        display = "${settings.grammarDebounceMs} ms",
+                        display = { "${it.toInt()} ms" },
                     ) { scope.launch { repository.setGrammarDebounceMs(it.toInt()) } }
                 }
             }
@@ -5709,7 +5781,7 @@ private fun ToolDetailSettings(
                     subtitle = "Maximum decimal places (also used by the unit converter)",
                     value = settings.calcPrecision.toFloat(),
                     range = 0f..12f,
-                    display = "${settings.calcPrecision}",
+                    display = { "${it.roundToInt()}" },
                 ) { scope.launch { repository.setCalcPrecision(it.roundToInt()) } }
             }
         }
@@ -5760,7 +5832,7 @@ private fun ToolDetailSettings(
                         subtitle = "Rounding of the converted amount",
                         value = settings.currencyDecimals.toFloat(),
                         range = 0f..6f,
-                        display = "${settings.currencyDecimals}",
+                        display = { "${it.toInt()}" },
                     ) { scope.launch { repository.setCurrencyDecimals(it.toInt()) } }
                 }
                 item {
@@ -5769,7 +5841,7 @@ private fun ToolDetailSettings(
                         subtitle = "How long fetched exchange rates stay fresh",
                         value = settings.currencyCacheHours.toFloat(),
                         range = 1f..48f,
-                        display = "${settings.currencyCacheHours} h",
+                        display = { "${it.toInt()} h" },
                         info = "Upstream rates update about once a day, so " +
                             "anything below 24 hours mostly affects how soon " +
                             "a failed fetch is retried.",
@@ -5791,7 +5863,7 @@ private fun ToolDetailSettings(
                         subtitle = "Side length of the inserted PNG",
                         value = settings.qrSizePx.toFloat(),
                         range = 256f..2048f,
-                        display = "${settings.qrSizePx} px",
+                        display = { "${it.roundToInt()} px" },
                     ) { scope.launch { repository.setQrSizePx(it.roundToInt()) } }
                 }
                 item {
@@ -5844,7 +5916,7 @@ private fun ToolDetailSettings(
                         "Length",
                         value = settings.pwLength.toFloat(),
                         range = 4f..64f,
-                        display = "${settings.pwLength}",
+                        display = { "${it.roundToInt()}" },
                     ) { scope.launch { repository.setPwLength(it.roundToInt()) } }
                 }
                 item {
@@ -5876,7 +5948,7 @@ private fun ToolDetailSettings(
                         "Words",
                         value = settings.ppWordCount.toFloat(),
                         range = 2f..10f,
-                        display = "${settings.ppWordCount}",
+                        display = { "${it.roundToInt()}" },
                     ) { scope.launch { repository.setPpWordCount(it.roundToInt()) } }
                 }
                 item {
@@ -5962,7 +6034,7 @@ private fun TypingTestToolSettings(repository: SettingsRepository, settings: Key
                     "Seconds",
                     value = settings.typingTestDuration.toFloat(),
                     range = 15f..120f,
-                    display = "${settings.typingTestDuration}s",
+                    display = { "${it.roundToInt()}s" },
                 ) { scope.launch { repository.setTypingTestDuration(it.roundToInt()) } }
             }
             TypingTestMode.WORDS -> item {
@@ -5970,7 +6042,7 @@ private fun TypingTestToolSettings(repository: SettingsRepository, settings: Key
                     "Words",
                     value = settings.typingTestWordCount.toFloat(),
                     range = 10f..100f,
-                    display = "${settings.typingTestWordCount}",
+                    display = { "${it.roundToInt()}" },
                 ) { scope.launch { repository.setTypingTestWordCount(it.roundToInt()) } }
             }
             // Quotes come at whatever length they were written.
@@ -6178,7 +6250,7 @@ private fun AiToolSettings(repository: SettingsRepository, settings: KeyboardSet
                         "thinking is spent from the same budget.",
                     value = settings.aiMaxTokens.toFloat(),
                     range = 256f..8192f,
-                    display = "${settings.aiMaxTokens}",
+                    display = { "${it.roundToInt()}" },
                 ) { scope.launch { repository.setAiMaxTokens(it.roundToInt()) } }
             }
         }

@@ -858,14 +858,13 @@ fun ThemeEditorScreen(
             "Image opacity",
             value = theme.backgroundImageOpacity,
             range = 0f..1f,
-            display = "${(theme.backgroundImageOpacity * 100).toInt()}%",
+            display = { "${(it * 100).toInt()}%" },
         ) { update { t -> t.copy(backgroundImageOpacity = it) } }
         SliderRow(
             "Image blur",
             value = theme.backgroundImageBlur,
             range = 0f..25f,
-            display = if (theme.backgroundImageBlur < 0.5f) "off"
-                else theme.backgroundImageBlur.toInt().toString(),
+            display = { if (it < 0.5f) "off" else it.toInt().toString() },
         ) { update { t -> t.copy(backgroundImageBlur = it) } }
         Text(
             "The board color went transparent when you picked this image, so it shows at " +
@@ -1001,7 +1000,7 @@ fun ThemeEditorScreen(
             "Border width",
             value = theme.keyBorderWidthDp,
             range = 0f..3f,
-            display = "%.1f dp".format(theme.keyBorderWidthDp),
+            display = { "%.1f dp".format(it) },
         ) { update { t -> t.copy(keyBorderWidthDp = (it * 10).toInt() / 10f) } }
     }
 
@@ -1090,19 +1089,19 @@ fun ThemeEditorScreen(
             "Key corner radius",
             value = (theme.keyCornerRadiusDp ?: 8).toFloat(),
             range = 0f..28f,
-            display = "${theme.keyCornerRadiusDp} dp",
+            display = { "${it.toInt()} dp" },
         ) { update { t -> t.copy(keyCornerRadiusDp = it.toInt()) } }
         SliderRow(
             "Popup corner radius",
             value = (theme.popupCornerRadiusDp ?: 12).toFloat(),
             range = 0f..24f,
-            display = "${theme.popupCornerRadiusDp} dp",
+            display = { "${it.toInt()} dp" },
         ) { update { t -> t.copy(popupCornerRadiusDp = it.toInt()) } }
         SliderRow(
             "Tool circle radius",
             value = (theme.toolCircleRadiusDp ?: 20).toFloat(),
             range = 0f..20f,
-            display = if ((theme.toolCircleRadiusDp ?: 20) == 0) "off" else "${theme.toolCircleRadiusDp} dp",
+            display = { if (it.toInt() == 0) "off" else "${it.toInt()} dp" },
         ) { update { t -> t.copy(toolCircleRadiusDp = it.toInt()) } }
     }
 
@@ -1139,7 +1138,7 @@ fun ThemeEditorScreen(
             "Speed",
             value = theme.animationSpeed,
             range = 0.25f..3f,
-            display = "%.2f×".format(theme.animationSpeed),
+            display = { "%.2f×".format(it) },
         ) { update { t -> t.copy(animationSpeed = (it * 20).toInt() / 20f) } }
     }
     Spacer(Modifier.height(24.dp))
@@ -1204,7 +1203,7 @@ private fun GradientEditor(
             "Angle",
             value = gradient.angleDeg,
             range = 0f..360f,
-            display = "${gradient.angleDeg.toInt()}°",
+            display = { "${it.toInt()}°" },
         ) { onChange(gradient.copy(angleDeg = it.toInt().toFloat())) }
     }
     gradient.colors.forEachIndexed { index, stop ->
@@ -1381,16 +1380,24 @@ private fun SliderRow(
     title: String,
     value: Float,
     range: ClosedFloatingPointRange<Float>,
-    display: String,
+    display: (Float) -> String,
     onChange: (Float) -> Unit,
 ) {
+    // Local drag state, throttled writes — see rememberLiveSlider; without it
+    // the thumb waits for the theme to round-trip through DataStore.
+    val slider = rememberLiveSlider(value, onChange)
     Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text(title, style = MaterialTheme.typography.bodyLarge)
             Spacer(Modifier.weight(1f))
-            Text(display, style = MaterialTheme.typography.labelLarge)
+            Text(display(slider.value), style = MaterialTheme.typography.labelLarge)
         }
-        Slider(value = value, onValueChange = onChange, valueRange = range)
+        Slider(
+            value = slider.value,
+            onValueChange = slider::onDrag,
+            onValueChangeFinished = slider::onRelease,
+            valueRange = range,
+        )
     }
 }
 

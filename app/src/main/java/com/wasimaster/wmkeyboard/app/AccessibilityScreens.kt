@@ -104,7 +104,7 @@ internal fun AccessibilitySettings(
                 subtitle = "Size of the labels on the keys",
                 value = settings.fontScale,
                 range = 0.7f..1.5f,
-                display = "${(settings.fontScale * 100).toInt()}%",
+                display = { "${(it * 100).toInt()}%" },
                 info = "Scales key labels only. To make the keys themselves bigger, use " +
                     "Layout & size.",
             ) { scope.launch { repository.setFontScale(it) } }
@@ -179,7 +179,7 @@ internal fun AccessibilitySettings(
                 },
                 value = settings.keyDebounceMs.toFloat(),
                 range = 0f..500f,
-                display = if (settings.keyDebounceMs == 0) "Off" else "${settings.keyDebounceMs} ms",
+                display = { if (it.toInt() == 0) "Off" else "${it.toInt()} ms" },
                 info = "For hand tremor or spasticity: after a key registers, a second press " +
                     "landing within this window is discarded, so one intended tap does not " +
                     "become two characters.\n\n" +
@@ -194,7 +194,7 @@ internal fun AccessibilitySettings(
                 subtitle = "How long to hold a key before its alternates open",
                 value = settings.longPressDelayMs.toFloat(),
                 range = 150f..800f,
-                display = "${settings.longPressDelayMs} ms",
+                display = { "${it.toInt()} ms" },
                 info = "Raise this if you trigger long-press popups by accident; lower it if " +
                     "holding a key feels sluggish.",
             ) { scope.launch { repository.setLongPressDelayMs(it.toInt()) } }
