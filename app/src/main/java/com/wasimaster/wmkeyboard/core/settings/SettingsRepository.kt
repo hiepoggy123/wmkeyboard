@@ -486,7 +486,15 @@ enum class ColorVisionFilter { NONE, DEUTERANOPIA, PROTANOPIA, TRITANOPIA, GRAYS
  * conventional IME behaviour under touch exploration — drag to hear a key,
  * lift to type it — and is what TalkBack users expect.
  */
-enum class ScreenReaderMode { OFF, LABELS, EXPLORE }
+ *
+ * [PASSTHROUGH] keeps the keyboard's own touch handling under a screen reader
+ * — the spacebar cursor slide, the backspace word swipe, glide typing and
+ * handwriting all keep working, and a key still announces on press and types
+ * on release. It needs the app's pass-through accessibility service enabled
+ * (see `core.accessibility.TouchPassthroughService`), because carving the
+ * keyboard out of touch exploration is something only an accessibility service
+ * may ask for; without it the mode falls back to [EXPLORE].
+enum class ScreenReaderMode { OFF, LABELS, EXPLORE, PASSTHROUGH }
 
 /**
  * How the top toolbar behaves and lays out. Grouped into their own class

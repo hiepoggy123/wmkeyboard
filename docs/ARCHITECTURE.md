@@ -124,6 +124,39 @@ the service re-attaches the real stores, rebuilds the suggestion engine around
 them and flips the repository back to the DataStore in place, rather than
 waiting for the process to be restarted.
 
+### Screen readers and the touch stream
+
+While an explore-by-touch service (TalkBack) runs, the accessibility
+framework's input filter consumes touches before any window sees them, so
+every gesture the keyboard owns — the spacebar cursor slide, the backspace
+word swipe, glide typing, handwriting — is dead, and no app-side workaround
+reaches the events. `ScreenReaderMode` therefore offers four behaviours: `OFF`,
+`LABELS` (spoken names, direct typing), `EXPLORE` (hand the keys to TalkBack's
+own hover-and-activate) and `PASSTHROUGH`.
+
+`PASSTHROUGH` uses the one supported escape hatch,
+`AccessibilityService.setTouchExplorationPassthroughRegion` (API 30) — which
+only an accessibility service may call. Hence `core/accessibility/`:
+
+- `TouchPassthroughService` is an accessibility service that exists solely to
+  publish that region. It subscribes to no events, cannot retrieve window
+  content, and adds `FLAG_REQUEST_TOUCH_EXPLORATION_MODE` only while some
+  *other* enabled service already explores by touch — requesting it
+  unconditionally would switch explore-by-touch on for a user who never asked
+  for a screen reader.
+- `KeyboardPassthrough` is the in-process channel between the two (the IME and
+  the service share the app's process). `KeyRows` publishes the **key grid**
+  in display coordinates — never the whole window, so the suggestion strip,
+  the toolbar and every panel stay explorable — and the IME clears it when the
+  input view goes away.
+- Inside the carve-out TalkBack no longer speaks, so `KeyButton` announces the
+  key itself on press. Keys already commit on release, so a key can be heard
+  before it types.
+
+Without the service granted the mode degrades to `EXPLORE`, so picking it and
+never granting it can never leave a screen-reader user with keys that neither
+announce nor explore.
+
 ### Performance
 
 - Dictionaries and the emoji catalog load on `Dispatchers.Default` after

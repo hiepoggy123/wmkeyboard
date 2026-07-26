@@ -1,7 +1,11 @@
 package com.wasimaster.wmkeyboard.app
 
+import android.content.Intent
+import android.provider.Settings
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.platform.LocalContext
+import com.wasimaster.wmkeyboard.core.accessibility.KeyboardPassthrough
 import com.wasimaster.wmkeyboard.core.settings.ColorVisionFilter
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.ScreenReaderMode
@@ -150,22 +154,60 @@ internal fun AccessibilitySettings(
                     "Explore by touch: the standard screen-reader keyboard behaviour — slide " +
                     "your finger to hear each key, then activate to type it. Only changes how " +
                     "keys behave while TalkBack is actually running; with it off the keyboard " +
-                    "types normally either way.",
+                    "types normally either way.\n\n" +
+                    "Gestures: keeps the keyboard's own touch handling while TalkBack runs, so " +
+                    "the spacebar cursor slide, the backspace word swipe, glide typing and " +
+                    "handwriting keep working. Each key still speaks when you touch it and " +
+                    "only types when you lift. Needs the pass-through service below; without " +
+                    "it this behaves like Explore by touch.",
                 options = listOf(
                     ScreenReaderMode.OFF to "Off",
                     ScreenReaderMode.LABELS to "Labels",
                     ScreenReaderMode.EXPLORE to "Explore",
+                    ScreenReaderMode.PASSTHROUGH to "Gestures",
                 ),
                 selected = settings.screenReaderMode,
             ) { scope.launch { repository.setScreenReaderMode(it) } }
         }
+        if (settings.screenReaderMode == ScreenReaderMode.PASSTHROUGH) {
+            item {
+                val context = LocalContext.current
+                val granted = rememberGrantState(KeyboardPassthrough::isServiceEnabled)
+                NavRow(
+                    if (granted) "Keyboard gestures service" else "Keyboard gestures service required",
+                    if (granted) {
+                        "On — the keys get your touches, TalkBack keeps the rest of the screen"
+                    } else {
+                        "Turn on \"WM Keyboard gestures\" in Settings › Accessibility"
+                    },
+                ) {
+                    runCatching {
+                        context.startActivity(
+                            Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                        )
+                    }
+                }
+            }
+        }
     }
 
-    if (settings.screenReaderMode == ScreenReaderMode.EXPLORE) {
-        CaptionText(
+    when (settings.screenReaderMode) {
+        ScreenReaderMode.EXPLORE -> CaptionText(
             "While TalkBack is running, spacebar swipes and long-press alternates are " +
                 "handled by TalkBack's own gestures instead of the keyboard's.",
         )
+        ScreenReaderMode.PASSTHROUGH -> CaptionText(
+            "The pass-through service marks the key grid as bypassing TalkBack's touch " +
+                "handling, which is the only way an app can get its own gestures back " +
+                "there. It reads nothing — no accessibility events, no screen content — " +
+                "and covers the keys only: the suggestion strip, the toolbar and every " +
+                "panel stay explorable by TalkBack as usual, as does the rest of Android.\n\n" +
+                "Inside the key grid TalkBack no longer speaks, so the keyboard announces " +
+                "each key itself as you press it. Sliding between keys does not " +
+                "re-announce — a key is spoken when you touch it and typed when you lift.",
+        )
+        else -> Unit
     }
 
     SettingsGroup("Touch") {

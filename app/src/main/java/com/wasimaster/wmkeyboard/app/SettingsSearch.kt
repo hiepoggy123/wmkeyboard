@@ -317,6 +317,12 @@ private val SettingRows: List<SettingsSearchEntry> = listOfNotNull(
     entry("Keyboard font", "Browse all fonts, or import your own", "Accessibility", "accessibility"),
     entry("Reduce motion", "Remove non-essential animation", "Accessibility", "accessibility"),
     entry("TalkBack support", "How keys are announced", "Accessibility", "accessibility"),
+    entry(
+        "Keyboard gestures service",
+        "Keep the keyboard's own gestures working with a screen reader",
+        "Accessibility",
+        "accessibility",
+    ),
     entry("Ignore repeated presses", "Off — every press registers", "Accessibility", "accessibility"),
     entry("Long-press delay", "How long to hold a key before its alternates open", "Accessibility", "accessibility"),
     entry("Key size & spacing", "Taller keys and wider gaps are easier to hit accurately", "Accessibility", "accessibility"),

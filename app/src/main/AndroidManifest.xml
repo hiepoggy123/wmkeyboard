@@ -274,6 +274,31 @@
                 android:resource="@xml/method" />
         </service>
 
+        <!--
+             Carves the keyboard's own window out of TalkBack's touch handling
+             so the keyboard's gestures (spacebar cursor slide, backspace word
+             swipe, glide typing, handwriting) still work while a screen reader
+             is running. Only an accessibility service may call
+             setTouchExplorationPassthroughRegion, which is the only reason
+             this exists — it subscribes to no events and cannot read window
+             content. Off until the user enables it in Settings ›
+             Accessibility, and inert unless the keyboard's screen-reader mode
+             is set to pass-through. Runs in the app's main process, so the IME
+             hands it the rectangle in-process via KeyboardPassthrough.
+        -->
+        <service
+            android:name="com.wasimaster.wmkeyboard.core.accessibility.TouchPassthroughService"
+            android:exported="true"
+            android:label="@string/passthrough_service_label"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/passthrough_service" />
+        </service>
+
         <!-- Empty listener that only exists so the media-control tool may read
              and steer the active media session; the platform hands those over
              only to an enabled notification listener. It reads no notification

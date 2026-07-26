@@ -189,6 +189,7 @@ import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
@@ -217,6 +218,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import com.wasimaster.wmkeyboard.core.accessibility.KeyboardPassthrough
 import com.wasimaster.wmkeyboard.core.settings.ScreenReaderMode
 import kotlinx.coroutines.delay
 import com.wasimaster.wmkeyboard.core.icons.IconSlots
@@ -378,6 +380,16 @@ internal val LocalHideKeyboard = staticCompositionLocalOf<() -> Unit> { {} }
  * every key would otherwise register its own listener.
  */
 internal val LocalTouchExploration = staticCompositionLocalOf { false }
+
+/**
+ * Whether the app's touch-exploration pass-through service is running, so the
+ * keyboard's window really does get the raw touch stream under a screen
+ * reader. [ScreenReaderMode.PASSTHROUGH] falls back to
+ * [ScreenReaderMode.EXPLORE] without it — the user may have picked the mode
+ * but never granted the service, and keys that neither announce nor honour
+ * explore-by-touch would be worse than either mode alone.
+ */
+internal val LocalPassthroughService = staticCompositionLocalOf { false }
 
 /**
  * Live touch-exploration state. The keyboard has to react to this while
@@ -664,6 +676,8 @@ fun KeyboardScreen(
             LocalCursorMoveVertical provides onCursorMoveVertical,
             LocalHideKeyboard provides onHideKeyboard,
             LocalTouchExploration provides rememberTouchExploration(),
+            LocalPassthroughService provides
+                KeyboardPassthrough.serviceConnected.collectAsState().value,
             LocalPanelFocus provides panelFocus,
         ) {
             KeyboardBody(
@@ -4630,6 +4644,37 @@ private fun KeyRows(
                 trailNow = now
                 // After finger-up the trail is left in place to fade out on
                 // its own; drop it once every point has expired.
+    // Touch-exploration pass-through: while a screen reader is running and the
+    // user picked that mode, the app's own accessibility service hands the key
+    // grid's rectangle back to the keyboard so its gestures (spacebar cursor
+    // slide, backspace word swipe, glide, handwriting) still see real touches.
+    //
+    // Only the grid, never the whole window: the suggestion strip, the toolbar
+    // and every panel stay outside it, so TalkBack keeps exploring those
+    // normally. A panel replacing the keys takes this composable with it,
+    // which retracts the carve-out on its own.
+    val passthroughKeys = LocalTouchExploration.current &&
+        state.settings.screenReaderMode == ScreenReaderMode.PASSTHROUGH &&
+        LocalPassthroughService.current
+    val hostView = LocalView.current
+    LaunchedEffect(passthroughKeys, boxOrigin, boxSize, hostView) {
+        if (!passthroughKeys || boxSize.width == 0 || boxSize.height == 0) {
+            KeyboardPassthrough.publishRegion(null)
+        } else {
+            // boxOrigin is relative to the compose root (the IME's input
+            // view); the framework wants display coordinates.
+            val origin = IntArray(2).also { hostView.getLocationOnScreen(it) }
+            val left = origin[0] + boxOrigin.x.roundToInt()
+            val top = origin[1] + boxOrigin.y.roundToInt()
+            KeyboardPassthrough.publishRegion(
+                android.graphics.Rect(left, top, left + boxSize.width, top + boxSize.height),
+            )
+        }
+    }
+    DisposableEffect(Unit) {
+        onDispose { KeyboardPassthrough.publishRegion(null) }
+    }
+
                 if (trailReleased && trail.all { now - it.timeMs > trailMs }) {
                     trail = emptyList()
                 }
@@ -5638,8 +5683,19 @@ private fun KeyButton(
     // announces on hover and commits on the activation tap.
     val touchExploration = LocalTouchExploration.current
     val screenReaderKeys = settings.screenReaderMode != ScreenReaderMode.OFF
-    val semanticsDriven =
-        touchExploration && settings.screenReaderMode == ScreenReaderMode.EXPLORE
+    // Pass-through mode keeps the keyboard's own detector under a screen
+    // reader — the touches really do arrive, because the app's accessibility
+    // service carves this window out of touch exploration. Without that
+    // service granted there is no carve-out, so it degrades to EXPLORE rather
+    // than to a keyboard that types on contact and says nothing.
+    val passthrough = touchExploration &&
+        settings.screenReaderMode == ScreenReaderMode.PASSTHROUGH &&
+        LocalPassthroughService.current
+    val semanticsDriven = touchExploration && when (settings.screenReaderMode) {
+        ScreenReaderMode.EXPLORE -> true
+        ScreenReaderMode.PASSTHROUGH -> !passthrough
+        else -> false
+    }
     val label = spokenLabel(key, state)
 
     Box(
@@ -5658,6 +5714,14 @@ private fun KeyButton(
                     Modifier
                 }
             )
+    // Nothing announces the keys once the window is passed through — TalkBack
+    // no longer sees the touches that would make it speak. The keyboard says
+    // the key itself on press; the press only commits on release, so a key can
+    // still be heard before it types.
+    val view = LocalView.current
+    val announce: (Boolean) -> Unit = remember(passthrough, label, view) {
+        { down -> if (passthrough && down) view.announceForAccessibility(label) }
+    }
             .then(
                 if (semanticsDriven) Modifier
                 else Modifier.pointerInputKey(
@@ -5666,7 +5730,7 @@ private fun KeyButton(
                     spaceLongSwipe = settings.spaceLongSwipe,
                     enabledLayoutIds = settings.enabledLayoutIds.ifEmpty { listOf(BuiltInLayouts.DEFAULT_ID) },
                     currentLayoutId = state.layoutId,
-                    setPressed = { pressed = it },
+                    setPressed = { down -> pressed = down; announce(down) },
                     onKeyPress = onKeyPress,
                     onKeySound = onKeySound,
                     vibrateOnSpace = settings.feedback.vibrateOnSpace,

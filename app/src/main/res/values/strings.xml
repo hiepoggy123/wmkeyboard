@@ -4,6 +4,11 @@
     <!-- Shown in Settings › Notification access for the media-control tool's
          listener; names why the app appears in that list. -->
     <string name="media_listener_label">WM Keyboard media controls</string>
+    <!-- Shown in Settings › Accessibility for the keyboard-gesture
+         pass-through service. -->
+    <string name="passthrough_service_label">WM Keyboard gestures</string>
+    <string name="passthrough_service_summary">Keeps WM Keyboard\'s gestures working with a screen reader</string>
+    <string name="passthrough_service_description">Lets the keyboard\'s own gestures — the spacebar cursor slide, the backspace word swipe, glide typing and handwriting — keep working while a screen reader is running.\n\nIt reads nothing: it receives no accessibility events and cannot see screen content. Its only action is to mark the keyboard\'s own window as passing touches straight through, so every touch outside the keyboard still goes to your screen reader as usual.</string>
     <!--
       Shown in the "open with" chooser for the keyboard's own files
       (.wmtheme.json, .wmlayout.json, .wmconfig.json, .wmstickers, …), so it

@@ -960,7 +960,7 @@ internal fun InfoButton(title: String, detail: String) {
  * grant.
  */
 @Composable
-private fun rememberGrantState(check: (Context) -> Boolean): Boolean {
+internal fun rememberGrantState(check: (Context) -> Boolean): Boolean {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     var granted by remember { mutableStateOf(check(context)) }

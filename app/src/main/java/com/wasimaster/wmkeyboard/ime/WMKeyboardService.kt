@@ -97,6 +97,7 @@ import com.wasimaster.wmkeyboard.core.prediction.UserLexicon
 import com.wasimaster.wmkeyboard.core.prediction.WordSource
 import com.wasimaster.wmkeyboard.core.settings.EmojiFontChoice
 import com.wasimaster.wmkeyboard.core.settings.EmojiInsertMode
+import com.wasimaster.wmkeyboard.core.accessibility.KeyboardPassthrough
 import com.wasimaster.wmkeyboard.core.settings.HapticStyle
 import com.wasimaster.wmkeyboard.core.settings.HardwareKeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.KeyboardMode
@@ -1863,6 +1864,11 @@ open class WMKeyboardService : InputMethodService() {
     override fun onFinishInputView(finishingInput: Boolean) {
         super.onFinishInputView(finishingInput)
         lifecycleOwner.onPause()
+        // The key grid publishes its own pass-through rectangle while it is on
+        // screen (see KeyRows); the window going away is the one case Compose
+        // can miss, and a stale carve-out would keep a slab of the screen from
+        // reaching TalkBack.
+        KeyboardPassthrough.publishRegion(null)
         // A word still composing settles into the field as typed. Leaving the
         // editor's region active while our mirror is wiped on the next
         // onStartInputView meant the first keystroke after a hide→reshow
@@ -1899,6 +1905,7 @@ open class WMKeyboardService : InputMethodService() {
     }
 
     override fun onDestroy() {
+        KeyboardPassthrough.publishRegion(null)
         (getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager)
             .removePrimaryClipChangedListener(clipboardListener)
         if (unlockReceiverRegistered) {
