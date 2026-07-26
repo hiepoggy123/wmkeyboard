@@ -567,6 +567,12 @@ fun KeyboardScreen(
     onEmojiRecentRemove: (String) -> Unit = {},
     onEmojiFavouritesReorder: (List<String>) -> Unit = {},
     onEmojiSearchFieldDelete: () -> Unit = {},
+    /**
+     * The button-mode emoji row was unfolded. The service holds the usage
+     * ranking still while a history surface is on screen, so this is its cue
+     * to hand the row a fresh one.
+     */
+    onEmojiRowShown: () -> Unit = {},
     /** A kaomoji or emoticon tapped in the emoji panel's text-art tabs. */
     onTextArt: (String) -> Unit = {},
     onTextEdit: (TextEditAction) -> Unit = {},
@@ -784,6 +790,7 @@ fun KeyboardScreen(
         ) {
             KeyboardBody(
                 state = bodyState,
+                onEmojiRowShown = onEmojiRowShown,
                 onDismissInlineSuggestions = onDismissInlineSuggestions,
                 onSmartAccept = onSmartAccept,
                 onSmartOpen = onSmartOpen,
@@ -1319,6 +1326,7 @@ private fun TopBar(
     onSmartOpen: () -> Unit = {},
     onClipboardSuggestion: (ClipItem) -> Unit = {},
     onClipboardSuggestionDismiss: () -> Unit = {},
+    onEmojiRowShown: () -> Unit = {},
     /** Downward flick on the strip: dismiss the keyboard (opt-in). */
     onSwipeDownHide: () -> Unit = {},
 ) {
@@ -1661,6 +1669,7 @@ private fun TopBar(
                     onClick = {
                         feedback()
                         emojiBarOpen = true
+                        onEmojiRowShown()
                     },
                     modifier = Modifier
                         .size(36.dp)
@@ -3892,6 +3901,7 @@ private fun KeyboardBody(
     onClipboardDelete: (ClipItem) -> Unit,
     onClipboardSearchToggle: () -> Unit,
     onClipboardSuggestionDismiss: () -> Unit,
+    onEmojiRowShown: () -> Unit,
     onSnippet: (Snippet) -> Unit,
     onToolTap: (ToolbarTool) -> Unit,
     onToolbarToolsChange: (List<ToolbarTool>) -> Unit,
@@ -4041,6 +4051,7 @@ private fun KeyboardBody(
                             onSmartOpen = onSmartOpen,
                             onClipboardSuggestion = onClipboardItem,
                             onClipboardSuggestionDismiss = onClipboardSuggestionDismiss,
+                            onEmojiRowShown = onEmojiRowShown,
                             onSwipeDownHide = onHideKeyboard,
                         )
                     }

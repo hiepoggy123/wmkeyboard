@@ -242,6 +242,16 @@ open class WMKeyboardService : InputMethodService() {
     private lateinit var userLexicon: UserLexicon
     private lateinit var languageMixConfidence: LanguageMixConfidence
     private lateinit var emojiUsage: EmojiUsage
+    /**
+     * A tap has moved the usage ranking since [KeyboardUiState.emojiRecents] /
+     * [KeyboardUiState.emojiFrequents] were last published.
+     *
+     * The published lists deliberately lag [emojiUsage] while the user can see
+     * them: emoji re-sorting under the finger mid-run makes the picker's
+     * history grid and the emoji row unusable. The snapshot catches up the
+     * next time a history surface comes into view — see [publishEmojiHistory].
+     */
+    private var emojiHistoryStale = false
     private lateinit var clipboardStore: ClipboardStore
     /** In-flight link-metadata fetch; one at a time (see [fetchLinkPreviews]). */
     private var linkPreviewJob: Job? = null
@@ -1096,6 +1106,7 @@ open class WMKeyboardService : InputMethodService() {
                 onEmojiRecentRemove = ::onEmojiRecentRemoved,
                 onEmojiFavouritesReorder = ::onEmojiFavouritesReordered,
                 onEmojiSearchFieldDelete = ::onEmojiSearchFieldDelete,
+                onEmojiRowShown = { publishEmojiHistory() },
                 onTextArt = ::onTextArtTapped,
                 onTextEdit = ::onTextEdit,
                 onPanelChange = ::onPanelChange,
@@ -1442,6 +1453,9 @@ open class WMKeyboardService : InputMethodService() {
             )
         }
         refreshKarContext()
+        // A fresh field is a fresh view of the emoji row, so taps from the last
+        // one can reorder it now (see [publishEmojiHistory]).
+        publishEmojiHistory()
         // Pages from a just-finished document scan: the scanner activity
         // ran while the keyboard was down, so they can only insert now,
         // as the target field regains the input connection.
@@ -3824,6 +3838,10 @@ open class WMKeyboardService : InputMethodService() {
                 grammar = GrammarUi(available = GrammarChecker.available),
             )
         }
+        // Either direction is a history surface changing hands — the emoji
+        // panel's grids coming up, or the emoji row it hid coming back — so
+        // this is where a ranking moved by earlier taps lands.
+        publishEmojiHistory()
         translateJob?.cancel()
         grammarJob?.cancel()
         mediaFetchJob?.cancel()
@@ -6964,25 +6982,54 @@ open class WMKeyboardService : InputMethodService() {
         }
     }
 
+    /**
+     * Copies [emojiUsage]'s history into the UI state — the recents and
+     * most-used grids plus the favourites they pin.
+     *
+     * Only ever called when a history surface is off screen or about to come
+     * into view (a fresh field, a panel opening or closing, the emoji row
+     * being unfolded), so the grids never re-sort while the user is tapping
+     * through them; a tap only marks the snapshot stale (see
+     * [emojiHistoryStale]). [force] is for the panel's own history edits —
+     * favouriting, removing, clearing — where the whole point of the tap is to
+     * see the list change.
+     */
+    private fun publishEmojiHistory(force: Boolean = false) {
+        if (!force && !emojiHistoryStale) return
+        emojiHistoryStale = false
+        _uiState.update {
+            it.copy(
+                emojiRecents = emojiUsage.recents(),
+                emojiFrequents = emojiUsage.frequents(),
+                emojiFavourites = emojiUsage.favourites(),
+            )
+        }
+    }
+
     fun onEmojiTapped(emoji: String) {
         vibrate()
         currentInputConnection?.commitText(emoji, 1)
         learnEmoji(emoji)
         emojiUsage.record(emoji)
+        emojiHistoryStale = true
         // "Return to keyboard after emoji": one insertion from the panel drops
         // straight back to the keys instead of keeping the panel open for a run.
         val closeAfter = _uiState.value.settings.emoji.closeAfterInsert &&
             _uiState.value.panel == PanelMode.EMOJI
         _uiState.update {
             it.copy(
-                emojiRecents = emojiUsage.recents(),
-                emojiFrequents = emojiUsage.frequents(),
                 panel = if (closeAfter) PanelMode.NONE else it.panel,
                 emojiSearchActive = if (closeAfter) false else it.emojiSearchActive,
                 emojiQuery = if (closeAfter) "" else it.emojiQuery,
                 emojiResults = if (closeAfter) emptyList() else it.emojiResults,
+                // The ring belongs to the panel it indexes into; the panel
+                // folding away takes it along.
+                panelFocus = if (closeAfter) null else it.panelFocus,
             )
         }
+        // The panel just uncovered the emoji row, so the row is free to take
+        // the new ranking now instead of waiting for the next field.
+        if (closeAfter) publishEmojiHistory()
     }
 
     /**
@@ -7025,33 +7072,21 @@ open class WMKeyboardService : InputMethodService() {
         vibrate()
         emojiUsage.toggleFavourite(emoji)
         emojiUsage.save()
-        _uiState.update {
-            it.copy(
-                emojiFavourites = emojiUsage.favourites(),
-                emojiRecents = emojiUsage.recents(),
-                emojiFrequents = emojiUsage.frequents(),
-            )
-        }
+        publishEmojiHistory(force = true)
     }
 
     fun onEmojiFavouritesReordered(order: List<String>) {
         vibrate()
         emojiUsage.reorderFavourites(order)
         emojiUsage.save()
-        _uiState.update {
-            it.copy(
-                emojiFavourites = emojiUsage.favourites(),
-                emojiRecents = emojiUsage.recents(),
-                emojiFrequents = emojiUsage.frequents(),
-            )
-        }
+        publishEmojiHistory(force = true)
     }
 
     fun onEmojiRecentsClear() {
         vibrate()
         emojiUsage.clearRecents()
         emojiUsage.save()
-        _uiState.update { it.copy(emojiRecents = emojiUsage.recents()) }
+        publishEmojiHistory(force = true)
     }
 
     /** Long-press "remove" on a history cell: the emoji leaves recents,
@@ -7060,13 +7095,7 @@ open class WMKeyboardService : InputMethodService() {
         vibrate()
         emojiUsage.removeFromHistory(emoji)
         emojiUsage.save()
-        _uiState.update {
-            it.copy(
-                emojiFavourites = emojiUsage.favourites(),
-                emojiRecents = emojiUsage.recents(),
-                emojiFrequents = emojiUsage.frequents(),
-            )
-        }
+        publishEmojiHistory(force = true)
     }
 
     /**
@@ -7127,14 +7156,13 @@ open class WMKeyboardService : InputMethodService() {
         }
         learnEmoji(emoji)
         emojiUsage.record(emoji)
+        emojiHistoryStale = true
         composing = StringBuilder()
         _uiState.update {
             it.copy(
                 composingPreview = "",
                 suggestions = emptyList(),
                 emojiSuggestions = emptyList(),
-                emojiRecents = emojiUsage.recents(),
-                emojiFrequents = emojiUsage.frequents(),
             )
         }
         refreshSuggestions()
