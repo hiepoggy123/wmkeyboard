@@ -1164,19 +1164,8 @@ data class KeyboardSettings(
     /** Currency codes the converter starts on. */
     val currencyFrom: String = "USD",
     val currencyTo: String = "BDT",
-    // Password generator defaults (the panel tweaks these live).
-    val pwLength: Int = 16,
-    val pwUppercase: Boolean = true,
-    val pwDigits: Boolean = true,
-    val pwSymbols: Boolean = true,
-    /** Skip look-alikes (Il1O0…) for passwords read aloud or retyped. */
-    val pwExcludeAmbiguous: Boolean = false,
-    /** Generator opens in passphrase mode instead of password mode. */
-    val pwPassphraseMode: Boolean = false,
-    val ppWordCount: Int = 4,
-    val ppSeparator: String = "-",
-    val ppCapitalize: Boolean = false,
-    val ppIncludeDigit: Boolean = false,
+    /** Password/passphrase generator defaults (the panel tweaks these live). */
+    val passwordGenerator: PasswordGeneratorSettings = PasswordGeneratorSettings(),
     // Typing-speed test. The panel edits these live, so they double as the
     // tool's own settings and as the memory of how the user last left it.
     val typingTestMode: TypingTestMode = TypingTestMode.TIME,
@@ -1257,6 +1246,28 @@ data class KeyboardSettings(
  * `pinyin_double_pinyin`), so no existing preference is lost — only the Kotlin
  * path moved.
  */
+/**
+ * Password-generator defaults, grouped rather than flat because [KeyboardSettings]
+ * sits against the JVM's 255-slot method-argument limit: Kotlin's generated
+ * `copy$default` takes every field plus its mask ints, so a flat class stops
+ * loading once the count creeps past ~245. Grouping a tool's own settings is the
+ * pattern the other sub-classes here already follow.
+ */
+data class PasswordGeneratorSettings(
+    val pwLength: Int = 16,
+    val pwUppercase: Boolean = true,
+    val pwDigits: Boolean = true,
+    val pwSymbols: Boolean = true,
+    /** Skip look-alikes (Il1O0…) for passwords read aloud or retyped. */
+    val pwExcludeAmbiguous: Boolean = false,
+    /** Generator opens in passphrase mode instead of password mode. */
+    val pwPassphraseMode: Boolean = false,
+    val ppWordCount: Int = 4,
+    val ppSeparator: String = "-",
+    val ppCapitalize: Boolean = false,
+    val ppIncludeDigit: Boolean = false,
+)
+
 data class CjkSettings(
     /** Chinese: treat confusable pinyin initials/finals as equivalent (zh↔z, an↔ang…). */
     val pinyinFuzzy: Boolean = false,
@@ -2532,16 +2543,22 @@ class SettingsRepository(private val context: Context) {
             calcPrecision = p[CALC_PRECISION] ?: defaults.calcPrecision,
             currencyFrom = p[CURRENCY_FROM] ?: defaults.currencyFrom,
             currencyTo = p[CURRENCY_TO] ?: defaults.currencyTo,
-            pwLength = p[PW_LENGTH] ?: defaults.pwLength,
-            pwUppercase = p[PW_UPPERCASE] ?: defaults.pwUppercase,
-            pwDigits = p[PW_DIGITS] ?: defaults.pwDigits,
-            pwSymbols = p[PW_SYMBOLS] ?: defaults.pwSymbols,
-            pwExcludeAmbiguous = p[PW_EXCLUDE_AMBIGUOUS] ?: defaults.pwExcludeAmbiguous,
-            pwPassphraseMode = p[PW_PASSPHRASE_MODE] ?: defaults.pwPassphraseMode,
-            ppWordCount = p[PP_WORD_COUNT] ?: defaults.ppWordCount,
-            ppSeparator = p[PP_SEPARATOR] ?: defaults.ppSeparator,
-            ppCapitalize = p[PP_CAPITALIZE] ?: defaults.ppCapitalize,
-            ppIncludeDigit = p[PP_INCLUDE_DIGIT] ?: defaults.ppIncludeDigit,
+            // The keys stay flat across the grouping, so a user's stored
+            // generator settings survive the refactor untouched.
+            passwordGenerator = PasswordGeneratorSettings(
+                pwLength = p[PW_LENGTH] ?: defaults.passwordGenerator.pwLength,
+                pwUppercase = p[PW_UPPERCASE] ?: defaults.passwordGenerator.pwUppercase,
+                pwDigits = p[PW_DIGITS] ?: defaults.passwordGenerator.pwDigits,
+                pwSymbols = p[PW_SYMBOLS] ?: defaults.passwordGenerator.pwSymbols,
+                pwExcludeAmbiguous = p[PW_EXCLUDE_AMBIGUOUS]
+                    ?: defaults.passwordGenerator.pwExcludeAmbiguous,
+                pwPassphraseMode = p[PW_PASSPHRASE_MODE]
+                    ?: defaults.passwordGenerator.pwPassphraseMode,
+                ppWordCount = p[PP_WORD_COUNT] ?: defaults.passwordGenerator.ppWordCount,
+                ppSeparator = p[PP_SEPARATOR] ?: defaults.passwordGenerator.ppSeparator,
+                ppCapitalize = p[PP_CAPITALIZE] ?: defaults.passwordGenerator.ppCapitalize,
+                ppIncludeDigit = p[PP_INCLUDE_DIGIT] ?: defaults.passwordGenerator.ppIncludeDigit,
+            ),
             typingTestMode = p[TT_MODE]?.let { runCatching { TypingTestMode.valueOf(it) }.getOrNull() }
                 ?: defaults.typingTestMode,
             typingTestDuration = p[TT_DURATION] ?: defaults.typingTestDuration,

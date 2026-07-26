@@ -101,19 +101,19 @@ internal fun PasswordPanel(
     }
 
     val passphraseSpec = PasswordGen.PassphraseSpec(
-        words = settings.ppWordCount,
-        separator = settings.ppSeparator,
-        capitalize = settings.ppCapitalize,
-        includeDigit = settings.ppIncludeDigit,
+        words = settings.passwordGenerator.ppWordCount,
+        separator = settings.passwordGenerator.ppSeparator,
+        capitalize = settings.passwordGenerator.ppCapitalize,
+        includeDigit = settings.passwordGenerator.ppIncludeDigit,
     )
     val passwordSpec = PasswordGen.PasswordSpec(
-        length = settings.pwLength,
-        upper = settings.pwUppercase,
-        digits = settings.pwDigits,
-        symbols = settings.pwSymbols,
-        excludeAmbiguous = settings.pwExcludeAmbiguous,
+        length = settings.passwordGenerator.pwLength,
+        upper = settings.passwordGenerator.pwUppercase,
+        digits = settings.passwordGenerator.pwDigits,
+        symbols = settings.passwordGenerator.pwSymbols,
+        excludeAmbiguous = settings.passwordGenerator.pwExcludeAmbiguous,
     )
-    val passphraseMode = settings.pwPassphraseMode
+    val passphraseMode = settings.passwordGenerator.pwPassphraseMode
     val generated = remember(passphraseMode, passwordSpec, passphraseSpec, wordlist, regenerateKey) {
         if (passphraseMode) PasswordGen.passphrase(wordlist, passphraseSpec, random)
         else PasswordGen.password(passwordSpec, random)
@@ -186,30 +186,30 @@ internal fun PasswordPanel(
             if (!passphraseMode) {
                 StepperRow(
                     label = "Length",
-                    value = settings.pwLength,
+                    value = settings.passwordGenerator.pwLength,
                     onChange = { onSetting(PwSettingAction.Length(it)) },
                 )
                 Row(
                     modifier = Modifier.horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    ToolPanelChip("A–Z", selected = settings.pwUppercase) {
-                        onSetting(PwSettingAction.Upper(!settings.pwUppercase))
+                    ToolPanelChip("A–Z", selected = settings.passwordGenerator.pwUppercase) {
+                        onSetting(PwSettingAction.Upper(!settings.passwordGenerator.pwUppercase))
                     }
-                    ToolPanelChip("0–9", selected = settings.pwDigits) {
-                        onSetting(PwSettingAction.Digits(!settings.pwDigits))
+                    ToolPanelChip("0–9", selected = settings.passwordGenerator.pwDigits) {
+                        onSetting(PwSettingAction.Digits(!settings.passwordGenerator.pwDigits))
                     }
-                    ToolPanelChip("#!&", selected = settings.pwSymbols) {
-                        onSetting(PwSettingAction.Symbols(!settings.pwSymbols))
+                    ToolPanelChip("#!&", selected = settings.passwordGenerator.pwSymbols) {
+                        onSetting(PwSettingAction.Symbols(!settings.passwordGenerator.pwSymbols))
                     }
-                    ToolPanelChip("No look-alikes", selected = settings.pwExcludeAmbiguous) {
-                        onSetting(PwSettingAction.ExcludeAmbiguous(!settings.pwExcludeAmbiguous))
+                    ToolPanelChip("No look-alikes", selected = settings.passwordGenerator.pwExcludeAmbiguous) {
+                        onSetting(PwSettingAction.ExcludeAmbiguous(!settings.passwordGenerator.pwExcludeAmbiguous))
                     }
                 }
             } else {
                 StepperRow(
                     label = "Words",
-                    value = settings.ppWordCount,
+                    value = settings.passwordGenerator.ppWordCount,
                     onChange = { onSetting(PwSettingAction.Words(it)) },
                 )
                 Row(
@@ -218,16 +218,16 @@ internal fun PasswordPanel(
                 ) {
                     val separators = listOf("-", ".", "_", " ", "")
                     val next = separators[
-                        (separators.indexOf(settings.ppSeparator) + 1).mod(separators.size),
+                        (separators.indexOf(settings.passwordGenerator.ppSeparator) + 1).mod(separators.size),
                     ]
                     ToolPanelChip(
-                        "Sep: ${if (settings.ppSeparator.isEmpty()) "none" else "“${settings.ppSeparator}”"}",
+                        "Sep: ${if (settings.passwordGenerator.ppSeparator.isEmpty()) "none" else "“${settings.passwordGenerator.ppSeparator}”"}",
                     ) { onSetting(PwSettingAction.Separator(next)) }
-                    ToolPanelChip("Capitalize", selected = settings.ppCapitalize) {
-                        onSetting(PwSettingAction.Capitalize(!settings.ppCapitalize))
+                    ToolPanelChip("Capitalize", selected = settings.passwordGenerator.ppCapitalize) {
+                        onSetting(PwSettingAction.Capitalize(!settings.passwordGenerator.ppCapitalize))
                     }
-                    ToolPanelChip("Add digit", selected = settings.ppIncludeDigit) {
-                        onSetting(PwSettingAction.IncludeDigit(!settings.ppIncludeDigit))
+                    ToolPanelChip("Add digit", selected = settings.passwordGenerator.ppIncludeDigit) {
+                        onSetting(PwSettingAction.IncludeDigit(!settings.passwordGenerator.ppIncludeDigit))
                     }
                 }
             }

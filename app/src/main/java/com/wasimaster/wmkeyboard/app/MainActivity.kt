@@ -6231,23 +6231,23 @@ private fun ToolDetailSettings(
                 item {
                     SliderSetting(
                         "Length",
-                        value = settings.pwLength.toFloat(),
+                        value = settings.passwordGenerator.pwLength.toFloat(),
                         range = 4f..64f,
                         display = { "${it.roundToInt()}" },
                     ) { scope.launch { repository.setPwLength(it.roundToInt()) } }
                 }
                 item {
-                    ToggleSetting("Uppercase letters", "A–Z", settings.pwUppercase) {
+                    ToggleSetting("Uppercase letters", "A–Z", settings.passwordGenerator.pwUppercase) {
                         scope.launch { repository.setPwUppercase(it) }
                     }
                 }
                 item {
-                    ToggleSetting("Digits", "0–9", settings.pwDigits) {
+                    ToggleSetting("Digits", "0–9", settings.passwordGenerator.pwDigits) {
                         scope.launch { repository.setPwDigits(it) }
                     }
                 }
                 item {
-                    ToggleSetting("Symbols", "!@#\$%…", settings.pwSymbols) {
+                    ToggleSetting("Symbols", "!@#\$%…", settings.passwordGenerator.pwSymbols) {
                         scope.launch { repository.setPwSymbols(it) }
                     }
                 }
@@ -6255,7 +6255,7 @@ private fun ToolDetailSettings(
                     ToggleSetting(
                         "Exclude look-alikes",
                         "Skip Il1O0o5S8B and similar",
-                        settings.pwExcludeAmbiguous,
+                        settings.passwordGenerator.pwExcludeAmbiguous,
                     ) { scope.launch { repository.setPwExcludeAmbiguous(it) } }
                 }
             }
@@ -6263,7 +6263,7 @@ private fun ToolDetailSettings(
                 item {
                     SliderSetting(
                         "Words",
-                        value = settings.ppWordCount.toFloat(),
+                        value = settings.passwordGenerator.ppWordCount.toFloat(),
                         range = 2f..10f,
                         display = { "${it.roundToInt()}" },
                     ) { scope.launch { repository.setPpWordCount(it.roundToInt()) } }
@@ -6271,17 +6271,17 @@ private fun ToolDetailSettings(
                 item {
                     TextFieldSetting(
                         label = "Separator",
-                        value = settings.ppSeparator,
+                        value = settings.passwordGenerator.ppSeparator,
                         hint = "Between words, e.g. - or . (blank = none)",
                     ) { repository.setPpSeparator(it) }
                 }
                 item {
-                    ToggleSetting("Capitalize words", "correct-Horse → Correct-Horse", settings.ppCapitalize) {
+                    ToggleSetting("Capitalize words", "correct-Horse → Correct-Horse", settings.passwordGenerator.ppCapitalize) {
                         scope.launch { repository.setPpCapitalize(it) }
                     }
                 }
                 item {
-                    ToggleSetting("Include a digit", "Appended to a random word", settings.ppIncludeDigit) {
+                    ToggleSetting("Include a digit", "Appended to a random word", settings.passwordGenerator.ppIncludeDigit) {
                         scope.launch { repository.setPpIncludeDigit(it) }
                     }
                 }

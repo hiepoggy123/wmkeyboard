@@ -4298,7 +4298,7 @@ private fun KeyboardBody(
                     compact = true,
                     compactHeight = keyRowsHeight(state),
                     headerActions = {
-                        val passphraseMode = state.settings.pwPassphraseMode
+                        val passphraseMode = state.settings.passwordGenerator.pwPassphraseMode
                         Spacer(Modifier.width(4.dp))
                         ToolPanelChip("Password", selected = !passphraseMode) {
                             onPwSetting(PwSettingAction.PassphraseMode(false))
