@@ -21,20 +21,56 @@ package com.wasimaster.wmkeyboard.core.input.composer
  *
  * Known limitation: character-level mapping is not truly 1:1 — one simplified
  * character can correspond to several traditional ones depending on the word it
- * sits in (发 → 發 in 發展 but 髮 in 頭髮). This takes the more common form;
- * phrase-aware accuracy would need OpenCC-style logic and a much larger table.
+ * sits in (发 → 發 in 發展 but 髮 in 頭髮). This takes the more common form.
+ *
+ * ### Regional vocabulary
+ *
+ * Converting characters is not the same as writing Traditional. Taiwan and Hong
+ * Kong do not merely spell the mainland's words differently, they often use
+ * different words: 出租車 is 計程車 in Taipei, 光盤 is 光碟, 軟件 is 軟體. A
+ * character map cannot reach any of that, so a Taiwanese user with the toggle on
+ * still got mainland vocabulary in Traditional dress.
+ *
+ * [region] adds that layer, from OpenCC's own tables: after the character pass,
+ * the whole candidate is looked up as a phrase, then any remaining regional
+ * character preferences are applied. Whole-string lookup is enough because a
+ * candidate is always a complete dictionary word — there is nothing to segment.
  */
 object HanVariant {
+
+    /** Which Traditional-using region's vocabulary to prefer. */
+    enum class HanRegion { GENERIC, TAIWAN, HONG_KONG }
 
     /** Simplified → Traditional, one character to one. Empty until the asset loads. */
     @Volatile
     var s2t: Map<Char, Char> = emptyMap()
+
+    /** Standard Traditional phrase → its Taiwan form (出租車 → 計程車). */
+    @Volatile
+    var twPhrases: Map<String, String> = emptyMap()
+
+    /** Standard Traditional → Taiwan character preference (僞 → 偽). */
+    @Volatile
+    var twVariants: Map<Char, Char> = emptyMap()
+
+    /** Standard Traditional → Hong Kong character preference. */
+    @Volatile
+    var hkVariants: Map<Char, Char> = emptyMap()
+
+    /** The user's region; [HanRegion.GENERIC] leaves vocabulary untouched. */
+    @Volatile
+    var region: HanRegion = HanRegion.GENERIC
+        set(value) { field = value; CjkDictionaries.invalidate() }
 
     /**
      * [text] in Traditional characters when the toggle is on and the map is
      * loaded; [text] unchanged otherwise. Characters absent from the map — which
      * is most of them, since the two scripts share the majority of their
      * characters — pass through as they are.
+     *
+     * The order is the one OpenCC uses and cannot be rearranged: the regional
+     * tables are keyed to *Traditional* text (出租車, not 出租车), so the
+     * character pass has to run first or none of them would ever match.
      */
     fun toTraditional(text: String): String {
         val map = s2t
@@ -47,7 +83,48 @@ object HanVariant {
         }
         // Returning the original instance when nothing mapped keeps the common
         // case allocation-free — this runs per candidate, per keystroke.
-        return if (changed) out.toString() else text
+        val traditional = if (changed) out.toString() else text
+        return localize(traditional)
+    }
+
+    /** [traditional] in the active region's vocabulary and character preferences. */
+    private fun localize(traditional: String): String {
+        val chars = when (region) {
+            HanRegion.GENERIC -> return traditional
+            HanRegion.TAIWAN -> twVariants
+            HanRegion.HONG_KONG -> hkVariants
+        }
+        // The phrase table is Taiwan's; Hong Kong shares the standard vocabulary
+        // and differs only in character preferences.
+        val phrased = if (region == HanRegion.TAIWAN) twPhrases[traditional] ?: traditional else traditional
+        if (chars.isEmpty()) return phrased
+        var changed = false
+        val out = StringBuilder(phrased.length)
+        for (c in phrased) {
+            val t = chars[c]
+            if (t != null && t != c) { changed = true; out.append(t) } else out.append(c)
+        }
+        return if (changed) out.toString() else phrased
+    }
+
+    /**
+     * Parses `phrase<TAB>replacement` lines — the multi-character rows [parse]
+     * deliberately drops, which is why this exists beside it rather than as a
+     * flag on it.
+     */
+    fun parsePhrases(lines: Sequence<String>): Map<String, String> {
+        val acc = HashMap<String, String>()
+        for (raw in lines) {
+            val line = raw.trim()
+            if (line.isEmpty() || line.startsWith("#")) continue
+            val parts = line.split('\t')
+            if (parts.size < 2) continue
+            val from = parts[0].trim()
+            val to = parts[1].trim()
+            if (from.isEmpty() || to.isEmpty() || from == to) continue
+            acc.putIfAbsent(from, to)
+        }
+        return acc
     }
 
     /** Parses `simplified<TAB>traditional` lines; malformed or identity rows are skipped. */

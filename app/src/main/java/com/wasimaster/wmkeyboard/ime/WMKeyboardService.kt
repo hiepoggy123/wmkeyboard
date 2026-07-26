@@ -976,6 +976,7 @@ open class WMKeyboardService : InputMethodService() {
                 CjkConfig.doublePinyin = settings.cjk.pinyinDoublePinyin
                 CjkConfig.traditionalOutput = settings.cjk.traditionalOutput
                 CjkConfig.lazyJyutping = settings.cjk.jyutpingLazy
+                HanVariant.region = settings.cjk.hanRegion
                 // The settings half of the learning gate; the per-field half
                 // (incognito, fields that forbid typing intelligence) is checked
                 // at the commit itself, where the field is known.
@@ -3425,6 +3426,25 @@ open class WMKeyboardService : InputMethodService() {
             runCatching {
                 assets.open("dictionaries/s2t.txt").bufferedReader().useLines {
                     HanVariant.s2t = HanVariant.parse(it)
+                }
+            }
+            // Regional vocabulary on top of it: Taipei writes 計程車 where the
+            // mainland writes 出租車, and no character map can reach that. All
+            // three are small enough to bundle, and each is independently
+            // optional — a missing one just leaves that layer inert.
+            runCatching {
+                assets.open("dictionaries/tw_phrases.txt").bufferedReader().useLines {
+                    HanVariant.twPhrases = HanVariant.parsePhrases(it)
+                }
+            }
+            runCatching {
+                assets.open("dictionaries/tw_variants.txt").bufferedReader().useLines {
+                    HanVariant.twVariants = HanVariant.parse(it)
+                }
+            }
+            runCatching {
+                assets.open("dictionaries/hk_variants.txt").bufferedReader().useLines {
+                    HanVariant.hkVariants = HanVariant.parse(it)
                 }
             }
             // Cantonese has its own inventory: the readings share no syllable set

@@ -16,6 +16,7 @@ import androidx.datastore.preferences.preferencesDataStore
 import com.wasimaster.wmkeyboard.BuildConfig
 import com.wasimaster.wmkeyboard.core.icons.IconOverrides
 import com.wasimaster.wmkeyboard.core.input.composer.DoublePinyinScheme
+import com.wasimaster.wmkeyboard.core.input.composer.HanVariant
 import com.wasimaster.wmkeyboard.core.layout.BuiltInLayouts
 import com.wasimaster.wmkeyboard.core.layout.LayoutCodec
 import com.wasimaster.wmkeyboard.core.layout.LayoutSpec
@@ -1277,6 +1278,8 @@ data class CjkSettings(
     val traditionalOutput: Boolean = false,
     /** Cantonese: match lazy-pronunciation mergers (n↔l, ng↔∅, -ng↔-n, -k↔-t). */
     val jyutpingLazy: Boolean = false,
+    /** Which region's vocabulary Traditional output should prefer. */
+    val hanRegion: HanVariant.HanRegion = HanVariant.HanRegion.GENERIC,
 )
 
 data class CameraSettings(
@@ -1875,6 +1878,7 @@ class SettingsRepository(private val context: Context) {
         private val PINYIN_DOUBLE_PINYIN = stringPreferencesKey("pinyin_double_pinyin")
         private val CJK_TRADITIONAL_OUTPUT = booleanPreferencesKey("cjk_traditional_output")
         private val JYUTPING_LAZY = booleanPreferencesKey("jyutping_lazy")
+        private val CJK_HAN_REGION = stringPreferencesKey("cjk_han_region")
         private val ONE_HANDED_MODE = stringPreferencesKey("one_handed_mode")
         // One-handed width leaves room for the rail on the inner edge, so it is
         // capped below 100%. Height scale never grows the keys, only shrinks.
@@ -2297,6 +2301,9 @@ class SettingsRepository(private val context: Context) {
                     ?: defaults.cjk.pinyinDoublePinyin,
                 traditionalOutput = p[CJK_TRADITIONAL_OUTPUT] ?: defaults.cjk.traditionalOutput,
                 jyutpingLazy = p[JYUTPING_LAZY] ?: defaults.cjk.jyutpingLazy,
+                hanRegion = p[CJK_HAN_REGION]
+                    ?.let { runCatching { HanVariant.HanRegion.valueOf(it) }.getOrNull() }
+                    ?: defaults.cjk.hanRegion,
             ),
             oneHandedMode = p[ONE_HANDED_MODE]
                 ?.let { runCatching { OneHandedMode.valueOf(it) }.getOrNull() }
@@ -3892,6 +3899,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setJyutpingLazy(value: Boolean) =
         context.dataStore.edit { it[JYUTPING_LAZY] = value }
+
+    suspend fun setCjkHanRegion(value: HanVariant.HanRegion) =
+        context.dataStore.edit { it[CJK_HAN_REGION] = value.name }
 
     suspend fun setOneHandedMode(value: OneHandedMode) =
         context.dataStore.edit { it[ONE_HANDED_MODE] = value.name }

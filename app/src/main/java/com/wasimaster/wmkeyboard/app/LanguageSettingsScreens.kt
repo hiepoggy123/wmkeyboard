@@ -43,6 +43,7 @@ import com.wasimaster.wmkeyboard.core.input.composer.CjkDictDownloadManager
 import com.wasimaster.wmkeyboard.core.input.composer.CjkDictPack
 import com.wasimaster.wmkeyboard.core.input.composer.DoublePinyin
 import com.wasimaster.wmkeyboard.core.input.composer.DoublePinyinScheme
+import com.wasimaster.wmkeyboard.core.input.composer.HanVariant
 import com.wasimaster.wmkeyboard.core.layout.language
 import com.wasimaster.wmkeyboard.core.layout.resolveLayout
 import com.wasimaster.wmkeyboard.core.script.LanguageDef
@@ -471,6 +472,42 @@ private fun CjkDictPackManager(
                     "context-dependent forms may be wrong (发 → 發 / 髮).",
                 settings.cjk.traditionalOutput,
             ) { on -> scope.launch { repository.setCjkTraditionalOutput(on) } }
+        }
+
+        // Traditional characters are only half of writing Traditional: Taipei
+        // says 計程車 where the mainland says 出租車, and no character map
+        // reaches that. Only worth showing once the toggle above is on.
+        if (settings.cjk.traditionalOutput) {
+            item {
+                CaptionText(
+                    "Regional wording — beyond characters, Taiwan and Hong Kong often " +
+                        "use different words for the same thing.",
+                )
+            }
+            for (region in HanVariant.HanRegion.entries) {
+                item {
+                    val label = when (region) {
+                        HanVariant.HanRegion.GENERIC -> "Standard" to "Characters only, no wording changes"
+                        HanVariant.HanRegion.TAIWAN -> "Taiwan (臺灣)" to "出租車 → 計程車, 光盤 → 光碟"
+                        HanVariant.HanRegion.HONG_KONG -> "Hong Kong (香港)" to "Hong Kong character preferences"
+                    }
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { scope.launch { repository.setCjkHanRegion(region) } }
+                            .padding(horizontal = 16.dp, vertical = 4.dp),
+                    ) {
+                        RadioButton(
+                            selected = settings.cjk.hanRegion == region,
+                            onClick = { scope.launch { repository.setCjkHanRegion(region) } },
+                        )
+                        Column(modifier = Modifier.padding(start = 8.dp)) {
+                            Text(label.first)
+                            CaptionText(label.second)
+                        }
+                    }
+                }
+            }
         }
 
         // Cantonese-only: the sound mergers most Hong Kong speakers have, and

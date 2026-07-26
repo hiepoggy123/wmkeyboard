@@ -204,6 +204,15 @@ private val bundledAttributions: List<Attribution> = buildList {
     )
     add(
         Attribution(
+            "OpenCC",
+            "Simplified↔Traditional character map and Taiwan/Hong Kong vocabulary",
+            "Copyright Carbo Kuo and OpenCC contributors",
+            "Apache-2.0", "apache-2.0.txt",
+            "https://github.com/BYVoid/OpenCC",
+        ),
+    )
+    add(
+        Attribution(
             "mozc & SudachiDict",
             "Japanese kana→kanji conversion dictionary (downloadable pack)",
             "Copyright Google Inc. and Works Applications Co., Ltd.",
