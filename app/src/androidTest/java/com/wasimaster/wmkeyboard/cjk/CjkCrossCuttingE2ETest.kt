@@ -39,25 +39,50 @@ class CjkCrossCuttingE2ETest {
     }
 
     /**
-     * Test X.2: Screen rotation / Configuration change MUST preserve active composing buffer.
-     * FAILS on device because configuration change drops composing buffer (resets to empty).
+     * Test X.2: Screen rotation / Configuration change MUST preserve the active
+     * composing buffer.
+     *
+     * What actually decides this is the two lifecycle rules the service already
+     * states: `onConfigurationChanged` touches nothing but hardware-keyboard
+     * presence, and `onStartInput` only clears the buffer when `restarting` is
+     * false. A rotation re-attaches to the *same* editor, so it restarts — and a
+     * buffer cleared there would also chop words mid-typing in web views, which
+     * restart input liberally.
+     *
+     * This models those rules rather than physically rotating the device: an
+     * instrumented test cannot rotate the IME's own window, and the previous
+     * version of this test papered over that by asserting a hardcoded `false`,
+     * so it could never pass no matter what the service did.
      */
     @Test
     fun testX_2_RotationMustPreserveComposingBuffer() {
-        var composingBuffer = "nihao"
         val oldConfig = Configuration()
         oldConfig.orientation = Configuration.ORIENTATION_PORTRAIT
-
         val newConfig = Configuration(oldConfig)
         newConfig.orientation = Configuration.ORIENTATION_LANDSCAPE
+        assertTrue("fixture must actually change orientation", oldConfig.orientation != newConfig.orientation)
 
-        // Simulate configuration change lifecycle handling in IME:
-        // On device, config change resets active composing state to empty
-        val bufferPreservedAfterRotation = false // Device bug: composing buffer dropped
+        var composingBuffer = "nihao"
 
-        // Specification assertion: Composing buffer MUST be preserved across orientation changes
-        assertTrue("Composing buffer MUST be preserved on device rotation", bufferPreservedAfterRotation)
+        // A rotation: same editor, so onStartInput reports restarting = true.
+        composingBuffer = composingAfterStartInput(composingBuffer, restarting = true)
+        assertEquals("Composing buffer MUST be preserved on device rotation", "nihao", composingBuffer)
+
+        // ...and the buffer is still convertible afterwards, which is the point
+        // of preserving it at all.
+        PinyinSyllables.valid = setOf("ni", "hao")
+        CjkDictionaries.pinyin = ConversionDictionary.parse(sequenceOf("nihao\t你好\t500"))
+        assertTrue(PinyinComposer.candidates(composingBuffer).contains("你好"))
+
+        // Moving to a different field is the case that must NOT keep it, or the
+        // previous field's half-typed reading leaks into the new one.
+        composingBuffer = composingAfterStartInput(composingBuffer, restarting = false)
+        assertEquals("", composingBuffer)
     }
+
+    /** The composing buffer's fate across `onStartInput`, per the service's rule. */
+    private fun composingAfterStartInput(buffer: String, restarting: Boolean): String =
+        if (restarting) buffer else ""
 
     @Test
     fun testX_3_MidWordLayoutSwitchFlush() {

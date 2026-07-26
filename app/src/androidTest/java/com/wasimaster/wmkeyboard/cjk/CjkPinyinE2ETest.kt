@@ -92,18 +92,34 @@ class CjkPinyinE2ETest {
 
     /**
      * Test P1.5: xi'an (with apostrophe) MUST segment into xi|an and offer 西安.
-     * FAILS on device because xi'an candidates are identical to xian (见/现/先) and 西安 never surfaces.
+     *
+     * The apostrophe is a *boundary marker in the buffer*, never part of a
+     * reading — the segmenter folds it into the syllable's input span and looks
+     * up `xian`. So the dictionary is keyed on `xian`, exactly as a real pack is,
+     * and what the apostrophe changes is the syllable *count*: two units, which a
+     * one-character word cannot cover.
      */
     @Test
     fun testP1_5_ApostropheSegmentationMustOfferXiAn() {
         PinyinSyllables.valid = fixtureSyllables
         CjkDictionaries.pinyin = ConversionDictionary.parse(
-            sequenceOf("xi'an\t西安\t500", "xian\t见\t500")
+            sequenceOf("xian\t西安\t7", "xian\t见\t500")
         )
 
+        // Spelled out as two syllables: 见 is one character and cannot span both,
+        // so the place name leads despite being far rarer.
         val candidates = PinyinComposer.candidates("xi'an")
-        // Specification assertion: Pinyin apostrophe xi'an MUST surface segmented phrase 西安
         assertTrue("xi'an with apostrophe MUST return candidates containing 西安", candidates.contains("西安"))
+        assertEquals("西安", candidates[0])
+        // The apostrophe is consumed with the syllable it introduced.
+        assertEquals(5, PinyinComposer.consumedFor("xi'an", "西安"))
+
+        // Typed as one syllable it is merely under-segmented, so the common
+        // single character comes back and leads. Needs `xian` in the inventory —
+        // without it the buffer segments as xi|an regardless of the apostrophe,
+        // which is the whole distinction under test.
+        PinyinSyllables.valid = fixtureSyllables + "xian"
+        assertEquals("见", PinyinComposer.candidates("xian")[0])
     }
 
     @Test

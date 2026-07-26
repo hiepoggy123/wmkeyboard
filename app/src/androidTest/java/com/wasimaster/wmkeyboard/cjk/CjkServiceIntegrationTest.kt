@@ -7,6 +7,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.wasimaster.wmkeyboard.core.input.composer.CjkDictionaries
 import com.wasimaster.wmkeyboard.core.input.composer.ConversionDictionary
 import com.wasimaster.wmkeyboard.core.input.composer.PinyinComposer
+import com.wasimaster.wmkeyboard.ime.cursorLeftComposingRegion
 import com.wasimaster.wmkeyboard.core.input.composer.PinyinSyllables
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -138,14 +139,23 @@ class CjkServiceIntegrationTest {
         composingBuffer.delete(0, consumed)
         assertEquals("hao", composingBuffer.toString())
 
-        // Post-commit selection coords in text field:
+        // The keyboard re-composes the tail straight after committing, so the
+        // selection update that trails commitText reports that fresh region.
+        ic.setComposingText(composingBuffer.toString(), 1)
         val postCommitSelStart = ic.cursor
         val postCommitSelEnd = ic.cursor
+        val candidatesStart = ic.compStart
         val candidatesEnd = ic.compEnd
 
-        // Check if abandon heuristic fires incorrectly on async selection update:
-        val wouldAbandon = composingBuffer.isNotEmpty() &&
-                (postCommitSelStart != candidatesEnd || postCommitSelEnd != candidatesEnd)
+        // Ask the *real* predicate rather than a copy of it — this test used to
+        // replicate an older heuristic inline, and went on asserting against it
+        // long after the service had stopped using it.
+        val wouldAbandon = composingBuffer.isNotEmpty() && cursorLeftComposingRegion(
+            postCommitSelStart,
+            postCommitSelEnd,
+            candidatesStart,
+            candidatesEnd,
+        )
 
         // Intended specification: Selection update MUST NOT abandon the prefix-commit tail
         assertFalse("onUpdateSelection must NOT abandon composing buffer during prefix commit", wouldAbandon)

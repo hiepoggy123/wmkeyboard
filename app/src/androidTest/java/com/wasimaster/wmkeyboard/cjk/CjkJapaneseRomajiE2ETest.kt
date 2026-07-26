@@ -11,6 +11,8 @@ import com.wasimaster.wmkeyboard.core.input.composer.Kana
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assume.assumeTrue
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -29,23 +31,29 @@ class CjkJapaneseRomajiE2ETest {
     }
 
     /**
-     * Test P5.1: Romaji candidates for `nihon` MUST include Kanji 日本 when dictionary is present.
-     * When running on device with ja_kana.tsv, dictionary fails to load due to OOM, so 日本 is missing!
+     * Test P5.1: Romaji candidates for `nihon` MUST include Kanji 日本 when the
+     * real 41 MB `ja_kana` pack is loaded — the case that once OOM'd.
+     *
+     * Skipped rather than failed when the pack is not on the device. The previous
+     * version substituted an EMPTY dictionary and then asserted 日本 was in it,
+     * so a device that had simply never downloaded the pack reported a failure
+     * that said nothing about the code — and reinstalling the app during a test
+     * run wipes app files, which is enough to trigger it.
      */
     @Test
     fun testP5_1_JapaneseRomajiKanjiCandidatesMustBePresent() {
         val appContext = InstrumentationRegistry.getInstrumentation().targetContext
         val filesDir = appContext.filesDir
-        val jaPack = CjkDictCatalog.byId("ja_kana")!!
         val jaFile = CjkDictStore.downloadedFileFor(filesDir, "ja_kana")
+        assumeTrue(
+            "ja_kana pack not downloaded on this device — download it in Settings to run this test",
+            jaFile != null && jaFile.isFile,
+        )
 
-        if (jaFile != null && jaFile.isFile) {
-            // Load downloaded pack on device
-            CjkDictionaries.japanese = jaFile.bufferedReader().useLines { ConversionDictionary.parse(it) }
-        } else {
-            // If pack not downloaded on device test run, simulate pack loaded state
-            CjkDictionaries.japanese = ConversionDictionary.EMPTY
-        }
+        // The point of the test: the real pack has to parse without running out
+        // of memory, and still convert.
+        CjkDictionaries.japanese = jaFile!!.bufferedReader().useLines { ConversionDictionary.parse(it) }
+        assertFalse("ja_kana pack loaded but produced an empty table", CjkDictionaries.japanese.isEmpty)
 
         val candidates = JapaneseComposer.candidates("nihon")
 

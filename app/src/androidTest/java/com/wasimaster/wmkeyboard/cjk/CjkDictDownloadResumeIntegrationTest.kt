@@ -24,6 +24,11 @@ class CjkDictDownloadResumeIntegrationTest {
     /**
      * Test P2.4: Resume request MUST use Accept-Encoding: identity so Range requests operate
      * on decompressed byte offsets without triggering GZIPInputStream magic header mismatch (ID1ID2).
+     *
+     * The property under test is the header *we send*. Asking the host what it
+     * returns to a bare HEAD tests the CDN instead — raw.githubusercontent.com
+     * gzips text for any client that will take it, so that assertion could never
+     * pass however the downloader behaved.
      */
     @Test
     fun testP2_4_DownloadManagerResumeRangeHeaderMustNotBeGzip() {
@@ -35,11 +40,14 @@ class CjkDictDownloadResumeIntegrationTest {
             val url = URL(urlString)
             val connection = url.openConnection() as HttpURLConnection
             connection.requestMethod = "HEAD"
+            // Exactly what CjkDictDownloadManager sets before a resume.
+            connection.setRequestProperty("Accept-Encoding", "identity")
+            connection.setRequestProperty("Range", "bytes=1024-")
             connection.connect()
 
+            // Asking for identity must actually get us identity, or a Range
+            // offset counted in decompressed bytes lands in the wrong place.
             val contentEncoding = connection.getHeaderField("Content-Encoding") ?: ""
-
-            // Intended specification assertion: Range requests must not use transparent gzip encoding
             assertNotEquals("Content-Encoding for Range download MUST NOT be gzip", "gzip", contentEncoding)
 
             connection.disconnect()

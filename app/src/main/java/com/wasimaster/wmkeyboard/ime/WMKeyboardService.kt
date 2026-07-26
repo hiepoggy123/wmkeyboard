@@ -1640,16 +1640,8 @@ open class WMKeyboardService : InputMethodService() {
             }
         }
         val wasComposing = composing.isNotEmpty()
-        // The candidate range is valid when positive/zero. The cursor moved away
-        // from the composing region if it jumped strictly outside [candidatesStart, candidatesEnd].
-        // Invalid or un-reported candidate ranges (-1) must not erroneously cancel active composing.
-        // Demanding the caret sit exactly at candidatesEnd would mistake two ordinary
-        // events for a cursor jump: a field that reports no composing region (-1), and
-        // the update that trails our own commitText — which arrives after a CJK prefix
-        // commit has already re-composed the tail, so the abandon path would
-        // finishComposingText() that fresh region and drop `hao` from `nihao` as raw latin.
-        val cursorOutsideCandidates = candidatesStart >= 0 && candidatesEnd >= candidatesStart &&
-            (newSelStart < candidatesStart || newSelEnd > candidatesEnd)
+        val cursorOutsideCandidates =
+            cursorLeftComposingRegion(newSelStart, newSelEnd, candidatesStart, candidatesEnd)
         // A caret placed *inside* the composing word (a tap mid-word) also ends
         // the composition. Keeping it meant the next keystroke rewrote the
         // whole region via setComposingText — which snaps the cursor to the
@@ -9387,3 +9379,24 @@ open class WMKeyboardService : InputMethodService() {
         }
     }
 }
+
+/**
+ * Whether a selection update means the user moved the caret away from the
+ * composing region, so the composition should be abandoned.
+ *
+ * Extracted because it is the exact predicate a CJK prefix commit depends on and
+ * it has been got wrong before. Demanding the caret sit *at* `candidatesEnd`
+ * mistakes two ordinary events for a cursor jump: a field that reports no
+ * composing region at all (-1), and the update that trails the keyboard's own
+ * `commitText` — which arrives after a prefix commit has already re-composed the
+ * tail, so the abandon path would `finishComposingText()` that fresh region and
+ * drop `hao` from `nihao` as raw latin. Only a caret strictly outside the
+ * reported range counts.
+ */
+internal fun cursorLeftComposingRegion(
+    newSelStart: Int,
+    newSelEnd: Int,
+    candidatesStart: Int,
+    candidatesEnd: Int,
+): Boolean = candidatesStart >= 0 && candidatesEnd >= candidatesStart &&
+    (newSelStart < candidatesStart || newSelEnd > candidatesEnd)
