@@ -18,7 +18,9 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -97,6 +99,8 @@ import com.wasimaster.wmkeyboard.core.settings.KeySoundStyle
 import com.wasimaster.wmkeyboard.app.ThemePreview
 import com.wasimaster.wmkeyboard.core.theme.BuiltInThemes
 import com.wasimaster.wmkeyboard.core.theme.DEFAULT_THEME_ID
+import com.wasimaster.wmkeyboard.core.tools.AltCalendar
+import com.wasimaster.wmkeyboard.core.tools.AltCalendars
 import com.wasimaster.wmkeyboard.core.tools.CalendarSystems
 import com.wasimaster.wmkeyboard.core.tools.DeviceCalendar
 import com.wasimaster.wmkeyboard.core.tools.DeviceCalendarEvent
@@ -827,11 +831,11 @@ internal fun WeatherPanel(
 // ---- calendar ----
 
 /**
- * Month calendar: Gregorian grid with the Bengali (revised Bangladeshi)
- * date inside each cell, month spans for the enabled calendars in the
- * header, and a Today shortcut. Tapping a day shows that day's summary
- * across the enabled calendars and its events read from the device
- * calendar (read-only; [onRequestPermission] asks for READ_CALENDAR).
+ * Month calendar: a Gregorian grid carrying the first chosen alternate
+ * calendar's date inside each cell, both chosen calendars' month spans in the
+ * header, and a Today shortcut. Tapping a day shows that day's summary across
+ * the chosen calendars and its events read from the device calendar
+ * (read-only; [onRequestPermission] asks for READ_CALENDAR).
  */
 @Composable
 internal fun CalendarPanel(
@@ -856,163 +860,176 @@ internal fun CalendarPanel(
             Calendar.getInstance().apply { set(shownYear, shownMonth - 1, 1) }.time
         )
     }
-    val showBengali = state.settings.calendarShowBengali
-    val showHijri = state.settings.calendarShowHijri
+    // The two calendars riding along with the Gregorian one, in draw order and
+    // with empty slots dropped, so everything below just iterates.
+    val altCalendars = listOf(state.settings.calendarAltOne, state.settings.calendarAltTwo)
+        .filter { it != AltCalendar.NONE }
+        .distinct()
+    // The day cells only have room for one extra number, so the first pick
+    // that has one to give wins.
+    val cellCalendar = altCalendars.firstOrNull { it.hasDayLabel }
     val hijriAdjust = state.settings.hijriAdjustDays
     val daysInMonth = CalendarSystems.gregorianMonthLength(shownYear, shownMonth)
 
-    // Which Bengali / Hijri months this Gregorian month spans, for the header.
-    val spanLabel = remember(shownYear, shownMonth, showBengali, showHijri, hijriAdjust) {
-        val parts = mutableListOf<String>()
-        if (showBengali) {
-            val first = CalendarSystems.toBengali(shownYear, shownMonth, 1)
-            val last = CalendarSystems.toBengali(shownYear, shownMonth, daysInMonth)
-            val months = if (first.month == last.month) {
-                CalendarSystems.bengaliMonths[first.month - 1]
-            } else {
-                CalendarSystems.bengaliMonths[first.month - 1] + "–" +
-                    CalendarSystems.bengaliMonths[last.month - 1]
-            }
-            parts += "$months ${CalendarSystems.bengaliDigits(last.year)}"
-        }
-        if (showHijri) {
-            val first = CalendarSystems.toHijri(shownYear, shownMonth, 1, hijriAdjust)
-            val last = CalendarSystems.toHijri(shownYear, shownMonth, daysInMonth, hijriAdjust)
-            val months = if (first.month == last.month) {
-                CalendarSystems.hijriMonths[first.month - 1]
-            } else {
-                CalendarSystems.hijriMonths[first.month - 1].substringBefore(' ') + "–" +
-                    CalendarSystems.hijriMonths[last.month - 1].substringBefore(' ')
-            }
-            parts += "$months ${last.year}"
-        }
-        parts.joinToString("  ·  ")
+    // Which months of the chosen calendars this Gregorian month spans.
+    val spanLabel = remember(shownYear, shownMonth, altCalendars, hijriAdjust) {
+        altCalendars
+            .map { AltCalendars.monthSpan(it, shownYear, shownMonth, hijriAdjust) }
+            .filter { it.isNotEmpty() }
+            .joinToString("  ·  ")
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = 10.dp, vertical = 2.dp),
-    ) {
-        // Header: month navigation + Today shortcut.
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        val panelHeight = maxHeight
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 10.dp, vertical = 2.dp),
         ) {
-            IconButton(
-                onClick = {
-                    if (shownMonth == 1) { shownMonth = 12; shownYear-- } else shownMonth--
-                },
-                modifier = Modifier.size(30.dp),
+            // Header: month navigation + Today shortcut.
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(Icons.AutoMirrored.Outlined.KeyboardArrowLeft,
-                    contentDescription = "Previous month", tint = kb.toolbarIcon)
-            }
-            Column(
-                modifier = Modifier.weight(1f),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Text(
-                    monthLabel,
-                    color = kb.modifierKeyText,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
-                )
-                if (spanLabel.isNotEmpty()) {
+                IconButton(
+                    onClick = {
+                        if (shownMonth == 1) { shownMonth = 12; shownYear-- } else shownMonth--
+                    },
+                    modifier = Modifier.size(30.dp),
+                ) {
+                    Icon(Icons.AutoMirrored.Outlined.KeyboardArrowLeft,
+                        contentDescription = "Previous month", tint = kb.toolbarIcon)
+                }
+                Column(
+                    modifier = Modifier.weight(1f),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
                     Text(
-                        spanLabel,
-                        color = kb.toolbarIcon,
-                        fontSize = 10.sp,
+                        monthLabel,
+                        color = kb.modifierKeyText,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
+                    )
+                    if (spanLabel.isNotEmpty()) {
+                        Text(
+                            spanLabel,
+                            color = kb.toolbarIcon,
+                            fontSize = 10.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+                if (shownYear != today.year || shownMonth != today.month) {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(kb.chip)
+                            .clickable {
+                                shownYear = today.year
+                                shownMonth = today.month
+                                selected = today
+                            }
+                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                    ) {
+                        Text("Today", color = kb.modifierKeyText, fontSize = 11.sp)
+                    }
+                }
+                IconButton(
+                    onClick = {
+                        if (shownMonth == 12) { shownMonth = 1; shownYear++ } else shownMonth++
+                    },
+                    modifier = Modifier.size(30.dp),
+                ) {
+                    Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight,
+                        contentDescription = "Next month", tint = kb.toolbarIcon)
+                }
+            }
+            // Weekday initials; Friday tinted (weekend in Bangladesh).
+            Row(modifier = Modifier.fillMaxWidth()) {
+                listOf("S", "M", "T", "W", "T", "F", "S").forEachIndexed { index, initial ->
+                    Text(
+                        initial,
+                        color = if (index == 5) kb.accent else kb.toolbarIcon,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.weight(1f),
                     )
                 }
             }
-            if (shownYear != today.year || shownMonth != today.month) {
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(kb.chip)
-                        .clickable {
-                            shownYear = today.year
-                            shownMonth = today.month
-                            selected = today
-                        }
-                        .padding(horizontal = 8.dp, vertical = 4.dp),
-                ) {
-                    Text("Today", color = kb.modifierKeyText, fontSize = 11.sp)
-                }
-            }
-            IconButton(
-                onClick = {
-                    if (shownMonth == 12) { shownMonth = 1; shownYear++ } else shownMonth++
-                },
-                modifier = Modifier.size(30.dp),
-            ) {
-                Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight,
-                    contentDescription = "Next month", tint = kb.toolbarIcon)
-            }
-        }
-        // Weekday initials; Friday tinted (weekend in Bangladesh).
-        Row(modifier = Modifier.fillMaxWidth()) {
-            listOf("S", "M", "T", "W", "T", "F", "S").forEachIndexed { index, initial ->
-                Text(
-                    initial,
-                    color = if (index == 5) kb.accent else kb.toolbarIcon,
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.weight(1f),
-                )
-            }
-        }
-        // Day grid.
-        val firstJdn = CalendarSystems.gregorianToJdn(shownYear, shownMonth, 1)
-        val firstDow = CalendarSystems.dayOfWeek(firstJdn)
-        val weeks = (firstDow + daysInMonth + 6) / 7
-        Column(modifier = Modifier.weight(1f)) {
-            for (week in 0 until weeks) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f),
-                ) {
-                    for (dow in 0 until 7) {
-                        val day = week * 7 + dow - firstDow + 1
-                        if (day < 1 || day > daysInMonth) {
-                            Spacer(Modifier.weight(1f))
-                        } else {
-                            val isToday = today.year == shownYear &&
-                                today.month == shownMonth && today.day == day
-                            val isSelected = selected.year == shownYear &&
-                                selected.month == shownMonth && selected.day == day
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .fillMaxHeight()
-                                    .padding(horizontal = 2.dp)
-                                    .clip(RoundedCornerShape(6.dp))
-                                    .background(if (isSelected) kb.toolCircleActive else Color.Transparent)
-                                    .then(
-                                        if (isToday && !isSelected) {
-                                            Modifier.border(1.dp, kb.accent, RoundedCornerShape(6.dp))
-                                        } else Modifier
-                                    )
-                                    .clickable {
-                                        selected = CalendarSystems.SimpleDate(shownYear, shownMonth, day)
-                                    },
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                val primary = when {
-                                    isSelected -> kb.toolCircleActiveIcon
-                                    isToday -> kb.accent
-                                    else -> kb.modifierKeyText
-                                }
-                                if (showBengali) {
-                                    val bengaliDay = CalendarSystems
-                                        .toBengali(shownYear, shownMonth, day).day
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
+            // Day grid.
+            val firstJdn = CalendarSystems.gregorianToJdn(shownYear, shownMonth, 1)
+            val firstDow = CalendarSystems.dayOfWeek(firstJdn)
+            val weeks = (firstDow + daysInMonth + 6) / 7
+            // The grid is the flexible child, so it would otherwise surrender
+            // whatever the event list asked for and collapse into unreadable
+            // slivers on a busy day. Reserve legible week rows first and hand
+            // the events everything left over — that is what keeps a long list
+            // scrolling in a real amount of room instead of cramping the month.
+            val eventsMaxHeight = (panelHeight - CALENDAR_CHROME_HEIGHT - (weeks * 26).dp)
+                .coerceIn(0.dp, 160.dp)
+            Column(modifier = Modifier.weight(1f)) {
+                for (week in 0 until weeks) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                    ) {
+                        for (dow in 0 until 7) {
+                            val day = week * 7 + dow - firstDow + 1
+                            if (day < 1 || day > daysInMonth) {
+                                Spacer(Modifier.weight(1f))
+                            } else {
+                                val isToday = today.year == shownYear &&
+                                    today.month == shownMonth && today.day == day
+                                val isSelected = selected.year == shownYear &&
+                                    selected.month == shownMonth && selected.day == day
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .fillMaxHeight()
+                                        .padding(horizontal = 2.dp)
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(if (isSelected) kb.toolCircleActive else Color.Transparent)
+                                        .then(
+                                            if (isToday && !isSelected) {
+                                                Modifier.border(1.dp, kb.accent, RoundedCornerShape(6.dp))
+                                            } else Modifier
+                                        )
+                                        .clickable {
+                                            selected = CalendarSystems.SimpleDate(shownYear, shownMonth, day)
+                                        },
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    val primary = when {
+                                        isSelected -> kb.toolCircleActiveIcon
+                                        isToday -> kb.accent
+                                        else -> kb.modifierKeyText
+                                    }
+                                    if (cellCalendar != null) {
+                                        val altDay = AltCalendars.dayLabel(
+                                            cellCalendar, shownYear, shownMonth, day, hijriAdjust,
+                                        )
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Text(
+                                                day.toString(),
+                                                color = primary,
+                                                fontSize = 12.sp,
+                                                fontWeight = if (isToday || isSelected) FontWeight.Bold
+                                                    else FontWeight.Normal,
+                                            )
+                                            Text(
+                                                altDay,
+                                                color = if (isSelected) kb.toolCircleActiveIcon.copy(alpha = 0.7f)
+                                                    else kb.toolbarIcon,
+                                                fontSize = 8.sp,
+                                                maxLines = 1,
+                                                modifier = Modifier.padding(start = 2.dp),
+                                            )
+                                        }
+                                    } else {
                                         Text(
                                             day.toString(),
                                             color = primary,
@@ -1020,93 +1037,85 @@ internal fun CalendarPanel(
                                             fontWeight = if (isToday || isSelected) FontWeight.Bold
                                                 else FontWeight.Normal,
                                         )
-                                        Text(
-                                            CalendarSystems.bengaliDigits(bengaliDay),
-                                            color = if (isSelected) kb.toolCircleActiveIcon.copy(alpha = 0.7f)
-                                                else kb.toolbarIcon,
-                                            fontSize = 8.sp,
-                                            modifier = Modifier.padding(start = 2.dp),
-                                        )
                                     }
-                                } else {
-                                    Text(
-                                        day.toString(),
-                                        color = primary,
-                                        fontSize = 12.sp,
-                                        fontWeight = if (isToday || isSelected) FontWeight.Bold
-                                            else FontWeight.Normal,
-                                    )
                                 }
                             }
                         }
                     }
                 }
             }
-        }
-        // Selected date across the enabled calendars, then its events.
-        val gregorianText = remember(selected) {
-            SimpleDateFormat("d MMMM yyyy", Locale.getDefault()).format(
-                Calendar.getInstance().apply {
-                    set(selected.year, selected.month - 1, selected.day)
-                }.time
+            // Selected date across the enabled calendars, then its events.
+            val gregorianText = remember(selected) {
+                SimpleDateFormat("d MMMM yyyy", Locale.getDefault()).format(
+                    Calendar.getInstance().apply {
+                        set(selected.year, selected.month - 1, selected.day)
+                    }.time
+                )
+            }
+            val weekdayText = remember(selected) {
+                SimpleDateFormat("EEEE", Locale.getDefault()).format(
+                    Calendar.getInstance().apply {
+                        set(selected.year, selected.month - 1, selected.day)
+                    }.time
+                )
+            }
+            val relativeDays =
+                (CalendarSystems.gregorianToJdn(selected.year, selected.month, selected.day) -
+                    CalendarSystems.gregorianToJdn(today.year, today.month, today.day)).toInt()
+            val relativeText = when (relativeDays) {
+                0 -> "Today"
+                1 -> "Tomorrow"
+                -1 -> "Yesterday"
+                else -> if (relativeDays > 0) "in $relativeDays days" else "${-relativeDays} days ago"
+            }
+            // The alternate calendars ride along as context on the second line.
+            val altText = remember(selected, altCalendars, hijriAdjust) {
+                altCalendars
+                    .map {
+                        AltCalendars.fullDate(
+                            it, selected.year, selected.month, selected.day, hijriAdjust,
+                        )
+                    }
+                    .filter { it.isNotEmpty() }
+                    .joinToString(" · ")
+            }
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 4.dp),
+            ) {
+                Text(
+                    gregorianText,
+                    color = kb.modifierKeyText,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1,
+                )
+                Text(
+                    if (altText.isEmpty()) "$weekdayText · $relativeText"
+                    else "$weekdayText · $relativeText · $altText",
+                    color = kb.secondaryText,
+                    fontSize = 11.sp,
+                    maxLines = 1,
+                )
+            }
+            CalendarDayEvents(
+                selected = selected,
+                onRequestPermission = onRequestPermission,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = eventsMaxHeight),
             )
         }
-        val bengali = CalendarSystems.toBengali(selected.year, selected.month, selected.day)
-        val bengaliText = "${CalendarSystems.bengaliDigits(bengali.day)} " +
-            "${CalendarSystems.bengaliMonths[bengali.month - 1]} " +
-            CalendarSystems.bengaliDigits(bengali.year)
-        val hijri = CalendarSystems.toHijri(selected.year, selected.month, selected.day, hijriAdjust)
-        val hijriText = "${hijri.day} ${CalendarSystems.hijriMonths[hijri.month - 1]} ${hijri.year} AH"
-        val weekdayText = remember(selected) {
-            SimpleDateFormat("EEEE", Locale.getDefault()).format(
-                Calendar.getInstance().apply {
-                    set(selected.year, selected.month - 1, selected.day)
-                }.time
-            )
-        }
-        val relativeDays =
-            (CalendarSystems.gregorianToJdn(selected.year, selected.month, selected.day) -
-                CalendarSystems.gregorianToJdn(today.year, today.month, today.day)).toInt()
-        val relativeText = when (relativeDays) {
-            0 -> "Today"
-            1 -> "Tomorrow"
-            -1 -> "Yesterday"
-            else -> if (relativeDays > 0) "in $relativeDays days" else "${-relativeDays} days ago"
-        }
-        // The alternate calendars ride along as context on the second line.
-        val altText = buildList {
-            if (showBengali) add(bengaliText)
-            if (showHijri) add(hijriText)
-        }.joinToString(" · ")
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 4.dp),
-        ) {
-            Text(
-                gregorianText,
-                color = kb.modifierKeyText,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Medium,
-                maxLines = 1,
-            )
-            Text(
-                if (altText.isEmpty()) "$weekdayText · $relativeText"
-                else "$weekdayText · $relativeText · $altText",
-                color = kb.secondaryText,
-                fontSize = 11.sp,
-                maxLines = 1,
-            )
-        }
-        CalendarDayEvents(
-            selected = selected,
-            onRequestPermission = onRequestPermission,
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(max = 116.dp),
-        )
     }
 }
+
+/**
+ * Everything in the calendar panel that is not the day grid or the event
+ * list: the month header, the weekday initials, the selected-day summary and
+ * the paddings between them.
+ */
+private val CALENDAR_CHROME_HEIGHT = 96.dp
 
 /**
  * The selected day's events read from the device calendar. Shows a compact

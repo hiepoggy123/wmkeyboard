@@ -721,25 +721,17 @@ private fun ToolSetupPage(repository: SettingsRepository, settings: KeyboardSett
     )
     if (ToolbarTool.CALENDAR in settings.enabledTools) {
         SectionTitle("Calendar")
-        ListItem(
-            headlineContent = { Text("Bengali calendar") },
-            supportingContent = { Text("Show বঙ্গাব্দ dates alongside the Gregorian month") },
-            trailingContent = {
-                Switch(
-                    checked = settings.calendarShowBengali,
-                    onCheckedChange = { scope.launch { repository.setCalendarShowBengali(it) } },
-                )
-            },
+        AltCalendarSetting(
+            title = "First calendar",
+            subtitle = "Shown alongside the Gregorian month, and inside each day cell",
+            selected = settings.calendarAltOne,
+            onChange = { scope.launch { repository.setCalendarAltOne(it) } },
         )
-        ListItem(
-            headlineContent = { Text("Hijri calendar") },
-            supportingContent = { Text("Show Islamic dates alongside the Gregorian month") },
-            trailingContent = {
-                Switch(
-                    checked = settings.calendarShowHijri,
-                    onCheckedChange = { scope.launch { repository.setCalendarShowHijri(it) } },
-                )
-            },
+        AltCalendarSetting(
+            title = "Second calendar",
+            subtitle = "A second one for the header and the selected day",
+            selected = settings.calendarAltTwo,
+            onChange = { scope.launch { repository.setCalendarAltTwo(it) } },
         )
     }
     if (ToolbarTool.WEATHER in settings.enabledTools) {

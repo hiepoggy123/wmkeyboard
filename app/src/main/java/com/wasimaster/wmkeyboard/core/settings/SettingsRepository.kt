@@ -22,6 +22,7 @@ import com.wasimaster.wmkeyboard.core.layout.repair
 import com.wasimaster.wmkeyboard.core.layout.resolveLayoutSelection
 import com.wasimaster.wmkeyboard.core.layout.resolveLayout
 import com.wasimaster.wmkeyboard.core.layout.script
+import com.wasimaster.wmkeyboard.core.tools.AltCalendar
 import com.wasimaster.wmkeyboard.core.script.LanguageDef
 import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
 import com.wasimaster.wmkeyboard.core.script.NumeralCommitScope
@@ -911,8 +912,13 @@ data class KeyboardSettings(
     val weatherLatitude: Float? = null,
     val weatherLongitude: Float? = null,
     val weatherPlaceName: String = "",
-    val calendarShowBengali: Boolean = true,
-    val calendarShowHijri: Boolean = true,
+    /**
+     * The two calendars the tool shows alongside the Gregorian one, in the
+     * order they are drawn. The first is also what the day cells get their
+     * small second number from. Either may be [AltCalendar.NONE].
+     */
+    val calendarAltOne: AltCalendar = AltCalendar.BENGALI,
+    val calendarAltTwo: AltCalendar = AltCalendar.HIJRI,
     /** Day offset applied to the tabular Hijri date (moon-sighting drift). */
     val hijriAdjustDays: Int = 0,
     /** Handwriting canvas ignores finger touches; only a stylus draws. */
@@ -1789,8 +1795,12 @@ class SettingsRepository(private val context: Context) {
         private val WEATHER_LAT = floatPreferencesKey("weather_lat")
         private val WEATHER_LON = floatPreferencesKey("weather_lon")
         private val WEATHER_PLACE = stringPreferencesKey("weather_place")
+        // Superseded by CALENDAR_ALT_ONE/TWO, still read once to carry the old
+        // Bengali/Hijri switches over to the new pair of picks.
         private val CALENDAR_SHOW_BENGALI = booleanPreferencesKey("calendar_show_bengali")
         private val CALENDAR_SHOW_HIJRI = booleanPreferencesKey("calendar_show_hijri")
+        private val CALENDAR_ALT_ONE = stringPreferencesKey("calendar_alt_one")
+        private val CALENDAR_ALT_TWO = stringPreferencesKey("calendar_alt_two")
         private val HIJRI_ADJUST_DAYS = intPreferencesKey("hijri_adjust_days")
         private val HANDWRITING_STYLUS_ONLY = booleanPreferencesKey("handwriting_stylus_only")
         private val HANDWRITING_COMMIT_DELAY = intPreferencesKey("handwriting_commit_delay")
@@ -2224,8 +2234,8 @@ class SettingsRepository(private val context: Context) {
             weatherLatitude = p[WEATHER_LAT],
             weatherLongitude = p[WEATHER_LON],
             weatherPlaceName = p[WEATHER_PLACE] ?: defaults.weatherPlaceName,
-            calendarShowBengali = p[CALENDAR_SHOW_BENGALI] ?: defaults.calendarShowBengali,
-            calendarShowHijri = p[CALENDAR_SHOW_HIJRI] ?: defaults.calendarShowHijri,
+            calendarAltOne = calendarAltFromPrefs(p, first = true, defaults = defaults),
+            calendarAltTwo = calendarAltFromPrefs(p, first = false, defaults = defaults),
             hijriAdjustDays = p[HIJRI_ADJUST_DAYS] ?: defaults.hijriAdjustDays,
             handwritingStylusOnly = p[HANDWRITING_STYLUS_ONLY] ?: defaults.handwritingStylusOnly,
             handwritingCommitDelayMs = p[HANDWRITING_COMMIT_DELAY]
@@ -2507,11 +2517,34 @@ class SettingsRepository(private val context: Context) {
             }
         }
 
-    suspend fun setCalendarShowBengali(value: Boolean) =
-        context.dataStore.edit { it[CALENDAR_SHOW_BENGALI] = value }
+    suspend fun setCalendarAltOne(value: AltCalendar) =
+        context.dataStore.edit { it[CALENDAR_ALT_ONE] = value.id }
 
-    suspend fun setCalendarShowHijri(value: Boolean) =
-        context.dataStore.edit { it[CALENDAR_SHOW_HIJRI] = value }
+    suspend fun setCalendarAltTwo(value: AltCalendar) =
+        context.dataStore.edit { it[CALENDAR_ALT_TWO] = value.id }
+
+    /**
+     * One of the two alternate-calendar slots. Installs from before the picker
+     * existed have no stored pick, so they inherit whichever of the old
+     * Bengali/Hijri switches were on, in that order.
+     */
+    private fun calendarAltFromPrefs(
+        p: Preferences,
+        first: Boolean,
+        defaults: KeyboardSettings,
+    ): AltCalendar {
+        p[if (first) CALENDAR_ALT_ONE else CALENDAR_ALT_TWO]?.let { return AltCalendar.fromId(it) }
+        val bengali = p[CALENDAR_SHOW_BENGALI]
+        val hijri = p[CALENDAR_SHOW_HIJRI]
+        if (bengali == null && hijri == null) {
+            return if (first) defaults.calendarAltOne else defaults.calendarAltTwo
+        }
+        val legacy = buildList {
+            if (bengali != false) add(AltCalendar.BENGALI)
+            if (hijri != false) add(AltCalendar.HIJRI)
+        }
+        return legacy.getOrElse(if (first) 0 else 1) { AltCalendar.NONE }
+    }
 
     suspend fun setHijriAdjustDays(value: Int) =
         context.dataStore.edit { it[HIJRI_ADJUST_DAYS] = value.coerceIn(-2, 2) }

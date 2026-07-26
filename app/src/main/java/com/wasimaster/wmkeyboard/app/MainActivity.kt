@@ -209,6 +209,7 @@ import com.wasimaster.wmkeyboard.core.settings.GrammarDialect
 import com.wasimaster.wmkeyboard.core.settings.MediaSendMode
 import com.wasimaster.wmkeyboard.core.settings.QrEccLevel
 import com.wasimaster.wmkeyboard.core.tools.AiClient
+import com.wasimaster.wmkeyboard.core.tools.AltCalendar
 import com.wasimaster.wmkeyboard.core.tools.AiPrompts
 import com.wasimaster.wmkeyboard.core.tools.GeoPlace
 import com.wasimaster.wmkeyboard.core.tools.SmartSuggest
@@ -4326,7 +4327,7 @@ internal fun toolDescription(tool: ToolbarTool): String = when (tool) {
     ToolbarTool.REDO -> "One tap sends the editor's redo shortcut"
     ToolbarTool.MOON_PHASE -> "Current phase, illumination, next full/new moon"
     ToolbarTool.WEATHER -> "Current conditions for a saved location"
-    ToolbarTool.CALENDAR -> "Month view with your events, Bengali and Hijri dates"
+    ToolbarTool.CALENDAR -> "Month view with your events and two calendars of your choice"
     ToolbarTool.INCOGNITO -> "One tap pauses learning and clipboard capture"
     ToolbarTool.THEMES -> "Quick theme switcher on the keyboard"
     ToolbarTool.AUTOCORRECT -> "One tap turns autocorrect on or off"
@@ -4914,30 +4915,36 @@ private fun ToolDetailSettings(
             )
         }
         ToolbarTool.CALENDAR -> {
-            SettingsGroup("Calendars") {
+            val showsHijri = settings.calendarAltOne == AltCalendar.HIJRI ||
+                settings.calendarAltTwo == AltCalendar.HIJRI
+            SettingsGroup("Alongside the Gregorian calendar") {
                 item {
-                    ToggleSetting(
-                        "Bengali calendar",
-                        "বঙ্গাব্দ (revised Bangladeshi calendar) alongside dates",
-                        settings.calendarShowBengali,
-                    ) { scope.launch { repository.setCalendarShowBengali(it) } }
+                    AltCalendarSetting(
+                        title = "First calendar",
+                        subtitle = "Its day number also rides inside each day cell",
+                        selected = settings.calendarAltOne,
+                        onChange = { scope.launch { repository.setCalendarAltOne(it) } },
+                    )
                 }
                 item {
-                    ToggleSetting(
-                        "Hijri calendar",
-                        "Islamic (tabular) calendar alongside dates",
-                        settings.calendarShowHijri,
-                    ) { scope.launch { repository.setCalendarShowHijri(it) } }
+                    AltCalendarSetting(
+                        title = "Second calendar",
+                        subtitle = "Shown in the header and under the selected day",
+                        selected = settings.calendarAltTwo,
+                        onChange = { scope.launch { repository.setCalendarAltTwo(it) } },
+                    )
                 }
-                if (settings.calendarShowHijri) {
+                if (showsHijri) {
                     item {
                         SliderSetting(
                             "Hijri day adjustment",
                             subtitle = "Shift the computed Hijri date to match local moon sighting",
                             value = settings.hijriAdjustDays.toFloat(),
                             range = -2f..2f,
-                            display = if (settings.hijriAdjustDays > 0) "+${settings.hijriAdjustDays} d"
-                                else "${settings.hijriAdjustDays} d",
+                            display = { days ->
+                                val d = days.roundToInt()
+                                if (d > 0) "+$d d" else "$d d"
+                            },
                             info = "The tool uses the arithmetic (tabular) Hijri calendar. " +
                                 "Real Islamic months begin at the sighting of the crescent, " +
                                 "which can differ from the tables by a day or two either " +
@@ -4946,6 +4953,12 @@ private fun ToolDetailSettings(
                     }
                 }
             }
+            CaptionText(
+                "Pick any two calendars to show next to the Gregorian one. Chinese dates " +
+                    "are computed astronomically; Hebrew, Persian, Hindu (Saka), Buddhist " +
+                    "and Japanese are exact arithmetic; Hijri is the tabular calendar, so " +
+                    "it has the day offset above.",
+            )
             CaptionText(
                 "Tapping a day shows its events from your device calendar. The keyboard " +
                     "asks for calendar access the first time you open the tool; it only " +
@@ -6341,6 +6354,52 @@ internal fun ApiKeyField(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 4.dp),
+        )
+    }
+}
+
+/**
+ * One of the calendar tool's two alternate-calendar slots. A dialog rather
+ * than a segmented row: nine choices never fit side by side, and the tool's
+ * settings and the onboarding page both ask the same question.
+ */
+@Composable
+internal fun AltCalendarSetting(
+    title: String,
+    subtitle: String,
+    selected: AltCalendar,
+    onChange: (AltCalendar) -> Unit,
+) {
+    var dialogOpen by remember { mutableStateOf(false) }
+    NavRow(
+        title,
+        subtitle = subtitle,
+        value = if (selected == AltCalendar.NONE) "None" else selected.label.substringBefore(" ·"),
+        onClick = { dialogOpen = true },
+    )
+    if (dialogOpen) {
+        AlertDialog(
+            onDismissRequest = { dialogOpen = false },
+            title = { Text(title) },
+            text = {
+                LazyColumn {
+                    items(AltCalendar.entries) { calendar ->
+                        ListItem(
+                            headlineContent = { Text(calendar.label) },
+                            trailingContent = if (calendar == selected) {
+                                { Icon(Icons.Outlined.Check, contentDescription = "Selected") }
+                            } else null,
+                            modifier = Modifier.clickable {
+                                dialogOpen = false
+                                onChange(calendar)
+                            },
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { dialogOpen = false }) { Text("Close") }
+            },
         )
     }
 }
