@@ -413,7 +413,9 @@ private fun CjkDictPackManager(
     val states by CjkDictDownloadManager.states.collectAsState()
     LaunchedEffect(langId) { CjkDictDownloadManager.refresh(filesDir) }
 
-    val groupTitle = if (langId == "ja") "Japanese options" else "Chinese options"
+    // Named from the registry rather than an if-chain, so a new CJK language
+    // does not silently inherit another language's heading.
+    val groupTitle = "${LanguageRegistry.byId(langId).englishName} options"
     SettingsGroup(groupTitle) {
         item {
             CaptionText(

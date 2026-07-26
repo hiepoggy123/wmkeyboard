@@ -23,6 +23,7 @@ class CjkDictPackTest {
             CjkDictCatalog.forLang("zh").map { it.id },
         )
         assertEquals(listOf("ja_kana"), CjkDictCatalog.forLang("ja").map { it.id })
+        assertEquals(listOf("jyutping"), CjkDictCatalog.forLang("yue").map { it.id })
         assertEquals(emptyList<CjkDictPack>(), CjkDictCatalog.forLang("en"))
         // The shipped packs are hosted (url + checksum present).
         assertTrue(pinyin.available)
@@ -32,6 +33,7 @@ class CjkDictPackTest {
         // Cangjie is registered but not yet hosted, so its row reads as unavailable
         // rather than offering a download that cannot succeed.
         assertFalse(CjkDictCatalog.byId("cangjie")!!.available)
+        assertFalse(CjkDictCatalog.byId("jyutping")!!.available)
     }
 
     @Test

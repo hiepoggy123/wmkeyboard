@@ -1010,6 +1010,14 @@ object LanguageRegistry {
             ),
         ),
         LanguageDef(
+            id = "yue",
+            displayName = "粵語 · Cantonese",
+            englishName = "Cantonese",
+            script = ScriptId.HAN,
+            localeTag = "yue-HK",
+            layoutIds = listOf(AssetLayouts.YUE_JYUTPING_ID),
+        ),
+        LanguageDef(
             id = "ht",
             displayName = "Kreyòl · Haitian Creole",
             englishName = "Haitian Creole",

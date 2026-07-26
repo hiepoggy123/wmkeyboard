@@ -29,6 +29,8 @@ class CjkComposerTest {
         T9Pinyin.index = emptyMap()
         ZhuyinSyllables.table = emptyMap()
         CjkDictionaries.cangjie = CodeTableDictionary.EMPTY
+        CjkDictionaries.jyutping = ConversionDictionary.EMPTY
+        JyutpingSyllables.valid = emptySet()
         CjkConfig.fuzzyPinyin = false
         CjkConfig.doublePinyin = DoublePinyinScheme.OFF
     }
@@ -44,6 +46,7 @@ class CjkComposerTest {
         assertSame(ZhuyinComposer, composerFor(han, ComposerType.ZHUYIN))
         assertSame(CangjieComposer, composerFor(han, ComposerType.CANGJIE))
         assertSame(CangjieQuickComposer, composerFor(han, ComposerType.CANGJIE_QUICK))
+        assertSame(JyutpingComposer, composerFor(han, ComposerType.JYUTPING))
     }
 
     @Test
@@ -490,6 +493,56 @@ class CjkComposerTest {
         // shows the digits themselves rather than trapping the user.
         assertEquals(emptyList<String>(), T9PinyinComposer.candidates("64"))
         assertEquals("64", T9PinyinComposer.composeBuffer("64"))
+    }
+
+    // --- Cantonese Jyutping 粵拼 --------------------------------------------------
+
+    private val jyutFixture = setOf("nei", "hou", "gwaang")
+
+    @Test
+    fun `jyutping folds a tone digit into the syllable it follows`() {
+        val toned = JyutpingSyllables.segment("nei5hou2", jyutFixture)
+        // The digit is counted in the span but never part of the reading, which
+        // stays toneless to match the table.
+        assertEquals(listOf("nei", "hou"), toned.map { it.syllable })
+        assertEquals(listOf(4, 4), toned.map { it.inputLen })
+        // Tones omitted behaves identically, one char shorter per syllable.
+        val untoned = JyutpingSyllables.segment("neihou", jyutFixture)
+        assertEquals(listOf("nei", "hou"), untoned.map { it.syllable })
+        assertEquals(listOf(3, 3), untoned.map { it.inputLen })
+        // Greedy longest match: the 6-char syllable wins over its prefixes.
+        assertEquals(listOf("gwaang"), JyutpingSyllables.segment("gwaang", jyutFixture).map { it.syllable })
+    }
+
+    @Test
+    fun `jyutping ranks whole-phrase above leading syllable and reports consumed input`() {
+        JyutpingSyllables.valid = jyutFixture
+        CjkDictionaries.jyutping = ConversionDictionary.parse(
+            sequenceOf("nei\tN1\t100", "hou\tH1\t100", "neihou\tNH\t50"),
+        )
+        assertEquals(listOf("NH", "N1"), JyutpingComposer.candidates("neihou"))
+        assertEquals(6, JyutpingComposer.consumedFor("neihou", "NH"))
+        assertEquals(3, JyutpingComposer.consumedFor("neihou", "N1"))
+        // With tones typed, consumed lengths include the digits so a prefix
+        // commit deletes them along with their syllable.
+        assertEquals(listOf("NH", "N1"), JyutpingComposer.candidates("nei5hou2"))
+        assertEquals(8, JyutpingComposer.consumedFor("nei5hou2", "NH"))
+        assertEquals(4, JyutpingComposer.consumedFor("nei5hou2", "N1"))
+    }
+
+    @Test
+    fun `jyutping buffers tone digits but never starts a buffer with one`() {
+        // Digits are tones applied to a syllable already being typed, so unlike
+        // T9 a digit on an empty buffer stays a literal number.
+        assertTrue(JyutpingComposer.bufferDigits)
+        assertTrue(!JyutpingComposer.digitsStartBuffer)
+    }
+
+    @Test
+    fun `jyutping without an inventory falls back to whole-buffer lookup`() {
+        CjkDictionaries.jyutping = ConversionDictionary.parse(sequenceOf("nei\tN1\t100"))
+        assertEquals(listOf("N1"), JyutpingComposer.candidates("nei"))
+        assertEquals(3, JyutpingComposer.consumedFor("nei", "N1"))
     }
 
     @Test
