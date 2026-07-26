@@ -200,6 +200,7 @@ import com.wasimaster.wmkeyboard.core.input.composer.Kana
 import com.wasimaster.wmkeyboard.core.input.composer.CjkDictStore
 import com.wasimaster.wmkeyboard.core.input.composer.PinyinSyllables
 import com.wasimaster.wmkeyboard.core.input.composer.T9Pinyin
+import com.wasimaster.wmkeyboard.core.input.composer.ZhuyinSyllables
 import com.wasimaster.wmkeyboard.core.input.composer.StrokeDictionary
 import com.wasimaster.wmkeyboard.core.input.composer.ConversionDictionary
 import com.wasimaster.wmkeyboard.core.script.LanguageDef
@@ -3346,10 +3347,11 @@ open class WMKeyboardService : InputMethodService() {
                     PinyinSyllables.valid = PinyinSyllables.parse(it)
                 }
             }
-            // T9's digit-code index is derived from that inventory, so it is built
-            // here rather than loaded — the 9-key pad and the full keyboard share
-            // one syllable set and one conversion pack.
+            // T9's digit-code index and Zhuyin's bopomofo table are both derived
+            // from that inventory rather than loaded — the 9-key pad, the 注音 pad
+            // and the full keyboard share one syllable set and one conversion pack.
             T9Pinyin.index = T9Pinyin.buildIndex(PinyinSyllables.valid)
+            ZhuyinSyllables.table = ZhuyinSyllables.buildTable(PinyinSyllables.valid)
             loadedCjkPackToken = token
         }
     }

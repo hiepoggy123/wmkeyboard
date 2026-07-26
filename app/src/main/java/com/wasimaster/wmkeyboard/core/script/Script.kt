@@ -73,6 +73,9 @@ enum class ComposerType {
 
     /** Chinese: 九宫格 pinyin typed as ambiguous 9-key digit runs (64 → ni). */
     T9_PINYIN,
+
+    /** Chinese: 注音 bopomofo symbols with tone marks, Taiwan's standard method. */
+    ZHUYIN,
 }
 
 /**

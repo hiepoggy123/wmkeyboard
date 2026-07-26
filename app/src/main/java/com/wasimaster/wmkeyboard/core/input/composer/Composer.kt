@@ -129,4 +129,5 @@ fun composerFor(script: ScriptDef, type: ComposerType): Composer = when (type) {
     ComposerType.PINYIN -> PinyinComposer
     ComposerType.STROKE -> StrokeComposer
     ComposerType.T9_PINYIN -> T9PinyinComposer
+    ComposerType.ZHUYIN -> ZhuyinComposer
 }
