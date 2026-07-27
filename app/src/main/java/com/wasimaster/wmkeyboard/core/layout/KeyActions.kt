@@ -108,6 +108,13 @@ sealed interface KeyAction {
      */
     @Serializable @SerialName("fn") data object Fn : KeyAction
 
+    /**
+     * Cycles the last kana in the composing buffer through its dakuten /
+     * handakuten / small-kana variants (か→が, は→ば→ぱ, つ→っ→づ). The 小゛゜ key
+     * on the Japanese flick pad; a no-op when nothing is composing.
+     */
+    @Serializable @SerialName("kana_variant") data object KanaVariant : KeyAction
+
     /** A deliberate gap in the grid: drawn as empty space, swallows its taps. */
     @Serializable @SerialName("none") data object None : KeyAction
 

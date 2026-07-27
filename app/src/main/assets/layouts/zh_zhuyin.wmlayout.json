@@ -1,0 +1,201 @@
+{
+  "format": "wmkeyboard-layout",
+  "version": 1,
+  "layout": {
+    "id": "asset_zh_zhuyin",
+    "name": "中文 注音 (Chinese Zhuyin)",
+    "langId": "zh",
+    "composer": "ZHUYIN",
+    "version": 1,
+    "layers": {
+      "letters": {
+        "rows": [
+          [
+            {
+              "label": "ㄅ"
+            },
+            {
+              "label": "ㄉ"
+            },
+            {
+              "label": "ˇ"
+            },
+            {
+              "label": "ˋ"
+            },
+            {
+              "label": "ㄓ"
+            },
+            {
+              "label": "ˊ"
+            },
+            {
+              "label": "˙"
+            },
+            {
+              "label": "ㄚ"
+            },
+            {
+              "label": "ㄞ"
+            },
+            {
+              "label": "ㄢ"
+            },
+            {
+              "label": "ㄦ"
+            }
+          ],
+          [
+            {
+              "label": "ㄆ"
+            },
+            {
+              "label": "ㄊ"
+            },
+            {
+              "label": "ㄍ"
+            },
+            {
+              "label": "ㄐ"
+            },
+            {
+              "label": "ㄔ"
+            },
+            {
+              "label": "ㄗ"
+            },
+            {
+              "label": "ㄧ"
+            },
+            {
+              "label": "ㄛ"
+            },
+            {
+              "label": "ㄟ"
+            },
+            {
+              "label": "ㄣ"
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              }
+            }
+          ],
+          [
+            {
+              "label": "ㄇ"
+            },
+            {
+              "label": "ㄋ"
+            },
+            {
+              "label": "ㄎ"
+            },
+            {
+              "label": "ㄑ"
+            },
+            {
+              "label": "ㄕ"
+            },
+            {
+              "label": "ㄘ"
+            },
+            {
+              "label": "ㄨ"
+            },
+            {
+              "label": "ㄜ"
+            },
+            {
+              "label": "ㄠ"
+            },
+            {
+              "label": "ㄤ"
+            },
+            {
+              "label": "，",
+              "longPress": [
+                "！",
+                "？",
+                "、"
+              ],
+              "role": "Comma"
+            }
+          ],
+          [
+            {
+              "label": "ㄈ"
+            },
+            {
+              "label": "ㄌ"
+            },
+            {
+              "label": "ㄏ"
+            },
+            {
+              "label": "ㄒ"
+            },
+            {
+              "label": "ㄖ"
+            },
+            {
+              "label": "ㄙ"
+            },
+            {
+              "label": "ㄩ"
+            },
+            {
+              "label": "ㄝ"
+            },
+            {
+              "label": "ㄡ"
+            },
+            {
+              "label": "ㄥ"
+            },
+            {
+              "label": "。",
+              "longPress": [
+                "…",
+                "：",
+                "；"
+              ],
+              "role": "Period"
+            }
+          ],
+          [
+            {
+              "label": "?123",
+              "action": {
+                "type": "symbols"
+              },
+              "width": 2
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 5
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 3
+            }
+          ]
+        ]
+      }
+    }
+  }
+}

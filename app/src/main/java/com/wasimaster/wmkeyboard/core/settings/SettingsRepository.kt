@@ -15,6 +15,8 @@ import com.wasimaster.wmkeyboard.BuildConfig
 import com.wasimaster.wmkeyboard.core.directboot.DirectBoot
 import com.wasimaster.wmkeyboard.core.icons.IconOverrides
 import com.wasimaster.wmkeyboard.core.icons.IconPackStore
+import com.wasimaster.wmkeyboard.core.input.composer.DoublePinyinScheme
+import com.wasimaster.wmkeyboard.core.input.composer.HanVariant
 import com.wasimaster.wmkeyboard.core.prediction.CustomDictionaries
 import com.wasimaster.wmkeyboard.core.layout.BuiltInLayouts
 import com.wasimaster.wmkeyboard.core.layout.LayoutCodec
@@ -945,6 +947,8 @@ data class KeyboardSettings(
     val perAppLanguage: PerAppLanguageSettings = PerAppLanguageSettings(),
     val onboardingDone: Boolean = false,
     val conjunctBackspace: Boolean = false,
+    /** Chinese/Cantonese conversion-IME options (see [CjkSettings] for why nested). */
+    val cjk: CjkSettings = CjkSettings(),
     val oneHandedMode: OneHandedMode = OneHandedMode.OFF,
     /** Per-orientation one-handed width, height scale and dock side. */
     val oneHanded: OneHandedSettings = OneHandedSettings(),
@@ -1202,19 +1206,8 @@ data class KeyboardSettings(
     /** Currency codes the converter starts on. */
     val currencyFrom: String = "USD",
     val currencyTo: String = "BDT",
-    // Password generator defaults (the panel tweaks these live).
-    val pwLength: Int = 16,
-    val pwUppercase: Boolean = true,
-    val pwDigits: Boolean = true,
-    val pwSymbols: Boolean = true,
-    /** Skip look-alikes (Il1O0…) for passwords read aloud or retyped. */
-    val pwExcludeAmbiguous: Boolean = false,
-    /** Generator opens in passphrase mode instead of password mode. */
-    val pwPassphraseMode: Boolean = false,
-    val ppWordCount: Int = 4,
-    val ppSeparator: String = "-",
-    val ppCapitalize: Boolean = false,
-    val ppIncludeDigit: Boolean = false,
+    /** Password/passphrase generator defaults (the panel tweaks these live). */
+    val passwordGenerator: PasswordGeneratorSettings = PasswordGeneratorSettings(),
     // Typing-speed test. The panel edits these live, so they double as the
     // tool's own settings and as the memory of how the user last left it.
     val typingTestMode: TypingTestMode = TypingTestMode.TIME,
@@ -1282,6 +1275,54 @@ data class KeyboardSettings(
  * cohesive families like this one are split off to keep it loadable — the
  * DataStore keys stay flat, so this is purely an in-memory grouping.
  */
+/**
+ * Chinese and Cantonese conversion-IME options, grouped rather than flat.
+ *
+ * [KeyboardSettings] sits at the JVM's `copy$default` argument ceiling — the same
+ * reason [CameraSettings] and [LongPressLetterActions] were split out — so a
+ * cohesive family like this one lives in its own class. Folding the two existing
+ * pinyin options in here alongside the new one leaves the parent with fewer
+ * fields than before, not more.
+ *
+ * The DataStore keys are unchanged by the nesting (`pinyin_fuzzy`,
+ * `pinyin_double_pinyin`), so no existing preference is lost — only the Kotlin
+ * path moved.
+ */
+/**
+ * Password-generator defaults, grouped rather than flat because [KeyboardSettings]
+ * sits against the JVM's 255-slot method-argument limit: Kotlin's generated
+ * `copy$default` takes every field plus its mask ints, so a flat class stops
+ * loading once the count creeps past ~245. Grouping a tool's own settings is the
+ * pattern the other sub-classes here already follow.
+ */
+data class PasswordGeneratorSettings(
+    val pwLength: Int = 16,
+    val pwUppercase: Boolean = true,
+    val pwDigits: Boolean = true,
+    val pwSymbols: Boolean = true,
+    /** Skip look-alikes (Il1O0…) for passwords read aloud or retyped. */
+    val pwExcludeAmbiguous: Boolean = false,
+    /** Generator opens in passphrase mode instead of password mode. */
+    val pwPassphraseMode: Boolean = false,
+    val ppWordCount: Int = 4,
+    val ppSeparator: String = "-",
+    val ppCapitalize: Boolean = false,
+    val ppIncludeDigit: Boolean = false,
+)
+
+data class CjkSettings(
+    /** Chinese: treat confusable pinyin initials/finals as equivalent (zh↔z, an↔ang…). */
+    val pinyinFuzzy: Boolean = false,
+    /** Chinese: the Double Pinyin scheme, or OFF for full pinyin. */
+    val pinyinDoublePinyin: DoublePinyinScheme = DoublePinyinScheme.OFF,
+    /** Convert candidate output to Traditional characters (Taiwan, Hong Kong). */
+    val traditionalOutput: Boolean = false,
+    /** Cantonese: match lazy-pronunciation mergers (n↔l, ng↔∅, -ng↔-n, -k↔-t). */
+    val jyutpingLazy: Boolean = false,
+    /** Which region's vocabulary Traditional output should prefer. */
+    val hanRegion: HanVariant.HanRegion = HanVariant.HanRegion.GENERIC,
+)
+
 data class CameraSettings(
     /** Camera tool opens on the selfie camera. */
     val preferFront: Boolean = false,
@@ -1896,6 +1937,11 @@ class SettingsRepository(private val context: Context) {
         private val PER_APP_LAYOUT_MAP = stringPreferencesKey("per_app_layout_map")
         private val ONBOARDING_DONE = booleanPreferencesKey("onboarding_done")
         private val CONJUNCT_BACKSPACE = booleanPreferencesKey("conjunct_backspace")
+        private val PINYIN_FUZZY = booleanPreferencesKey("pinyin_fuzzy")
+        private val PINYIN_DOUBLE_PINYIN = stringPreferencesKey("pinyin_double_pinyin")
+        private val CJK_TRADITIONAL_OUTPUT = booleanPreferencesKey("cjk_traditional_output")
+        private val JYUTPING_LAZY = booleanPreferencesKey("jyutping_lazy")
+        private val CJK_HAN_REGION = stringPreferencesKey("cjk_han_region")
         private val ONE_HANDED_MODE = stringPreferencesKey("one_handed_mode")
         // One-handed width leaves room for the rail on the inner edge, so it is
         // capped below 100%. Height scale never grows the keys, only shrinks.
@@ -2361,6 +2407,17 @@ class SettingsRepository(private val context: Context) {
             ),
             onboardingDone = p[ONBOARDING_DONE] ?: defaults.onboardingDone,
             conjunctBackspace = p[CONJUNCT_BACKSPACE] ?: defaults.conjunctBackspace,
+            cjk = CjkSettings(
+                pinyinFuzzy = p[PINYIN_FUZZY] ?: defaults.cjk.pinyinFuzzy,
+                pinyinDoublePinyin = p[PINYIN_DOUBLE_PINYIN]
+                    ?.let { runCatching { DoublePinyinScheme.valueOf(it) }.getOrNull() }
+                    ?: defaults.cjk.pinyinDoublePinyin,
+                traditionalOutput = p[CJK_TRADITIONAL_OUTPUT] ?: defaults.cjk.traditionalOutput,
+                jyutpingLazy = p[JYUTPING_LAZY] ?: defaults.cjk.jyutpingLazy,
+                hanRegion = p[CJK_HAN_REGION]
+                    ?.let { runCatching { HanVariant.HanRegion.valueOf(it) }.getOrNull() }
+                    ?: defaults.cjk.hanRegion,
+            ),
             oneHandedMode = p[ONE_HANDED_MODE]
                 ?.let { runCatching { OneHandedMode.valueOf(it) }.getOrNull() }
                 ?: defaults.oneHandedMode,
@@ -2611,16 +2668,22 @@ class SettingsRepository(private val context: Context) {
             calcPrecision = p[CALC_PRECISION] ?: defaults.calcPrecision,
             currencyFrom = p[CURRENCY_FROM] ?: defaults.currencyFrom,
             currencyTo = p[CURRENCY_TO] ?: defaults.currencyTo,
-            pwLength = p[PW_LENGTH] ?: defaults.pwLength,
-            pwUppercase = p[PW_UPPERCASE] ?: defaults.pwUppercase,
-            pwDigits = p[PW_DIGITS] ?: defaults.pwDigits,
-            pwSymbols = p[PW_SYMBOLS] ?: defaults.pwSymbols,
-            pwExcludeAmbiguous = p[PW_EXCLUDE_AMBIGUOUS] ?: defaults.pwExcludeAmbiguous,
-            pwPassphraseMode = p[PW_PASSPHRASE_MODE] ?: defaults.pwPassphraseMode,
-            ppWordCount = p[PP_WORD_COUNT] ?: defaults.ppWordCount,
-            ppSeparator = p[PP_SEPARATOR] ?: defaults.ppSeparator,
-            ppCapitalize = p[PP_CAPITALIZE] ?: defaults.ppCapitalize,
-            ppIncludeDigit = p[PP_INCLUDE_DIGIT] ?: defaults.ppIncludeDigit,
+            // The keys stay flat across the grouping, so a user's stored
+            // generator settings survive the refactor untouched.
+            passwordGenerator = PasswordGeneratorSettings(
+                pwLength = p[PW_LENGTH] ?: defaults.passwordGenerator.pwLength,
+                pwUppercase = p[PW_UPPERCASE] ?: defaults.passwordGenerator.pwUppercase,
+                pwDigits = p[PW_DIGITS] ?: defaults.passwordGenerator.pwDigits,
+                pwSymbols = p[PW_SYMBOLS] ?: defaults.passwordGenerator.pwSymbols,
+                pwExcludeAmbiguous = p[PW_EXCLUDE_AMBIGUOUS]
+                    ?: defaults.passwordGenerator.pwExcludeAmbiguous,
+                pwPassphraseMode = p[PW_PASSPHRASE_MODE]
+                    ?: defaults.passwordGenerator.pwPassphraseMode,
+                ppWordCount = p[PP_WORD_COUNT] ?: defaults.passwordGenerator.ppWordCount,
+                ppSeparator = p[PP_SEPARATOR] ?: defaults.passwordGenerator.ppSeparator,
+                ppCapitalize = p[PP_CAPITALIZE] ?: defaults.passwordGenerator.ppCapitalize,
+                ppIncludeDigit = p[PP_INCLUDE_DIGIT] ?: defaults.passwordGenerator.ppIncludeDigit,
+            ),
             typingTestMode = p[TT_MODE]?.let { runCatching { TypingTestMode.valueOf(it) }.getOrNull() }
                 ?: defaults.typingTestMode,
             typingTestDuration = p[TT_DURATION] ?: defaults.typingTestDuration,
@@ -4063,6 +4126,21 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setConjunctBackspace(value: Boolean) =
         editPrefs { it[CONJUNCT_BACKSPACE] = value }
+
+    suspend fun setPinyinFuzzy(value: Boolean) =
+        context.dataStore.edit { it[PINYIN_FUZZY] = value }
+
+    suspend fun setPinyinDoublePinyin(value: DoublePinyinScheme) =
+        context.dataStore.edit { it[PINYIN_DOUBLE_PINYIN] = value.name }
+
+    suspend fun setCjkTraditionalOutput(value: Boolean) =
+        context.dataStore.edit { it[CJK_TRADITIONAL_OUTPUT] = value }
+
+    suspend fun setJyutpingLazy(value: Boolean) =
+        context.dataStore.edit { it[JYUTPING_LAZY] = value }
+
+    suspend fun setCjkHanRegion(value: HanVariant.HanRegion) =
+        context.dataStore.edit { it[CJK_HAN_REGION] = value.name }
 
     suspend fun setOneHandedMode(value: OneHandedMode) =
         editPrefs { it[ONE_HANDED_MODE] = value.name }

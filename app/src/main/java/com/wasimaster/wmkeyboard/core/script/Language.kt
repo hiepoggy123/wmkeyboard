@@ -989,7 +989,11 @@ object LanguageRegistry {
             englishName = "Japanese",
             script = ScriptId.JAPANESE,
             localeTag = "ja-JP",
-            layoutIds = listOf(AssetLayouts.JA_ROMAJI_ID),
+            layoutIds = listOf(
+                AssetLayouts.JA_ROMAJI_ID,
+                AssetLayouts.JA_FLICK_ID,
+                AssetLayouts.JA_KANA_JIS_ID,
+            ),
         ),
         LanguageDef(
             id = "zh",
@@ -997,7 +1001,22 @@ object LanguageRegistry {
             englishName = "Chinese",
             script = ScriptId.HAN,
             localeTag = "zh-CN",
-            layoutIds = listOf(AssetLayouts.ZH_PINYIN_ID),
+            layoutIds = listOf(
+                AssetLayouts.ZH_PINYIN_ID,
+                AssetLayouts.ZH_PINYIN_T9_ID,
+                AssetLayouts.ZH_ZHUYIN_ID,
+                AssetLayouts.ZH_CANGJIE_ID,
+                AssetLayouts.ZH_CANGJIE_QUICK_ID,
+                AssetLayouts.ZH_STROKE_ID,
+            ),
+        ),
+        LanguageDef(
+            id = "yue",
+            displayName = "粵語 · Cantonese",
+            englishName = "Cantonese",
+            script = ScriptId.HAN,
+            localeTag = "yue-HK",
+            layoutIds = listOf(AssetLayouts.YUE_JYUTPING_ID),
         ),
         LanguageDef(
             id = "ht",

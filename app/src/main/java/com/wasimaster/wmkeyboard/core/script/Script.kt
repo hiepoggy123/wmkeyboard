@@ -67,6 +67,24 @@ enum class ComposerType {
 
     /** Chinese: pinyin buffer with Hanzi candidates chosen from the strip. */
     PINYIN,
+
+    /** Chinese: 笔画 stroke-class buffer (一丨丿丶乙) with Hanzi candidates. */
+    STROKE,
+
+    /** Chinese: 九宫格 pinyin typed as ambiguous 9-key digit runs (64 → ni). */
+    T9_PINYIN,
+
+    /** Chinese: 注音 bopomofo symbols with tone marks, Taiwan's standard method. */
+    ZHUYIN,
+
+    /** Chinese: 倉頡 Cangjie radical decomposition, typed as the letters a-y. */
+    CANGJIE,
+
+    /** Chinese: 速成 Quick — a character's first and last Cangjie radical only. */
+    CANGJIE_QUICK,
+
+    /** Cantonese: 粵拼 Jyutping romanisation with optional tone digits 1-6. */
+    JYUTPING,
 }
 
 /**

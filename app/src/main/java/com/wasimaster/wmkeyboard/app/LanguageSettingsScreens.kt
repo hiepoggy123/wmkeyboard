@@ -1,14 +1,17 @@
 package com.wasimaster.wmkeyboard.app
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ArrowDropDown
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -18,6 +21,7 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -34,6 +38,12 @@ import androidx.compose.ui.unit.dp
 import com.wasimaster.wmkeyboard.core.dictionaries.DictionaryCatalog
 import com.wasimaster.wmkeyboard.core.dictionaries.DictionaryEntry
 import com.wasimaster.wmkeyboard.core.dictionaries.WordlistDownloadManager
+import com.wasimaster.wmkeyboard.core.input.composer.CjkDictCatalog
+import com.wasimaster.wmkeyboard.core.input.composer.CjkDictDownloadManager
+import com.wasimaster.wmkeyboard.core.input.composer.CjkDictPack
+import com.wasimaster.wmkeyboard.core.input.composer.DoublePinyin
+import com.wasimaster.wmkeyboard.core.input.composer.DoublePinyinScheme
+import com.wasimaster.wmkeyboard.core.input.composer.HanVariant
 import com.wasimaster.wmkeyboard.core.layout.language
 import com.wasimaster.wmkeyboard.core.layout.resolveLayout
 import com.wasimaster.wmkeyboard.core.script.LanguageDef
@@ -244,6 +254,12 @@ internal fun LanguageDetailScreen(
         }
     }
 
+    // Chinese/Japanese get a downloadable large conversion dictionary; Chinese
+    // also gets fuzzy + Double Pinyin, all in one "… options" group.
+    if (CjkDictCatalog.forLang(langId).isNotEmpty()) {
+        CjkDictPackManager(langId, repository, settings)
+    }
+
     // Removing the only language would leave nothing to type in, so it is only
     // offered when another language is enabled.
     if (settings.enabledLanguages.size > 1) {
@@ -389,4 +405,192 @@ private fun WordlistRow(entry: DictionaryEntry) {
         }
         else -> Unit
     }
+}
+
+/**
+ * Download/delete rows for a language's [CjkDictCatalog] packs, driven by the
+ * process-level [CjkDictDownloadManager] so progress survives navigation. The
+ * pack replaces the small bundled dictionary once fetched (the service reloads
+ * on the next field focus). A pack with no hosting URL yet shows "Not available
+ * yet" with its download disabled.
+ */
+@Composable
+private fun CjkDictPackManager(
+    langId: String,
+    repository: SettingsRepository,
+    settings: KeyboardSettings,
+) {
+    val context = LocalContext.current
+    val filesDir = context.filesDir
+    val scope = rememberCoroutineScope()
+    val states by CjkDictDownloadManager.states.collectAsState()
+    LaunchedEffect(langId) { CjkDictDownloadManager.refresh(filesDir) }
+
+    // Named from the registry rather than an if-chain, so a new CJK language
+    // does not silently inherit another language's heading.
+    val groupTitle = "${LanguageRegistry.byId(langId).englishName} options"
+    SettingsGroup(groupTitle) {
+        item {
+            CaptionText(
+                "Download a larger conversion dictionary — many more characters and " +
+                    "phrases than the built-in set. Works offline once fetched.",
+            )
+        }
+        for (pack in CjkDictCatalog.forLang(langId)) {
+            item {
+                val status = states[pack.id] ?: CjkDictDownloadManager.DownloadStatus.NotDownloaded
+                ListItem(
+                    headlineContent = { Text(pack.displayName) },
+                    supportingContent = { Text(packStatusLabel(pack, status)) },
+                    trailingContent = {
+                        when (status) {
+                            is CjkDictDownloadManager.DownloadStatus.Downloading ->
+                                IconButton(onClick = { CjkDictDownloadManager.cancel() }) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(24.dp),
+                                        strokeWidth = 2.dp,
+                                    )
+                                }
+                            CjkDictDownloadManager.DownloadStatus.Downloaded ->
+                                IconButton(onClick = { CjkDictDownloadManager.delete(filesDir, pack) }) {
+                                    Icon(
+                                        Icons.Outlined.Delete,
+                                        contentDescription = "Delete ${pack.displayName}",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            else -> TextButton(
+                                enabled = pack.available && !CjkDictDownloadManager.isBusy,
+                                onClick = { CjkDictDownloadManager.start(filesDir, pack) },
+                            ) {
+                                Text(
+                                    if (status is CjkDictDownloadManager.DownloadStatus.Paused) "Resume"
+                                    else "Download",
+                                )
+                            }
+                        }
+                    },
+                    colors = transparentListColors(),
+                )
+            }
+        }
+
+        // Traditional output suits both Chinese (Taiwan) and Cantonese (Hong Kong),
+        // so unlike the pinyin options below it is not gated to zh.
+        item {
+            ToggleSetting(
+                "Traditional characters",
+                "Convert candidates to Traditional (繁體). Per-character, so a few " +
+                    "context-dependent forms may be wrong (发 → 發 / 髮).",
+                settings.cjk.traditionalOutput,
+            ) { on -> scope.launch { repository.setCjkTraditionalOutput(on) } }
+        }
+
+        // Traditional characters are only half of writing Traditional: Taipei
+        // says 計程車 where the mainland says 出租車, and no character map
+        // reaches that. Only worth showing once the toggle above is on.
+        if (settings.cjk.traditionalOutput) {
+            item {
+                CaptionText(
+                    "Regional wording — beyond characters, Taiwan and Hong Kong often " +
+                        "use different words for the same thing.",
+                )
+            }
+            for (region in HanVariant.HanRegion.entries) {
+                item {
+                    val label = when (region) {
+                        HanVariant.HanRegion.GENERIC -> "Standard" to "Characters only, no wording changes"
+                        HanVariant.HanRegion.TAIWAN -> "Taiwan (臺灣)" to "出租車 → 計程車, 光盤 → 光碟"
+                        HanVariant.HanRegion.HONG_KONG -> "Hong Kong (香港)" to "Hong Kong character preferences"
+                    }
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { scope.launch { repository.setCjkHanRegion(region) } }
+                            .padding(horizontal = 16.dp, vertical = 4.dp),
+                    ) {
+                        RadioButton(
+                            selected = settings.cjk.hanRegion == region,
+                            onClick = { scope.launch { repository.setCjkHanRegion(region) } },
+                        )
+                        Column(modifier = Modifier.padding(start = 8.dp)) {
+                            Text(label.first)
+                            CaptionText(label.second)
+                        }
+                    }
+                }
+            }
+        }
+
+        // Cantonese-only: the sound mergers most Hong Kong speakers have, and
+        // therefore spell — without this, someone who says 你 as lei5 types `lei`
+        // and the dictionary (which files it under nei5) offers nothing at all.
+        if (langId == "yue") {
+            item {
+                ToggleSetting(
+                    "Lazy pronunciation (懶音)",
+                    "Match merged sounds: n↔l, ng↔∅, gw→g before -o, -ng↔-n, -k↔-t…",
+                    settings.cjk.jyutpingLazy,
+                ) { on -> scope.launch { repository.setJyutpingLazy(on) } }
+            }
+        }
+
+        // Chinese-only: fuzzy pinyin + Double Pinyin scheme.
+        if (langId == "zh") {
+            item {
+                ToggleSetting(
+                    "Fuzzy Pinyin",
+                    "Match confusable sounds: zh↔z, ch↔c, sh↔s, n↔l, an↔ang, in↔ing…",
+                    settings.cjk.pinyinFuzzy,
+                ) { on -> scope.launch { repository.setPinyinFuzzy(on) } }
+            }
+            item {
+                CaptionText(
+                    "Double Pinyin — type each syllable in exactly two keys. Needs the " +
+                        "Pinyin dictionary above.",
+                )
+            }
+            for (scheme in DoublePinyinScheme.entries) {
+                item {
+                    // OFF is always selectable; a scheme is live only once its key
+                    // table ships (currently Xiaohe), so the rest are shown but
+                    // disabled rather than silently doing nothing.
+                    val ready = scheme == DoublePinyinScheme.OFF || DoublePinyin.tableFor(scheme) != null
+                    val select = { scope.launch { repository.setPinyinDoublePinyin(scheme) }; Unit }
+                    ListItem(
+                        headlineContent = {
+                            Text(if (ready) scheme.displayName else "${scheme.displayName} — coming soon")
+                        },
+                        trailingContent = {
+                            RadioButton(
+                                selected = settings.cjk.pinyinDoublePinyin == scheme,
+                                enabled = ready,
+                                onClick = select,
+                            )
+                        },
+                        colors = transparentListColors(),
+                        modifier = if (ready) {
+                            Modifier.fillMaxWidth().clickable(onClick = select)
+                        } else {
+                            Modifier.fillMaxWidth()
+                        },
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** Supporting-line text for a pack's current download state. */
+private fun packStatusLabel(
+    pack: CjkDictPack,
+    status: CjkDictDownloadManager.DownloadStatus,
+): String = when (status) {
+    CjkDictDownloadManager.DownloadStatus.NotDownloaded ->
+        if (pack.available) pack.description else "Not available yet — coming soon."
+    is CjkDictDownloadManager.DownloadStatus.Downloading ->
+        if (status.total > 0) "Downloading… ${status.bytes * 100 / status.total}%" else "Downloading…"
+    is CjkDictDownloadManager.DownloadStatus.Paused -> "Paused — tap Resume to continue."
+    CjkDictDownloadManager.DownloadStatus.Downloaded -> "Downloaded — works offline."
+    is CjkDictDownloadManager.DownloadStatus.Failed -> status.message
 }

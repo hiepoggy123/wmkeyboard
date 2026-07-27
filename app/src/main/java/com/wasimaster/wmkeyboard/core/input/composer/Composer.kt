@@ -43,10 +43,31 @@ interface Composer {
 
     /**
      * Whether digit keys feed the composing buffer instead of committing it and
-     * typing the digit. Only Vietnamese VNI needs this — its tones and marks are
-     * spelled with the digits 0–9, which the transducer consumes.
+     * typing the digit. Vietnamese VNI needs this — its tones and marks are
+     * spelled with the digits 0–9, which the transducer consumes — as does T9
+     * pinyin, whose whole alphabet is digits.
      */
     val bufferDigits: Boolean get() = false
+
+    /**
+     * Whether a digit may *begin* a composing buffer, not merely continue one.
+     * VNI's digits are tone marks applied to a syllable already being typed, so a
+     * digit on an empty buffer is a literal digit there; T9 pinyin is the opposite
+     * — every keystroke is a digit, so gating on a non-empty buffer would make the
+     * first key of every word commit as a number. Only meaningful with
+     * [bufferDigits].
+     */
+    val digitsStartBuffer: Boolean get() = false
+
+    /**
+     * Whether [c] is a non-letter this composer still takes into its buffer. The
+     * buffer otherwise admits only letters, the apostrophe and (with
+     * [bufferDigits]) digits, which is exactly right for spelling-based methods
+     * — but 笔画 stroke input spells with `*`, its wildcard stroke. Without this
+     * the wildcard key commits whatever is composing and types a literal star
+     * instead of widening the search.
+     */
+    fun buffersChar(c: Char): Boolean = false
 
     /**
      * A conversion IME (Chinese Pinyin, Japanese kana→kanji): the roman/kana
@@ -63,6 +84,53 @@ interface Composer {
      * composer. The composing region still shows [composeBuffer].
      */
     fun candidates(buffer: String): List<String> = emptyList()
+
+    /**
+     * [candidates] widened for a paging surface that shows more than the strip.
+     * The default narrows the base list, which is right for every composer whose
+     * ranking has no limit to raise.
+     *
+     * Implementations must keep the shorter list a prefix of the longer one —
+     * `candidates(b, 100).take(12) == candidates(b, 12)` — or the strip and the
+     * expanded grid would disagree about which candidate is which, and
+     * [consumedForIndex] would resolve a tap against the wrong one. The way to
+     * guarantee it is to rank once to a fixed depth and truncate, never to let
+     * the requested depth change the ordering.
+     */
+    fun candidates(buffer: String, limit: Int): List<String> = candidates(buffer).take(limit)
+
+    /**
+     * How many chars of the input [buffer] the [chosen] candidate consumed —
+     * the linchpin of prefix commit. Picking 你 for `nihao` consumes only the
+     * `ni` (2), so a commit deletes those chars and re-converts the `hao` tail
+     * instead of wiping the whole buffer. Whole-buffer composers (and the raw
+     * fallback, where [chosen] is the reading itself) consume everything, so the
+     * default returns [buffer]'s length.
+     */
+    fun consumedFor(buffer: String, chosen: String): Int = buffer.length
+
+    /**
+     * [consumedFor] resolved by strip position rather than by text.
+     *
+     * A candidate's text does not identify it: `ja_kana` genuinely lists 行 under
+     * い, いき, ゆき and こう, so for the buffer `ikitai` the same string is
+     * reachable at a one-mora span and a two-mora one. Matching by text picks
+     * whichever comes first and silently eats a mora the user never chose. The
+     * index is unambiguous, and the caller always has it.
+     */
+    fun consumedForIndex(buffer: String, index: Int): Int =
+        consumedFor(buffer, candidates(buffer).getOrElse(index) { "" })
+
+    /**
+     * Records that the candidate at [index] was the one the user wanted, so the
+     * same reading offers it first from now on ([CjkLearning]).
+     *
+     * The composer does this rather than the service because only it knows which
+     * *reading* the pick covered — a commit consumes a prefix of the buffer, and
+     * that prefix is the key worth learning, not the whole thing — and which
+     * reading space it belongs to. A no-op for everything that does not convert.
+     */
+    fun learnChoice(buffer: String, index: Int) = Unit
 
     /** A transliterator's buffer (roman, or jamo) rendered as script text. */
     fun composeBuffer(buffer: String): String = buffer
@@ -106,4 +174,10 @@ fun composerFor(script: ScriptDef, type: ComposerType): Composer = when (type) {
     ComposerType.VNI -> VietnameseVniComposer
     ComposerType.ROMAJI -> JapaneseComposer
     ComposerType.PINYIN -> PinyinComposer
+    ComposerType.STROKE -> StrokeComposer
+    ComposerType.T9_PINYIN -> T9PinyinComposer
+    ComposerType.ZHUYIN -> ZhuyinComposer
+    ComposerType.CANGJIE -> CangjieComposer
+    ComposerType.CANGJIE_QUICK -> CangjieQuickComposer
+    ComposerType.JYUTPING -> JyutpingComposer
 }

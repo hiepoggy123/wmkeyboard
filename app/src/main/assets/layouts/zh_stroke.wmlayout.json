@@ -1,0 +1,36 @@
+{
+  "format": "wmkeyboard-layout",
+  "version": 1,
+  "layout": {
+    "id": "asset_zh_stroke",
+    "name": "中文 笔画 (Chinese Stroke)",
+    "langId": "zh",
+    "composer": "STROKE",
+    "version": 2,
+    "layers": {
+      "letters": {
+        "rows": [
+          [
+            { "label": "一", "width": 2 },
+            { "label": "丨", "width": 2 },
+            { "label": "丿", "width": 2 },
+            { "label": "丶", "width": 2 },
+            { "label": "乙", "width": 2 }
+          ],
+          [
+            { "label": "＊", "width": 2 },
+            { "label": "🌐", "action": { "type": "language_switch" }, "width": 2 },
+            { "label": "⌫", "action": { "type": "delete" }, "width": 2 }
+          ],
+          [
+            { "label": "?123", "action": { "type": "symbols" }, "width": 1.5 },
+            { "label": ",", "longPress": ["!", "?"], "role": "Comma" },
+            { "label": " ", "action": { "type": "space" }, "width": 4 },
+            { "label": ".", "longPress": ["…", ",", "?", "!"], "role": "Period" },
+            { "label": "⏎", "action": { "type": "enter" }, "width": 1.5 }
+          ]
+        ]
+      }
+    }
+  }
+}

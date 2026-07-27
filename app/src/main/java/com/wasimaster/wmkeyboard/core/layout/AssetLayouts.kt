@@ -218,7 +218,15 @@ object AssetLayouts {
     const val VI_TELEX_ID = "asset_vi_telex"
     const val VI_VNI_ID = "asset_vi_vni"
     const val JA_ROMAJI_ID = "asset_ja_romaji"
+    const val JA_FLICK_ID = "asset_ja_flick"
+    const val JA_KANA_JIS_ID = "asset_ja_kana_jis"
     const val ZH_PINYIN_ID = "asset_zh_pinyin"
+    const val ZH_PINYIN_T9_ID = "asset_zh_pinyin_t9"
+    const val ZH_ZHUYIN_ID = "asset_zh_zhuyin"
+    const val ZH_CANGJIE_ID = "asset_zh_cangjie"
+    const val ZH_CANGJIE_QUICK_ID = "asset_zh_cangjie_quick"
+    const val YUE_JYUTPING_ID = "asset_yue_jyutping"
+    const val ZH_STROKE_ID = "asset_zh_stroke"
 
     // --- Fancy Text: per-style Unicode "font" layouts (the 𝔣𝔞𝔫𝔠𝔶 𝕦𝕟𝕚𝕔𝕠𝕕𝕖
     // trick). Each is a plain QWERTY grid whose keys carry the styled glyph as

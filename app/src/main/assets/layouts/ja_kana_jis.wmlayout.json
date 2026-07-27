@@ -1,0 +1,214 @@
+{
+  "format": "wmkeyboard-layout",
+  "version": 1,
+  "layout": {
+    "id": "asset_ja_kana_jis",
+    "name": "日本語 かな入力 (Japanese Kana JIS)",
+    "langId": "ja",
+    "composer": "ROMAJI",
+    "version": 1,
+    "layers": {
+      "letters": {
+        "rows": [
+          [
+            {
+              "label": "ぬ"
+            },
+            {
+              "label": "ふ"
+            },
+            {
+              "label": "あ"
+            },
+            {
+              "label": "う"
+            },
+            {
+              "label": "え"
+            },
+            {
+              "label": "お"
+            },
+            {
+              "label": "や"
+            },
+            {
+              "label": "ゆ"
+            },
+            {
+              "label": "よ"
+            },
+            {
+              "label": "わ"
+            },
+            {
+              "label": "ほ"
+            },
+            {
+              "label": "へ"
+            }
+          ],
+          [
+            {
+              "label": "た"
+            },
+            {
+              "label": "て"
+            },
+            {
+              "label": "い"
+            },
+            {
+              "label": "す"
+            },
+            {
+              "label": "か"
+            },
+            {
+              "label": "ん"
+            },
+            {
+              "label": "な"
+            },
+            {
+              "label": "に"
+            },
+            {
+              "label": "ら"
+            },
+            {
+              "label": "せ"
+            },
+            {
+              "label": "゛",
+              "action": {
+                "type": "kana_variant"
+              }
+            },
+            {
+              "label": "゜",
+              "action": {
+                "type": "kana_variant"
+              }
+            }
+          ],
+          [
+            {
+              "label": "ち"
+            },
+            {
+              "label": "と"
+            },
+            {
+              "label": "し"
+            },
+            {
+              "label": "は"
+            },
+            {
+              "label": "き"
+            },
+            {
+              "label": "く"
+            },
+            {
+              "label": "ま"
+            },
+            {
+              "label": "の"
+            },
+            {
+              "label": "り"
+            },
+            {
+              "label": "れ"
+            },
+            {
+              "label": "け"
+            },
+            {
+              "label": "む"
+            }
+          ],
+          [
+            {
+              "label": "つ"
+            },
+            {
+              "label": "さ"
+            },
+            {
+              "label": "そ"
+            },
+            {
+              "label": "ひ"
+            },
+            {
+              "label": "こ"
+            },
+            {
+              "label": "み"
+            },
+            {
+              "label": "も"
+            },
+            {
+              "label": "ね"
+            },
+            {
+              "label": "る"
+            },
+            {
+              "label": "め"
+            },
+            {
+              "label": "ろ"
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              }
+            }
+          ],
+          [
+            {
+              "label": "?123",
+              "action": {
+                "type": "symbols"
+              },
+              "width": 1.5
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              },
+              "width": 1.5
+            },
+            {
+              "label": "、"
+            },
+            {
+              "label": "␣",
+              "action": {
+                "type": "space"
+              },
+              "width": 4
+            },
+            {
+              "label": "。"
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 3
+            }
+          ]
+        ]
+      }
+    }
+  }
+}

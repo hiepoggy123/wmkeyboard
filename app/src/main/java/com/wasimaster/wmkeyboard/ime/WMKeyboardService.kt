@@ -198,7 +198,18 @@ import com.wasimaster.wmkeyboard.core.layout.ModifierKey
 import com.wasimaster.wmkeyboard.core.layout.numberRowFor
 import com.wasimaster.wmkeyboard.core.layout.LayoutSpec
 import com.wasimaster.wmkeyboard.core.input.composer.composerFor
+import com.wasimaster.wmkeyboard.core.input.composer.CjkConfig
 import com.wasimaster.wmkeyboard.core.input.composer.CjkDictionaries
+import com.wasimaster.wmkeyboard.core.input.composer.HanVariant
+import com.wasimaster.wmkeyboard.core.input.composer.Kana
+import com.wasimaster.wmkeyboard.core.input.composer.CjkDictStore
+import com.wasimaster.wmkeyboard.core.input.composer.CjkLearning
+import com.wasimaster.wmkeyboard.core.input.composer.CjkUserHistory
+import com.wasimaster.wmkeyboard.core.input.composer.JyutpingSyllables
+import com.wasimaster.wmkeyboard.core.input.composer.PinyinSyllables
+import com.wasimaster.wmkeyboard.core.input.composer.T9Pinyin
+import com.wasimaster.wmkeyboard.core.input.composer.ZhuyinSyllables
+import com.wasimaster.wmkeyboard.core.input.composer.CodeTableDictionary
 import com.wasimaster.wmkeyboard.core.input.composer.ConversionDictionary
 import com.wasimaster.wmkeyboard.core.script.LanguageDef
 import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
@@ -1003,6 +1014,17 @@ open class WMKeyboardService : InputMethodService() {
                 suggestionEngine?.blockOffensiveWords =
                     settings.suggestionStrip.blockOffensiveWords
                 suggestionEngine?.skipAllCapsAutocorrect = settings.autocorrectSkipAllCaps
+                // Chinese Pinyin options the composer reads at call time (it stays a
+                // parameter-less singleton). Pushed from the same block, like above.
+                CjkConfig.fuzzyPinyin = settings.cjk.pinyinFuzzy
+                CjkConfig.doublePinyin = settings.cjk.pinyinDoublePinyin
+                CjkConfig.traditionalOutput = settings.cjk.traditionalOutput
+                CjkConfig.lazyJyutping = settings.cjk.jyutpingLazy
+                HanVariant.region = settings.cjk.hanRegion
+                // The settings half of the learning gate; the per-field half
+                // (incognito, fields that forbid typing intelligence) is checked
+                // at the commit itself, where the field is known.
+                CjkLearning.enabled = settings.learnFromTyping
                 // Only English drives the bundled English word list; every other
                 // language (with no bundled dictionary) drops it so autocorrect
                 // and completions never offer English for their words. Bengali
@@ -1066,8 +1088,9 @@ open class WMKeyboardService : InputMethodService() {
     }
 
     /**
-     * (Re)points the personal stores — learned words, language mix, emoji
-     * history, clipboard, snippets, sticker packs — at their files.
+     * (Re)points the personal stores — learned words, CJK candidate history,
+     * language mix, emoji history, clipboard, snippets, sticker packs — at
+     * their files.
      *
      * During direct boot every one of them gets a null file, which each store
      * already reads as "in memory, never persisted". So a locked session types
@@ -1078,6 +1101,8 @@ open class WMKeyboardService : InputMethodService() {
     private fun attachPersonalStores() {
         fun store(path: String): File? = if (userUnlocked) File(filesDir, path) else null
         userLexicon = UserLexicon(store("learning/user_lexicon.json"))
+        // Its own file, so clearing one store never silently clears the other.
+        CjkLearning.store = CjkUserHistory(store("learning/cjk_history.json"))
         languageMixConfidence = LanguageMixConfidence(store("learning/language_mix.json"))
         emojiUsage = EmojiUsage(store("learning/emoji_usage.json"))
         clipboardStore = ClipboardStore(
@@ -1189,18 +1214,7 @@ open class WMKeyboardService : InputMethodService() {
             // Chinese/Japanese conversion tables (pinyin→Hanzi, kana→Kanji). These
             // assets are optional: an absent or unreadable file leaves the composer
             // typing the raw reading (pinyin letters, or kana) with no candidates.
-            withContext(Dispatchers.Default) {
-                runCatching {
-                    assets.open("dictionaries/pinyin.tsv").bufferedReader().useLines {
-                        CjkDictionaries.pinyin = ConversionDictionary.parse(it)
-                    }
-                }
-                runCatching {
-                    assets.open("dictionaries/ja_kana.tsv").bufferedReader().useLines {
-                        CjkDictionaries.japanese = ConversionDictionary.parse(it)
-                    }
-                }
-            }
+            loadCjkConversionTables()
             loadedDictToken = withContext(Dispatchers.Default) {
                 if (userUnlocked) DictionaryStore.stateToken(filesDir) else Int.MIN_VALUE
             }
@@ -1282,6 +1296,8 @@ open class WMKeyboardService : InputMethodService() {
                 canDeleteField = ::canDeleteField,
                 onDeleteWord = ::onDeleteWord,
                 onSuggestion = ::onSuggestionTapped,
+                onCandidate = ::onCandidateTapped,
+                onCandidatesExpand = ::onCandidatesExpand,
                 onEmoji = ::onEmojiTapped,
                 onEmojiVariant = ::onEmojiVariantPicked,
                 onEmojiFavourite = ::onEmojiFavouriteToggled,
@@ -1546,6 +1562,13 @@ open class WMKeyboardService : InputMethodService() {
         // the next field focus — token-guarded, so this is a cheap no-op when
         // nothing on disk changed.
         serviceScope.launch { reloadDownloadedDictionaries() }
+        // A CJK dictionary pack finished (or was deleted) in Settings since the
+        // tables were last parsed: reload so it goes live on this focus. The
+        // token compare is two file-existence checks — cheap enough per focus,
+        // and the re-parse only runs when a pack actually changed.
+        if (loadedCjkPackToken != CjkDictStore.stateToken(filesDir)) {
+            serviceScope.launch { loadCjkConversionTables() }
+        }
         hwJob?.cancel()
         hwGeneration++
         val secure = info.isSecureField()
@@ -1732,11 +1755,8 @@ open class WMKeyboardService : InputMethodService() {
             }
         }
         val wasComposing = composing.isNotEmpty()
-        // The candidate range is valid when positive/zero. The cursor moved away
-        // from the composing region if it jumped strictly outside [candidatesStart, candidatesEnd].
-        // Invalid or un-reported candidate ranges (-1) must not erroneously cancel active composing.
-        val cursorOutsideCandidates = candidatesStart >= 0 && candidatesEnd >= candidatesStart &&
-            (newSelStart < candidatesStart || newSelEnd > candidatesEnd)
+        val cursorOutsideCandidates =
+            cursorLeftComposingRegion(newSelStart, newSelEnd, candidatesStart, candidatesEnd)
         // A caret placed *inside* the composing word (a tap mid-word) also ends
         // the composition. Keeping it meant the next keystroke rewrote the
         // whole region via setComposingText — which snaps the cursor to the
@@ -1895,6 +1915,7 @@ open class WMKeyboardService : InputMethodService() {
         // user types in next.
         fieldLayoutOverride = null
         userLexicon.save()
+        CjkLearning.store?.save()
         languageMixConfidence.save()
         emojiUsage.save()
         if (_uiState.value.settings.flashlightAutoOff && _uiState.value.torchOn) {
@@ -1915,6 +1936,7 @@ open class WMKeyboardService : InputMethodService() {
                 .unregisterTorchCallback(torchCallback)
         }
         userLexicon.save()
+        CjkLearning.store?.save()
         emojiUsage.save()
         clipboardStore.save()
         voiceEngine.cancel()
@@ -1991,6 +2013,7 @@ open class WMKeyboardService : InputMethodService() {
             // Produced only by a long-press on ?123 when the opt-in is set.
             KeyAction.Numpad -> onPanelChange(PanelMode.NUMPAD)
             is KeyAction.Mod -> onModifier((key.action as KeyAction.Mod).key)
+            KeyAction.KanaVariant -> cycleKanaVariant()
             KeyAction.Fn -> onFn()
             // A key carrying its own modifiers, so it fires with no latch.
             is KeyAction.SendKey -> sendShortcut(key, Modifiers.None)
@@ -2346,10 +2369,16 @@ open class WMKeyboardService : InputMethodService() {
 
         // VNI spells Vietnamese tones/marks with digits, so a digit typed *while a
         // syllable is composing* feeds the buffer (the transducer eats it) instead
-        // of committing. A digit on an empty buffer is a literal digit as usual.
+        // of committing. A digit on an empty buffer is a literal digit as usual —
+        // except for a composer whose whole alphabet is digits (T9 pinyin), where
+        // that rule would make the first key of every word commit as a number.
         val isWordChar = text.length == 1 && (
             text[0].isLetter() || text[0] == '\'' ||
-                (state.composer.bufferDigits && text[0].isDigit() && composing.isNotEmpty())
+                state.composer.buffersChar(text[0]) ||
+                (
+                    state.composer.bufferDigits && text[0].isDigit() &&
+                        (composing.isNotEmpty() || state.composer.digitsStartBuffer)
+                    )
             )
         // Avro is a transliterating input method: its composing must run even
         // in password fields and with the strip off, or the roman keys commit
@@ -2906,6 +2935,22 @@ open class WMKeyboardService : InputMethodService() {
             return
         }
 
+        // Conversion IME (Pinyin, Japanese): space commits the top candidate for
+        // the leading syllable(s) and re-converts the tail — no trailing literal
+        // space (CJK runs words together). An empty buffer falls through to a
+        // plain space.
+        if (composing.isNotEmpty() && state.composer.isConversion) {
+            val buf = composing.toString()
+            val top = state.composer.candidates(buf).firstOrNull()
+            if (top != null) {
+                commitConversionPrefix(ic, top, index = 0)
+            } else {
+                commitConversionPrefix(ic, state.composer.composeBuffer(buf))
+            }
+            lastSpaceTime = now
+            return
+        }
+
         val committed = commitComposing(
             ic,
             autocorrect = state.settings.autocorrect,
@@ -3280,6 +3325,15 @@ open class WMKeyboardService : InputMethodService() {
                 return true
             }
         }
+        // Conversion IME (Pinyin, Japanese): flush the whole reading as a
+        // sequence of best candidates, each consuming its own syllables, so the
+        // callers that aren't the space bar — cursor scrub, layout switch,
+        // defocus — never drop the unconverted tail. The space bar takes the
+        // interactive one-step path (commitConversionPrefix) instead.
+        if (state.composer.isConversion) {
+            flushConversion(ic)
+            return true
+        }
         // Apostrophe restoration outranks autocorrect: "dont" is a known
         // contraction slip, not a typo for "font"/"done" to be guessed at.
         val apostrophized =
@@ -3300,11 +3354,6 @@ open class WMKeyboardService : InputMethodService() {
             state.composer.isBengaliPhonetic ->
                 (if (pre != null && pre.isBengali) pre.bengaliTop
                 else suggestionEngine?.suggest(typed, previousWord = null, avroMode = true)?.firstOrNull())
-                    ?: state.composer.composeBuffer(typed)
-            // Conversion IMEs (Pinyin, Japanese): space commits the best candidate
-            // (top Hanzi/Kanji), falling back to the raw reading when there is none.
-            state.composer.isConversion ->
-                state.composer.candidates(typed).firstOrNull()
                     ?: state.composer.composeBuffer(typed)
             // Other transliterators (Hangul, Vietnamese) commit the composed text
             // directly, with no dictionary pass.
@@ -3338,6 +3387,197 @@ open class WMKeyboardService : InputMethodService() {
     }
 
     /**
+     * Flushes a conversion buffer whole: repeatedly commits the top candidate
+     * for what remains and drops the input chars it consumed, until the buffer
+     * is empty. A reading with no dictionary match commits raw (consuming all),
+     * so the loop always terminates; the guard is a belt-and-braces backstop.
+     * Used by every non-space commit path — the space bar goes one step at a
+     * time through [commitConversionPrefix].
+     */
+    private fun flushConversion(ic: InputConnection) {
+        val composer = _uiState.value.composer
+        var guard = 0
+        while (composing.isNotEmpty() && guard++ < 64) {
+            val buf = composing.toString()
+            val top = composer.candidates(buf).firstOrNull()
+            val chosen = top ?: composer.composeBuffer(buf)
+            val consumed = if (top != null) {
+                composer.consumedForIndex(buf, 0)
+            } else {
+                composer.consumedFor(buf, chosen)
+            }.coerceIn(1, composing.length)
+            ic.commitText(chosen, 1)
+            composing.delete(0, consumed)
+        }
+        composing = StringBuilder()
+        val (nextWords, nextEmojis) = nextWordStrip()
+        _uiState.update {
+            it.copy(composingPreview = "", suggestions = nextWords, emojiSuggestions = nextEmojis)
+        }
+    }
+
+    /**
+     * Commits a single chosen conversion candidate and keeps the tail: deletes
+     * only the input chars [chosen] consumed, then re-converts whatever is left
+     * so the next syllable's candidates appear immediately. Tapping 你 for
+     * `nihao` commits 你 and leaves `hao` composing. Never learns (Hanzi/Kanji
+     * are not lexicon words) and never adds a trailing space.
+     */
+    private fun commitConversionPrefix(ic: InputConnection, chosen: String, index: Int = -1) {
+        if (composing.isEmpty()) return
+        val composer = _uiState.value.composer
+        val buf = composing.toString()
+        // By strip position when the caller knows it, which is exact even where a
+        // candidate's text is reachable at two different spans; by text otherwise,
+        // which is what the raw-reading fallback needs since it is in no list.
+        val consumed = if (index >= 0) {
+            composer.consumedForIndex(buf, index)
+        } else {
+            composer.consumedFor(buf, chosen)
+        }.coerceIn(1, buf.length)
+        // Only a real pick from the strip or grid, and never the raw-reading
+        // fallback: index is -1 there, and there is nothing to learn from a
+        // reading the dictionary could not convert. Not hooked into
+        // flushConversion either — that auto-commits whatever already ranked
+        // first, so learning it would only entrench the existing order.
+        if (index >= 0 && learningAllowed) composer.learnChoice(buf, index)
+        ic.commitText(chosen, 1)
+        composing.delete(0, consumed)
+        consumeShift()
+        if (composing.isEmpty()) {
+            val (nextWords, nextEmojis) = nextWordStrip()
+            _uiState.update {
+                it.copy(
+                    composingPreview = "",
+                    suggestions = nextWords,
+                    emojiSuggestions = nextEmojis,
+                    // The reading is fully committed, so there is nothing left to
+                    // choose. Leaving the grid up would strand the user staring at
+                    // an empty panel with the keyboard hidden behind it.
+                    panel = if (it.panel == PanelMode.CANDIDATES) PanelMode.NONE else it.panel,
+                    expandedCandidates = emptyList(),
+                )
+            }
+        } else {
+            // Re-show the remaining pinyin/kana as the composing region and
+            // convert it — the next chunk's candidates fill the strip.
+            updateComposingText(ic)
+            refreshSuggestions()
+        }
+    }
+
+    /**
+     * The Japanese flick pad's 小゛゜ key: cycles the last kana in the composing
+     * buffer through its small / dakuten / handakuten forms (か→が, は→ば→ぱ). The
+     * kana lives in the composing buffer while the reading is still being typed,
+     * so this rewrites the last char in place and re-converts; a no-op when the
+     * buffer is empty or the last char has no variant.
+     */
+    private fun cycleKanaVariant() {
+        val ic = currentInputConnection ?: return
+        if (composing.isEmpty()) return
+        val last = composing[composing.length - 1]
+        val cycled = Kana.cycleVariant(last)
+        if (cycled == last) return
+        composing.setCharAt(composing.length - 1, cycled)
+        updateComposingText(ic)
+        refreshSuggestions()
+    }
+
+    /** Pack-state token the conversion tables were last loaded from; see [CjkDictStore.stateToken]. */
+    @Volatile
+    private var loadedCjkPackToken = Int.MIN_VALUE
+
+    /**
+     * (Re)loads the Chinese/Japanese conversion tables from their downloaded
+     * [CjkDictCatalog] packs. The tables are large and useful to a minority, so
+     * they are not bundled — with no pack on disk the composer types the raw
+     * reading with no candidates, and deleting a pack resets it to empty. Records
+     * the pack-state token so [onStartInputView] re-parses only when a pack
+     * actually changes. All parsing runs off the main thread.
+     */
+    private suspend fun loadCjkConversionTables() {
+        withContext(Dispatchers.Default) {
+            val token = CjkDictStore.stateToken(filesDir)
+            CjkDictionaries.pinyin = CjkDictStore.downloadedFileFor(filesDir, "pinyin")
+                ?.let { file -> runCatching { file.bufferedReader().useLines(ConversionDictionary::parse) }.getOrNull() }
+                ?: ConversionDictionary.EMPTY
+            CjkDictionaries.japanese = CjkDictStore.downloadedFileFor(filesDir, "ja_kana")
+                ?.let { file -> runCatching { file.bufferedReader().useLines(ConversionDictionary::parse) }.getOrNull() }
+                ?: ConversionDictionary.EMPTY
+            CjkDictionaries.stroke = CjkDictStore.downloadedFileFor(filesDir, "stroke")
+                ?.let { file ->
+                    runCatching {
+                        file.bufferedReader().useLines {
+                            CodeTableDictionary.parse(it, CodeTableDictionary.STROKE_CODE)
+                        }
+                    }.getOrNull()
+                }
+                ?: CodeTableDictionary.EMPTY
+            CjkDictionaries.jyutping = CjkDictStore.downloadedFileFor(filesDir, "jyutping")
+                ?.let { file -> runCatching { file.bufferedReader().useLines(ConversionDictionary::parse) }.getOrNull() }
+                ?: ConversionDictionary.EMPTY
+            CjkDictionaries.cangjie = CjkDictStore.downloadedFileFor(filesDir, "cangjie")
+                ?.let { file ->
+                    runCatching {
+                        file.bufferedReader().useLines {
+                            CodeTableDictionary.parse(it, CodeTableDictionary.CANGJIE_CODE)
+                        }
+                    }.getOrNull()
+                }
+                ?: CodeTableDictionary.EMPTY
+            // The pinyin syllable inventory is tiny static reference data (~1.8 KB),
+            // the only bundled CJK asset — segmentation is ready without a download,
+            // though candidates still need the pinyin pack above.
+            runCatching {
+                assets.open("dictionaries/pinyin_syllables.txt").bufferedReader().useLines {
+                    PinyinSyllables.valid = PinyinSyllables.parse(it)
+                }
+            }
+            // T9's digit-code index and Zhuyin's bopomofo table are both derived
+            // from that inventory rather than loaded — the 9-key pad, the 注音 pad
+            // and the full keyboard share one syllable set and one conversion pack.
+            // Simplified→Traditional map for the output toggle; optional, and the
+            // conversion is the identity until it loads.
+            runCatching {
+                assets.open("dictionaries/s2t.txt").bufferedReader().useLines {
+                    HanVariant.s2t = HanVariant.parse(it)
+                }
+            }
+            // Regional vocabulary on top of it: Taipei writes 計程車 where the
+            // mainland writes 出租車, and no character map can reach that. All
+            // three are small enough to bundle, and each is independently
+            // optional — a missing one just leaves that layer inert.
+            runCatching {
+                assets.open("dictionaries/tw_phrases.txt").bufferedReader().useLines {
+                    HanVariant.twPhrases = HanVariant.parsePhrases(it)
+                }
+            }
+            runCatching {
+                assets.open("dictionaries/tw_variants.txt").bufferedReader().useLines {
+                    HanVariant.twVariants = HanVariant.parse(it)
+                }
+            }
+            runCatching {
+                assets.open("dictionaries/hk_variants.txt").bufferedReader().useLines {
+                    HanVariant.hkVariants = HanVariant.parse(it)
+                }
+            }
+            // Cantonese has its own inventory: the readings share no syllable set
+            // with Mandarin, so it cannot be derived like the two above. Optional —
+            // absent, Jyutping segments nothing and commits the raw roman letters.
+            runCatching {
+                assets.open("dictionaries/jyutping_syllables.txt").bufferedReader().useLines {
+                    JyutpingSyllables.valid = JyutpingSyllables.parse(it)
+                }
+            }
+            T9Pinyin.index = T9Pinyin.buildIndex(PinyinSyllables.valid)
+            ZhuyinSyllables.table = ZhuyinSyllables.buildTable(PinyinSyllables.valid)
+            loadedCjkPackToken = token
+        }
+    }
+
+    /**
      * Next-word predictions for the word just committed, computed inline.
      *
      * Only safe because the empty-composing path is a handful of bigram map
@@ -3366,15 +3606,25 @@ open class WMKeyboardService : InputMethodService() {
      * Multi-word commits ("of the" from a split suggestion) learn each
      * word and the bigrams linking them.
      */
+    /**
+     * Whether anything the user types may be remembered: the setting, incognito,
+     * and whether the field allows typing intelligence at all. Shared by the
+     * Latin lexicon and the CJK pick history so the two go quiet together.
+     */
+    private val learningAllowed: Boolean
+        get() {
+            val state = _uiState.value
+            return state.settings.learnFromTyping &&
+                !(state.incognitoOn && state.settings.incognitoPausesLearning) &&
+                state.allowsTypingIntelligence
+        }
+
     private fun learn(word: String, reinforcement: Int = 1) {
-        val state = _uiState.value
-        if (!state.settings.learnFromTyping ||
-            (state.incognitoOn && state.settings.incognitoPausesLearning) ||
-            !state.allowsTypingIntelligence
-        ) {
+        if (!learningAllowed) {
             previousWord = word
             return
         }
+        val state = _uiState.value
         var previous = previousWord
         var lastLearned: String? = null
         for (part in word.split(' ')) {
@@ -3569,7 +3819,11 @@ open class WMKeyboardService : InputMethodService() {
         val state = _uiState.value
         val enabled = state.settings.smartSuggestions &&
             !state.secureField && !state.fieldNoSuggestions &&
-            state.panel == PanelMode.NONE
+            state.panel == PanelMode.NONE &&
+            // A smart chip takes the whole strip, and in a conversion IME that
+            // strip is the candidate list — losing it mid-reading would leave
+            // the user with a composing buffer and nothing to commit it with.
+            !state.composer.isConversion
         if (!enabled) {
             if (state.smart != null) _uiState.update { it.copy(smart = null) }
             return
@@ -3769,9 +4023,17 @@ open class WMKeyboardService : InputMethodService() {
             suggestionJob?.cancel()
             commitResolution = null
             val cands = state.composer.candidates(typed)
+            // The grid is a widening of the same ranking, so it only costs
+            // anything while it is actually open.
+            val expanded = if (state.panel == PanelMode.CANDIDATES) {
+                state.composer.candidates(typed, CANDIDATE_GRID_LIMIT)
+            } else {
+                emptyList()
+            }
             _uiState.update {
                 it.copy(
                     suggestions = cands,
+                    expandedCandidates = expanded,
                     emojiSuggestions = emptyList(),
                     punctuationSuggestions = emptyList(),
                 )
@@ -3885,6 +4147,42 @@ open class WMKeyboardService : InputMethodService() {
         onText(mark)
     }
 
+    /**
+     * How deep the expanded grid goes. Well under the composers' own lookup
+     * depth, so every candidate it shows can still be resolved back to the input
+     * length it consumes.
+     */
+    private val CANDIDATE_GRID_LIMIT = 100
+
+    /**
+     * A conversion candidate tapped in the strip or the expanded grid. Resolved
+     * by position rather than by text — see [Composer.consumedForIndex].
+     */
+    fun onCandidateTapped(candidate: String, index: Int) {
+        val ic = currentInputConnection ?: return
+        if (!_uiState.value.composer.isConversion) {
+            onSuggestionTapped(candidate)
+            return
+        }
+        commitConversionPrefix(ic, candidate, index)
+    }
+
+    /** The candidate strip's chevron: opens the overflow grid, or closes it. */
+    fun onCandidatesExpand() {
+        val state = _uiState.value
+        if (state.panel == PanelMode.CANDIDATES) {
+            _uiState.update { it.copy(panel = PanelMode.NONE, expandedCandidates = emptyList()) }
+            return
+        }
+        if (!state.composer.isConversion || composing.isEmpty()) return
+        _uiState.update {
+            it.copy(
+                panel = PanelMode.CANDIDATES,
+                expandedCandidates = state.composer.candidates(composing.toString(), CANDIDATE_GRID_LIMIT),
+            )
+        }
+    }
+
     fun onSuggestionTapped(suggestion: String) {
         stopVoiceForManualInput()
         vibrate()
@@ -3946,13 +4244,7 @@ open class WMKeyboardService : InputMethodService() {
         // trailing space (CJK runs words together) and no learning, then clear the
         // reading buffer so the next syllable starts fresh.
         if (_uiState.value.composer.isConversion) {
-            ic.commitText(suggestion, 1)
-            composing = StringBuilder()
-            consumeShift()
-            _uiState.update {
-                it.copy(composingPreview = "", suggestions = emptyList(), emojiSuggestions = emptyList())
-            }
-            refreshSuggestions()
+            commitConversionPrefix(ic, suggestion)
             return
         }
 
@@ -9258,3 +9550,24 @@ open class WMKeyboardService : InputMethodService() {
         }
     }
 }
+
+/**
+ * Whether a selection update means the user moved the caret away from the
+ * composing region, so the composition should be abandoned.
+ *
+ * Extracted because it is the exact predicate a CJK prefix commit depends on and
+ * it has been got wrong before. Demanding the caret sit *at* `candidatesEnd`
+ * mistakes two ordinary events for a cursor jump: a field that reports no
+ * composing region at all (-1), and the update that trails the keyboard's own
+ * `commitText` — which arrives after a prefix commit has already re-composed the
+ * tail, so the abandon path would `finishComposingText()` that fresh region and
+ * drop `hao` from `nihao` as raw latin. Only a caret strictly outside the
+ * reported range counts.
+ */
+internal fun cursorLeftComposingRegion(
+    newSelStart: Int,
+    newSelEnd: Int,
+    candidatesStart: Int,
+    candidatesEnd: Int,
+): Boolean = candidatesStart >= 0 && candidatesEnd >= candidatesStart &&
+    (newSelStart < candidatesStart || newSelEnd > candidatesEnd)
