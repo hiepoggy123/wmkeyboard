@@ -1301,13 +1301,13 @@ private const val URL_TRAILING = ".,;:!?"
 
 @Composable
 private fun withLinks(text: String): AnnotatedString {
-    val style = TextLinkStyles(
-        style = SpanStyle(
-            color = MaterialTheme.colorScheme.primary,
-            textDecoration = TextDecoration.Underline,
-        ),
-    )
-    return remember(text, style) {
+    // Keyed on the colour, not on the TextLinkStyles: a fresh instance every
+    // composition would make the remember do nothing.
+    val accent = MaterialTheme.colorScheme.primary
+    return remember(text, accent) {
+        val style = TextLinkStyles(
+            style = SpanStyle(color = accent, textDecoration = TextDecoration.Underline),
+        )
         buildAnnotatedString {
             var at = 0
             for (match in URL_PATTERN.findAll(text)) {
