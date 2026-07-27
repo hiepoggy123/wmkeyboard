@@ -3,7 +3,7 @@
   "version": 1,
   "layout": {
     "id": "asset_kn_rom",
-    "name": "Kanglish (Romanized Kannada)",
+    "name": "Kanglish",
     "langId": "kn_rom",
     "version": 2,
     "layers": {

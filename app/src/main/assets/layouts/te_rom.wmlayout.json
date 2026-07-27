@@ -3,7 +3,7 @@
   "version": 1,
   "layout": {
     "id": "asset_te_rom",
-    "name": "Tenglish (Romanized Telugu)",
+    "name": "Tenglish",
     "langId": "te_rom",
     "version": 2,
     "layers": {

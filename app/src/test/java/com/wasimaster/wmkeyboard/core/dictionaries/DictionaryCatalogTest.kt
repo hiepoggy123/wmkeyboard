@@ -52,8 +52,14 @@ class DictionaryCatalogTest {
 
     @Test
     fun sizesAndCountsArePlausible() {
+        // Languages whose *entire* vocabulary is tiny by design — the list is
+        // complete, not a truncated scrape, so the size floor does not apply.
+        val completeTinyVocabularies = setOf("tok")
         for (entry in DictionaryCatalog.entries) {
-            assertTrue("${entry.id} word count", entry.totalWordCount >= 1000)
+            assertTrue(
+                "${entry.id} word count",
+                entry.totalWordCount >= 1000 || entry.id in completeTinyVocabularies,
+            )
             assertTrue("${entry.id} gz size", entry.approxGzBytes > 0)
         }
         // The pt special case: two entries, one language, distinct variants.

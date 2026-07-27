@@ -3500,6 +3500,13 @@ class SettingsRepository(private val context: Context) {
         editPrefs { prefs ->
             val next = ids.distinct().ifEmpty { listOf(BuiltInLayouts.DEFAULT_ID) }
             prefs[ENABLED_LAYOUT_IDS] = next.joinToString(",")
+            // Shrinking the cycle can strand the active layout outside it —
+            // removing a language whose layout is current would otherwise keep
+            // the keyboard typing in the language the user just removed. Snap
+            // to the first remaining stop. (A null active is a pre-registry
+            // install still translating `input_mode` on read; leave it alone.)
+            val active = prefs[ACTIVE_LAYOUT_ID]
+            if (active != null && active !in next) prefs[ACTIVE_LAYOUT_ID] = next.first()
         }
 
     /**

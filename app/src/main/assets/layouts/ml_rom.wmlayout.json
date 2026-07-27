@@ -3,7 +3,7 @@
   "version": 1,
   "layout": {
     "id": "asset_ml_rom",
-    "name": "Manglish (Romanized Malayalam)",
+    "name": "Manglish",
     "langId": "ml_rom",
     "version": 2,
     "layers": {

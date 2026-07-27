@@ -45,6 +45,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -6035,6 +6036,10 @@ private fun KeyButton(
     // by holding the spacebar when more than two languages are enabled (a
     // swipe through a long ring is tedious). Independent of languagePreview.
     var showLanguagePicker by remember { mutableStateOf(false) }
+    // Row of the open picker the spacebar hold-drag currently has selected;
+    // null until the finger actually moves (a plain hold leaves the popup up
+    // for tapping, exactly as before).
+    var pickerDragIndex by remember { mutableStateOf<Int?>(null) }
     // Language the spacebar swipe currently has selected, shown in a tooltip
     // popup above the spacebar while the finger is still down.
     var languagePreview by remember { mutableStateOf<String?>(null) }
@@ -6198,7 +6203,9 @@ private fun KeyButton(
                     spaceSwipeDownHide = settings.layoutBehavior.spaceSwipeDownHide,
                     symbolsLongPressNumpad = settings.layoutBehavior.symbolsLongPressNumpad,
                     onLayoutSelect = onLayoutSelect,
-                    openLanguagePicker = { showLanguagePicker = true },
+                    openLanguagePicker = { pickerDragIndex = null; showLanguagePicker = true },
+                    closeLanguagePicker = { showLanguagePicker = false; pickerDragIndex = null },
+                    setPickerDragIndex = { pickerDragIndex = it },
                     setLanguagePreview = { languagePreview = it },
                     canDelete = canDelete,
                     canForwardDelete = canForwardDelete,
@@ -6312,10 +6319,19 @@ private fun KeyButton(
             }
         }
 
-        // Tooltip above the spacebar while a swipe is cycling languages:
-        // every enabled mode in a row, the live selection highlighted.
+        // Tooltip above the spacebar while a swipe is cycling languages: the
+        // enabled modes in a row, the live selection highlighted. Capped at a
+        // five-chip window sliding with the selection — drawing every enabled
+        // layout ran off the screen the moment a handful were enabled.
         languagePreview?.let { previewMode ->
             val enabledLayoutIds = settings.enabledLayoutIds.ifEmpty { listOf(BuiltInLayouts.DEFAULT_ID) }
+            val previewWindow = if (enabledLayoutIds.size <= 5) {
+                enabledLayoutIds
+            } else {
+                val sel = enabledLayoutIds.indexOf(previewMode).coerceAtLeast(0)
+                val start = (sel - 2).coerceIn(0, enabledLayoutIds.size - 5)
+                enabledLayoutIds.subList(start, start + 5)
+            }
             Popup(
                 popupPositionProvider = popupPosition,
                 properties = PreviewPopupProperties,
@@ -6329,7 +6345,7 @@ private fun KeyButton(
                         modifier = Modifier.padding(6.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        for (layoutId in enabledLayoutIds) {
+                        for (layoutId in previewWindow) {
                             val selected = layoutId == previewMode
                             Text(
                                 text = layoutSwitchLabel(
@@ -6362,11 +6378,13 @@ private fun KeyButton(
                 currentLayoutId = state.layoutId,
                 customLayouts = settings.customLayouts,
                 displayMode = settings.layoutBehavior.spacebarDisplay,
+                highlightIndex = pickerDragIndex,
                 onPick = {
                     showLanguagePicker = false
+                    pickerDragIndex = null
                     if (it != state.layoutId) onLayoutSelect(it)
                 },
-                onDismiss = { showLanguagePicker = false },
+                onDismiss = { showLanguagePicker = false; pickerDragIndex = null },
             )
         }
     }
@@ -6449,8 +6467,25 @@ private fun LanguagePickerPopup(
     displayMode: SpacebarDisplay,
     onPick: (String) -> Unit,
     onDismiss: () -> Unit,
+    /**
+     * Row a spacebar hold-drag has walked to, or null when the popup is in
+     * plain tap mode (globe long-press, or a hold that has not moved yet).
+     * Kept scrolled into view so the finger never outruns the viewport.
+     */
+    highlightIndex: Int? = null,
 ) {
     val kb = LocalKbTheme.current
+    val scrollState = rememberScrollState()
+    val density = LocalDensity.current
+    LaunchedEffect(highlightIndex) {
+        if (highlightIndex != null) {
+            val rowPx = with(density) { PickerRowHeightDp.dp.toPx() }
+            val centerPx = with(density) { 100.dp.toPx() }
+            scrollState.animateScrollTo(
+                (rowPx * highlightIndex - centerPx).toInt().coerceIn(0, scrollState.maxValue),
+            )
+        }
+    }
     Popup(
         popupPositionProvider = popupPosition,
         onDismissRequest = onDismiss,
@@ -6464,21 +6499,28 @@ private fun LanguagePickerPopup(
                 modifier = Modifier
                     .widthIn(min = 160.dp, max = 240.dp)
                     .heightIn(max = 240.dp)
-                    .verticalScroll(rememberScrollState())
+                    .verticalScroll(scrollState)
                     .padding(vertical = 4.dp),
             ) {
-                for (layoutId in enabledLayoutIds) {
+                for ((index, layoutId) in enabledLayoutIds.withIndex()) {
                     val selected = layoutId == currentLayoutId
+                    val dragged = index == highlightIndex
                     Text(
                         text = layoutSwitchLabel(layoutId, enabledLayoutIds, customLayouts, displayMode),
                         color = if (selected) kb.accent else kb.popupText,
-                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                        fontWeight = if (selected || dragged) FontWeight.Bold else FontWeight.Normal,
                         fontSize = 15.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(if (selected) kb.pressedKey else Color.Transparent)
+                            // Fixed row height — the hold-drag gesture steps its
+                            // highlight by this exact amount of finger travel.
+                            .height(PickerRowHeightDp.dp)
+                            .background(if (dragged || (selected && highlightIndex == null)) kb.pressedKey else Color.Transparent)
                             .clickable { onPick(layoutId) }
-                            .padding(horizontal = 16.dp, vertical = 10.dp),
+                            .padding(horizontal = 16.dp)
+                            .wrapContentHeight(Alignment.CenterVertically),
                     )
                 }
             }
@@ -6499,14 +6541,20 @@ private fun layoutSwitchLabel(
     mode: SpacebarDisplay,
 ): String {
     val spec = resolveLayout(customLayouts, layoutId)
-    val lang = spec.language().displayName
+    // The short half of the registry's "native · english" display name — the
+    // full form overflows the preview row and picker with even three
+    // languages enabled, and the native name is what the switcher's audience
+    // reads fastest (it is also the colloquial name for the romanized
+    // variants: Banglish, Hinglish, …).
+    val lang = spec.language().displayName.substringBefore(" · ")
     val layout = spec.name
     val sameLangCount = enabledLayoutIds.count {
         resolveLayout(customLayouts, it).langId == spec.langId
     }
     return when {
         mode == SpacebarDisplay.LAYOUT -> layout
-        mode == SpacebarDisplay.BOTH || sameLangCount > 1 -> "$lang ($layout)"
+        // A layout named after its language ("Banglish (Banglish)") collapses.
+        (mode == SpacebarDisplay.BOTH || sameLangCount > 1) && layout != lang -> "$lang ($layout)"
         else -> lang
     }
 }
@@ -6739,6 +6787,13 @@ private val PreviewPopupProperties = PopupProperties(
 private const val SpaceHoldPickerMs = 250
 
 /**
+ * Fixed height of one language-picker row, shared between the popup's layout
+ * and the spacebar hold-drag gesture that steps through it — the two must
+ * agree or the finger and the highlight drift apart.
+ */
+private const val PickerRowHeightDp = 40
+
+/**
  * Press handling: tap commits, long-press opens alternates (or begins
  * repeating for delete), release cancels. The spacebar instead supports
  * horizontal swipes: a swipe that starts moving right away performs
@@ -6784,6 +6839,9 @@ private fun Modifier.pointerInputKey(
     symbolsLongPressNumpad: Boolean,
     onLayoutSelect: (String) -> Unit,
     openLanguagePicker: () -> Unit,
+    closeLanguagePicker: () -> Unit,
+    /** Row of the open picker a hold-drag has reached; null clears the highlight. */
+    setPickerDragIndex: (Int?) -> Unit,
     setLanguagePreview: (String?) -> Unit,
     canDelete: () -> Boolean,
     canForwardDelete: () -> Boolean,
@@ -6803,6 +6861,10 @@ private fun Modifier.pointerInputKey(
             val slopPx = 12.dp.toPx()
             val cursorStepPx = 16.dp.toPx()
             val langStepPx = 44.dp.toPx()
+            // One picker row of vertical travel moves the hold-drag selection
+            // one row; must match the fixed row height LanguagePickerPopup lays
+            // out, or the finger and the highlight drift apart.
+            val pickerRowPx = PickerRowHeightDp.dp.toPx()
             // A swipe-down must clear this before it dismisses the keyboard —
             // well past the slop so a diagonal cursor drag never trips it.
             val hideThresholdPx = 40.dp.toPx()
@@ -6845,9 +6907,14 @@ private fun Modifier.pointerInputKey(
                 var holdPreviewShown = false
                 // With more than two languages the swipe ring is long, so a
                 // hold opens the full tappable picker instead of the inline
-                // preview. Once open, the picker owns the selection: the rest
-                // of this gesture goes inert and release types nothing.
+                // preview. Once open, a vertical drag walks the list row by
+                // row and release commits the highlighted layout; a hold that
+                // never moves leaves the popup up for tapping, and release
+                // types nothing either way.
                 var pickerOpened = false
+                var pickerIndex = langIndex
+                var pickerMoved = false
+                var pickerPrimed = false
                 // Arm the hold-to-switch gesture whenever there is more than one
                 // layout to switch between — independent of the swipe setting, so
                 // the tappable picker stays reachable even when the language swipe
@@ -6866,6 +6933,7 @@ private fun Modifier.pointerInputKey(
                                 spaceShortSwipe != SpaceSwipeAction.LANGUAGE
                             if (useList) {
                                 pickerOpened = true
+                                pickerIndex = langIndex
                                 openLanguagePicker()
                             } else {
                                 holdPreviewShown = true
@@ -6881,8 +6949,37 @@ private fun Modifier.pointerInputKey(
                     val event = awaitPointerEvent()
                     val change = event.changes.firstOrNull { it.id == down.id } ?: break
                     if (!change.pressed) break
-                    // Picker is up: consume everything, resolve nothing.
-                    if (pickerOpened) { change.consume(); continue }
+                    // Picker is up: the finger now navigates its list. The
+                    // first event only re-bases the vertical origin — the
+                    // finger may have drifted (below slop) before the hold
+                    // fired, and that drift must not count as a row step.
+                    if (pickerOpened) {
+                        if (!pickerPrimed) {
+                            pickerPrimed = true
+                            lastY = change.position.y
+                            accumulatedY = 0f
+                            change.consume()
+                            continue
+                        }
+                        accumulatedY += change.position.y - lastY
+                        lastY = change.position.y
+                        var stepped = false
+                        while (accumulatedY > pickerRowPx) {
+                            if (pickerIndex < enabledLayoutIds.size - 1) { pickerIndex++; stepped = true }
+                            accumulatedY -= pickerRowPx
+                        }
+                        while (accumulatedY < -pickerRowPx) {
+                            if (pickerIndex > 0) { pickerIndex--; stepped = true }
+                            accumulatedY += pickerRowPx
+                        }
+                        if (stepped) {
+                            pickerMoved = true
+                            setPickerDragIndex(pickerIndex)
+                            onKeyPress()
+                        }
+                        change.consume()
+                        continue
+                    }
                     // The action this gesture would resolve to right now (short
                     // vs long by hold time). Used to decide whether the 2-D pad
                     // owns the vertical axis for this drag.
@@ -6919,12 +7016,12 @@ private fun Modifier.pointerInputKey(
                             // Short vs long is decided by hold time, not travel
                             // distance — a fast flick covers more ground than a
                             // careful drag, so distance can't tell them apart.
-                            action = candidate
-                            // The hold picker was only a preview; a drag that
-                            // resolves to another action dismisses it.
-                            if (holdPreviewShown && action != SpaceSwipeAction.LANGUAGE) {
-                                setLanguagePreview(null)
-                            }
+                            // With the hold preview up the drag always
+                            // navigates the language ring: the user is looking
+                            // at a language chooser, so resolving the drag to
+                            // the long-swipe action (cursor, usually) read as
+                            // "swiping does nothing".
+                            action = if (holdPreviewShown) SpaceSwipeAction.LANGUAGE else candidate
                             lastX = change.position.x
                             lastY = change.position.y
                             accumulated = 0f
@@ -7065,9 +7162,16 @@ private fun Modifier.pointerInputKey(
                     // A swipe-down already dismissed the keyboard: the finger
                     // lifting must not also type a space.
                     hidden -> {}
-                    // The tappable picker is up and owns the choice: release
-                    // just lifts the finger, it must not type a space.
-                    action == null && pickerOpened -> {}
+                    // The picker is up. A hold-drag that walked the list
+                    // commits the highlighted row; a hold that never moved
+                    // leaves the popup up for tapping. Neither types a space.
+                    action == null && pickerOpened -> {
+                        if (pickerMoved) {
+                            val selected = enabledLayoutIds[pickerIndex]
+                            closeLanguagePicker()
+                            if (selected != currentLayoutId) onLayoutSelect(selected)
+                        }
+                    }
                     // Releasing with the hold preview up commits whatever it
                     // showed (usually the current language — a no-op) and
                     // must not type a space.

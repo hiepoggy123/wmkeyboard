@@ -1725,7 +1725,7 @@ object LanguageRegistry {
         ),
         LanguageDef(
             id = "gu_rom",
-            displayName = "Gujarati (Romanized)",
+            displayName = "Roman Gujarati · Gujarati (Romanized)",
             englishName = "Gujarati (Romanized)",
             script = ScriptId.LATIN,
             localeTag = "gu-Latn",
@@ -1757,7 +1757,7 @@ object LanguageRegistry {
         ),
         LanguageDef(
             id = "mr_rom",
-            displayName = "Marathi (Romanized)",
+            displayName = "Roman Marathi · Marathi (Romanized)",
             englishName = "Marathi (Romanized)",
             script = ScriptId.LATIN,
             localeTag = "mr-Latn",
@@ -1765,7 +1765,7 @@ object LanguageRegistry {
         ),
         LanguageDef(
             id = "ne_rom",
-            displayName = "Nepali (Romanized)",
+            displayName = "Roman Nepali · Nepali (Romanized)",
             englishName = "Nepali (Romanized)",
             script = ScriptId.LATIN,
             localeTag = "ne-Latn",
@@ -1773,7 +1773,7 @@ object LanguageRegistry {
         ),
         LanguageDef(
             id = "pa_rom",
-            displayName = "Punjabi (Romanized)",
+            displayName = "Roman Punjabi · Punjabi (Romanized)",
             englishName = "Punjabi (Romanized)",
             script = ScriptId.LATIN,
             localeTag = "pa-Latn",
@@ -1789,7 +1789,7 @@ object LanguageRegistry {
         ),
         LanguageDef(
             id = "si_rom",
-            displayName = "Sinhala (Romanized)",
+            displayName = "Roman Sinhala · Sinhala (Romanized)",
             englishName = "Sinhala (Romanized)",
             script = ScriptId.LATIN,
             localeTag = "si-Latn",

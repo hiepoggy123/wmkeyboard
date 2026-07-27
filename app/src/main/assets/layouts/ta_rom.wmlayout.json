@@ -3,7 +3,7 @@
   "version": 1,
   "layout": {
     "id": "asset_ta_rom",
-    "name": "Tanglish (Romanized Tamil)",
+    "name": "Tanglish",
     "langId": "ta_rom",
     "version": 2,
     "layers": {

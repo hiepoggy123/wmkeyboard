@@ -3,7 +3,7 @@
   "version": 1,
   "layout": {
     "id": "asset_hi_rom",
-    "name": "Hinglish (Romanized Hindi)",
+    "name": "Hinglish",
     "langId": "hi_rom",
     "version": 2,
     "layers": {

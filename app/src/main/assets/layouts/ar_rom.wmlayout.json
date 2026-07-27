@@ -3,7 +3,7 @@
   "version": 1,
   "layout": {
     "id": "asset_ar_rom",
-    "name": "Arabizi (Romanized Arabic)",
+    "name": "Arabizi",
     "langId": "ar_rom",
     "version": 2,
     "layers": {
