@@ -540,6 +540,17 @@ private fun SettingsNavHost(
                 StickerPacksScreen { route -> navController.navigate(route) }
             }
         }
+        composable("plugins") {
+            SettingsScreen("Plugins", { navController.popBackStack() }) {
+                PluginsScreen { route -> navController.navigate(route) }
+            }
+        }
+        composable("plugin/{pluginId}") { entry ->
+            val pluginId = entry.arguments?.getString("pluginId").orEmpty()
+            SettingsScreen("Plugin", { navController.popBackStack() }) {
+                PluginDetailScreen(pluginId) { navController.popBackStack() }
+            }
+        }
         // The optional `add` argument carries a repository URL from a
         // wmkeyboard://repo link; it pre-fills the add dialog, which is still
         // where the user confirms.
@@ -5566,6 +5577,20 @@ private fun ToolDetailSettings(
     }
     ToolKeywordSetting(repository, settings, tool)
     when (tool) {
+        ToolbarTool.PLUGINS -> SettingsGroup("Plugins") {
+            item {
+                ListItem(
+                    headlineContent = { Text("Manage plugins") },
+                    supportingContent = {
+                        Text("Turn plugins on, see what's installed, and what each one can do")
+                    },
+                    colors = transparentListColors(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onNavigate("plugins") },
+                )
+            }
+        }
         ToolbarTool.EMOJI -> SettingsGroup("Emoji") {
             item {
                 ToggleSetting(

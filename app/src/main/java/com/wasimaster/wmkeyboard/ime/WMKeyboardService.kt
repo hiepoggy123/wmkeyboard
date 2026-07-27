@@ -6161,9 +6161,19 @@ open class WMKeyboardService : InputMethodService() {
         pluginRuntime?.close()
         val store = PluginStore.get(this)
         store.reconcile()
+        // The subsystem is off until the user asks for it, so the panel says so
+        // rather than looking like an empty feature.
+        val notice = if (store.subsystemEnabled()) {
+            null
+        } else {
+            "Plugins are turned off. Turn them on in Settings to install and run them."
+        }
         _uiState.update {
             it.copy(
-                plugins = PluginPanelUi.List(store.plugins()),
+                plugins = PluginPanelUi.List(
+                    if (store.subsystemEnabled()) store.plugins() else emptyList(),
+                    notice,
+                ),
                 pluginInputs = emptyMap(),
                 pluginFocusedInput = null,
             )
@@ -6173,7 +6183,9 @@ open class WMKeyboardService : InputMethodService() {
     /** Loads and runs a plugin, replacing whatever was open. */
     fun onPluginOpen(pluginId: String) {
         vibrate()
-        val plugin = PluginStore.get(this).plugin(pluginId) ?: return openPluginList()
+        val store = PluginStore.get(this)
+        if (!store.subsystemEnabled()) return openPluginList()
+        val plugin = store.plugin(pluginId) ?: return openPluginList()
         _uiState.update {
             it.copy(
                 plugins = PluginPanelUi.Running(plugin),

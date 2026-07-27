@@ -554,6 +554,15 @@ private fun pluginProposal(context: android.content.Context, uri: Uri): ImportPr
         context.contentResolver.requireInputStream(uri).use { PluginFile.readManifest(it) }
     }.getOrNull()
 
+    if (!PluginStore.get(context).subsystemEnabled()) {
+        return ImportProposal(
+            title = "Plugins are turned off",
+            body = "Turn plugins on in Settings > Tools > Plugins first. They are off " +
+                "until you ask for them, so nothing installs or runs by surprise.",
+            apply = null,
+        )
+    }
+
     val manifest = (read as? PluginManifestResult.Ok)
         ?: return ImportProposal(
             title = "Can't install that plugin",

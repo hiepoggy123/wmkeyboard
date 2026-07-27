@@ -78,9 +78,11 @@ class PluginStore(private var baseDir: File?) {
     private data class Snapshot(
         val version: Int = FORMAT_VERSION,
         val plugins: List<InstalledPlugin> = emptyList(),
+        val subsystemEnabled: Boolean = false,
     )
 
     private val pluginList = ArrayList<InstalledPlugin>()
+    private var subsystem = false
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
 
     private val _revision = MutableStateFlow(0)
@@ -137,6 +139,28 @@ class PluginStore(private var baseDir: File?) {
          * having been called correctly.
          */
         private val SAFE_ID = Regex("^[a-z0-9][a-z0-9._-]{2,63}$")
+    }
+
+    // ---- the master switch ---------------------------------------------
+
+    /**
+     * Whether the plugin subsystem is on at all. **Off until the user turns it
+     * on**, and while it is off nothing installs and nothing runs.
+     *
+     * Kept here rather than in `KeyboardSettings` for two reasons. That class is
+     * within a handful of fields of the JVM limit on `copy$default` parameters,
+     * and it is re-emitted to the IME on every settings change — putting a flag
+     * there that only two screens and one panel ever read would push it through
+     * the keyboard's hot path for nothing.
+     */
+    @Synchronized
+    fun subsystemEnabled(): Boolean = subsystem
+
+    @Synchronized
+    fun setSubsystemEnabled(enabled: Boolean) {
+        if (subsystem == enabled) return
+        subsystem = enabled
+        save()
     }
 
     // ---- reading -------------------------------------------------------
@@ -293,7 +317,9 @@ class PluginStore(private var baseDir: File?) {
         if (dir != null) {
             writeAtomically(
                 File(dir, INDEX_FILE),
-                json.encodeToString(Snapshot(plugins = pluginList.toList())),
+                json.encodeToString(
+                    Snapshot(plugins = pluginList.toList(), subsystemEnabled = subsystem),
+                ),
             )
         }
         _revision.value++
@@ -322,11 +348,13 @@ class PluginStore(private var baseDir: File?) {
     @Synchronized
     fun reload() {
         pluginList.clear()
+        subsystem = false
         val dir = baseDir ?: run { _revision.value++; return }
         val index = File(dir, INDEX_FILE)
         if (index.exists()) {
             runCatching {
                 val snapshot = json.decodeFromString<Snapshot>(index.readText())
+                subsystem = snapshot.subsystemEnabled
                 pluginList.addAll(
                     snapshot.plugins
                         .filter { SAFE_ID.matches(it.id) }
