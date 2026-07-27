@@ -341,6 +341,8 @@ val DefaultToolLetters: Map<Char, ToolbarTool> = mapOf(
     'H' to ToolbarTool.HIDE_KEYBOARD,
     'O' to ToolbarTool.SETTINGS,
     'Z' to ToolbarTool.UNDO,
+    // B for battery: P is already the password generator.
+    'B' to ToolbarTool.POWER_SAVING,
 )
 
 /** `"c=CLIPBOARD;e=EMOJI"`, sorted so the stored string is stable. */

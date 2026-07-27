@@ -118,6 +118,19 @@
                 <data android:scheme="wmkeyboard" android:host="repo" />
                 <data android:scheme="wmkeyboard" android:host="addon" />
             </intent-filter>
+
+            <!--
+                 Long-press the launcher icon → straight into a settings screen.
+                 Static shortcuts, so the platform publishes them at install
+                 time and there is no ShortcutManager code to keep in step. The
+                 shortcut intents are explicit (they name this class), which is
+                 why the wmkeyboard://settings links they carry need no
+                 browsable filter of their own — nothing off-device can send
+                 one. See res/xml/shortcuts.xml and app/SettingsShortcuts.kt.
+            -->
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
         </activity>
 
         <!--

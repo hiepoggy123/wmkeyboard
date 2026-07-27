@@ -114,6 +114,9 @@ import com.wasimaster.wmkeyboard.core.plugins.inputIds
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
 import com.wasimaster.wmkeyboard.core.settings.restrictedToDirectBoot
+import com.wasimaster.wmkeyboard.core.settings.PowerSavingSettings
+import com.wasimaster.wmkeyboard.core.settings.underPowerSaving
+import com.wasimaster.wmkeyboard.core.power.PowerSaver
 import com.wasimaster.wmkeyboard.core.debug.DebugLog
 import com.wasimaster.wmkeyboard.core.directboot.DirectBoot
 import com.wasimaster.wmkeyboard.core.settings.applyMode
@@ -244,6 +247,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -305,6 +309,13 @@ open class WMKeyboardService : InputMethodService() {
 
     /** Latest settings straight from DataStore, before mode overrides. */
     private var baseSettings: KeyboardSettings? = null
+
+    /**
+     * Battery level, charger and system battery-saver, combined with the
+     * settings so the whole keyboard sees one already-reduced settings object
+     * while power saving is in force (see [underPowerSaving]).
+     */
+    private val powerSaver = PowerSaver(this)
     /** Manual pick from the Modes tool; wins until the user switches app. */
     private var manualModeId: String? = null
     /** Package name of the app the focused field belongs to. */
@@ -985,6 +996,8 @@ open class WMKeyboardService : InputMethodService() {
         // since it was first seeded. No-op once it has run.
         if (userUnlocked) serviceScope.launch { settingsRepository.seedNewDefaultModes() }
 
+        powerSaver.start()
+
         serviceScope.launch {
             var lexiconVersion = -1
             var customDictVersion = -1
@@ -997,12 +1010,25 @@ open class WMKeyboardService : InputMethodService() {
             // Recompute the hidden-emoji set only when the toggle or the font
             // behind it actually changes, not on every unrelated settings save.
             var hiddenEmojiKey: Triple<Boolean, EmojiFontChoice, String>? = null
-            settingsRepository.settings.collect { stored ->
+            // Power saving is folded in here rather than downstream for the same
+            // reason as direct boot: it is a *view* of the settings, so the
+            // renderer, the engine and the tools all see one already-reduced
+            // object and none of them has to know it exists. Combined rather
+            // than collected separately because the battery changes on its own
+            // schedule — plugging the charger in has to re-emit the settings.
+            combine(
+                settingsRepository.settings,
+                powerSaver.state,
+            ) { stored, power -> stored to power }.collect { (stored, power) ->
                 // Direct boot: everything backed by credential-encrypted
                 // storage is switched off once, here, so that nothing below —
                 // nor anything reading the ui state afterwards — has to know
                 // why the fonts, contacts and half the tools are missing.
-                val settings = if (userUnlocked) stored else stored.restrictedToDirectBoot()
+                val unlockedSettings =
+                    if (userUnlocked) stored else stored.restrictedToDirectBoot()
+                val saving = unlockedSettings.powerSaving.appliesTo(power)
+                val settings =
+                    if (saving) unlockedSettings.underPowerSaving() else unlockedSettings
                 val nextHiddenKey = Triple(
                     settings.emoji.hideUnrenderable,
                     settings.emojiFont,
@@ -1089,6 +1115,10 @@ open class WMKeyboardService : InputMethodService() {
                 _uiState.update {
                     it.copy(
                         settings = settings.applyMode(mode),
+                        // The settings above are already reduced, so this is
+                        // only for the indicator and the tool's lit state —
+                        // nothing gates on it.
+                        powerSavingOn = saving,
                         language = activeSpec.language(),
                         script = activeSpec.script(),
                         composer = composerFor(activeSpec.script(), activeSpec.composerType()),
@@ -1658,6 +1688,10 @@ open class WMKeyboardService : InputMethodService() {
         super.onStartInputView(info, restarting)
         lifecycleOwner.onResume()
         refreshHardwareKeyboardState()
+        // The battery level is read here rather than subscribed to: this is the
+        // moment it can start mattering, and a keyboard that wakes on every
+        // percentage point to decide whether to save power is self-defeating.
+        powerSaver.refresh()
         expectedSelStart = info?.initialSelStart ?: -1
         expectedSelEnd = info?.initialSelEnd ?: -1
         // A job debounced against the previous field must not land its strip
@@ -1801,6 +1835,7 @@ open class WMKeyboardService : InputMethodService() {
                 secureField = secure,
                 deviceLocked = isDeviceLocked(),
                 shiftState = autoCapitalizeShift(),
+                shiftPressedByUser = false,
                 clipboardItems = clipboardStore.items(),
                 enterAction = info.enterAction(),
                 enterActionLabel = info?.actionLabel?.toString()?.takeIf { label -> label.isNotBlank() },
@@ -2054,6 +2089,7 @@ open class WMKeyboardService : InputMethodService() {
         pluginRuntime?.shutdown()
         pluginRuntime = null
         KeyboardPassthrough.publishRegion(null)
+        powerSaver.stop()
         (getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager)
             .removePrimaryClipChangedListener(clipboardListener)
         if (unlockReceiverRegistered) {
@@ -2707,19 +2743,27 @@ open class WMKeyboardService : InputMethodService() {
         val doubleTap = now - lastShiftTapTime < SHIFT_DOUBLE_TAP_MS
         lastShiftTapTime = now
         _uiState.update {
+            val next = when {
+                doubleTap && it.shiftState != ShiftState.CAPS_LOCK -> ShiftState.CAPS_LOCK
+                it.shiftState == ShiftState.OFF -> ShiftState.ON
+                else -> ShiftState.OFF
+            }
             it.copy(
-                shiftState = when {
-                    doubleTap && it.shiftState != ShiftState.CAPS_LOCK -> ShiftState.CAPS_LOCK
-                    it.shiftState == ShiftState.OFF -> ShiftState.ON
-                    else -> ShiftState.OFF
-                },
+                shiftState = next,
+                // The one place a shift is the user's own doing, which is what
+                // Shift+Enter's newline override keys off.
+                shiftPressedByUser = next != ShiftState.OFF,
             )
         }
     }
 
     private fun consumeShift() {
         _uiState.update {
-            if (it.shiftState == ShiftState.ON) it.copy(shiftState = ShiftState.OFF) else it
+            if (it.shiftState == ShiftState.ON) {
+                it.copy(shiftState = ShiftState.OFF, shiftPressedByUser = false)
+            } else {
+                it
+            }
         }
     }
 
@@ -3290,7 +3334,13 @@ open class WMKeyboardService : InputMethodService() {
         refreshSuggestions()
     }
 
-    private fun onEnter() {
+    /**
+     * [hardwareShift] is the physical keyboard's own shift, read from the key
+     * event's meta state. Null for a tap on the on-screen Enter, which asks the
+     * ui state instead. They are deliberately separate: a physical shift is
+     * held, not latched, so it never appears in [KeyboardUiState.shiftState].
+     */
+    private fun onEnter(hardwareShift: Boolean? = null) {
         val state = _uiState.value
         // Enter is not part of a typing test, and letting it through would
         // put a newline in the field behind the panel.
@@ -3325,15 +3375,24 @@ open class WMKeyboardService : InputMethodService() {
         }
         val ic = currentInputConnection ?: return
         commitComposing(ic, autocorrect = false)
+        // Shift held over Enter overrides the field's action: in a chat app the
+        // box declares Send, so this is the only way to put a line break in a
+        // message without sending it. The key draws the newline glyph while the
+        // override is live (see enterActionFor), so it still does what it shows.
+        val forceNewline = state.settings.layoutBehavior.shiftEnterNewline &&
+            (hardwareShift ?: state.softShiftForcesNewline)
         // Same decoder that labels the key, so Enter always does what the
         // key is drawing — including an app's own actionId behind a custom
         // actionLabel. Null means "no action": type a real newline.
-        val action = currentInputEditorInfo.editorActionId()
+        val action = if (forceNewline) null else currentInputEditorInfo.editorActionId()
         if (action != null) {
             ic.performEditorAction(action)
         } else {
             ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER))
             ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_ENTER))
+            // The armed shift was spent on the override, exactly as a letter
+            // would have spent it — otherwise the next Enter overrides too.
+            if (forceNewline) consumeShift()
             maybeAutoCapitalize()
         }
     }
@@ -4805,6 +4864,7 @@ open class WMKeyboardService : InputMethodService() {
             ToolbarTool.WEATHER -> onPanelChange(PanelMode.WEATHER)
             ToolbarTool.CALENDAR -> onPanelChange(PanelMode.CALENDAR)
             ToolbarTool.INCOGNITO -> onIncognitoToggle()
+            ToolbarTool.POWER_SAVING -> onPowerSavingToggle()
             ToolbarTool.THEMES -> onPanelChange(PanelMode.THEMES)
             ToolbarTool.AUTOCORRECT -> onAutocorrectToggle()
             ToolbarTool.SOUND_HAPTICS -> onPanelChange(PanelMode.SOUND_HAPTICS)
@@ -5941,6 +6001,35 @@ open class WMKeyboardService : InputMethodService() {
         serviceScope.launch { settingsRepository.setIncognito(next) }
     }
 
+    /**
+     * The toolbar's power-saving switch. Flips the manual override, which is
+     * what [PowerSavingSettings.appliesTo] reads first — so tapping it on works
+     * on a full battery, and tapping it off while an automatic trigger is
+     * live only clears the manual half.
+     */
+    fun onPowerSavingToggle() {
+        vibrate()
+        val state = _uiState.value
+        val config = state.settings.powerSaving
+        val next = !config.manual
+        // Turning the manual switch *off* while the battery is still low leaves
+        // the automatic trigger holding it on, which would read as a dead
+        // button. Say which one is in charge instead.
+        val stillOn = !next && config.copy(manual = false).appliesTo(powerSaver.state.value)
+        Toast.makeText(
+            this,
+            when {
+                next && !config.dropsAnything ->
+                    "Power saving on — nothing is set to be dropped yet"
+                next -> "Power saving on"
+                stillOn -> "Still saving: the battery trigger is on"
+                else -> "Power saving off"
+            },
+            Toast.LENGTH_SHORT,
+        ).show()
+        serviceScope.launch { settingsRepository.setPowerSavingManual(next) }
+    }
+
     fun onAutocorrectToggle() {
         vibrate()
         val next = !_uiState.value.settings.autocorrect
@@ -6541,7 +6630,11 @@ open class WMKeyboardService : InputMethodService() {
         // Force shift off: the prompt is lowercase, and a field's auto-cap
         // would otherwise uppercase the first keystroke into a miss.
         _uiState.update {
-            it.copy(typingTest = TypingTestUi(words = words), shiftState = ShiftState.OFF)
+            it.copy(
+                typingTest = TypingTestUi(words = words),
+                shiftState = ShiftState.OFF,
+                shiftPressedByUser = false,
+            )
         }
     }
 
@@ -9440,7 +9533,9 @@ open class WMKeyboardService : InputMethodService() {
                 // field's editor action (or a real newline), and — the reason it
                 // can't just pass through — runs an active panel/dictionary search
                 // instead of dropping a newline into the app behind the panel.
-                onEnter()
+                // A physical shift is held rather than latched, so it comes from
+                // the event's meta state rather than from the ui state.
+                onEnter(hardwareShift = event.metaState and KeyEvent.META_SHIFT_ON != 0)
                 consumeHardwareKey(keyCode)
             }
             KeyEvent.KEYCODE_TAB, KeyEvent.KEYCODE_ESCAPE,
@@ -9687,9 +9782,10 @@ open class WMKeyboardService : InputMethodService() {
             when {
                 it.shiftState == ShiftState.CAPS_LOCK -> it
                 it.shiftState == ShiftState.OFF && target != ShiftState.OFF ->
-                    it.copy(shiftState = target)
+                    it.copy(shiftState = target, shiftPressedByUser = false)
                 it.shiftState == ShiftState.ON && it.settings.autoCapitalize &&
-                    target == ShiftState.OFF -> it.copy(shiftState = ShiftState.OFF)
+                    target == ShiftState.OFF ->
+                    it.copy(shiftState = ShiftState.OFF, shiftPressedByUser = false)
                 else -> it
             }
         }
@@ -9733,7 +9829,7 @@ open class WMKeyboardService : InputMethodService() {
         val target = autoCapitalizeShift()
         _uiState.update {
             if (target != ShiftState.OFF && it.shiftState == ShiftState.OFF) {
-                it.copy(shiftState = target)
+                it.copy(shiftState = target, shiftPressedByUser = false)
             } else it
         }
     }

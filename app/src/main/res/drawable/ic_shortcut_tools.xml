@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- See ic_shortcut_typing.xml for the geometry this shares. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#FF2F3474"
+        android:pathData="M0,0h108v108h-108z" />
+    <group
+        android:scaleX="2"
+        android:scaleY="2"
+        android:translateX="30"
+        android:translateY="30">
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M16.66,1.69L11,7.34 16.66,13l5.66,-5.66 -5.66,-5.65zM11,3H3v8h8V3zM21,13h-8v8h8v-8zM11,13H3v8h8v-8z" />
+    </group>
+</vector>

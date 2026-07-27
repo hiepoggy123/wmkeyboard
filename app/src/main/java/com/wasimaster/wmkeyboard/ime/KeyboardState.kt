@@ -675,7 +675,27 @@ data class KeyboardUiState(
      */
     val layouts: LayoutSet = LayoutSet.Default,
     val layoutMode: LayoutMode = LayoutMode.LETTERS,
+    /**
+     * Power saving is in force, from either source: the manual switch or an
+     * automatic trigger (low battery, the system's own battery saver).
+     *
+     * Purely for the indicator and the tool's lit state — [settings] has
+     * already had the dropped features taken out of it, so nothing gates on
+     * this. See `core.settings.underPowerSaving`.
+     */
+    val powerSavingOn: Boolean = false,
     val shiftState: ShiftState = ShiftState.OFF,
+    /**
+     * The live [shiftState] came from the user pressing shift, not from
+     * auto-capitalize arming it at a sentence start.
+     *
+     * The two are indistinguishable in [shiftState] itself, and they mean
+     * opposite things to the one feature that asks: Shift+Enter's newline
+     * override ([LayoutBehaviorSettings.shiftEnterNewline]). An empty chat box
+     * arms auto-cap *and* is exactly where Enter must still send, so acting on
+     * the state alone would stop the first line of every message from sending.
+     */
+    val shiftPressedByUser: Boolean = false,
     /**
      * Ctrl/Alt/Meta latches waiting to be folded into the next key event.
      * Session state, never persisted: a Ctrl left locked in one app must not
@@ -904,6 +924,28 @@ data class KeyboardUiState(
      * gate and indicator reads this rather than the setting alone.
      */
     val incognitoOn: Boolean get() = settings.incognito || fieldIncognito
+
+    /**
+     * Whether an on-screen Enter right now would type a newline instead of
+     * firing the field's Send/Go/Search action.
+     *
+     * Only the one-shot shift the user armed themselves counts. Caps lock is
+     * excluded on purpose: it says the *letters* are upper case, and reading it
+     * here would silently stop Enter from ever sending while it is on.
+     */
+    val softShiftForcesNewline: Boolean
+        get() = shiftState == ShiftState.ON && shiftPressedByUser
+
+    /**
+     * The action the Enter key should draw and fire, folding in the
+     * Shift+Enter override so the key never promises a Send it will not do.
+     */
+    val effectiveEnterAction: EnterAction
+        get() = if (settings.layoutBehavior.shiftEnterNewline && softShiftForcesNewline) {
+            EnterAction.DEFAULT
+        } else {
+            enterAction
+        }
 
     /**
      * Whether to run the full typing engine — autocorrect, apostrophe fixes,

@@ -124,6 +124,25 @@ the service re-attaches the real stores, rebuilds the suggestion engine around
 them and flips the repository back to the DataStore in place, rather than
 waiting for the process to be restarted.
 
+### Power saving
+
+Power saving reuses direct boot's shape rather than inventing one: a pure
+function, `KeyboardSettings.underPowerSaving()`, returns the settings *as they
+apply* while it is on. The service combines the DataStore flow with
+`core/power/PowerSaver`'s device state and applies the view on the way out, so
+the renderer, the suggestion engine and the tool handlers all see one
+already-reduced settings object and none of them knows power saving exists.
+Nothing is persisted, which is what makes it reversible: the user's own
+settings are never rewritten, only hidden, so ending power saving restores them
+exactly.
+
+`PowerSaver` deliberately does *not* subscribe to `ACTION_BATTERY_CHANGED` — it
+fires per percentage point, and waking the process that often to decide whether
+to save power defeats the feature. It subscribes to the coarse broadcasts
+(battery low/okay, charger in/out, system battery-saver toggle) and reads the
+exact level from the sticky battery intent when the keyboard comes on screen,
+which is the only moment the answer can matter.
+
 ### Screen readers and the touch stream
 
 While an explore-by-touch service (TalkBack) runs, the accessibility

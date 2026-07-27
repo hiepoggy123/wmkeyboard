@@ -432,7 +432,7 @@ private fun rememberTouchExploration(): Boolean {
 internal fun enterActionIcon(action: EnterAction): ImageVector = IconDefaults.forEnterAction(action)
 
 /** What to call the enter key in this field, for screen readers. */
-internal fun enterActionName(state: KeyboardUiState): String = when (state.enterAction) {
+internal fun enterActionName(state: KeyboardUiState): String = when (state.effectiveEnterAction) {
     EnterAction.SEARCH -> "Search"
     EnterAction.SEND -> "Send"
     EnterAction.GO -> "Go"
@@ -2559,6 +2559,7 @@ internal fun toolLabel(tool: ToolbarTool): String = when (tool) {
     ToolbarTool.WEATHER -> "Weather"
     ToolbarTool.CALENDAR -> "Calendar"
     ToolbarTool.INCOGNITO -> "Incognito"
+    ToolbarTool.POWER_SAVING -> "Power saving"
     ToolbarTool.THEMES -> "Themes"
     ToolbarTool.AUTOCORRECT -> "Autocorrect"
     ToolbarTool.SOUND_HAPTICS -> "Sound & haptics"
@@ -2621,6 +2622,7 @@ private fun toolActive(tool: ToolbarTool, state: KeyboardUiState): Boolean = whe
     ToolbarTool.WEATHER -> state.panel == PanelMode.WEATHER
     ToolbarTool.CALENDAR -> state.panel == PanelMode.CALENDAR
     ToolbarTool.INCOGNITO -> state.incognitoOn
+    ToolbarTool.POWER_SAVING -> state.powerSavingOn
     ToolbarTool.THEMES -> state.panel == PanelMode.THEMES
     ToolbarTool.AUTOCORRECT -> state.settings.autocorrect
     ToolbarTool.SOUND_HAPTICS -> state.panel == PanelMode.SOUND_HAPTICS
@@ -6453,7 +6455,7 @@ private fun KeyContent(key: Key, state: KeyboardUiState, contentColor: Color) {
         // It is clipped to one line so a long label cannot blow up the row.
         // CUSTOM is also the one enter action with no icon slot, for the same
         // reason: there is nothing to replace.
-        KeyAction.Enter -> if (state.enterAction == EnterAction.CUSTOM &&
+        KeyAction.Enter -> if (state.effectiveEnterAction == EnterAction.CUSTOM &&
             state.enterActionLabel != null
         ) {
             Text(
@@ -6467,7 +6469,7 @@ private fun KeyContent(key: Key, state: KeyboardUiState, contentColor: Color) {
             )
         } else {
             SlotIcon(
-                IconDefaults.enterActionSlot(state.enterAction) ?: IconSlots.KEY_ENTER,
+                IconDefaults.enterActionSlot(state.effectiveEnterAction) ?: IconSlots.KEY_ENTER,
                 contentDescription = "Enter",
                 tint = contentColor,
             )

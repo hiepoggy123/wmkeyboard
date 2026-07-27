@@ -266,7 +266,7 @@ enum class ToolbarTool {
     DICTIONARY, TRANSLATE, GIF, STICKER, WEB_SEARCH, IMAGE_SEARCH,
     OCR, QR_SCAN, DOC_SCAN, VOICE, GRAMMAR,
     WIKIPEDIA, SYMBOLS, CALCULATOR, UNIT_CONVERT, CURRENCY, QR_GEN, PASSWORD_GEN, AI,
-    MODES, TYPING_TEST, MEDIA_CONTROL, PLUGINS,
+    MODES, TYPING_TEST, MEDIA_CONTROL, PLUGINS, POWER_SAVING,
     // One-tap cursor moves. The text-edit panel already offers these, but on
     // the toolbar they cost a single tap instead of opening a panel first.
     CURSOR_LEFT, CURSOR_RIGHT, CURSOR_UP, CURSOR_DOWN,
@@ -306,7 +306,7 @@ fun isDirectBootSafeTool(tool: ToolbarTool): Boolean = when (tool) {
     ToolbarTool.EMOJI, ToolbarTool.TEXT_EDIT, ToolbarTool.NUMPAD, ToolbarTool.SYMBOLS,
     ToolbarTool.ONE_HANDED, ToolbarTool.SPLIT, ToolbarTool.FLOATING, ToolbarTool.HIDE_KEYBOARD,
     ToolbarTool.THEMES, ToolbarTool.AUTOCORRECT, ToolbarTool.SOUND_HAPTICS, ToolbarTool.INCOGNITO,
-    ToolbarTool.MODES, ToolbarTool.UNDO, ToolbarTool.REDO,
+    ToolbarTool.MODES, ToolbarTool.UNDO, ToolbarTool.REDO, ToolbarTool.POWER_SAVING,
     ToolbarTool.CALCULATOR, ToolbarTool.UNIT_CONVERT, ToolbarTool.PASSWORD_GEN, ToolbarTool.QR_GEN,
     ToolbarTool.FLASHLIGHT, ToolbarTool.COMPASS, ToolbarTool.LEVEL, ToolbarTool.MOON_PHASE,
     -> true
@@ -348,7 +348,8 @@ private val RankedToolOrder: List<ToolbarTool> = listOf(
     ToolbarTool.AI, ToolbarTool.GRAMMAR, ToolbarTool.PLUGINS, ToolbarTool.TYPING_TEST,
     ToolbarTool.NUMPAD, ToolbarTool.ONE_HANDED,
     ToolbarTool.SPLIT, ToolbarTool.FLOATING, ToolbarTool.INCOGNITO, ToolbarTool.AUTOCORRECT,
-    ToolbarTool.SOUND_HAPTICS, ToolbarTool.MODES, ToolbarTool.OCR, ToolbarTool.QR_SCAN,
+    ToolbarTool.SOUND_HAPTICS, ToolbarTool.POWER_SAVING,
+    ToolbarTool.MODES, ToolbarTool.OCR, ToolbarTool.QR_SCAN,
     ToolbarTool.QR_GEN, ToolbarTool.DOC_SCAN, ToolbarTool.CAMERA, ToolbarTool.HANDWRITING,
     ToolbarTool.SYMBOLS, ToolbarTool.UNIT_CONVERT, ToolbarTool.CURRENCY, ToolbarTool.PASSWORD_GEN,
     ToolbarTool.WIKIPEDIA, ToolbarTool.CALENDAR, ToolbarTool.WEATHER, ToolbarTool.FLASHLIGHT,
@@ -1195,6 +1196,13 @@ data class KeyboardSettings(
     val dictionaryAutoLookup: Boolean = true,
     /** Text-editing tool and selection-editing settings (see [TextEditingSettings]). */
     val textEditing: TextEditingSettings = TextEditingSettings(),
+    /**
+     * Which features are given up to save battery, and what switches that on
+     * (see [PowerSavingSettings]). Read the *config*; what is actually in force
+     * is the settings object itself, which the service has already put through
+     * [underPowerSaving] by the time anyone downstream sees it.
+     */
+    val powerSaving: PowerSavingSettings = PowerSavingSettings(),
     /** Number pad digits phone-style (123 on top) instead of calculator-style (789 on top). */
     val numpadPhoneLayout: Boolean = false,
     /** Incognito stops the clipboard tool from capturing copies. */
@@ -1812,6 +1820,22 @@ data class LayoutBehaviorSettings(
      * Global on purpose: it is about what fields tolerate, not about a script.
      */
     val numeralCommitScope: NumeralCommitScope = NumeralCommitScope.TEXT_ONLY,
+    /**
+     * Holding shift while pressing Enter types a real newline instead of firing
+     * the field's editor action. The escape hatch for chat apps, where the
+     * field declares Send and there is otherwise no way to put a line break in
+     * a message without sending it.
+     *
+     * Only a shift the *user* armed counts — auto-capitalize arms the same
+     * one-shot at the start of an empty message, and an empty chat box is
+     * exactly where Enter still has to send. Caps lock is left out for the same
+     * reason: it is about letter case, not about Enter.
+     *
+     * Off by default: Enter following the app's declared action is the platform
+     * behaviour, and a keyboard that quietly stops sending messages is worse
+     * than one that cannot insert a newline.
+     */
+    val shiftEnterNewline: Boolean = false,
 ) {
     /** [langId]'s numeral system, [NumeralSystem.AUTO] when it has no entry. */
     fun numeralSystemFor(langId: String): NumeralSystem =
@@ -2098,6 +2122,26 @@ class SettingsRepository(private val context: Context) {
         private val SPACEBAR_DISPLAY = stringPreferencesKey("spacebar_display")
         private val NUMERAL_SYSTEM_BY_LANG = stringPreferencesKey("numeral_system_by_lang")
         private val NUMERAL_COMMIT_SCOPE = stringPreferencesKey("numeral_commit_scope")
+        private val SHIFT_ENTER_NEWLINE = booleanPreferencesKey("shift_enter_newline")
+        private val PS_MANUAL = booleanPreferencesKey("power_saving_manual")
+        private val PS_TRIGGER = stringPreferencesKey("power_saving_trigger")
+        private val PS_BATTERY_PERCENT = intPreferencesKey("power_saving_battery_percent")
+        private val PS_OFF_WHILE_CHARGING = booleanPreferencesKey("power_saving_off_while_charging")
+        private val PS_DROP_HAPTICS = booleanPreferencesKey("power_saving_drop_haptics")
+        private val PS_DROP_KEY_SOUND = booleanPreferencesKey("power_saving_drop_key_sound")
+        private val PS_DROP_ANIMATIONS = booleanPreferencesKey("power_saving_drop_animations")
+        private val PS_DROP_GLIDE_TRAIL = booleanPreferencesKey("power_saving_drop_glide_trail")
+        private val PS_DROP_KEY_POPUP = booleanPreferencesKey("power_saving_drop_key_popup")
+        private val PS_DROP_GESTURE_TYPING = booleanPreferencesKey("power_saving_drop_gesture_typing")
+        private val PS_DROP_EMOJI_PREDICTION =
+            booleanPreferencesKey("power_saving_drop_emoji_prediction")
+        private val PS_DROP_SMART_CHIPS = booleanPreferencesKey("power_saving_drop_smart_chips")
+        private val PS_DROP_BACKGROUND_NETWORK =
+            booleanPreferencesKey("power_saving_drop_background_network")
+        private val PS_DROP_SCREENSHOT_WATCH =
+            booleanPreferencesKey("power_saving_drop_screenshot_watch")
+        private val PS_DROP_ON_DEVICE_MODELS =
+            booleanPreferencesKey("power_saving_drop_on_device_models")
         private val BACKSPACE_SWIPE_DELETE = booleanPreferencesKey("backspace_swipe_delete")
         private val HARDWARE_KEYBOARD_INPUT = booleanPreferencesKey("hardware_keyboard_input")
         private val HW_SHORTCUTS_ENABLED = booleanPreferencesKey("hw_shortcuts_enabled")
@@ -2680,6 +2724,8 @@ class SettingsRepository(private val context: Context) {
                 numeralCommitScope = p[NUMERAL_COMMIT_SCOPE]
                     ?.let { runCatching { NumeralCommitScope.valueOf(it) }.getOrNull() }
                     ?: defaults.layoutBehavior.numeralCommitScope,
+                shiftEnterNewline =
+                    p[SHIFT_ENTER_NEWLINE] ?: defaults.layoutBehavior.shiftEnterNewline,
             ),
             rawClipboardShortcuts = p[RAW_CLIPBOARD_SHORTCUTS] ?: defaults.rawClipboardShortcuts,
             longPressLetterActions = LongPressLetterActions(
@@ -2803,6 +2849,31 @@ class SettingsRepository(private val context: Context) {
                     p[WRAP_SELECTION_WITH_PAIR] ?: defaults.textEditing.wrapSelectionWithPair,
                 recapitalizeSelectionWithShift = p[RECAPITALIZE_SELECTION_WITH_SHIFT]
                     ?: defaults.textEditing.recapitalizeSelectionWithShift,
+            ),
+            powerSaving = PowerSavingSettings(
+                manual = p[PS_MANUAL] ?: defaults.powerSaving.manual,
+                trigger = p[PS_TRIGGER]
+                    ?.let { runCatching { PowerSavingTrigger.valueOf(it) }.getOrNull() }
+                    ?: defaults.powerSaving.trigger,
+                batteryPercent = p[PS_BATTERY_PERCENT] ?: defaults.powerSaving.batteryPercent,
+                offWhileCharging =
+                    p[PS_OFF_WHILE_CHARGING] ?: defaults.powerSaving.offWhileCharging,
+                dropHaptics = p[PS_DROP_HAPTICS] ?: defaults.powerSaving.dropHaptics,
+                dropKeySound = p[PS_DROP_KEY_SOUND] ?: defaults.powerSaving.dropKeySound,
+                dropAnimations = p[PS_DROP_ANIMATIONS] ?: defaults.powerSaving.dropAnimations,
+                dropGlideTrail = p[PS_DROP_GLIDE_TRAIL] ?: defaults.powerSaving.dropGlideTrail,
+                dropKeyPopup = p[PS_DROP_KEY_POPUP] ?: defaults.powerSaving.dropKeyPopup,
+                dropGestureTyping =
+                    p[PS_DROP_GESTURE_TYPING] ?: defaults.powerSaving.dropGestureTyping,
+                dropEmojiPrediction =
+                    p[PS_DROP_EMOJI_PREDICTION] ?: defaults.powerSaving.dropEmojiPrediction,
+                dropSmartChips = p[PS_DROP_SMART_CHIPS] ?: defaults.powerSaving.dropSmartChips,
+                dropBackgroundNetwork =
+                    p[PS_DROP_BACKGROUND_NETWORK] ?: defaults.powerSaving.dropBackgroundNetwork,
+                dropScreenshotWatch =
+                    p[PS_DROP_SCREENSHOT_WATCH] ?: defaults.powerSaving.dropScreenshotWatch,
+                dropOnDeviceModels =
+                    p[PS_DROP_ON_DEVICE_MODELS] ?: defaults.powerSaving.dropOnDeviceModels,
             ),
             numpadPhoneLayout = p[NUMPAD_PHONE_LAYOUT] ?: defaults.numpadPhoneLayout,
             incognitoPausesClipboard = p[INCOGNITO_PAUSES_CLIPBOARD] ?: defaults.incognitoPausesClipboard,
@@ -4357,6 +4428,61 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setSmartHitDetection(value: Boolean) =
         editPrefs { it[SMART_HIT_DETECTION] = value }
+
+    suspend fun setShiftEnterNewline(value: Boolean) =
+        editPrefs { it[SHIFT_ENTER_NEWLINE] = value }
+
+    // ---- power saving ----
+
+    suspend fun setPowerSavingManual(value: Boolean) =
+        editPrefs { it[PS_MANUAL] = value }
+
+    suspend fun setPowerSavingTrigger(value: PowerSavingTrigger) =
+        editPrefs { it[PS_TRIGGER] = value.name }
+
+    /**
+     * Clamped to 5..50: below 5 the phone is about to die anyway, and above 50
+     * the keyboard would spend most of its life in a reduced mode the user
+     * would read as broken rather than as thrifty.
+     */
+    suspend fun setPowerSavingBatteryPercent(value: Int) =
+        editPrefs { it[PS_BATTERY_PERCENT] = value.coerceIn(5, 50) }
+
+    suspend fun setPowerSavingOffWhileCharging(value: Boolean) =
+        editPrefs { it[PS_OFF_WHILE_CHARGING] = value }
+
+    suspend fun setPowerSavingDropHaptics(value: Boolean) =
+        editPrefs { it[PS_DROP_HAPTICS] = value }
+
+    suspend fun setPowerSavingDropKeySound(value: Boolean) =
+        editPrefs { it[PS_DROP_KEY_SOUND] = value }
+
+    suspend fun setPowerSavingDropAnimations(value: Boolean) =
+        editPrefs { it[PS_DROP_ANIMATIONS] = value }
+
+    suspend fun setPowerSavingDropGlideTrail(value: Boolean) =
+        editPrefs { it[PS_DROP_GLIDE_TRAIL] = value }
+
+    suspend fun setPowerSavingDropKeyPopup(value: Boolean) =
+        editPrefs { it[PS_DROP_KEY_POPUP] = value }
+
+    suspend fun setPowerSavingDropGestureTyping(value: Boolean) =
+        editPrefs { it[PS_DROP_GESTURE_TYPING] = value }
+
+    suspend fun setPowerSavingDropEmojiPrediction(value: Boolean) =
+        editPrefs { it[PS_DROP_EMOJI_PREDICTION] = value }
+
+    suspend fun setPowerSavingDropSmartChips(value: Boolean) =
+        editPrefs { it[PS_DROP_SMART_CHIPS] = value }
+
+    suspend fun setPowerSavingDropBackgroundNetwork(value: Boolean) =
+        editPrefs { it[PS_DROP_BACKGROUND_NETWORK] = value }
+
+    suspend fun setPowerSavingDropScreenshotWatch(value: Boolean) =
+        editPrefs { it[PS_DROP_SCREENSHOT_WATCH] = value }
+
+    suspend fun setPowerSavingDropOnDeviceModels(value: Boolean) =
+        editPrefs { it[PS_DROP_ON_DEVICE_MODELS] = value }
 
     /**
      * Picks [value] as [langId]'s numeral system. [NumeralSystem.AUTO] drops the

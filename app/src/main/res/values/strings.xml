@@ -21,4 +21,18 @@
       %s with the subtype's locale display name, giving e.g. "WM Keyboard · English".
     -->
     <string name="subtype_app_label">WM Keyboard · %s</string>
+    <!--
+      Launcher shortcuts (long-press the app icon). "short" is what the launcher
+      draws under the icon and is clipped hard — around 10 characters — so it is
+      a bare noun; "long" is the accessibility label and the text used when
+      there is room, so it names the app's own screen.
+    -->
+    <string name="shortcut_typing_short">Typing</string>
+    <string name="shortcut_typing_long">Typing settings</string>
+    <string name="shortcut_themes_short">Themes</string>
+    <string name="shortcut_themes_long">Keyboard themes</string>
+    <string name="shortcut_languages_short">Languages</string>
+    <string name="shortcut_languages_long">Languages &amp; layouts</string>
+    <string name="shortcut_tools_short">Tools</string>
+    <string name="shortcut_tools_long">Keyboard tools</string>
 </resources>

@@ -86,6 +86,7 @@ private val SettingRows: List<SettingsSearchEntry> = listOfNotNull(
     entry("Spacebar shows", "What the resting spacebar label displays: language, layout, or both", "Typing", "typing"),
     entry("Spacebar text", "Blank = current spacebar label. %s inserts it, e.g. \"— %s —\".", "Typing", "typing"),
     entry("Swipe to delete words", "Drag sideways on backspace to delete whole words", "Typing", "typing"),
+    entry("Shift + Enter types a newline", "Add a line break in a chat app instead of sending the message", "Typing", "typing"),
     entry("Volume cursor control", "Volume up and down move the text cursor", "Typing", "typing"),
     entry("Release while audio plays", "Keep volume control when something is playing", "Typing", "typing"),
     entry("Process hardware keys", "Transliterate, correct and suggest as you type on a physical keyboard", "Typing", "typing"),
@@ -251,6 +252,18 @@ private val SettingRows: List<SettingsSearchEntry> = listOfNotNull(
     entry("Pause learning", "No words or emoji habits are learned from typing", tool = ToolbarTool.INCOGNITO),
     entry("Pause clipboard capture", "Copies don't join the clipboard tool's history", tool = ToolbarTool.INCOGNITO),
     entry("Follow private browsing", "Switch on by itself in incognito tabs and private fields", tool = ToolbarTool.INCOGNITO),
+    entry("Power saving now", "The same switch the toolbar tool flips", tool = ToolbarTool.POWER_SAVING),
+    entry("Switch on by itself", "Follow Android's battery saver, or your own low-battery level", tool = ToolbarTool.POWER_SAVING),
+    entry("Low battery is", "The level power saving starts at", tool = ToolbarTool.POWER_SAVING),
+    entry("Off while charging", "Ignore the automatic triggers with the charger in", tool = ToolbarTool.POWER_SAVING),
+    entry("Key vibration", "Silence the vibration motor while saving power", tool = ToolbarTool.POWER_SAVING),
+    entry("Key sounds", "Stop playing the key click while saving power", tool = ToolbarTool.POWER_SAVING),
+    entry("Animations", "Cut transitions and motion while saving power", tool = ToolbarTool.POWER_SAVING),
+    entry("Glide trail", "Stop drawing the trail behind a swiped word while saving power", tool = ToolbarTool.POWER_SAVING),
+    entry("Smart chips", "Stop matching sums and conversions while saving power", tool = ToolbarTool.POWER_SAVING),
+    entry("Background network", "No link previews or automatic look-ups while saving power", tool = ToolbarTool.POWER_SAVING),
+    entry("Screenshot watching", "Stop watching for new screenshots while saving power", tool = ToolbarTool.POWER_SAVING),
+    entry("On-device models", "Dictate through the system recognizer while saving power", tool = ToolbarTool.POWER_SAVING),
     // The tool screen's own "Autocorrect" toggle is not listed: ToolRows
     // already indexes the tool under that title and route. A row named after
     // the tool holding it is always a duplicate result, never a second one.

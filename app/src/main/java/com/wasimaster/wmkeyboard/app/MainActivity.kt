@@ -239,6 +239,7 @@ import com.wasimaster.wmkeyboard.core.tools.resolveSymbolSets
 import com.wasimaster.wmkeyboard.core.tools.SymbolSet
 import com.wasimaster.wmkeyboard.core.settings.OneHandedMode
 import com.wasimaster.wmkeyboard.core.settings.OneHandedSide
+import com.wasimaster.wmkeyboard.core.settings.PowerSavingTrigger
 import com.wasimaster.wmkeyboard.core.settings.ScreenVariant
 import com.wasimaster.wmkeyboard.core.settings.SensitiveClipHandling
 import com.wasimaster.wmkeyboard.core.debug.DebugLog
@@ -347,6 +348,7 @@ class MainActivity : ComponentActivity() {
     private fun navFor(intent: Intent?): PendingNav? {
         if (intent == null) return null
         AddonDeepLink.routeFor(intent.data)?.let { return PendingNav(route = it) }
+        SettingsShortcuts.routeFor(intent.data)?.let { return PendingNav(route = it) }
         intent.getStringExtra(EXTRA_OPEN_ROUTE)?.takeIf { it.isNotEmpty() }
             ?.let { return PendingNav(route = it) }
         val tool = intent.getStringExtra(EXTRA_OPEN_TOOL)
@@ -2043,6 +2045,27 @@ private fun TypingSettings(
                     "word instead of one character. A plain tap or hold still deletes " +
                     "character by character.",
             ) { scope.launch { repository.setBackspaceSwipeDelete(it) } }
+        }
+    }
+
+    SettingsGroup("Enter key") {
+        item {
+            ToggleSetting(
+                "Shift + Enter types a newline",
+                "Add a line break in a chat app instead of sending the message",
+                settings.layoutBehavior.shiftEnterNewline,
+                info = "Chat and search fields tell the keyboard that Enter means Send, Go or " +
+                    "Search, so there is normally no way to put a line break in a message " +
+                    "without sending it. With this on, pressing shift first — or holding shift " +
+                    "on a physical keyboard — makes Enter type a real newline instead. The " +
+                    "Enter key changes to the newline symbol while shift is armed, so you can " +
+                    "see which one you are about to get.\n\n" +
+                    "Only a shift you pressed yourself counts: the one auto-capitalize arms at " +
+                    "the start of a message is ignored, so the first line of a message still " +
+                    "sends. Caps lock is ignored too.\n\n" +
+                    "Off by default — following the app's own Enter action is the standard " +
+                    "behaviour.",
+            ) { scope.launch { repository.setShiftEnterNewline(it) } }
         }
     }
 
@@ -5313,6 +5336,7 @@ internal fun toolTitle(tool: ToolbarTool): String = when (tool) {
     ToolbarTool.WEATHER -> "Weather"
     ToolbarTool.CALENDAR -> "Calendar"
     ToolbarTool.INCOGNITO -> "Incognito"
+    ToolbarTool.POWER_SAVING -> "Power saving"
     ToolbarTool.THEMES -> "Themes"
     ToolbarTool.AUTOCORRECT -> "Autocorrect"
     ToolbarTool.SOUND_HAPTICS -> "Sound & haptics"
@@ -5375,6 +5399,7 @@ internal fun toolDescription(tool: ToolbarTool): String = when (tool) {
     ToolbarTool.WEATHER -> "Current conditions for a saved location"
     ToolbarTool.CALENDAR -> "Month view with your events and two calendars of your choice"
     ToolbarTool.INCOGNITO -> "One tap pauses learning and clipboard capture"
+    ToolbarTool.POWER_SAVING -> "Drop features that cost battery, on demand or when it runs low"
     ToolbarTool.THEMES -> "Quick theme switcher on the keyboard"
     ToolbarTool.AUTOCORRECT -> "One tap turns autocorrect on or off"
     ToolbarTool.SOUND_HAPTICS -> "Adjust key sound and vibration from the keyboard"
@@ -5481,7 +5506,7 @@ private fun ToolsSettings(
         "Quick actions" to listOf(
             ToolbarTool.UNDO, ToolbarTool.REDO, ToolbarTool.AUTOCORRECT,
             ToolbarTool.INCOGNITO, ToolbarTool.SOUND_HAPTICS, ToolbarTool.THEMES,
-            ToolbarTool.SETTINGS,
+            ToolbarTool.POWER_SAVING, ToolbarTool.SETTINGS,
         ),
         "Utilities" to listOf(
             ToolbarTool.FLASHLIGHT, ToolbarTool.COMPASS, ToolbarTool.LEVEL,
@@ -6165,6 +6190,158 @@ private fun ToolDetailSettings(
             CaptionText(
                 "Tapping the tool turns incognito on; tapping again resumes " +
                     "normal typing. Same switch as Settings → Privacy.",
+            )
+        }
+        ToolbarTool.POWER_SAVING -> {
+            val ps = settings.powerSaving
+            SettingsGroup("Power saving") {
+                item {
+                    ToggleSetting(
+                        "Power saving now",
+                        "The same switch the toolbar tool flips",
+                        ps.manual,
+                        info = "Drops the features below until you turn it back off. It stays " +
+                            "on across restarts and whatever the battery is doing — a full " +
+                            "battery does not switch it off again.\n\n" +
+                            "Nothing is saved over: the features come back exactly as you had " +
+                            "them, because power saving never rewrites your settings, it only " +
+                            "hides them while it is on.",
+                    ) { scope.launch { repository.setPowerSavingManual(it) } }
+                }
+                item {
+                    ChoiceSetting(
+                        "Switch on by itself",
+                        subtitle = "As well as the switch above",
+                        info = "\"Android's battery saver\" follows the system switch, so the " +
+                            "keyboard economizes exactly when you have already asked the phone " +
+                            "to. \"Battery is low\" uses your own percentage below instead.",
+                        options = PowerSavingTrigger.entries.map { it to it.label },
+                        selected = ps.trigger,
+                    ) { scope.launch { repository.setPowerSavingTrigger(it) } }
+                }
+                if (ps.trigger == PowerSavingTrigger.LOW_BATTERY ||
+                    ps.trigger == PowerSavingTrigger.EITHER
+                ) {
+                    item {
+                        SliderSetting(
+                            "Low battery is",
+                            subtitle = "Power saving starts at or below this level",
+                            value = ps.batteryPercent.toFloat(),
+                            range = 5f..50f,
+                            display = { "${it.toInt()}%" },
+                        ) { scope.launch { repository.setPowerSavingBatteryPercent(it.toInt()) } }
+                    }
+                }
+                if (ps.trigger != PowerSavingTrigger.OFF) {
+                    item {
+                        ToggleSetting(
+                            "Off while charging",
+                            "Ignore the automatic triggers with the charger in",
+                            ps.offWhileCharging,
+                            info = "There is nothing to save while the battery is filling, so " +
+                                "the automatic triggers stand down. The switch above is " +
+                                "unaffected — turning power saving on by hand means it.",
+                        ) { scope.launch { repository.setPowerSavingOffWhileCharging(it) } }
+                    }
+                }
+            }
+            SettingsGroup("What to drop") {
+                item {
+                    ToggleSetting(
+                        "Key vibration",
+                        "Silence the vibration motor",
+                        ps.dropHaptics,
+                    ) { scope.launch { repository.setPowerSavingDropHaptics(it) } }
+                }
+                item {
+                    ToggleSetting(
+                        "Key sounds",
+                        "Stop playing the key click",
+                        ps.dropKeySound,
+                    ) { scope.launch { repository.setPowerSavingDropKeySound(it) } }
+                }
+                item {
+                    ToggleSetting(
+                        "Animations",
+                        "Cut transitions and motion, as reduced motion does",
+                        ps.dropAnimations,
+                    ) { scope.launch { repository.setPowerSavingDropAnimations(it) } }
+                }
+                item {
+                    ToggleSetting(
+                        "Glide trail",
+                        "Stop drawing the trail behind a swiped word",
+                        ps.dropGlideTrail,
+                        info = "Only the trail — swiping to type still works. The trail is " +
+                            "redrawn every frame of a gesture, so it costs more than the " +
+                            "decode it decorates.",
+                    ) { scope.launch { repository.setPowerSavingDropGlideTrail(it) } }
+                }
+                item {
+                    ToggleSetting(
+                        "Key popup",
+                        "Stop showing the character bubble over each key",
+                        ps.dropKeyPopup,
+                    ) { scope.launch { repository.setPowerSavingDropKeyPopup(it) } }
+                }
+                item {
+                    ToggleSetting(
+                        "Gesture typing",
+                        "Turn swipe-to-type off entirely",
+                        ps.dropGestureTyping,
+                        info = "Decoding a swipe is the most expensive thing the keyboard " +
+                            "does, but it is also why many people use it — so this is off by " +
+                            "default and only the trail is dropped.",
+                    ) { scope.launch { repository.setPowerSavingDropGestureTyping(it) } }
+                }
+                item {
+                    ToggleSetting(
+                        "Emoji suggestions",
+                        "Stop scanning what you type for emoji to offer",
+                        ps.dropEmojiPrediction,
+                    ) { scope.launch { repository.setPowerSavingDropEmojiPrediction(it) } }
+                }
+                item {
+                    ToggleSetting(
+                        "Smart chips",
+                        "Stop matching sums, conversions and tool keywords as you type",
+                        ps.dropSmartChips,
+                    ) { scope.launch { repository.setPowerSavingDropSmartChips(it) } }
+                }
+                item {
+                    ToggleSetting(
+                        "Background network",
+                        "No link previews or automatic look-ups",
+                        ps.dropBackgroundNetwork,
+                        info = "Stops the fetches that happen without being asked: previews " +
+                            "for copied links and scanned QR codes, and the dictionary's " +
+                            "look-up when you select a word. Tools you open yourself — " +
+                            "translate, search, GIFs — still work.",
+                    ) { scope.launch { repository.setPowerSavingDropBackgroundNetwork(it) } }
+                }
+                item {
+                    ToggleSetting(
+                        "Screenshot watching",
+                        "Stop watching for new screenshots to offer in the clipboard",
+                        ps.dropScreenshotWatch,
+                    ) { scope.launch { repository.setPowerSavingDropScreenshotWatch(it) } }
+                }
+                item {
+                    ToggleSetting(
+                        "On-device models",
+                        "Dictate through the system recognizer, and swipe to type not to write",
+                        ps.dropOnDeviceModels,
+                        info = "Offline dictation and handwriting both run a neural model on " +
+                            "the CPU, which is as expensive as the keyboard gets. Dictation " +
+                            "falls back to the system recognizer and the letter swipe goes " +
+                            "back to gliding words.",
+                    ) { scope.launch { repository.setPowerSavingDropOnDeviceModels(it) } }
+                }
+            }
+            CaptionText(
+                "Power saving is a view of your settings, never a rewrite of them: " +
+                    "everything switched off here comes back exactly as you had it the " +
+                    "moment power saving ends.",
             )
         }
         ToolbarTool.AUTOCORRECT -> SettingsGroup("Options") {

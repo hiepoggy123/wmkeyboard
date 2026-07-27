@@ -18,6 +18,7 @@ import androidx.compose.material.icons.automirrored.outlined.TextSnippet
 import androidx.compose.material.icons.automirrored.outlined.Undo
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.BarChart
+import androidx.compose.material.icons.outlined.BatterySaver
 import androidx.compose.material.icons.outlined.Calculate
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Check
@@ -123,6 +124,7 @@ object IconDefaults {
         ToolbarTool.WEATHER -> Icons.Outlined.WbSunny
         ToolbarTool.CALENDAR -> Icons.Outlined.CalendarMonth
         ToolbarTool.INCOGNITO -> Icons.Outlined.VisibilityOff
+        ToolbarTool.POWER_SAVING -> Icons.Outlined.BatterySaver
         ToolbarTool.THEMES -> Icons.Outlined.Palette
         ToolbarTool.AUTOCORRECT -> Icons.Outlined.Spellcheck
         ToolbarTool.SOUND_HAPTICS -> Icons.Outlined.Vibration

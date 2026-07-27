@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+     Long-pressing the launcher icon: jump straight into a settings screen
+     instead of landing on the home page and navigating from there.
+
+     Static shortcuts only — the platform publishes these at install time, so
+     there is no ShortcutManager code and nothing to keep in sync at runtime.
+     Order matters: launchers show the first few and drop the rest (commonly
+     four), and they are drawn bottom-up, so the *last* entry here sits nearest
+     the icon. Hence the most-wanted screen last.
+
+     Each shortcut carries a wmkeyboard://settings/<route> URI, parsed by
+     app/SettingsShortcuts.kt back into a NavHost route. The intent is explicit
+     (targetPackage + targetClass), so no manifest intent-filter is involved and
+     nothing outside the launcher can send one.
+-->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_tools"
+        android:shortcutId="tools"
+        android:shortcutLongLabel="@string/shortcut_tools_long"
+        android:shortcutShortLabel="@string/shortcut_tools_short">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:data="wmkeyboard://settings/tools"
+            android:targetClass="com.wasimaster.wmkeyboard.app.MainActivity"
+            android:targetPackage="com.wasimaster.wmkeyboard" />
+    </shortcut>
+    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_languages"
+        android:shortcutId="languages"
+        android:shortcutLongLabel="@string/shortcut_languages_long"
+        android:shortcutShortLabel="@string/shortcut_languages_short">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:data="wmkeyboard://settings/languages"
+            android:targetClass="com.wasimaster.wmkeyboard.app.MainActivity"
+            android:targetPackage="com.wasimaster.wmkeyboard" />
+    </shortcut>
+    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_typing"
+        android:shortcutId="typing"
+        android:shortcutLongLabel="@string/shortcut_typing_long"
+        android:shortcutShortLabel="@string/shortcut_typing_short">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:data="wmkeyboard://settings/typing"
+            android:targetClass="com.wasimaster.wmkeyboard.app.MainActivity"
+            android:targetPackage="com.wasimaster.wmkeyboard" />
+    </shortcut>
+    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_themes"
+        android:shortcutId="themes"
+        android:shortcutLongLabel="@string/shortcut_themes_long"
+        android:shortcutShortLabel="@string/shortcut_themes_short">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:data="wmkeyboard://settings/themes"
+            android:targetClass="com.wasimaster.wmkeyboard.app.MainActivity"
+            android:targetPackage="com.wasimaster.wmkeyboard" />
+    </shortcut>
+</shortcuts>
