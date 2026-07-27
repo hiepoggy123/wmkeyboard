@@ -16,6 +16,8 @@ import androidx.datastore.preferences.preferencesDataStore
 import com.wasimaster.wmkeyboard.BuildConfig
 import com.wasimaster.wmkeyboard.core.directboot.DirectBoot
 import com.wasimaster.wmkeyboard.core.icons.IconOverrides
+import com.wasimaster.wmkeyboard.core.icons.IconPackStore
+import com.wasimaster.wmkeyboard.core.prediction.CustomDictionaries
 import com.wasimaster.wmkeyboard.core.layout.BuiltInLayouts
 import com.wasimaster.wmkeyboard.core.layout.LayoutCodec
 import com.wasimaster.wmkeyboard.core.layout.LayoutSpec
@@ -3443,6 +3445,129 @@ class SettingsRepository(private val context: Context) {
         }.getOrDefault(false)
     }
 
+    /** Relative path of the icon-pack manifest, the one file that isn't binary. */
+    private val iconManifestPath = "${IconPackStore.DIR_NAME}/packs.json"
+
+    /** Same shape as [SAFE_STICKER_NAME]: what a restore will accept for a pack id or file name. */
+    private val SAFE_ICON_NAME = Regex("""[A-Za-z0-9_-]+(\.[A-Za-z0-9]+)?""")
+
+    /**
+     * Icon packs as `{manifest, files}`, with every SVG base64'd beside the
+     * manifest the way sticker images travel. A manifest alone would restore a
+     * list of pack names with no icons in them.
+     */
+    private fun iconSection(): JsonElement? {
+        val manifest = readStore(iconManifestPath) ?: return null
+        val store = IconPackStore.get(context)
+        val root = File(context.filesDir, IconPackStore.DIR_NAME)
+        val files = buildJsonObject {
+            for (pack in store.packs()) {
+                for (slot in pack.slots) {
+                    val file = store.fileFor(pack.id, slot) ?: continue
+                    if (!file.isFile) continue
+                    val bytes = runCatching { file.readBytes() }.getOrNull() ?: continue
+                    put(
+                        "${pack.id}/${IconPackStore.fileNameFor(slot)}",
+                        JsonPrimitive(Base64.encodeToString(bytes, Base64.NO_WRAP)),
+                    )
+                }
+            }
+        }
+        if (files.isEmpty()) return null
+        return buildJsonObject {
+            put("manifest", manifest)
+            put("files", files)
+        }
+    }
+
+    /** Replaces the icon-pack directory with the bundle's packs and SVGs. */
+    private fun restoreIcons(section: JsonObject): Boolean {
+        val manifest = section["manifest"] as? JsonObject ?: return false
+        val files = section["files"] as? JsonObject ?: JsonObject(emptyMap())
+        val root = File(context.filesDir, IconPackStore.DIR_NAME)
+        return runCatching {
+            root.deleteRecursively()
+            root.mkdirs()
+            val rootPath = root.canonicalPath
+            for ((path, value) in files) {
+                // Keys come from a file someone else wrote; only accept names
+                // this app could have generated, then confirm against the
+                // canonical path, so no combination of dots or separators can
+                // land outside the icon-pack directory.
+                val parts = path.split('/')
+                if (parts.size != 2) continue
+                val (packId, name) = parts
+                if (!SAFE_ICON_NAME.matches(packId) || !SAFE_ICON_NAME.matches(name)) continue
+                val packDir = File(root, packId)
+                val target = File(packDir, name)
+                if (packDir.canonicalPath != "$rootPath${File.separator}$packId") continue
+                if (target.canonicalPath != "${packDir.canonicalPath}${File.separator}$name") continue
+                val bytes = (value as? JsonPrimitive)?.contentOrNull
+                    ?.let { runCatching { Base64.decode(it, Base64.DEFAULT) }.getOrNull() }
+                    ?: continue
+                target.parentFile?.mkdirs()
+                target.writeBytes(bytes)
+            }
+            File(root, "packs.json").writeText(manifest.toString())
+            // Whatever the bundle claimed but couldn't deliver is dropped here.
+            IconPackStore.get(context).reload()
+            true
+        }.getOrDefault(false)
+    }
+
+    /** A path segment safe to use as-is: no separator, no `.`/`..` climb. */
+    private fun isSafeSegment(name: String): Boolean =
+        name.isNotBlank() && name != "." && name != ".." && '/' !in name && '\\' !in name
+
+    /**
+     * Custom word lists as a flat `{ "langId/fileName": base64 }` map — there
+     * is no manifest to carry separately, the files on disk under
+     * [CustomDictionaries.root] are the whole of the state.
+     */
+    private fun wordlistsSection(): JsonElement? {
+        val root = CustomDictionaries.root(context.filesDir)
+        val files = buildJsonObject {
+            for (langDir in root.listFiles().orEmpty()) {
+                if (!langDir.isDirectory) continue
+                for (file in CustomDictionaries.lists(context.filesDir, langDir.name)) {
+                    val bytes = runCatching { file.readBytes() }.getOrNull() ?: continue
+                    put("${langDir.name}/${file.name}", JsonPrimitive(Base64.encodeToString(bytes, Base64.NO_WRAP)))
+                }
+            }
+        }
+        if (files.isEmpty()) return null
+        return files
+    }
+
+    /** Replaces the custom-word-list directory with the bundle's lists. */
+    private fun restoreWordlists(section: JsonObject): Boolean {
+        val root = CustomDictionaries.root(context.filesDir)
+        return runCatching {
+            root.deleteRecursively()
+            root.mkdirs()
+            val rootPath = root.canonicalPath
+            for ((path, value) in section) {
+                // Same defence as stickers/icons: only names this app could
+                // have generated, confirmed against the canonical path so no
+                // combination of dots or separators lands outside the folder.
+                val parts = path.split('/')
+                if (parts.size != 2) continue
+                val (langId, name) = parts
+                if (!isSafeSegment(langId) || !isSafeSegment(name) || !name.endsWith(".txt")) continue
+                val langDir = File(root, langId)
+                val target = File(langDir, name)
+                if (langDir.canonicalPath != "$rootPath${File.separator}$langId") continue
+                if (target.canonicalPath != "${langDir.canonicalPath}${File.separator}$name") continue
+                val bytes = (value as? JsonPrimitive)?.contentOrNull
+                    ?.let { runCatching { Base64.decode(it, Base64.DEFAULT) }.getOrNull() }
+                    ?: continue
+                target.parentFile?.mkdirs()
+                target.writeBytes(bytes)
+            }
+            true
+        }.getOrDefault(false)
+    }
+
     /**
      * Builds a full-config bundle from the chosen [sections]. A section whose
      * store is empty or absent is simply left out of the file.
@@ -3484,6 +3609,12 @@ class SettingsRepository(private val context: Context) {
         if (ConfigBackup.Section.STICKERS in sections) {
             stickerSection()?.let { out[ConfigBackup.Section.STICKERS] = it }
         }
+        if (ConfigBackup.Section.ICONS in sections) {
+            iconSection()?.let { out[ConfigBackup.Section.ICONS] = it }
+        }
+        if (ConfigBackup.Section.WORDLISTS in sections) {
+            wordlistsSection()?.let { out[ConfigBackup.Section.WORDLISTS] = it }
+        }
         return ConfigBackup.encode(appVersion, appVersionName, out)
     }
 
@@ -3499,6 +3630,8 @@ class SettingsRepository(private val context: Context) {
                     ConfigBackup.Section.CLIPBOARD -> element.jsonObject["items"]?.jsonArray?.size ?: 0
                     ConfigBackup.Section.SNIPPETS -> element.jsonObject["snippets"]?.jsonArray?.size ?: 0
                     ConfigBackup.Section.STICKERS -> element.jsonObject["files"]?.jsonObject?.size ?: 0
+                    ConfigBackup.Section.ICONS -> element.jsonObject["files"]?.jsonObject?.size ?: 0
+                    ConfigBackup.Section.WORDLISTS -> element.jsonObject.size
                 }
             }.getOrDefault(0)
             counts[section] = count
@@ -3579,6 +3712,15 @@ class SettingsRepository(private val context: Context) {
         }
         (parsed.sections[ConfigBackup.Section.STICKERS] as? JsonObject)?.let { obj ->
             if (restoreStickers(obj)) restored.add(ConfigBackup.Section.STICKERS)
+        }
+        (parsed.sections[ConfigBackup.Section.ICONS] as? JsonObject)?.let { obj ->
+            if (restoreIcons(obj)) restored.add(ConfigBackup.Section.ICONS)
+        }
+        (parsed.sections[ConfigBackup.Section.WORDLISTS] as? JsonObject)?.let { obj ->
+            if (restoreWordlists(obj)) {
+                restored.add(ConfigBackup.Section.WORDLISTS)
+                bumpCustomDictVersion()
+            }
         }
 
         return ConfigImportResult.Applied(restored, settingsFailed)

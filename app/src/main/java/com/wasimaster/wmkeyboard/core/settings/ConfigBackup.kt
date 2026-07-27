@@ -12,7 +12,8 @@ import kotlinx.serialization.json.jsonObject
 /**
  * Full-config backup: one file that can bundle several independent parts of
  * the app — settings, custom themes, the learned dictionary, clipboard
- * history and snippets — each an opt-in [Section].
+ * history, snippets, sticker packs, icon packs and imported word lists —
+ * each an opt-in [Section].
  *
  * This is the umbrella container. The pieces keep their own on-disk shapes:
  * a section's value is just the JSON that store already writes (the settings
@@ -39,6 +40,8 @@ object ConfigBackup {
         CLIPBOARD("clipboard"),
         SNIPPETS("snippets"),
         STICKERS("stickers"),
+        ICONS("icons"),
+        WORDLISTS("wordlists"),
     }
 
     private val json = Json { prettyPrint = true }

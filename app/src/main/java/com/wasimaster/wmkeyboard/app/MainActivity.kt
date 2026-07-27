@@ -3997,6 +3997,8 @@ internal fun sectionLabel(section: ConfigBackup.Section): String = when (section
     ConfigBackup.Section.CLIPBOARD -> "Clipboard"
     ConfigBackup.Section.SNIPPETS -> "Snippets"
     ConfigBackup.Section.STICKERS -> "Sticker packs"
+    ConfigBackup.Section.ICONS -> "Icon packs"
+    ConfigBackup.Section.WORDLISTS -> "Custom word lists"
 }
 
 /** "3 themes", "1 snippet" — the count line shown per section on import. */
@@ -4007,6 +4009,8 @@ internal fun sectionSummary(section: ConfigBackup.Section, count: Int): String =
     ConfigBackup.Section.CLIPBOARD -> if (count == 1) "1 clip" else "$count clips"
     ConfigBackup.Section.SNIPPETS -> if (count == 1) "1 snippet" else "$count snippets"
     ConfigBackup.Section.STICKERS -> if (count == 1) "1 sticker" else "$count stickers"
+    ConfigBackup.Section.ICONS -> if (count == 1) "1 icon" else "$count icons"
+    ConfigBackup.Section.WORDLISTS -> if (count == 1) "1 word list" else "$count word lists"
 }
 
 /** A file picked for import, once we know which of the two formats it is. */
@@ -4031,6 +4035,8 @@ private fun BackupSettings(repository: SettingsRepository) {
     // Off by default only because the images make the file large, not because
     // there's anything private about them.
     var includeStickers by remember { mutableStateOf(false) }
+    var includeIcons by remember { mutableStateOf(false) }
+    var includeWordlists by remember { mutableStateOf(true) }
     var includeDictionary by remember { mutableStateOf(false) }
     var includeClipboard by remember { mutableStateOf(false) }
     var includeSecrets by remember { mutableStateOf(false) }
@@ -4045,6 +4051,8 @@ private fun BackupSettings(repository: SettingsRepository) {
         if (includeClipboard) add(ConfigBackup.Section.CLIPBOARD)
         if (includeSnippets) add(ConfigBackup.Section.SNIPPETS)
         if (includeStickers) add(ConfigBackup.Section.STICKERS)
+        if (includeIcons) add(ConfigBackup.Section.ICONS)
+        if (includeWordlists) add(ConfigBackup.Section.WORDLISTS)
     }
 
     val exportLauncher = rememberLauncherForActivityResult(
@@ -4174,6 +4182,22 @@ private fun BackupSettings(repository: SettingsRepository) {
                     "phone gets working packs — but it can add megabytes to the file. " +
                     "For one pack, exporting a .wmstickers file is smaller.",
             ) { includeStickers = it }
+        }
+        item {
+            ToggleSetting(
+                "Icon packs",
+                "Your own icon packs, images and all",
+                includeIcons,
+                info = "The SVGs travel inside the backup, so a restore on another " +
+                    "phone gets working packs — but it can add to the file size.",
+            ) { includeIcons = it }
+        }
+        item {
+            ToggleSetting(
+                "Custom word lists",
+                "Word lists you imported for any language",
+                includeWordlists,
+            ) { includeWordlists = it }
         }
     }
 
