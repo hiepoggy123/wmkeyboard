@@ -2427,7 +2427,8 @@ private fun KeySoundGroup(
                         "Standard the softer AOSP key press. Pop, Thock and Chime are " +
                         "WMKeyboard's own sounds — a soft bubble pop, a deep mechanical " +
                         "bottom-out, and a small bell — identical on every device. " +
-                        "Install more from Addons, or import your own MP3 below.",
+                        "Custom plays a sound file: pick Custom to see the sounds " +
+                        "you have installed from Addons and to import your own MP3.",
                 )
             }
             // Custom is a segment like any other, so the styles read as one
@@ -2456,20 +2457,27 @@ private fun KeySoundGroup(
                     val custom = style == KeySoundStyle.CUSTOM
                     FilterChip(
                         selected = settings.keySoundStyle == style,
-                        enabled = !custom || installedSounds.isNotEmpty(),
                         onClick = {
                             scope.launch {
                                 if (custom) {
                                     // Falls back to the first installed sound
                                     // when none has been chosen yet, so the
-                                    // chip always makes a sound.
+                                    // chip always makes a sound. With nothing
+                                    // installed it still selects — the section
+                                    // it reveals is where a sound is imported,
+                                    // so a disabled chip would hide its own
+                                    // remedy.
                                     val id = settings.keySoundCustom.customId
                                         .takeIf { id -> installedSounds.any { it.id == id } }
-                                        ?: installedSounds.first().id
-                                    repository.setKeySoundCustomId(id)
-                                    KeySoundPlayer.preview(
-                                        context, style, settings.keySoundVolume, id,
-                                    )
+                                        ?: installedSounds.firstOrNull()?.id
+                                    if (id == null) {
+                                        repository.setKeySoundStyle(style)
+                                    } else {
+                                        repository.setKeySoundCustomId(id)
+                                        KeySoundPlayer.preview(
+                                            context, style, settings.keySoundVolume, id,
+                                        )
+                                    }
                                 } else {
                                     repository.setKeySoundStyle(style)
                                     // Sound the freshly picked style so the user
@@ -2495,7 +2503,12 @@ private fun KeySoundGroup(
                 }
             }
         }
-        item { InstalledSoundSection(repository, settings) }
+        // Only under Custom. The sound library and its import button are what
+        // Custom *means*; showing them under Click is offering a choice that
+        // has no effect until the style changes too.
+        if (settings.keySoundStyle == KeySoundStyle.CUSTOM) {
+            item { InstalledSoundSection(repository, settings) }
+        }
         item {
             SliderSetting(
                 "Sound volume",
@@ -4038,17 +4051,34 @@ private fun EmojiSettings(repository: SettingsRepository, settings: KeyboardSett
             }
         }
         item {
+            // On System the missing glyphs are the phone's; on any other choice
+            // they belong to the font that was picked above, and blaming the
+            // phone for a font the user just installed sends them looking in
+            // the wrong place.
+            val ownFont = settings.emojiFont != EmojiFontChoice.SYSTEM
             ToggleSetting(
-                "Hide emoji this phone can't display",
+                if (ownFont) {
+                    "Hide emoji this font can't display"
+                } else {
+                    "Hide emoji this phone can't display"
+                },
                 "Skip emoji that show as a blank box in the panel, search and suggestions",
                 settings.emoji.hideUnrenderable,
-                info = "Older phones (and some brands) ship an emoji font that predates the " +
-                    "newest emoji, which then render as an empty \"tofu\" box. This hides any " +
-                    "emoji the current emoji font can't draw. To see them all instead, set " +
-                    "the emoji font above to \"Google\" (Noto Color Emoji), or import a " +
-                    "complete emoji font (such as Twemoji or OpenMoji) from Addons under " +
-                    "\"Installed\" — WM Keyboard ships no emoji font of its own, it uses " +
-                    "the one you choose here.",
+                info = if (ownFont) {
+                    "An emoji font only covers the emoji it was built with, and the " +
+                        "newest ones are usually missing from anything but the latest " +
+                        "release — they then render as an empty \"tofu\" box. This hides " +
+                        "any emoji the emoji font chosen above can't draw. To see more of " +
+                        "them, update the font or switch to \"Google\" (Noto Color Emoji)."
+                } else {
+                    "Older phones (and some brands) ship an emoji font that predates the " +
+                        "newest emoji, which then render as an empty \"tofu\" box. This hides " +
+                        "any emoji your phone's emoji font can't draw. To see them all " +
+                        "instead, set the emoji font above to \"Google\" (Noto Color Emoji), " +
+                        "or install a complete emoji font (such as Twemoji or OpenMoji) from " +
+                        "Addons — WM Keyboard ships no emoji font of its own, it uses the " +
+                        "one you choose here."
+                },
             ) { scope.launch { repository.setHideUnrenderableEmoji(it) } }
         }
     }

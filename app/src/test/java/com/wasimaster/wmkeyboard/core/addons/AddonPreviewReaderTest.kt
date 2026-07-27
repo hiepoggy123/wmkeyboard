@@ -81,6 +81,23 @@ class AddonPreviewReaderTest {
         // The frequency is stripped; the sample is the words themselves.
         assertEquals(listOf("kotlin", "gradle", "coroutine"), dictionary.words)
         assertTrue(!dictionary.truncated)
+        // Everything in the file, so the dialog isn't showing a subset.
+        assertTrue(!dictionary.partial)
+    }
+
+    @Test
+    fun `a long word list is capped and says so`() {
+        val over = AddonPreviewReader.MAX_WORDS + 500
+        val payload = file("words.txt", (1..over).joinToString("\n") { "word$it $it" })
+
+        val dictionary = AddonPreviewReader.read(entry(AddonType.Dictionary, "words.txt"), payload)
+            as AddonPreviewContent.Dictionary
+
+        assertEquals(over, dictionary.total)
+        assertEquals(AddonPreviewReader.MAX_WORDS, dictionary.words.size)
+        assertTrue(dictionary.partial)
+        // The count is exact; only the word list was cut short.
+        assertTrue(!dictionary.truncated)
     }
 
     @Test

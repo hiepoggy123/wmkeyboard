@@ -184,6 +184,8 @@ private val SettingRows: List<SettingsSearchEntry> = listOfNotNull(
     entry("Override with last used", "Prefer the tone last picked over the default", "Emoji", "emoji"),
     entry("Return to keyboard after emoji", "Close the panel after inserting one emoji", "Emoji", "emoji"),
     entry("Hide emoji this phone can't display", "Skip emoji that show as a blank box", "Emoji", "emoji"),
+    // The same toggle, under the name it takes once an emoji font is chosen.
+    entry("Hide emoji this font can't display", "Skip emoji that show as a blank box", "Emoji", "emoji"),
     entry("Include API keys", "Translate, GIF, search and AI keys", "Backup & restore", "backup"),
     entry("Emoji button in toolbar", "Keep the emoji button visible next to suggestions", tool = ToolbarTool.EMOJI),
     entry("All emoji settings", "Suggestions, history tab, emoji row, skin tones & favourites", tool = ToolbarTool.EMOJI),

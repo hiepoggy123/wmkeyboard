@@ -292,6 +292,9 @@ object AddonDownloadManager {
                                 installedAt = System.currentTimeMillis(),
                                 name = entry.name,
                                 repoName = repo.name,
+                                manifestUrl = manifestUrl,
+                                description = entry.description,
+                                author = entry.author,
                             ),
                         )
                         set(key, AddonStatus.Installed(entry.version))

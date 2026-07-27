@@ -1,6 +1,7 @@
 package com.wasimaster.wmkeyboard.core.addons
 
 import android.content.Context
+import com.wasimaster.wmkeyboard.core.feedback.KeySoundPlayer
 import com.wasimaster.wmkeyboard.core.feedback.SoundFile
 import com.wasimaster.wmkeyboard.core.feedback.SoundImportResult
 import com.wasimaster.wmkeyboard.core.feedback.SoundStore
@@ -83,7 +84,7 @@ object AddonInstaller {
             AddonType.IconPack -> uninstallIconPack(context, record.localRef)
             AddonType.Font -> FontStore.get(context).delete(record.localRef)
             AddonType.EmojiFont -> uninstallEmojiFont(context, record.localRef)
-            AddonType.Sound -> SoundStore.get(context).delete(record.localRef)
+            AddonType.Sound -> uninstallSound(context, record.localRef)
             AddonType.Unknown -> Unit
         }
     }
@@ -181,6 +182,9 @@ object AddonInstaller {
         return when (val result = payload.inputStream().use { StickerPackFile.import(it, store) }) {
             is StickerImportResult.Imported -> Outcome.Installed(result.pack.id, result.repairs)
             StickerImportResult.NotAStickerPack -> Outcome.Rejected("That file isn't a sticker pack")
+            is StickerImportResult.NoStickers -> Outcome.Rejected(
+                "No stickers could be read out of that pack. " + result.repairs.first(),
+            )
             StickerImportResult.TooManyPacks ->
                 Outcome.Rejected("You've reached the maximum number of sticker packs")
             StickerImportResult.Failed -> Outcome.Rejected("The sticker pack couldn't be read")
@@ -252,6 +256,13 @@ object AddonInstaller {
         }
     }
 
+    private suspend fun uninstallSound(context: Context, soundId: String) {
+        SoundStore.get(context).delete(soundId)
+        SettingsRepository(context).forgetKeySound(soundId)
+        // The pool holds a decoded copy that outlives the file.
+        KeySoundPlayer.forgetCustom(soundId)
+    }
+
     private suspend fun uninstallEmojiFont(context: Context, fontId: String) {
         FontStore.get(context).delete(fontId)
         // Leaving the choice pointing at a deleted file would render every
@@ -259,7 +270,7 @@ object AddonInstaller {
         SettingsRepository(context).forgetInstalledEmojiFont(fontId)
     }
 
-    private fun installSound(context: Context, entry: AddonEntry, payload: File): Outcome {
+    private suspend fun installSound(context: Context, entry: AddonEntry, payload: File): Outcome {
         val store = SoundStore.get(context)
         val result = payload.inputStream().use {
             SoundFile.import(
@@ -271,7 +282,15 @@ object AddonInstaller {
             )
         }
         return when (result) {
-            is SoundImportResult.Imported -> Outcome.Installed(result.sound.id)
+            is SoundImportResult.Imported -> {
+                // Applies on install, like a theme, an icon pack or an emoji
+                // font: the key sound is a single global slot, and a sound that
+                // installs without the keyboard ever making it reads as an
+                // install that did nothing. setKeySoundCustomId also flips the
+                // style to CUSTOM, which is what actually makes it audible.
+                SettingsRepository(context).setKeySoundCustomId(result.sound.id)
+                Outcome.Installed(result.sound.id)
+            }
             is SoundImportResult.NotASound -> Outcome.Rejected(result.message)
             SoundImportResult.TooManySounds ->
                 Outcome.Rejected("You've reached the maximum number of installed key sounds")

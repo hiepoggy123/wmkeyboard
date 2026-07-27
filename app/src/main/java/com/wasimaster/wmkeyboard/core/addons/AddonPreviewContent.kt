@@ -26,13 +26,21 @@ sealed interface AddonPreviewContent {
         data class Entry(val label: String, val text: String, val trigger: String)
     }
 
-    /** A sample of a word list, plus how many lines it actually has. */
+    /** A word list, plus how many lines it actually has. */
     data class Dictionary(
+        /**
+         * Every word the reader collected, up to [AddonPreviewReader.MAX_WORDS].
+         * The panel shows the first few and the dialog shows the lot, so this is
+         * deliberately far longer than fits on a screen.
+         */
         val words: List<String>,
         val total: Int,
         /** True when [total] is a floor rather than the real count — the file was long. */
         val truncated: Boolean,
-    ) : AddonPreviewContent
+    ) : AddonPreviewContent {
+        /** True when [words] is a prefix of the file rather than all of it. */
+        val partial: Boolean get() = words.size < total
+    }
 
     /** A playable copy of the key sound. */
     data class Sound(val file: File) : AddonPreviewContent
@@ -53,7 +61,17 @@ object AddonPreviewReader {
     /** More than this and the panel is a wall of text nobody reads. */
     private const val MAX_SNIPPETS = 40
 
-    private const val MAX_WORDS = 60
+    /**
+     * How many words a dictionary preview keeps.
+     *
+     * The panel only ever shows a handful inline, but "show me the whole list"
+     * is the question a word list actually raises, so the dialog needs the
+     * words in hand. Ten thousand strings is a couple of hundred KB and covers
+     * every dictionary anyone browses word-by-word; past that the dialog says
+     * how much it is not showing rather than holding a 300k-word file in RAM
+     * for a preview.
+     */
+    const val MAX_WORDS = 10_000
 
     /** Stop counting lines here; a 300k-word list doesn't need an exact figure. */
     private const val MAX_COUNTED_LINES = 200_000
@@ -83,7 +101,7 @@ object AddonPreviewReader {
     }
 
     private fun readDictionary(entry: AddonEntry, payload: File): AddonPreviewContent {
-        val words = ArrayList<String>(MAX_WORDS)
+        val words = ArrayList<String>()
         var counted = 0
         val ok = runCatching {
             openMaybeGzipped(entry, payload).bufferedReader().use { reader ->

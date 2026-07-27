@@ -148,6 +148,35 @@ class AddonStoreTest {
         assertEquals(setOf("a/kept"), s.installed().keys)
     }
 
+    // ---- finding a record from a route ---------------------------------
+
+    @Test
+    fun `installedFor finds a record by repository url and addon id`() {
+        val s = store()
+        s.markInstalled(
+            "sample/midnight",
+            InstalledAddon(type = AddonType.Theme, manifestUrl = "https://a/repo.json"),
+        )
+        s.markInstalled(
+            "other/midnight",
+            InstalledAddon(type = AddonType.Theme, manifestUrl = "https://b/repo.json"),
+        )
+
+        // Two repositories can ship an addon with the same id; the URL is what
+        // tells the routes apart.
+        assertEquals("other/midnight", s.installedFor("https://b/repo.json", "midnight")?.first)
+        assertNull(s.installedFor("https://c/repo.json", "midnight"))
+    }
+
+    @Test
+    fun `installedFor falls back to a record written before urls were stored`() {
+        val s = store()
+        s.markInstalled("sample/lucide", InstalledAddon(type = AddonType.IconPack))
+
+        val found = s.installedFor("https://anything/repo.json", "lucide")
+        assertEquals("sample/lucide", found?.first)
+    }
+
     // ---- direct boot ---------------------------------------------------
 
     @Test

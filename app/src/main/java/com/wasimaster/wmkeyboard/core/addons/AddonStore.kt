@@ -48,6 +48,15 @@ data class InstalledAddon(
     /** Kept for the Installed list so it can be rendered without the manifest. */
     val name: String = "",
     val repoName: String = "",
+    /**
+     * The manifest this came from, so the Installed list can open the addon's
+     * own page. Blank on records written before this field existed; the UI
+     * falls back to matching the repository by id.
+     */
+    val manifestUrl: String = "",
+    /** Also kept for the offline page, which has no manifest to read it from. */
+    val description: String = "",
+    val author: String = "",
 )
 
 /**
@@ -221,6 +230,25 @@ class AddonStore(private var baseDir: File?) {
 
     @Synchronized
     fun installed(key: String): InstalledAddon? = installedMap[key]
+
+    /**
+     * The record for an addon identified the way a *route* identifies it — by
+     * repository URL and addon id — rather than by the `"<repoId>/<addonId>"`
+     * key, which the detail page can't build without the manifest.
+     *
+     * Falls back to matching on the addon id alone, because records written
+     * before [InstalledAddon.manifestUrl] existed have no URL to match, and
+     * because a repository can be removed while its installs stay.
+     */
+    @Synchronized
+    fun installedFor(manifestUrl: String, addonId: String): Pair<String, InstalledAddon>? {
+        val candidates = installedMap.entries
+            .filter { it.key.substringAfterLast('/') == addonId }
+        val exact = candidates.firstOrNull { it.value.manifestUrl == manifestUrl }
+            ?: candidates.firstOrNull { it.value.manifestUrl.isBlank() }
+            ?: return null
+        return exact.key to exact.value
+    }
 
     @Synchronized
     fun markInstalled(key: String, record: InstalledAddon) {

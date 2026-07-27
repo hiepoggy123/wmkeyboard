@@ -3938,6 +3938,21 @@ class SettingsRepository(private val context: Context) {
             }
         }
 
+    /**
+     * Drops a deleted key sound, falling the style back to Click. Left pointing
+     * at a missing file the keyboard would still make a sound — the player falls
+     * back to the system click — but the settings screen would show Custom
+     * selected with nothing under it.
+     */
+    suspend fun forgetKeySound(soundId: String) =
+        editPrefs {
+            if (it[KEY_SOUND_CUSTOM_ID] != soundId) return@editPrefs
+            it[KEY_SOUND_CUSTOM_ID] = ""
+            if (it[KEY_SOUND_STYLE] == KeySoundStyle.CUSTOM.name) {
+                it[KEY_SOUND_STYLE] = KeySoundStyle.CLICK.name
+            }
+        }
+
     suspend fun setAutoApostrophe(value: Boolean) =
         editPrefs { it[AUTO_APOSTROPHE] = value }
 

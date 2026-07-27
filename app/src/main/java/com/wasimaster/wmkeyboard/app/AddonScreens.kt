@@ -1,6 +1,7 @@
 package com.wasimaster.wmkeyboard.app
 
 import android.content.Intent
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -18,7 +19,10 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -45,6 +49,7 @@ import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -74,6 +79,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.LinkAnnotation
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLinkStyles
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withLink
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
@@ -90,6 +102,7 @@ import com.wasimaster.wmkeyboard.core.addons.AddonRepoInfo
 import com.wasimaster.wmkeyboard.core.addons.AddonRepoRef
 import com.wasimaster.wmkeyboard.core.addons.AddonStore
 import com.wasimaster.wmkeyboard.core.addons.AddonType
+import com.wasimaster.wmkeyboard.core.addons.InstalledAddon
 import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
 import com.wasimaster.wmkeyboard.ime.ui.rememberMediaImageLoader
 import kotlinx.coroutines.Dispatchers
@@ -303,9 +316,20 @@ internal fun AddonsScreen(prefillUrl: String = "", onNavigate: (String) -> Unit)
     }
 
     if (installed.isNotEmpty()) {
+        // A record stores the manifest it came from; ones written before that
+        // field existed don't, so fall back to matching the repository by the
+        // id embedded in the install key.
+        val urlByRepoId = remember(repos) {
+            repos.mapNotNull { ref ->
+                AddonDownloadManager.cachedManifest(ref)?.repo?.id?.let { it to ref.manifestUrl }
+            }.toMap()
+        }
         SettingsGroup("Installed") {
             for ((key, record) in installed) {
                 item {
+                    val url = record.manifestUrl.ifBlank {
+                        urlByRepoId[key.substringBeforeLast('/')].orEmpty()
+                    }
                     ListItem(
                         headlineContent = { Text(record.name.ifBlank { key }) },
                         supportingContent = {
@@ -325,6 +349,11 @@ internal fun AddonsScreen(prefillUrl: String = "", onNavigate: (String) -> Unit)
                             )
                         },
                         colors = transparentListColors(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable(enabled = url.isNotBlank()) {
+                                onNavigate(addonDetailRoute(url, key.substringAfterLast('/')))
+                            },
                     )
                 }
             }
@@ -599,6 +628,8 @@ private fun AddonCard(
     manifestUrl: String,
     onClick: () -> Unit,
 ) {
+    val context = LocalContext.current
+    val store = remember { AddonStore.get(context) }
     val states by AddonDownloadManager.states.collectAsStateWithLifecycle()
     val status = states[entry.key(repo.id)] ?: AddonDownloadManager.AddonStatus.NotInstalled
     val tint = tintFor(entry.type)
@@ -640,7 +671,19 @@ private fun AddonCard(
                 )
             }
             Box(modifier = Modifier.align(Alignment.TopEnd).padding(4.dp)) {
-                StatusBadge(status)
+                StatusBadge(status, hasPreview = preview != null) {
+                    // Following a link doesn't add the repository; choosing to
+                    // install from it does. No-op when it is already there.
+                    store.addRepo(manifestUrl)
+                    AddonDownloadManager.install(
+                        context = context,
+                        store = store,
+                        manifestUrl = manifestUrl,
+                        repo = repo,
+                        entry = entry,
+                        appVersionCode = BuildConfig.VERSION_CODE,
+                    )
+                }
             }
         }
         Text(
@@ -678,29 +721,62 @@ private fun AddonCard(
     }
 }
 
+/**
+ * The card's corner control: what this addon's state is, and — when there is
+ * something to do about it — the tap that does it.
+ *
+ * [onInstall] runs on the download arrow and on Update, so the grid installs
+ * without a trip through the detail page. It sits on top of a screenshot, so
+ * with [hasPreview] it gets an opaque disc behind it; the same glyph over a
+ * pale illustration is invisible.
+ */
 @Composable
-private fun StatusBadge(status: AddonDownloadManager.AddonStatus) {
+private fun StatusBadge(
+    status: AddonDownloadManager.AddonStatus,
+    hasPreview: Boolean,
+    onInstall: () -> Unit,
+) {
+    val scrim: @Composable (@Composable () -> Unit) -> Unit = { content ->
+        if (hasPreview) {
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.85f)),
+                contentAlignment = Alignment.Center,
+                content = { content() },
+            )
+        } else {
+            content()
+        }
+    }
+
     when (status) {
-        is AddonDownloadManager.AddonStatus.Installed ->
+        is AddonDownloadManager.AddonStatus.Installed -> scrim {
             Icon(
                 Icons.Outlined.Check,
                 contentDescription = "Installed",
                 tint = MaterialTheme.colorScheme.primary,
             )
+        }
         is AddonDownloadManager.AddonStatus.UpdateAvailable ->
-            AssistChip(onClick = {}, label = { Text("Update") })
+            AssistChip(onClick = onInstall, label = { Text("Update") })
         is AddonDownloadManager.AddonStatus.Downloading,
         AddonDownloadManager.AddonStatus.Verifying,
         AddonDownloadManager.AddonStatus.Installing,
-        -> CircularProgressIndicator(modifier = Modifier.size(20.dp))
-        is AddonDownloadManager.AddonStatus.Failed ->
+        -> scrim { CircularProgressIndicator(modifier = Modifier.size(20.dp)) }
+        is AddonDownloadManager.AddonStatus.Failed -> scrim {
             Icon(
                 Icons.Outlined.Close,
                 contentDescription = "Failed",
                 tint = MaterialTheme.colorScheme.error,
             )
-        AddonDownloadManager.AddonStatus.NotInstalled ->
-            Icon(Icons.Outlined.Download, contentDescription = "Not installed")
+        }
+        AddonDownloadManager.AddonStatus.NotInstalled -> scrim {
+            IconButton(onClick = onInstall, modifier = Modifier.size(32.dp)) {
+                Icon(Icons.Outlined.Download, contentDescription = "Install")
+            }
+        }
     }
 }
 
@@ -772,7 +848,23 @@ internal fun AddonDetailScreen(
     val loaded = manifest
     val entry = loaded?.addons?.firstOrNull { it.id == addonId }
     if (loaded == null || entry == null) {
-        CaptionText("That addon couldn't be found. The repository may have changed.")
+        // No manifest means offline, or a repository that dropped the addon,
+        // or one the user removed. If it is installed none of that matters —
+        // the record holds everything this page needs, and "manage the thing
+        // you installed" should not require a working connection.
+        val local = remember(revision, manifestUrl, addonId) {
+            store.installedFor(manifestUrl, addonId)
+        }
+        // Uninstalling from the offline page empties the record out from under
+        // it; "that addon couldn't be found" would be a strange thing to say
+        // about something the user just removed on this screen.
+        var hadLocal by remember(manifestUrl, addonId) { mutableStateOf(false) }
+        LaunchedEffect(local != null) { if (local != null) hadLocal = true }
+        when {
+            local != null -> InstalledAddonDetail(local.first, local.second, store, onNavigate)
+            hadLocal -> CaptionText("Uninstalled.")
+            else -> CaptionText("That addon couldn't be found. The repository may have changed.")
+        }
         return
     }
 
@@ -906,6 +998,89 @@ internal fun AddonDetailScreen(
     Spacer(Modifier.height(24.dp))
 }
 
+/**
+ * The same page for an addon whose manifest we can't read — offline, repository
+ * removed, or the addon delisted — built entirely from what the install
+ * recorded.
+ *
+ * Update isn't offered here: without a manifest there is no version to compare
+ * against. Everything else an installed addon's page is for — what it is, where
+ * it came from, going to it, removing it — needs no network at all.
+ */
+@Composable
+private fun InstalledAddonDetail(
+    key: String,
+    record: InstalledAddon,
+    store: AddonStore,
+    onNavigate: (String) -> Unit,
+) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val tint = tintFor(record.type)
+
+    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+        Text(
+            record.name.ifBlank { key.substringAfterLast('/') },
+            style = MaterialTheme.typography.headlineSmall,
+        )
+        Spacer(Modifier.height(4.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                record.type.icon,
+                contentDescription = null,
+                tint = tint,
+                modifier = Modifier.size(18.dp),
+            )
+            Spacer(Modifier.width(6.dp))
+            Text(
+                buildString {
+                    append(record.type.singularLabel)
+                    if (record.version.isNotBlank()) append(" · ${record.version}")
+                    if (record.author.isNotBlank()) append(" · ${record.author}")
+                },
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        if (record.description.isNotBlank()) {
+            Spacer(Modifier.height(12.dp))
+            Text(record.description, style = MaterialTheme.typography.bodyMedium)
+        }
+    }
+
+    SettingsGroup("Details") {
+        item { DetailRow("Status", "Installed") }
+        if (record.repoName.isNotBlank()) item { DetailRow("Repository", record.repoName) }
+    }
+    CaptionText(
+        "Showing what was saved when this was installed — the repository " +
+            "couldn't be read just now, so there is nothing to check for updates " +
+            "against.",
+    )
+
+    Row(
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        UninstallButton {
+            scope.launch { AddonDownloadManager.uninstall(context, store, key, entry = null) }
+        }
+    }
+    OutlinedButton(
+        onClick = { onNavigate(record.type.settingsRoute) },
+        modifier = Modifier.padding(horizontal = 16.dp),
+    ) {
+        Icon(
+            Icons.AutoMirrored.Outlined.OpenInNew,
+            contentDescription = null,
+            modifier = Modifier.size(18.dp),
+        )
+        Spacer(Modifier.width(8.dp))
+        Text("Use — open ${record.type.useLabel}")
+    }
+    Spacer(Modifier.height(24.dp))
+}
+
 /** Install / Update / Uninstall / Use, and the progress the transfer reports. */
 @Composable
 private fun AddonActions(
@@ -983,17 +1158,7 @@ private fun AddonActions(
                         },
                     )
                 }
-                if (installed || updatable) {
-                    OutlinedButton(onClick = onUninstall) {
-                        Icon(
-                            Icons.Outlined.Delete,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp),
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Text("Uninstall")
-                    }
-                }
+                if (installed || updatable) UninstallButton(onUninstall)
             }
             // Installing puts the file on the device; for most types choosing it
             // is a second step on another screen. This is the way there.
@@ -1020,6 +1185,27 @@ private fun AddonActions(
                 )
             }
         }
+    }
+}
+
+/**
+ * Uninstall, in the error colour.
+ *
+ * It sits next to Install and Use and is the only one of the three that takes
+ * something away; an outlined button in the default tint reads as one more
+ * neutral option.
+ */
+@Composable
+private fun UninstallButton(onClick: () -> Unit) {
+    val error = MaterialTheme.colorScheme.error
+    OutlinedButton(
+        onClick = onClick,
+        colors = ButtonDefaults.outlinedButtonColors(contentColor = error),
+        border = BorderStroke(1.dp, error.copy(alpha = 0.5f)),
+    ) {
+        Icon(Icons.Outlined.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(8.dp))
+        Text("Uninstall")
     }
 }
 
@@ -1087,18 +1273,52 @@ private fun LicenseRow(manifestUrl: String, entry: AddonEntry) {
                         .heightIn(max = 400.dp)
                         .verticalScroll(rememberScrollState()),
                 ) {
-                    Text(
-                        when {
-                            loading -> "Loading…"
-                            text.isBlank() -> "The licence text couldn't be fetched."
-                            else -> text
-                        },
-                        style = MaterialTheme.typography.bodySmall,
-                    )
+                    val body = when {
+                        loading -> "Loading…"
+                        text.isBlank() -> "The licence text couldn't be fetched."
+                        else -> text
+                    }
+                    Text(withLinks(body), style = MaterialTheme.typography.bodySmall)
                 }
             },
             confirmButton = { TextButton(onClick = { showing = false }) { Text("Close") } },
         )
+    }
+}
+
+/**
+ * Bare URLs in plain text, made tappable.
+ *
+ * A licence is mostly a pointer: half of them are three lines of attribution
+ * and a link to the deed that says what you may actually do. Leaving that as
+ * dead text in a dialog nobody can copy out of makes the licence unreadable in
+ * the only sense that matters.
+ */
+private val URL_PATTERN = Regex("""https?://[^\s<>"')\]]+""")
+
+/** Trailing punctuation belongs to the sentence, not to the address. */
+private const val URL_TRAILING = ".,;:!?"
+
+@Composable
+private fun withLinks(text: String): AnnotatedString {
+    val style = TextLinkStyles(
+        style = SpanStyle(
+            color = MaterialTheme.colorScheme.primary,
+            textDecoration = TextDecoration.Underline,
+        ),
+    )
+    return remember(text, style) {
+        buildAnnotatedString {
+            var at = 0
+            for (match in URL_PATTERN.findAll(text)) {
+                val url = match.value.trimEnd { it in URL_TRAILING }
+                if (url.isEmpty()) continue
+                append(text.substring(at, match.range.first))
+                withLink(LinkAnnotation.Url(url, style)) { append(url) }
+                at = match.range.first + url.length
+            }
+            append(text.substring(at))
+        }
     }
 }
 
@@ -1178,23 +1398,7 @@ private fun AddonPreviewSection(manifestUrl: String, entry: AddonEntry) {
             }
         }
 
-        is AddonPreviewContent.Dictionary -> SettingsGroup("Preview") {
-            item {
-                CaptionText(
-                    buildString {
-                        append(if (shown.truncated) "Over " else "")
-                        append("${shown.total} words")
-                    },
-                )
-            }
-            item {
-                Text(
-                    shown.words.joinToString("  ·  "),
-                    style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.padding(16.dp),
-                )
-            }
-        }
+        is AddonPreviewContent.Dictionary -> DictionaryPreview(shown)
 
         is AddonPreviewContent.Sound -> SettingsGroup("Preview") {
             item {
@@ -1238,6 +1442,82 @@ private fun AddonPreviewSection(manifestUrl: String, entry: AddonEntry) {
         is AddonPreviewContent.Unreadable -> CaptionText(shown.message)
         null -> Unit
     }
+}
+
+/** How many words the panel itself shows before the dialog takes over. */
+private const val INLINE_WORDS = 60
+
+/**
+ * A word list: a taste of it inline, the whole thing in a dialog.
+ *
+ * "Which words are in here" is the only question a dictionary raises, and a
+ * sample can't answer it — the point of installing one is usually a specific
+ * vocabulary. The dialog is a real scrolling list rather than more running
+ * text, so a long list stays readable.
+ */
+@Composable
+private fun DictionaryPreview(shown: AddonPreviewContent.Dictionary) {
+    var listing by remember(shown) { mutableStateOf(false) }
+
+    SettingsGroup("Preview") {
+        item {
+            CaptionText(
+                buildString {
+                    append(if (shown.truncated) "Over " else "")
+                    append("${shown.total} words")
+                },
+            )
+        }
+        item {
+            Text(
+                shown.words.take(INLINE_WORDS).joinToString("  ·  "),
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(horizontal = 16.dp),
+            )
+        }
+        item {
+            OutlinedButton(
+                onClick = { listing = true },
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            ) {
+                Icon(
+                    Icons.AutoMirrored.Outlined.MenuBook,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(if (shown.partial) "Show ${shown.words.size} words" else "Show all words")
+            }
+        }
+    }
+
+    if (!listing) return
+    AlertDialog(
+        onDismissRequest = { listing = false },
+        title = { Text("${shown.words.size} words") },
+        text = {
+            Column {
+                if (shown.partial) {
+                    CaptionText(
+                        "The first ${shown.words.size} of ${if (shown.truncated) "over " else ""}" +
+                            "${shown.total} — the rest install normally.",
+                    )
+                }
+                // A dialog is its own window, so a lazy list inside one is not
+                // the nested-scroll problem it would be on the settings page.
+                LazyColumn(modifier = Modifier.heightIn(max = 420.dp)) {
+                    items(shown.words) { word ->
+                        Text(
+                            word,
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.padding(vertical = 4.dp),
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = { listing = false }) { Text("Close") } },
+    )
 }
 
 /**
