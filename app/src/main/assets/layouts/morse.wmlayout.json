@@ -1,0 +1,72 @@
+{
+  "format": "wmkeyboard-layout",
+  "version": 1,
+  "layout": {
+    "id": "asset_morse",
+    "name": "·− Morse code",
+    "langId": "morse",
+    "version": 2,
+    "layers": {
+      "letters": {
+        "rows": [
+          [
+            {
+              "label": "·",
+              "action": {
+                "type": "morse_dot"
+              },
+              "width": 5
+            },
+            {
+              "label": "−",
+              "action": {
+                "type": "morse_dash"
+              },
+              "width": 5
+            }
+          ],
+          [
+            {
+              "label": "?123",
+              "action": {
+                "type": "symbols"
+              },
+              "width": 1.5
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 4
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              },
+              "width": 2
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.5
+            }
+          ]
+        ],
+        "rowHeights": [
+          3.0,
+          1.0
+        ]
+      }
+    }
+  }
+}

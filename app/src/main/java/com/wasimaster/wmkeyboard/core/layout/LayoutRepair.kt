@@ -174,6 +174,21 @@ fun validateLayout(spec: LayoutSpec): List<LayoutFinding> {
             }
         }
 
+        val badDots = rows.sumOf { row ->
+            row.count { key ->
+                val action = key.action
+                action is KeyAction.BrailleDot && action.dot !in 1..6
+            }
+        }
+        if (badDots > 0) {
+            findings += LayoutFinding(
+                LayoutSeverity.BLOCKING,
+                "$badDots braille dot key${if (badDots == 1) "" else "s"} in the $label layer " +
+                    "name a dot outside 1–6.",
+                layer,
+            )
+        }
+
         val unknown = rows.sumOf { row -> row.count { it.action is KeyAction.Unknown } }
         if (unknown > 0) {
             findings += LayoutFinding(

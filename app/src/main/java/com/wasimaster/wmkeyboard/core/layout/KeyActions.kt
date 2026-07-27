@@ -140,6 +140,34 @@ sealed interface KeyAction {
      */
     @Serializable @SerialName("broadcast") data class Broadcast(val action: String) : KeyAction
 
+    /**
+     * One dot key of the six-key chorded braille layout. [dot] is the braille
+     * dot number, 1..6. Unlike every other action, these keys fire on *press*,
+     * not on release: the pointer handler reports the down and the up
+     * separately (the up as a copy with [release] set), and the service's
+     * chord engine commits the decoded cell when the last held dot lifts.
+     *
+     * [release] is runtime-only — the pointer handler synthesizes it; a layout
+     * always writes `release = false` (the field's default) and the repair
+     * pass never sees a true. It rides on the action rather than a separate
+     * callback so the chord events flow through the exact same [Key] dispatch
+     * as every other press, with no new plumbing through the view.
+     */
+    @Serializable @SerialName("braille_dot") data class BrailleDot(
+        val dot: Int,
+        val release: Boolean = false,
+    ) : KeyAction
+
+    /**
+     * The dot (dit) key of the morse layout. Appends a short signal to the
+     * service's pending morse sequence; the decoded character commits after a
+     * pause, Gboard-style. Types nothing by itself.
+     */
+    @Serializable @SerialName("morse_dot") data object MorseDot : KeyAction
+
+    /** The dash (dah) key of the morse layout; see [MorseDot]. */
+    @Serializable @SerialName("morse_dash") data object MorseDash : KeyAction
+
     /** A deliberate gap in the grid: drawn as empty space, swallows its taps. */
     @Serializable @SerialName("none") data object None : KeyAction
 

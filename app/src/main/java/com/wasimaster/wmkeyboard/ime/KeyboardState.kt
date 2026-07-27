@@ -732,6 +732,12 @@ data class KeyboardUiState(
     /** Spacing form of the dead-key accent waiting for a letter, if any. */
     val pendingDeadKey: String? = null,
     /**
+     * The morse sequence tapped so far ("·−−"), shown in the strip while the
+     * commit pause runs — the morse cousin of [pendingDeadKey]. Empty when
+     * nothing is pending or the morse layout is not active.
+     */
+    val morsePending: String = "",
+    /**
      * Chips from the system autofill service, already inflated by *its*
      * process — the keyboard only hosts them. Views rather than data because
      * that is the whole point: their contents are never exposed to the IME.

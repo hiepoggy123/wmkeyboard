@@ -1247,6 +1247,21 @@ internal val KeyActionCatalog: List<KeyActionOption> = listOf(
         { it is KeyAction.SendKey && it.keyCode == KEYCODE_DPAD_RIGHT },
     ),
     KeyActionOption(
+        "Braille dot", "Chorded input",
+        "One dot of a six-key braille chord; set the dot number below",
+        { KeyAction.BrailleDot(1) }, { it is KeyAction.BrailleDot },
+    ),
+    KeyActionOption(
+        "Morse dot", "Chorded input",
+        "Adds a short signal; the letter commits after a pause",
+        { KeyAction.MorseDot }, { it == KeyAction.MorseDot },
+    ),
+    KeyActionOption(
+        "Morse dash", "Chorded input",
+        "Adds a long signal; the letter commits after a pause",
+        { KeyAction.MorseDash }, { it == KeyAction.MorseDash },
+    ),
+    KeyActionOption(
         "Broadcast intent", "Other",
         "Fires an Android broadcast for automation apps (Tasker); set the action below",
         { KeyAction.Broadcast("") }, { it is KeyAction.Broadcast },
@@ -1326,6 +1341,19 @@ private fun KeyEditSheet(
                     supporting = "The intent action an automation app listens for, " +
                         "e.g. com.example.MACRO. Left blank, the key does nothing.",
                 ) { onChange(key.copy(action = KeyAction.Broadcast(it.trim()))) }
+            }
+
+            // Braille dot keys carry which of the six dots this key is.
+            (key.action as? KeyAction.BrailleDot)?.let { brailleDot ->
+                SheetField(
+                    label = "Dot number",
+                    value = brailleDot.dot.toString(),
+                    supporting = "1–6: dots 1-2-3 down the left column, 4-5-6 down the right",
+                ) { text ->
+                    text.trim().toIntOrNull()?.takeIf { it in 1..6 }?.let {
+                        onChange(key.copy(action = KeyAction.BrailleDot(it)))
+                    }
+                }
             }
 
             KeyWidthRow(

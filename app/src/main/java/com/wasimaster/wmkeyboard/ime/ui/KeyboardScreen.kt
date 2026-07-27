@@ -139,6 +139,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalConfiguration
 import com.wasimaster.wmkeyboard.core.settings.ScreenVariant
 import com.wasimaster.wmkeyboard.core.settings.resolvedFor
+import com.wasimaster.wmkeyboard.core.input.MorseCode
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.SideEffect
@@ -1271,7 +1272,10 @@ private fun TopBar(
     // the same way, so an idle strip holds it instead of flipping to the tools.
     val recentClipChip = state.settings.clipboard.suggestRecent && state.clipboardSuggestion != null
     val hasSuggestions = state.suggestions.isNotEmpty() ||
-        state.emojiSuggestions.isNotEmpty() || state.smart != null || recentClipChip
+        state.emojiSuggestions.isNotEmpty() || state.smart != null || recentClipChip ||
+        // A morse sequence being tapped out counts as strip content: the
+        // toolbar taking the row would hide the one live view of the chord.
+        state.morsePending.isNotEmpty()
     // Suggestions-first mode keeps the strip as the resting state (an empty
     // strip plus the chevron into the toolbar); the override then survives
     // idle gaps and instead resets when fresh candidates arrive.
@@ -1678,6 +1682,33 @@ private fun TopBar(
                         fontWeight = FontWeight.SemiBold,
                     )
                 }
+            }
+            // The morse sequence being tapped out, plus the letter it spells so
+            // far — the same "show the armed input" job as the dead-key hint
+            // above, sized up because it is the primary feedback while typing
+            // morse (the keys themselves all look alike).
+            if (state.morsePending.isNotEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight(),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    val spelled = MorseCode.decode(
+                        state.morsePending.map { if (it == '·') '.' else '-' }.joinToString(""),
+                    )
+                    Text(
+                        text = if (spelled != null) {
+                            "${state.morsePending}   $spelled"
+                        } else {
+                            state.morsePending
+                        },
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 18.sp,
+                    )
+                }
+                return@Row
             }
             // A recognised sum/conversion answers the text directly, so it
             // takes the whole strip the way autofill chips do. A keyword
@@ -6805,6 +6836,12 @@ private const val SpaceHoldPickerMs = 250
  */
 private const val PickerRowHeightDp = 40
 
+/** The up half of a braille dot press: the same key with its release flag set. */
+private fun brailleRelease(key: Key): Key {
+    val action = key.action as KeyAction.BrailleDot
+    return key.copy(action = action.copy(release = true))
+}
+
 /**
  * Press handling: tap commits, long-press opens alternates (or begins
  * repeating for delete), release cancels. The spacebar instead supports
@@ -7372,6 +7409,17 @@ private fun Modifier.pointerInputKey(
                                 } else {
                                     onKeyPress()
                                 }
+                                // A braille dot key chords: it reports the press
+                                // itself (the chord engine gathers dots on the way
+                                // down, commits when the last finger lifts) and has
+                                // no tap-vs-long-press distinction, so no timer.
+                                // Through the un-debounced sink: the tremor filter
+                                // would eat the up half of a quick chord and leave
+                                // the engine counting a finger that already left.
+                                if (key.action is KeyAction.BrailleDot) {
+                                    onKeyRepeat(key)
+                                    continue
+                                }
                                 p.job = scope.launch {
                                     delay(longPressDelayMs.toLong())
                                     p.longPressFired = true
@@ -7433,12 +7481,26 @@ private fun Modifier.pointerInputKey(
                                 press.job?.cancel()
                                 presses.remove(change.id)
                                 if (presses.isEmpty()) setPressed(false)
+                                // The chord engine counted this finger on the way
+                                // down; a stolen pointer still has to count as a
+                                // lift or the engine waits forever for it.
+                                if (key.action is KeyAction.BrailleDot) {
+                                    onKeyRepeat(brailleRelease(key))
+                                }
                             }
                             press != null && change.changedToUp() -> {
                                 change.consume()
                                 press.job?.cancel()
                                 presses.remove(change.id)
                                 if (presses.isEmpty()) setPressed(false)
+                                if (key.action is KeyAction.BrailleDot) {
+                                    // No bounds test: the dot was gathered on the
+                                    // press, so the lift only closes the chord —
+                                    // sliding off cannot un-press what already
+                                    // counted, it just must not strand the engine.
+                                    onKeyRepeat(brailleRelease(key))
+                                    continue
+                                }
                                 // Forgiving bounds: a sloppy fast tap that drifts
                                 // slightly off the cell still commits; a deliberate
                                 // slide well away (≥ half a key beyond the edge)

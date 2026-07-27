@@ -78,7 +78,10 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.provider.ContactsContract
 import com.wasimaster.wmkeyboard.core.prediction.Apostrophes
+import com.wasimaster.wmkeyboard.core.input.BrailleChord
+import com.wasimaster.wmkeyboard.core.input.BrailleGrade1
 import com.wasimaster.wmkeyboard.core.input.DeadKeys
+import com.wasimaster.wmkeyboard.core.input.MorseInput
 import com.wasimaster.wmkeyboard.core.prediction.AppNames
 import com.wasimaster.wmkeyboard.core.prediction.ContactEmails
 import com.wasimaster.wmkeyboard.core.prediction.ContactNames
@@ -294,6 +297,15 @@ open class WMKeyboardService : InputMethodService() {
      */
     private var emojiHistoryStale = false
     private lateinit var clipboardStore: ClipboardStore
+
+    /** Chord state of the six-key braille layout; see [onBrailleDot]. */
+    private val brailleChord = BrailleChord()
+    private val brailleGrade1 = BrailleGrade1()
+
+    /** Pending morse sequence; the commit pause is [morseJob]. */
+    private val morse = MorseInput()
+    private var morseJob: Job? = null
+
     /** In-flight link-metadata fetch; one at a time (see [fetchLinkPreviews]). */
     private var linkPreviewJob: Job? = null
     /** Auto-hide timer for the recently-copied strip chip (see [showClipboardSuggestion]). */
@@ -1835,6 +1847,7 @@ open class WMKeyboardService : InputMethodService() {
                 composingPreview = "",
                 suggestions = emptyList(),
                 emojiSuggestions = emptyList(),
+                morsePending = "",
                 // A tool-keyword chip ("wiki") belongs to the field it was
                 // typed in; a fresh (often empty) field must not inherit it.
                 // onUpdateSelection re-derives it once the new field settles,
@@ -1860,6 +1873,8 @@ open class WMKeyboardService : InputMethodService() {
                 ),
             )
         }
+        // Chord and morse state belongs to the field it was typed over.
+        resetChordInputs()
         refreshKarContext()
         // Read the text already sitting around the caret now, on entry. A field
         // that comes back with its text and caret unchanged (returning to a
@@ -2070,6 +2085,9 @@ open class WMKeyboardService : InputMethodService() {
                 it.copy(composingPreview = "", suggestions = emptyList(), emojiSuggestions = emptyList())
             }
         }
+        // A pending morse commit timer must not fire into whatever field the
+        // user lands on next; a half-typed chord dies with the view too.
+        resetChordInputs()
         // Latches die with the keyboard, locked ones included.
         clearModifiers()
         resetHardwareKeyState()
@@ -2182,6 +2200,16 @@ open class WMKeyboardService : InputMethodService() {
             consumeShift()
             return
         }
+        // A pending morse sequence commits before any non-morse key acts, so
+        // "··· <space>" spells "s " rather than losing the s — the same
+        // flush-before contract the composing buffer has. Delete stays out of
+        // it: it edits the pending sequence itself (see [onDelete]).
+        if (morse.isPending &&
+            key.action != KeyAction.MorseDot && key.action != KeyAction.MorseDash &&
+            key.action != KeyAction.Delete && key.action != KeyAction.Shift
+        ) {
+            commitMorse()
+        }
         when (key.action) {
             KeyAction.Text -> onTextKey(key)
             KeyAction.Shift -> onShift()
@@ -2200,6 +2228,9 @@ open class WMKeyboardService : InputMethodService() {
             is KeyAction.Mod -> onModifier((key.action as KeyAction.Mod).key)
             KeyAction.KanaVariant -> cycleKanaVariant()
             KeyAction.Fn -> onFn()
+            is KeyAction.BrailleDot -> onBrailleDot(key.action as KeyAction.BrailleDot)
+            KeyAction.MorseDot -> onMorseSignal(dash = false)
+            KeyAction.MorseDash -> onMorseSignal(dash = true)
             // A key carrying its own modifiers, so it fires with no latch.
             is KeyAction.SendKey -> sendShortcut(key, Modifiers.None)
             // Fire the user's broadcast; types nothing.
@@ -2436,6 +2467,77 @@ open class WMKeyboardService : InputMethodService() {
 
     private fun onTextKey(key: Key) {
         processTypedText(keyOutput(key, _uiState.value), applyDeadKeys = true)
+    }
+
+    /**
+     * One braille dot key event — the press when [KeyAction.BrailleDot.release]
+     * is false, the lift when true (the pointer handler synthesizes the lift as
+     * a copy; see the chord branch in the keyboard view). Dots gather on the
+     * way down; the cell decodes and commits when the last held finger lifts,
+     * which is what makes simultaneous "dots 1+4+5" one `d` and not three
+     * letters. Decoded text runs through [processTypedText] so it behaves
+     * exactly like typed text (word buffer, autospace, field intercepts);
+     * dead keys are skipped because braille has none.
+     */
+    private fun onBrailleDot(action: KeyAction.BrailleDot) {
+        if (!action.release) {
+            brailleChord.down(action.dot)
+            return
+        }
+        val cell = brailleChord.up() ?: return
+        val text = brailleGrade1.decode(cell)
+        if (text.isNotEmpty()) processTypedText(text, applyDeadKeys = false)
+    }
+
+    /**
+     * One morse signal. The sequence accumulates in [morse] and the decoded
+     * character commits after [MORSE_COMMIT_MS] of silence, Gboard's model;
+     * every signal restarts the pause. A non-morse key flushes the pending
+     * sequence first (see [onKey]) and backspace edits it (see [onDelete]),
+     * so the timer never races the user's next intent.
+     */
+    private fun onMorseSignal(dash: Boolean) {
+        morse.signal(dash)
+        _uiState.update { it.copy(morsePending = morse.display) }
+        morseJob?.cancel()
+        morseJob = serviceScope.launch {
+            delay(MORSE_COMMIT_MS)
+            commitMorse()
+        }
+    }
+
+    /**
+     * Decodes and commits the pending morse sequence. A sequence that spells
+     * nothing is dropped — a bad chord should cost its own letter, not poison
+     * the next one. Shift applies to the decoded letter the way it would to a
+     * typed one (the morse grid has no shift key, but autocapitalize and a
+     * hardware shift still arm it).
+     */
+    private fun commitMorse() {
+        morseJob?.cancel()
+        morseJob = null
+        val decoded = morse.take()
+        _uiState.update { it.copy(morsePending = "") }
+        if (decoded == null) return
+        val state = _uiState.value
+        val cased = if (state.shiftState != ShiftState.OFF) decoded.uppercase() else decoded
+        processTypedText(cased, applyDeadKeys = false)
+    }
+
+    /**
+     * Drops any half-typed chord or morse sequence: field switches, language
+     * or layout switches, and panels taking the keys out from under a chord
+     * all pass through here. Cheap enough to call unconditionally.
+     */
+    private fun resetChordInputs() {
+        brailleChord.reset()
+        brailleGrade1.reset()
+        morseJob?.cancel()
+        morseJob = null
+        if (morse.isPending) {
+            morse.reset()
+            _uiState.update { it.copy(morsePending = "") }
+        }
     }
 
     /**
@@ -2845,6 +2947,23 @@ open class WMKeyboardService : InputMethodService() {
     }
 
     private fun onDelete() {
+        // Backspace with a morse sequence pending edits the sequence, not the
+        // field — Gboard's contract. It only falls through to a real delete
+        // once the sequence is empty.
+        if (morse.isPending) {
+            morse.backspace()
+            _uiState.update { it.copy(morsePending = morse.display) }
+            morseJob?.cancel()
+            morseJob = if (morse.isPending) {
+                serviceScope.launch {
+                    delay(MORSE_COMMIT_MS)
+                    commitMorse()
+                }
+            } else {
+                null
+            }
+            return
+        }
         val state = _uiState.value
         // Backspace while handwritten ink is waiting for recognition throws
         // the ink away instead of deleting committed text — the natural
@@ -3542,6 +3661,9 @@ open class WMKeyboardService : InputMethodService() {
                 layoutMode = LayoutMode.LETTERS,
             )
         }
+        // A chord or morse sequence half-typed on the old layout must not leak
+        // into the new one (or worse, keep a dot counted as held forever).
+        resetChordInputs()
         refreshKarContext()
         // The handwriting model follows the input language; a switch while
         // the panel is open — or while writing on the keys — re-checks the new
@@ -4991,6 +5113,9 @@ open class WMKeyboardService : InputMethodService() {
         // Panels have their own key semantics — the panel would eat the
         // modified key — so a pending latch does not survive opening one.
         clearModifiers()
+        // Same for a half-typed braille chord or morse sequence: the panel
+        // takes the keys out from under it.
+        resetChordInputs()
         vibrate()
         // The settings app edits snippets in the same file; re-read on open.
         if (panel == PanelMode.SNIPPETS) snippetStore.reload()
@@ -8680,6 +8805,7 @@ open class WMKeyboardService : InputMethodService() {
                 composingPreview = "",
                 suggestions = emptyList(),
                 emojiSuggestions = emptyList(),
+                morsePending = "",
             )
         }
         refreshSuggestions()
@@ -10079,6 +10205,14 @@ open class WMKeyboardService : InputMethodService() {
          */
         private val AUTO_SPACE_PUNCTUATION = charArrayOf('.', '!', '?', '।', ',', ';', ':')
         private const val SHIFT_DOUBLE_TAP_MS = 350L
+
+        /**
+         * Silence after the last morse signal before the pending sequence
+         * commits as its decoded character. Gboard's default pace: long enough
+         * to finish a five-signal digit, short enough that typing doesn't feel
+         * like waiting for the keyboard.
+         */
+        private const val MORSE_COMMIT_MS = 750L
 
         /**
          * Quick-insert punctuation offered in the tail of the suggestion strip

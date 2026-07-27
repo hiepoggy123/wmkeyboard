@@ -33,6 +33,22 @@ enum class ScriptId {
     NKO, CANADIAN_ABORIGINAL_SYLLABICS,
     TIBETAN,
     OL_CHIKI, MEETEI_MAYEK,
+
+    /**
+     * Western musical notation: the Musical Symbols block (U+1D100..1D1FF) plus
+     * the BMP note/accidental characters (U+2669..266F). Not a writing system —
+     * a notation, offered like IPA. Uncased, no composer; its dedicated font
+     * ride is what matters, since device fonts rarely carry the SMP block.
+     */
+    MUSIC,
+
+    /**
+     * Braille patterns (U+2800..28FF). The six-key chorded layout types these —
+     * or rather the Grade-1 letters they decode to — so the script mostly
+     * exists to declare "uncased, no composer" and to pin a font that has the
+     * dot-cell glyphs for the keycaps.
+     */
+    BRAILLE,
 }
 
 /** Which way the script runs. Drives the suggestion strip's layout direction. */
@@ -440,6 +456,32 @@ object ScriptRegistry {
             composer = ComposerType.INDIC_CLUSTER,
             fontHint = FontHint.GENERIC,
             unicodeRange = 0xABC0..0xABFF,
+        ),
+        // Musical notation composes 1:1 — every key commits its symbol as-is,
+        // like IPA. The declared range is the Musical Symbols block; the layout
+        // also reaches the BMP note characters (U+2669..266F) outside it. The
+        // script's real job is the font: KeyboardFonts maps it to Noto Music,
+        // because device fonts rarely carry the SMP musical glyphs.
+        ScriptDef(
+            id = ScriptId.MUSIC,
+            direction = TextDirection.LTR,
+            hasLetterCase = false,
+            composer = ComposerType.NONE,
+            fontHint = FontHint.GENERIC,
+            unicodeRange = 0x1D100..0x1D1FF,
+        ),
+        // Braille is chorded, not tapped: the dot keys feed the chord engine in
+        // the service and the *decoded* Grade-1 text is what gets committed, so
+        // no composer runs. Uncased — capitals come from the dot-6 indicator
+        // cell, not a shift key. The range covers the Braille Patterns block
+        // the keycaps (and unknown-chord fallback commits) draw from.
+        ScriptDef(
+            id = ScriptId.BRAILLE,
+            direction = TextDirection.LTR,
+            hasLetterCase = false,
+            composer = ComposerType.NONE,
+            fontHint = FontHint.GENERIC,
+            unicodeRange = 0x2800..0x28FF,
         ),
     ).associateBy { it.id }
 

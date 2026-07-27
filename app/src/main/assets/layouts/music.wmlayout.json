@@ -1,0 +1,319 @@
+{
+  "format": "wmkeyboard-layout",
+  "version": 1,
+  "layout": {
+    "id": "asset_music",
+    "name": "♪ Music notation",
+    "langId": "music",
+    "version": 2,
+    "layers": {
+      "letters": {
+        "rows": [
+          [
+            {
+              "label": "𝅝"
+            },
+            {
+              "label": "𝅗𝅥"
+            },
+            {
+              "label": "𝅘𝅥"
+            },
+            {
+              "label": "𝅘𝅥𝅮"
+            },
+            {
+              "label": "𝅘𝅥𝅯"
+            },
+            {
+              "label": "𝅘𝅥𝅰"
+            },
+            {
+              "label": "♩"
+            },
+            {
+              "label": "♪"
+            },
+            {
+              "label": "♫"
+            },
+            {
+              "label": "♬"
+            }
+          ],
+          [
+            {
+              "label": "𝄻"
+            },
+            {
+              "label": "𝄼"
+            },
+            {
+              "label": "𝄽"
+            },
+            {
+              "label": "𝄾"
+            },
+            {
+              "label": "𝄿"
+            },
+            {
+              "label": "𝅀"
+            },
+            {
+              "label": "◌𝅭",
+              "output": "𝅭"
+            },
+            {
+              "label": "𝄞",
+              "longPress": [
+                "𝄚",
+                "𝄜"
+              ]
+            },
+            {
+              "label": "𝄢"
+            },
+            {
+              "label": "𝄡"
+            }
+          ],
+          [
+            {
+              "label": "Fn",
+              "action": {
+                "type": "fn"
+              }
+            },
+            {
+              "label": "♯",
+              "longPress": [
+                "𝄰",
+                "𝄱",
+                "𝄲"
+              ]
+            },
+            {
+              "label": "♭",
+              "longPress": [
+                "𝄳"
+              ]
+            },
+            {
+              "label": "♮"
+            },
+            {
+              "label": "𝄪"
+            },
+            {
+              "label": "𝄫"
+            },
+            {
+              "label": "𝄐",
+              "longPress": [
+                "𝄑"
+              ]
+            },
+            {
+              "label": "𝄀",
+              "longPress": [
+                "𝄁",
+                "𝄂"
+              ]
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              },
+              "width": 2
+            }
+          ],
+          [
+            {
+              "label": "?123",
+              "action": {
+                "type": "symbols"
+              },
+              "width": 1.5
+            },
+            {
+              "label": ",",
+              "role": "Comma",
+              "longPress": [
+                "𝄀",
+                "𝄁"
+              ]
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 4
+            },
+            {
+              "label": ".",
+              "role": "Period",
+              "longPress": [
+                "𝄂",
+                "…"
+              ]
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.5
+            }
+          ]
+        ]
+      },
+      "fn": {
+        "rows": [
+          [
+            {
+              "label": "𝆏"
+            },
+            {
+              "label": "𝆐"
+            },
+            {
+              "label": "𝆑"
+            },
+            {
+              "label": "𝆒"
+            },
+            {
+              "label": "𝆓"
+            },
+            {
+              "label": "𝆔"
+            },
+            {
+              "label": "𝆕"
+            },
+            {
+              "label": "𝆖"
+            },
+            {
+              "label": "𝆗"
+            },
+            {
+              "label": "𝆘"
+            }
+          ],
+          [
+            {
+              "label": "𝆙"
+            },
+            {
+              "label": "𝆚"
+            },
+            {
+              "label": "𝄋"
+            },
+            {
+              "label": "𝄌"
+            },
+            {
+              "label": "𝄉"
+            },
+            {
+              "label": "𝄊"
+            },
+            {
+              "label": "𝄒"
+            },
+            {
+              "label": "𝄓"
+            },
+            {
+              "label": "𝆮"
+            },
+            {
+              "label": "𝆯"
+            }
+          ],
+          [
+            {
+              "label": "𝄆"
+            },
+            {
+              "label": "𝄇"
+            },
+            {
+              "label": "𝄀"
+            },
+            {
+              "label": "𝄁"
+            },
+            {
+              "label": "𝄂"
+            },
+            {
+              "label": "𝄰"
+            },
+            {
+              "label": "𝄱"
+            },
+            {
+              "label": "𝄲"
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              },
+              "width": 2
+            }
+          ],
+          [
+            {
+              "label": "♪",
+              "action": {
+                "type": "letters"
+              },
+              "width": 1.5
+            },
+            {
+              "label": ",",
+              "role": "Comma"
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 4
+            },
+            {
+              "label": ".",
+              "role": "Period"
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.5
+            }
+          ]
+        ]
+      }
+    }
+  }
+}

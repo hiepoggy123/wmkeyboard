@@ -236,6 +236,16 @@ object AssetLayouts {
     /** International Phonetic Alphabet: a phonetic-notation layout, not a language. */
     const val IPA_ID = "asset_ipa"
 
+    // --- Notation layouts: like IPA, notations offered as pseudo-languages. ---
+    /** Western musical notation symbols, drawn with the Noto Music face. */
+    const val MUSIC_ID = "asset_music"
+
+    /** Six-key chorded braille: dot keys feed the service's chord engine. */
+    const val BRAILLE_CHORD_ID = "asset_braille_chord"
+
+    /** Morse code: dot/dash keys feed the service's timing engine. */
+    const val MORSE_ID = "asset_morse"
+
     const val VI_TELEX_ID = "asset_vi_telex"
     const val VI_VNI_ID = "asset_vi_vni"
     const val JA_ROMAJI_ID = "asset_ja_romaji"

@@ -1676,6 +1676,44 @@ object LanguageRegistry {
                 AssetLayouts.FANCY_UNDERLINE_ID,
             ),
         ),
+        // Western musical notation — a notation like IPA, not a language. The
+        // layout's keys commit the Musical Symbols block (SMP) plus the BMP
+        // note characters; ScriptId.MUSIC exists chiefly to pin the Noto Music
+        // face, since device fonts rarely carry U+1D100.. glyphs. Primary
+        // subtag "mul" so the locale tag parses; "-x-music" keeps it distinct
+        // from the other "mul" pseudo-languages for the OS subtype list.
+        LanguageDef(
+            id = "music",
+            displayName = "♪ · Music notation",
+            englishName = "Music notation",
+            script = ScriptId.MUSIC,
+            localeTag = "mul-x-music",
+            layoutIds = listOf(AssetLayouts.MUSIC_ID),
+        ),
+        // Six-key chorded braille. The dot keys chord through the service's
+        // braille engine and commit decoded Grade-1 text (letters, digits,
+        // punctuation) — or the raw U+2800-block cell when the chord doesn't
+        // decode. "Brai" is the BCP-47 script subtag for braille.
+        LanguageDef(
+            id = "braille",
+            displayName = "⠃⠗⠇ · Braille",
+            englishName = "Braille (6-key chord)",
+            script = ScriptId.BRAILLE,
+            localeTag = "mul-Brai",
+            layoutIds = listOf(AssetLayouts.BRAILLE_CHORD_ID),
+        ),
+        // Morse code, Gboard-style: dot/dash keys accumulate a sequence and the
+        // decoded character commits after a pause. It types Latin text, so it
+        // rides the Latin script (autocapitalize and shift-case behave), but
+        // ships no dictionary or gesture lexicon.
+        LanguageDef(
+            id = "morse",
+            displayName = "· − · Morse code",
+            englishName = "Morse code",
+            script = ScriptId.LATIN,
+            localeTag = "mul-x-morse",
+            layoutIds = listOf(AssetLayouts.MORSE_ID),
+        ),
         // Bengali-script reuse: same alphabet/keymap family as Bengali (bn) itself.
         LanguageDef(
             id = "as",

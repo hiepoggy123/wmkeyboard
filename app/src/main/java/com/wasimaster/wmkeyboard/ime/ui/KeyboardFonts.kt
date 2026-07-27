@@ -88,6 +88,13 @@ object KeyboardFonts {
         ScriptId.HANGUL to "Noto Sans KR",
         ScriptId.JAPANESE to "Noto Sans JP",
         ScriptId.HAN to "Noto Sans SC",
+        // Notations rather than languages, but the same problem: device fonts
+        // rarely carry the SMP Musical Symbols block, and braille dot-cells
+        // deserve a face that has all 256 patterns. Missing glyphs still fall
+        // back to the system font per-glyph, so a GMS-less device degrades to
+        // whatever coverage it has rather than blank keys.
+        ScriptId.MUSIC to "Noto Music",
+        ScriptId.BRAILLE to "Noto Sans Symbols 2",
     )
 
     /**
