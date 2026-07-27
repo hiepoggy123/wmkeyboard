@@ -243,6 +243,10 @@ fun themeFromSeed(id: String, name: String, seed: Long, dark: Boolean): ThemeSpe
 /**
  * Built-in gallery themes. Users can't edit these in place — the editor
  * duplicates one into a custom theme instead — so ids stay stable.
+ *
+ * [PaletteThemes] (ports of well-known editor colour schemes) are appended
+ * rather than inlined: they are transcriptions of external palettes with
+ * their own attribution rules, so they live in their own file.
  */
 val BuiltInThemes: List<ThemeSpec> = listOf(
     themeFromSeed("builtin_ocean", "Ocean", 0xFF3B82C4, dark = true),
@@ -346,7 +350,7 @@ val BuiltInThemes: List<ThemeSpec> = listOf(
         keyBorderColor = 0x338A94A6,
         keyBorderWidthDp = 1f,
     ),
-)
+) + PaletteThemes
 
 /** Seed swatches offered by the editor's "start from a color" row. */
 val SeedSwatches: List<Long> = listOf(

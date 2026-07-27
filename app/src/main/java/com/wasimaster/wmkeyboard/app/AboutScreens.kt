@@ -222,6 +222,15 @@ private val bundledAttributions: List<Attribution> = buildList {
     )
     add(
         Attribution(
+            "Editor colour palettes",
+            "Built-in themes: Dracula, Nord, Solarized, Catppuccin, Tokyo Night",
+            "Copyright the respective theme authors",
+            "MIT", "mit-color-themes.txt",
+            "https://github.com/dracula/dracula-theme",
+        ),
+    )
+    add(
+        Attribution(
             "Google Fonts",
             "Keyboard typefaces, downloaded on demand by the system",
             "Copyright the respective font authors",
