@@ -31,7 +31,10 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material.icons.outlined.FileOpen
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.wasimaster.wmkeyboard.BuildConfig
+import com.wasimaster.wmkeyboard.core.addons.AddonStore
+import com.wasimaster.wmkeyboard.core.addons.AddonType
 import com.wasimaster.wmkeyboard.core.layout.ImportedLayout
 import com.wasimaster.wmkeyboard.core.layout.LayoutFile
 import kotlinx.coroutines.Dispatchers
@@ -192,6 +195,16 @@ internal fun KeyLayoutsScreen(
     val shippedIds = remember(layouts) {
         (BuiltInLayouts.all + AssetLayouts.all).mapTo(HashSet()) { it.id }
     }
+    // Layouts that arrived from an addon repository rather than from this
+    // screen. They live under Languages → Your layouts, which is where the
+    // switch that turns one on is, and are removed from the Addons screen.
+    val addonStore = remember { AddonStore.get(context) }
+    val addonRevision by addonStore.revision.collectAsStateWithLifecycle()
+    val addonLayoutIds = remember(addonRevision) {
+        addonStore.installed().values
+            .filter { it.type == AddonType.Layout }
+            .mapTo(HashSet()) { it.localRef }
+    }
 
     CaptionText(
         "A layout is a key grid. It types the language of the layout it is based on, " +
@@ -219,9 +232,15 @@ internal fun KeyLayoutsScreen(
         // Only enabled layouts are listed: this page manages the grids you
         // actually type with, not the whole registry. Enable others under
         // Languages first and they appear here.
+        //
+        // Addon layouts are left out entirely. This group is "grids you made",
+        // and an installed one is neither made here nor managed here — it is
+        // switched on under Languages and removed from Addons, and editing it
+        // would only produce changes the next update silently discards.
         val customs = layouts.filter {
             it.id in customIds &&
                 it.id !in shippedIds &&
+                it.id !in addonLayoutIds &&
                 it.id in settings.enabledLayoutIds
         }
         if (customs.isEmpty()) {

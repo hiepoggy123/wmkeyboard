@@ -40,6 +40,10 @@ import java.util.zip.GZIPInputStream
  *
  * Every branch records a `localRef` — whatever handle the importer produced —
  * so [uninstall] can reverse precisely that one install and nothing else.
+ *
+ * Nothing here *selects* what it installs. Putting a theme on the device and
+ * wearing it are two decisions, and only the first one was asked for; the
+ * second is [AddonApply]'s, offered as a question once the file has landed.
  */
 object AddonInstaller {
 
@@ -100,12 +104,10 @@ object AddonInstaller {
     /**
      * Installs a `.wmplugin`.
      *
-     * Nothing is applied and nothing runs: the script lands on disk and waits
-     * for the user to open it from the Plugins panel. Every other single-slot
-     * type switches to the thing just installed, because a sound that installs
-     * without the keyboard making it reads as an install that did nothing —
-     * but "apply" for code would mean "execute", which is not a thing an
-     * install should ever do on its own.
+     * Nothing runs: the script lands on disk and, unlike a plugin opened from a
+     * local file, lands switched *off*. "Apply" for code would mean "execute",
+     * which is not a thing an install should do on its own — so the plugin does
+     * not even appear in the panel until the user says yes to [AddonApply].
      */
     private fun installPlugin(context: Context, payload: File): Outcome {
         val store = PluginStore.get(context)
@@ -116,7 +118,13 @@ object AddonInstaller {
             return Outcome.Rejected("Turn on plugins in Settings before installing one")
         }
         return when (val result = payload.inputStream().use { PluginFile.import(it, store) }) {
-            is PluginImportResult.Imported -> Outcome.Installed(result.plugin.id)
+            is PluginImportResult.Imported -> {
+                // PluginFile.import adopts a plugin enabled, which is right for
+                // a file the user opened by hand and wrong for one that arrived
+                // from a repository — that one is offered, not switched on.
+                store.setEnabled(result.plugin.id, false)
+                Outcome.Installed(result.plugin.id)
+            }
             is PluginImportResult.Rejected -> Outcome.Rejected(result.reason)
             PluginImportResult.NotAPlugin -> Outcome.Rejected("That file isn't a WM Keyboard plugin")
             PluginImportResult.TooManyPlugins ->
@@ -137,12 +145,9 @@ object AddonInstaller {
         // any absolute path the file arrived with — a theme must never point
         // at a file outside our own storage.
         val stored = theme.copy(id = id).withExtractedImages(themeImagesDir(context))
-        val repository = SettingsRepository(context)
-        repository.upsertCustomTheme(stored)
-        // Switch to it, the same as opening a .wmtheme.json file does. A theme
-        // that installs without changing anything visible reads as an install
-        // that didn't work.
-        repository.setKeyboardThemeId(id)
+        SettingsRepository(context).upsertCustomTheme(stored)
+        // Added to the gallery, not worn: browsing a repository must not repaint
+        // the keyboard behind the user's back. AddonApply offers the switch.
         return Outcome.Installed(id)
     }
 
@@ -228,16 +233,11 @@ object AddonInstaller {
         }
     }
 
-    private suspend fun installIconPack(context: Context, payload: File): Outcome {
+    private fun installIconPack(context: Context, payload: File): Outcome {
         val store = IconPackStore.get(context)
         return when (val result = payload.inputStream().use { IconPackFile.import(it, store) }) {
-            is IconImportResult.Imported -> {
-                // Installing an icon pack and not switching to it would look
-                // like nothing happened; the keyboard's glyphs are the whole
-                // visible result.
-                SettingsRepository(context).setIconPack(result.pack.id)
+            is IconImportResult.Imported ->
                 Outcome.Installed(result.pack.id, result.repairs)
-            }
             IconImportResult.NotAnIconPack -> Outcome.Rejected("That file isn't an icon pack")
             IconImportResult.TooManyPacks ->
                 Outcome.Rejected("You've reached the maximum number of icon packs")
@@ -255,7 +255,7 @@ object AddonInstaller {
 
     // ---- fonts & sounds --------------------------------------------------
 
-    private suspend fun installFont(
+    private fun installFont(
         context: Context,
         entry: AddonEntry,
         payload: File,
@@ -274,18 +274,10 @@ object AddonInstaller {
             )
         }
         return when (result) {
-            is FontImportResult.Imported -> {
-                // An emoji font applies on install, like a theme or an icon
-                // pack: it is a single global choice with one obvious slot, so
-                // installing without switching would read as nothing happening.
-                // Text faces don't — there are several pickers they could go in
-                // (English, Bengali, per-script) and guessing wrong is worse
-                // than letting the user pick.
-                if (emoji) {
-                    SettingsRepository(context).setInstalledEmojiFont(result.font.id)
-                }
-                Outcome.Installed(result.font.id)
-            }
+            // An emoji font has one obvious slot and a text face has several
+            // (English, Bengali, per-script), but neither is filled here: the
+            // font joins the library, and AddonApply asks about the emoji slot.
+            is FontImportResult.Imported -> Outcome.Installed(result.font.id)
             is FontImportResult.NotAFont -> Outcome.Rejected(result.message)
             FontImportResult.TooManyFonts ->
                 Outcome.Rejected("You've reached the maximum number of installed fonts")
@@ -307,7 +299,7 @@ object AddonInstaller {
         SettingsRepository(context).forgetInstalledEmojiFont(fontId)
     }
 
-    private suspend fun installSound(context: Context, entry: AddonEntry, payload: File): Outcome {
+    private fun installSound(context: Context, entry: AddonEntry, payload: File): Outcome {
         val store = SoundStore.get(context)
         val result = payload.inputStream().use {
             SoundFile.import(
@@ -319,15 +311,9 @@ object AddonInstaller {
             )
         }
         return when (result) {
-            is SoundImportResult.Imported -> {
-                // Applies on install, like a theme, an icon pack or an emoji
-                // font: the key sound is a single global slot, and a sound that
-                // installs without the keyboard ever making it reads as an
-                // install that did nothing. setKeySoundCustomId also flips the
-                // style to CUSTOM, which is what actually makes it audible.
-                SettingsRepository(context).setKeySoundCustomId(result.sound.id)
-                Outcome.Installed(result.sound.id)
-            }
+            // Added to the sound library and silent until chosen. Installing a
+            // sound is not consent for the keyboard to start making it.
+            is SoundImportResult.Imported -> Outcome.Installed(result.sound.id)
             is SoundImportResult.NotASound -> Outcome.Rejected(result.message)
             SoundImportResult.TooManySounds ->
                 Outcome.Rejected("You've reached the maximum number of installed key sounds")

@@ -8,6 +8,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -68,6 +69,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -76,6 +78,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.isSpecified
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.layout.ContentScale
@@ -93,6 +96,7 @@ import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import com.wasimaster.wmkeyboard.BuildConfig
+import com.wasimaster.wmkeyboard.core.addons.AddonApply
 import com.wasimaster.wmkeyboard.core.addons.AddonDownloadManager
 import com.wasimaster.wmkeyboard.core.addons.AddonEntry
 import com.wasimaster.wmkeyboard.core.addons.AddonPreviewContent
@@ -298,6 +302,8 @@ internal fun AddonsScreen(prefillUrl: String = "", onNavigate: (String) -> Unit)
         )
     }
 
+    AddonApplyPrompt()
+
     CaptionText(
         "Addon repositories are ordinary web pages listing themes, layouts, " +
             "dictionaries, snippets, sticker packs, icon packs, fonts, emoji " +
@@ -376,6 +382,48 @@ internal fun AddonsScreen(prefillUrl: String = "", onNavigate: (String) -> Unit)
     }
 
     Spacer(Modifier.height(16.dp))
+}
+
+/**
+ * "Installed. Switch to it?" — asked once, after the install lands.
+ *
+ * Installing used to apply as it went, so browsing a repository and tapping the
+ * download arrow on three themes left the user wearing the third one. The two
+ * decisions are now separate (see [com.wasimaster.wmkeyboard.core.addons.AddonApply]),
+ * and this is where the second one is put to them.
+ *
+ * Every addon screen shows it, because the install outlives the screen that
+ * started it: the download arrow on a catalogue card keeps working while the
+ * user walks to the addon's own page or back to the repository list. Only one
+ * of these screens is ever composed at a time, so only one dialog appears.
+ */
+@Composable
+private fun AddonApplyPrompt() {
+    val context = LocalContext.current
+    val pending by AddonDownloadManager.pendingApply.collectAsStateWithLifecycle()
+    val ask = pending ?: return
+
+    AlertDialog(
+        onDismissRequest = { AddonDownloadManager.clearPendingApply() },
+        title = {
+            Text(
+                "Installed ${ask.record.name.ifBlank { ask.record.type.singularLabel.lowercase() }}",
+            )
+        },
+        text = { Text(ask.question) },
+        confirmButton = {
+            TextButton(
+                // Applied on the download manager's own scope rather than this
+                // composable's: answering the question is what removes the
+                // dialog, and a scope that dies with it would cancel the write
+                // it was asked to make.
+                onClick = { AddonDownloadManager.applyPending(context) },
+            ) { Text(AddonApply.confirmLabel(ask.record.type)) }
+        },
+        dismissButton = {
+            TextButton(onClick = { AddonDownloadManager.clearPendingApply() }) { Text("Not now") }
+        },
+    )
 }
 
 @Composable
@@ -620,6 +668,7 @@ internal fun AddonRepoScreen(manifestUrl: String, onNavigate: (String) -> Unit) 
             if (row.size == 1) Spacer(Modifier.weight(1f))
         }
     }
+    AddonApplyPrompt()
     Spacer(Modifier.height(16.dp))
 }
 
@@ -631,6 +680,21 @@ private fun AddonEntry.matches(query: String): Boolean {
         author.contains(needle, ignoreCase = true) ||
         tags.any { it.contains(needle, ignoreCase = true) }
 }
+
+/**
+ * How tall and how wide a catalogue card's screenshot is allowed to make it,
+ * as width ÷ height.
+ *
+ * [MIN_PREVIEW_RATIO] is the tall end: a whole-phone screenshot is around 0.46
+ * and, in a two-column grid, a card of that shape is most of a screen for one
+ * addon. [MAX_PREVIEW_RATIO] is the short end, where a keyboard-only strip runs
+ * past 2.5 and the card degenerates into a letterbox with a caption.
+ */
+private const val MIN_PREVIEW_RATIO = 0.62f
+private const val MAX_PREVIEW_RATIO = 2.2f
+
+/** Used until the image reports its own size, and for the glyph placeholder. */
+private const val DEFAULT_PREVIEW_RATIO = 4f / 3f
 
 /**
  * One addon in the catalogue grid: its first screenshot (or its type's glyph
@@ -661,10 +725,17 @@ private fun AddonCard(
             .clickable(onClick = onClick)
             .padding(6.dp),
     ) {
+        // The card's shape follows its screenshot instead of forcing every one
+        // into the same box. A theme is usually shot as a whole phone screen
+        // and a sticker pack as a wide strip; cropping both to 4:3 threw away
+        // the half of each that said what it was. Clamped at both ends so one
+        // extreme picture can't own the whole column — past the clamp the image
+        // letterboxes against the card's tint rather than being cut.
+        var ratio by remember(preview) { mutableFloatStateOf(DEFAULT_PREVIEW_RATIO) }
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .aspectRatio(4f / 3f)
+                .aspectRatio(ratio)
                 .clip(RoundedCornerShape(10.dp))
                 .background(tint.copy(alpha = 0.12f)),
             contentAlignment = Alignment.Center,
@@ -674,7 +745,15 @@ private fun AddonCard(
                     model = preview,
                     contentDescription = null,
                     imageLoader = rememberMediaImageLoader(),
-                    contentScale = ContentScale.Crop,
+                    contentScale = ContentScale.Fit,
+                    onSuccess = { state ->
+                        state.painter.intrinsicSize.takeIf { it.isSpecified }?.let { size ->
+                            if (size.width > 0f && size.height > 0f) {
+                                ratio = (size.width / size.height)
+                                    .coerceIn(MIN_PREVIEW_RATIO, MAX_PREVIEW_RATIO)
+                            }
+                        }
+                    },
                     modifier = Modifier.fillMaxSize(),
                 )
             } else {
@@ -808,7 +887,11 @@ private fun StatusBadge(
 private val AddonType.settingsRoute: String
     get() = when (this) {
         AddonType.Theme -> "themes"
-        AddonType.Layout -> "keymaps"
+        // Languages, not Key layouts. An installed layout arrives switched off,
+        // and the switch that turns it on lives under Languages → Your layouts;
+        // Key layouts lists only layouts that are already on, so sending
+        // someone there to enable one would show them an empty section.
+        AddonType.Layout -> "languages"
         AddonType.Dictionary -> "customdictionaries"
         AddonType.Snippets -> "tool/SNIPPETS"
         AddonType.Stickers -> "sticker_packs"
@@ -828,13 +911,15 @@ private val AddonType.settingsRoute: String
  * the emoji font sits a third of the way down it. Naming the control scrolls to
  * it and flashes it, exactly as picking a search result does.
  *
- * Null where the screen *is* the control — the themes gallery and the layout
- * list are nothing but the choice, so there is nothing to single out.
+ * Null where the screen *is* the control — the themes gallery is nothing but
+ * the choice, so there is nothing to single out.
  */
 private val AddonType.settingsAnchor: String?
     get() = when (this) {
         AddonType.Theme -> null
-        AddonType.Layout -> null
+        // Languages is a long screen and the layout switches are two thirds of
+        // the way down it, under the languages themselves.
+        AddonType.Layout -> "Your layouts"
         AddonType.Dictionary -> null
         AddonType.Snippets -> null
         AddonType.Stickers -> "Your packs"
@@ -861,7 +946,7 @@ private fun AddonType.openSettings(onNavigate: (String) -> Unit) {
 private val AddonType.useLabel: String
     get() = when (this) {
         AddonType.Theme -> "Themes"
-        AddonType.Layout -> "Key layouts"
+        AddonType.Layout -> "Languages"
         AddonType.Dictionary -> "Custom dictionaries"
         AddonType.Snippets -> "Snippets"
         AddonType.Stickers -> "Sticker packs"
@@ -933,28 +1018,7 @@ internal fun AddonDetailScreen(
     val previews = remember(entry, manifestUrl) {
         entry.previews.mapNotNull { AddonRepoCodec.resolveAsset(manifestUrl, it) }
     }
-    if (previews.isNotEmpty()) {
-        val loader = rememberMediaImageLoader()
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            for (url in previews) {
-                AsyncImage(
-                    model = url,
-                    contentDescription = null,
-                    imageLoader = loader,
-                    contentScale = ContentScale.Fit,
-                    modifier = Modifier
-                        .height(220.dp)
-                        .clip(RoundedCornerShape(12.dp)),
-                )
-            }
-        }
-    }
+    PreviewGallery(previews)
 
     val tint = tintFor(entry.type)
     Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
@@ -1049,7 +1113,89 @@ internal fun AddonDetailScreen(
         onNavigate = onNavigate,
     )
 
+    AddonApplyPrompt()
     Spacer(Modifier.height(24.dp))
+}
+
+/** Height a lone screenshot may not exceed, so the addon's name stays on screen. */
+private val SINGLE_PREVIEW_MAX_HEIGHT = 340.dp
+
+/** Height of the strip when there is more than one screenshot to scroll through. */
+private val PREVIEW_STRIP_HEIGHT = 220.dp
+
+/**
+ * The addon's screenshots, above everything else on its page, and the way into
+ * the full-screen viewer.
+ *
+ * A single screenshot is given the width of the page rather than the strip's
+ * fixed height: one image in a scrolling row of one looks like a strip that
+ * failed to load the rest, and most addons ship exactly one. It is still capped
+ * — a whole-phone screenshot allowed to fill the width would be taller than the
+ * screen and push the addon's own name below the fold, so past the cap it keeps
+ * [SINGLE_PREVIEW_MAX_HEIGHT] and centres instead.
+ */
+@Composable
+private fun PreviewGallery(previews: List<String>) {
+    if (previews.isEmpty()) return
+    val loader = rememberMediaImageLoader()
+    var viewing by remember(previews) { mutableStateOf(-1) }
+
+    if (previews.size == 1) {
+        val url = previews.first()
+        var ratio by remember(url) { mutableFloatStateOf(0f) }
+        BoxWithConstraints(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            val height = if (ratio > 0f) {
+                minOf(maxWidth / ratio, SINGLE_PREVIEW_MAX_HEIGHT)
+            } else {
+                PREVIEW_STRIP_HEIGHT
+            }
+            AsyncImage(
+                model = url,
+                contentDescription = "Screenshot",
+                imageLoader = loader,
+                contentScale = ContentScale.Fit,
+                onSuccess = { state ->
+                    state.painter.intrinsicSize.takeIf { it.isSpecified }?.let { size ->
+                        if (size.width > 0f && size.height > 0f) ratio = size.width / size.height
+                    }
+                },
+                modifier = Modifier
+                    .height(height)
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable { viewing = 0 },
+            )
+        }
+    } else {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            previews.forEachIndexed { index, url ->
+                AsyncImage(
+                    model = url,
+                    contentDescription = "Screenshot ${index + 1}",
+                    imageLoader = loader,
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier
+                        .height(PREVIEW_STRIP_HEIGHT)
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable { viewing = index },
+                )
+            }
+        }
+    }
+
+    if (viewing >= 0) {
+        ImageViewerDialog(previews, viewing) { viewing = -1 }
+    }
 }
 
 /**

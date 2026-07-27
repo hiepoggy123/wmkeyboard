@@ -106,18 +106,30 @@ were built as part of this work — the rows are marked.
 | `dictionary` | `CustomDictionaries.import(filesDir, langId, name, stream)` — validates ≥1 word, 32 MiB cap. Guard: `langId` must exist in `LanguageRegistry` (else surface a clear "unsupported language" error). |
 | `snippets` | **new** `SnippetFile.decode` (the `.wmsnippets.json` codec was specified but never written) → for each entry `SnippetStore.add(label, text, trigger)`, ids reassigned. The same codec gives the app snippet export/import, so anything a repo can ship the app can also produce. |
 | `stickers` | `StickerPackFile.import(input, store)` — extracts `*.wmstickers` ZIP archive, validates `wmkeyboard-stickers` envelope in `pack.json`, normalizes images to app-private sticker storage, and registers pack in `StickerPackStore`. |
-| `icon_pack` | `IconPackFile.import(input, store)` — extracts `*.wmicons`, validates the `wmkeyboard-icons` envelope in `pack.json`, keeps every entry naming a slot `IconSlots` knows (parsing each SVG to prove it renders), and registers the pack in `IconPackStore`. Then `SettingsRepository.setIconPack(id)` to switch to it. |
+| `icon_pack` | `IconPackFile.import(input, store)` — extracts `*.wmicons`, validates the `wmkeyboard-icons` envelope in `pack.json`, keeps every entry naming a slot `IconSlots` knows (parsing each SVG to prove it renders), and registers the pack in `IconPackStore`. |
 | `font` | **new subsystem.** The app had three fixed custom-font slots, each overwritten on import, so a *library* of installed fonts had to be built first: `FontStore` (`filesDir/fonts/installed/`, `fonts.json` index, 50-font cap) + `FontFile.import(stream, store, name)` validating the sfnt magic and proving the face actually loads. `KeyboardFonts` resolves an `installed:<id>` font id through the store, so installed faces appear in the font picker beside the Google Fonts. |
-| `emoji_font` | Same `FontFile.import` as `font`, flagged `emoji = true` in the store. Kept a separate type because it is chosen somewhere else entirely — `EmojiFontChoice.INSTALLED` under Emoji settings, not the key-label pickers — and because a colour emoji font on the key labels is not a choice anyone makes on purpose. There is exactly one emoji slot, so installing one **switches to it**, the way a theme or an icon pack does. |
+| `emoji_font` | Same `FontFile.import` as `font`, flagged `emoji = true` in the store. Kept a separate type because it is chosen somewhere else entirely — `EmojiFontChoice.INSTALLED` under Emoji settings, not the key-label pickers — and because a colour emoji font on the key labels is not a choice anyone makes on purpose. There is exactly one emoji slot, which `AddonApply` offers to fill once the font has landed. |
 | `sound` | **new subsystem.** Key sounds were five synthesised waveforms behind a `KeySoundStyle` enum with no import path at all. Adds a `CUSTOM` style, `SoundStore` (`filesDir/keysounds/`, `sounds.json`, 30-sound cap) and `SoundFile.import(stream, store, name)` validating the MPEG frame header; `KeySoundPlayer` loads the chosen file into its `SoundPool` instead of a synthesised buffer. |
 
 Record the result in `installed_addons`. Uninstall reverses the local action
 (`deleteCustomTheme` / `deleteCustomLayout` / delete the dict file / remove snippets / delete sticker pack / etc.).
 
-Installing puts the payload on the device; for most types *choosing* it is a second step on
-another screen, so the detail page offers **Use**, which navigates to whichever settings screen
-owns that type (`themes`, `keymaps`, `customdictionaries`, `tool/SNIPPETS`, `sticker_packs`,
-`icons`, `fonts`, `emoji`, `keypress`).
+Installing puts the payload on the device and stops there. Nothing is selected, switched to or
+turned on: browsing a repository and tapping the download arrow on three themes must not leave
+the user wearing the third one. `AddonApply` asks instead — the types with one obvious slot
+(`theme`, `icon_pack`, `emoji_font`, `sound`, `layout`, `plugin`) raise a one-question dialog the
+moment the install lands, and the rest have nothing to ask about, being either live already
+(`dictionary`, `snippets`, `stickers`) or bound for a picker with several slots (`font`).
+
+Updating is the exception: an addon that *was* the active theme, sound or layout is re-selected
+under its new local id without asking, because every importer mints a fresh id and the user never
+revoked the choice.
+
+Separately, the detail page offers **Use**, which navigates to whichever settings screen owns
+that type (`themes`, `languages`, `customdictionaries`, `tool/SNIPPETS`, `sticker_packs`,
+`icons`, `fonts`, `emoji`, `keypress`, `plugins`). Layouts go to Languages rather than Key
+layouts: an installed layout arrives switched off, and the switch that turns it on is under
+Languages → Your layouts, while Key layouts lists only layouts that are already on.
 
 ### Reconciliation
 
@@ -197,9 +209,9 @@ Rules this type does not share with the others:
 
 - **`sha256` is required**, not optional. The app refuses to install code it
   cannot verify; "unverified" is not a state a plugin gets to be in.
-- **Nothing is applied on install.** Every other single-slot type switches to
-  what was just installed; for code, "apply" would mean "execute", which is not
-  a decision an install makes on the user's behalf.
+- **It lands switched off**, unlike a `.wmplugin` the user opened from a file.
+  No type is applied on install, but for code "apply" would mean "execute", so
+  this one does not even appear in the plugins panel until the user says yes.
 - **The subsystem is off by default.** Nothing installs or runs until the user
   turns plugins on.
 - **The preview is a capability list**, shown before Install and built from the

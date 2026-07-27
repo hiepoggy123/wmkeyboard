@@ -105,6 +105,39 @@ object AddonDownloadManager {
     /** `"<repoId>/<addonId>"` -> status, for every addon the UI has looked at. */
     val states: StateFlow<Map<String, AddonStatus>> = _states.asStateFlow()
 
+    /**
+     * A freshly installed addon that has a slot it could fill, waiting on the
+     * user's answer. See [AddonApply] for why installing no longer fills it.
+     */
+    data class PendingApply(val key: String, val record: InstalledAddon, val question: String)
+
+    private val _pendingApply = MutableStateFlow<PendingApply?>(null)
+
+    /**
+     * Held here rather than in the screen that started the install, because the
+     * install outlives the screen: tapping the download arrow on a catalogue
+     * card and opening the addon's page while it transfers must not lose the
+     * question. Whichever addon screen is on top when it lands asks it.
+     */
+    val pendingApply: StateFlow<PendingApply?> = _pendingApply.asStateFlow()
+
+    /** Answers [pendingApply] with "no", or clears one already acted on. */
+    fun clearPendingApply() {
+        _pendingApply.value = null
+    }
+
+    /**
+     * Answers [pendingApply] with "yes". Runs on this object's scope rather
+     * than the caller's, because the dialog asking the question is dismissed by
+     * the same tap and would take a UI-scoped write down with it.
+     */
+    fun applyPending(context: Context) {
+        val pending = _pendingApply.value ?: return
+        _pendingApply.value = null
+        val appContext = context.applicationContext
+        scope.launch { AddonApply.apply(appContext, pending.record) }
+    }
+
     val isBusy: Boolean get() = activeJob?.isActive == true
 
     // ---- manifests -----------------------------------------------------
@@ -290,6 +323,10 @@ object AddonDownloadManager {
                 // payload is downloaded and verified, so a failed update leaves
                 // the working version in place.
                 val previous = store.installed(key)
+                // Asked before the old copy is removed: every importer mints a
+                // fresh local id, so after the swap there is nothing left to
+                // compare the user's active theme (or sound, or layout) against.
+                val wasActive = previous != null && AddonApply.isActive(appContext, previous)
                 if (previous != null) {
                     AddonInstaller.uninstall(appContext, previous)
                 }
@@ -298,20 +335,29 @@ object AddonDownloadManager {
 
                 when (outcome) {
                     is AddonInstaller.Outcome.Installed -> {
-                        store.markInstalled(
-                            key,
-                            InstalledAddon(
-                                version = entry.version,
-                                type = entry.type,
-                                localRef = outcome.localRef,
-                                installedAt = System.currentTimeMillis(),
-                                name = entry.name,
-                                repoName = repo.name,
-                                manifestUrl = manifestUrl,
-                                description = entry.description,
-                                author = entry.author,
-                            ),
+                        val record = InstalledAddon(
+                            version = entry.version,
+                            type = entry.type,
+                            localRef = outcome.localRef,
+                            installedAt = System.currentTimeMillis(),
+                            name = entry.name,
+                            repoName = repo.name,
+                            manifestUrl = manifestUrl,
+                            description = entry.description,
+                            author = entry.author,
                         )
+                        store.markInstalled(key, record)
+                        val question = AddonApply.question(entry.type)
+                        when {
+                            // An update of the thing the user was already using
+                            // re-selects itself under its new id. Asking here
+                            // would be asking them to re-confirm a choice they
+                            // never revoked — and saying no would look like the
+                            // update had uninstalled their theme.
+                            wasActive -> AddonApply.apply(appContext, record)
+                            question != null && previous == null ->
+                                _pendingApply.value = PendingApply(key, record, question)
+                        }
                         set(key, AddonStatus.Installed(entry.version))
                     }
                     is AddonInstaller.Outcome.Rejected -> {
@@ -354,6 +400,8 @@ object AddonDownloadManager {
             AddonInstaller.uninstall(context.applicationContext, record)
         }
         store.markUninstalled(key)
+        // "Switch to it?" about something that is no longer installed.
+        if (_pendingApply.value?.key == key) clearPendingApply()
         set(key, entry?.let { statusFor(null, it) } ?: AddonStatus.NotInstalled)
     }
 
