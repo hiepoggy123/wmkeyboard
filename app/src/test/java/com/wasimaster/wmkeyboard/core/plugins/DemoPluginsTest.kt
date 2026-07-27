@@ -81,7 +81,11 @@ class DemoPluginsTest {
                     is PluginWidget.Column -> walk(widget.children)
                     is PluginWidget.Row -> walk(widget.children)
                     is PluginWidget.Tabs -> widget.pages.forEach { walk(it.children) }
-                    else -> Unit
+                    is PluginWidget.Input,
+                    is PluginWidget.Spacer,
+                    PluginWidget.Divider,
+                    PluginWidget.Progress,
+                    -> Unit
                 }
             }
         }
@@ -246,7 +250,15 @@ class DemoPluginsTest {
                     is PluginWidget.Column -> walk(widget.children)
                     is PluginWidget.Row -> walk(widget.children)
                     is PluginWidget.Tabs -> widget.pages.forEach { walk(it.children) }
-                    else -> Unit
+                    is PluginWidget.Label,
+                    is PluginWidget.Output,
+                    is PluginWidget.Button,
+                    is PluginWidget.Toggle,
+                    is PluginWidget.Input,
+                    is PluginWidget.Spacer,
+                    PluginWidget.Divider,
+                    PluginWidget.Progress,
+                    -> Unit
                 }
             }
         }
@@ -287,7 +299,14 @@ class DemoPluginsTest {
                     is PluginWidget.Column -> walk(widget.children)
                     is PluginWidget.Row -> walk(widget.children)
                     is PluginWidget.Tabs -> widget.pages.forEach { walk(it.children) }
-                    else -> Unit
+                    is PluginWidget.Label,
+                    is PluginWidget.Button,
+                    is PluginWidget.Toggle,
+                    is PluginWidget.Input,
+                    is PluginWidget.Spacer,
+                    PluginWidget.Divider,
+                    PluginWidget.Progress,
+                    -> Unit
                 }
             }
         }
