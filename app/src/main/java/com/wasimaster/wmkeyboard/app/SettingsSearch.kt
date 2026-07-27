@@ -401,6 +401,7 @@ private val SectionRows: List<SettingsSearchEntry> = listOf(
     entry("Keyboard modes", "Per-app setups: email, browser, coding, passwords", "Settings", "modes"),
     entry("Emoji", "Suggestions, emoji row, emoji style, favourites", "Settings", "emoji"),
     entry("Tools", "Flashlight, compass, snippets, calendar & more", "Settings", "tools"),
+    entry("Addons", "Install themes, layouts, fonts and more from the web", "Settings", "addons"),
     entry("Accessibility", "Contrast, colour vision, TalkBack, reduced motion", "Settings", "accessibility"),
     entry("Privacy", "On-device learning, incognito", "Settings", "privacy"),
     entry("Backup & restore", "Export your settings to a file, or restore them", "Settings", "backup"),

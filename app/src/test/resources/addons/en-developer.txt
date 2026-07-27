@@ -1,0 +1,27 @@
+# Exhaustive developer word list for WM Keyboard (langId=en)
+# Contains programming terms, syntax keywords, libraries, DevOps tools, databases, and methodologies.
+code 980
+false 980
+function 980
+git 980
+null 980
+return 980
+true 980
+api 950
+async 950
+await 950
+branch 950
+catch 950
+client 950
+commit 950
+const 950
+dev 950
+else 950
+for 950
+github 950
+http 950
+https 950
+if 950
+let 950
+localhost 950
+mer

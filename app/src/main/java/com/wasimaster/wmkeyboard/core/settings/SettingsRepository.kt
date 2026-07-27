@@ -12,6 +12,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.wasimaster.wmkeyboard.BuildConfig
+import com.wasimaster.wmkeyboard.core.addons.AddonStore
 import com.wasimaster.wmkeyboard.core.directboot.DirectBoot
 import com.wasimaster.wmkeyboard.core.icons.IconOverrides
 import com.wasimaster.wmkeyboard.core.icons.IconPackStore
@@ -3672,6 +3673,48 @@ class SettingsRepository(private val context: Context) {
     }
 
     /**
+     * Restores the addon repository list, merging rather than replacing.
+     *
+     * Merging because the two sides are both just bookmarks: a repository the
+     * user added on this device is no less wanted for not being in the backup,
+     * and a duplicate is decided by manifest URL. Cached manifests are dropped
+     * — they re-fetch on the next visit, and a stale one from another device
+     * would show addons at versions this device never saw.
+     */
+    private fun restoreAddonRepos(section: JsonObject): Boolean = runCatching {
+        val incoming = section["repos"]?.jsonArray ?: return false
+        val file = File(context.filesDir, "addons/repos.json")
+        val existing = runCatching {
+            bundleJson.parseToJsonElement(file.readText()).jsonObject["repos"]?.jsonArray
+        }.getOrNull().orEmpty()
+
+        val merged = LinkedHashMap<String, JsonElement>()
+        for (element in existing + incoming) {
+            val obj = element as? JsonObject ?: continue
+            val url = (obj["manifestUrl"] as? JsonPrimitive)?.contentOrNull
+                ?.takeIf { it.startsWith("https://") } ?: continue
+            merged.putIfAbsent(
+                url,
+                JsonObject(obj - "cachedManifest" - "fetchedAt"),
+            )
+        }
+        if (merged.isEmpty()) return false
+
+        file.parentFile?.mkdirs()
+        file.writeText(
+            bundleJson.encodeToString(
+                JsonObject.serializer(),
+                buildJsonObject {
+                    put("version", JsonPrimitive(1))
+                    put("repos", JsonArray(merged.values.toList()))
+                },
+            ),
+        )
+        AddonStore.attach(context)
+        true
+    }.getOrDefault(false)
+
+    /**
      * Builds a full-config bundle from the chosen [sections]. A section whose
      * store is empty or absent is simply left out of the file.
      */
@@ -3718,6 +3761,12 @@ class SettingsRepository(private val context: Context) {
         if (ConfigBackup.Section.WORDLISTS in sections) {
             wordlistsSection()?.let { out[ConfigBackup.Section.WORDLISTS] = it }
         }
+        if (ConfigBackup.Section.ADDONS in sections) {
+            // The repository list only. Cached manifests are re-fetched, and
+            // the installed-addon records point at local ids that mean nothing
+            // on another device.
+            readStore("addons/repos.json")?.let { out[ConfigBackup.Section.ADDONS] = it }
+        }
         return ConfigBackup.encode(appVersion, appVersionName, out)
     }
 
@@ -3735,6 +3784,7 @@ class SettingsRepository(private val context: Context) {
                     ConfigBackup.Section.STICKERS -> element.jsonObject["files"]?.jsonObject?.size ?: 0
                     ConfigBackup.Section.ICONS -> element.jsonObject["files"]?.jsonObject?.size ?: 0
                     ConfigBackup.Section.WORDLISTS -> element.jsonObject.size
+                    ConfigBackup.Section.ADDONS -> element.jsonObject["repos"]?.jsonArray?.size ?: 0
                 }
             }.getOrDefault(0)
             counts[section] = count
@@ -3824,6 +3874,9 @@ class SettingsRepository(private val context: Context) {
                 restored.add(ConfigBackup.Section.WORDLISTS)
                 bumpCustomDictVersion()
             }
+        }
+        (parsed.sections[ConfigBackup.Section.ADDONS] as? JsonObject)?.let { obj ->
+            if (restoreAddonRepos(obj)) restored.add(ConfigBackup.Section.ADDONS)
         }
 
         return ConfigImportResult.Applied(restored, settingsFailed)

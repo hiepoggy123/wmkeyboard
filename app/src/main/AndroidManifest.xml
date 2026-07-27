@@ -88,12 +88,35 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.WMKeyboard">
 
+        <!--
+             singleTop so a second deep link reaches the running instance
+             through onNewIntent instead of stacking another copy of the
+             settings app on top of the first.
+        -->
         <activity
             android:name="com.wasimaster.wmkeyboard.app.MainActivity"
-            android:exported="true">
+            android:exported="true"
+            android:launchMode="singleTop">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!--
+                 Addon deep links: wmkeyboard://addons, wmkeyboard://repo?url=…
+                 and wmkeyboard://addon?repo=…&id=…. A custom scheme rather than
+                 https App Links — there is no domain to verify and no
+                 assetlinks.json to host. Following one only ever navigates:
+                 installing an addon, and adding a repository, stay explicit
+                 taps on the screen it lands on. Parsed by AddonDeepLink.
+            -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="wmkeyboard" android:host="addons" />
+                <data android:scheme="wmkeyboard" android:host="repo" />
+                <data android:scheme="wmkeyboard" android:host="addon" />
             </intent-filter>
         </activity>
 

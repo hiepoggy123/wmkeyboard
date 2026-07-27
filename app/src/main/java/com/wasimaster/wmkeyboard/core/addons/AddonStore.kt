@@ -160,6 +160,10 @@ class AddonStore(private var baseDir: File?) {
         now: Long = System.currentTimeMillis(),
         seeded: Boolean = false,
     ): AddonRepoRef? {
+        // Before the first unlock there is nowhere to persist to. Refusing is
+        // honest; accepting into memory would report success for something that
+        // vanishes on the next process death.
+        if (baseDir == null) return null
         val manifestUrl = AddonRepoCodec.resolveManifestUrl(pastedUrl) ?: return null
         repoList.firstOrNull { it.manifestUrl == manifestUrl }?.let { return it }
         if (repoList.size >= MAX_REPOS) return null
@@ -220,6 +224,9 @@ class AddonStore(private var baseDir: File?) {
 
     @Synchronized
     fun markInstalled(key: String, record: InstalledAddon) {
+        // Same reason as addRepo: no directory means no record can outlive the
+        // process, and a half-tracked install is worse than an untracked one.
+        if (baseDir == null) return
         installedMap[key] = record
         save()
     }

@@ -78,6 +78,7 @@ import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.DragHandle
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.EmojiEmotions
+import androidx.compose.material.icons.outlined.Extension
 import androidx.compose.material.icons.outlined.Keyboard
 import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.GridOn
@@ -162,9 +163,11 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.lifecycleScope
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import android.os.Build
 import com.wasimaster.wmkeyboard.core.feedback.HapticPlayer
 import com.wasimaster.wmkeyboard.core.feedback.KeySoundPlayer
@@ -260,6 +263,7 @@ import com.wasimaster.wmkeyboard.core.snippets.SnippetFile
 import com.wasimaster.wmkeyboard.core.snippets.SnippetStore
 import com.wasimaster.wmkeyboard.core.snippets.SnippetVariable
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.launch
 
@@ -284,6 +288,16 @@ class MainActivity : ComponentActivity() {
 
     private lateinit var repository: SettingsRepository
 
+    /**
+     * Where the intent that started (or re-entered) this activity wants to go.
+     *
+     * A flow rather than a value read once in [onCreate]: the activity is
+     * `singleTop`, so a second `wmkeyboard://` link — or a second "open
+     * settings" from the keyboard — arrives at [onNewIntent] on the instance
+     * that is already running. Reading `intent` once would silently drop it.
+     */
+    private val pendingNav = MutableStateFlow<PendingNav?>(null)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         repository = SettingsRepository(applicationContext)
@@ -294,22 +308,52 @@ class MainActivity : ComponentActivity() {
         // Modes added since this install was first seeded — the settings
         // screen should list them even if the keyboard has not run yet.
         lifecycleScope.launch { repository.seedNewDefaultModes() }
-        val openTool = intent?.getStringExtra(EXTRA_OPEN_TOOL)
-            ?.let { name -> ToolbarTool.entries.find { it.name == name } }
-        val openRoute = intent?.getStringExtra(EXTRA_OPEN_ROUTE)
+        pendingNav.value = navFor(intent)
         setContent {
             // Null until DataStore's first emission: rendering nothing for a
             // frame beats flashing onboarding at users who finished it.
             val settings by repository.settings
                 .collectAsStateWithLifecycle(null as KeyboardSettings?)
+            val pending by pendingNav.collectAsStateWithLifecycle()
             settings?.let { loaded ->
                 AppTheme(loaded) {
-                    SettingsNavHost(repository, loaded, openTool, openRoute)
+                    SettingsNavHost(
+                        repository = repository,
+                        settings = loaded,
+                        pending = pending,
+                        onPendingHandled = { pendingNav.value = null },
+                    )
                 }
             }
         }
     }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        navFor(intent)?.let { pendingNav.value = it }
+    }
+
+    /**
+     * What an intent asks for: a `wmkeyboard://` deep link, or one of the
+     * extras the keyboard uses to jump into a tool's page.
+     */
+    private fun navFor(intent: Intent?): PendingNav? {
+        if (intent == null) return null
+        AddonDeepLink.routeFor(intent.data)?.let { return PendingNav(route = it) }
+        intent.getStringExtra(EXTRA_OPEN_ROUTE)?.takeIf { it.isNotEmpty() }
+            ?.let { return PendingNav(route = it) }
+        val tool = intent.getStringExtra(EXTRA_OPEN_TOOL)
+            ?.let { name -> ToolbarTool.entries.find { it.name == name } }
+        return tool?.let { PendingNav(tool = it) }
+    }
 }
+
+/** A navigation an incoming intent asked for; exactly one field is set. */
+internal data class PendingNav(
+    val route: String? = null,
+    val tool: ToolbarTool? = null,
+)
 
 @Composable
 internal fun AppTheme(settings: KeyboardSettings, content: @Composable () -> Unit) {
@@ -343,21 +387,23 @@ internal fun AppTheme(settings: KeyboardSettings, content: @Composable () -> Uni
 private fun SettingsNavHost(
     repository: SettingsRepository,
     settings: KeyboardSettings,
-    openTool: ToolbarTool? = null,
-    openRoute: String? = null,
+    pending: PendingNav? = null,
+    onPendingHandled: () -> Unit = {},
 ) {
     val navController = rememberNavController()
-    // Deep link from the keyboard (tool long-press, or a panel's "Open
-    // settings"): land on the tool's page or specified route with a sane back stack.
-    LaunchedEffect(openTool, openRoute) {
-        if (settings.onboardingDone) {
-            if (!openRoute.isNullOrEmpty()) {
-                navController.navigate(openRoute)
-            } else if (openTool != null) {
+    // Where an incoming intent wants to go: a wmkeyboard:// link, or the
+    // keyboard's own "open settings" (tool long-press, a panel's link). Cleared
+    // once handled, so returning to this screen doesn't navigate again.
+    LaunchedEffect(pending) {
+        if (pending == null || !settings.onboardingDone) return@LaunchedEffect
+        when {
+            !pending.route.isNullOrEmpty() -> navController.navigate(pending.route)
+            pending.tool != null -> {
                 navController.navigate("tools")
-                navController.navigate("tool/${openTool.name}")
+                navController.navigate("tool/${pending.tool.name}")
             }
         }
+        onPendingHandled()
     }
     // Quick shared-axis slide instead of the sluggish default cross-fade;
     // collapsed to an instant cut when the user has asked for reduced motion.
@@ -491,6 +537,35 @@ private fun SettingsNavHost(
         composable("sticker_packs") {
             SettingsScreen("Sticker packs", { navController.popBackStack() }) {
                 StickerPacksScreen { route -> navController.navigate(route) }
+            }
+        }
+        // The optional `add` argument carries a repository URL from a
+        // wmkeyboard://repo link; it pre-fills the add dialog, which is still
+        // where the user confirms.
+        composable(
+            "addons?add={add}",
+            arguments = listOf(
+                navArgument("add") { defaultValue = ""; type = NavType.StringType },
+            ),
+        ) { backStackEntry ->
+            val prefill = decodeRouteArg(backStackEntry.arguments?.getString("add"))
+            SettingsScreen("Addons", { navController.popBackStack() }) {
+                AddonsScreen(prefill) { route -> navController.navigate(route) }
+            }
+        }
+        // The repository URL travels in the path, percent-encoded — a deep link
+        // names a repository by address, not by its position in the user's list.
+        composable("addon_repo/{repoUrl}") { backStackEntry ->
+            val url = decodeRouteArg(backStackEntry.arguments?.getString("repoUrl"))
+            SettingsScreen("Browse addons", { navController.popBackStack() }) {
+                AddonRepoScreen(url) { route -> navController.navigate(route) }
+            }
+        }
+        composable("addon/{repoUrl}/{addonId}") { backStackEntry ->
+            val url = decodeRouteArg(backStackEntry.arguments?.getString("repoUrl"))
+            val addonId = decodeRouteArg(backStackEntry.arguments?.getString("addonId"))
+            SettingsScreen("Addon", { navController.popBackStack() }) {
+                AddonDetailScreen(url, addonId)
             }
         }
         composable("sticker_pack/{packId}") { backStackEntry ->
@@ -710,6 +785,12 @@ private fun HomeScreen(settings: KeyboardSettings, onNavigate: (String) -> Unit)
                         Icons.Outlined.Widgets, "Tools",
                         "Flashlight, compass, snippets, calendar & more",
                     ) { onNavigate("tools") }
+                }
+                item {
+                    HomeItem(
+                        Icons.Outlined.Extension, "Addons",
+                        "Install themes, layouts, fonts and more from the web",
+                    ) { onNavigate("addons") }
                 }
             }
             SettingsGroup("Accessibility") {
@@ -4112,6 +4193,7 @@ internal fun sectionLabel(section: ConfigBackup.Section): String = when (section
     ConfigBackup.Section.STICKERS -> "Sticker packs"
     ConfigBackup.Section.ICONS -> "Icon packs"
     ConfigBackup.Section.WORDLISTS -> "Custom word lists"
+    ConfigBackup.Section.ADDONS -> "Addon repositories"
 }
 
 /** "3 themes", "1 snippet" — the count line shown per section on import. */
@@ -4124,6 +4206,7 @@ internal fun sectionSummary(section: ConfigBackup.Section, count: Int): String =
     ConfigBackup.Section.STICKERS -> if (count == 1) "1 sticker" else "$count stickers"
     ConfigBackup.Section.ICONS -> if (count == 1) "1 icon" else "$count icons"
     ConfigBackup.Section.WORDLISTS -> if (count == 1) "1 word list" else "$count word lists"
+    ConfigBackup.Section.ADDONS -> if (count == 1) "1 repository" else "$count repositories"
 }
 
 /** A file picked for import, once we know which of the two formats it is. */
@@ -4150,6 +4233,9 @@ private fun BackupSettings(repository: SettingsRepository) {
     var includeStickers by remember { mutableStateOf(false) }
     var includeIcons by remember { mutableStateOf(false) }
     var includeWordlists by remember { mutableStateOf(true) }
+    // Just the list of repository addresses — small, and the one part of the
+    // addon setup a restore would otherwise lose.
+    var includeAddons by remember { mutableStateOf(true) }
     var includeDictionary by remember { mutableStateOf(false) }
     var includeClipboard by remember { mutableStateOf(false) }
     var includeSecrets by remember { mutableStateOf(false) }
@@ -4166,6 +4252,7 @@ private fun BackupSettings(repository: SettingsRepository) {
         if (includeStickers) add(ConfigBackup.Section.STICKERS)
         if (includeIcons) add(ConfigBackup.Section.ICONS)
         if (includeWordlists) add(ConfigBackup.Section.WORDLISTS)
+        if (includeAddons) add(ConfigBackup.Section.ADDONS)
     }
 
     val exportLauncher = rememberLauncherForActivityResult(
@@ -4311,6 +4398,16 @@ private fun BackupSettings(repository: SettingsRepository) {
                 "Word lists you imported for any language",
                 includeWordlists,
             ) { includeWordlists = it }
+        }
+        item {
+            ToggleSetting(
+                "Addon repositories",
+                "The addon sources you added, so you can reinstall from them",
+                includeAddons,
+                info = "Just the list of addresses. The addons themselves ride along " +
+                    "in the sections above — an installed theme is a custom theme, an " +
+                    "installed pack is an icon pack.",
+            ) { includeAddons = it }
         }
     }
 

@@ -1,0 +1,234 @@
+package com.wasimaster.wmkeyboard.core.addons
+
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+/**
+ * The codec is the addon layer's trust boundary: everything it takes in came
+ * from a text field or a deep link, and every URL it hands back gets fetched.
+ * These pin both halves — what counts as a repository, and what counts as a
+ * URL worth fetching.
+ */
+class AddonRepoCodecTest {
+
+    private fun fixture(name: String): String =
+        checkNotNull(javaClass.classLoader?.getResourceAsStream("addons/$name")) {
+            "missing test fixture addons/$name"
+        }.use { it.readBytes().decodeToString() }
+
+    // ---- manifest ------------------------------------------------------
+
+    @Test
+    fun `decodes the sample repository`() {
+        val manifest = AddonRepoCodec.decode(fixture("wmkeyboard-repo.json"))
+        assertNotNull(manifest)
+        manifest!!
+        assertEquals("com.wasimaster.wmkeyboard.sample", manifest.repo.id)
+        assertTrue("sample should list addons", manifest.addons.isNotEmpty())
+        // One of each of the eight types is the point of the sample repo.
+        val types = manifest.addons.map { it.type }.toSet()
+        for (type in AddonType.entries - AddonType.Unknown) {
+            assertTrue("sample repo has no $type", type in types)
+        }
+    }
+
+    @Test
+    fun `rejects a manifest without the format tag`() {
+        assertNull(AddonRepoCodec.decode("""{"version":1,"repo":{"id":"x","name":"X"}}"""))
+    }
+
+    @Test
+    fun `rejects a manifest whose format tag is something else`() {
+        val text = """{"format":"wmkeyboard-layout","version":1,"repo":{"id":"x","name":"X"}}"""
+        assertNull(AddonRepoCodec.decode(text))
+    }
+
+    @Test
+    fun `rejects junk rather than throwing`() {
+        assertNull(AddonRepoCodec.decode("not json at all"))
+        assertNull(AddonRepoCodec.decode(""))
+    }
+
+    @Test
+    fun `an unknown addon type is dropped, not fatal`() {
+        // Forward compatibility: a repository listing a type added after this
+        // build shipped must still be usable for everything else it offers.
+        val text = """
+            {"format":"wmkeyboard-repo","version":1,
+             "repo":{"id":"x","name":"X"},
+             "addons":[
+               {"id":"a","type":"theme","name":"A","version":"1.0.0","path":"a.wmtheme.json"},
+               {"id":"b","type":"hologram","name":"B","version":"1.0.0","path":"b.holo"}
+             ]}
+        """.trimIndent()
+        val manifest = AddonRepoCodec.decode(text)
+        assertNotNull(manifest)
+        assertEquals(listOf("a"), manifest!!.addons.map { it.id })
+    }
+
+    @Test
+    fun `entries missing an id or path are dropped`() {
+        val text = """
+            {"format":"wmkeyboard-repo","version":1,
+             "repo":{"id":"x","name":"X"},
+             "addons":[
+               {"id":"","type":"theme","name":"A","version":"1.0.0","path":"a.wmtheme.json"},
+               {"id":"b","type":"theme","name":"B","version":"1.0.0","path":""},
+               {"id":"c","type":"theme","name":"C","version":"1.0.0","path":"c.wmtheme.json"}
+             ]}
+        """.trimIndent()
+        assertEquals(listOf("c"), AddonRepoCodec.decode(text)!!.addons.map { it.id })
+    }
+
+    @Test
+    fun `unknown fields are ignored`() {
+        val text = """
+            {"format":"wmkeyboard-repo","version":1,"futureField":42,
+             "repo":{"id":"x","name":"X","somethingNew":true},
+             "addons":[{"id":"a","type":"theme","name":"A","version":"1.0.0",
+                        "path":"a.wmtheme.json","notYetInvented":["x"]}]}
+        """.trimIndent()
+        assertEquals(1, AddonRepoCodec.decode(text)!!.addons.size)
+    }
+
+    // ---- manifest URL resolution ---------------------------------------
+
+    @Test
+    fun `github repository URL resolves to the raw manifest on HEAD`() {
+        assertEquals(
+            "https://raw.githubusercontent.com/user/repo/HEAD/wmkeyboard-repo.json",
+            AddonRepoCodec.resolveManifestUrl("https://github.com/user/repo"),
+        )
+    }
+
+    @Test
+    fun `a github tree URL resolves on its branch`() {
+        assertEquals(
+            "https://raw.githubusercontent.com/user/repo/dev/wmkeyboard-repo.json",
+            AddonRepoCodec.resolveManifestUrl("https://github.com/user/repo/tree/dev"),
+        )
+    }
+
+    @Test
+    fun `a direct raw manifest URL is used as-is`() {
+        val url = "https://raw.githubusercontent.com/user/repo/HEAD/wmkeyboard-repo.json"
+        assertEquals(url, AddonRepoCodec.resolveManifestUrl(url))
+    }
+
+    @Test
+    fun `any other https directory gets the manifest name appended`() {
+        assertEquals(
+            "https://example.com/addons/wmkeyboard-repo.json",
+            AddonRepoCodec.resolveManifestUrl("https://example.com/addons"),
+        )
+    }
+
+    @Test
+    fun `a scheme-less address is assumed to be https`() {
+        // People paste addresses without typing the scheme.
+        assertEquals(
+            "https://raw.githubusercontent.com/user/repo/HEAD/wmkeyboard-repo.json",
+            AddonRepoCodec.resolveManifestUrl("github.com/user/repo"),
+        )
+    }
+
+    @Test
+    fun `trailing slashes and dot-git are tolerated`() {
+        assertEquals(
+            "https://raw.githubusercontent.com/user/repo/HEAD/wmkeyboard-repo.json",
+            AddonRepoCodec.resolveManifestUrl("https://github.com/user/repo.git/"),
+        )
+    }
+
+    @Test
+    fun `plain http is rejected rather than upgraded`() {
+        // Silently upgrading would hide that the link asked for something the
+        // app refuses to do.
+        assertNull(AddonRepoCodec.resolveManifestUrl("http://example.com/wmkeyboard-repo.json"))
+    }
+
+    @Test
+    fun `non-web schemes are rejected`() {
+        for (url in listOf(
+            "file:///data/data/com.example/wmkeyboard-repo.json",
+            "content://com.example/manifest",
+            "javascript:alert(1)",
+            "ftp://example.com/wmkeyboard-repo.json",
+        )) {
+            assertNull("should reject $url", AddonRepoCodec.resolveManifestUrl(url))
+        }
+    }
+
+    @Test
+    fun `empty input resolves to nothing`() {
+        assertNull(AddonRepoCodec.resolveManifestUrl(""))
+        assertNull(AddonRepoCodec.resolveManifestUrl("   "))
+    }
+
+    @Test
+    fun `a github URL without a repository name is rejected`() {
+        assertNull(AddonRepoCodec.resolveManifestUrl("https://github.com/user"))
+    }
+
+    // ---- asset resolution ----------------------------------------------
+
+    private val manifestUrl =
+        "https://raw.githubusercontent.com/user/repo/HEAD/wmkeyboard-repo.json"
+
+    @Test
+    fun `a relative path resolves against the manifest directory`() {
+        assertEquals(
+            "https://raw.githubusercontent.com/user/repo/HEAD/themes/midnight.wmtheme.json",
+            AddonRepoCodec.resolveAsset(manifestUrl, "themes/midnight.wmtheme.json"),
+        )
+    }
+
+    @Test
+    fun `an absolute https payload URL passes through`() {
+        val url = "https://cdn.example.com/pack.wmicons"
+        assertEquals(url, AddonRepoCodec.resolveAsset(manifestUrl, url))
+    }
+
+    @Test
+    fun `an absolute http payload URL is refused`() {
+        assertNull(AddonRepoCodec.resolveAsset(manifestUrl, "http://cdn.example.com/pack.wmicons"))
+    }
+
+    @Test
+    fun `a relative path cannot escape the repository`() {
+        // On a raw host, ../.. walks into someone else's repository — a
+        // manifest would be serving payloads it does not own.
+        for (reference in listOf(
+            "../../../other/repo/HEAD/evil.wmtheme.json",
+            "../evil.wmtheme.json",
+            "themes/../../evil.wmtheme.json",
+        )) {
+            assertNull("should refuse $reference", AddonRepoCodec.resolveAsset(manifestUrl, reference))
+        }
+    }
+
+    @Test
+    fun `staying inside the repository after a dot-dot is allowed`() {
+        // themes/../layouts/x is still under the manifest's own directory.
+        assertEquals(
+            "https://raw.githubusercontent.com/user/repo/HEAD/layouts/x.wmlayout.json",
+            AddonRepoCodec.resolveAsset(manifestUrl, "themes/../layouts/x.wmlayout.json"),
+        )
+    }
+
+    @Test
+    fun `root-relative and protocol-relative references are refused`() {
+        // Both skip the repository directory, which the relative form may not do.
+        assertNull(AddonRepoCodec.resolveAsset(manifestUrl, "/other/evil.wmtheme.json"))
+        assertNull(AddonRepoCodec.resolveAsset(manifestUrl, "//evil.example.com/x.wmtheme.json"))
+    }
+
+    @Test
+    fun `an empty reference resolves to nothing`() {
+        assertNull(AddonRepoCodec.resolveAsset(manifestUrl, ""))
+        assertNull(AddonRepoCodec.resolveAsset(manifestUrl, "   "))
+    }
+}

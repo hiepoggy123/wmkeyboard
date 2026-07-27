@@ -42,6 +42,15 @@ object ConfigBackup {
         STICKERS("stickers"),
         ICONS("icons"),
         WORDLISTS("wordlists"),
+
+        /**
+         * The list of addon repositories the user added — not the addons
+         * themselves, which are already covered by the sections above (an
+         * installed theme is in THEMES, an installed pack in ICONS). This is
+         * the bookmark list, which is otherwise the one thing a restore would
+         * silently lose.
+         */
+        ADDONS("addons"),
     }
 
     private val json = Json { prettyPrint = true }

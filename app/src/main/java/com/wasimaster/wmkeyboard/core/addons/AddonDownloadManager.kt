@@ -104,17 +104,33 @@ object AddonDownloadManager {
      * cached manifest in place — a repository that is briefly unreachable
      * should keep showing what it had, not empty itself out.
      */
-    fun fetchManifest(store: AddonStore, ref: AddonRepoRef, cacheDir: File): AddonRepoManifest? {
+    fun fetchManifest(store: AddonStore, ref: AddonRepoRef, cacheDir: File): AddonRepoManifest? =
+        fetchManifest(ref.manifestUrl, cacheDir, store)
+
+    /**
+     * Fetches a manifest by URL, optionally caching it against an already-added
+     * repository.
+     *
+     * The store-less form is what a deep link uses: following a link has to be
+     * able to *show* an addon without the link having quietly added its
+     * repository to the user's list. Adding it is the user's decision, taken
+     * when they install.
+     */
+    fun fetchManifest(
+        manifestUrl: String,
+        cacheDir: File,
+        store: AddonStore? = null,
+    ): AddonRepoManifest? {
         val temp = File(cacheDir, "manifest_${System.nanoTime()}.json")
         return try {
             ToolHttp.download(
-                url = ref.manifestUrl,
+                url = manifestUrl,
                 target = temp,
                 maxBytes = AddonRepoCodec.MAX_MANIFEST_BYTES,
             )
             val text = temp.readText()
             val manifest = AddonRepoCodec.decode(text) ?: return null
-            store.cacheManifest(ref.manifestUrl, text)
+            store?.cacheManifest(manifestUrl, text)
             manifest
         } catch (_: Exception) {
             null
@@ -198,6 +214,18 @@ object AddonDownloadManager {
 
                 currentCoroutineContext().ensureActive()
                 set(key, AddonStatus.Installing)
+
+                // Updating means replacing, not accumulating. Every importer
+                // mints a fresh local id, so without this an update would leave
+                // the previous version behind as a second theme, a second pack,
+                // a second copy of the dictionary. Removed only once the new
+                // payload is downloaded and verified, so a failed update leaves
+                // the working version in place.
+                val previous = store.installed(key)
+                if (previous != null) {
+                    AddonInstaller.uninstall(appContext, previous)
+                }
+
                 val outcome = AddonInstaller.install(appContext, entry, part)
 
                 when (outcome) {
@@ -215,8 +243,13 @@ object AddonDownloadManager {
                         )
                         set(key, AddonStatus.Installed(entry.version))
                     }
-                    is AddonInstaller.Outcome.Rejected ->
+                    is AddonInstaller.Outcome.Rejected -> {
+                        // The old version was already removed above, so the
+                        // record has to go too — claiming it is still installed
+                        // would offer an Update for something that is gone.
+                        if (previous != null) store.markUninstalled(key)
                         set(key, AddonStatus.Failed(FailReason.REJECTED, outcome.message))
+                    }
                 }
             } catch (e: CancellationException) {
                 part.delete()

@@ -72,12 +72,17 @@ object AddonRepoCodec {
         if (trimmed.isEmpty()) return null
 
         // Reject anything with an explicit non-https scheme before guessing.
+        // Compare the whole scheme, not a prefix of it: "http" is a prefix of
+        // "https", so a prefix test would let plain http through.
         val schemeEnd = trimmed.indexOf("://")
-        if (schemeEnd > 0 && !trimmed.regionMatches(0, "https", 0, schemeEnd, ignoreCase = true)) {
-            return null
-        }
+        val hasScheme = schemeEnd > 0
+        if (hasScheme && !trimmed.take(schemeEnd).equals("https", ignoreCase = true)) return null
+        // An opaque scheme has no "://" at all — javascript:, mailto:, content:
+        // with no authority. A bare host never contains a colon before its
+        // first slash, so this only catches the schemes.
+        if (!hasScheme && trimmed.substringBefore('/').contains(':')) return null
 
-        val withScheme = if (schemeEnd > 0) trimmed else "https://$trimmed"
+        val withScheme = if (hasScheme) trimmed else "https://$trimmed"
         val uri = runCatching { URI(withScheme) }.getOrNull() ?: return null
         val host = uri.host?.lowercase() ?: return null
         val path = uri.path.orEmpty().trim('/')
