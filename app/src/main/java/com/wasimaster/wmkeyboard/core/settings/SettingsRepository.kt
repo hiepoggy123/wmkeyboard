@@ -13,6 +13,7 @@ import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.wasimaster.wmkeyboard.BuildConfig
 import com.wasimaster.wmkeyboard.core.addons.AddonStore
+import com.wasimaster.wmkeyboard.core.clipboard.ClipboardStore
 import com.wasimaster.wmkeyboard.core.directboot.DirectBoot
 import com.wasimaster.wmkeyboard.core.icons.IconOverrides
 import com.wasimaster.wmkeyboard.core.icons.IconPackStore
@@ -29,6 +30,7 @@ import com.wasimaster.wmkeyboard.core.layout.resolveLayoutSelection
 import com.wasimaster.wmkeyboard.core.layout.resolveLayout
 import com.wasimaster.wmkeyboard.core.layout.script
 import com.wasimaster.wmkeyboard.core.tools.AltCalendar
+import com.wasimaster.wmkeyboard.core.tools.SolarTimes
 import com.wasimaster.wmkeyboard.core.script.LanguageDef
 import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
 import com.wasimaster.wmkeyboard.core.script.NumeralCommitScope
@@ -67,6 +69,7 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonArray
@@ -76,22 +79,83 @@ import java.io.File
 /** Visual theme for the keyboard and settings app. */
 enum class ThemeMode { SYSTEM, LIGHT, DARK, AMOLED }
 
+/** What decides which half of an [AutoThemeSettings] pair is showing. */
+enum class AutoThemeTrigger {
+    /** The system's own light/dark setting. */
+    SYSTEM,
+
+    /** A clock schedule the user sets: light from one time, dark from another. */
+    SCHEDULE,
+
+    /**
+     * The actual sun at the weather tool's saved location — light between
+     * sunrise and sunset. Falls back to [SYSTEM] when no location is saved, and
+     * on the polar days when the sun does not rise or set at all.
+     */
+    SUN,
+    ;
+
+    val label: String
+        get() = when (this) {
+            SYSTEM -> "System light/dark"
+            SCHEDULE -> "Time of day"
+            SUN -> "Sunrise & sunset"
+        }
+}
+
 /**
- * A pair of themes that follow the system light/dark setting: [lightThemeId]
- * while the system is light, [darkThemeId] while it is dark. When [enabled],
- * this takes over from [KeyboardSettings.keyboardThemeId] entirely — the theme
- * tool shows the active one but can't change it, since the system does.
+ * A pair of themes that swap over on their own: [lightThemeId] by day,
+ * [darkThemeId] by night, with [trigger] deciding which of the two it is. When
+ * [enabled], this takes over from [KeyboardSettings.keyboardThemeId] entirely —
+ * the theme tool shows the active one but can't change it.
  *
  * The ids are the same namespace as [KeyboardSettings.keyboardThemeId]:
  * [DEFAULT_THEME_ID], a built-in id, or a custom id. A nested class rather than
- * three flat fields because the top-level [KeyboardSettings] count is near the
- * JVM `copy` ceiling; the DataStore keys stay flat all the same.
+ * flat fields because the top-level [KeyboardSettings] count is near the JVM
+ * `copy` ceiling; the DataStore keys stay flat all the same.
  */
 data class AutoThemeSettings(
     val enabled: Boolean = false,
     val lightThemeId: String = DEFAULT_THEME_ID,
     val darkThemeId: String = DEFAULT_THEME_ID,
-)
+    val trigger: AutoThemeTrigger = AutoThemeTrigger.SYSTEM,
+    /** Minutes past midnight the light theme takes over ([AutoThemeTrigger.SCHEDULE]). */
+    val dayStartMinutes: Int = 7 * 60,
+    /** Minutes past midnight the dark theme takes over ([AutoThemeTrigger.SCHEDULE]). */
+    val nightStartMinutes: Int = 19 * 60,
+) {
+
+    /**
+     * Whether the dark half of the pair is the one that should be showing.
+     *
+     * [minutesOfDay] is the local clock as minutes past midnight and [sun] the
+     * day's sunrise/sunset in the same units; both are passed in rather than
+     * read here so this stays a pure function the tests can walk a day through.
+     * A null [sun] under [AutoThemeTrigger.SUN] means no saved location or a
+     * polar day, and falls back to [systemDark] — a theme that cannot be
+     * decided is better decided by the system than left stuck on one half.
+     */
+    fun usesDarkSlot(
+        systemDark: Boolean,
+        minutesOfDay: Int,
+        sun: SolarTimes? = null,
+    ): Boolean = when (trigger) {
+        AutoThemeTrigger.SYSTEM -> systemDark
+        AutoThemeTrigger.SCHEDULE ->
+            !isBetween(minutesOfDay, dayStartMinutes, nightStartMinutes)
+        AutoThemeTrigger.SUN ->
+            if (sun == null) systemDark
+            else !isBetween(minutesOfDay, sun.sunriseMinutes, sun.sunsetMinutes)
+    }
+
+    /**
+     * Whether [minute] falls in the half-open window `[start, end)`, wrapping
+     * over midnight when the window does — which is what a "day" from 19:00 to
+     * 07:00 is, and what someone on a night shift will actually set.
+     */
+    private fun isBetween(minute: Int, start: Int, end: Int): Boolean =
+        if (start <= end) minute in start until end else minute >= start || minute < end
+}
 
 /**
  * The key-preview bubble (the character that pops above a pressed key). Grouped
@@ -862,6 +926,17 @@ data class KeyboardSettings(
     val doubleSpacePeriod: Boolean = true,
     /** Double-tapping space inserts a tab character (wins over the period). */
     val doubleSpaceTab: Boolean = false,
+    /**
+     * Type a space by itself after sentence and clause punctuation, so
+     * "hello,world" becomes "hello, world" without reaching for the spacebar.
+     *
+     * Off by default: it changes what a keypress produces, which is the one
+     * kind of help that has to be asked for. Only plain text fields are
+     * touched — an address, an email or a password is structured text where an
+     * inserted space is a typo, not a courtesy — and typing a space yourself
+     * right after one is inserted does not double it up.
+     */
+    val autoSpaceAfterPunctuation: Boolean = false,
     val suggestions: Boolean = true,
     /**
      * Show the suggestion strip even in fields that ask the IME to stay quiet
@@ -1433,6 +1508,43 @@ data class PerAppLanguageSettings(
 )
 
 /**
+ * What clipboard history does with a clip that holds a secret.
+ *
+ * The default is deliberately the middle option rather than [NEVER_SAVE]: a
+ * password pasted into the wrong box is the everyday reason to want it back for
+ * ten seconds, and refusing to remember it at all trades a real convenience for
+ * a risk that a five-minute expiry already closes.
+ */
+enum class SensitiveClipHandling {
+    /** Kept like any other clip — the flag and the detector are ignored. */
+    KEEP,
+
+    /**
+     * Saved, but drawn masked in the panel and swept after
+     * [ClipboardSettings.sensitiveExpiryMinutes] instead of the history expiry.
+     */
+    SHORT_LIVED,
+
+    /** Never written to history at all. */
+    NEVER_SAVE,
+    ;
+
+    val label: String
+        get() = when (this) {
+            KEEP -> "Keep like any clip"
+            SHORT_LIVED -> "Hide and forget quickly"
+            NEVER_SAVE -> "Never save"
+        }
+
+    val detail: String
+        get() = when (this) {
+            KEEP -> "No special treatment"
+            SHORT_LIVED -> "Masked in the panel, deleted on a short timer"
+            NEVER_SAVE -> "Passwords and codes never reach history"
+        }
+}
+
+/**
  * Clipboard-tool settings — history capture, the panel, and the paste chip on
  * the suggestion strip — grouped into their own object (see [CameraSettings]
  * for why). DataStore keys stay flat.
@@ -1442,6 +1554,32 @@ data class ClipboardSettings(
     val history: Boolean = true,
     /** Remove unpinned items after this many hours (0 = never). */
     val expiryHours: Int = 24,
+    /**
+     * How many unpinned entries history keeps; older ones fall off the end.
+     * The other half of the bound [expiryHours] sets — a busy day of copying
+     * can pile up hundreds of clips well inside the expiry window, and a panel
+     * that long is not history, it is a haystack.
+     */
+    val maxItems: Int = ClipboardStore.DEFAULT_MAX_ITEMS,
+    /**
+     * What to do with a clip the copying app marked sensitive (Android 13's
+     * `ClipDescription.EXTRA_IS_SENSITIVE`, which is what a password manager
+     * sets on a copied password).
+     */
+    val sensitiveHandling: SensitiveClipHandling = SensitiveClipHandling.SHORT_LIVED,
+    /**
+     * Also apply [sensitiveHandling] to clips that *look* like a password or a
+     * bare one-time code, not just the ones flagged by their source. Most
+     * password managers still predate the flag, and a code copied by hand out
+     * of a message carries no flag at all.
+     */
+    val detectSensitive: Boolean = true,
+    /**
+     * How long a sensitive clip survives, in minutes. Independent of
+     * [expiryHours] and never capped by it: a short leash has to hold even when
+     * history is set to keep everything.
+     */
+    val sensitiveExpiryMinutes: Int = 5,
     /** Fetch page titles for copied links and show them in the clipboard panel. */
     val linkPreviews: Boolean = false,
     /**
@@ -1833,6 +1971,9 @@ class SettingsRepository(private val context: Context) {
         private val AUTO_THEME_ENABLED = booleanPreferencesKey("auto_theme_enabled")
         private val AUTO_THEME_LIGHT_ID = stringPreferencesKey("auto_theme_light_id")
         private val AUTO_THEME_DARK_ID = stringPreferencesKey("auto_theme_dark_id")
+        private val AUTO_THEME_TRIGGER = stringPreferencesKey("auto_theme_trigger")
+        private val AUTO_THEME_DAY_START = intPreferencesKey("auto_theme_day_start")
+        private val AUTO_THEME_NIGHT_START = intPreferencesKey("auto_theme_night_start")
         private val KEY_HEIGHT = intPreferencesKey("key_height")
         private val NUMBER_ROW_HEIGHT = intPreferencesKey("number_row_height")
         private val BOTTOM_PADDING = intPreferencesKey("bottom_padding")
@@ -1913,6 +2054,8 @@ class SettingsRepository(private val context: Context) {
         private val AUTO_CAPITALIZE = booleanPreferencesKey("auto_capitalize")
         private val DOUBLE_SPACE_PERIOD = booleanPreferencesKey("double_space_period")
         private val DOUBLE_SPACE_TAB = booleanPreferencesKey("double_space_tab")
+        private val AUTO_SPACE_AFTER_PUNCTUATION =
+            booleanPreferencesKey("auto_space_after_punctuation")
         private val WRAP_SELECTION_WITH_PAIR = booleanPreferencesKey("wrap_selection_with_pair")
         private val RECAPITALIZE_SELECTION_WITH_SHIFT =
             booleanPreferencesKey("recapitalize_selection_with_shift")
@@ -1999,6 +2142,12 @@ class SettingsRepository(private val context: Context) {
             booleanPreferencesKey("add_words_to_system_dictionary")
         private val CLIPBOARD_HISTORY = booleanPreferencesKey("clipboard_history")
         private val CLIPBOARD_EXPIRY_HOURS = intPreferencesKey("clipboard_expiry_hours")
+        private val CLIPBOARD_MAX_ITEMS = intPreferencesKey("clipboard_max_items")
+        private val CLIPBOARD_SENSITIVE_HANDLING =
+            stringPreferencesKey("clipboard_sensitive_handling")
+        private val CLIPBOARD_DETECT_SENSITIVE = booleanPreferencesKey("clipboard_detect_sensitive")
+        private val CLIPBOARD_SENSITIVE_EXPIRY_MINUTES =
+            intPreferencesKey("clipboard_sensitive_expiry_minutes")
         private val CLIPBOARD_LINK_PREVIEWS = booleanPreferencesKey("clipboard_link_previews")
         private val CLIPBOARD_TRACK_SOURCE = booleanPreferencesKey("clipboard_track_source")
         private val CLIPBOARD_SUGGEST_RECENT = booleanPreferencesKey("clipboard_suggest_recent")
@@ -2283,6 +2432,11 @@ class SettingsRepository(private val context: Context) {
                 enabled = p[AUTO_THEME_ENABLED] ?: defaults.autoTheme.enabled,
                 lightThemeId = p[AUTO_THEME_LIGHT_ID] ?: defaults.autoTheme.lightThemeId,
                 darkThemeId = p[AUTO_THEME_DARK_ID] ?: defaults.autoTheme.darkThemeId,
+                trigger = p[AUTO_THEME_TRIGGER]
+                    ?.let { runCatching { AutoThemeTrigger.valueOf(it) }.getOrNull() }
+                    ?: defaults.autoTheme.trigger,
+                dayStartMinutes = p[AUTO_THEME_DAY_START] ?: defaults.autoTheme.dayStartMinutes,
+                nightStartMinutes = p[AUTO_THEME_NIGHT_START] ?: defaults.autoTheme.nightStartMinutes,
             ),
             keyHeightDp = p[KEY_HEIGHT] ?: defaults.keyHeightDp,
             numberRowHeightDp = p[NUMBER_ROW_HEIGHT] ?: p[KEY_HEIGHT] ?: defaults.numberRowHeightDp,
@@ -2386,6 +2540,8 @@ class SettingsRepository(private val context: Context) {
             autoCapitalize = p[AUTO_CAPITALIZE] ?: defaults.autoCapitalize,
             doubleSpacePeriod = p[DOUBLE_SPACE_PERIOD] ?: defaults.doubleSpacePeriod,
             doubleSpaceTab = p[DOUBLE_SPACE_TAB] ?: defaults.doubleSpaceTab,
+            autoSpaceAfterPunctuation = p[AUTO_SPACE_AFTER_PUNCTUATION]
+                ?: defaults.autoSpaceAfterPunctuation,
             suggestions = p[SUGGESTIONS] ?: defaults.suggestions,
             showSuggestionsInAllFields = p[SHOW_SUGGESTIONS_ALL_FIELDS]
                 ?: defaults.showSuggestionsInAllFields,
@@ -2475,6 +2631,13 @@ class SettingsRepository(private val context: Context) {
             clipboard = ClipboardSettings(
                 history = p[CLIPBOARD_HISTORY] ?: defaults.clipboard.history,
                 expiryHours = p[CLIPBOARD_EXPIRY_HOURS] ?: defaults.clipboard.expiryHours,
+                maxItems = p[CLIPBOARD_MAX_ITEMS] ?: defaults.clipboard.maxItems,
+                sensitiveHandling = p[CLIPBOARD_SENSITIVE_HANDLING]
+                    ?.let { runCatching { SensitiveClipHandling.valueOf(it) }.getOrNull() }
+                    ?: defaults.clipboard.sensitiveHandling,
+                detectSensitive = p[CLIPBOARD_DETECT_SENSITIVE] ?: defaults.clipboard.detectSensitive,
+                sensitiveExpiryMinutes = p[CLIPBOARD_SENSITIVE_EXPIRY_MINUTES]
+                    ?: defaults.clipboard.sensitiveExpiryMinutes,
                 linkPreviews = p[CLIPBOARD_LINK_PREVIEWS] ?: defaults.clipboard.linkPreviews,
                 trackSource = p[CLIPBOARD_TRACK_SOURCE] ?: defaults.clipboard.trackSource,
                 suggestRecent = p[CLIPBOARD_SUGGEST_RECENT] ?: defaults.clipboard.suggestRecent,
@@ -3234,6 +3397,15 @@ class SettingsRepository(private val context: Context) {
     suspend fun setAutoThemeDarkId(id: String) =
         editPrefs { it[AUTO_THEME_DARK_ID] = id }
 
+    suspend fun setAutoThemeTrigger(value: AutoThemeTrigger) =
+        editPrefs { it[AUTO_THEME_TRIGGER] = value.name }
+
+    suspend fun setAutoThemeDayStart(minutes: Int) =
+        editPrefs { it[AUTO_THEME_DAY_START] = minutes.coerceIn(0, 24 * 60 - 1) }
+
+    suspend fun setAutoThemeNightStart(minutes: Int) =
+        editPrefs { it[AUTO_THEME_NIGHT_START] = minutes.coerceIn(0, 24 * 60 - 1) }
+
     /** Adds the theme or replaces the stored theme with the same id. */
     suspend fun upsertCustomTheme(theme: ThemeSpec) =
         editPrefs { prefs ->
@@ -3486,16 +3658,24 @@ class SettingsRepository(private val context: Context) {
     }.getOrDefault(false)
 
     /**
-     * Drops image/file/folder clips from a clipboard snapshot: those point at
-     * files or content URIs that only exist on the source device, so carrying
-     * them to another phone would just leave broken entries. Text clips travel.
+     * Drops image/file/folder/video clips from a clipboard snapshot: those
+     * point at files or content URIs that only exist on the source device, so
+     * carrying them to another phone would just leave broken entries. Text
+     * clips travel.
+     *
+     * Clips marked sensitive are dropped too, whatever their kind. A backup
+     * file is the one place a password that expires in five minutes on the
+     * device would live forever — and backups get mailed to yourself, dropped
+     * in cloud folders, and shared to ask for help with a setting.
      */
     private fun portableClipboard(element: JsonElement): JsonElement {
         val obj = element as? JsonObject ?: return element
         val items = obj["items"] as? JsonArray ?: return element
         val kept = items.filter { item ->
-            val kind = (item as? JsonObject)?.get("kind") as? JsonPrimitive
-            (kind?.contentOrNull ?: "TEXT") in TEXTUAL_CLIP_KINDS
+            val entry = item as? JsonObject
+            val kind = entry?.get("kind") as? JsonPrimitive
+            val sensitive = (entry?.get("sensitive") as? JsonPrimitive)?.booleanOrNull == true
+            !sensitive && (kind?.contentOrNull ?: "TEXT") in TEXTUAL_CLIP_KINDS
         }
         return buildJsonObject { put("items", JsonArray(kept)) }
     }
@@ -4062,6 +4242,9 @@ class SettingsRepository(private val context: Context) {
     suspend fun setDoubleSpaceTab(value: Boolean) =
         editPrefs { it[DOUBLE_SPACE_TAB] = value }
 
+    suspend fun setAutoSpaceAfterPunctuation(value: Boolean) =
+        editPrefs { it[AUTO_SPACE_AFTER_PUNCTUATION] = value }
+
     suspend fun setWrapSelectionWithPair(value: Boolean) =
         editPrefs { it[WRAP_SELECTION_WITH_PAIR] = value }
 
@@ -4343,6 +4526,19 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setClipboardExpiryHours(value: Int) =
         editPrefs { it[CLIPBOARD_EXPIRY_HOURS] = value.coerceIn(0, 24 * 7) }
+
+    /** Floor of 5: a cap below that turns history into a one-clip buffer. */
+    suspend fun setClipboardMaxItems(value: Int) =
+        editPrefs { it[CLIPBOARD_MAX_ITEMS] = value.coerceIn(5, 500) }
+
+    suspend fun setClipboardSensitiveHandling(value: SensitiveClipHandling) =
+        editPrefs { it[CLIPBOARD_SENSITIVE_HANDLING] = value.name }
+
+    suspend fun setClipboardDetectSensitive(value: Boolean) =
+        editPrefs { it[CLIPBOARD_DETECT_SENSITIVE] = value }
+
+    suspend fun setClipboardSensitiveExpiryMinutes(value: Int) =
+        editPrefs { it[CLIPBOARD_SENSITIVE_EXPIRY_MINUTES] = value.coerceIn(1, 120) }
 
     suspend fun setClipboardLinkPreviews(value: Boolean) =
         editPrefs { it[CLIPBOARD_LINK_PREVIEWS] = value }

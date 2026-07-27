@@ -48,10 +48,12 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import com.wasimaster.wmkeyboard.core.emoji.EmojiFontShaping
+import com.wasimaster.wmkeyboard.core.settings.AutoThemeTrigger
 import com.wasimaster.wmkeyboard.core.settings.ColorVisionFilter
 import com.wasimaster.wmkeyboard.core.script.FontHint
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.ThemeMode
+import com.wasimaster.wmkeyboard.core.tools.SolarCalculator
 import com.wasimaster.wmkeyboard.core.theme.BuiltInThemes
 import com.wasimaster.wmkeyboard.core.theme.ColorVision
 import com.wasimaster.wmkeyboard.core.theme.DEFAULT_THEME_ID
@@ -64,6 +66,7 @@ import com.wasimaster.wmkeyboard.core.theme.brush
 import com.wasimaster.wmkeyboard.core.theme.hueShift
 import com.wasimaster.wmkeyboard.core.theme.keyShapeFor
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
 /**
@@ -443,6 +446,59 @@ private fun KbTheme.accessibilityAdjusted(settings: KeyboardSettings): KbTheme {
 }
 
 /**
+ * Which half of the auto-theme pair is due right now, kept current while the
+ * keyboard is on screen.
+ *
+ * The system trigger needs no clock — `isSystemInDarkTheme()` recomposes on its
+ * own when the setting flips. The other two are answers about *the time*, so
+ * they are re-asked once a minute: a keyboard is on screen in bursts, and a
+ * board that changed theme only on the next open would sit in yesterday's
+ * colours through the whole message being typed at sunset.
+ *
+ * The sun times are computed once per day per location rather than per tick —
+ * they only change when the date does.
+ */
+@Composable
+internal fun rememberAutoThemeDarkSlot(settings: KeyboardSettings, systemDark: Boolean): Boolean {
+    val auto = settings.autoTheme
+    if (!auto.enabled || auto.trigger == AutoThemeTrigger.SYSTEM) return systemDark
+
+    val minutesOfDay by produceState(currentMinutesOfDay(), auto.trigger) {
+        while (true) {
+            value = currentMinutesOfDay()
+            // Land just after the next whole minute rather than every 60s from
+            // whenever this started, so a switchover happens on the minute.
+            delay(60_000L - System.currentTimeMillis() % 60_000L + 500L)
+        }
+    }
+    val sun = if (auto.trigger == AutoThemeTrigger.SUN) {
+        val latitude = settings.weatherLatitude
+        val longitude = settings.weatherLongitude
+        // Recomputed when the day rolls over, which minutesOfDay wrapping to a
+        // small number is the visible sign of.
+        remember(latitude, longitude, minutesOfDay / 60) {
+            if (latitude == null || longitude == null) {
+                null
+            } else {
+                SolarCalculator.forDate(
+                    latitude.toDouble(),
+                    longitude.toDouble(),
+                    System.currentTimeMillis(),
+                )
+            }
+        }
+    } else {
+        null
+    }
+    return auto.usesDarkSlot(systemDark, minutesOfDay, sun)
+}
+
+private fun currentMinutesOfDay(): Int {
+    val calendar = java.util.Calendar.getInstance()
+    return calendar.get(java.util.Calendar.HOUR_OF_DAY) * 60 + calendar.get(java.util.Calendar.MINUTE)
+}
+
+/**
  * Resolves the selected theme and provides [LocalKbTheme] plus a matching
  * MaterialTheme to [content]. The default theme follows the theme mode
  * (system/light/dark/AMOLED) and dynamic color like before; stored themes
@@ -452,12 +508,13 @@ private fun KbTheme.accessibilityAdjusted(settings: KeyboardSettings): KbTheme {
 fun KeyboardThemeProvider(settings: KeyboardSettings, content: @Composable () -> Unit) {
     val context = LocalContext.current
     val systemDark = isSystemInDarkTheme()
-    // Auto-theme, when on, picks the id from the system light/dark setting and
-    // ignores the manually-selected keyboardThemeId (the theme tool is read-only
-    // while it's active). Off, the selected id wins as before.
+    // Auto-theme, when on, picks the id from whichever half of its pair is
+    // currently due and ignores the manually-selected keyboardThemeId (the
+    // theme tool is read-only while it's active). Off, the selected id wins.
     val auto = settings.autoTheme
+    val darkSlot = rememberAutoThemeDarkSlot(settings, systemDark)
     val effectiveId = if (auto.enabled) {
-        if (systemDark) auto.darkThemeId else auto.lightThemeId
+        if (darkSlot) auto.darkThemeId else auto.lightThemeId
     } else {
         settings.keyboardThemeId
     }
@@ -470,7 +527,7 @@ fun KeyboardThemeProvider(settings: KeyboardSettings, content: @Composable () ->
     val resolved = if (spec == null) {
         // Under auto-theme the chosen slot decides light vs dark directly;
         // otherwise the theme mode does.
-        val dark = if (auto.enabled) systemDark else when (settings.themeMode) {
+        val dark = if (auto.enabled) darkSlot else when (settings.themeMode) {
             ThemeMode.SYSTEM -> systemDark
             ThemeMode.LIGHT -> false
             ThemeMode.DARK, ThemeMode.AMOLED -> true

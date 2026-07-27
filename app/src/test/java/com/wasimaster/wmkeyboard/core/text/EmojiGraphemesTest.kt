@@ -51,4 +51,30 @@ class EmojiGraphemesTest {
         assertEquals(0, len("ক্ষ"))
         assertEquals(0, len("র‍্য"))
     }
+
+    private fun forward(text: String) = EmojiGraphemes.forwardDeleteLength(text)
+
+    @Test
+    fun `forward delete takes a whole cluster`() {
+        assertEquals("👨‍👩‍👧".length, forward("👨‍👩‍👧 rest"))
+        assertEquals("👍🏽".length, forward("👍🏽!"))
+        assertEquals("☠️".length, forward("☠️x"))
+        assertEquals("🇧🇩".length, forward("🇧🇩🇺🇸"))
+    }
+
+    @Test
+    fun `forward delete over ordinary text takes one character`() {
+        assertEquals(1, forward("hello"))
+        assertEquals(0, forward(""))
+        // A surrogate pair is one character, not two halves.
+        assertEquals(2, forward("😀a"))
+    }
+
+    @Test
+    fun `forward delete keeps combining marks with their base`() {
+        // Bengali কি — consonant plus a dependent vowel sign.
+        assertEquals("কি".length, forward("কি"))
+        // Decomposed "é": the base and its combining acute go in one press.
+        assertEquals(2, forward("e\u0301x"))
+    }
 }

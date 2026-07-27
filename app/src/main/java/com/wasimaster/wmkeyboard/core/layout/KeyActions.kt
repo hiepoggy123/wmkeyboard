@@ -46,6 +46,17 @@ sealed interface KeyAction {
 
     @Serializable @SerialName("delete") data object Delete : KeyAction
 
+    /**
+     * ⌦ — deletes the character *after* the cursor, repeating while held.
+     *
+     * Its own action rather than a [SendKey] of `KEYCODE_FORWARD_DEL`: a raw
+     * key event only lands in editors that handle the keycode themselves, and
+     * it would skip the grapheme-cluster rules an IME is expected to apply, so
+     * one press would peel a single code point off an emoji. Going through the
+     * InputConnection works in every field and matches what backspace does.
+     */
+    @Serializable @SerialName("forward_delete") data object ForwardDelete : KeyAction
+
     @Serializable @SerialName("space") data object Space : KeyAction
 
     @Serializable @SerialName("enter") data object Enter : KeyAction

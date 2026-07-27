@@ -56,7 +56,9 @@ import android.provider.DocumentsContract
 import android.provider.Settings
 import com.wasimaster.wmkeyboard.core.clipboard.ClipKind
 import com.wasimaster.wmkeyboard.core.clipboard.ClipLinks
+import com.wasimaster.wmkeyboard.core.clipboard.ClipSensitivity
 import com.wasimaster.wmkeyboard.core.clipboard.ClipboardStore
+import com.wasimaster.wmkeyboard.core.settings.SensitiveClipHandling
 import com.wasimaster.wmkeyboard.core.emoji.EmojiCatalog
 import com.wasimaster.wmkeyboard.core.emoji.EmojiEntry
 import com.wasimaster.wmkeyboard.core.emoji.EmojiRenderCheck
@@ -112,6 +114,7 @@ import com.wasimaster.wmkeyboard.core.plugins.inputIds
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
 import com.wasimaster.wmkeyboard.core.settings.restrictedToDirectBoot
+import com.wasimaster.wmkeyboard.core.debug.DebugLog
 import com.wasimaster.wmkeyboard.core.directboot.DirectBoot
 import com.wasimaster.wmkeyboard.core.settings.applyMode
 import com.wasimaster.wmkeyboard.core.settings.isSupportedTool
@@ -412,6 +415,16 @@ open class WMKeyboardService : InputMethodService() {
      */
     private var pendingAutoSpace = false
 
+    /**
+     * Narrower than [pendingAutoSpace]: the space was typed by the
+     * auto-space-after-punctuation rule rather than by a double space, so a
+     * space press right afterwards is the user's habit catching up with a
+     * space that is already there and is swallowed instead of doubling it.
+     * Survives a space press (which consumes it) and a shift press (which
+     * cancels the whole insert); any other key clears it.
+     */
+    private var pendingPunctuationSpace = false
+
     /** Contact-name words for suggestions, when the setting + permission allow. */
     private var contactNames: ContactNames = ContactNames.EMPTY
 
@@ -508,15 +521,26 @@ open class WMKeyboardService : InputMethodService() {
         // foreground app (best-effort; null unless opted in and permitted).
         val source = if (state.settings.clipboard.trackSource) resolveClipSource() else null
 
+        // The copying app's own claim that this clip holds a secret. Nothing
+        // else in the system acts on it, so honoring it is entirely up to us —
+        // and under KEEP the user has said not to, so the flag is dropped here
+        // rather than at each of the places that would otherwise act on it.
+        val handling = state.settings.clipboard.sensitiveHandling
+        val flaggedSensitive = handling != SensitiveClipHandling.KEEP && clipMarkedSensitive(clip)
+        if (flaggedSensitive && handling == SensitiveClipHandling.NEVER_SAVE) {
+            return@OnPrimaryClipChangedListener
+        }
+
         val imageMime = uri?.let { u ->
             runCatching { contentResolver.getType(u) }.getOrNull()?.takeIf { it.startsWith("image/") }
         }
-        // Non-image URIs are files or folders copied from a file manager;
-        // record them by reference (see [addFileClips]) rather than copying.
+        // Non-image URIs are files, folders or videos copied from a file
+        // manager or gallery; record them by reference (see [addFileClips])
+        // rather than copying — a copied movie is routinely gigabytes.
         if (uri != null && imageMime == null && item.text == null) {
             val uris = (0 until clip.itemCount).mapNotNull { clip.getItemAt(it)?.uri }
             if (uris.isNotEmpty()) {
-                serviceScope.launch(Dispatchers.IO) { addFileClips(uris, source) }
+                serviceScope.launch(Dispatchers.IO) { addFileClips(uris, source, flaggedSensitive) }
                 return@OnPrimaryClipChangedListener
             }
         }
@@ -539,7 +563,9 @@ open class WMKeyboardService : InputMethodService() {
                     target
                 }.getOrNull()
                 if (copied != null) {
-                    val added = clipboardStore.addImage(copied, imageMime, source)
+                    val added = clipboardStore.addImage(
+                        copied, imageMime, source, sensitive = flaggedSensitive,
+                    )
                     clipboardStore.save()
                     _uiState.update { it.copy(clipboardItems = clipboardStore.items()) }
                     if (added != null && state.settings.clipboard.suggestRecent) {
@@ -551,15 +577,45 @@ open class WMKeyboardService : InputMethodService() {
         }
 
         val text = item.coerceToText(this)?.toString() ?: return@OnPrimaryClipChangedListener
+        // Our own read of the text, for the password managers that predate the
+        // flag and the codes copied by hand out of a message.
+        val sensitive = flaggedSensitive || (
+            handling != SensitiveClipHandling.KEEP &&
+                state.settings.clipboard.detectSensitive &&
+                ClipSensitivity.looksSensitive(text)
+            )
+        if (sensitive && handling == SensitiveClipHandling.NEVER_SAVE) {
+            return@OnPrimaryClipChangedListener
+        }
         val html = item.htmlText
-        val added = if (html != null) clipboardStore.addHtml(text, html, source) else clipboardStore.add(text, source)
+        val added = if (html != null) {
+            clipboardStore.addHtml(text, html, source, sensitive = sensitive)
+        } else {
+            clipboardStore.add(text, source, sensitive = sensitive)
+        }
         clipboardStore.save()
         _uiState.update { it.copy(clipboardItems = clipboardStore.items()) }
-        if (added != null && added.kind.isTextual && state.settings.clipboard.suggestRecent) {
+        // A secret is never offered as a strip chip: the whole point of the chip
+        // is that it sits in view above the keys while you type something else.
+        if (added != null && added.kind.isTextual && !added.sensitive &&
+            state.settings.clipboard.suggestRecent
+        ) {
             showClipboardSuggestion(added)
         }
         if (added?.kind == ClipKind.LINK) fetchLinkPreviews()
     }
+
+    /**
+     * Whether the copying app marked this clip as holding sensitive content.
+     *
+     * The extra was added in Android 13 as `ClipDescription.EXTRA_IS_SENSITIVE`,
+     * but the key string it is defined as predates it and password managers set
+     * it on older releases too — so the literal is read on every version rather
+     * than gated behind a version check that would ignore it exactly where the
+     * platform offers no protection of its own.
+     */
+    private fun clipMarkedSensitive(clip: android.content.ClipData): Boolean =
+        clip.description?.extras?.getBoolean(EXTRA_IS_SENSITIVE, false) == true
 
     private var lastScreenshotId = -1L
     private var screenshotObserver: android.database.ContentObserver? = null
@@ -599,6 +655,12 @@ open class WMKeyboardService : InputMethodService() {
             }
         }
     }
+
+    /**
+     * `ClipDescription.EXTRA_IS_SENSITIVE`, spelled out so it can be read on
+     * every API level rather than only where the constant exists.
+     */
+    private val EXTRA_IS_SENSITIVE = "android.content.extra.IS_SENSITIVE"
 
     private fun handleScreenshotAdded() {
         val state = _uiState.value
@@ -732,7 +794,11 @@ open class WMKeyboardService : InputMethodService() {
      * providers refuse, in which case inserting later falls back to putting
      * the URI back on the system clipboard.
      */
-    private fun addFileClips(uris: List<Uri>, sourceApp: String? = null) {
+    private fun addFileClips(
+        uris: List<Uri>,
+        sourceApp: String? = null,
+        sensitive: Boolean = false,
+    ) {
         var added = false
         for (uri in uris.take(MAX_FILE_CLIPS_PER_COPY)) {
             val info = resolveClipFile(uri) ?: continue
@@ -746,6 +812,8 @@ open class WMKeyboardService : InputMethodService() {
                 isDirectory = info.isDirectory,
                 size = info.size,
                 sourceApp = sourceApp,
+                durationMs = if (info.mimeType.startsWith("video/")) videoDuration(uri) else -1,
+                sensitive = sensitive,
             )
             added = true
         }
@@ -760,6 +828,24 @@ open class WMKeyboardService : InputMethodService() {
         val size: Long,
         val isDirectory: Boolean,
     )
+
+    /**
+     * Play length of a copied video in ms, or -1 when it can't be read. Runs on
+     * the IO dispatcher with the rest of [addFileClips]: the retriever opens
+     * and parses the container, which is not a main-thread operation.
+     */
+    private fun videoDuration(uri: Uri): Long = runCatching {
+        // Not `use`: MediaMetadataRetriever only became AutoCloseable in API 29,
+        // and this app runs back to 24.
+        val retriever = android.media.MediaMetadataRetriever()
+        try {
+            retriever.setDataSource(this, uri)
+            retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION)
+                ?.toLongOrNull() ?: -1L
+        } finally {
+            retriever.release()
+        }
+    }.getOrDefault(-1L)
 
     /** Display name, size and directory-ness of a copied file URI. */
     private fun resolveClipFile(uri: Uri): ClipFileInfo? {
@@ -871,10 +957,15 @@ open class WMKeyboardService : InputMethodService() {
 
     override fun onCreate() {
         super.onCreate()
+        // First thing in the process: an IME that dies is replaced by another
+        // keyboard without a word to the user, so the crash record has to be
+        // armed before anything that could crash runs.
+        DebugLog.attach(this)
         lifecycleOwner = KeyboardViewLifecycleOwner()
         lifecycleOwner.onCreate()
 
         userUnlocked = DirectBoot.isUserUnlocked(this)
+        DebugLog.i("ime", "service created (unlocked=$userUnlocked)")
         settingsRepository = SettingsRepository(this)
         // Decode the synthesized key sounds up front so the first press plays.
         KeySoundPlayer.warmUp(this)
@@ -922,6 +1013,13 @@ open class WMKeyboardService : InputMethodService() {
                     recomputeHiddenEmoji(settings)
                 }
                 clipboardStore.expiryMillis = settings.clipboard.expiryHours * 60L * 60 * 1000
+                clipboardStore.maxItems = settings.clipboard.maxItems
+                clipboardStore.sensitiveExpiryMillis =
+                    if (settings.clipboard.sensitiveHandling == SensitiveClipHandling.SHORT_LIVED) {
+                        settings.clipboard.sensitiveExpiryMinutes * 60L * 1000
+                    } else {
+                        0L
+                    }
                 // Flipping pinned-first/last re-sorts the store, so refresh the
                 // panel's snapshot when the choice actually changes.
                 if (pinnedLastEnabled != settings.clipboard.pinnedLast) {
@@ -1141,6 +1239,7 @@ open class WMKeyboardService : InputMethodService() {
     private fun onUserUnlocked() {
         if (userUnlocked) return
         userUnlocked = true
+        DebugLog.i("ime", "credential storage unlocked; re-attaching personal stores")
         if (unlockReceiverRegistered) {
             runCatching { unregisterReceiver(unlockReceiver) }
             unlockReceiverRegistered = false
@@ -1306,6 +1405,7 @@ open class WMKeyboardService : InputMethodService() {
                 onClipboardKey = ::onClipboardKey,
                 canDelete = ::canDelete,
                 canDeleteField = ::canDeleteField,
+                canForwardDelete = ::canForwardDelete,
                 onDeleteWord = ::onDeleteWord,
                 onSuggestion = ::onSuggestionTapped,
                 onCandidate = ::onCandidateTapped,
@@ -1547,6 +1647,7 @@ open class WMKeyboardService : InputMethodService() {
             lastGestureWord = null
             lastAutocorrect = null
             pendingAutoSpace = false
+            pendingPunctuationSpace = false
             // A genuinely different field. Whatever a plugin was collecting
             // belonged to the last one, and the keys belong to this one.
             stopPlugins()
@@ -1773,6 +1874,7 @@ open class WMKeyboardService : InputMethodService() {
                 lastAutocorrect = null
                 lastGestureWord = null
                 pendingAutoSpace = false
+                pendingPunctuationSpace = false
             }
         }
         val wasComposing = composing.isNotEmpty()
@@ -1948,6 +2050,7 @@ open class WMKeyboardService : InputMethodService() {
     }
 
     override fun onDestroy() {
+        DebugLog.i("ime", "service destroyed")
         pluginRuntime?.shutdown()
         pluginRuntime = null
         KeyboardPassthrough.publishRegion(null)
@@ -2006,6 +2109,11 @@ open class WMKeyboardService : InputMethodService() {
         // The auto-space cancel is a one-shot for the shift press immediately
         // after the ". " — any other key means the user typed on past it.
         if (key.action != KeyAction.Shift) pendingAutoSpace = false
+        // Space is the other key with something to say about a just-inserted
+        // punctuation space: it consumes it rather than adding a second one.
+        if (key.action != KeyAction.Shift && key.action != KeyAction.Space) {
+            pendingPunctuationSpace = false
+        }
         // A pending Ctrl/Alt/Meta turns the next key into a shortcut, so it is
         // intercepted ahead of the normal dispatch: KeyAction.Text would
         // otherwise push the letter through the composing buffer and Ctrl+C
@@ -2028,6 +2136,7 @@ open class WMKeyboardService : InputMethodService() {
             KeyAction.Text -> onTextKey(key)
             KeyAction.Shift -> onShift()
             KeyAction.Delete -> onDelete()
+            KeyAction.ForwardDelete -> onForwardDelete()
             KeyAction.Space -> onSpace()
             KeyAction.Enter -> onEnter()
             KeyAction.Symbols -> toggleSymbols()
@@ -2447,7 +2556,18 @@ open class WMKeyboardService : InputMethodService() {
             consumeShift()
         } else {
             commitComposing(ic, autocorrect = false)
+            val autoSpace = shouldAutoSpaceAfterPunctuation(state, text)
+            if (autoSpace) {
+                // A run of marks ("...", "?!") must not be pulled apart by the
+                // spaces this rule types, so the one from the previous mark is
+                // taken back before the new mark lands.
+                val before = ic.getTextBeforeCursor(2, 0)?.toString().orEmpty()
+                if (before.length == 2 && before[1] == ' ' && before[0] in AUTO_SPACE_PUNCTUATION) {
+                    ic.deleteSurroundingText(1, 0)
+                }
+            }
             ic.commitText(text, 1)
+            if (autoSpace) insertPunctuationSpace(ic)
             // Consume one-shot shift before evaluating auto-capitalize, so a
             // sentence ender can turn shift back on for the next sentence.
             consumeShift()
@@ -2458,6 +2578,44 @@ open class WMKeyboardService : InputMethodService() {
             // contact-email strip has to be refreshed off the committed text.
             if (emailFieldForceActive(state)) refreshEmailFieldSuggestions()
         }
+    }
+
+    /**
+     * Whether the just-typed [text] should be followed by a space typed for the
+     * user (see [KeyboardSettings.autoSpaceAfterPunctuation]).
+     *
+     * Structured fields are excluded through [KeyboardUiState.allowsTypingIntelligence],
+     * which is exactly the URL / email / password / keypad set: a space inserted
+     * into an address or a password is a typo, not a courtesy. Scripts that
+     * write without spaces (Chinese, Japanese, Thai…) are excluded too — their
+     * punctuation is followed by nothing, and the wide forms (。、！) are not in
+     * [AUTO_SPACE_PUNCTUATION] for the same reason.
+     */
+    private fun shouldAutoSpaceAfterPunctuation(state: KeyboardUiState, text: String): Boolean =
+        state.settings.autoSpaceAfterPunctuation &&
+            state.allowsTypingIntelligence &&
+            !state.composer.isConversion &&
+            text.length == 1 && text[0] in AUTO_SPACE_PUNCTUATION
+
+    /**
+     * Types the space that follows an auto-spaced punctuation mark, unless the
+     * text already continues with one — pressing "," in the middle of "a, b"
+     * must not push a second space in.
+     *
+     * Arms the same one-shot cancel the ". " from a double space uses: a shift
+     * press right afterwards takes the space back (see [onShift]), and a space
+     * press is swallowed rather than doubled (see [onSpace]).
+     */
+    private fun insertPunctuationSpace(ic: InputConnection) {
+        val after = ic.getTextAfterCursor(1, 0)?.toString().orEmpty()
+        if (after.startsWith(" ") || after.startsWith(" ")) return
+        ic.commitText(" ", 1)
+        pendingAutoSpace = true
+        pendingPunctuationSpace = true
+        // The caret anchor has to be re-taken from this commit's own echo, or
+        // the selection update it triggers reads as "the user moved the caret"
+        // and disarms the cancel before it can ever be used.
+        armRevertGuard()
     }
 
     private fun keyOutput(key: Key, state: KeyboardUiState): String {
@@ -2526,15 +2684,17 @@ open class WMKeyboardService : InputMethodService() {
             val ic = currentInputConnection
             if (ic != null && hasSelection(ic) && recapitalizeSelection(ic)) return
         }
-        // Cancel a just-inserted auto-space after punctuation: the ". " from a
-        // double space leaves a trailing space, and one shift press removes it
+        // Cancel a just-inserted auto-space after punctuation — the ". " from a
+        // double space, or the space the auto-space-after-punctuation rule
+        // types. Either leaves a trailing space, and one shift press removes it
         // rather than arming caps, so a sentence can be continued without it.
         if (pendingAutoSpace) {
             pendingAutoSpace = false
+            pendingPunctuationSpace = false
             val ic = currentInputConnection
             if (ic != null) {
                 val before = ic.getTextBeforeCursor(2, 0)?.toString().orEmpty()
-                if (before.length == 2 && before[1] == ' ' && before[0] in SENTENCE_ENDERS) {
+                if (before.length == 2 && before[1] == ' ' && before[0] in AUTO_SPACE_PUNCTUATION) {
                     ic.deleteSurroundingText(1, 0)
                     // The ". " also armed auto-cap for a new sentence; cancelling
                     // the break cancels that too, so typing continues in case.
@@ -2766,6 +2926,78 @@ open class WMKeyboardService : InputMethodService() {
     }
 
     /**
+     * The ⌦ key: deletes forward, over the character *after* the cursor.
+     *
+     * A panel search owns the keys while it is open, and its query is a plain
+     * string with no caret inside it — there is no "after the cursor" to act
+     * on, and reaching past the panel would edit field text the user cannot
+     * see. So the key stands down in those contexts rather than doing
+     * something surprising.
+     */
+    private fun onForwardDelete() {
+        val state = _uiState.value
+        if (state.typingTestActive || state.aiCustomInputActive || state.pluginTypingActive ||
+            state.emojiSearchActive || state.dictionarySearchActive ||
+            state.clipboardSearchActive ||
+            (state.mediaSearchActive && state.panel.hasMediaSearch)
+        ) {
+            return
+        }
+        deleteForwardFromField()
+    }
+
+    /**
+     * One forward delete against the real text field: a selection if there is
+     * one, otherwise the whole grapheme cluster after the cursor.
+     *
+     * Composing text sits *before* the caret, so it is never what forward
+     * delete removes — but editing around a live composing region strands its
+     * underline, so the buffer is committed as-is (never autocorrected: the
+     * user did not signal the word was finished) before the deletion lands.
+     */
+    private fun deleteForwardFromField() {
+        val ic = currentInputConnection ?: return
+        // A selection is what gets deleted, exactly as backspace does.
+        if (hasSelection(ic)) {
+            dropComposingForSelectionEdit(ic)
+            invalidateExpectedSelection()
+            ic.commitText("", 1)
+            return
+        }
+        if (composing.isNotEmpty()) commitComposing(ic, autocorrect = false)
+        // The lookahead has to outrun the longest emoji ZWJ/tag sequence, the
+        // same way backspace's lookback does.
+        val after = ic.getTextAfterCursor(64, 0)
+        if (after.isNullOrEmpty()) return
+        invalidateExpectedSelection()
+        ic.deleteSurroundingText(0, EmojiGraphemes.forwardDeleteLength(after).coerceAtLeast(1))
+        // Nothing before the cursor moved, so the bigram context still holds;
+        // only the strip's completion view of the field changed.
+        refreshSuggestions()
+    }
+
+    /**
+     * Whether a forward delete would still remove anything, so the held-repeat
+     * loop stops at the end of the text instead of buzzing against nothing.
+     */
+    fun canForwardDelete(): Boolean {
+        val state = _uiState.value
+        if (state.typingTestActive || state.aiCustomInputActive || state.pluginTypingActive ||
+            state.emojiSearchActive || state.dictionarySearchActive ||
+            state.clipboardSearchActive ||
+            (state.mediaSearchActive && state.panel.hasMediaSearch)
+        ) {
+            return false
+        }
+        val ic = currentInputConnection ?: return false
+        if (hasSelection(ic)) return true
+        // A null answer means the editor can't say — keep deleting rather than
+        // stopping a working key; only a definite "" stops it.
+        val after = ic.getTextAfterCursor(1, 0) ?: return true
+        return after.isNotEmpty()
+    }
+
+    /**
      * Re-reads the completed word before the cursor and makes it the
      * prediction context, or clears it when there is none.
      *
@@ -2952,6 +3184,9 @@ open class WMKeyboardService : InputMethodService() {
         val ic = currentInputConnection ?: return
         val state = _uiState.value
         val now = System.currentTimeMillis()
+        // One-shot, spent by this press whatever it ends up doing.
+        val followsPunctuationSpace = pendingPunctuationSpace
+        pendingPunctuationSpace = false
 
         if (state.emojiSearchActive) {
             updateQuery { it.copy(emojiQuery = it.emojiQuery + " ") }
@@ -2978,6 +3213,20 @@ open class WMKeyboardService : InputMethodService() {
             lastSpaceTime = 0
             maybeAutoCapitalize()
             return
+        }
+
+        // The space after "hello," was typed a keystroke ago by the auto-space
+        // rule. Habit still reaches for the spacebar, and obeying it here would
+        // give "hello,  world" — so the press is spent confirming the space
+        // that is already there. Pressing space again inserts a real one, since
+        // the one-shot is gone by then.
+        if (followsPunctuationSpace) {
+            val before = ic.getTextBeforeCursor(2, 0)?.toString().orEmpty()
+            if (before.length == 2 && before[1] == ' ' && before[0] in AUTO_SPACE_PUNCTUATION) {
+                lastSpaceTime = now
+                maybeAutoCapitalize()
+                return
+            }
         }
 
         // Conversion IME (Pinyin, Japanese): space commits the top candidate for
@@ -8293,7 +8542,9 @@ open class WMKeyboardService : InputMethodService() {
         vibrate()
         when (item.kind) {
             ClipKind.IMAGE -> commitImageClip(item)
-            ClipKind.FILE -> commitFileClip(item)
+            // A video is a file whose bytes another app owns — the same
+            // commitContent handoff, with the video MIME doing the negotiating.
+            ClipKind.FILE, ClipKind.VIDEO -> commitFileClip(item)
             // A folder is a container, not content — there is nothing to attach
             // to a text field, so insert its name and hand the URI back to the
             // system clipboard for a file manager to paste.
@@ -8452,6 +8703,10 @@ open class WMKeyboardService : InputMethodService() {
             }.getOrDefault(false)
             if (committed) return
         }
+        DebugLog.w(
+            "clipboard",
+            "field would not take ${item.mimeType} via commitContent; fell back to the system clipboard",
+        )
         copyUriToSystemClipboard(uri, label)
         Toast.makeText(
             this,
@@ -9244,6 +9499,7 @@ open class WMKeyboardService : InputMethodService() {
     private fun clearForHardwareTyping() {
         lastGestureWord = null
         pendingAutoSpace = false
+        pendingPunctuationSpace = false
     }
 
     /**
@@ -9618,6 +9874,18 @@ open class WMKeyboardService : InputMethodService() {
          */
         private const val AI_PARTIAL_INTERVAL_MS = 120L
         private val SENTENCE_ENDERS = charArrayOf('.', '!', '?', '।')
+
+        /**
+         * Marks that get a space typed after them when
+         * [KeyboardSettings.autoSpaceAfterPunctuation] is on — the sentence
+         * enders plus the clause separators.
+         *
+         * Deliberately ASCII-and-danda only. The CJK wide forms (。、！？) are
+         * followed by no space in their own typography, and the closing
+         * brackets and quotes are left out because the space belongs after
+         * whatever *they* close, not after the mark itself.
+         */
+        private val AUTO_SPACE_PUNCTUATION = charArrayOf('.', '!', '?', '।', ',', ';', ':')
         private const val SHIFT_DOUBLE_TAP_MS = 350L
 
         /**

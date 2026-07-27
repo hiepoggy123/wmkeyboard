@@ -38,6 +38,7 @@ import androidx.compose.material.icons.outlined.FileUpload
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
@@ -52,6 +53,8 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TimePicker
+import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -81,6 +84,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import com.wasimaster.wmkeyboard.core.settings.AutoThemeTrigger
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import com.wasimaster.wmkeyboard.core.settings.ThemeMode
@@ -155,7 +159,7 @@ private fun ThemeSpec.reseeded(seed: Long, dark: Boolean): ThemeSpec =
     )
 
 /** The display name for a theme id in the same namespace as keyboardThemeId. */
-private fun themeDisplayName(settings: KeyboardSettings, id: String): String = when (id) {
+internal fun themeDisplayName(settings: KeyboardSettings, id: String): String = when (id) {
     DEFAULT_THEME_ID -> "Default (system)"
     else -> settings.customThemes.find { it.id == id }?.name
         ?: BuiltInThemes.find { it.id == id }?.name
@@ -197,6 +201,96 @@ private fun ThemePickerDialog(
             }
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text("Done") } },
+    )
+}
+
+/**
+ * [ThemePickerDialog] with an "Inherit" row at the top, for a keyboard mode —
+ * where having no theme of its own is the default and the common case.
+ */
+@Composable
+internal fun ModeThemePickerDialog(
+    settings: KeyboardSettings,
+    selectedId: String?,
+    onPick: (String?) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val options = buildList<Pair<String?, String>> {
+        add(null to "Inherit — whatever theme is set")
+        add(DEFAULT_THEME_ID to "Default (system)")
+        BuiltInThemes.forEach { add(it.id to it.name) }
+        settings.customThemes.sortedBy { it.name.lowercase() }.forEach { add(it.id to it.name) }
+    }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Theme for this mode") },
+        text = {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                for ((id, name) in options) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onPick(id) }
+                            .padding(vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        RadioButton(selected = id == selectedId, onClick = { onPick(id) })
+                        Spacer(Modifier.width(8.dp))
+                        Text(name)
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Done") } },
+    )
+}
+
+/** `7:00 AM` / `19:00`, following the phone's own 12-vs-24-hour setting. */
+@Composable
+private fun formatMinutesOfDay(minutes: Int): String {
+    val context = LocalContext.current
+    val calendar = java.util.Calendar.getInstance().apply {
+        set(java.util.Calendar.HOUR_OF_DAY, minutes / 60)
+        set(java.util.Calendar.MINUTE, minutes % 60)
+    }
+    // The Android formatter, not java.text's: only this one honours the
+    // "use 24-hour format" switch, which is a system setting rather than
+    // something the locale decides.
+    return android.text.format.DateFormat.getTimeFormat(context).format(calendar.time)
+}
+
+/** Clock-face picker for one of the auto-theme switchover times. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TimeOfDayPickerDialog(
+    title: String,
+    minutes: Int,
+    onPick: (Int) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val context = LocalContext.current
+    val state = rememberTimePickerState(
+        initialHour = minutes / 60,
+        initialMinute = minutes % 60,
+        is24Hour = android.text.format.DateFormat.is24HourFormat(context),
+    )
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                TimePicker(state = state)
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onPick(state.hour * 60 + state.minute) }) { Text("Set") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     )
 }
 
@@ -300,15 +394,15 @@ fun ThemesScreen(
     val auto = settings.autoTheme
     SectionHeaderPublic("Auto (light + dark)")
     Text(
-        "Switch themes automatically with the system light/dark setting. While this is on, " +
-            "the theme tool on the keyboard just previews — the system picks the active theme.",
+        "Switch between a light and a dark theme on their own. While this is on, the theme " +
+            "tool on the keyboard just previews — the schedule picks the active theme.",
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(horizontal = 16.dp),
     )
     ListItem(
         headlineContent = { Text("Auto theme") },
-        supportingContent = { Text("Use a light theme in day mode and a dark theme at night") },
+        supportingContent = { Text("Use a light theme by day and a dark theme at night") },
         trailingContent = {
             Switch(
                 checked = auto.enabled,
@@ -327,6 +421,71 @@ fun ThemesScreen(
             supportingContent = { Text(themeDisplayName(settings, auto.darkThemeId)) },
             modifier = Modifier.clickable { pickerForLight = false },
         )
+        SingleChoiceSegmentedButtonRow(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+        ) {
+            AutoThemeTrigger.entries.forEachIndexed { index, trigger ->
+                SegmentedButton(
+                    selected = auto.trigger == trigger,
+                    onClick = { scope.launch { repository.setAutoThemeTrigger(trigger) } },
+                    shape = SegmentedButtonDefaults.itemShape(index, AutoThemeTrigger.entries.size),
+                ) {
+                    Text(trigger.label)
+                }
+            }
+        }
+        // null = closed; true = editing when day starts, false = when night does.
+        var timePickerForDay by remember { mutableStateOf<Boolean?>(null) }
+        when (auto.trigger) {
+            AutoThemeTrigger.SYSTEM -> Text(
+                "Follows the phone's own light/dark setting, including whatever schedule " +
+                    "Android is running for it.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp),
+            )
+            AutoThemeTrigger.SCHEDULE -> {
+                ListItem(
+                    headlineContent = { Text("Light theme from") },
+                    supportingContent = { Text(formatMinutesOfDay(auto.dayStartMinutes)) },
+                    modifier = Modifier.clickable { timePickerForDay = true },
+                )
+                ListItem(
+                    headlineContent = { Text("Dark theme from") },
+                    supportingContent = { Text(formatMinutesOfDay(auto.nightStartMinutes)) },
+                    modifier = Modifier.clickable { timePickerForDay = false },
+                )
+            }
+            AutoThemeTrigger.SUN -> Text(
+                if (settings.weatherLatitude != null && settings.weatherLongitude != null) {
+                    "Light between sunrise and sunset at ${
+                        settings.weatherPlaceName.takeIf { it.isNotBlank() } ?: "your saved location"
+                    }. Worked out on the device — no network needed."
+                } else {
+                    "No location saved yet. Set one in the weather tool's settings; until " +
+                        "then this falls back to the phone's light/dark setting."
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp),
+            )
+        }
+        timePickerForDay?.let { forDay ->
+            TimeOfDayPickerDialog(
+                title = if (forDay) "Light theme from" else "Dark theme from",
+                minutes = if (forDay) auto.dayStartMinutes else auto.nightStartMinutes,
+                onPick = { picked ->
+                    scope.launch {
+                        if (forDay) repository.setAutoThemeDayStart(picked)
+                        else repository.setAutoThemeNightStart(picked)
+                    }
+                    timePickerForDay = null
+                },
+                onDismiss = { timePickerForDay = null },
+            )
+        }
     }
     pickerForLight?.let { forLight ->
         ThemePickerDialog(

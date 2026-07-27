@@ -6,15 +6,23 @@ import java.io.File
 
 /**
  * What a clip holds. [TEXT]/[HTML]/[LINK] are textual (insertable as text);
- * [IMAGE] is a file this app owns; [FILE]/[FOLDER] are content URIs owned by
- * the app that did the copying.
+ * [IMAGE] is a file this app owns; [FILE]/[FOLDER]/[VIDEO] are content URIs
+ * owned by the app that did the copying.
+ *
+ * [VIDEO] is a [FILE] with a card of its own rather than a kind that behaves
+ * differently: the bytes stay with the copying app either way — a copied movie
+ * is routinely gigabytes, which is exactly what this store must not duplicate —
+ * and inserting one goes through the same commitContent path.
  */
 @Serializable
 enum class ClipKind {
-    TEXT, HTML, LINK, IMAGE, FILE, FOLDER;
+    TEXT, HTML, LINK, IMAGE, FILE, FOLDER, VIDEO;
 
     /** True when the clip can be committed as plain text. */
     val isTextual: Boolean get() = this == TEXT || this == HTML || this == LINK
+
+    /** True when the clip is a reference to bytes another app owns. */
+    val isUriBacked: Boolean get() = this == FILE || this == FOLDER || this == VIDEO
 }
 
 /** Open Graph / HTML metadata for a [ClipKind.LINK] clip, fetched on demand. */
@@ -50,6 +58,19 @@ data class ClipItem(
     val fileSize: Long = -1,
     /** Fetched metadata for a [ClipKind.LINK] clip; null until fetched. */
     val linkPreview: LinkPreview? = null,
+    /** Play length of a [ClipKind.VIDEO] clip in ms; -1 when unknown. */
+    val durationMs: Long = -1,
+    /**
+     * The clip holds something that should not linger: the copying app set
+     * Android's sensitive-content flag on it, or it reads as a password or a
+     * one-time code (see `ClipSensitivity`).
+     *
+     * Sensitive clips are drawn masked in the panel and expire on their own
+     * short timer rather than the history one — see
+     * [ClipboardStore.sensitiveExpiryMillis]. Pinning still overrides both:
+     * pinning is an explicit "keep this".
+     */
+    val sensitive: Boolean = false,
     /**
      * Human-readable label of the app the clip was copied from (falling back to
      * its package name when the label can't be resolved). Null when source
@@ -83,6 +104,7 @@ fun ClipItem.searchHaystack(): String = buildList {
             ClipKind.IMAGE -> "image picture screenshot"
             ClipKind.FILE -> "file"
             ClipKind.FOLDER -> "folder directory"
+            ClipKind.VIDEO -> "video movie clip recording"
         },
     )
     mimeType.substringAfterLast('/').takeIf { it.isNotBlank() }?.let(::add)
@@ -124,13 +146,17 @@ object ClipLinks {
  * Clipboard history with pinning, persisted as JSON on device.
  *
  * The IME service feeds new clips in via [add]/[addHtml]/[addImage]/[addUri]
- * from its OnPrimaryClipChangedListener. Unpinned items expire after
- * [expiryMillis] (0 disables expiry); pinned items never expire.
+ * from its OnPrimaryClipChangedListener. History is bounded two ways at once,
+ * and both are the user's to set: unpinned items expire after [expiryMillis]
+ * (0 disables expiry), and only the newest [maxItems] unpinned ones are kept.
+ * Sensitive clips get their own, much shorter [sensitiveExpiryMillis]. Pinned
+ * items are exempt from all three — pinning is an explicit "keep this".
  *
  * Image clips reference files the service copies into [imagesDir]; the store
  * owns their lifecycle and deletes the file whenever its item is removed
- * (expiry, cap, delete, clear). File and folder clips only record the source
- * URI — the copying app still owns those bytes, so nothing is deleted for them.
+ * (expiry, cap, delete, clear). File, folder and video clips only record the
+ * source URI — the copying app still owns those bytes, so nothing is deleted
+ * for them.
  */
 class ClipboardStore(
     private val storageFile: File?,
@@ -138,6 +164,14 @@ class ClipboardStore(
     private val imagesDir: File? = null,
     /** When true, [items] lists pinned entries last instead of first. */
     var pinnedLast: Boolean = false,
+    /** Newest unpinned entries kept; older ones fall off the end. */
+    var maxItems: Int = DEFAULT_MAX_ITEMS,
+    /**
+     * How long a clip marked [ClipItem.sensitive] survives (0 disables the
+     * shorter leash and leaves it to [expiryMillis]). A password or a one-time
+     * code is useful for a minute and a liability for a day.
+     */
+    var sensitiveExpiryMillis: Long = DEFAULT_SENSITIVE_EXPIRY_MILLIS,
 ) {
 
     @Serializable
@@ -149,7 +183,8 @@ class ClipboardStore(
 
     companion object {
         const val DEFAULT_EXPIRY_MILLIS = 24L * 60 * 60 * 1000 // 1 day
-        private const val MAX_ITEMS = 100
+        const val DEFAULT_MAX_ITEMS = 100
+        const val DEFAULT_SENSITIVE_EXPIRY_MILLIS = 5L * 60 * 1000 // 5 minutes
     }
 
     init {
@@ -158,9 +193,9 @@ class ClipboardStore(
                 val snapshot = json.decodeFromString<Snapshot>(file.readText())
                 items.addAll(
                     snapshot.items.filter {
-                        when (it.kind) {
-                            ClipKind.IMAGE -> it.imagePath != null
-                            ClipKind.FILE, ClipKind.FOLDER -> it.uriString != null
+                        when {
+                            it.kind == ClipKind.IMAGE -> it.imagePath != null
+                            it.kind.isUriBacked -> it.uriString != null
                             else -> true
                         }
                     }
@@ -176,8 +211,13 @@ class ClipboardStore(
     }
 
     @Synchronized
-    fun add(text: String, sourceApp: String? = null, now: Long = System.currentTimeMillis()): ClipItem? =
-        addTextual(text, html = null, sourceApp = sourceApp, now = now)
+    fun add(
+        text: String,
+        sourceApp: String? = null,
+        now: Long = System.currentTimeMillis(),
+        sensitive: Boolean = false,
+    ): ClipItem? =
+        addTextual(text, html = null, sourceApp = sourceApp, now = now, sensitive = sensitive)
 
     /** Styled text: [html] is the markup, [text] the plain-text rendering. */
     @Synchronized
@@ -186,7 +226,9 @@ class ClipboardStore(
         html: String,
         sourceApp: String? = null,
         now: Long = System.currentTimeMillis(),
-    ): ClipItem? = addTextual(text, html = html, sourceApp = sourceApp, now = now)
+        sensitive: Boolean = false,
+    ): ClipItem? =
+        addTextual(text, html = html, sourceApp = sourceApp, now = now, sensitive = sensitive)
 
     /**
      * Registers an image already copied to [imageFile] (inside [imagesDir]).
@@ -198,6 +240,7 @@ class ClipboardStore(
         mimeType: String,
         sourceApp: String? = null,
         now: Long = System.currentTimeMillis(),
+        sensitive: Boolean = false,
     ): ClipItem? {
         if (!imageFile.exists()) return null
         val item = ClipItem(
@@ -208,6 +251,7 @@ class ClipboardStore(
             imagePath = imageFile.absolutePath,
             mimeType = mimeType,
             sourceApp = sourceApp,
+            sensitive = sensitive,
         )
         items.add(0, item)
         prune(now)
@@ -215,9 +259,9 @@ class ClipboardStore(
     }
 
     /**
-     * Registers a copied file or folder by its source URI. Nothing is copied —
-     * the clip is a reference, and inserting it later depends on the URI grant
-     * still being valid.
+     * Registers a copied file, folder or video by its source URI. Nothing is
+     * copied — the clip is a reference, and inserting it later depends on the
+     * URI grant still being valid.
      */
     @Synchronized
     fun addUri(
@@ -228,6 +272,8 @@ class ClipboardStore(
         size: Long = -1,
         sourceApp: String? = null,
         now: Long = System.currentTimeMillis(),
+        durationMs: Long = -1,
+        sensitive: Boolean = false,
     ): ClipItem? {
         if (uriString.isBlank()) return null
         // Re-copying the same file moves it to the top instead of duplicating.
@@ -241,19 +287,31 @@ class ClipboardStore(
             id = nextId++,
             text = displayName,
             timestamp = now,
-            kind = if (isDirectory) ClipKind.FOLDER else ClipKind.FILE,
+            kind = when {
+                isDirectory -> ClipKind.FOLDER
+                mimeType.startsWith("video/") -> ClipKind.VIDEO
+                else -> ClipKind.FILE
+            },
             mimeType = mimeType,
             uriString = uriString,
             fileName = displayName,
             fileSize = if (isDirectory) -1 else size,
             sourceApp = sourceApp,
+            durationMs = durationMs,
+            sensitive = sensitive,
         )
         items.add(0, item)
         prune(now)
         return item
     }
 
-    private fun addTextual(text: String, html: String?, sourceApp: String?, now: Long): ClipItem? {
+    private fun addTextual(
+        text: String,
+        html: String?,
+        sourceApp: String?,
+        now: Long,
+        sensitive: Boolean = false,
+    ): ClipItem? {
         val trimmed = text.trim()
         if (trimmed.isEmpty()) return null
         val isLink = html == null && ClipLinks.asUrl(trimmed) != null
@@ -270,6 +328,9 @@ class ClipboardStore(
                 },
                 htmlText = html ?: existing.htmlText,
                 sourceApp = sourceApp ?: existing.sourceApp,
+                // Sensitivity only ever tightens on a re-copy: the same text
+                // arriving once without the flag is not evidence it is safe.
+                sensitive = existing.sensitive || sensitive,
             )
             items.add(0, refreshed)
             return refreshed
@@ -286,6 +347,7 @@ class ClipboardStore(
             htmlText = html,
             mimeType = if (html != null) "text/html" else "text/plain",
             sourceApp = sourceApp,
+            sensitive = sensitive,
         )
         items.add(0, item)
         prune(now)
@@ -362,7 +424,14 @@ class ClipboardStore(
         if (expiryMillis > 0) {
             removeWhere { !it.pinned && now - it.timestamp > expiryMillis }
         }
-        while (items.count { !it.pinned } > MAX_ITEMS) {
+        // Sensitive clips are swept on their own shorter timer, which is not
+        // capped by the history one: a five-minute leash has to hold even when
+        // history is set to keep everything forever.
+        if (sensitiveExpiryMillis > 0) {
+            removeWhere { it.sensitive && !it.pinned && now - it.timestamp > sensitiveExpiryMillis }
+        }
+        val cap = maxItems.coerceAtLeast(1)
+        while (items.count { !it.pinned } > cap) {
             val oldest = items.filter { !it.pinned }.minByOrNull { it.timestamp } ?: break
             removeWhere { it === oldest }
         }

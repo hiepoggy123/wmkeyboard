@@ -55,6 +55,19 @@ data class KeyboardMode(
     /** Emoji row presentation while active; null inherits the global choice. */
     val emojiBarMode: EmojiBarMode? = null,
     /**
+     * Theme worn while this mode is active; null inherits whatever is set.
+     *
+     * A hard override, not a preference: it wins over the hand-picked theme
+     * *and* over an enabled auto-theme pair, because a mode saying "look like
+     * this" is only meaningful if it actually does. Scoped to the mode — the
+     * global choice is untouched and comes straight back when the mode ends.
+     *
+     * The id namespace is [KeyboardSettings.keyboardThemeId]'s: [DEFAULT_THEME_ID],
+     * a built-in id, or a custom one. An id whose theme has since been deleted
+     * resolves to the default, as it does everywhere else.
+     */
+    val themeId: String? = null,
+    /**
      * Pinned toolbar tools while active; null inherits the user's toolbar.
      * Replaces the toolbar unless [toolbarToolsAppend] is on.
      */
@@ -383,6 +396,12 @@ fun KeyboardSettings.applyMode(mode: KeyboardMode?): KeyboardSettings {
     val pinned = mode.pinnedOver(toolbarTools)
     return copy(
         emojiBarMode = mode.emojiBarMode ?: emojiBarMode,
+        keyboardThemeId = mode.themeId ?: keyboardThemeId,
+        // A mode's theme has to beat the auto pair too, or "this mode looks
+        // like this" would quietly mean "…unless auto-theme is on", which is
+        // most of the time. Switched off only for the mode's own lifetime —
+        // this is a view of the settings, not a write back to them.
+        autoTheme = if (mode.themeId != null) autoTheme.copy(enabled = false) else autoTheme,
         toolbarTools = pinned,
         // A tool the mode pins has to be visible, even when the user left it
         // switched off globally — otherwise the mode silently pins nothing.

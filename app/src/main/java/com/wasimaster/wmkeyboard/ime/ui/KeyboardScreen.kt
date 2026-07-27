@@ -98,7 +98,9 @@ import androidx.compose.material.icons.outlined.DeleteSweep
 import androidx.compose.material.icons.outlined.DragHandle
 import androidx.compose.material.icons.outlined.EmojiEmotions
 import androidx.compose.material.icons.outlined.Fullscreen
+import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Password
+import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.Phone
 import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material.icons.outlined.Close
@@ -349,6 +351,14 @@ internal val LocalCanDelete = staticCompositionLocalOf<() -> Boolean> { { true }
 internal val LocalCanDeleteField = staticCompositionLocalOf<() -> Boolean> { { true } }
 
 /**
+ * [LocalCanDelete] for the ⌦ key: whether anything remains *after* the cursor.
+ * Its own local because the two run out at opposite ends of the text — a caret
+ * parked at the end of a full field can still backspace forever and has
+ * nothing to forward-delete.
+ */
+internal val LocalCanForwardDelete = staticCompositionLocalOf<() -> Boolean> { { true } }
+
+/**
  * Deletes the word before the cursor. Fired per step of a sideways drag on
  * the backspace key; provided at the root like [LocalCanDelete] so it does
  * not have to thread through every key-grid layer.
@@ -441,6 +451,7 @@ internal fun enterActionName(state: KeyboardUiState): String = when (state.enter
 private fun spokenLabel(key: Key, state: KeyboardUiState): String = when (key.action) {
     KeyAction.Space -> "Space"
     KeyAction.Delete -> "Delete"
+    KeyAction.ForwardDelete -> "Forward delete"
     KeyAction.Enter -> enterActionName(state)
     KeyAction.Shift -> when (state.shiftState) {
         ShiftState.CAPS_LOCK -> "Caps lock on"
@@ -503,6 +514,7 @@ fun KeyboardScreen(
     onClipboardKey: (ClipboardKeyAction) -> Unit = {},
     canDelete: () -> Boolean = { true },
     canDeleteField: () -> Boolean = { true },
+    canForwardDelete: () -> Boolean = { true },
     onDeleteWord: () -> Unit = {},
     onSuggestion: (String) -> Unit,
     /** A conversion candidate tapped, with its position — see Composer.consumedForIndex. */
@@ -671,6 +683,7 @@ fun KeyboardScreen(
             LocalClipboardKeyAction provides onClipboardKey,
             LocalCanDelete provides canDelete,
             LocalCanDeleteField provides canDeleteField,
+            LocalCanForwardDelete provides canForwardDelete,
             LocalDeleteWord provides onDeleteWord,
             LocalCursorMoveVertical provides onCursorMoveVertical,
             LocalHideKeyboard provides onHideKeyboard,
@@ -5941,6 +5954,7 @@ private fun KeyButton(
     val onKeySound = LocalKeySound.current
     val onClipboardKey = LocalClipboardKeyAction.current
     val canDelete = LocalCanDelete.current
+    val canForwardDelete = LocalCanForwardDelete.current
     val onDeleteWord = LocalDeleteWord.current
     val onCursorMoveVertical = LocalCursorMoveVertical.current
     val onHideKeyboard = LocalHideKeyboard.current
@@ -6097,6 +6111,7 @@ private fun KeyButton(
                     openLanguagePicker = { showLanguagePicker = true },
                     setLanguagePreview = { languagePreview = it },
                     canDelete = canDelete,
+                    canForwardDelete = canForwardDelete,
                     onDeleteWord = onDeleteWord,
                     backspaceSwipeDelete = settings.backspaceSwipeDelete,
                     scope = scope,
@@ -6428,6 +6443,11 @@ private fun KeyContent(key: Key, state: KeyboardUiState, contentColor: Color) {
             contentDescription = "Delete",
             tint = contentColor,
         )
+        KeyAction.ForwardDelete -> SlotIcon(
+            IconSlots.KEY_FORWARD_DELETE,
+            contentDescription = "Forward delete",
+            tint = contentColor,
+        )
         // An app-supplied actionLabel is drawn as text — that is the whole
         // point of it, and no icon can stand in for wording the app chose.
         // It is clipped to one line so a long label cannot blow up the row.
@@ -6676,6 +6696,7 @@ private fun Modifier.pointerInputKey(
     openLanguagePicker: () -> Unit,
     setLanguagePreview: (String?) -> Unit,
     canDelete: () -> Boolean,
+    canForwardDelete: () -> Boolean,
     onDeleteWord: () -> Unit,
     backspaceSwipeDelete: Boolean,
     scope: kotlinx.coroutines.CoroutineScope,
@@ -7138,11 +7159,22 @@ private fun Modifier.pointerInputKey(
                                 p.job = scope.launch {
                                     delay(longPressDelayMs.toLong())
                                     p.longPressFired = true
-                                    if (key.action == KeyAction.Delete || key.action == KeyAction.Space) {
+                                    if (key.action == KeyAction.Delete ||
+                                        key.action == KeyAction.ForwardDelete ||
+                                        key.action == KeyAction.Space
+                                    ) {
                                         // Held backspace stops once there is
                                         // nothing left to delete — no point
-                                        // buzzing against an empty field.
-                                        while (key.action != KeyAction.Delete || canDelete()) {
+                                        // buzzing against an empty field. ⌦
+                                        // runs out at the other end of the text,
+                                        // so it polls its own predicate.
+                                        while (
+                                            when (key.action) {
+                                                KeyAction.Delete -> canDelete()
+                                                KeyAction.ForwardDelete -> canForwardDelete()
+                                                else -> true
+                                            }
+                                        ) {
                                             if (vibrateOnRepeat) onKeyPress() else onKeySound()
                                             onKeyRepeat(key)
                                             delay(repeatIntervalMs.toLong())
@@ -8853,15 +8885,24 @@ private fun ClipboardPanelContent(
                         }
                         // An image card insets less: the picture is the content,
                         // and a 10dp frame around it was pure dead space.
-                        .padding(if (item.kind == ClipKind.IMAGE) 5.dp else 10.dp),
+                        .padding(
+                            if (item.kind == ClipKind.IMAGE || item.kind == ClipKind.VIDEO) 5.dp
+                            else 10.dp,
+                        ),
                 ) {
                     if (showInfo) {
                         ClipInfoPopup(item, onDismiss = { showInfo = false })
                     }
-                    when (item.kind) {
-                        ClipKind.IMAGE -> ClipThumbnail(item)
-                        ClipKind.FILE, ClipKind.FOLDER -> ClipFileBody(item)
-                        ClipKind.LINK -> ClipLinkBody(item)
+                    when {
+                        // A masked secret outranks every other body: the point
+                        // is that its content is not on screen, and a link card
+                        // or a preview would put it there.
+                        item.sensitive && item.kind.isTextual -> ClipSensitiveBody(item)
+                        item.kind == ClipKind.IMAGE -> ClipThumbnail(item)
+                        item.kind == ClipKind.VIDEO -> ClipVideoBody(item)
+                        item.kind == ClipKind.FILE || item.kind == ClipKind.FOLDER ->
+                            ClipFileBody(item)
+                        item.kind == ClipKind.LINK -> ClipLinkBody(item)
                         // Longer clips run to six lines rather than three now
                         // that a taller card costs its neighbour nothing — the
                         // other column packs its own cards independently.
@@ -9141,11 +9182,16 @@ private fun ClipInfoPopup(item: ClipItem, onDismiss: () -> Unit) {
         ClipKind.IMAGE -> "Image"
         ClipKind.FILE -> "File"
         ClipKind.FOLDER -> "Folder"
+        ClipKind.VIDEO -> "Video"
     }
     val sizeLabel = when (item.kind) {
         ClipKind.IMAGE -> item.mimeType.substringAfterLast('/').takeIf { it.isNotBlank() }?.uppercase()
         ClipKind.FILE -> formatFileSize(item.fileSize)
         ClipKind.FOLDER -> null
+        ClipKind.VIDEO -> listOfNotNull(
+            formatDuration(item.durationMs),
+            formatFileSize(item.fileSize),
+        ).joinToString(" · ").takeIf { it.isNotBlank() }
         else -> {
             val chars = item.text.length
             "$chars character" + if (chars == 1) "" else "s"
@@ -9170,6 +9216,13 @@ private fun ClipInfoPopup(item: ClipItem, onDismiss: () -> Unit) {
                 item.sourceApp?.let { ClipInfoRow("From", it, kb.popupText) }
                 ClipInfoRow("Type", typeLabel, kb.popupText)
                 sizeLabel?.let { ClipInfoRow("Size", it, kb.popupText) }
+                if (item.sensitive) {
+                    ClipInfoRow(
+                        "Private",
+                        "Hidden in the panel and deleted sooner than other clips",
+                        kb.popupText,
+                    )
+                }
             }
         }
     }
@@ -9285,6 +9338,140 @@ private fun ClipFileBody(item: ClipItem) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+    }
+}
+
+/**
+ * A clip holding a secret: bullets instead of the text, with a lock and a
+ * character count so the card still says *something* about what it is.
+ *
+ * Deliberately not revealable in place. Anyone who can see the panel can see
+ * whatever a reveal button would show, and the card is already one tap from
+ * pasting the real thing where it belongs — a peek affordance would add a way
+ * to expose the password without adding a way to use it.
+ */
+@Composable
+private fun ClipSensitiveBody(item: ClipItem) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(
+            Icons.Outlined.Lock,
+            contentDescription = "Hidden",
+            modifier = Modifier
+                .size(22.dp)
+                .padding(end = 6.dp),
+            tint = MaterialTheme.colorScheme.primary,
+        )
+        Column {
+            Text(
+                text = "•".repeat(item.text.length.coerceIn(6, 16)),
+                maxLines = 1,
+                overflow = TextOverflow.Clip,
+                fontSize = 15.sp,
+                letterSpacing = 2.sp,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Text(
+                text = "Hidden · ${item.text.length} characters",
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                fontSize = 10.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+/**
+ * A copied video: a frame from it under a play badge, with the length and file
+ * size beneath. The frame is pulled straight from the source URI — the bytes
+ * belong to the app that did the copying and are never duplicated here — so it
+ * simply falls back to a plain file row when the grant has lapsed or the
+ * container will not decode.
+ */
+@Composable
+private fun ClipVideoBody(item: ClipItem) {
+    val context = LocalContext.current
+    val frame by produceState<ImageBitmap?>(initialValue = null, item.uriString) {
+        value = withContext(Dispatchers.IO) {
+            val uri = item.uriString?.let { runCatching { android.net.Uri.parse(it) }.getOrNull() }
+                ?: return@withContext null
+            runCatching {
+                // Not `use`: MediaMetadataRetriever only became AutoCloseable in
+                // API 29, and this app runs back to 24.
+                val retriever = android.media.MediaMetadataRetriever()
+                try {
+                    retriever.setDataSource(context, uri)
+                    retriever.getFrameAtTime(0)?.asImageBitmap()
+                } finally {
+                    retriever.release()
+                }
+            }.getOrNull()
+        }
+    }
+    val shape = RoundedCornerShape(8.dp)
+    val caption = listOfNotNull(
+        formatDuration(item.durationMs),
+        formatFileSize(item.fileSize),
+    ).joinToString(" · ")
+
+    if (frame == null) {
+        ClipFileBody(item)
+        return
+    }
+    Column {
+        Box(contentAlignment = Alignment.Center) {
+            Image(
+                bitmap = frame!!,
+                contentDescription = "Copied video",
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(
+                        (frame!!.width.toFloat() / frame!!.height.coerceAtLeast(1))
+                            .coerceIn(MIN_THUMBNAIL_RATIO, MAX_THUMBNAIL_RATIO),
+                    )
+                    .background(MaterialTheme.colorScheme.surfaceContainerHigh, shape)
+                    .clip(shape),
+                contentScale = ContentScale.Crop,
+            )
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(CircleShape)
+                    .background(Color.Black.copy(alpha = 0.45f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    Icons.Outlined.PlayArrow,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
+                    tint = Color.White,
+                )
+            }
+        }
+        if (caption.isNotBlank()) {
+            Text(
+                text = caption,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                fontSize = 10.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 4.dp, start = 4.dp),
+            )
+        }
+    }
+}
+
+/** `1:04`, `12:03:41` — or null when the length could not be read. */
+private fun formatDuration(millis: Long): String? {
+    if (millis <= 0) return null
+    val totalSeconds = millis / 1000
+    val hours = totalSeconds / 3600
+    val minutes = (totalSeconds % 3600) / 60
+    val seconds = totalSeconds % 60
+    return if (hours > 0) {
+        String.format(java.util.Locale.getDefault(), "%d:%02d:%02d", hours, minutes, seconds)
+    } else {
+        String.format(java.util.Locale.getDefault(), "%d:%02d", minutes, seconds)
     }
 }
 

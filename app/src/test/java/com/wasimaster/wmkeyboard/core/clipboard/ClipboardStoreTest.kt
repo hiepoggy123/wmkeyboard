@@ -186,4 +186,60 @@ class ClipboardStoreTest {
         assertTrue(kept.exists())
         assertFalse(orphan.exists())
     }
+
+    @Test fun maxItemsCapsUnpinnedHistory() {
+        val store = ClipboardStore(null, expiryMillis = 0, maxItems = 3)
+        repeat(6) { store.add("clip $it", now = 1000L + it) }
+        val texts = store.items(now = 9000).map { it.text }
+        assertEquals(listOf("clip 5", "clip 4", "clip 3"), texts)
+    }
+
+    @Test fun pinnedItemsDoNotCountAgainstTheCap() {
+        val store = ClipboardStore(null, expiryMillis = 0, maxItems = 2)
+        val pinned = store.add("keep me", now = 1000)!!
+        store.setPinned(pinned.id, true)
+        repeat(4) { store.add("clip $it", now = 2000L + it) }
+        val texts = store.items(now = 9000).map { it.text }
+        assertEquals(listOf("keep me", "clip 3", "clip 2"), texts)
+    }
+
+    @Test fun sensitiveClipsExpireOnTheirOwnShorterTimer() {
+        // History keeps everything; the sensitive leash still has to hold.
+        val store = ClipboardStore(null, expiryMillis = 0, sensitiveExpiryMillis = 500)
+        store.add("secret", now = 1000, sensitive = true)
+        store.add("ordinary", now = 1000)
+        assertEquals(listOf("ordinary", "secret"), store.items(now = 1400).map { it.text })
+        assertEquals(listOf("ordinary"), store.items(now = 1600).map { it.text })
+    }
+
+    @Test fun pinningKeepsASensitiveClip() {
+        val store = ClipboardStore(null, expiryMillis = 0, sensitiveExpiryMillis = 500)
+        val secret = store.add("secret", now = 1000, sensitive = true)!!
+        store.setPinned(secret.id, true)
+        assertEquals(listOf("secret"), store.items(now = 99_000).map { it.text })
+    }
+
+    @Test fun reCopyingOnlyEverTightensSensitivity() {
+        val store = ClipboardStore(null, expiryMillis = 0)
+        store.add("hunter2", now = 1000, sensitive = true)
+        val again = store.add("hunter2", now = 2000, sensitive = false)
+        assertTrue(again!!.sensitive)
+    }
+
+    @Test fun videoUrisBecomeVideoClips() {
+        val store = ClipboardStore(null, expiryMillis = 0)
+        val clip = store.addUri(
+            uriString = "content://media/external/video/1",
+            displayName = "holiday.mp4",
+            mimeType = "video/mp4",
+            isDirectory = false,
+            size = 4096,
+            durationMs = 64_000,
+            now = 1000,
+        )
+        assertEquals(ClipKind.VIDEO, clip!!.kind)
+        assertEquals(64_000, clip.durationMs)
+        assertTrue(clip.kind.isUriBacked)
+        assertFalse(clip.kind.isTextual)
+    }
 }

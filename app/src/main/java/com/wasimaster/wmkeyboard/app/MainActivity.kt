@@ -240,6 +240,8 @@ import com.wasimaster.wmkeyboard.core.tools.SymbolSet
 import com.wasimaster.wmkeyboard.core.settings.OneHandedMode
 import com.wasimaster.wmkeyboard.core.settings.OneHandedSide
 import com.wasimaster.wmkeyboard.core.settings.ScreenVariant
+import com.wasimaster.wmkeyboard.core.settings.SensitiveClipHandling
+import com.wasimaster.wmkeyboard.core.debug.DebugLog
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import com.wasimaster.wmkeyboard.core.settings.sizingValuesFor
 import com.wasimaster.wmkeyboard.core.settings.LetterSwipeAction
@@ -301,6 +303,9 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Shares a process with the keyboard service when both are running, so
+        // this is often a no-op — but the settings app can be opened first.
+        DebugLog.attach(applicationContext)
         repository = SettingsRepository(applicationContext)
         // The JSON asset layouts back the tail of the language list; load them
         // before the first settings emission so an enabled asset layout resolves
@@ -685,7 +690,13 @@ private fun SettingsNavHost(
                 AboutSettings(
                     onOpenLicenses = { navController.navigate("licenses") },
                     onOpenLicenseText = { navController.navigate("license_text/$it") },
+                    onOpenDebugLog = { navController.navigate("debug_log") },
                 )
+            }
+        }
+        composable("debug_log") {
+            SettingsScreen("Diagnostics", { navController.popBackStack() }) {
+                DebugLogScreen()
             }
         }
         composable("licenses") {
@@ -1519,6 +1530,19 @@ private fun TypingSettings(
                     "character — handy for indentation and forms. While this is on it takes " +
                     "priority over double-space period.",
             ) { scope.launch { repository.setDoubleSpaceTab(it) } }
+        }
+        item {
+            ToggleSetting(
+                "Auto-space after punctuation",
+                "Typing . , ? ! ; or : adds the space after it",
+                settings.autoSpaceAfterPunctuation,
+                info = "Saves the spacebar trip at the end of every clause: \"hello,\" " +
+                    "becomes \"hello, \" on its own. Runs of marks (\"...\", \"?!\") stay " +
+                    "together, pressing space yourself does not double the space up, and " +
+                    "shift right afterwards takes it back. Structured fields — passwords, " +
+                    "email addresses, web addresses, number and phone pads — are left alone, " +
+                    "since a space there is a typo rather than a courtesy.",
+            ) { scope.launch { repository.setAutoSpaceAfterPunctuation(it) } }
         }
         item {
             ToggleSetting(
@@ -5649,6 +5673,20 @@ private fun ToolDetailSettings(
                     ) { scope.launch { repository.setClipboardExpiryHours(it.toInt()) } }
                 }
                 item {
+                    SliderSetting(
+                        "Maximum entries",
+                        subtitle = "How many unpinned clips history keeps",
+                        value = settings.clipboard.maxItems.toFloat(),
+                        range = 5f..500f,
+                        display = { "${it.toInt()}" },
+                        info = "The other half of the bound clipboard expiry sets — a busy " +
+                            "day of copying can pile up hundreds of clips well inside the " +
+                            "expiry window. Once the panel is full, the oldest unpinned clip " +
+                            "drops off with each new copy. Pinned entries never count against " +
+                            "this and never fall off.",
+                    ) { scope.launch { repository.setClipboardMaxItems(it.toInt()) } }
+                }
+                item {
                     ToggleSetting(
                         "Bottom control row",
                         "Show an abc, space and backspace row at the bottom of the " +
@@ -5776,6 +5814,55 @@ private fun ToolDetailSettings(
                                         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
                                 )
                             }
+                        }
+                    }
+                }
+            }
+            SettingsGroup("Passwords & codes") {
+                item {
+                    ChoiceSetting(
+                        title = "Sensitive clips",
+                        subtitle = "What to do with a copied password or one-time code",
+                        info = "Android lets an app mark what it puts on the clipboard as " +
+                            "sensitive, which is what a password manager does when you copy " +
+                            "a login. Nothing else on the phone acts on that mark, so this " +
+                            "is where it is honoured. Hidden clips show as dots in the " +
+                            "panel, are never offered as a paste chip, are left out of " +
+                            "settings backups, and delete themselves on the short timer " +
+                            "below instead of the history expiry. Pinning one overrides all " +
+                            "of that — pinning is an explicit \"keep this\".",
+                        options = SensitiveClipHandling.entries.map { it to it.label },
+                        selected = settings.clipboard.sensitiveHandling,
+                    ) { scope.launch { repository.setClipboardSensitiveHandling(it) } }
+                }
+                if (settings.clipboard.sensitiveHandling != SensitiveClipHandling.KEEP) {
+                    item {
+                        ToggleSetting(
+                            "Recognise them yourself",
+                            "Also treat clips that look like a password or a bare " +
+                                "verification code as sensitive, not only the ones the " +
+                                "copying app marks.",
+                            settings.clipboard.detectSensitive,
+                            info = "Most password managers still predate Android's sensitive " +
+                                "flag, and a code copied by hand out of a message carries no " +
+                                "flag at all. Detection runs entirely on the device and is " +
+                                "deliberately narrow: a clip qualifies only when the whole " +
+                                "of it is one token — a short run of capitals and digits, or " +
+                                "a long mix of cases, digits and symbols. Sentences, links " +
+                                "and email addresses never match.",
+                        ) { scope.launch { repository.setClipboardDetectSensitive(it) } }
+                    }
+                }
+                if (settings.clipboard.sensitiveHandling == SensitiveClipHandling.SHORT_LIVED) {
+                    item {
+                        SliderSetting(
+                            "Forget sensitive clips after",
+                            subtitle = "Independent of the history expiry above",
+                            value = settings.clipboard.sensitiveExpiryMinutes.toFloat(),
+                            range = 1f..120f,
+                            display = { "${it.toInt()} min" },
+                        ) {
+                            scope.launch { repository.setClipboardSensitiveExpiryMinutes(it.toInt()) }
                         }
                     }
                 }
@@ -8683,6 +8770,48 @@ private fun ModeEditor(
                 ),
                 selected = mode.symbolRowEnabled,
             ) { save(mode.copy(symbolRowEnabled = it)) }
+        }
+        item {
+            var themePickerOpen by remember { mutableStateOf(false) }
+            ListItem(
+                headlineContent = { Text("Theme") },
+                supportingContent = {
+                    Text(
+                        mode.themeId?.let { themeDisplayName(settings, it) }
+                            ?: "Inherit — whatever theme is set",
+                    )
+                },
+                trailingContent = {
+                    if (mode.themeId != null) {
+                        TextButton(onClick = { save(mode.copy(themeId = null)) }) { Text("Clear") }
+                    }
+                },
+                colors = transparentListColors(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { themePickerOpen = true },
+            )
+            if (themePickerOpen) {
+                ModeThemePickerDialog(
+                    settings = settings,
+                    selectedId = mode.themeId,
+                    onPick = { id ->
+                        themePickerOpen = false
+                        save(mode.copy(themeId = id))
+                    },
+                    onDismiss = { themePickerOpen = false },
+                )
+            }
+        }
+        if (mode.themeId != null) {
+            item {
+                CaptionText(
+                    "While this mode is active the keyboard wears this theme, whatever is " +
+                        "set elsewhere — including an auto light/dark pair, which stands " +
+                        "down for the mode's lifetime. Your own choice is untouched and " +
+                        "comes straight back when the mode ends.",
+                )
+            }
         }
         item {
             ToggleSetting(

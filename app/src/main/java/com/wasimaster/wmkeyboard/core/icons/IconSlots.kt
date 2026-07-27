@@ -58,6 +58,7 @@ object IconSlots {
     const val KEY_SHIFT_ON = "key.shift_on"
     const val KEY_SHIFT_LOCK = "key.shift_lock"
     const val KEY_BACKSPACE = "key.backspace"
+    const val KEY_FORWARD_DELETE = "key.forward_delete"
     const val KEY_GLOBE = "key.globe"
     const val KEY_EMOJI = "key.emoji"
 
@@ -107,6 +108,7 @@ object IconSlots {
         IconSlot(KEY_SHIFT_ON, IconSlotGroup.KEY, "Shift (on)"),
         IconSlot(KEY_SHIFT_LOCK, IconSlotGroup.KEY, "Caps lock"),
         IconSlot(KEY_BACKSPACE, IconSlotGroup.KEY, "Backspace"),
+        IconSlot(KEY_FORWARD_DELETE, IconSlotGroup.KEY, "Forward delete"),
         IconSlot(KEY_ENTER, IconSlotGroup.KEY, "Enter"),
         IconSlot(KEY_ENTER_SEARCH, IconSlotGroup.KEY, "Enter — search"),
         IconSlot(KEY_ENTER_SEND, IconSlotGroup.KEY, "Enter — send"),

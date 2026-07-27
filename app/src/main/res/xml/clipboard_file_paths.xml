@@ -7,4 +7,6 @@
     <files-path name="sticker_packs" path="stickers/" />
     <!-- Downloaded GIFs/stickers/search images, committed via commitContent. -->
     <cache-path name="media_cache" path="media/" />
+    <!-- The diagnostics report, shared out of the debug log screen. -->
+    <cache-path name="diagnostics" path="diagnostics/" />
 </paths>

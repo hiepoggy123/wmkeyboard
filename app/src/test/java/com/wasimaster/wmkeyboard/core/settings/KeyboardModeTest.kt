@@ -2,7 +2,9 @@ package com.wasimaster.wmkeyboard.core.settings
 
 import com.wasimaster.wmkeyboard.core.tools.BuiltInSymbolSets
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class KeyboardModeTest {
@@ -177,5 +179,31 @@ class KeyboardModeTest {
             sanitizeBarOrder(listOf(BarRow.EMOJI, BarRow.EMOJI, BarRow.TOPBAR)),
         )
         assertEquals(BarRow.entries.toList(), sanitizeBarOrder(emptyList()))
+    }
+
+    @Test
+    fun `a mode with no theme leaves the theme settings alone`() {
+        val base = KeyboardSettings(
+            keyboardThemeId = "custom_1",
+            autoTheme = AutoThemeSettings(enabled = true, darkThemeId = "dracula"),
+        )
+        val applied = base.applyMode(email)
+        assertEquals("custom_1", applied.keyboardThemeId)
+        assertTrue(applied.autoTheme.enabled)
+    }
+
+    @Test
+    fun `a mode theme beats both the picked theme and the auto pair`() {
+        val base = KeyboardSettings(
+            keyboardThemeId = "custom_1",
+            autoTheme = AutoThemeSettings(enabled = true, darkThemeId = "dracula"),
+        )
+        val applied = base.applyMode(password.copy(themeId = "nord"))
+        assertEquals("nord", applied.keyboardThemeId)
+        // Auto-theme would otherwise ignore keyboardThemeId entirely.
+        assertFalse(applied.autoTheme.enabled)
+        // Scoped to the view: the pair itself is untouched and comes back.
+        assertEquals("dracula", applied.autoTheme.darkThemeId)
+        assertEquals("custom_1", base.keyboardThemeId)
     }
 }

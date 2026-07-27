@@ -305,6 +305,7 @@ private val serviceAttributions: List<Attribution> = listOf(
 internal fun AboutSettings(
     onOpenLicenses: () -> Unit,
     onOpenLicenseText: (String) -> Unit,
+    onOpenDebugLog: () -> Unit = {},
 ) {
     val uriHandler = LocalUriHandler.current
     val context = LocalContext.current
@@ -345,6 +346,13 @@ internal fun AboutSettings(
             NavRow("Source code", SOURCE_URL.removePrefix("https://")) {
                 uriHandler.openUri(SOURCE_URL)
             }
+        }
+        item {
+            NavRow(
+                "Diagnostics",
+                "What the keyboard recorded about itself — read it, or send it with a bug report",
+                onClick = onOpenDebugLog,
+            )
         }
     }
     CaptionText(

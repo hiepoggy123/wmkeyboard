@@ -162,6 +162,9 @@ object ClipEntities {
         val found = ArrayList<ClipEntity>()
         for (item in items.take(MAX_SCANNED_CLIPS)) {
             if (!item.kind.isTextual) continue
+            // A clip whose card is masked must not have its contents lifted out
+            // and printed on a chip beside it.
+            if (item.sensitive) continue
             val text = item.text.take(MAX_SCANNED_CHARS)
             val whole = text.trim()
             for (entity in extract(text, item.id)) {

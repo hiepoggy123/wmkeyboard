@@ -1296,12 +1296,24 @@ internal fun ThemesPanel(
 ) {
     val height = keyRowsHeight(state)
     val kb = LocalKbTheme.current
-    // With auto-theme on, the system light/dark setting owns the active theme:
-    // the panel shows which one is live but taps do nothing (it's read-only).
+    // With auto-theme on, its trigger owns the active theme; with a mode that
+    // carries a theme active, the mode does. Either way the panel shows which
+    // one is live but taps do nothing (it's read-only).
+    //
+    // `state.settings` is already the mode's view of the settings, so a mode
+    // theme arrives here as an ordinary keyboardThemeId with auto-theme forced
+    // off — only the *explanation* has to look the mode up.
+    val modeTheme = state.settings.keyboardModes
+        .firstOrNull { it.id == state.activeModeId }
+        ?.takeIf { it.themeId != null }
     val autoOn = state.settings.autoTheme.enabled
+    val locked = autoOn || modeTheme != null
     val systemDark = isSystemInDarkTheme()
+    // The same resolver the board itself draws with, so the card marked live
+    // here is always the one on screen — including on a clock or sun schedule.
+    val darkSlot = rememberAutoThemeDarkSlot(state.settings, systemDark)
     val selectedId = if (autoOn) {
-        if (systemDark) state.settings.autoTheme.darkThemeId else state.settings.autoTheme.lightThemeId
+        if (darkSlot) state.settings.autoTheme.darkThemeId else state.settings.autoTheme.lightThemeId
     } else {
         state.settings.keyboardThemeId
     }
@@ -1320,8 +1332,12 @@ internal fun ThemesPanel(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                if (autoOn) "Auto theme is on — it follows your system light/dark setting."
-                else "Tap a theme to apply it.",
+                when {
+                    modeTheme != null ->
+                        "The ${modeTheme.name} mode sets the theme while it is active."
+                    autoOn -> "Auto theme is on — it picks between your light and dark themes."
+                    else -> "Tap a theme to apply it."
+                },
                 color = kb.toolbarIcon,
                 fontSize = 11.sp,
                 modifier = Modifier.weight(1f),
@@ -1339,7 +1355,7 @@ internal fun ThemesPanel(
             count = themes.size + 1,
             columns = 2,
             onActivate = { index ->
-                if (autoOn) return@PanelFocusTarget
+                if (locked) return@PanelFocusTarget
                 if (index == 0) onThemeSelect(DEFAULT_THEME_ID)
                 else themes.getOrNull(index - 1)?.let { onThemeSelect(it.id) }
             },
@@ -1363,7 +1379,7 @@ internal fun ThemesPanel(
                     selected = selectedId == DEFAULT_THEME_ID,
                     nameOnDark = auto.board.luminance() < 0.5f,
                     focused = focused == 0,
-                    onClick = { if (!autoOn) onThemeSelect(DEFAULT_THEME_ID) },
+                    onClick = { if (!locked) onThemeSelect(DEFAULT_THEME_ID) },
                 ) { AutoThemePreview(auto) }
             }
             itemsIndexed(themes, key = { _, theme -> theme.id }) { index, theme ->
@@ -1372,7 +1388,7 @@ internal fun ThemesPanel(
                     selected = selectedId == theme.id,
                     nameOnDark = Color(theme.boardBackground.toInt()).luminance() < 0.5f,
                     focused = focused == index + 1,
-                    onClick = { if (!autoOn) onThemeSelect(theme.id) },
+                    onClick = { if (!locked) onThemeSelect(theme.id) },
                 ) { ThemePreview(theme) }
             }
         }

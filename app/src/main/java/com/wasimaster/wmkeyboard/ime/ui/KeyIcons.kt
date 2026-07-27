@@ -69,6 +69,7 @@ object KeyIcons {
     val catalog: Map<String, ImageVector> = linkedMapOf(
         // Editing / navigation.
         "backspace" to Icons.AutoMirrored.Outlined.Backspace,
+        "forward_delete" to KeyboardIcons.ForwardDelete,
         "enter" to Icons.AutoMirrored.Outlined.KeyboardReturn,
         "tab" to Icons.AutoMirrored.Outlined.KeyboardTab,
         "space" to Icons.Outlined.SpaceBar,

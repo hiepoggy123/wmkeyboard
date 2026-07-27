@@ -103,6 +103,63 @@ object EmojiGraphemes {
         return unitsFrom(cps, from)
     }
 
+    /**
+     * UTF-16 units the ⌦ key should delete: the whole cluster *starting* at
+     * [after], so one forward delete takes 👨‍👩‍👧 or a Bengali কি off in one
+     * press rather than shedding a code point at a time.
+     *
+     * The mirror image of [deleteLength] with one deliberate difference: this
+     * never returns 0 for a non-empty string. Backspace only asks about emoji
+     * and has its own rules for everything else; forward delete has no such
+     * fallback, so ordinary text answers 1 (or 2 across a surrogate pair) and
+     * combining marks ride along with the base they attach to.
+     */
+    fun forwardDeleteLength(after: CharSequence): Int {
+        if (after.isEmpty()) return 0
+        val cps = codePoints(after)
+        var i = 0
+
+        fun consumeTrailers() {
+            while (i <= cps.lastIndex && isTrailer(cps[i])) i++
+        }
+
+        // 🇧🇩 — a flag is a pair of regional indicators, taken together.
+        if (isRegional(cps[0])) {
+            i = if (cps.size >= 2 && isRegional(cps[1])) 2 else 1
+            return unitsBefore(cps, i)
+        }
+
+        i = 1
+        consumeTrailers()
+        // ZWJ sequences: keep taking `ZWJ base [tone|selector]*` while they run.
+        while (i < cps.lastIndex && cps[i] == ZWJ) {
+            i += 2
+            consumeTrailers()
+        }
+        return unitsBefore(cps, i)
+    }
+
+    /**
+     * Code points that belong to the character before them and so travel with
+     * it: emoji tones and variation selectors, keycap and tag marks, and the
+     * ordinary combining marks of every script.
+     */
+    private fun isTrailer(cp: Int): Boolean =
+        isTone(cp) || isSelector(cp) || isTag(cp) || cp == KEYCAP || isCombining(cp)
+
+    /** Marks that belong to the character before them (accents, Indic kars). */
+    private fun isCombining(cp: Int): Boolean = when (Character.getType(cp).toByte()) {
+        Character.NON_SPACING_MARK, Character.ENCLOSING_MARK, Character.COMBINING_SPACING_MARK -> true
+        else -> false
+    }
+
+    /** UTF-16 length of the first [count] code points of [cps]. */
+    private fun unitsBefore(cps: IntArray, count: Int): Int {
+        var units = 0
+        for (i in 0 until minOf(count, cps.size)) units += Character.charCount(cps[i])
+        return units
+    }
+
     /** UTF-16 length of the code points from [from] to the end of [cps]. */
     private fun unitsFrom(cps: IntArray, from: Int): Int {
         if (from < 0) return 0

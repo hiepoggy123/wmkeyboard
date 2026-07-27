@@ -231,6 +231,7 @@ object IconDefaults {
         put(IconSlots.KEY_SHIFT_ON, KeyboardIcons.ShiftFilled)
         put(IconSlots.KEY_SHIFT_LOCK, KeyboardIcons.ShiftLock)
         put(IconSlots.KEY_BACKSPACE, Icons.AutoMirrored.Outlined.Backspace)
+        put(IconSlots.KEY_FORWARD_DELETE, KeyboardIcons.ForwardDelete)
         put(IconSlots.KEY_GLOBE, Icons.Outlined.Language)
         put(IconSlots.KEY_EMOJI, Icons.Outlined.EmojiEmotions)
         for (action in EnterAction.entries) {

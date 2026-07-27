@@ -1109,6 +1109,7 @@ private fun actionGlyph(action: KeyAction): String = when (action) {
     KeyAction.Space -> "space"
     KeyAction.Enter -> "⏎"
     KeyAction.Delete -> "⌫"
+    KeyAction.ForwardDelete -> "⌦"
     KeyAction.Shift -> "⇧"
     KeyAction.None -> ""
     else -> "·"
@@ -1148,6 +1149,10 @@ internal val KeyActionCatalog: List<KeyActionOption> = listOf(
     KeyActionOption(
         "Delete", "Typing", "Backspace; repeats while held",
         { KeyAction.Delete }, { it == KeyAction.Delete },
+    ),
+    KeyActionOption(
+        "Forward delete", "Typing", "⌦ — deletes ahead of the cursor; repeats while held",
+        { KeyAction.ForwardDelete }, { it == KeyAction.ForwardDelete },
     ),
     KeyActionOption(
         "Space", "Typing", "Swipes on it move the cursor or switch layout",
