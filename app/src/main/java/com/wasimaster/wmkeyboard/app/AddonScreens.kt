@@ -108,6 +108,7 @@ import com.wasimaster.wmkeyboard.core.addons.AddonRepoRef
 import com.wasimaster.wmkeyboard.core.addons.AddonStore
 import com.wasimaster.wmkeyboard.core.addons.AddonType
 import com.wasimaster.wmkeyboard.core.addons.InstalledAddon
+import com.wasimaster.wmkeyboard.core.plugins.PluginStore
 import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
 import com.wasimaster.wmkeyboard.ime.ui.rememberMediaImageLoader
 import kotlinx.coroutines.Dispatchers
@@ -927,7 +928,9 @@ private val AddonType.settingsAnchor: String?
         AddonType.Font -> "Installed fonts"
         AddonType.EmojiFont -> "Emoji font"
         AddonType.Sound -> "Sound style"
-        AddonType.Plugin -> null
+        // The master switch, not the installed list: someone sent here has
+        // almost always come from "plugins are off".
+        AddonType.Plugin -> "Allow plugins"
         AddonType.Unknown -> null
     }
 
@@ -1100,13 +1103,42 @@ internal fun AddonDetailScreen(
         CaptionText("This addon needs a newer version of WM Keyboard.")
     }
 
+    // The plugin master switch gates installing, so say so *before* the tap
+    // rather than refusing afterwards — and offer the way to the switch. The
+    // Plugins *tool* being on the toolbar is a different setting entirely,
+    // which is exactly why "turn on plugins" on its own reads as already done.
+    val pluginStore = remember { PluginStore.get(context) }
+    val pluginRevision by pluginStore.revision.collectAsStateWithLifecycle()
+    val pluginsOff = remember(pluginRevision, entry.type) {
+        entry.type == AddonType.Plugin && !pluginStore.subsystemEnabled()
+    }
+    if (pluginsOff) {
+        CaptionText(
+            "Plugins are switched off. Turn on “Allow plugins” under Tools › " +
+                "Plugins, then install this. (The Plugins *tool* on the toolbar " +
+                "is a separate setting — it only decides where the panel appears.)",
+        )
+        OutlinedButton(
+            onClick = { AddonType.Plugin.openSettings(onNavigate) },
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+        ) {
+            Icon(
+                Icons.AutoMirrored.Outlined.OpenInNew,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp),
+            )
+            Spacer(Modifier.width(8.dp))
+            Text("Open Plugins")
+        }
+    }
+
     AddonActions(
         status = status,
         entry = entry,
         repo = loaded.repo,
         manifestUrl = manifestUrl,
         store = store,
-        tooOld = tooOld,
+        blocked = tooOld || pluginsOff,
         onUninstall = {
             scope.launch { AddonDownloadManager.uninstall(context, store, key, entry) }
         },
@@ -1289,7 +1321,8 @@ private fun AddonActions(
     repo: AddonRepoInfo,
     manifestUrl: String,
     store: AddonStore,
-    tooOld: Boolean,
+    /** Install is refused: the app is too old, or the type's subsystem is off. */
+    blocked: Boolean,
     onUninstall: () -> Unit,
     onNavigate: (String) -> Unit,
 ) {
@@ -1348,7 +1381,7 @@ private fun AddonActions(
                             appVersionCode = BuildConfig.VERSION_CODE,
                         )
                     },
-                    enabled = !tooOld && !installed,
+                    enabled = !blocked && !installed,
                 ) {
                     Text(
                         when {

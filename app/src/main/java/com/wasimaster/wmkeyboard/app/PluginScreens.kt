@@ -5,8 +5,6 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material.icons.outlined.Delete
@@ -65,15 +63,21 @@ internal fun PluginsScreen(onNavigate: (String) -> Unit) {
         ActivityResultContracts.OpenDocument(),
     ) { uri -> pending = uri }
 
-    Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-        SettingsGroup {
-            item {
+    // No scroller of its own: SettingsScreen already wraps this content in a
+    // Column(verticalScroll), and a scrollable inside a scrollable is measured
+    // with an infinite maximum height, which Compose refuses outright.
+    SettingsGroup {
+        item {
+            // Highlightable by name: an addon page that refused to install a
+            // plugin sends the user straight to this switch.
+            HighlightableRow("Allow plugins") {
                 ListItem(
                     headlineContent = { Text("Allow plugins") },
                     supportingContent = {
                         Text(
                             "Plugins are small tools written by other people that run inside " +
-                                "a sandbox on this keyboard.",
+                                "a sandbox on this keyboard. Separate from the Plugins tool on " +
+                                "the toolbar, which only decides where the panel appears.",
                         )
                     },
                     trailingContent = {
@@ -85,72 +89,72 @@ internal fun PluginsScreen(onNavigate: (String) -> Unit) {
                 )
             }
         }
+    }
 
-        SettingsGroup("What a plugin can and can't do") {
-            item { PluginFact("Can't see what you type", allowed = false) }
-            item { PluginFact("Can't read the text you're writing in", allowed = false) }
-            item { PluginFact("Can't read your clipboard", allowed = false) }
-            item { PluginFact("Can't use the internet", allowed = false) }
-            item { PluginFact("Can draw its own panel and do its own maths", allowed = true) }
-            item { PluginFact("Can save its own data, if it says so before you install it", allowed = true) }
-            item {
-                CaptionText(
-                    "These aren't settings — there is no way for a plugin to ask for any of " +
-                        "them. You give a plugin text by typing or pasting into its own box, " +
-                        "and its results reach you when you tap Insert.",
-                )
+    SettingsGroup("What a plugin can and can't do") {
+        item { PluginFact("Can't see what you type", allowed = false) }
+        item { PluginFact("Can't read the text you're writing in", allowed = false) }
+        item { PluginFact("Can't read your clipboard", allowed = false) }
+        item { PluginFact("Can't use the internet", allowed = false) }
+        item { PluginFact("Can draw its own panel and do its own maths", allowed = true) }
+        item { PluginFact("Can save its own data, if it says so before you install it", allowed = true) }
+        item {
+            CaptionText(
+                "These aren't settings — there is no way for a plugin to ask for any of " +
+                    "them. You give a plugin text by typing or pasting into its own box, " +
+                    "and its results reach you when you tap Insert.",
+            )
+        }
+    }
+
+    if (enabled) {
+        SettingsGroup("Installed") {
+            if (plugins.isEmpty()) {
+                item { CaptionText("No plugins installed yet.") }
+            } else {
+                for (plugin in plugins) {
+                    item {
+                        ListItem(
+                            headlineContent = { Text(plugin.name) },
+                            supportingContent = {
+                                Text(
+                                    buildString {
+                                        append("Version ${plugin.version}")
+                                        if (plugin.author.isNotBlank()) append(" · ${plugin.author}")
+                                        if (!plugin.enabled) append(" · turned off")
+                                    },
+                                )
+                            },
+                            trailingContent = {
+                                Icon(Icons.AutoMirrored.Outlined.ArrowForward, contentDescription = null)
+                            },
+                            modifier = Modifier.padding(0.dp),
+                        )
+                    }
+                    item {
+                        PluginDetailLink(plugin) { onNavigate("plugin/${plugin.id}") }
+                    }
+                }
             }
         }
 
-        if (enabled) {
-            SettingsGroup("Installed") {
-                if (plugins.isEmpty()) {
-                    item { CaptionText("No plugins installed yet.") }
-                } else {
-                    for (plugin in plugins) {
-                        item {
-                            ListItem(
-                                headlineContent = { Text(plugin.name) },
-                                supportingContent = {
-                                    Text(
-                                        buildString {
-                                            append("Version ${plugin.version}")
-                                            if (plugin.author.isNotBlank()) append(" · ${plugin.author}")
-                                            if (!plugin.enabled) append(" · turned off")
-                                        },
-                                    )
-                                },
-                                trailingContent = {
-                                    Icon(Icons.AutoMirrored.Outlined.ArrowForward, contentDescription = null)
-                                },
-                                modifier = Modifier.padding(0.dp),
-                            )
-                        }
-                        item {
-                            PluginDetailLink(plugin) { onNavigate("plugin/${plugin.id}") }
-                        }
-                    }
+        SettingsGroup("Add") {
+            item {
+                ListItem(
+                    headlineContent = { Text("Install from a file") },
+                    supportingContent = { Text("Choose a .wmplugin file") },
+                    modifier = Modifier.padding(0.dp),
+                )
+            }
+            item {
+                TextButton(onClick = { picker.launch(PluginFile.IMPORT_MIME_TYPES) }) {
+                    Text("Choose file")
                 }
             }
-
-            SettingsGroup("Add") {
-                item {
-                    ListItem(
-                        headlineContent = { Text("Install from a file") },
-                        supportingContent = { Text("Choose a .wmplugin file") },
-                        modifier = Modifier.padding(0.dp),
-                    )
-                }
-                item {
-                    TextButton(onClick = { picker.launch(PluginFile.IMPORT_MIME_TYPES) }) {
-                        Text("Choose file")
-                    }
-                }
-                item {
-                    CaptionText(
-                        "You can also install plugins from an addon repository, under Addons.",
-                    )
-                }
+            item {
+                CaptionText(
+                    "You can also install plugins from an addon repository, under Addons.",
+                )
             }
         }
     }
@@ -222,96 +226,97 @@ internal fun PluginDetailScreen(pluginId: String, onBack: () -> Unit) {
         PluginLog(store.logFile(pluginId)).also { it.restore() }.lines()
     }
 
-    Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-        SettingsGroup {
-            item {
-                ListItem(
-                    headlineContent = { Text(plugin.name) },
-                    supportingContent = {
-                        Text(
-                            buildString {
-                                append(plugin.description.ifBlank { "No description." })
-                                append("\n\nVersion ${plugin.version}")
-                                if (plugin.author.isNotBlank()) append(" by ${plugin.author}")
-                            },
-                        )
-                    },
-                )
-            }
-            item {
-                ListItem(
-                    headlineContent = { Text("Enabled") },
-                    supportingContent = {
-                        Text(
-                            if (plugin.abandonedCount >= PluginStore.MAX_ABANDONS) {
-                                "Turned off because it stopped responding twice."
-                            } else {
-                                "Show this plugin in the Plugins panel"
-                            },
-                        )
-                    },
-                    trailingContent = {
-                        Switch(
-                            checked = plugin.enabled,
-                            onCheckedChange = { store.setEnabled(pluginId, it) },
-                        )
-                    },
-                )
+    // No scroller of its own: SettingsScreen already wraps this content in a
+    // Column(verticalScroll), and a scrollable inside a scrollable is measured
+    // with an infinite maximum height, which Compose refuses outright.
+    SettingsGroup {
+        item {
+            ListItem(
+                headlineContent = { Text(plugin.name) },
+                supportingContent = {
+                    Text(
+                        buildString {
+                            append(plugin.description.ifBlank { "No description." })
+                            append("\n\nVersion ${plugin.version}")
+                            if (plugin.author.isNotBlank()) append(" by ${plugin.author}")
+                        },
+                    )
+                },
+            )
+        }
+        item {
+            ListItem(
+                headlineContent = { Text("Enabled") },
+                supportingContent = {
+                    Text(
+                        if (plugin.abandonedCount >= PluginStore.MAX_ABANDONS) {
+                            "Turned off because it stopped responding twice."
+                        } else {
+                            "Show this plugin in the Plugins panel"
+                        },
+                    )
+                },
+                trailingContent = {
+                    Switch(
+                        checked = plugin.enabled,
+                        onCheckedChange = { store.setEnabled(pluginId, it) },
+                    )
+                },
+            )
+        }
+    }
+
+    SettingsGroup("What it can do") {
+        if (plugin.grantedPermissions.isEmpty()) {
+            item { ListItem(headlineContent = { Text("Nothing outside its own panel") }) }
+        } else {
+            for (permission in plugin.grantedPermissions) {
+                item { ListItem(headlineContent = { Text(permission.label) }) }
             }
         }
+        item {
+            CaptionText(
+                "Declared when the plugin was installed. A plugin cannot ask for anything " +
+                    "else while it runs, because there is nothing else to ask for.",
+            )
+        }
+    }
 
-        SettingsGroup("What it can do") {
-            if (plugin.grantedPermissions.isEmpty()) {
-                item { ListItem(headlineContent = { Text("Nothing outside its own panel") }) }
-            } else {
-                for (permission in plugin.grantedPermissions) {
-                    item { ListItem(headlineContent = { Text(permission.label) }) }
-                }
-            }
+    SettingsGroup("Stored data") {
+        item {
+            ListItem(
+                headlineContent = { Text("Using ${usedBytes / 1024} KB of ${PluginStorage.MAX_TOTAL_BYTES / 1024} KB") },
+                supportingContent = { Text("Saved on this device only") },
+            )
+        }
+        item {
+            TextButton(onClick = { storage.clear(); refresh++ }) { Text("Clear stored data") }
+        }
+    }
+
+    if (log.isNotEmpty()) {
+        SettingsGroup("Log") {
             item {
                 CaptionText(
-                    "Declared when the plugin was installed. A plugin cannot ask for anything " +
-                        "else while it runs, because there is nothing else to ask for.",
+                    "Anything the plugin printed, plus errors. Useful when writing one.",
                 )
             }
-        }
-
-        SettingsGroup("Stored data") {
-            item {
-                ListItem(
-                    headlineContent = { Text("Using ${usedBytes / 1024} KB of ${PluginStorage.MAX_TOTAL_BYTES / 1024} KB") },
-                    supportingContent = { Text("Saved on this device only") },
-                )
+            for (line in log.takeLast(LOG_LINES)) {
+                item { ListItem(headlineContent = { Text(line, style = MaterialTheme.typography.bodySmall) }) }
             }
             item {
-                TextButton(onClick = { storage.clear(); refresh++ }) { Text("Clear stored data") }
-            }
-        }
-
-        if (log.isNotEmpty()) {
-            SettingsGroup("Log") {
-                item {
-                    CaptionText(
-                        "Anything the plugin printed, plus errors. Useful when writing one.",
-                    )
-                }
-                for (line in log.takeLast(LOG_LINES)) {
-                    item { ListItem(headlineContent = { Text(line, style = MaterialTheme.typography.bodySmall) }) }
-                }
-                item {
-                    TextButton(onClick = { PluginLog(store.logFile(pluginId)).clear(); refresh++ }) {
-                        Text("Clear log")
-                    }
+                TextButton(onClick = { PluginLog(store.logFile(pluginId)).clear(); refresh++ }) {
+                    Text("Clear log")
                 }
             }
         }
+    }
 
-        SettingsGroup {
-            item {
-                TextButton(onClick = { confirmUninstall = true }) {
-                    Icon(Icons.Outlined.Delete, contentDescription = null)
-                    Text("  Uninstall")
-                }
+    SettingsGroup {
+        item {
+            TextButton(onClick = { confirmUninstall = true }) {
+                Icon(Icons.Outlined.Delete, contentDescription = null)
+                Text("  Uninstall")
             }
         }
     }

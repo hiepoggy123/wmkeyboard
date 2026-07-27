@@ -115,7 +115,13 @@ object AddonInstaller {
         // has not turned plugins on should not end up with one on disk because
         // they tapped Install on a catalogue page.
         if (!store.subsystemEnabled()) {
-            return Outcome.Rejected("Turn on plugins in Settings before installing one")
+            // Name the switch and where it lives. "Turn on plugins" on its own
+            // reads as already done to anyone who has enabled the Plugins tool
+            // on the toolbar, which is a different setting.
+            return Outcome.Rejected(
+                "Plugins are switched off. Turn on “Allow plugins” under " +
+                    "Tools › Plugins, then install this again.",
+            )
         }
         return when (val result = payload.inputStream().use { PluginFile.import(it, store) }) {
             is PluginImportResult.Imported -> {
