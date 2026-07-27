@@ -14,6 +14,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -25,14 +26,13 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.relocation.BringIntoViewRequester
-import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -43,6 +43,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.layout.onPlaced
+import androidx.compose.ui.layout.positionInParent
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -124,40 +127,61 @@ private fun TypingRunView(state: KeyboardUiState, onAction: (TypingTestAction) -
             animated
         }
 
-        Box(modifier = Modifier.weight(1f)) {
+        BoxWithConstraints(modifier = Modifier.weight(1f)) {
             val scrollState = rememberScrollState()
-            val caretRequester = remember(test.words) { BringIntoViewRequester() }
-            // The caret's word drags the scroll state to follow it as the
-            // user types past the bottom of the visible prompt.
-            LaunchedEffect(test.wordIndex, test.words) {
-                caretRequester.bringIntoView()
+            val viewport = maxHeight
+            val viewportPx = with(LocalDensity.current) { viewport.toPx() }
+            // Where the caret's line sits inside the prompt, in content
+            // coordinates. Measured against the FlowRow rather than the
+            // viewport, so the scroll offset never feeds back into the target
+            // the scroll is being driven to.
+            var caretTop by remember(test.words) { mutableFloatStateOf(0f) }
+            var caretLineHeight by remember(test.words) { mutableFloatStateOf(0f) }
+            // The line being typed is parked in the middle of the box rather
+            // than merely dragged into view: a caret that only just fits ends
+            // up on the bottom line with nothing ahead of it to read, and the
+            // next line has to be guessed. The trailing spacer below is what
+            // lets the last lines of the prompt reach the middle too.
+            val scrollTarget = caretTop - (viewportPx - caretLineHeight) / 2f
+            LaunchedEffect(scrollTarget, viewportPx) {
+                if (viewportPx <= 0f) return@LaunchedEffect
+                val to = scrollTarget.roundToInt().coerceAtLeast(0)
+                if (kb.reduceMotion) scrollState.scrollTo(to) else scrollState.animateScrollTo(to)
             }
-            FlowRow(
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .verticalScroll(scrollState),
-                // No inter-word gap here: each word carries its own trailing
-                // space (see promptWord), so the space between words is a real
-                // character the caret can land on rather than a layout gap.
-                horizontalArrangement = Arrangement.Start,
-                verticalArrangement = Arrangement.spacedBy(1.dp),
             ) {
-                for (index in test.words.indices) {
-                    val wordModifier = if (index == test.wordIndex) {
-                        Modifier.bringIntoViewRequester(caretRequester)
-                    } else {
-                        Modifier
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    // No inter-word gap here: each word carries its own trailing
+                    // space (see promptWord), so the space between words is a real
+                    // character the caret can land on rather than a layout gap.
+                    horizontalArrangement = Arrangement.Start,
+                    verticalArrangement = Arrangement.spacedBy(1.dp),
+                ) {
+                    for (index in test.words.indices) {
+                        val wordModifier = if (index == test.wordIndex) {
+                            Modifier.onPlaced {
+                                caretTop = it.positionInParent().y
+                                caretLineHeight = it.size.height.toFloat()
+                            }
+                        } else {
+                            Modifier
+                        }
+                        Text(
+                            promptWord(test, index, kb, blink),
+                            fontSize = 17.sp,
+                            fontFamily = FontFamily.Monospace,
+                            // Untyped text is the resting colour; the spans in
+                            // the annotated string override it as the user goes.
+                            color = kb.secondaryText.copy(alpha = 0.45f),
+                            modifier = wordModifier,
+                        )
                     }
-                    Text(
-                        promptWord(test, index, kb, blink),
-                        fontSize = 17.sp,
-                        fontFamily = FontFamily.Monospace,
-                        // Untyped text is the resting colour; the spans in
-                        // the annotated string override it as the user goes.
-                        color = kb.secondaryText.copy(alpha = 0.45f),
-                        modifier = wordModifier,
-                    )
                 }
+                Spacer(Modifier.height(viewport / 2))
             }
         }
 

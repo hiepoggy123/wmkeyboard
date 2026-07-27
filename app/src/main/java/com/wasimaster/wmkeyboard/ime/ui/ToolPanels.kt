@@ -974,7 +974,7 @@ internal fun CalendarPanel(
             // the events everything left over — that is what keeps a long list
             // scrolling in a real amount of room instead of cramping the month.
             val eventsMaxHeight = (panelHeight - CALENDAR_CHROME_HEIGHT - (weeks * 26).dp)
-                .coerceIn(0.dp, 160.dp)
+                .coerceIn(0.dp, 200.dp)
             Column(modifier = Modifier.weight(1f)) {
                 for (week in 0 until weeks) {
                     Row(

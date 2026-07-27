@@ -6,10 +6,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -128,15 +128,21 @@ private fun NowPlaying(
     onPrevious: () -> Unit,
     onSeek: (Long) -> Unit,
 ) {
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+    // The art is square, so on a full-bleed (tall) panel taking the whole
+    // height left the metadata and the transport a sliver of width — the
+    // title ellipsised after two words and the skip buttons ran off the
+    // edge. Cap the square against the width as well, and against a flat
+    // maximum so a tall keyboard doesn't become an album cover.
+    val artSide = minOf(maxHeight, maxWidth * 0.4f, 176.dp)
     Row(
         modifier = Modifier.fillMaxSize(),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // Album art (or a placeholder note), a square as tall as the panel.
+        // Album art (or a placeholder note).
         Box(
             modifier = Modifier
-                .fillMaxHeight()
-                .aspectRatio(1f)
+                .size(artSide)
                 .clip(RoundedCornerShape(12.dp))
                 .background(kb.chip),
             contentAlignment = Alignment.Center,
@@ -154,7 +160,7 @@ private fun NowPlaying(
                     Icons.Outlined.MusicNote,
                     contentDescription = null,
                     tint = kb.secondaryText,
-                    modifier = Modifier.size(40.dp),
+                    modifier = Modifier.size(artSide * 0.3f),
                 )
             }
         }
@@ -229,6 +235,7 @@ private fun NowPlaying(
                 )
             }
         }
+    }
     }
 }
 

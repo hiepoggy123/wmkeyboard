@@ -610,6 +610,7 @@ fun KeyboardScreen(
     onCurrencyPairChange: (String, String) -> Unit = { _, _ -> },
     onCurrencyRefresh: () -> Unit = {},
     onPwSetting: (PwSettingAction) -> Unit = {},
+    onCalcDegreesToggle: () -> Unit = {},
     onTypingTestAction: (TypingTestAction) -> Unit = {},
     onQrSend: () -> Unit = {},
     onAiAction: (com.wasimaster.wmkeyboard.core.settings.AiAction) -> Unit = {},
@@ -773,6 +774,7 @@ fun KeyboardScreen(
                 onCurrencyPairChange = onCurrencyPairChange,
                 onCurrencyRefresh = onCurrencyRefresh,
                 onPwSetting = onPwSetting,
+                onCalcDegreesToggle = onCalcDegreesToggle,
                 onTypingTestAction = onTypingTestAction,
                 onQrSend = onQrSend,
                 onAiAction = onAiAction,
@@ -3909,6 +3911,10 @@ private fun FullBleedTool(
     // With an empty [title] the actions own the whole row — search bars and
     // tab strips sit right next to the back button.
     headerActions: (@Composable RowScope.() -> Unit)? = null,
+    // Off for the panels that are not really full-bleed: the toolbar is still
+    // on screen above them and already carries a way back, so a second back
+    // button in the header is just a duplicate eating header width.
+    showBack: Boolean = true,
     content: @Composable () -> Unit,
 ) {
     val kb = LocalKbTheme.current
@@ -3929,12 +3935,14 @@ private fun FullBleedTool(
                 .padding(horizontal = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            ToolCircle(
-                slot = IconSlots.CHROME_PANEL_BACK,
-                description = "Back to keyboard",
-                active = false,
-                onClick = onClose,
-            )
+            if (showBack) {
+                ToolCircle(
+                    slot = IconSlots.CHROME_PANEL_BACK,
+                    description = "Back to keyboard",
+                    active = false,
+                    onClick = onClose,
+                )
+            }
             if (title.isNotEmpty()) {
                 Text(
                     title,
@@ -4066,6 +4074,7 @@ private fun KeyboardBody(
     onCurrencyPairChange: (String, String) -> Unit,
     onCurrencyRefresh: () -> Unit,
     onPwSetting: (PwSettingAction) -> Unit,
+    onCalcDegreesToggle: () -> Unit,
     onTypingTestAction: (TypingTestAction) -> Unit,
     onQrSend: () -> Unit,
     onAiAction: (com.wasimaster.wmkeyboard.core.settings.AiAction) -> Unit,
@@ -4236,14 +4245,17 @@ private fun KeyboardBody(
                 PanelMode.WEATHER -> WeatherPanel(
                     state = state,
                     onRefresh = onWeatherRefresh,
-                    onOpenSettings = { onToolTap(ToolbarTool.SETTINGS) },
+                    // The prompt is about the weather location, so land on the
+                    // weather tool's own page rather than the settings root.
+                    onOpenSettings = { onOpenToolSettings(ToolbarTool.WEATHER) },
                 )
-                // No extraHeight: the reclaimed toolbar/emoji/symbol rows are
-                // already enough for the grid, and growing the window past
-                // keyboard height pushed the app's content out of view.
+                // The month grid and the selected day's event list are fighting
+                // over the same rows, so the calendar buys itself another band
+                // of height the way the grammar strip and the typing test do.
                 PanelMode.CALENDAR -> FullBleedTool(
                     state, "Calendar",
                     onClose = { onPanelChange(PanelMode.CALENDAR) },
+                    extraHeight = 140.dp,
                 ) { CalendarPanel(state, onRequestPermission = onCalendarPermissionRequest) }
                 PanelMode.THEMES -> ThemesPanel(
                     state,
@@ -4512,7 +4524,7 @@ private fun KeyboardBody(
                 PanelMode.CALCULATOR -> FullBleedTool(
                     state, "Calculator",
                     onClose = { onPanelChange(PanelMode.CALCULATOR) },
-                ) { CalculatorPanel(state, onToolInsert, onToolPrefillConsumed) }
+                ) { CalculatorPanel(state, onToolInsert, onCalcDegreesToggle, onToolPrefillConsumed) }
                 PanelMode.UNIT_CONVERT -> FullBleedTool(
                     state, "Unit converter",
                     onClose = { onPanelChange(PanelMode.UNIT_CONVERT) },
@@ -4540,6 +4552,8 @@ private fun KeyboardBody(
                     // swallowing the toolbar's rows.
                     compact = true,
                     compactHeight = keyRowsHeight(state),
+                    // The toolbar above the panel already has the way back.
+                    showBack = false,
                     headerActions = {
                         val passphraseMode = state.settings.passwordGenerator.pwPassphraseMode
                         Spacer(Modifier.width(4.dp))

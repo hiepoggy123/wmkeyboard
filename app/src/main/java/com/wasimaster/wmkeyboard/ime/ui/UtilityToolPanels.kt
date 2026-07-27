@@ -239,6 +239,7 @@ internal fun SymbolsPanel(
 internal fun CalculatorPanel(
     state: KeyboardUiState,
     onInsert: (String) -> Unit,
+    onToggleDegrees: () -> Unit = {},
     onPrefillConsumed: () -> Unit = {},
 ) {
     val kb = LocalKbTheme.current
@@ -318,7 +319,9 @@ internal fun CalculatorPanel(
             ).forEach { token ->
                 ToolPanelChip(token.trimEnd('(', ' ')) { append(token) }
             }
-            ToolPanelChip(if (degrees) "deg" else "rad", selected = true) {}
+            // Tapping the chip flips the trig unit and persists it — the same
+            // switch the tool's settings page carries, within reach of `sin(`.
+            ToolPanelChip(if (degrees) "deg" else "rad", selected = true) { onToggleDegrees() }
         }
         // Keypad.
         val rows = listOf(

@@ -1401,6 +1401,7 @@ open class WMKeyboardService : InputMethodService() {
                 onCurrencyPairChange = ::onCurrencyPairChange,
                 onCurrencyRefresh = { refreshCurrencyRates(force = true) },
                 onPwSetting = ::onPwSetting,
+                onCalcDegreesToggle = ::onCalcDegreesToggle,
                 onTypingTestAction = ::onTypingTestAction,
                 onQrSend = ::onQrSend,
                 onAiAction = ::onAiAction,
@@ -6020,6 +6021,15 @@ open class WMKeyboardService : InputMethodService() {
                 is PwSettingAction.IncludeDigit -> settingsRepository.setPpIncludeDigit(action.on)
             }
         }
+    }
+
+    // ---- calculator tool ----
+
+    /** The panel's deg/rad chip — same persisted setting as the tool's page. */
+    fun onCalcDegreesToggle() {
+        vibrate()
+        val next = !_uiState.value.settings.calcDegrees
+        serviceScope.launch { settingsRepository.setCalcDegrees(next) }
     }
 
     // ---- typing speed test ----
