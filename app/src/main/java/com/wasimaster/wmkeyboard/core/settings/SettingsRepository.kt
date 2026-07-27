@@ -5,11 +5,9 @@ import android.os.Build
 import androidx.datastore.preferences.core.MutablePreferences
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
-import androidx.datastore.preferences.core.doublePreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
-import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -51,15 +49,16 @@ import com.wasimaster.wmkeyboard.core.tools.SmartSuggest
 import com.wasimaster.wmkeyboard.core.tools.SymbolSet
 import com.wasimaster.wmkeyboard.core.tools.SymbolSetCodec
 import com.wasimaster.wmkeyboard.core.tools.TypingTestMode
-import kotlinx.coroutines.flow.Flow
+import com.wasimaster.wmkeyboard.core.util.runCancellable
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOn
-import kotlinx.serialization.json.Json
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -221,7 +220,6 @@ val CursorTools: List<ToolbarTool> = listOf(
     ToolbarTool.SELECT_WORD, ToolbarTool.SELECT_LINE,
 )
 
-fun isSupportedTool(tool: ToolbarTool): Boolean = when {
 /**
  * Tools that still work during direct boot — before the user has ever unlocked
  * the device, when the keyboard has no credential-encrypted storage, no
@@ -248,6 +246,7 @@ fun isDirectBootSafeTool(tool: ToolbarTool): Boolean = when (tool) {
     else -> tool in CursorTools
 }
 
+fun isSupportedTool(tool: ToolbarTool): Boolean = when {
     !BuildConfig.ENABLE_ML_KIT_HANDWRITING && tool == ToolbarTool.HANDWRITING -> false
     !BuildConfig.ENABLE_ML_KIT_SCANNERS && tool in setOf(
         ToolbarTool.OCR, ToolbarTool.QR_SCAN, ToolbarTool.DOC_SCAN
@@ -487,7 +486,6 @@ enum class ColorVisionFilter { NONE, DEUTERANOPIA, PROTANOPIA, TRITANOPIA, GRAYS
  * access and low-vision users who still touch-type. [EXPLORE] is the
  * conventional IME behaviour under touch exploration — drag to hear a key,
  * lift to type it — and is what TalkBack users expect.
- */
  *
  * [PASSTHROUGH] keeps the keyboard's own touch handling under a screen reader
  * — the spacebar cursor slide, the backspace word swipe, glide typing and
@@ -496,6 +494,7 @@ enum class ColorVisionFilter { NONE, DEUTERANOPIA, PROTANOPIA, TRITANOPIA, GRAYS
  * (see `core.accessibility.TouchPassthroughService`), because carving the
  * keyboard out of touch exploration is something only an accessibility service
  * may ask for; without it the mode falls back to [EXPLORE].
+ */
 enum class ScreenReaderMode { OFF, LABELS, EXPLORE, PASSTHROUGH }
 
 /**
@@ -1721,7 +1720,6 @@ private fun decodeScriptFontIds(raw: String): Map<String, String> =
 
 class SettingsRepository(private val context: Context) {
 
-    companion object {
     /**
      * The device-protected copy of these settings, and the only one readable
      * during direct boot. See [LockedSettings] for what it does and does not
@@ -1738,6 +1736,7 @@ class SettingsRepository(private val context: Context) {
      */
     private val unlocked = MutableStateFlow(DirectBoot.isUserUnlocked(context))
 
+    companion object {
         private val Context.dataStore by preferencesDataStore(name = "keyboard_settings")
 
         // input_mode and enabled_modes are kept as the compatibility mirror of
@@ -2695,7 +2694,7 @@ class SettingsRepository(private val context: Context) {
 
     private fun decodeDisabledTools(csv: String?): List<ToolbarTool> =
         csv?.split(',')?.mapNotNull { runCatching { ToolbarTool.valueOf(it) }.getOrNull() }
-            ?: emptyList()
+            .orEmpty()
 
     /** `NAME=AARRGGBB` pairs; entries for unknown tools or bad hex are dropped. */
     private fun decodeToolColors(csv: String?): Map<ToolbarTool, Long> =
@@ -2706,7 +2705,7 @@ class SettingsRepository(private val context: Context) {
                 ?: return@mapNotNull null
             val color = parts[1].toULongOrNull(16)?.toLong() ?: return@mapNotNull null
             tool to color
-        }?.toMap() ?: emptyMap()
+        }?.toMap().orEmpty()
 
     private fun encodeToolColors(map: Map<ToolbarTool, Long>): String =
         map.entries.joinToString(",") { (tool, color) -> "${tool.name}=%08X".format(color) }
@@ -2843,7 +2842,7 @@ class SettingsRepository(private val context: Context) {
      */
     suspend fun setWhisperModelForLanguage(languageId: String, modelId: String) =
         editPrefs { prefs ->
-            val current = prefs[WHISPER_MODEL_BY_LANG]?.let { decodeWhisperModelByLang(it) } ?: emptyMap()
+            val current = prefs[WHISPER_MODEL_BY_LANG]?.let { decodeWhisperModelByLang(it) }.orEmpty()
             val next =
                 if (modelId.isBlank()) current - languageId else current + (languageId to modelId)
             if (next == current) return@editPrefs
@@ -2853,7 +2852,7 @@ class SettingsRepository(private val context: Context) {
     /** Drops every language pinned to [modelId] — used when that model is deleted. */
     suspend fun clearWhisperModelAssignments(modelId: String) =
         editPrefs { prefs ->
-            val current = prefs[WHISPER_MODEL_BY_LANG]?.let { decodeWhisperModelByLang(it) } ?: emptyMap()
+            val current = prefs[WHISPER_MODEL_BY_LANG]?.let { decodeWhisperModelByLang(it) }.orEmpty()
             val next = current.filterValues { it != modelId }
             if (next == current) return@editPrefs
             prefs[WHISPER_MODEL_BY_LANG] = encodeWhisperModelByLang(next)
@@ -3006,7 +3005,7 @@ class SettingsRepository(private val context: Context) {
      */
     suspend fun setActiveLayoutId(id: String) =
         editPrefs { prefs ->
-            val custom = prefs[CUSTOM_LAYOUTS]?.let { LayoutCodec.decodeList(it) } ?: emptyList()
+            val custom = prefs[CUSTOM_LAYOUTS]?.let { LayoutCodec.decodeList(it) }.orEmpty()
             val stored = custom.firstOrNull { it.id == id }
             // resolveLayout falls back to the default, so an id whose layout was
             // deleted heals here rather than selecting nothing.
@@ -3045,7 +3044,7 @@ class SettingsRepository(private val context: Context) {
      */
     suspend fun upsertCustomLayout(layout: LayoutSpec) =
         editPrefs { prefs ->
-            val current = prefs[CUSTOM_LAYOUTS]?.let { LayoutCodec.decodeList(it) } ?: emptyList()
+            val current = prefs[CUSTOM_LAYOUTS]?.let { LayoutCodec.decodeList(it) }.orEmpty()
             prefs[CUSTOM_LAYOUTS] =
                 LayoutCodec.encodeList(current.filter { it.id != layout.id } + layout)
         }
@@ -3066,7 +3065,7 @@ class SettingsRepository(private val context: Context) {
      */
     suspend fun updateCustomLayout(id: String, transform: (LayoutSpec) -> LayoutSpec) =
         editPrefs { prefs ->
-            val current = prefs[CUSTOM_LAYOUTS]?.let { LayoutCodec.decodeList(it) } ?: emptyList()
+            val current = prefs[CUSTOM_LAYOUTS]?.let { LayoutCodec.decodeList(it) }.orEmpty()
             val next = transform(resolveLayout(current, id))
             prefs[CUSTOM_LAYOUTS] =
                 LayoutCodec.encodeList(current.filter { it.id != next.id } + next)
@@ -3081,7 +3080,7 @@ class SettingsRepository(private val context: Context) {
      */
     suspend fun deleteCustomLayout(id: String) =
         editPrefs { prefs ->
-            val current = prefs[CUSTOM_LAYOUTS]?.let { LayoutCodec.decodeList(it) } ?: emptyList()
+            val current = prefs[CUSTOM_LAYOUTS]?.let { LayoutCodec.decodeList(it) }.orEmpty()
             prefs[CUSTOM_LAYOUTS] = LayoutCodec.encodeList(current.filter { it.id != id })
             if (BuiltInLayouts.byId(id) != null) return@editPrefs
             prefs[ENABLED_LAYOUT_IDS]?.let { stored ->
@@ -3116,7 +3115,7 @@ class SettingsRepository(private val context: Context) {
     /** Adds the theme or replaces the stored theme with the same id. */
     suspend fun upsertCustomTheme(theme: ThemeSpec) =
         editPrefs { prefs ->
-            val current = prefs[CUSTOM_THEMES]?.let { ThemeCodec.decodeList(it) } ?: emptyList()
+            val current = prefs[CUSTOM_THEMES]?.let { ThemeCodec.decodeList(it) }.orEmpty()
             val next = current.filter { it.id != theme.id } + theme
             prefs[CUSTOM_THEMES] = ThemeCodec.encodeList(next)
         }
@@ -3124,7 +3123,7 @@ class SettingsRepository(private val context: Context) {
     /** Deletes a custom theme; falls back to the default theme if it was selected. */
     suspend fun deleteCustomTheme(id: String) =
         editPrefs { prefs ->
-            val current = prefs[CUSTOM_THEMES]?.let { ThemeCodec.decodeList(it) } ?: emptyList()
+            val current = prefs[CUSTOM_THEMES]?.let { ThemeCodec.decodeList(it) }.orEmpty()
             prefs[CUSTOM_THEMES] = ThemeCodec.encodeList(current.filter { it.id != id })
             if (prefs[KEYBOARD_THEME_ID] == id) prefs[KEYBOARD_THEME_ID] = DEFAULT_THEME_ID
         }
@@ -3264,7 +3263,7 @@ class SettingsRepository(private val context: Context) {
      */
     suspend fun setScriptFontId(script: String, fontId: String) =
         editPrefs { prefs ->
-            val current = prefs[SCRIPT_FONT_IDS]?.let { decodeScriptFontIds(it) } ?: emptyMap()
+            val current = prefs[SCRIPT_FONT_IDS]?.let { decodeScriptFontIds(it) }.orEmpty()
             val next = if (fontId == "default") current - script else current + (script to fontId)
             if (next == current) return@editPrefs
             prefs[SCRIPT_FONT_IDS] = encodeScriptFontIds(next)
@@ -3315,7 +3314,7 @@ class SettingsRepository(private val context: Context) {
         val parsed = SettingsBackup.decode(text) ?: return ImportResult.NotABackup
         val snapshot = context.dataStore.data.first()
         editPrefs { prefs -> parsed.entries.forEach { prefs.put(it) } }
-        val readable = runCatching { settings.first() }.isSuccess
+        val readable = runCancellable { settings.first() }.isSuccess
         if (!readable) {
             editPrefs { prefs ->
                 prefs.clear()
@@ -3680,7 +3679,7 @@ class SettingsRepository(private val context: Context) {
             val (entries, _) = SettingsBackup.decodeSettings(obj)
             val snapshot = context.dataStore.data.first()
             editPrefs { prefs -> entries.forEach { prefs.put(it) } }
-            if (runCatching { settings.first() }.isSuccess) {
+            if (runCancellable { settings.first() }.isSuccess) {
                 restored.add(ConfigBackup.Section.SETTINGS)
             } else {
                 editPrefs { prefs ->
@@ -3971,7 +3970,7 @@ class SettingsRepository(private val context: Context) {
      */
     suspend fun setNumeralSystemForLanguage(langId: String, value: NumeralSystem) =
         editPrefs { prefs ->
-            val current = prefs[NUMERAL_SYSTEM_BY_LANG]?.let { decodeNumeralSystems(it) } ?: emptyMap()
+            val current = prefs[NUMERAL_SYSTEM_BY_LANG]?.let { decodeNumeralSystems(it) }.orEmpty()
             val next =
                 if (value == NumeralSystem.AUTO) current - langId else current + (langId to value)
             if (next == current) return@editPrefs
@@ -4054,7 +4053,7 @@ class SettingsRepository(private val context: Context) {
     /** Records [layoutId] as the last explicitly-picked layout for [packageName]. */
     suspend fun setAppLayout(packageName: String, layoutId: String) =
         editPrefs { prefs ->
-            val current = prefs[PER_APP_LAYOUT_MAP]?.let { decodePerAppLayouts(it) } ?: emptyMap()
+            val current = prefs[PER_APP_LAYOUT_MAP]?.let { decodePerAppLayouts(it) }.orEmpty()
             if (current[packageName] == layoutId) return@editPrefs
             prefs[PER_APP_LAYOUT_MAP] = encodePerAppLayouts(current + (packageName to layoutId))
         }
@@ -4318,7 +4317,7 @@ class SettingsRepository(private val context: Context) {
     suspend fun addSymbolRecent(symbol: String) =
         editPrefs { prefs ->
             val current = prefs[SYMBOL_RECENTS]?.split('\t')?.filter { it.isNotEmpty() }
-                ?: emptyList()
+                .orEmpty()
             prefs[SYMBOL_RECENTS] =
                 (listOf(symbol) + current.filter { it != symbol }).take(24).joinToString("\t")
         }
@@ -4340,7 +4339,7 @@ class SettingsRepository(private val context: Context) {
     suspend fun upsertSymbolSet(set: SymbolSet) =
         editPrefs { prefs ->
             val current = prefs[CUSTOM_SYMBOL_SETS]?.let { SymbolSetCodec.decodeList(it) }
-                ?: emptyList()
+                .orEmpty()
             val next = current.filter { it.id != set.id } + set
             prefs[CUSTOM_SYMBOL_SETS] = SymbolSetCodec.encodeList(next)
         }
@@ -4349,7 +4348,7 @@ class SettingsRepository(private val context: Context) {
     suspend fun deleteSymbolSet(id: String) =
         editPrefs { prefs ->
             val current = prefs[CUSTOM_SYMBOL_SETS]?.let { SymbolSetCodec.decodeList(it) }
-                ?: emptyList()
+                .orEmpty()
             prefs[CUSTOM_SYMBOL_SETS] = SymbolSetCodec.encodeList(current.filter { it.id != id })
             // Deleting an edited built-in only drops the override — the
             // shipped set comes back, so every reference to it stays valid.

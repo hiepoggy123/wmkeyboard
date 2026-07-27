@@ -44,8 +44,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.HelpOutline
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
-import androidx.compose.material.icons.automirrored.outlined.Redo
-import androidx.compose.material.icons.automirrored.outlined.Undo
 import androidx.compose.material.icons.outlined.Accessibility
 import androidx.compose.material.icons.outlined.AspectRatio
 import androidx.compose.material.icons.outlined.Check
@@ -78,7 +76,6 @@ import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.DragHandle
-import androidx.compose.material.icons.outlined.Draw
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.EmojiEmotions
 import androidx.compose.material.icons.outlined.Keyboard
@@ -91,15 +88,10 @@ import androidx.compose.material.icons.outlined.Security
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.TouchApp
 import androidx.compose.material.icons.outlined.Tune
-import androidx.compose.material.icons.outlined.Vibration
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.ArrowDownward
 import androidx.compose.material.icons.outlined.ArrowUpward
 import androidx.compose.material.icons.outlined.ViewAgenda
-import androidx.compose.material.icons.outlined.Calculate
-import androidx.compose.material.icons.outlined.Password
-import androidx.compose.material.icons.outlined.Speed
-import androidx.compose.material.icons.outlined.Translate
 import androidx.compose.material.icons.outlined.Widgets
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -144,7 +136,6 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.Stable
@@ -185,6 +176,8 @@ import com.wasimaster.wmkeyboard.core.settings.EmojiFontChoice
 import com.wasimaster.wmkeyboard.core.settings.EmojiSkinTone
 import com.wasimaster.wmkeyboard.core.icons.IconPackStore
 import com.wasimaster.wmkeyboard.core.icons.IconSlots
+import com.wasimaster.wmkeyboard.core.util.requireInputStream
+import com.wasimaster.wmkeyboard.core.util.runCancellable
 import com.wasimaster.wmkeyboard.ime.ui.IconDefaults
 import com.wasimaster.wmkeyboard.ime.ui.KeyboardFonts
 import com.wasimaster.wmkeyboard.ime.ui.LocalIconSet
@@ -387,7 +380,7 @@ private fun SettingsNavHost(
         composable("home") {
             HomeScreen(
                 settings = settings,
-                onNavigate = { navController.navigate(it) },
+                onNavigate = { route -> navController.navigate(route) },
             )
         }
         composable("search") {
@@ -2260,7 +2253,7 @@ private fun LetterCaptureDialog(
     onDismiss: () -> Unit,
     onPick: (Char) -> Unit,
 ) {
-    var text by remember { mutableStateOf(current?.toString() ?: "") }
+    var text by remember { mutableStateOf(current?.toString().orEmpty()) }
     val letter = text.trim().uppercase().firstOrNull()
     val valid = letter != null && (letter in 'A'..'Z' || letter in '0'..'9') &&
         letter !in ReservedLetters
@@ -4061,7 +4054,7 @@ private fun BackupSettings(repository: SettingsRepository) {
         if (uri == null) return@rememberLauncherForActivityResult
         val sections = selectedSections()
         scope.launch {
-            val ok = runCatching {
+            val ok = runCancellable {
                 val text = repository.exportConfig(
                     sections = sections,
                     includeSecrets = includeSecrets,
@@ -4093,7 +4086,7 @@ private fun BackupSettings(repository: SettingsRepository) {
         scope.launch {
             val text = withContext(Dispatchers.IO) {
                 runCatching {
-                    context.contentResolver.openInputStream(uri)!!
+                    context.contentResolver.requireInputStream(uri)
                         .use { it.readBytes().decodeToString() }
                 }.getOrNull()
             }
@@ -4231,7 +4224,7 @@ private fun BackupSettings(repository: SettingsRepository) {
     when (val pending = confirmImport) {
         is PendingImport.Config -> {
             val parsed = remember(pending.text) { ConfigBackup.decode(pending.text) }
-            val counts = remember(pending.text) { parsed?.let { repository.describeConfig(it) } ?: emptyMap() }
+            val counts = remember(pending.text) { parsed?.let { repository.describeConfig(it) }.orEmpty() }
             val hasSecrets = remember(pending.text) { parsed?.let { repository.configContainsSecrets(it) } ?: false }
             AlertDialog(
                 onDismissRequest = { confirmImport = null },
@@ -4325,10 +4318,11 @@ private fun BackupSettings(repository: SettingsRepository) {
         null -> {}
     }
 
-    if (message != null) {
+    val messageText = message
+    if (messageText != null) {
         AlertDialog(
             onDismissRequest = { message = null },
-            text = { Text(message!!) },
+            text = { Text(messageText) },
             confirmButton = { TextButton(onClick = { message = null }) { Text("OK") } },
         )
     }
@@ -4510,10 +4504,11 @@ private fun CustomDictionarySettings(repository: SettingsRepository, settings: K
     }
     Spacer(Modifier.height(16.dp))
 
-    if (message != null) {
+    val messageText = message
+    if (messageText != null) {
         AlertDialog(
             onDismissRequest = { message = null },
-            text = { Text(message!!) },
+            text = { Text(messageText) },
             confirmButton = { TextButton(onClick = { message = null }) { Text("OK") } },
         )
     }
@@ -7021,7 +7016,7 @@ private fun HandwritingModelManager(settings: KeyboardSettings) {
                             else -> TextButton(onClick = {
                                 statuses[language.tag] = "downloading"
                                 scope.launch {
-                                    val ok = runCatching { HandwritingModels.download(language.tag) }.isSuccess
+                                    val ok = runCancellable { HandwritingModels.download(language.tag) }.isSuccess
                                     statuses[language.tag] = if (ok) "downloaded" else "error"
                                 }
                             }) { Text("Download") }
@@ -7672,8 +7667,8 @@ private fun SymbolSetEditor(
     val override = settings.customSymbolSets.firstOrNull { it.id == setId }
     val builtIn = BuiltInSymbolSets.byId(setId)
     val existing = override ?: builtIn
-    var name by remember(setId) { mutableStateOf(existing?.name ?: "") }
-    var charsText by remember(setId) { mutableStateOf(existing?.chars?.joinToString(" ") ?: "") }
+    var name by remember(setId) { mutableStateOf(existing?.name.orEmpty()) }
+    var charsText by remember(setId) { mutableStateOf(existing?.chars?.joinToString(" ").orEmpty()) }
     if (builtIn != null) {
         CaptionText(
             "This is a built-in set. Your changes shadow it — everything already " +
