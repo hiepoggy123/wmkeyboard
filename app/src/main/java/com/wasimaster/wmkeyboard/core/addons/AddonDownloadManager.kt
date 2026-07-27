@@ -84,6 +84,18 @@ object AddonDownloadManager {
     /** Headroom over the payload size, so an install never fills the disk. */
     private const val SPACE_MARGIN_BYTES = 32L * 1024 * 1024
 
+    /**
+     * Ceiling on a *preview* download, under every type's install cap.
+     *
+     * A preview is a courtesy — pulling 60 MB of sticker pack to show a grid
+     * the user may glance at and leave isn't one. Past this the detail page
+     * says so and offers Install, which has the real cap.
+     */
+    private const val PREVIEW_MAX_BYTES = 12L * 1024 * 1024
+
+    /** A licence file longer than this is not a licence file. */
+    private const val MAX_TEXT_BYTES = 256L * 1024
+
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var activeJob: Job? = null
     private var activeKey: String? = null
@@ -142,6 +154,47 @@ object AddonDownloadManager {
     /** The cached manifest for [ref], or null if it has never been fetched. */
     fun cachedManifest(ref: AddonRepoRef): AddonRepoManifest? =
         ref.cachedManifest.takeIf { it.isNotBlank() }?.let { AddonRepoCodec.decode(it) }
+
+    // ---- fetching without installing -------------------------------------
+
+    /**
+     * Downloads an addon's payload into [cacheDir] without installing it, for
+     * the preview panel. Blocking; call on IO.
+     *
+     * Deliberately separate from [install]: it touches neither [states] nor the
+     * single-install lock, so looking at what is in a snippet pack never
+     * interferes with a download in flight, and never leaves an addon looking
+     * half-installed if the user backs out.
+     */
+    fun fetchPayload(manifestUrl: String, entry: AddonEntry, cacheDir: File): File? {
+        val url = AddonRepoCodec.resolveAsset(manifestUrl, entry.path) ?: return null
+        val target = File(previewDir(cacheDir), sanitise("${entry.type.name}_${entry.id}"))
+        // A preview the user already opened this session is on disk; refetching
+        // tens of megabytes of sticker pack to show the same grid twice is
+        // exactly the sort of thing a metered connection notices.
+        if (target.isFile && target.length() > 0) return target
+        return try {
+            ToolHttp.download(url, target, maxBytes = minOf(entry.type.maxBytes, PREVIEW_MAX_BYTES))
+            target.takeIf { it.length() > 0 }
+        } catch (_: Exception) {
+            target.delete()
+            null
+        }
+    }
+
+    /** Fetches a plain-text asset (a licence file) for display. */
+    fun fetchText(manifestUrl: String, path: String, cacheDir: File): String? {
+        val url = AddonRepoCodec.resolveAsset(manifestUrl, path) ?: return null
+        val temp = File(cacheDir, "addon_text_${System.nanoTime()}.txt")
+        return try {
+            ToolHttp.download(url, temp, maxBytes = MAX_TEXT_BYTES)
+            temp.readText().takeIf { it.isNotBlank() }
+        } catch (_: Exception) {
+            null
+        } finally {
+            temp.delete()
+        }
+    }
 
     // ---- status --------------------------------------------------------
 
@@ -388,6 +441,9 @@ object AddonDownloadManager {
 
     private fun stagingDir(context: Context): File =
         File(context.cacheDir, "addon_downloads").apply { mkdirs() }
+
+    private fun previewDir(cacheDir: File): File =
+        File(cacheDir, "addon_previews").apply { mkdirs() }
 
     /** Install keys contain a `/`; file names can't. */
     private fun sanitise(key: String): String = key.replace(Regex("[^A-Za-z0-9._-]"), "_")

@@ -64,6 +64,8 @@ object FontFile {
         name: String,
         author: String = "",
         version: String = "",
+        langIds: List<String> = emptyList(),
+        emoji: Boolean = false,
         now: Long = System.currentTimeMillis(),
         loader: (File) -> Boolean = PLATFORM_LOADER,
     ): FontImportResult {
@@ -106,6 +108,8 @@ object FontFile {
                     version = version.trim(),
                     fileName = FontStore.fileNameFor(id),
                     addedAt = now,
+                    langIds = langIds.map { it.trim() }.filter { it.isNotEmpty() }.distinct(),
+                    emoji = emoji,
                 ),
             )
             if (font == null) {

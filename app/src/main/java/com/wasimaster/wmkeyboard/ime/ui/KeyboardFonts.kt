@@ -299,12 +299,29 @@ object KeyboardFonts {
         return FontStore.get(context).existingFileFor(storeId)
     }
 
-    /** The family emojis render with, or null for the system emoji font. */
-    fun emojiFamily(context: Context, choice: EmojiFontChoice): FontFamily? = when (choice) {
+    /**
+     * The family emojis render with, or null for the system emoji font.
+     *
+     * [installedId] is the [FontStore] id behind [EmojiFontChoice.INSTALLED] —
+     * an emoji face from an addon repository or the font library. A blank id, or
+     * one whose file has since gone, falls back to the system font rather than
+     * leaving the panel empty.
+     */
+    fun emojiFamily(
+        context: Context,
+        choice: EmojiFontChoice,
+        installedId: String = "",
+    ): FontFamily? = when (choice) {
         EmojiFontChoice.SYSTEM -> null
         EmojiFontChoice.NOTO -> googleFamily("Noto Color Emoji")
         EmojiFontChoice.CUSTOM -> fileFamily(customEmojiFontFile(context))
+        EmojiFontChoice.INSTALLED -> installedEmojiFile(context, installedId)?.let { fileFamily(it) }
     }
+
+    /** The file behind an installed emoji font id, if it is still there. */
+    private fun installedEmojiFile(context: Context, installedId: String): File? =
+        installedId.takeIf { it.isNotBlank() }
+            ?.let { FontStore.get(context).existingFileFor(it) }
 
     /**
      * The [android.graphics.Typeface] to test emoji glyph coverage against for
@@ -314,14 +331,19 @@ object KeyboardFonts {
      * emoji font — Noto is fetched asynchronously and can't be loaded as a
      * blocking typeface, and it exists precisely to fill the system font's gaps.
      */
-    fun emojiTypeface(context: Context, choice: EmojiFontChoice): android.graphics.Typeface? =
-        when (choice) {
+    fun emojiTypeface(
+        context: Context,
+        choice: EmojiFontChoice,
+        installedId: String = "",
+    ): android.graphics.Typeface? {
+        val file = when (choice) {
             EmojiFontChoice.SYSTEM, EmojiFontChoice.NOTO -> null
-            EmojiFontChoice.CUSTOM -> customEmojiFontFile(context)
-                .takeIf { it.exists() }
-                ?.let { runCatching { android.graphics.Typeface.createFromFile(it) }.getOrNull() }
-                ?.takeIf { it != android.graphics.Typeface.DEFAULT }
-        }
+            EmojiFontChoice.CUSTOM -> customEmojiFontFile(context).takeIf { it.exists() }
+            EmojiFontChoice.INSTALLED -> installedEmojiFile(context, installedId)
+        } ?: return null
+        return runCatching { android.graphics.Typeface.createFromFile(file) }.getOrNull()
+            ?.takeIf { it != android.graphics.Typeface.DEFAULT }
+    }
 
     /** Family for any Google Fonts name (also used directly by tool panels). */
     fun googleFamily(name: String): FontFamily = cache.getOrPut("google:$name") {

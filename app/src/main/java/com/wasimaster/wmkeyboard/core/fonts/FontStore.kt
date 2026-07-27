@@ -19,6 +19,22 @@ data class InstalledFont(
     /** Always derived from [id], never from anything the file claimed. */
     val fileName: String = "",
     val addedAt: Long = 0L,
+    /**
+     * Language ids this face actually covers, when the publisher said so.
+     *
+     * Empty means no claim, and is treated as "offer it everywhere" — which is
+     * both the honest reading and what every font imported before this field
+     * existed gets. A non-empty list is what keeps a Latin-only display face
+     * out of the Bengali picker, where it would draw every key blank.
+     */
+    val langIds: List<String> = emptyList(),
+    /**
+     * An emoji face rather than a text one. Kept in the same library — it is
+     * the same kind of file with the same lifecycle — but the pickers are
+     * separate, because a colour emoji font on the key labels is not a choice
+     * anyone means to make.
+     */
+    val emoji: Boolean = false,
 )
 
 /**
@@ -119,6 +135,14 @@ class FontStore(private var baseDir: File?) {
 
     @Synchronized
     fun fonts(): List<InstalledFont> = fonts.toList()
+
+    /** The text faces — everything the key-label pickers should offer. */
+    @Synchronized
+    fun textFonts(): List<InstalledFont> = fonts.filter { !it.emoji }
+
+    /** The emoji faces, for the emoji-font picker. */
+    @Synchronized
+    fun emojiFonts(): List<InstalledFont> = fonts.filter { it.emoji }
 
     @Synchronized
     fun font(id: String?): InstalledFont? = fonts.firstOrNull { it.id == id }

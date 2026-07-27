@@ -19,6 +19,7 @@ import com.wasimaster.wmkeyboard.core.icons.IconPackStore
 import com.wasimaster.wmkeyboard.core.input.composer.DoublePinyinScheme
 import com.wasimaster.wmkeyboard.core.input.composer.HanVariant
 import com.wasimaster.wmkeyboard.core.prediction.CustomDictionaries
+import com.wasimaster.wmkeyboard.core.layout.AssetLayouts
 import com.wasimaster.wmkeyboard.core.layout.BuiltInLayouts
 import com.wasimaster.wmkeyboard.core.layout.LayoutCodec
 import com.wasimaster.wmkeyboard.core.layout.LayoutSpec
@@ -472,7 +473,20 @@ enum class EmojiBarContent { MOST_USED, RECENTS, FAVOURITES }
  * emoji font file the user imported. Text committed to apps is plain
  * Unicode either way; the receiving app draws it with its own font.
  */
-enum class EmojiFontChoice { SYSTEM, NOTO, CUSTOM }
+enum class EmojiFontChoice { SYSTEM, NOTO, CUSTOM, INSTALLED }
+
+/**
+ * Which emoji face from the font library [EmojiFontChoice.INSTALLED] draws with.
+ *
+ * Its own class for the reason [KeySoundSettings] is: `KeyboardSettings` sits at
+ * the JVM's 255-argument ceiling for the `copy$default` Kotlin generates, so a
+ * new setting joins a group rather than the flat list. The DataStore key is flat
+ * either way.
+ */
+data class EmojiFontSettings(
+    /** [com.wasimaster.wmkeyboard.core.fonts.FontStore] id, blank if none. */
+    val installedId: String = "",
+)
 
 /**
  * What tapping an emoji suggestion does to the word being typed:
@@ -780,6 +794,8 @@ data class KeyboardSettings(
     val customDictVersion: Int = 0,
     /** Emoji look on the keyboard: system pack, Noto (stock Android), or custom. */
     val emojiFont: EmojiFontChoice = EmojiFontChoice.SYSTEM,
+    /** Which library face [EmojiFontChoice.INSTALLED] uses; see [EmojiFontSettings]. */
+    val emojiFontInstalled: EmojiFontSettings = EmojiFontSettings(),
     val hapticFeedback: Boolean = true,
     val hapticStrengthMs: Int = 15,
     val hapticAmplitude: Int = 255,
@@ -1858,6 +1874,7 @@ class SettingsRepository(private val context: Context) {
         private val LEXICON_VERSION = intPreferencesKey("lexicon_version")
         private val CUSTOM_DICT_VERSION = intPreferencesKey("custom_dict_version")
         private val EMOJI_FONT = stringPreferencesKey("emoji_font")
+        private val EMOJI_FONT_INSTALLED_ID = stringPreferencesKey("emoji_font_installed_id")
         private val AUTO_APOSTROPHE = booleanPreferencesKey("auto_apostrophe")
         private val HAPTIC = booleanPreferencesKey("haptic")
         private val HAPTIC_STRENGTH = intPreferencesKey("haptic_strength")
@@ -2309,6 +2326,9 @@ class SettingsRepository(private val context: Context) {
             emojiFont = p[EMOJI_FONT]
                 ?.let { runCatching { EmojiFontChoice.valueOf(it) }.getOrNull() }
                 ?: defaults.emojiFont,
+            emojiFontInstalled = EmojiFontSettings(
+                installedId = p[EMOJI_FONT_INSTALLED_ID] ?: defaults.emojiFontInstalled.installedId,
+            ),
             hapticFeedback = p[HAPTIC] ?: defaults.hapticFeedback,
             hapticStrengthMs = p[HAPTIC_STRENGTH] ?: defaults.hapticStrengthMs,
             hapticAmplitude = p[HAPTIC_AMPLITUDE] ?: defaults.hapticAmplitude,
@@ -3171,15 +3191,19 @@ class SettingsRepository(private val context: Context) {
     /**
      * Deletes a custom layout and drops every reference to it.
      *
-     * Deleting an *edited built-in* only removes the override — the shipped grid
-     * comes back under the same id, so every reference to it stays valid, which
-     * is why the reference cleanup below is skipped for those.
+     * Deleting an *edited shipped layout* only removes the override — the
+     * shipped grid comes back under the same id, so every reference to it stays
+     * valid, which is why the reference cleanup below is skipped for those.
+     * "Shipped" covers the JSON asset layouts as well as the compiled built-ins:
+     * `resolveLayouts` splices both back in, so an edited BÉPO restores exactly
+     * like an edited QWERTY does, and stripping its references would switch off
+     * a layout that is still there.
      */
     suspend fun deleteCustomLayout(id: String) =
         editPrefs { prefs ->
             val current = prefs[CUSTOM_LAYOUTS]?.let { LayoutCodec.decodeList(it) }.orEmpty()
             prefs[CUSTOM_LAYOUTS] = LayoutCodec.encodeList(current.filter { it.id != id })
-            if (BuiltInLayouts.byId(id) != null) return@editPrefs
+            if (BuiltInLayouts.byId(id) != null || AssetLayouts.byId(id) != null) return@editPrefs
             prefs[ENABLED_LAYOUT_IDS]?.let { stored ->
                 val kept = stored.split(',')
                     .filter { it.isNotEmpty() && it != id }
@@ -3890,6 +3914,29 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setEmojiFont(value: EmojiFontChoice) =
         editPrefs { it[EMOJI_FONT] = value.name }
+
+    /**
+     * Picks an emoji face from the font library and switches to it in one
+     * write, the same pairing as [setKeySoundCustomId].
+     */
+    suspend fun setInstalledEmojiFont(fontId: String) =
+        editPrefs {
+            it[EMOJI_FONT_INSTALLED_ID] = fontId
+            if (fontId.isNotBlank()) it[EMOJI_FONT] = EmojiFontChoice.INSTALLED.name
+        }
+
+    /**
+     * Drops [fontId] as the emoji face if it is the one selected, falling back
+     * to the system emoji font. Called when the font is deleted.
+     */
+    suspend fun forgetInstalledEmojiFont(fontId: String) =
+        editPrefs {
+            if (it[EMOJI_FONT_INSTALLED_ID] != fontId) return@editPrefs
+            it[EMOJI_FONT_INSTALLED_ID] = ""
+            if (it[EMOJI_FONT] == EmojiFontChoice.INSTALLED.name) {
+                it[EMOJI_FONT] = EmojiFontChoice.SYSTEM.name
+            }
+        }
 
     suspend fun setAutoApostrophe(value: Boolean) =
         editPrefs { it[AUTO_APOSTROPHE] = value }

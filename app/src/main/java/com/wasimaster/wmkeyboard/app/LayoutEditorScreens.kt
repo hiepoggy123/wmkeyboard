@@ -83,6 +83,7 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.shape.RoundedCornerShape
+import com.wasimaster.wmkeyboard.core.layout.AssetLayouts
 import com.wasimaster.wmkeyboard.core.layout.BuiltInLayouts
 import com.wasimaster.wmkeyboard.core.layout.Key
 import com.wasimaster.wmkeyboard.core.layout.KeyAction
@@ -183,6 +184,14 @@ internal fun KeyLayoutsScreen(
 
     val layouts = resolveLayouts(settings.customLayouts)
     val customIds = settings.customLayouts.map { it.id }.toSet()
+    // "Shipped" is both the compiled built-ins and the JSON asset layouts.
+    // Testing only BuiltInLayouts put every asset layout in neither group — an
+    // enabled Français BÉPO was invisible here — and made an *edit* of one look
+    // like a layout of the user's own, offering Delete where it should offer
+    // Reset. resolveLayouts already treats the two the same way.
+    val shippedIds = remember(layouts) {
+        (BuiltInLayouts.all + AssetLayouts.all).mapTo(HashSet()) { it.id }
+    }
 
     CaptionText(
         "A layout is a key grid. It types the language of the layout it is based on, " +
@@ -212,7 +221,7 @@ internal fun KeyLayoutsScreen(
         // Languages first and they appear here.
         val customs = layouts.filter {
             it.id in customIds &&
-                BuiltInLayouts.byId(it.id) == null &&
+                it.id !in shippedIds &&
                 it.id in settings.enabledLayoutIds
         }
         if (customs.isEmpty()) {
@@ -259,7 +268,7 @@ internal fun KeyLayoutsScreen(
     }
 
     val builtIns = layouts.filter {
-        BuiltInLayouts.byId(it.id) != null && it.id in settings.enabledLayoutIds
+        it.id in shippedIds && it.id in settings.enabledLayoutIds
     }
     if (builtIns.isNotEmpty()) {
         SettingsGroup("Built in") {
@@ -331,7 +340,7 @@ internal fun KeyLayoutsScreen(
     }
 
     confirmDelete?.let { layout ->
-        val reset = BuiltInLayouts.byId(layout.id) != null
+        val reset = layout.id in shippedIds
         AlertDialog(
             onDismissRequest = { confirmDelete = null },
             title = { Text(if (reset) "Reset ${layout.name}?" else "Delete ${layout.name}?") },

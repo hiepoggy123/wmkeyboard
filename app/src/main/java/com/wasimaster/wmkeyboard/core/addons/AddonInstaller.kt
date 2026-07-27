@@ -59,7 +59,8 @@ object AddonInstaller {
             AddonType.Snippets -> installSnippets(context, payload)
             AddonType.Stickers -> installStickers(context, payload)
             AddonType.IconPack -> installIconPack(context, payload)
-            AddonType.Font -> installFont(context, entry, payload)
+            AddonType.Font -> installFont(context, entry, payload, emoji = false)
+            AddonType.EmojiFont -> installFont(context, entry, payload, emoji = true)
             AddonType.Sound -> installSound(context, entry, payload)
             AddonType.Unknown -> Outcome.Rejected("This app version doesn't support that addon type")
         }
@@ -81,6 +82,7 @@ object AddonInstaller {
             AddonType.Stickers -> StickerPackStore.get(context).deletePack(record.localRef)
             AddonType.IconPack -> uninstallIconPack(context, record.localRef)
             AddonType.Font -> FontStore.get(context).delete(record.localRef)
+            AddonType.EmojiFont -> uninstallEmojiFont(context, record.localRef)
             AddonType.Sound -> SoundStore.get(context).delete(record.localRef)
             AddonType.Unknown -> Unit
         }
@@ -212,7 +214,12 @@ object AddonInstaller {
 
     // ---- fonts & sounds --------------------------------------------------
 
-    private fun installFont(context: Context, entry: AddonEntry, payload: File): Outcome {
+    private suspend fun installFont(
+        context: Context,
+        entry: AddonEntry,
+        payload: File,
+        emoji: Boolean,
+    ): Outcome {
         val store = FontStore.get(context)
         val result = payload.inputStream().use {
             FontFile.import(
@@ -221,15 +228,35 @@ object AddonInstaller {
                 name = entry.name.ifBlank { entry.id },
                 author = entry.author,
                 version = entry.version,
+                langIds = entry.languages,
+                emoji = emoji,
             )
         }
         return when (result) {
-            is FontImportResult.Imported -> Outcome.Installed(result.font.id)
+            is FontImportResult.Imported -> {
+                // An emoji font applies on install, like a theme or an icon
+                // pack: it is a single global choice with one obvious slot, so
+                // installing without switching would read as nothing happening.
+                // Text faces don't — there are several pickers they could go in
+                // (English, Bengali, per-script) and guessing wrong is worse
+                // than letting the user pick.
+                if (emoji) {
+                    SettingsRepository(context).setInstalledEmojiFont(result.font.id)
+                }
+                Outcome.Installed(result.font.id)
+            }
             is FontImportResult.NotAFont -> Outcome.Rejected(result.message)
             FontImportResult.TooManyFonts ->
                 Outcome.Rejected("You've reached the maximum number of installed fonts")
             is FontImportResult.Failed -> Outcome.Rejected(result.message)
         }
+    }
+
+    private suspend fun uninstallEmojiFont(context: Context, fontId: String) {
+        FontStore.get(context).delete(fontId)
+        // Leaving the choice pointing at a deleted file would render every
+        // emoji with the fallback face while the setting still claims otherwise.
+        SettingsRepository(context).forgetInstalledEmojiFont(fontId)
     }
 
     private fun installSound(context: Context, entry: AddonEntry, payload: File): Outcome {

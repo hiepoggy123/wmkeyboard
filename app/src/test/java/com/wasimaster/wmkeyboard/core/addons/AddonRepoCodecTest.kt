@@ -28,11 +28,93 @@ class AddonRepoCodecTest {
         manifest!!
         assertEquals("com.wasimaster.wmkeyboard.sample", manifest.repo.id)
         assertTrue("sample should list addons", manifest.addons.isNotEmpty())
-        // One of each of the eight types is the point of the sample repo.
+        // One of each real type is the point of the sample repo.
         val types = manifest.addons.map { it.type }.toSet()
         for (type in AddonType.entries - AddonType.Unknown) {
             assertTrue("sample repo has no $type", type in types)
         }
+    }
+
+    @Test
+    fun `the sample repository states a licence for every addon`() {
+        // Not a format requirement, but an addon whose licence nobody can find
+        // is one nobody can safely reuse — and the sample is what people copy.
+        val manifest = AddonRepoCodec.decode(fixture("wmkeyboard-repo.json"))!!
+        val unlicensed = manifest.addons.filterNot { it.hasLicense }.map { it.id }
+        assertEquals(emptyList<String>(), unlicensed)
+    }
+
+    @Test
+    fun `the sample repository no longer ships a layout the app already has`() {
+        // asset_fr_bepo ships with the app, so installing the repository's copy
+        // left the user looking at "Français BÉPO" twice.
+        val manifest = AddonRepoCodec.decode(fixture("wmkeyboard-repo.json"))!!
+        assertNull(manifest.addons.firstOrNull { it.id == "fr-bepo" })
+    }
+
+    // ---- licences & languages -------------------------------------------
+
+    @Test
+    fun `licence fields decode and hasLicense follows any of them`() {
+        val text = """
+            {"format":"wmkeyboard-repo","version":1,
+             "repo":{"id":"x","name":"X"},
+             "addons":[
+               {"id":"a","type":"font","name":"A","version":"1.0.0","path":"a.ttf",
+                "license":"OFL-1.1","licenseFile":"fonts/OFL.txt"},
+               {"id":"b","type":"font","name":"B","version":"1.0.0","path":"b.ttf",
+                "licenseText":"Do what you like."},
+               {"id":"c","type":"font","name":"C","version":"1.0.0","path":"c.ttf"}
+             ]}
+        """.trimIndent()
+        val addons = AddonRepoCodec.decode(text)!!.addons.associateBy { it.id }
+        assertEquals("OFL-1.1", addons.getValue("a").license)
+        assertEquals("fonts/OFL.txt", addons.getValue("a").licenseFile)
+        assertTrue(addons.getValue("a").hasLicense)
+        assertTrue("inline text alone counts", addons.getValue("b").hasLicense)
+        assertTrue("nothing stated", !addons.getValue("c").hasLicense)
+    }
+
+    @Test
+    fun `languages merges langId and langIds without duplicates`() {
+        val text = """
+            {"format":"wmkeyboard-repo","version":1,
+             "repo":{"id":"x","name":"X"},
+             "addons":[
+               {"id":"a","type":"font","name":"A","version":"1.0.0","path":"a.ttf",
+                "langIds":["en"," ru ","el","en"]},
+               {"id":"b","type":"dictionary","name":"B","version":"1.0.0","path":"b.txt",
+                "langId":"fr","langIds":["fr","de"]},
+               {"id":"c","type":"font","name":"C","version":"1.0.0","path":"c.ttf"}
+             ]}
+        """.trimIndent()
+        val addons = AddonRepoCodec.decode(text)!!.addons.associateBy { it.id }
+        assertEquals(listOf("en", "ru", "el"), addons.getValue("a").languages)
+        assertEquals(listOf("fr", "de"), addons.getValue("b").languages)
+        // No claim; the picker offers it everywhere.
+        assertEquals(emptyList<String>(), addons.getValue("c").languages)
+    }
+
+    @Test
+    fun `an emoji font is its own type, not a font`() {
+        val text = """
+            {"format":"wmkeyboard-repo","version":1,
+             "repo":{"id":"x","name":"X"},
+             "addons":[{"id":"twemoji","type":"emoji_font","name":"Twemoji",
+                        "version":"1.0.0","path":"fonts/twemoji.ttf"}]}
+        """.trimIndent()
+        val entry = AddonRepoCodec.decode(text)!!.addons.single()
+        assertEquals(AddonType.EmojiFont, entry.type)
+        assertEquals("Emoji font", entry.type.singularLabel)
+    }
+
+    @Test
+    fun `only the content-is-the-choice types offer a preview`() {
+        val previewable = AddonType.entries.filter { it.previewable }.toSet()
+        assertEquals(
+            setOf(AddonType.Snippets, AddonType.Dictionary, AddonType.Sound, AddonType.Stickers),
+            previewable,
+        )
     }
 
     @Test

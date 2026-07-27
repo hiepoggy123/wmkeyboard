@@ -565,7 +565,7 @@ private fun SettingsNavHost(
             val url = decodeRouteArg(backStackEntry.arguments?.getString("repoUrl"))
             val addonId = decodeRouteArg(backStackEntry.arguments?.getString("addonId"))
             SettingsScreen("Addon", { navController.popBackStack() }) {
-                AddonDetailScreen(url, addonId)
+                AddonDetailScreen(url, addonId) { route -> navController.navigate(route) }
             }
         }
         composable("sticker_pack/{packId}") { backStackEntry ->
@@ -2429,23 +2429,45 @@ private fun KeySoundGroup(
                         "Install more from Addons, or import your own MP3 below.",
                 )
             }
-            // CUSTOM is deliberately not a segment: it names a file rather than
-            // a fixed style, so it lives in the list below where the sound can
-            // actually be chosen.
-            val builtIn = KeySoundStyle.entries.filter { it != KeySoundStyle.CUSTOM }
+            // Custom is a segment like any other, so the styles read as one
+            // choice rather than five here and a sixth hidden in a list. It
+            // names a file rather than a fixed waveform, so it needs a sound
+            // installed before it can be picked — the list below is where that
+            // sound is chosen and where the "install one" note lives.
+            val soundStore = remember { SoundStore.get(context) }
+            val soundRevision by soundStore.revision.collectAsStateWithLifecycle()
+            val installedSounds = remember(soundRevision) { soundStore.sounds() }
+            val styles = KeySoundStyle.entries
             SingleChoiceSegmentedButtonRow(modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 8.dp)) {
-                builtIn.forEachIndexed { index, style ->
+                styles.forEachIndexed { index, style ->
+                    val custom = style == KeySoundStyle.CUSTOM
                     SegmentedButton(
                         selected = settings.keySoundStyle == style,
+                        enabled = !custom || installedSounds.isNotEmpty(),
                         onClick = {
-                            scope.launch { repository.setKeySoundStyle(style) }
-                            // Sound the freshly picked style so the user
-                            // hears the choice immediately.
-                            KeySoundPlayer.preview(context, style, settings.keySoundVolume)
+                            scope.launch {
+                                if (custom) {
+                                    // Falls back to the first installed sound
+                                    // when none has been chosen yet, so the
+                                    // segment always makes a sound.
+                                    val id = settings.keySoundCustom.customId
+                                        .takeIf { id -> installedSounds.any { it.id == id } }
+                                        ?: installedSounds.first().id
+                                    repository.setKeySoundCustomId(id)
+                                    KeySoundPlayer.preview(
+                                        context, style, settings.keySoundVolume, id,
+                                    )
+                                } else {
+                                    repository.setKeySoundStyle(style)
+                                    // Sound the freshly picked style so the user
+                                    // hears the choice immediately.
+                                    KeySoundPlayer.preview(context, style, settings.keySoundVolume)
+                                }
+                            }
                         },
-                        shape = SegmentedButtonDefaults.itemShape(index, builtIn.size),
+                        shape = SegmentedButtonDefaults.itemShape(index, styles.size),
                     ) {
                         Text(
                             when (style) {
@@ -3619,8 +3641,15 @@ private fun LanguageSettings(
     }
     // Custom layouts get their own group after the languages: they are the
     // user's own grids (edited on the Key layouts screen), not a language to add.
+    // Only the user's own grids. An override of a shipped layout — built-in or
+    // JSON asset — is an edit of that layout, not a layout of their own, and
+    // listing it here would show the same name twice: once as the language's
+    // layout above, once as if they had made it.
     val customs = settings.customLayouts
-        .filter { com.wasimaster.wmkeyboard.core.layout.BuiltInLayouts.byId(it.id) == null }
+        .filter {
+            com.wasimaster.wmkeyboard.core.layout.BuiltInLayouts.byId(it.id) == null &&
+                com.wasimaster.wmkeyboard.core.layout.AssetLayouts.byId(it.id) == null
+        }
         .sortedBy { it.name.lowercase() }
     SettingsGroup("Your layouts") {
         for (layout in customs) {
@@ -3928,19 +3957,29 @@ private fun EmojiSettings(repository: SettingsRepository, settings: KeyboardSett
                 info = "\"System\" uses your phone's emoji pack — on Samsung phones " +
                     "that is Samsung's own set. \"Google\" fetches Noto Color Emoji " +
                     "(the stock-Android look) once through the system font provider " +
-                    "and caches it on the device. \"Custom\" uses an emoji font file " +
-                    "you import below, such as a Twemoji or OpenMoji build. Text you " +
-                    "send is plain Unicode either way — other apps and other phones " +
-                    "still draw it with their own emoji font.",
+                    "and caches it on the device. \"Installed\" uses an emoji font " +
+                    "from Addons, such as Twemoji or OpenMoji. \"Custom\" uses a " +
+                    "single emoji font file you import below. Text you send is plain " +
+                    "Unicode either way — other apps and other phones still draw it " +
+                    "with their own emoji font.",
                 options = listOf(
                     EmojiFontChoice.SYSTEM to "System",
                     EmojiFontChoice.NOTO to "Google",
+                    EmojiFontChoice.INSTALLED to "Installed",
                     EmojiFontChoice.CUSTOM to "Custom",
                 ),
                 selected = settings.emojiFont,
             ) { scope.launch { repository.setEmojiFont(it) } }
-            val previewFamily = remember(settings.emojiFont, fontRefresh) {
-                KeyboardFonts.emojiFamily(context, settings.emojiFont)
+            val previewFamily = remember(
+                settings.emojiFont,
+                settings.emojiFontInstalled.installedId,
+                fontRefresh,
+            ) {
+                KeyboardFonts.emojiFamily(
+                    context,
+                    settings.emojiFont,
+                    settings.emojiFontInstalled.installedId,
+                )
             }
             // One Text per emoji: emoji fonts often have no space glyph, so drawing
             // them as a single spaced string makes the glyphs overlap.
@@ -3954,6 +3993,9 @@ private fun EmojiSettings(repository: SettingsRepository, settings: KeyboardSett
                         modifier = Modifier.padding(end = 6.dp),
                     )
                 }
+            }
+            if (settings.emojiFont == EmojiFontChoice.INSTALLED) {
+                InstalledEmojiFontList(repository, settings)
             }
             if (settings.emojiFont == EmojiFontChoice.CUSTOM) {
                 val importEmojiFont = rememberLauncherForActivityResult(
@@ -3993,9 +4035,9 @@ private fun EmojiSettings(repository: SettingsRepository, settings: KeyboardSett
                     "newest emoji, which then render as an empty \"tofu\" box. This hides any " +
                     "emoji the current emoji font can't draw. To see them all instead, set " +
                     "the emoji font above to \"Google\" (Noto Color Emoji), or import a " +
-                    "complete emoji font file (such as a Twemoji or OpenMoji build) under " +
-                    "\"Custom\" — WM Keyboard ships no emoji font of its own, it uses the " +
-                    "one you choose here.",
+                    "complete emoji font (such as Twemoji or OpenMoji) from Addons under " +
+                    "\"Installed\" — WM Keyboard ships no emoji font of its own, it uses " +
+                    "the one you choose here.",
             ) { scope.launch { repository.setHideUnrenderableEmoji(it) } }
         }
     }
@@ -4003,6 +4045,60 @@ private fun EmojiSettings(repository: SettingsRepository, settings: KeyboardSett
         "Tip: long-press any emoji in the panel to favourite it or pick skin tones — " +
             "two-person emojis like 🤝 let you set each person's tone separately.",
     )
+}
+
+/**
+ * The emoji faces in the font library, with the one in use ticked.
+ *
+ * Emoji fonts live in the same [FontStore] as the text faces — same files, same
+ * lifecycle — but are listed apart, since drawing key labels in a colour emoji
+ * font is not a choice anyone makes on purpose.
+ */
+@Composable
+private fun InstalledEmojiFontList(repository: SettingsRepository, settings: KeyboardSettings) {
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val store = remember { FontStore.get(context) }
+    val revision by store.revision.collectAsStateWithLifecycle()
+    val fonts = remember(revision) { store.emojiFonts() }
+
+    if (fonts.isEmpty()) {
+        CaptionText(
+            "No emoji fonts installed. Install one from Addons — Twemoji, OpenMoji " +
+                "and the like — or import a single file under \"Custom\".",
+        )
+        return
+    }
+    for (font in fonts) {
+        val selected = settings.emojiFontInstalled.installedId == font.id
+        ListItem(
+            headlineContent = { Text(font.name) },
+            supportingContent = font.author.takeIf { it.isNotBlank() }?.let { { Text(it) } },
+            trailingContent = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (selected) {
+                        Icon(
+                            Icons.Outlined.Check,
+                            contentDescription = "Selected",
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                    IconButton(onClick = {
+                        scope.launch {
+                            repository.forgetInstalledEmojiFont(font.id)
+                            withContext(Dispatchers.IO) { store.delete(font.id) }
+                        }
+                    }) {
+                        Icon(Icons.Outlined.Delete, contentDescription = "Remove ${font.name}")
+                    }
+                }
+            },
+            colors = transparentListColors(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { scope.launch { repository.setInstalledEmojiFont(font.id) } },
+        )
+    }
 }
 
 // ---- personal dictionary ----
@@ -4784,7 +4880,9 @@ private fun FontSettings(repository: SettingsRepository, settings: KeyboardSetti
     val context = LocalContext.current
     val fontStore = remember { FontStore.get(context) }
     val fontRevision by fontStore.revision.collectAsStateWithLifecycle()
-    val installedFonts = remember(fontRevision) { fontStore.fonts() }
+    // Text faces only: an emoji font is chosen on the Emoji screen, and picking
+    // one for the key labels would draw the alphabet as coloured pictograms.
+    val installedFonts = remember(fontRevision) { fontStore.textFonts() }
     var fontMessage by remember { mutableStateOf<String?>(null) }
 
     fun importIntoLibrary(uri: android.net.Uri, apply: suspend (String) -> Unit) {
@@ -4845,6 +4943,10 @@ private fun FontSettings(repository: SettingsRepository, settings: KeyboardSetti
         onSelect = { id -> scope.launch { repository.setKeyFontId(id) } },
         onImport = { uri -> importIntoLibrary(uri) { repository.setKeyFontId(it) } },
         installedFonts = installedFonts,
+        installedTitle = "Installed fonts",
+        // The English picker also drives Cyrillic and Greek, which have no
+        // picker of their own — a font claiming any of the three belongs here.
+        scripts = setOf(ScriptId.LATIN, ScriptId.CYRILLIC, ScriptId.GREEK),
         onDeleteInstalled = ::deleteInstalled,
     )
     // The Bengali font picker is the one script-specific face the user chooses by
@@ -4862,6 +4964,8 @@ private fun FontSettings(repository: SettingsRepository, settings: KeyboardSetti
             onSelect = { id -> scope.launch { repository.setBengaliFontId(id) } },
             onImport = { uri -> importIntoLibrary(uri) { repository.setBengaliFontId(it) } },
             installedFonts = installedFonts,
+            installedTitle = "Installed Bengali fonts",
+            scripts = setOf(ScriptId.BENGALI),
             onDeleteInstalled = ::deleteInstalled,
         )
     }
@@ -4885,17 +4989,21 @@ private fun FontSettings(repository: SettingsRepository, settings: KeyboardSetti
 }
 
 /**
- * One script's font list: the default row, any fonts installed into the
- * library, curated Google faces, and — for the scripts that support it
- * (English/Bengali) — the single imported file and an import button. Scripts
- * that only offer curated faces pass [customFile] null; their default row is
- * relabelled via [defaultLabel] since it is the script's automatic Noto face
- * rather than the raw system font.
+ * One script's font list: the default row, curated Google faces, and — for the
+ * scripts that support it (English/Bengali) — the single imported file and an
+ * import button. Scripts that only offer curated faces pass [customFile] null;
+ * their default row is relabelled via [defaultLabel] since it is the script's
+ * automatic Noto face rather than the raw system font.
  *
- * [installedFonts] is the library filled by the Addons screen and by importing
- * a file here. It sits above the Google faces because a font the user went and
- * installed is more likely to be the one they want than the twentieth entry in
- * a curated list.
+ * [installedFonts] is the library filled by the Addons screen and by importing a
+ * file here. It gets its own section above the curated list: it is a short,
+ * personal list next to twenty stock faces, and burying it inside them makes a
+ * font the user deliberately installed harder to find than one they didn't.
+ *
+ * [scripts] is what the picker is for. A font that declares which languages it
+ * covers is only offered where it covers something — plenty of display faces are
+ * Latin-only, and offering one for Bengali offers a keyboard of empty boxes. A
+ * font that declares nothing makes no claim and is offered everywhere.
  */
 @Composable
 private fun FontPickerSection(
@@ -4910,12 +5018,36 @@ private fun FontPickerSection(
     customName: String = "",
     onImport: ((android.net.Uri) -> Unit)? = null,
     installedFonts: List<InstalledFont> = emptyList(),
+    installedTitle: String = "Installed fonts",
+    scripts: Set<ScriptId> = emptySet(),
     onDeleteInstalled: ((InstalledFont) -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val importFont = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument(),
     ) { uri -> if (uri != null) onImport?.invoke(uri) }
+    val relevant = remember(installedFonts, scripts) {
+        installedFonts.filter { font ->
+            font.langIds.isEmpty() || scripts.isEmpty() ||
+                font.langIds.any { LanguageRegistry.byId(it).script in scripts }
+        }
+    }
+    if (relevant.isNotEmpty()) {
+        SettingsGroup(installedTitle) {
+            for (font in relevant) {
+                item {
+                    val id = FontStore.fontIdFor(font.id)
+                    FontChoiceRow(
+                        label = font.name,
+                        family = remember(id) { KeyboardFonts.family(context, id) },
+                        sample = sample,
+                        selected = selectedId == id,
+                        onDelete = onDeleteInstalled?.let { delete -> { delete(font) } },
+                    ) { onSelect(id) }
+                }
+            }
+        }
+    }
     SettingsGroup(header) {
         item {
             FontChoiceRow(
@@ -4924,18 +5056,6 @@ private fun FontPickerSection(
                 sample = sample,
                 selected = selectedId == KeyboardFonts.DEFAULT_ID,
             ) { onSelect(KeyboardFonts.DEFAULT_ID) }
-        }
-        for (font in installedFonts) {
-            item {
-                val id = FontStore.fontIdFor(font.id)
-                FontChoiceRow(
-                    label = font.name,
-                    family = remember(id) { KeyboardFonts.family(context, id) },
-                    sample = sample,
-                    selected = selectedId == id,
-                    onDelete = onDeleteInstalled?.let { delete -> { delete(font) } },
-                ) { onSelect(id) }
-            }
         }
         for (name in googleNames) {
             item {

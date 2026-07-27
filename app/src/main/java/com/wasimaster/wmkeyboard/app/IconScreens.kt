@@ -169,6 +169,7 @@ internal fun IconsScreen(repository: SettingsRepository, settings: KeyboardSetti
 
     CaptionText(
         "Replace any keyboard icon with another built-in one or your own SVG. " +
+            "The built-in set is Google's Material Symbols, outlined style. " +
             "An icon that doesn't set its own colours follows the theme (and the " +
             "tool's accent colour); one that does keeps them.",
     )
@@ -177,7 +178,7 @@ internal fun IconsScreen(repository: SettingsRepository, settings: KeyboardSetti
         item {
             PackRow(
                 name = "Built-in icons",
-                supporting = "The icons WM Keyboard ships with",
+                supporting = "Material Symbols (outlined) — the set WM Keyboard ships with",
                 selected = settings.icons.activePackId.isEmpty(),
                 onClick = { scope.launch { repository.setIconPack("") } },
             )
@@ -419,7 +420,7 @@ private fun IconPickerDialog(
                 OutlinedTextField(
                     value = query,
                     onValueChange = { query = it },
-                    label = { Text("Search icons") },
+                    label = { Text("Search Material Symbols") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )

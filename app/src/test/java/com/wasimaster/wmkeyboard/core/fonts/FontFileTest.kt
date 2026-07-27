@@ -182,6 +182,63 @@ class FontFileTest {
     }
 
     @Test
+    fun `a font records the languages it claims to cover`() {
+        val s = store()
+        val result = FontFile.import(
+            input = ByteArrayInputStream(ttfBytes()),
+            store = s,
+            name = "Inter",
+            langIds = listOf("en", " ru ", "el", "en", ""),
+            loader = { true },
+        )
+        val font = (result as FontImportResult.Imported).font
+        // Trimmed, de-duplicated, blanks dropped — the picker filters on these.
+        assertEquals(listOf("en", "ru", "el"), font.langIds)
+        assertTrue("a text face by default", !font.emoji)
+    }
+
+    @Test
+    fun `emoji faces are kept apart from the text faces`() {
+        val s = store()
+        FontFile.import(
+            input = ByteArrayInputStream(ttfBytes()),
+            store = s,
+            name = "Inter",
+            loader = { true },
+        )
+        FontFile.import(
+            input = ByteArrayInputStream(ttfBytes()),
+            store = s,
+            name = "Twemoji",
+            emoji = true,
+            loader = { true },
+        )
+        assertEquals(2, s.fonts().size)
+        // The key-label pickers must never offer a colour emoji font, and the
+        // emoji picker must never offer a text one.
+        assertEquals(listOf("Inter"), s.textFonts().map { it.name })
+        assertEquals(listOf("Twemoji"), s.emojiFonts().map { it.name })
+    }
+
+    @Test
+    fun `the emoji flag and languages survive a reload`() {
+        val dir = File(temp.root, "fonts")
+        val first = store(dir)
+        FontFile.import(
+            input = ByteArrayInputStream(ttfBytes()),
+            store = first,
+            name = "Twemoji",
+            langIds = listOf("en"),
+            emoji = true,
+            loader = { true },
+        )
+        val reopened = FontStore(dir)
+        val font = reopened.fonts().single()
+        assertTrue(font.emoji)
+        assertEquals(listOf("en"), font.langIds)
+    }
+
+    @Test
     fun `the settings font id round-trips through the store id`() {
         val fontId = FontStore.fontIdFor("font_123")
         assertTrue(fontId.startsWith(FontStore.ID_PREFIX))

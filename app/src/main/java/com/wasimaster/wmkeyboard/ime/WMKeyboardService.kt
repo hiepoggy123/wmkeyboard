@@ -900,14 +900,18 @@ open class WMKeyboardService : InputMethodService() {
             var userScreenshotsEnabled: Boolean? = null
             // Recompute the hidden-emoji set only when the toggle or the font
             // behind it actually changes, not on every unrelated settings save.
-            var hiddenEmojiKey: Pair<Boolean, EmojiFontChoice>? = null
+            var hiddenEmojiKey: Triple<Boolean, EmojiFontChoice, String>? = null
             settingsRepository.settings.collect { stored ->
                 // Direct boot: everything backed by credential-encrypted
                 // storage is switched off once, here, so that nothing below —
                 // nor anything reading the ui state afterwards — has to know
                 // why the fonts, contacts and half the tools are missing.
                 val settings = if (userUnlocked) stored else stored.restrictedToDirectBoot()
-                val nextHiddenKey = settings.emoji.hideUnrenderable to settings.emojiFont
+                val nextHiddenKey = Triple(
+                    settings.emoji.hideUnrenderable,
+                    settings.emojiFont,
+                    settings.emojiFontInstalled.installedId,
+                )
                 if (hiddenEmojiKey != nextHiddenKey) {
                     hiddenEmojiKey = nextHiddenKey
                     recomputeHiddenEmoji(settings)
@@ -7819,7 +7823,11 @@ open class WMKeyboardService : InputMethodService() {
         }
         serviceScope.launch {
             val hidden = withContext(Dispatchers.Default) {
-                val typeface = KeyboardFonts.emojiTypeface(this@WMKeyboardService, settings.emojiFont)
+                val typeface = KeyboardFonts.emojiTypeface(
+                    this@WMKeyboardService,
+                    settings.emojiFont,
+                    settings.emojiFontInstalled.installedId,
+                )
                 EmojiRenderCheck.unrenderable(catalog.map { it.emoji }, typeface)
             }
             _uiState.update { it.copy(hiddenEmoji = hidden) }

@@ -72,9 +72,40 @@ data class AddonEntry(
     val minAppVersion: Int? = null,
     /** Required for [AddonType.Dictionary]; a grouping hint for layouts. */
     val langId: String? = null,
+    /**
+     * Languages this addon is for, when one id isn't enough.
+     *
+     * Mostly a font thing: plenty of faces carry Latin and nothing else, and a
+     * picker that offers them for Bengali is offering something that will draw
+     * every key blank. Empty means "no claim" — the addon is offered everywhere,
+     * which is the right default for a face with broad coverage.
+     */
+    val langIds: List<String> = emptyList(),
+    /**
+     * Licence identifier — SPDX where one fits (`MIT`, `OFL-1.1`, `CC0-1.0`),
+     * otherwise any short name. Shown as-is.
+     */
+    val license: String? = null,
+    /** Full licence text inline, for a licence with no identifier worth quoting. */
+    val licenseText: String? = null,
+    /** Licence text as a file in the repository, relative or absolute; fetched on demand. */
+    val licenseFile: String? = null,
 ) {
     /** `"<repoId>/<addonId>"` — how an install is tracked in [AddonStore]. */
     fun key(repoId: String): String = "$repoId/$id"
+
+    /** [langId] and [langIds] as one list, deduplicated and blank-free. */
+    val languages: List<String>
+        get() = (listOfNotNull(langId) + langIds)
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+            .distinct()
+
+    /** True when there is a licence worth putting on the detail page. */
+    val hasLicense: Boolean
+        get() = !license.isNullOrBlank() ||
+            !licenseText.isNullOrBlank() ||
+            !licenseFile.isNullOrBlank()
 }
 
 /**
@@ -94,6 +125,7 @@ enum class AddonType {
     @SerialName("stickers") Stickers,
     @SerialName("icon_pack") IconPack,
     @SerialName("font") Font,
+    @SerialName("emoji_font") EmojiFont,
     @SerialName("sound") Sound,
     @SerialName("unknown") Unknown,
     ;
@@ -108,6 +140,7 @@ enum class AddonType {
             Stickers -> "Sticker packs"
             IconPack -> "Icon packs"
             Font -> "Fonts"
+            EmojiFont -> "Emoji fonts"
             Sound -> "Sounds"
             Unknown -> "Other"
         }
@@ -127,6 +160,7 @@ enum class AddonType {
             Stickers -> "Sticker pack"
             IconPack -> "Icon pack"
             Font -> "Font"
+            EmojiFont -> "Emoji font"
             Sound -> "Key sound"
             Unknown -> "Addon"
         }
@@ -142,8 +176,24 @@ enum class AddonType {
             Dictionary -> 32L * 1024 * 1024
             IconPack -> 8L * 1024 * 1024
             Stickers -> 64L * 1024 * 1024
-            Font -> 32L * 1024 * 1024
+            // A colour emoji font carries thousands of bitmap or COLR glyphs,
+            // so it runs several times the size of a text face.
+            Font, EmojiFont -> 32L * 1024 * 1024
             Sound -> 4L * 1024 * 1024
             Unknown -> 0L
+        }
+
+    /**
+     * Whether the payload can be previewed without installing it.
+     *
+     * The ones that can are the ones whose content is *the* thing being chosen
+     * — the words in a dictionary, the actual sticker images, the sound itself.
+     * A theme or a font is judged by looking at the keyboard wearing it, which
+     * a preview panel can't honestly reproduce, so those don't offer one.
+     */
+    val previewable: Boolean
+        get() = when (this) {
+            Snippets, Dictionary, Sound, Stickers -> true
+            else -> false
         }
 }

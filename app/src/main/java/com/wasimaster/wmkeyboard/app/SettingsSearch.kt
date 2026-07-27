@@ -408,6 +408,7 @@ private val SectionRows: List<SettingsSearchEntry> = listOf(
     entry("About", "Version, licence, open-source notices", "Settings", "about"),
     entry("Keyboard themes", "Light/dark/AMOLED, colours, background images", "Appearance", "themes"),
     entry("Keyboard font", "Google Fonts, or import your own font file", "Appearance", "fonts"),
+    entry("Installed fonts", "Fonts added from Addons or imported from a file", "Appearance › Fonts", "fonts"),
     entry("Personal dictionary", "Words the keyboard has learned", "Typing", "dictionary"),
     entry("Custom dictionaries", "Import your own word lists, per language", "Typing", "customdictionaries"),
     entry("Suggestion blacklist", "Words to never suggest or autocorrect to", "Typing", "blacklist"),

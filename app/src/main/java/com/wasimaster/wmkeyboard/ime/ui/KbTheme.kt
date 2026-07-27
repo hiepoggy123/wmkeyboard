@@ -512,8 +512,12 @@ fun KeyboardThemeProvider(settings: KeyboardSettings, content: @Composable () ->
             ) ?: KeyboardFonts.family(context, settings.keyFontId)
         }
     }
-    val emojiFontFamily = remember(settings.emojiFont) {
-        KeyboardFonts.emojiFamily(context, settings.emojiFont)
+    val emojiFontFamily = remember(settings.emojiFont, settings.emojiFontInstalled.installedId) {
+        KeyboardFonts.emojiFamily(
+            context,
+            settings.emojiFont,
+            settings.emojiFontInstalled.installedId,
+        )
     }
     MaterialTheme(
         colorScheme = schemeFor(kb),

@@ -1,7 +1,7 @@
 # Addon repository docs
 
 The format WM Keyboard uses to install themes, layouts, dictionaries, snippets, sticker packs,
-icon packs, fonts and key sounds from a URL the user pastes in.
+icon packs, fonts, emoji fonts and key sounds from a URL the user pastes in.
 
 | File | What it is |
 |---|---|

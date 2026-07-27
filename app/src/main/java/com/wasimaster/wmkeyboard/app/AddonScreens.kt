@@ -1,6 +1,8 @@
 package com.wasimaster.wmkeyboard.app
 
 import android.content.Intent
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -8,21 +10,38 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.MenuBook
+import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Category
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.Download
+import androidx.compose.material.icons.outlined.EmojiEmotions
+import androidx.compose.material.icons.outlined.Extension
+import androidx.compose.material.icons.outlined.Gavel
+import androidx.compose.material.icons.outlined.GraphicEq
+import androidx.compose.material.icons.outlined.Keyboard
+import androidx.compose.material.icons.outlined.Mood
 import androidx.compose.material.icons.outlined.MoreVert
-import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material.icons.outlined.Palette
+import androidx.compose.material.icons.outlined.PlayArrow
+import androidx.compose.material.icons.outlined.TextFields
+import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
@@ -30,6 +49,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -44,11 +64,14 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
@@ -59,12 +82,15 @@ import coil3.compose.AsyncImage
 import com.wasimaster.wmkeyboard.BuildConfig
 import com.wasimaster.wmkeyboard.core.addons.AddonDownloadManager
 import com.wasimaster.wmkeyboard.core.addons.AddonEntry
+import com.wasimaster.wmkeyboard.core.addons.AddonPreviewContent
+import com.wasimaster.wmkeyboard.core.addons.AddonPreviewReader
+import com.wasimaster.wmkeyboard.core.addons.AddonReconciler
 import com.wasimaster.wmkeyboard.core.addons.AddonRepoCodec
 import com.wasimaster.wmkeyboard.core.addons.AddonRepoInfo
-import com.wasimaster.wmkeyboard.core.addons.AddonRepoManifest
 import com.wasimaster.wmkeyboard.core.addons.AddonRepoRef
 import com.wasimaster.wmkeyboard.core.addons.AddonStore
 import com.wasimaster.wmkeyboard.core.addons.AddonType
+import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
 import com.wasimaster.wmkeyboard.ime.ui.rememberMediaImageLoader
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -98,6 +124,67 @@ internal fun addonDetailRoute(manifestUrl: String, addonId: String): String =
 internal fun decodeRouteArg(value: String?): String =
     runCatching { java.net.URLDecoder.decode(value.orEmpty(), "UTF-8") }.getOrDefault("")
 
+// ---- per-type identity -----------------------------------------------
+
+/**
+ * Each addon type's glyph and colour.
+ *
+ * A catalogue is a wall of cards that all look alike, and "Icon pack" reads the
+ * same as "Sticker pack" at a glance. A consistent glyph and hue per type makes
+ * the wall scannable — and lets the filter chips, the cards and the detail page
+ * agree on what a theme looks like.
+ */
+private val AddonType.icon
+    get() = when (this) {
+        AddonType.Theme -> Icons.Outlined.Palette
+        AddonType.Layout -> Icons.Outlined.Keyboard
+        AddonType.Dictionary -> Icons.AutoMirrored.Outlined.MenuBook
+        AddonType.Snippets -> Icons.Outlined.Description
+        AddonType.Stickers -> Icons.Outlined.EmojiEmotions
+        AddonType.IconPack -> Icons.Outlined.Category
+        AddonType.Font -> Icons.Outlined.TextFields
+        AddonType.EmojiFont -> Icons.Outlined.Mood
+        AddonType.Sound -> Icons.Outlined.GraphicEq
+        AddonType.Unknown -> Icons.Outlined.Extension
+    }
+
+/**
+ * The type's hue, before it is adapted to the theme.
+ *
+ * Fixed rather than derived from the Material scheme: the point is that the
+ * types are told apart from each other, which a single accent hue can't do.
+ * [tintFor] is what makes each one legible in the current theme.
+ */
+private val AddonType.seed: Color
+    get() = when (this) {
+        AddonType.Theme -> Color(0xFF7E57C2)
+        AddonType.Layout -> Color(0xFF3B82F6)
+        AddonType.Dictionary -> Color(0xFF14B8A6)
+        AddonType.Snippets -> Color(0xFFF59E0B)
+        AddonType.Stickers -> Color(0xFFEC4899)
+        AddonType.IconPack -> Color(0xFF22A559)
+        AddonType.Font -> Color(0xFF6366F1)
+        AddonType.EmojiFont -> Color(0xFFEAB308)
+        AddonType.Sound -> Color(0xFFEF4444)
+        AddonType.Unknown -> Color(0xFF6B7280)
+    }
+
+/**
+ * The type's hue pulled toward legibility on the current surface: darkened on a
+ * light theme, lifted on a dark one. Amber on white and indigo on near-black are
+ * both unreadable untreated.
+ */
+@Composable
+private fun tintFor(type: AddonType): Color {
+    val dark = MaterialTheme.colorScheme.surface.luminanceIsDark()
+    return remember(type, dark) {
+        if (dark) lerp(type.seed, Color.White, 0.28f) else lerp(type.seed, Color.Black, 0.3f)
+    }
+}
+
+private fun Color.luminanceIsDark(): Boolean =
+    (0.299f * red + 0.587f * green + 0.114f * blue) < 0.5f
+
 // ---- repository list -------------------------------------------------
 
 /**
@@ -122,7 +209,12 @@ internal fun AddonsScreen(prefillUrl: String = "", onNavigate: (String) -> Unit)
     // than at startup: it costs nothing until someone actually looks for
     // addons, and it keeps the seeding decision next to the UI that explains it.
     LaunchedEffect(Unit) {
-        withContext(Dispatchers.IO) { store.seedIfNeeded() }
+        withContext(Dispatchers.IO) {
+            store.seedIfNeeded()
+            // Anything uninstalled from its own settings screen since the last
+            // visit stops claiming to be installed here.
+            AddonReconciler.reconcile(context, store)
+        }
     }
 
     fun refreshAll() {
@@ -180,9 +272,9 @@ internal fun AddonsScreen(prefillUrl: String = "", onNavigate: (String) -> Unit)
 
     CaptionText(
         "Addon repositories are ordinary web pages listing themes, layouts, " +
-            "dictionaries, snippets, sticker packs, icon packs, fonts and key " +
-            "sounds. Everything they hold is plain data — installing an addon " +
-            "never runs code.",
+            "dictionaries, snippets, sticker packs, icon packs, fonts, emoji " +
+            "fonts and key sounds. Everything they hold is plain data — " +
+            "installing an addon never runs code.",
     )
 
     Row(
@@ -223,6 +315,13 @@ internal fun AddonsScreen(prefillUrl: String = "", onNavigate: (String) -> Unit)
                                     if (record.version.isNotBlank()) append(" · ${record.version}")
                                     if (record.repoName.isNotBlank()) append(" · ${record.repoName}")
                                 },
+                            )
+                        },
+                        leadingContent = {
+                            Icon(
+                                record.type.icon,
+                                contentDescription = null,
+                                tint = tintFor(record.type),
                             )
                         },
                         colors = transparentListColors(),
@@ -381,8 +480,17 @@ internal fun AddonRepoScreen(manifestUrl: String, onNavigate: (String) -> Unit) 
     val ref = remember(revision, manifestUrl) { store.repo(manifestUrl) }
     val manifest = remember(ref?.cachedManifest) { ref?.let { AddonDownloadManager.cachedManifest(it) } }
 
-    var query by remember { mutableStateOf("") }
-    var typeFilter by remember { mutableStateOf<AddonType?>(null) }
+    // rememberSaveable, not remember: opening an addon and coming back should
+    // land on the same filtered list you left. Navigation keeps a route's
+    // saveable state while it sits on the back stack, so this survives the trip
+    // where a plain remember is thrown away with the composition.
+    var query by rememberSaveable(manifestUrl) { mutableStateOf("") }
+    // Stored by name rather than as the enum — Bundle can hold a String.
+    var typeFilterName by rememberSaveable(manifestUrl) { mutableStateOf("") }
+    val typeFilter = remember(typeFilterName) {
+        typeFilterName.takeIf { it.isNotEmpty() }
+            ?.let { name -> AddonType.entries.firstOrNull { it.name == name } }
+    }
 
     if (ref == null || manifest == null) {
         CaptionText("This repository couldn't be read. Try refreshing it from the Addons list.")
@@ -390,6 +498,9 @@ internal fun AddonRepoScreen(manifestUrl: String, onNavigate: (String) -> Unit) 
     }
 
     LaunchedEffect(manifest) {
+        // Reconcile before recomputing statuses, so a theme deleted from the
+        // Themes screen shows as available again rather than installed.
+        withContext(Dispatchers.IO) { AddonReconciler.reconcile(context, store) }
         AddonDownloadManager.refresh(store, manifest.repo.id, manifest)
     }
 
@@ -405,7 +516,11 @@ internal fun AddonRepoScreen(manifestUrl: String, onNavigate: (String) -> Unit) 
             .padding(horizontal = 16.dp, vertical = 8.dp),
     )
 
-    val presentTypes = remember(manifest) { manifest.addons.map { it.type }.distinct() }
+    val presentTypes = remember(manifest) {
+        // Catalogue order, not manifest order, so the chip row doesn't reshuffle
+        // between two repositories that list the same types.
+        AddonType.entries.filter { type -> manifest.addons.any { it.type == type } }
+    }
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -415,14 +530,24 @@ internal fun AddonRepoScreen(manifestUrl: String, onNavigate: (String) -> Unit) 
     ) {
         FilterChip(
             selected = typeFilter == null,
-            onClick = { typeFilter = null },
+            onClick = { typeFilterName = "" },
             label = { Text("All") },
         )
         for (type in presentTypes) {
+            val tint = tintFor(type)
             FilterChip(
                 selected = typeFilter == type,
-                onClick = { typeFilter = if (typeFilter == type) null else type },
+                onClick = { typeFilterName = if (typeFilter == type) "" else type.name },
                 label = { Text(type.label) },
+                leadingIcon = {
+                    Icon(type.icon, contentDescription = null, modifier = Modifier.size(18.dp))
+                },
+                colors = FilterChipDefaults.filterChipColors(
+                    selectedContainerColor = tint.copy(alpha = 0.18f),
+                    selectedLabelColor = tint,
+                    selectedLeadingIconColor = tint,
+                    iconColor = tint,
+                ),
             )
         }
     }
@@ -435,13 +560,20 @@ internal fun AddonRepoScreen(manifestUrl: String, onNavigate: (String) -> Unit) 
 
     if (shown.isEmpty()) CaptionText("Nothing here matches that.")
 
-    SettingsGroup {
-        for (entry in shown) {
-            item {
-                AddonRow(entry, manifest.repo) {
-                    onNavigate(addonDetailRoute(manifestUrl, entry.id))
+    // Two per row, the same shape the themes gallery uses. A card can show the
+    // addon's first screenshot, which a list row cannot, and screenshots are
+    // most of what tells two themes apart.
+    Spacer(Modifier.height(8.dp))
+    for (row in shown.chunked(2)) {
+        Row(modifier = Modifier.padding(horizontal = 12.dp)) {
+            for (entry in row) {
+                Box(modifier = Modifier.weight(1f)) {
+                    AddonCard(entry, manifest.repo, manifestUrl) {
+                        onNavigate(addonDetailRoute(manifestUrl, entry.id))
+                    }
                 }
             }
+            if (row.size == 1) Spacer(Modifier.weight(1f))
         }
     }
     Spacer(Modifier.height(16.dp))
@@ -456,30 +588,94 @@ private fun AddonEntry.matches(query: String): Boolean {
         tags.any { it.contains(needle, ignoreCase = true) }
 }
 
+/**
+ * One addon in the catalogue grid: its first screenshot (or its type's glyph
+ * when it has none), then the name and the metadata under it.
+ */
 @Composable
-private fun AddonRow(entry: AddonEntry, repo: AddonRepoInfo, onClick: () -> Unit) {
+private fun AddonCard(
+    entry: AddonEntry,
+    repo: AddonRepoInfo,
+    manifestUrl: String,
+    onClick: () -> Unit,
+) {
     val states by AddonDownloadManager.states.collectAsStateWithLifecycle()
     val status = states[entry.key(repo.id)] ?: AddonDownloadManager.AddonStatus.NotInstalled
+    val tint = tintFor(entry.type)
+    val preview = remember(entry, manifestUrl) {
+        entry.previews.firstNotNullOfOrNull { AddonRepoCodec.resolveAsset(manifestUrl, it) }
+    }
 
-    ListItem(
-        headlineContent = { Text(entry.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-        supportingContent = {
-            Text(
-                buildString {
-                    append(entry.type.singularLabel)
-                    if (entry.version.isNotBlank()) append(" · ${entry.version}")
-                    entry.sizeBytes?.let { append(" · ${formatBytes(it)}") }
-                },
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        },
-        trailingContent = { StatusBadge(status) },
-        colors = transparentListColors(),
+    Column(
         modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
-    )
+            .padding(4.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .border(1.dp, tint.copy(alpha = 0.35f), RoundedCornerShape(14.dp))
+            .background(tint.copy(alpha = 0.06f))
+            .clickable(onClick = onClick)
+            .padding(6.dp),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(4f / 3f)
+                .clip(RoundedCornerShape(10.dp))
+                .background(tint.copy(alpha = 0.12f)),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (preview != null) {
+                AsyncImage(
+                    model = preview,
+                    contentDescription = null,
+                    imageLoader = rememberMediaImageLoader(),
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            } else {
+                Icon(
+                    entry.type.icon,
+                    contentDescription = null,
+                    tint = tint,
+                    modifier = Modifier.size(40.dp),
+                )
+            }
+            Box(modifier = Modifier.align(Alignment.TopEnd).padding(4.dp)) {
+                StatusBadge(status)
+            }
+        }
+        Text(
+            entry.name,
+            style = MaterialTheme.typography.labelLarge,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(start = 4.dp, top = 6.dp),
+        )
+        Text(
+            entry.type.singularLabel,
+            style = MaterialTheme.typography.labelSmall,
+            color = tint,
+            maxLines = 1,
+            modifier = Modifier.padding(start = 4.dp),
+        )
+        Text(
+            buildString {
+                if (entry.version.isNotBlank()) append("v${entry.version}")
+                entry.sizeBytes?.let {
+                    if (isNotEmpty()) append(" · ")
+                    append(formatBytes(it))
+                }
+                if (entry.author.isNotBlank()) {
+                    if (isNotEmpty()) append(" · ")
+                    append(entry.author)
+                }
+            },
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(start = 4.dp, bottom = 4.dp),
+        )
+    }
 }
 
 @Composable
@@ -510,8 +706,49 @@ private fun StatusBadge(status: AddonDownloadManager.AddonStatus) {
 
 // ---- one addon -------------------------------------------------------
 
+/**
+ * The settings screen that owns an installed addon of this type — where Use
+ * sends the user once it is installed.
+ *
+ * Every type lands somewhere it can actually be selected; installing a font
+ * doesn't pick it for anything on its own, and neither does a layout or a
+ * dictionary, so the route is how the install gets finished.
+ */
+private val AddonType.settingsRoute: String
+    get() = when (this) {
+        AddonType.Theme -> "themes"
+        AddonType.Layout -> "keymaps"
+        AddonType.Dictionary -> "customdictionaries"
+        AddonType.Snippets -> "tool/SNIPPETS"
+        AddonType.Stickers -> "sticker_packs"
+        AddonType.IconPack -> "icons"
+        AddonType.Font -> "fonts"
+        AddonType.EmojiFont -> "emoji"
+        AddonType.Sound -> "keypress"
+        AddonType.Unknown -> "home"
+    }
+
+/** What the Use button promises, in the language of the screen it opens. */
+private val AddonType.useLabel: String
+    get() = when (this) {
+        AddonType.Theme -> "Themes"
+        AddonType.Layout -> "Key layouts"
+        AddonType.Dictionary -> "Custom dictionaries"
+        AddonType.Snippets -> "Snippets"
+        AddonType.Stickers -> "Sticker packs"
+        AddonType.IconPack -> "Icons"
+        AddonType.Font -> "Fonts"
+        AddonType.EmojiFont -> "Emoji"
+        AddonType.Sound -> "Key press"
+        AddonType.Unknown -> "Settings"
+    }
+
 @Composable
-internal fun AddonDetailScreen(manifestUrl: String, addonId: String) {
+internal fun AddonDetailScreen(
+    manifestUrl: String,
+    addonId: String,
+    onNavigate: (String) -> Unit,
+) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val store = remember { AddonStore.get(context) }
@@ -542,7 +779,10 @@ internal fun AddonDetailScreen(manifestUrl: String, addonId: String) {
     val states by AddonDownloadManager.states.collectAsStateWithLifecycle()
     val key = entry.key(loaded.repo.id)
     val status = states[key] ?: AddonDownloadManager.AddonStatus.NotInstalled
-    LaunchedEffect(loaded) { AddonDownloadManager.refresh(store, loaded.repo.id, loaded) }
+    LaunchedEffect(loaded) {
+        withContext(Dispatchers.IO) { AddonReconciler.reconcile(context, store) }
+        AddonDownloadManager.refresh(store, loaded.repo.id, loaded)
+    }
 
     val previews = remember(entry, manifestUrl) {
         entry.previews.mapNotNull { AddonRepoCodec.resolveAsset(manifestUrl, it) }
@@ -570,18 +810,28 @@ internal fun AddonDetailScreen(manifestUrl: String, addonId: String) {
         }
     }
 
+    val tint = tintFor(entry.type)
     Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
         Text(entry.name, style = MaterialTheme.typography.headlineSmall)
         Spacer(Modifier.height(4.dp))
-        Text(
-            buildString {
-                append(entry.type.singularLabel)
-                if (entry.version.isNotBlank()) append(" · ${entry.version}")
-                if (entry.author.isNotBlank()) append(" · ${entry.author}")
-            },
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                entry.type.icon,
+                contentDescription = null,
+                tint = tint,
+                modifier = Modifier.size(18.dp),
+            )
+            Spacer(Modifier.width(6.dp))
+            Text(
+                buildString {
+                    append(entry.type.singularLabel)
+                    if (entry.version.isNotBlank()) append(" · ${entry.version}")
+                    if (entry.author.isNotBlank()) append(" · ${entry.author}")
+                },
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         if (entry.description.isNotBlank()) {
             Spacer(Modifier.height(12.dp))
             Text(entry.description, style = MaterialTheme.typography.bodyMedium)
@@ -598,6 +848,10 @@ internal fun AddonDetailScreen(manifestUrl: String, addonId: String) {
         ) {
             for (tag in entry.tags) AssistChip(onClick = {}, label = { Text(tag) })
         }
+    }
+
+    if (entry.type.previewable) {
+        AddonPreviewSection(manifestUrl, entry)
     }
 
     SettingsGroup("Details") {
@@ -617,18 +871,17 @@ internal fun AddonDetailScreen(manifestUrl: String, addonId: String) {
             )
         }
         entry.sizeBytes?.let { item { DetailRow("Size", formatBytes(it)) } }
-        entry.langId?.let { item { DetailRow("Language", it) } }
-        item {
-            DetailRow(
-                "Integrity",
-                if (entry.sha256 != null) {
-                    "Checksum published — verified before installing"
-                } else {
-                    // Not a warning. The field is optional by design and most
-                    // hand-written manifests won't have it.
-                    "No checksum published — downloaded over https"
-                },
-            )
+        val languages = entry.languages
+        if (languages.isNotEmpty()) {
+            item {
+                DetailRow(
+                    if (languages.size == 1) "Language" else "Languages",
+                    languages.joinToString { LanguageRegistry.byId(it).displayName },
+                )
+            }
+        }
+        if (entry.hasLicense) {
+            item { LicenseRow(manifestUrl, entry) }
         }
     }
 
@@ -637,6 +890,35 @@ internal fun AddonDetailScreen(manifestUrl: String, addonId: String) {
         CaptionText("This addon needs a newer version of WM Keyboard.")
     }
 
+    AddonActions(
+        status = status,
+        entry = entry,
+        repo = loaded.repo,
+        manifestUrl = manifestUrl,
+        store = store,
+        tooOld = tooOld,
+        onUninstall = {
+            scope.launch { AddonDownloadManager.uninstall(context, store, key, entry) }
+        },
+        onNavigate = onNavigate,
+    )
+
+    Spacer(Modifier.height(24.dp))
+}
+
+/** Install / Update / Uninstall / Use, and the progress the transfer reports. */
+@Composable
+private fun AddonActions(
+    status: AddonDownloadManager.AddonStatus,
+    entry: AddonEntry,
+    repo: AddonRepoInfo,
+    manifestUrl: String,
+    store: AddonStore,
+    tooOld: Boolean,
+    onUninstall: () -> Unit,
+    onNavigate: (String) -> Unit,
+) {
+    val context = LocalContext.current
     when (status) {
         is AddonDownloadManager.AddonStatus.Downloading -> {
             Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
@@ -664,15 +946,11 @@ internal fun AddonDetailScreen(manifestUrl: String, addonId: String) {
             }
         }
 
-        AddonDownloadManager.AddonStatus.Verifying,
-        AddonDownloadManager.AddonStatus.Installing,
-        -> CaptionText(
-            if (status == AddonDownloadManager.AddonStatus.Verifying) {
-                "Checking the download…"
-            } else {
-                "Installing…"
-            },
-        )
+        AddonDownloadManager.AddonStatus.Verifying ->
+            CaptionText("Checking the download…")
+
+        AddonDownloadManager.AddonStatus.Installing ->
+            CaptionText("Installing…")
 
         else -> {
             val installed = status is AddonDownloadManager.AddonStatus.Installed
@@ -690,7 +968,7 @@ internal fun AddonDetailScreen(manifestUrl: String, addonId: String) {
                             context = context,
                             store = store,
                             manifestUrl = manifestUrl,
-                            repo = loaded.repo,
+                            repo = repo,
                             entry = entry,
                             appVersionCode = BuildConfig.VERSION_CODE,
                         )
@@ -706,11 +984,7 @@ internal fun AddonDetailScreen(manifestUrl: String, addonId: String) {
                     )
                 }
                 if (installed || updatable) {
-                    OutlinedButton(onClick = {
-                        scope.launch {
-                            AddonDownloadManager.uninstall(context, store, key, entry)
-                        }
-                    }) {
+                    OutlinedButton(onClick = onUninstall) {
                         Icon(
                             Icons.Outlined.Delete,
                             contentDescription = null,
@@ -719,6 +993,22 @@ internal fun AddonDetailScreen(manifestUrl: String, addonId: String) {
                         Spacer(Modifier.width(8.dp))
                         Text("Uninstall")
                     }
+                }
+            }
+            // Installing puts the file on the device; for most types choosing it
+            // is a second step on another screen. This is the way there.
+            if (installed || updatable) {
+                OutlinedButton(
+                    onClick = { onNavigate(entry.type.settingsRoute) },
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                ) {
+                    Icon(
+                        Icons.AutoMirrored.Outlined.OpenInNew,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text("Use — open ${entry.type.useLabel}")
                 }
             }
             if (status is AddonDownloadManager.AddonStatus.Failed) {
@@ -731,8 +1021,6 @@ internal fun AddonDetailScreen(manifestUrl: String, addonId: String) {
             }
         }
     }
-
-    Spacer(Modifier.height(24.dp))
 }
 
 @Composable
@@ -744,3 +1032,231 @@ private fun DetailRow(label: String, value: String) {
     )
 }
 
+/**
+ * The addon's licence. An identifier shows inline; full text — declared in the
+ * manifest or living in a file beside it — opens in a dialog, which is the only
+ * honest way to show something that can run to hundreds of lines.
+ */
+@Composable
+private fun LicenseRow(manifestUrl: String, entry: AddonEntry) {
+    val context = LocalContext.current
+    var showing by remember { mutableStateOf(false) }
+    var text by remember(entry.id) { mutableStateOf(entry.licenseText.orEmpty()) }
+    var loading by remember { mutableStateOf(false) }
+    val hasFile = !entry.licenseFile.isNullOrBlank()
+    val canShowText = text.isNotBlank() || hasFile
+
+    LaunchedEffect(showing) {
+        if (!showing || text.isNotBlank() || !hasFile) return@LaunchedEffect
+        loading = true
+        text = withContext(Dispatchers.IO) {
+            AddonDownloadManager.fetchText(manifestUrl, entry.licenseFile.orEmpty(), context.cacheDir)
+        }.orEmpty()
+        loading = false
+    }
+
+    ListItem(
+        headlineContent = { Text("Licence") },
+        supportingContent = {
+            Text(
+                entry.license?.takeIf { it.isNotBlank() }
+                    ?: if (canShowText) "Tap to read the licence" else "Not stated",
+            )
+        },
+        leadingContent = { Icon(Icons.Outlined.Gavel, contentDescription = null) },
+        trailingContent = if (canShowText) {
+            { Icon(Icons.Outlined.Description, contentDescription = null) }
+        } else {
+            null
+        },
+        colors = transparentListColors(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(enabled = canShowText) { showing = true },
+    )
+
+    if (showing) {
+        AlertDialog(
+            onDismissRequest = { showing = false },
+            title = { Text(entry.license?.takeIf { it.isNotBlank() } ?: "Licence") },
+            text = {
+                // A licence runs to hundreds of lines; the dialog body scrolls
+                // rather than pushing its own buttons off the screen.
+                Column(
+                    modifier = Modifier
+                        .heightIn(max = 400.dp)
+                        .verticalScroll(rememberScrollState()),
+                ) {
+                    Text(
+                        when {
+                            loading -> "Loading…"
+                            text.isBlank() -> "The licence text couldn't be fetched."
+                            else -> text
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+            },
+            confirmButton = { TextButton(onClick = { showing = false }) { Text("Close") } },
+        )
+    }
+}
+
+// ---- payload preview -------------------------------------------------
+
+/**
+ * "Show me what's actually in this before I install it."
+ *
+ * Only offered for the types where the content *is* the choice — the words in a
+ * dictionary, the snippets in a pack, the sound itself, the sticker images. It
+ * downloads the payload to the cache and reads it; nothing is installed and no
+ * setting changes.
+ */
+@Composable
+private fun AddonPreviewSection(manifestUrl: String, entry: AddonEntry) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var content by remember(entry.id) { mutableStateOf<AddonPreviewContent?>(null) }
+    var loading by remember(entry.id) { mutableStateOf(false) }
+    var failed by remember(entry.id) { mutableStateOf(false) }
+
+    if (content == null) {
+        OutlinedButton(
+            onClick = {
+                if (loading) return@OutlinedButton
+                loading = true
+                failed = false
+                scope.launch {
+                    val read = withContext(Dispatchers.IO) {
+                        AddonDownloadManager.fetchPayload(manifestUrl, entry, context.cacheDir)
+                            ?.let { AddonPreviewReader.read(entry, it) }
+                    }
+                    loading = false
+                    if (read == null) failed = true else content = read
+                }
+            },
+            enabled = !loading,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+        ) {
+            Icon(
+                Icons.Outlined.Visibility,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp),
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(if (loading) "Loading preview…" else "Preview")
+        }
+        if (failed) {
+            Text(
+                "The preview couldn't be downloaded.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+                modifier = Modifier.padding(horizontal = 16.dp),
+            )
+        }
+        return
+    }
+
+    when (val shown = content) {
+        is AddonPreviewContent.Snippets -> SettingsGroup("Preview") {
+            for (snippet in shown.entries) {
+                item {
+                    ListItem(
+                        headlineContent = { Text(snippet.label) },
+                        supportingContent = {
+                            Text(snippet.text, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                        },
+                        trailingContent = snippet.trigger.takeIf { it.isNotBlank() }?.let {
+                            { Text(it, style = MaterialTheme.typography.labelSmall) }
+                        },
+                        colors = transparentListColors(),
+                    )
+                }
+            }
+            if (shown.total > shown.entries.size) {
+                item { CaptionText("…and ${shown.total - shown.entries.size} more") }
+            }
+        }
+
+        is AddonPreviewContent.Dictionary -> SettingsGroup("Preview") {
+            item {
+                CaptionText(
+                    buildString {
+                        append(if (shown.truncated) "Over " else "")
+                        append("${shown.total} words")
+                    },
+                )
+            }
+            item {
+                Text(
+                    shown.words.joinToString("  ·  "),
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(16.dp),
+                )
+            }
+        }
+
+        is AddonPreviewContent.Sound -> SettingsGroup("Preview") {
+            item {
+                ListItem(
+                    headlineContent = { Text("Play the sound") },
+                    leadingContent = { Icon(Icons.Outlined.PlayArrow, contentDescription = null) },
+                    colors = transparentListColors(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { AddonSoundPreview.play(shown.file) },
+                )
+            }
+        }
+
+        is AddonPreviewContent.Stickers -> {
+            SettingsGroup("Preview") {
+                item { CaptionText("${shown.total} stickers") }
+            }
+            val loader = rememberMediaImageLoader()
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                for (image in shown.images) {
+                    AsyncImage(
+                        model = image,
+                        contentDescription = null,
+                        imageLoader = loader,
+                        contentScale = ContentScale.Fit,
+                        modifier = Modifier
+                            .size(88.dp)
+                            .clip(RoundedCornerShape(10.dp)),
+                    )
+                }
+            }
+        }
+
+        is AddonPreviewContent.Unreadable -> CaptionText(shown.message)
+        null -> Unit
+    }
+}
+
+/**
+ * Plays a preview sound off a cache file.
+ *
+ * `MediaPlayer` rather than the keyboard's own `SoundPool`: the pool is keyed by
+ * installed-sound id and exists to fire the same short clip on every keystroke,
+ * which is not what this is. One player, released as soon as it finishes.
+ */
+private object AddonSoundPreview {
+    fun play(file: java.io.File) {
+        runCatching {
+            android.media.MediaPlayer().apply {
+                setDataSource(file.absolutePath)
+                setOnCompletionListener { it.release() }
+                setOnErrorListener { player, _, _ -> player.release(); true }
+                prepare()
+                start()
+            }
+        }
+    }
+}

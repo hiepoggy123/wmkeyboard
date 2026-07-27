@@ -261,6 +261,13 @@ object AssetLayouts {
     val all: List<LayoutSpec> get() = cached
 
     /**
+     * The shipped asset layout with this id, or null. The [BuiltInLayouts.byId]
+     * counterpart, for the callers that need "is this id one we ship?" and have
+     * to answer it for both halves of the shipped set.
+     */
+    fun byId(id: String): LayoutSpec? = cached.firstOrNull { it.id == id }
+
+    /**
      * Reads and parses every `.wmlayout.json` under `assets/layouts`, caching the
      * result. Idempotent; the I/O runs on the calling thread, so call it off the
      * main thread the way the service loads its dictionaries. A file that fails
