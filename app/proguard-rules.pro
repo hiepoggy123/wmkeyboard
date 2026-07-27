@@ -1,4 +1,69 @@
-# --- Harper grammar engine (JNI) ---
+# R8 rules for the release build (isMinifyEnabled + isShrinkResources +
+# optimization { enable = true }, i.e. R8 full mode).
+#
+# Full mode assumes nothing is reached by reflection unless a rule says so, so
+# every rule below exists because something resolves a name at runtime: a native
+# library, a serializer, or a string previously written to disk.
+#
+# Rule of thumb for this app: if a name can end up inside a DataStore
+# preference, an exported .wmconfig/.wmlayout/.wmtheme file, or a JNI symbol, it
+# must not be renamed. Breaking one of those is invisible in debug builds and
+# quietly corrupts a user's saved settings in release.
+
+# --- Crash reports stay readable ---------------------------------------------
+# Line numbers survive so a release stack trace can be de-obfuscated with
+# build/outputs/mapping/<variant>/mapping.txt. SourceFile is flattened to a
+# constant so the original file names are not shipped.
+-keepattributes SourceFile,LineNumberTable
+-renamesourcefileattribute SourceFile
+
+# Signature/InnerClasses/EnclosingMethod are what kotlinx.serialization reads to
+# reconstruct generic types (Map<String, ThemeSpec>, List<KeyAction>). Without
+# them a generic serializer resolves to raw types and decoding fails at runtime
+# only.
+-keepattributes Signature,InnerClasses,EnclosingMethod
+-keepattributes RuntimeVisibleAnnotations,RuntimeVisibleParameterAnnotations
+-keepattributes AnnotationDefault
+
+# --- Enums persisted by name -------------------------------------------------
+# ~30 settings enums round-trip through DataStore and the config backup as their
+# constant name: `ThemeMode.valueOf(stored)`, `"${tool.name}=%08X"`, and the
+# same for ToolbarTool, HapticStyle, ScreenReaderMode, SpaceSwipeAction,
+# NumeralSystem, EmojiTabMode and the rest. If R8 renames a constant or unboxes
+# the enum, every previously saved setting decodes to null and silently reverts
+# to its default, and exported config files stop importing.
+#
+# The default Android rules keep values()/valueOf but not the constant *fields*,
+# and the field name is exactly what has to match the stored string.
+-keepclassmembers enum com.wasimaster.wmkeyboard.** {
+    <fields>;
+    public static **[] values();
+    public static ** valueOf(java.lang.String);
+}
+
+# --- kotlinx.serialization ---------------------------------------------------
+# The library ships consumer rules covering ordinary @Serializable classes.
+# These add the parts that matter for this app's *file formats* — .wmlayout,
+# .wmtheme, .wmicons, .wmstickers, snippets, symbol sets, and the clipboard and
+# lexicon stores — so a rules regression cannot make a user's saved packs
+# undecodable in release only.
+-keepclassmembers @kotlinx.serialization.Serializable class com.wasimaster.wmkeyboard.** {
+    *** Companion;
+    *** INSTANCE;
+    kotlinx.serialization.KSerializer serializer(...);
+}
+-keep,includedescriptorclasses class com.wasimaster.wmkeyboard.**$$serializer { *; }
+
+# KeyAction is a sealed interface whose implementations are @Serializable data
+# objects discriminated by @SerialName ("text", "shift", "space", ...). That tag
+# is written into every stored layout, and LayoutSpec.kt registers a
+# polymorphicDefaultDeserializer against KeyAction::class so an unknown tag
+# degrades to KeyAction.Unknown instead of losing the layout. Keep the hierarchy
+# so both the discriminator lookup and the sealed-subclass registration resolve.
+-keep class com.wasimaster.wmkeyboard.core.layout.KeyAction { *; }
+-keep class com.wasimaster.wmkeyboard.core.layout.KeyAction$* { *; }
+
+# --- Harper grammar engine (JNI) ---------------------------------------------
 # libharper_jni.so binds by the mangled Java name
 # (Java_com_wasimaster_wmkeyboard_core_grammar_HarperNative_*), so neither the
 # class name nor the external method names may be renamed or stripped.
@@ -7,18 +72,9 @@
     native <methods>;
 }
 
-# --- LiteRT-LM on-device models (JNI, full flavor) ---
-# The AAR ships no consumer rules, and its native side calls back into
-# Kotlin by name (MessageCallback, config objects serialized over JNI via
-# gson) — keep the whole surface so R8's release optimization can't rename
-# what the .so resolves at runtime.
--keep class com.google.ai.edge.litertlm.** { *; }
--dontwarn com.google.ai.edge.litertlm.**
-
-# --- kotlinx.serialization ---
-# The library ships consumer rules, but the grammar lint models are decoded
-# from JSON produced by native code — keep their serializers explicitly so a
-# rules regression can never silently break offline grammar checking.
+# The grammar lint models are decoded from JSON produced by that native code —
+# keep their serializers explicitly so a rules regression can never silently
+# break offline grammar checking.
 -keep,includedescriptorclasses class com.wasimaster.wmkeyboard.core.grammar.**$$serializer { *; }
 -keepclassmembers class com.wasimaster.wmkeyboard.core.grammar.* {
     *** Companion;
@@ -26,3 +82,19 @@
 -keepclasseswithmembers class com.wasimaster.wmkeyboard.core.grammar.* {
     kotlinx.serialization.KSerializer serializer(...);
 }
+
+# --- LiteRT-LM on-device models (JNI, full flavor) ---------------------------
+# The AAR ships no consumer rules, and its native side calls back into Kotlin by
+# name (MessageCallback, config objects serialized over JNI via gson) — keep the
+# whole surface so R8's release optimization can't rename what the .so resolves
+# at runtime.
+-keep class com.google.ai.edge.litertlm.** { *; }
+-dontwarn com.google.ai.edge.litertlm.**
+
+# --- LiteRT / TF-Lite classic runtime (Whisper, full flavor) -----------------
+# org.tensorflow.lite.Interpreter is a thin Java shell over JNI: the native side
+# looks up these classes and their fields by name, and the delegates (NNAPI,
+# GPU) are discovered reflectively and may be absent from the APK entirely.
+-keep class org.tensorflow.lite.** { *; }
+-keep interface org.tensorflow.lite.** { *; }
+-dontwarn org.tensorflow.lite.**
