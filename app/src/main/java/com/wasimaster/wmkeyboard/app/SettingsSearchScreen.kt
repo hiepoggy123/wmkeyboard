@@ -59,13 +59,33 @@ import kotlinx.coroutines.delay
 internal object SettingsHighlight {
     /** Title of the row to flash, or null when nothing is pending. */
     var target: String? by mutableStateOf(null)
+        private set
+
+    /**
+     * Bumped on every [request].
+     *
+     * A screen being torn down clears any highlight it is leaving behind, so
+     * that one which found no matching row doesn't flash something unrelated
+     * later. But a settings screen can also *arm* a highlight on its way out —
+     * an addon's Use button does exactly that — and then it would wipe its own
+     * request a frame after making it. Comparing this against the value the
+     * screen saw when it opened tells the two apart.
+     */
+    var serial: Int by mutableStateOf(0)
+        private set
 
     fun request(title: String) {
         target = title
+        serial++
     }
 
     fun clear() {
         target = null
+    }
+
+    /** Clears only if nothing new was requested since [serialAtEntry]. */
+    fun clearIfUnchanged(serialAtEntry: Int) {
+        if (serial == serialAtEntry) target = null
     }
 }
 

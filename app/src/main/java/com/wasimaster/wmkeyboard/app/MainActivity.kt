@@ -933,8 +933,11 @@ private fun SettingsScreen(
 ) {
     // A highlight that found no matching row on this screen (the searched
     // entry was the screen itself, or its row is conditionally hidden) must
-    // not survive to flash something unrelated on the next screen.
-    DisposableEffect(title) { onDispose { SettingsHighlight.clear() } }
+    // not survive to flash something unrelated on the next screen — unless it
+    // was armed *from* this screen on the way out, which is what an addon's
+    // Use button does.
+    val highlightSerial = remember(title) { SettingsHighlight.serial }
+    DisposableEffect(title) { onDispose { SettingsHighlight.clearIfUnchanged(highlightSerial) } }
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -985,27 +988,39 @@ internal fun SettingsGroup(
     // while their feature's toggle is on).
     val scope = SettingsGroupScope().apply(builder)
     if (scope.items.isEmpty()) return
-    if (title != null) SectionHeader(title)
-    Column(
-        modifier = Modifier.padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(3.dp),
-    ) {
-        scope.items.forEachIndexed { index, row ->
-            val top = if (index == 0) 24.dp else 6.dp
-            val bottom = if (index == scope.items.lastIndex) 24.dp else 6.dp
-            Surface(
-                shape = RoundedCornerShape(
-                    topStart = top, topEnd = top,
-                    bottomStart = bottom, bottomEnd = bottom,
-                ),
-                color = MaterialTheme.colorScheme.surfaceContainer,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Column(modifier = Modifier.padding(vertical = 4.dp)) { row() }
+    // A named group is a scroll target in its own right. Some things the user
+    // arrives at from search — or from an addon's Use button — are a whole
+    // section rather than one row: "Icon pack", "Your packs", "Installed
+    // fonts". Unnamed groups have nothing to match on and stay plain.
+    MaybeHighlightable(title) {
+        if (title != null) SectionHeader(title)
+        Column(
+            modifier = Modifier.padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(3.dp),
+        ) {
+            scope.items.forEachIndexed { index, row ->
+                val top = if (index == 0) 24.dp else 6.dp
+                val bottom = if (index == scope.items.lastIndex) 24.dp else 6.dp
+                Surface(
+                    shape = RoundedCornerShape(
+                        topStart = top, topEnd = top,
+                        bottomStart = bottom, bottomEnd = bottom,
+                    ),
+                    color = MaterialTheme.colorScheme.surfaceContainer,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Column(modifier = Modifier.padding(vertical = 4.dp)) { row() }
+                }
             }
         }
+        Spacer(Modifier.height(8.dp))
     }
-    Spacer(Modifier.height(8.dp))
+}
+
+/** [HighlightableRow] when there is a title to match on, the content otherwise. */
+@Composable
+private fun MaybeHighlightable(title: String?, content: @Composable () -> Unit) {
+    if (title == null) content() else HighlightableRow(title, content)
 }
 
 /** ListItem colors that let the group card's surface show through. */
@@ -2413,93 +2428,99 @@ private fun KeySoundGroup(
             }
         }
         item {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 16.dp, end = 16.dp, top = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text("Sound style", style = MaterialTheme.typography.bodyLarge)
-                InfoButton(
-                    "Sound style",
-                    "Click and Standard come from the device's system sound pack, so " +
-                        "they match the stock keyboard: Click is the classic key tick, " +
-                        "Standard the softer AOSP key press. Pop, Thock and Chime are " +
-                        "WMKeyboard's own sounds — a soft bubble pop, a deep mechanical " +
-                        "bottom-out, and a small bell — identical on every device. " +
-                        "Custom plays a sound file: pick Custom to see the sounds " +
-                        "you have installed from Addons and to import your own MP3.",
-                )
-            }
-            // Custom is a segment like any other, so the styles read as one
-            // choice rather than five here and a sixth hidden in a list. It
-            // names a file rather than a fixed waveform, so it needs a sound
-            // installed before it can be picked — the list below is where that
-            // sound is chosen and where the "install one" note lives.
-            val soundStore = remember { SoundStore.get(context) }
-            val soundRevision by soundStore.revision.collectAsStateWithLifecycle()
-            val installedSounds = remember(soundRevision) { soundStore.sounds() }
-            // Chips rather than a segmented row. Six equal segments across a
-            // phone leave ~55dp of label each, which truncated "Chime" to
-            // "Chim" and "Custom" to "Custo"; a segmented row set to scroll is
-            // worse still, since SegmentedButton has a wide minimum and only
-            // three and a half fit. Chips size to their own text, so every
-            // style keeps its real name, and the row scrolls only as far as it
-            // has to. Same control the addon type filter uses.
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                for (style in KeySoundStyle.entries) {
-                    val custom = style == KeySoundStyle.CUSTOM
-                    FilterChip(
-                        selected = settings.keySoundStyle == style,
-                        onClick = {
-                            scope.launch {
-                                if (custom) {
-                                    // Falls back to the first installed sound
-                                    // when none has been chosen yet, so the
-                                    // chip always makes a sound. With nothing
-                                    // installed it still selects — the section
-                                    // it reveals is where a sound is imported,
-                                    // so a disabled chip would hide its own
-                                    // remedy.
-                                    val id = settings.keySoundCustom.customId
-                                        .takeIf { id -> installedSounds.any { it.id == id } }
-                                        ?: installedSounds.firstOrNull()?.id
-                                    if (id == null) {
-                                        repository.setKeySoundStyle(style)
-                                    } else {
-                                        repository.setKeySoundCustomId(id)
-                                        KeySoundPlayer.preview(
-                                            context, style, settings.keySoundVolume, id,
-                                        )
-                                    }
-                                } else {
-                                    repository.setKeySoundStyle(style)
-                                    // Sound the freshly picked style so the user
-                                    // hears the choice immediately.
-                                    KeySoundPlayer.preview(context, style, settings.keySoundVolume)
-                                }
-                            }
-                        },
-                        label = {
-                            Text(
-                                when (style) {
-                                    KeySoundStyle.CLICK -> "Click"
-                                    KeySoundStyle.STANDARD -> "Standard"
-                                    KeySoundStyle.POP -> "Pop"
-                                    KeySoundStyle.THOCK -> "Thock"
-                                    KeySoundStyle.CHIME -> "Chime"
-                                    KeySoundStyle.CUSTOM -> "Custom"
-                                },
-                                maxLines = 1,
-                            )
-                        },
+            // Hand-built rather than a ChoiceSetting (the chips need their own
+            // row), so the highlight wrapper every other control gets for free
+            // is spelled out here — this is where the Sound addon's Use button
+            // lands.
+            HighlightableRow("Sound style") {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 16.dp, end = 16.dp, top = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text("Sound style", style = MaterialTheme.typography.bodyLarge)
+                    InfoButton(
+                        "Sound style",
+                        "Click and Standard come from the device's system sound pack, so " +
+                            "they match the stock keyboard: Click is the classic key tick, " +
+                            "Standard the softer AOSP key press. Pop, Thock and Chime are " +
+                            "WMKeyboard's own sounds — a soft bubble pop, a deep mechanical " +
+                            "bottom-out, and a small bell — identical on every device. " +
+                            "Custom plays a sound file: pick Custom to see the sounds " +
+                            "you have installed from Addons and to import your own MP3.",
                     )
+                }
+                // Custom is a segment like any other, so the styles read as one
+                // choice rather than five here and a sixth hidden in a list. It
+                // names a file rather than a fixed waveform, so it needs a sound
+                // installed before it can be picked — the list below is where that
+                // sound is chosen and where the "install one" note lives.
+                val soundStore = remember { SoundStore.get(context) }
+                val soundRevision by soundStore.revision.collectAsStateWithLifecycle()
+                val installedSounds = remember(soundRevision) { soundStore.sounds() }
+                // Chips rather than a segmented row. Six equal segments across a
+                // phone leave ~55dp of label each, which truncated "Chime" to
+                // "Chim" and "Custom" to "Custo"; a segmented row set to scroll is
+                // worse still, since SegmentedButton has a wide minimum and only
+                // three and a half fit. Chips size to their own text, so every
+                // style keeps its real name, and the row scrolls only as far as it
+                // has to. Same control the addon type filter uses.
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState())
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    for (style in KeySoundStyle.entries) {
+                        val custom = style == KeySoundStyle.CUSTOM
+                        FilterChip(
+                            selected = settings.keySoundStyle == style,
+                            onClick = {
+                                scope.launch {
+                                    if (custom) {
+                                        // Falls back to the first installed sound
+                                        // when none has been chosen yet, so the
+                                        // chip always makes a sound. With nothing
+                                        // installed it still selects — the section
+                                        // it reveals is where a sound is imported,
+                                        // so a disabled chip would hide its own
+                                        // remedy.
+                                        val id = settings.keySoundCustom.customId
+                                            .takeIf { id -> installedSounds.any { it.id == id } }
+                                            ?: installedSounds.firstOrNull()?.id
+                                        if (id == null) {
+                                            repository.setKeySoundStyle(style)
+                                        } else {
+                                            repository.setKeySoundCustomId(id)
+                                            KeySoundPlayer.preview(
+                                                context, style, settings.keySoundVolume, id,
+                                            )
+                                        }
+                                    } else {
+                                        repository.setKeySoundStyle(style)
+                                        // Sound the freshly picked style so the user
+                                        // hears the choice immediately.
+                                        KeySoundPlayer.preview(context, style, settings.keySoundVolume)
+                                    }
+                                }
+                            },
+                            label = {
+                                Text(
+                                    when (style) {
+                                        KeySoundStyle.CLICK -> "Click"
+                                        KeySoundStyle.STANDARD -> "Standard"
+                                        KeySoundStyle.POP -> "Pop"
+                                        KeySoundStyle.THOCK -> "Thock"
+                                        KeySoundStyle.CHIME -> "Chime"
+                                        KeySoundStyle.CUSTOM -> "Custom"
+                                    },
+                                    maxLines = 1,
+                                )
+                            },
+                        )
+                    }
                 }
             }
         }

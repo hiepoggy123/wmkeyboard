@@ -19,8 +19,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -136,6 +134,18 @@ internal fun addonDetailRoute(manifestUrl: String, addonId: String): String =
 
 internal fun decodeRouteArg(value: String?): String =
     runCatching { java.net.URLDecoder.decode(value.orEmpty(), "UTF-8") }.getOrDefault("")
+
+/**
+ * Stands in for the repository URL when an installed addon has none.
+ *
+ * Records written before the URL was stored don't have one, and neither does
+ * one whose repository has been removed — or, as happened here, renamed, since
+ * the id in the install key then matches no repository at all. The addon is
+ * still installed and still has to be manageable, so the route carries this
+ * instead and the page resolves the record by addon id. Not a valid URL by
+ * construction: nothing will try to fetch it.
+ */
+private const val NO_REPO = "-"
 
 // ---- per-type identity -----------------------------------------------
 
@@ -327,9 +337,9 @@ internal fun AddonsScreen(prefillUrl: String = "", onNavigate: (String) -> Unit)
         SettingsGroup("Installed") {
             for ((key, record) in installed) {
                 item {
-                    val url = record.manifestUrl.ifBlank {
-                        urlByRepoId[key.substringBeforeLast('/')].orEmpty()
-                    }
+                    val url = record.manifestUrl
+                        .ifBlank { urlByRepoId[key.substringBeforeLast('/')].orEmpty() }
+                        .ifBlank { NO_REPO }
                     ListItem(
                         headlineContent = { Text(record.name.ifBlank { key }) },
                         supportingContent = {
@@ -351,7 +361,7 @@ internal fun AddonsScreen(prefillUrl: String = "", onNavigate: (String) -> Unit)
                         colors = transparentListColors(),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable(enabled = url.isNotBlank()) {
+                            .clickable {
                                 onNavigate(addonDetailRoute(url, key.substringAfterLast('/')))
                             },
                     )
@@ -804,6 +814,42 @@ private val AddonType.settingsRoute: String
         AddonType.Unknown -> "home"
     }
 
+/**
+ * The row or section on [settingsRoute] that actually chooses an addon of this
+ * type, matched by title through [SettingsHighlight].
+ *
+ * Landing on the right screen is only half of Use: "Emoji" is a long screen and
+ * the emoji font sits a third of the way down it. Naming the control scrolls to
+ * it and flashes it, exactly as picking a search result does.
+ *
+ * Null where the screen *is* the control — the themes gallery and the layout
+ * list are nothing but the choice, so there is nothing to single out.
+ */
+private val AddonType.settingsAnchor: String?
+    get() = when (this) {
+        AddonType.Theme -> null
+        AddonType.Layout -> null
+        AddonType.Dictionary -> null
+        AddonType.Snippets -> null
+        AddonType.Stickers -> "Your packs"
+        AddonType.IconPack -> "Icon pack"
+        AddonType.Font -> "Installed fonts"
+        AddonType.EmojiFont -> "Emoji font"
+        AddonType.Sound -> "Sound style"
+        AddonType.Unknown -> null
+    }
+
+/**
+ * Opens the screen that owns this type, scrolled to the control that picks one.
+ *
+ * The anchor is armed before navigating because the destination's rows read it
+ * during their first composition — the same order the search screen uses.
+ */
+private fun AddonType.openSettings(onNavigate: (String) -> Unit) {
+    settingsAnchor?.let(SettingsHighlight::request)
+    onNavigate(settingsRoute)
+}
+
 /** What the Use button promises, in the language of the screen it opens. */
 private val AddonType.useLabel: String
     get() = when (this) {
@@ -839,7 +885,7 @@ internal fun AddonDetailScreen(
     // link must not be able to change the user's repository list on its own.
     // Installing is what adds it, and that is the user's own tap.
     LaunchedEffect(manifestUrl) {
-        if (manifest != null) return@LaunchedEffect
+        if (manifest != null || !manifestUrl.startsWith("https://")) return@LaunchedEffect
         manifest = withContext(Dispatchers.IO) {
             AddonDownloadManager.fetchManifest(manifestUrl, context.cacheDir)
         }
@@ -1067,7 +1113,7 @@ private fun InstalledAddonDetail(
         }
     }
     OutlinedButton(
-        onClick = { onNavigate(record.type.settingsRoute) },
+        onClick = { record.type.openSettings(onNavigate) },
         modifier = Modifier.padding(horizontal = 16.dp),
     ) {
         Icon(
@@ -1164,7 +1210,7 @@ private fun AddonActions(
             // is a second step on another screen. This is the way there.
             if (installed || updatable) {
                 OutlinedButton(
-                    onClick = { onNavigate(entry.type.settingsRoute) },
+                    onClick = { entry.type.openSettings(onNavigate) },
                     modifier = Modifier.padding(horizontal = 16.dp),
                 ) {
                     Icon(
@@ -1503,16 +1549,20 @@ private fun DictionaryPreview(shown: AddonPreviewContent.Dictionary) {
                             "${shown.total} — the rest install normally.",
                     )
                 }
-                // A dialog is its own window, so a lazy list inside one is not
-                // the nested-scroll problem it would be on the settings page.
-                LazyColumn(modifier = Modifier.heightIn(max = 420.dp)) {
-                    items(shown.words) { word ->
-                        Text(
-                            word,
-                            style = MaterialTheme.typography.bodyMedium,
-                            modifier = Modifier.padding(vertical = 4.dp),
-                        )
-                    }
+                // One Text of newline-joined words, not a lazy list. A
+                // LazyColumn inside AlertDialog's text slot lays out at its
+                // maximum height and then will not scroll — it showed the
+                // first fifteen words and ate every drag. This is also cheaper:
+                // one composable instead of up to ten thousand.
+                Column(
+                    modifier = Modifier
+                        .heightIn(max = 420.dp)
+                        .verticalScroll(rememberScrollState()),
+                ) {
+                    Text(
+                        shown.words.joinToString("\n"),
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
                 }
             }
         },
