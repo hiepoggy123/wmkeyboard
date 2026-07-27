@@ -83,6 +83,18 @@ class PluginBudget(private val nanoTime: () -> Long = { System.nanoTime() }) {
     }
 
     /**
+     * Ends the current allowance.
+     *
+     * Must run when a call returns, however it returns. Without it the deadline
+     * stays where the finished call left it, and the watchdog would read a
+     * perfectly idle thread as stuck the moment that time passed.
+     */
+    fun end() {
+        deadlineNanos = Long.MAX_VALUE
+        inHostCall = false
+    }
+
+    /**
      * Called before every Lua instruction. Throws [PluginAbort] when the script
      * has run out of allowance, out of time, or has been cancelled.
      */
