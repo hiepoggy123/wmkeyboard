@@ -638,6 +638,7 @@ fun KeyboardScreen(
     onOpenToolSettings: (ToolbarTool) -> Unit = {},
     onOpenRoute: (String) -> Unit = {},
     onPluginOpen: (String) -> Unit = {},
+    onPluginBack: () -> Unit = {},
     onPluginEvent: (PluginEvent) -> Unit = {},
     onPluginInputFocus: (String?) -> Unit = {},
     onPluginPaste: (String) -> Unit = {},
@@ -808,6 +809,7 @@ fun KeyboardScreen(
                 onOpenToolSettings = onOpenToolSettings,
                 onOpenRoute = onOpenRoute,
                 onPluginOpen = onPluginOpen,
+                onPluginBack = onPluginBack,
                 onPluginEvent = onPluginEvent,
                 onPluginInputFocus = onPluginInputFocus,
                 onPluginPaste = onPluginPaste,
@@ -4129,6 +4131,7 @@ private fun KeyboardBody(
     onOpenToolSettings: (ToolbarTool) -> Unit,
     onOpenRoute: (String) -> Unit = {},
     onPluginOpen: (String) -> Unit = {},
+    onPluginBack: () -> Unit = {},
     onPluginEvent: (PluginEvent) -> Unit = {},
     onPluginInputFocus: (String?) -> Unit = {},
     onPluginPaste: (String) -> Unit = {},
@@ -4368,10 +4371,24 @@ private fun KeyboardBody(
                 PanelMode.PLUGINS -> FullBleedTool(
                     state,
                     title = (state.plugins as? PluginPanelUi.Running)?.plugin?.name ?: "Plugins",
-                    onClose = { onPanelChange(PanelMode.PLUGINS) },
+                    // Back out one level at a time: from a running plugin to the
+                    // installed list, and only from the list itself out of the
+                    // panel. Closing outright left no way back to the list short
+                    // of reopening the tool.
+                    onClose = {
+                        if (state.plugins is PluginPanelUi.Running) {
+                            onPluginBack()
+                        } else {
+                            onPanelChange(PanelMode.PLUGINS)
+                        }
+                    },
                     // While a plugin's text box has the keys, the rows render
-                    // below and the panel gives up the room for them.
+                    // below and the panel gives up the room for them. Taller
+                    // than the search panels' default: a plugin draws its own
+                    // header row of tabs above the box, and at 132dp the box
+                    // being typed into was itself the thing that got cut off.
                     compact = state.pluginTypingActive,
+                    compactHeight = 188.dp,
                 ) {
                     PluginPanel(
                         state = state,
@@ -4728,6 +4745,13 @@ private fun KeyboardBody(
             // pill captured the keystrokes with no keys on screen to make them
             // with, so the filter could never be typed.
             if (clipboardSearching) {
+                KeyRows(state, onKey, onText, onGesture, onGesturePreview, onCursorMove, onLayoutSelect)
+            }
+            // And for a plugin's own text box, which is the same trap again: the
+            // panel already collapses to make room (FullBleedTool compact), and
+            // every keystroke is routed into the box, so leaving the rows out
+            // left a focused field with nothing on screen to type into it.
+            if (state.pluginTypingActive) {
                 KeyRows(state, onKey, onText, onGesture, onGesturePreview, onCursorMove, onLayoutSelect)
             }
             // Same for a media panel's search box (translate is one now —
@@ -5798,9 +5822,9 @@ internal fun Key.roleIn(rowIndex: Int, lastRow: Int): KeyRole? = when {
  * A numeric field gets its keypad whatever the layout mode says — the pads
  * have no ?123 key to leave by, so the letter/symbol cycle does not apply.
  * The exception is anything that reroutes keystrokes away from the editor:
- * the emoji, media, dictionary and clipboard search boxes and the typing test
- * all need letters, and a digits-only pad would leave them impossible to
- * type in.
+ * the emoji, media, dictionary and clipboard search boxes, a plugin's own text
+ * box and the typing test all need letters, and a digits-only pad would leave
+ * them impossible to type in.
  */
 private fun numericPadActive(state: KeyboardUiState): Boolean =
     state.fieldKind.isNumericPad &&
@@ -5808,6 +5832,7 @@ private fun numericPadActive(state: KeyboardUiState): Boolean =
         !state.dictionarySearchActive &&
         !state.clipboardSearchActive &&
         !(state.mediaSearchActive && state.panel.hasMediaSearch) &&
+        !state.pluginTypingActive &&
         !state.typingTestActive
 
 

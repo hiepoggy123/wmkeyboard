@@ -1562,6 +1562,7 @@ open class WMKeyboardService : InputMethodService() {
                 onOpenToolSettings = ::openToolSettings,
                 onOpenRoute = ::openRoute,
                 onPluginOpen = ::onPluginOpen,
+                onPluginBack = ::onPluginBack,
                 onPluginEvent = ::onPluginEvent,
                 onPluginInputFocus = ::onPluginInputFocus,
                 onPluginPaste = ::onPluginPaste,
@@ -3195,9 +3196,13 @@ open class WMKeyboardService : InputMethodService() {
     private fun onDeleteWord() {
         val state = _uiState.value
         // A panel search owns the backspace key while it is open; word-deleting
-        // the real field behind it would edit text the user cannot see.
+        // the real field behind it would edit text the user cannot see. The
+        // same goes for every other box that eats keystrokes — a plugin's text
+        // box, the AI instruction, the typing test — which onDelete already
+        // handles and this had drifted out of step with.
         if (state.emojiSearchActive || state.dictionarySearchActive ||
-            state.clipboardSearchActive ||
+            state.clipboardSearchActive || state.pluginTypingActive ||
+            state.aiCustomInputActive || state.typingTestActive ||
             (state.mediaSearchActive && state.panel.hasMediaSearch) ||
             ((state.panel == PanelMode.HANDWRITING || keyboardHandwriteActive(state)) &&
                 state.handwriting.strokes.isNotEmpty())
@@ -6562,6 +6567,16 @@ open class WMKeyboardService : InputMethodService() {
                 pluginFocusedInput = null,
             )
         }
+    }
+
+    /**
+     * Leaves the running plugin for the installed list — the panel header's
+     * back button one level in. Closing the runtime is [openPluginList]'s
+     * job, so a plugin never keeps running behind the list.
+     */
+    fun onPluginBack() {
+        vibrate()
+        openPluginList()
     }
 
     /** Loads and runs a plugin, replacing whatever was open. */

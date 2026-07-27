@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -20,9 +22,11 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -38,6 +42,7 @@ import com.wasimaster.wmkeyboard.core.plugins.PluginLabelStyle
 import com.wasimaster.wmkeyboard.core.plugins.PluginWidget
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
 import com.wasimaster.wmkeyboard.ime.PluginPanelUi
+import kotlinx.coroutines.delay
 
 /**
  * The Plugins panel: the installed list, and whichever plugin is running.
@@ -387,8 +392,20 @@ private fun InputWidget(
     onPaste: () -> Unit,
 ) {
     val kb = LocalKbTheme.current
+    // Focusing a box collapses the panel to make room for the key rows, so the
+    // box the user just tapped can end up under them. Scroll it back into view
+    // rather than leaving them typing into something they cannot see.
+    val requester = remember { BringIntoViewRequester() }
+    LaunchedEffect(focused) {
+        if (!focused) return@LaunchedEffect
+        // A frame's grace: the panel is still resizing when the focus lands.
+        delay(80)
+        runCatching { requester.bringIntoView() }
+    }
     Column(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .bringIntoViewRequester(requester),
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
         if (widget.label.isNotEmpty()) {
