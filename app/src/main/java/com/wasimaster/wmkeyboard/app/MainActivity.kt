@@ -5168,6 +5168,19 @@ private fun ToolDetailSettings(
                 }
                 item {
                     ToggleSetting(
+                        "Detect codes, numbers & links",
+                        "Pull one-time codes, phone numbers and links out of your clips " +
+                            "and offer each one as its own chip.",
+                        settings.clipboard.detectEntities,
+                        info = "The chips sit above the history in dashed outlines, so they " +
+                            "read as parts of a clip rather than clips of their own — " +
+                            "press and hold one to see it highlighted inside the entry it " +
+                            "came from. Tapping pastes only that fragment; the clip itself " +
+                            "stays put. Detection runs entirely on the device.",
+                    ) { scope.launch { repository.setClipboardDetectEntities(it) } }
+                }
+                item {
+                    ToggleSetting(
                         "Forget after pasting a password",
                         "Delete a clip from history and from the system clipboard as " +
                             "soon as it is pasted into a password field.",

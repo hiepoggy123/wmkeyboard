@@ -1398,6 +1398,12 @@ data class ClipboardSettings(
      * default; turning it off keeps the clip like any other paste.
      */
     val clearAfterPasswordPaste: Boolean = true,
+    /**
+     * Pull one-time codes, phone numbers and links out of clips and offer them
+     * as their own chips above the history, so the six digits inside a
+     * verification SMS are one tap away instead of a copy-edit-paste.
+     */
+    val detectEntities: Boolean = true,
 )
 
 /**
@@ -1921,6 +1927,7 @@ class SettingsRepository(private val context: Context) {
         private val CLIPBOARD_USER_SCREENSHOTS = booleanPreferencesKey("clipboard_user_screenshots")
         private val CLIPBOARD_CLEAR_AFTER_PASSWORD_PASTE =
             booleanPreferencesKey("clipboard_clear_after_password_paste")
+        private val CLIPBOARD_DETECT_ENTITIES = booleanPreferencesKey("clipboard_detect_entities")
         private val LONG_PRESS_DELAY = intPreferencesKey("long_press_delay")
         private val KEY_REPEAT_INTERVAL = intPreferencesKey("key_repeat_interval")
         private val LONG_PRESS_HINTS = booleanPreferencesKey("long_press_hints")
@@ -2377,6 +2384,7 @@ class SettingsRepository(private val context: Context) {
                 userScreenshots = p[CLIPBOARD_USER_SCREENSHOTS] ?: defaults.clipboard.userScreenshots,
                 clearAfterPasswordPaste = p[CLIPBOARD_CLEAR_AFTER_PASSWORD_PASTE]
                     ?: defaults.clipboard.clearAfterPasswordPaste,
+                detectEntities = p[CLIPBOARD_DETECT_ENTITIES] ?: defaults.clipboard.detectEntities,
             ),
             suggestionStrip = SuggestionStripSettings(
                 punctuation = p[PUNCTUATION_SUGGESTIONS] ?: defaults.suggestionStrip.punctuation,
@@ -4136,6 +4144,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setClipboardClearAfterPasswordPaste(value: Boolean) =
         editPrefs { it[CLIPBOARD_CLEAR_AFTER_PASSWORD_PASTE] = value }
+
+    suspend fun setClipboardDetectEntities(value: Boolean) =
+        editPrefs { it[CLIPBOARD_DETECT_ENTITIES] = value }
 
     suspend fun setLongPressDelayMs(value: Int) =
         editPrefs { it[LONG_PRESS_DELAY] = value.coerceIn(150, 700) }

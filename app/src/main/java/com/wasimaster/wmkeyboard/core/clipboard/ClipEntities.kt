@@ -1,0 +1,272 @@
+package com.wasimaster.wmkeyboard.core.clipboard
+
+/**
+ * A kind of fragment worth pulling out of a clip on its own: the six digits
+ * buried in a verification SMS, the number in "call me on …", the link inside a
+ * sentence. Ordered by how time-critical the fragment usually is — the panel
+ * lists chips in this order.
+ */
+enum class ClipEntityKind {
+    OTP,
+    PHONE,
+    URL;
+
+    /** Two-word noun for the info popup and the chip's accessibility label. */
+    val label: String
+        get() = when (this) {
+            OTP -> "One-time code"
+            PHONE -> "Phone number"
+            URL -> "Link"
+        }
+
+    /** All-caps tag printed on the chip itself. */
+    val tag: String
+        get() = when (this) {
+            OTP -> "CODE"
+            PHONE -> "PHONE"
+            URL -> "LINK"
+        }
+}
+
+/**
+ * A span inside one clip's text that can be pasted by itself.
+ *
+ * [start]/[end] index into [sourceText] (the scanned prefix of the clip, not
+ * necessarily the whole clip) so the UI can show the fragment highlighted in
+ * its surroundings — the point being that a chip is explicitly *part of* an
+ * entry, never an entry of its own.
+ */
+data class ClipEntity(
+    val kind: ClipEntityKind,
+    val value: String,
+    /** [ClipItem.id] of the clip this was found in. */
+    val sourceId: Long,
+    val sourceText: String,
+    val start: Int,
+    val end: Int,
+) {
+    /** Identity for de-duplicating the same fragment found in several clips. */
+    val key: String get() = "${kind.name}:$value"
+}
+
+/**
+ * Pulls one-time codes, phone numbers and links out of clipboard text.
+ *
+ * Everything here is deliberately conservative in one direction and loose in
+ * the other: a missed fragment costs the user a manual retype, a wrong one
+ * costs a chip they ignore. So the rules lean towards offering, except where a
+ * pattern is a known impostor (dates, order numbers, ZIP codes), which get
+ * explicit guards.
+ *
+ * Detection order matters — URLs are claimed first because their digits would
+ * otherwise read as a phone number, then keyword-anchored codes, then phone
+ * numbers, which have the loosest shape. Overlapping candidates lose.
+ */
+object ClipEntities {
+
+    /** Clips scanned per refresh, newest first; older history is stale anyway. */
+    private const val MAX_SCANNED_CLIPS = 40
+
+    /** Characters scanned per clip — a pasted article carries its useful bits early. */
+    private const val MAX_SCANNED_CHARS = 4000
+
+    /** Chips the panel will show at once. */
+    private const val MAX_ENTITIES = 12
+
+    /** How far from its keyword a code may sit and still count as that code. */
+    private const val OTP_KEYWORD_RANGE = 40
+
+    private val URL = Regex(
+        """(?:https?://|www\.)[^\s<>"'`]{2,}""",
+        RegexOption.IGNORE_CASE,
+    )
+
+    private val PHONE = Regex("""(?<![\d+])\+?\d[\d ().\-]{5,18}\d(?!\d)""")
+
+    /**
+     * `2024-05-12`, `12/05/24` — right digit count, wrong meaning. Pinned to
+     * the two group shapes dates actually come in (`yyyy-m-d` and `d-m-yy`) so
+     * a hyphenated phone number like `555-12-3456` is not mistaken for one.
+     */
+    private val DATE = Regex("""\d{4}[-/.]\d{1,2}[-/.]\d{1,2}|\d{1,2}[-/.]\d{1,2}[-/.]\d{2,4}""")
+
+    /** Separators people write phone numbers with. */
+    private const val PHONE_SEPARATORS = " -()."
+
+    private val OTP_KEYWORD = Regex(
+        "\\b(?:otp|one[- ]?time(?: password| passcode| code)?|passcode|pass code|" +
+            "verification|verify|confirmation|security code|auth(?:entication)? code|" +
+            "access code|login code|code|pin|2fa)\\b",
+        RegexOption.IGNORE_CASE,
+    )
+
+    /**
+     * Words that turn a nearby "code" into something that is not a login code.
+     * Checked against the word immediately before the keyword.
+     */
+    private val OTP_KEYWORD_DENY = setOf(
+        "zip", "postal", "post", "area", "country", "dial", "colour", "color",
+        "hex", "sort", "swift", "ifsc", "iban", "bar", "qr", "source", "error",
+    )
+
+    private val OTP_TOKEN = Regex("""(?<![\w-])(?:[A-Za-z]-)?[A-Z0-9]{4,8}(?![\w-])""")
+
+    /**
+     * Every fragment in [text], with [sourceId] stamped on each. Ranges never
+     * overlap; the list is in detection order (URLs, codes, phone numbers).
+     */
+    fun extract(text: String, sourceId: Long = 0L): List<ClipEntity> {
+        // Half-open [start, end) spans already spoken for by an earlier, more
+        // certain kind.
+        val claimed = ArrayList<Pair<Int, Int>>()
+        val found = ArrayList<ClipEntity>()
+
+        fun claim(kind: ClipEntityKind, value: String, start: Int) {
+            if (value.isEmpty()) return
+            val end = start + value.length
+            if (claimed.any { (from, to) -> start < to && from < end }) return
+            claimed += start to end
+            found += ClipEntity(kind, value, sourceId, text, start, end)
+        }
+
+        for (match in URL.findAll(text)) {
+            val url = trimUrlTail(match.value)
+            // "www.x" and the like are noise; a real link has a dot and a TLD.
+            if (url.length >= 8 && url.substringAfterLast('.').isNotBlank()) {
+                claim(ClipEntityKind.URL, url, match.range.first)
+            }
+        }
+
+        for ((start, value) in otpTokens(text)) {
+            claim(ClipEntityKind.OTP, value, start)
+        }
+
+        for (match in PHONE.findAll(text)) {
+            if (isDiallable(match.value, text, match.range.first)) {
+                claim(ClipEntityKind.PHONE, match.value, match.range.first)
+            }
+        }
+
+        return found
+    }
+
+    /**
+     * Fragments across [items], de-duplicated and capped for the panel.
+     *
+     * A fragment that *is* the whole clip is dropped: that clip's own card
+     * already pastes it, and a chip for it would break the promise the section
+     * header makes — chips are parts of entries, not entries.
+     */
+    fun entitiesIn(items: List<ClipItem>): List<ClipEntity> {
+        val seen = HashSet<String>()
+        val found = ArrayList<ClipEntity>()
+        for (item in items.take(MAX_SCANNED_CLIPS)) {
+            if (!item.kind.isTextual) continue
+            val text = item.text.take(MAX_SCANNED_CHARS)
+            val whole = text.trim()
+            for (entity in extract(text, item.id)) {
+                if (entity.value == whole) continue
+                if (seen.add(entity.key)) found += entity
+            }
+        }
+        // Stable sort: codes first, then phones, then links, each still in
+        // newest-clip-first order because that is how [items] arrives.
+        return found.sortedBy { it.kind.ordinal }.take(MAX_ENTITIES)
+    }
+
+    /** Codes sitting close enough to a code-ish word to be that code. */
+    private fun otpTokens(text: String): List<Pair<Int, String>> {
+        // Half-open (start, end) spans, so a token butting straight up against
+        // a keyword measures a gap of zero rather than minus one.
+        val keywords = OTP_KEYWORD.findAll(text)
+            .filter { !isDeniedKeyword(text, it.range.first) }
+            .map { it.range.first to it.range.last + 1 }
+            .toList()
+        if (keywords.isEmpty()) return emptyList()
+        return OTP_TOKEN.findAll(text)
+            .filter { isCodeShaped(it.value) }
+            .filter { token ->
+                val start = token.range.first
+                val end = token.range.last + 1
+                keywords.any { (keyStart, keyEnd) ->
+                    val gap = when {
+                        start >= keyEnd -> start - keyEnd
+                        end <= keyStart -> keyStart - end
+                        // The token *is* the keyword ("PIN" has no digits, but
+                        // an alphanumeric keyword could collide).
+                        else -> return@any false
+                    }
+                    gap <= OTP_KEYWORD_RANGE
+                }
+            }
+            // Google's `G-123456` prefix is branding, not part of the code —
+            // pasting it into a six-box OTP field would be wrong.
+            .map { token ->
+                val body = token.value.substringAfterLast('-')
+                token.range.first + (token.value.length - body.length) to body
+            }
+            .toList()
+    }
+
+    /** True when the word before the keyword at [start] disqualifies it. */
+    private fun isDeniedKeyword(text: String, start: Int): Boolean {
+        val before = text.take(start).trimEnd()
+        val word = before.takeLastWhile { it.isLetter() }
+        return word.isNotEmpty() && word.lowercase() in OTP_KEYWORD_DENY
+    }
+
+    /**
+     * A code has digits. Letters are allowed (Google's `G-123456`, alphanumeric
+     * codes) but only alongside at least two digits, so ordinary shouty words
+     * like `PLEASE` or `HTTPS` never qualify.
+     */
+    private fun isCodeShaped(token: String): Boolean {
+        val body = token.substringAfterLast('-')
+        val digits = body.count { it.isDigit() }
+        if (digits == 0) return false
+        if (body.any { it.isLetter() } && digits < 2) return false
+        // A bare four-digit year in prose is almost never the code.
+        if (body.length == 4 && digits == 4 && body.toInt() in 1900..2099) return false
+        return true
+    }
+
+    /**
+     * Whether a digit run reads as a number you would dial. Guards the two
+     * impostors that share its shape: dates, and the long unpunctuated order or
+     * account numbers that follow a `#`.
+     */
+    private fun isDiallable(raw: String, text: String, start: Int): Boolean {
+        val digits = raw.count { it.isDigit() }
+        if (digits !in 7..15) return false
+        // Whole-match, not "contains": a date buried in a longer run of digits
+        // is a coincidence, while a match that is the entire clip fragment is
+        // the date itself.
+        if (DATE.matches(raw.trim())) return false
+        val previous = text.getOrNull(start - 1)
+        if (previous == '#' || previous == '$' || previous == '£' || previous == '€') return false
+        val punctuated = raw.any { it in PHONE_SEPARATORS }
+        // Unpunctuated and unprefixed: only lengths people actually dial.
+        if (!punctuated && !raw.startsWith("+") && digits > 11) return false
+        return true
+    }
+
+    /**
+     * Drops the sentence punctuation a URL match swallows. A closing bracket
+     * only goes if nothing opened it, so `…/wiki/Foo_(bar)` survives.
+     */
+    private fun trimUrlTail(raw: String): String {
+        var url = raw.trimEnd('.', ',', ';', ':', '!', '?', '\'', '"', '”', '’')
+        while (url.isNotEmpty()) {
+            val last = url.last()
+            val open = when (last) {
+                ')' -> '('
+                ']' -> '['
+                '}' -> '{'
+                else -> break
+            }
+            if (url.count { it == open } >= url.count { it == last }) break
+            url = url.dropLast(1).trimEnd('.', ',', ';', ':', '!', '?')
+        }
+        return url
+    }
+}

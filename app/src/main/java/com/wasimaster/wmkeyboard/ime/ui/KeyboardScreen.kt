@@ -90,12 +90,15 @@ import androidx.compose.material.icons.outlined.VideoFile
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.ChevronRight
+import androidx.compose.material.icons.outlined.ContentCut
 import androidx.compose.material.icons.outlined.ContentPaste
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.DeleteSweep
 import androidx.compose.material.icons.outlined.DragHandle
 import androidx.compose.material.icons.outlined.EmojiEmotions
 import androidx.compose.material.icons.outlined.Fullscreen
+import androidx.compose.material.icons.outlined.Password
+import androidx.compose.material.icons.outlined.Phone
 import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Search
@@ -148,6 +151,10 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
@@ -169,6 +176,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
@@ -200,6 +210,9 @@ import com.wasimaster.wmkeyboard.core.accessibility.KeyboardPassthrough
 import com.wasimaster.wmkeyboard.core.settings.ScreenReaderMode
 import kotlinx.coroutines.delay
 import com.wasimaster.wmkeyboard.core.icons.IconSlots
+import com.wasimaster.wmkeyboard.core.clipboard.ClipEntities
+import com.wasimaster.wmkeyboard.core.clipboard.ClipEntity
+import com.wasimaster.wmkeyboard.core.clipboard.ClipEntityKind
 import com.wasimaster.wmkeyboard.core.clipboard.ClipItem
 import com.wasimaster.wmkeyboard.core.clipboard.ClipKind
 import com.wasimaster.wmkeyboard.core.clipboard.ClipLinks
@@ -518,6 +531,7 @@ fun KeyboardScreen(
     onClipboardDelete: (ClipItem) -> Unit,
     onClipboardSearchToggle: () -> Unit = {},
     onClipboardSuggestionDismiss: () -> Unit = {},
+    onClipboardEntity: (ClipEntity) -> Unit = {},
     onSnippet: (Snippet) -> Unit = {},
     onOneHanded: (OneHandedMode) -> Unit = {},
     /** Persists the dock side for one orientation (landscape flag, side). */
@@ -684,6 +698,7 @@ fun KeyboardScreen(
                 onClipboardDelete = onClipboardDelete,
                 onClipboardSearchToggle = onClipboardSearchToggle,
                 onClipboardSuggestionDismiss = onClipboardSuggestionDismiss,
+                onClipboardEntity = onClipboardEntity,
                 onSnippet = onSnippet,
                 onToolTap = onToolTap,
                 onToolbarToolsChange = onToolbarToolsChange,
@@ -1188,6 +1203,7 @@ private fun TopBar(
     onSmartOpen: () -> Unit = {},
     onClipboardSuggestion: (ClipItem) -> Unit = {},
     onClipboardSuggestionDismiss: () -> Unit = {},
+    onClipboardEntity: (ClipEntity) -> Unit = {},
     onEmojiRowShown: () -> Unit = {},
     /** Downward flick on the strip: dismiss the keyboard (opt-in). */
     onSwipeDownHide: () -> Unit = {},
@@ -1645,10 +1661,28 @@ private fun TopBar(
             // when there are no candidates, one tap from pasting the last copy.
             // Word candidates always win the row, so it never hides a suggestion.
             val recentClip = state.clipboardSuggestion
+            // A verification SMS is the one copy where the whole clip is not
+            // what you want pasted, so the chip offers the code out of it
+            // instead — dashed, to say it is a piece of the clip and not the
+            // clip. Only codes get this: a copied link or number is already
+            // exactly what the ordinary chip would paste.
+            val chipOtp = if (recentClip != null && state.settings.clipboard.detectEntities) {
+                remember(recentClip.id, recentClip.text) {
+                    ClipEntities.extract(recentClip.text, recentClip.id)
+                        .firstOrNull { it.kind == ClipEntityKind.OTP }
+                        ?.takeIf { it.value != recentClip.text.trim() }
+                }
+            } else {
+                null
+            }
             if (recentClipChip && smart == null) {
                 ClipboardSuggestionChip(
                     clip = recentClip,
-                    onPaste = { onClipboardSuggestion(recentClip) },
+                    otp = chipOtp,
+                    onPaste = {
+                        if (chipOtp != null) onClipboardEntity(chipOtp)
+                        else onClipboardSuggestion(recentClip)
+                    },
                     onDismiss = onClipboardSuggestionDismiss,
                     stretch = !suggestionsShowing,
                     modifier = if (suggestionsShowing) {
@@ -1770,11 +1804,16 @@ private fun ClipboardSuggestionChip(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
     stretch: Boolean = false,
+    /** Set when the chip offers a code out of [clip] rather than all of it. */
+    otp: ClipEntity? = null,
 ) {
     val kb = LocalKbTheme.current
     val feedback = LocalKeyPressFeedback.current
     val tint = kb.accent
-    val fill = tint.copy(alpha = if (kb.dark) 0.20f else 0.11f)
+    // The fragment chip is an outline, not a solid — same language as the
+    // clipboard panel's own fragment chips, and unmistakably not the ordinary
+    // "paste what you copied" pill.
+    val fill = if (otp != null) Color.Transparent else tint.copy(alpha = if (kb.dark) 0.20f else 0.11f)
 
     val bitmap by produceState<ImageBitmap?>(initialValue = null, clip.imagePath) {
         if (clip.kind == ClipKind.IMAGE && clip.imagePath != null) {
@@ -1803,7 +1842,13 @@ private fun ClipboardSuggestionChip(
             .padding(vertical = 5.dp)
             .clip(RoundedCornerShape(50))
             .background(fill)
-            .border(1.dp, tint.copy(alpha = 0.32f), RoundedCornerShape(50)),
+            .then(
+                if (otp != null) {
+                    Modifier.dashedOutline(tint.copy(alpha = 0.6f), 50.dp)
+                } else {
+                    Modifier.border(1.dp, tint.copy(alpha = 0.32f), RoundedCornerShape(50))
+                },
+            ),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Row(
@@ -1838,15 +1883,34 @@ private fun ClipboardSuggestionChip(
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
-                        if (clip.kind == ClipKind.IMAGE) Icons.Outlined.Image else Icons.Outlined.ContentPaste,
+                        when {
+                            otp != null -> Icons.Outlined.Password
+                            clip.kind == ClipKind.IMAGE -> Icons.Outlined.Image
+                            else -> Icons.Outlined.ContentPaste
+                        },
                         contentDescription = null,
                         tint = tint,
                         modifier = Modifier.size(13.dp),
                     )
                 }
             }
+            if (otp != null) {
+                // "CODE" earns its space here: without it the chip is a bare
+                // number, and the user has no way to tell it was lifted out of
+                // the message rather than being the whole copy.
+                Text(
+                    text = "CODE",
+                    color = tint.copy(alpha = 0.85f),
+                    fontSize = 9.sp,
+                    letterSpacing = 0.8.sp,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1,
+                )
+            }
             val textToDisplay = when {
-                clip.kind == ClipKind.IMAGE -> if (clip.sourceApp == "System UI") "Screenshot" else "Copied image"
+                otp != null -> otp.value
+                clip.kind == ClipKind.IMAGE ->
+                    if (clip.sourceApp == "System UI") "Screenshot" else "Copied image"
                 clip.text.isNotBlank() -> clip.text
                 else -> "Copied item"
             }
@@ -1854,6 +1918,7 @@ private fun ClipboardSuggestionChip(
                 text = textToDisplay,
                 color = kb.keyText,
                 fontSize = 13.sp,
+                fontWeight = if (otp != null) FontWeight.Medium else FontWeight.Normal,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f, fill = false),
@@ -3750,6 +3815,7 @@ private fun KeyboardBody(
     onClipboardDelete: (ClipItem) -> Unit,
     onClipboardSearchToggle: () -> Unit,
     onClipboardSuggestionDismiss: () -> Unit,
+    onClipboardEntity: (ClipEntity) -> Unit,
     onEmojiRowShown: () -> Unit,
     onSnippet: (Snippet) -> Unit,
     onToolTap: (ToolbarTool) -> Unit,
@@ -3903,6 +3969,7 @@ private fun KeyboardBody(
                             onSmartOpen = onSmartOpen,
                             onClipboardSuggestion = onClipboardItem,
                             onClipboardSuggestionDismiss = onClipboardSuggestionDismiss,
+                            onClipboardEntity = onClipboardEntity,
                             onEmojiRowShown = onEmojiRowShown,
                             onSwipeDownHide = onHideKeyboard,
                         )
@@ -3952,6 +4019,7 @@ private fun KeyboardBody(
                 PanelMode.CLIPBOARD -> ClipboardPanel(
                     state, onClipboardItem, onClipboardPin, onClipboardDelete,
                     onClipboardSearchToggle = onClipboardSearchToggle,
+                    onClipboardEntity = onClipboardEntity,
                     onKey = onKey,
                     // Toggling the open panel closes it — back to the keys.
                     onClose = { onPanelChange(PanelMode.CLIPBOARD) },
@@ -8161,6 +8229,7 @@ private fun ClipboardPanel(
     onClipboardPin: (ClipItem) -> Unit,
     onClipboardDelete: (ClipItem) -> Unit,
     onClipboardSearchToggle: () -> Unit,
+    onClipboardEntity: (ClipEntity) -> Unit,
     onKey: (Key) -> Unit,
     onClose: () -> Unit,
 ) {
@@ -8185,6 +8254,7 @@ private fun ClipboardPanel(
         ClipboardPanelContent(
             state, onClipboardItem, onClipboardPin, onClipboardDelete,
             onClipboardSearchToggle = onClipboardSearchToggle,
+            onClipboardEntity = onClipboardEntity,
             height = contentHeight,
         )
         if (showBottomRow) {
@@ -8254,6 +8324,7 @@ private fun ClipboardPanelContent(
     onClipboardPin: (ClipItem) -> Unit,
     onClipboardDelete: (ClipItem) -> Unit,
     onClipboardSearchToggle: () -> Unit,
+    onClipboardEntity: (ClipEntity) -> Unit,
     height: Dp,
 ) {
     // The search bar is only offered once there is history to filter and the
@@ -8279,6 +8350,29 @@ private fun ClipboardPanelContent(
     } else {
         state.clipboardItems.filter { it.matchesQuery(query) }
     }
+    // Scanning every clip with three regexes is not free, so it happens once per
+    // history change rather than on every recomposition of the panel.
+    val allEntities = if (state.settings.clipboard.detectEntities) {
+        remember(state.clipboardItems) { ClipEntities.entitiesIn(state.clipboardItems) }
+    } else {
+        emptyList()
+    }
+    // While searching the panel is only a couple of rows tall — the keys have
+    // taken the rest — so the fragment strip stands down rather than eating one.
+    val entities = if (state.clipboardSearchActive) {
+        emptyList()
+    } else {
+        allEntities.filter { query.isEmpty() || it.value.contains(query, ignoreCase = true) }
+    }
+    // Published even when empty: a stale count left behind by the last refresh
+    // would let Tab land on a chip that is no longer drawn.
+    PanelFocusTarget(
+        panel = PanelMode.CLIPBOARD,
+        region = FocusRegion.CHIPS,
+        count = entities.size,
+        columns = entities.size.coerceAtLeast(1),
+        onActivate = { index -> entities.getOrNull(index)?.let(onClipboardEntity) },
+    )
     PanelFocusTarget(
         panel = PanelMode.CLIPBOARD,
         count = shownItems.size,
@@ -8310,6 +8404,13 @@ private fun ClipboardPanelContent(
                         state.focusedIndex(FocusRegion.SEARCH) == 0,
                         RoundedCornerShape(18.dp),
                     ),
+            )
+        }
+        if (entities.isNotEmpty()) {
+            ClipEntityStrip(
+                entities = entities,
+                focused = state.focusedIndex(FocusRegion.CHIPS),
+                onPaste = onClipboardEntity,
             )
         }
         if (shownItems.isEmpty()) {
@@ -8421,6 +8522,192 @@ private fun ClipboardPanelContent(
             }
         }
     }
+}
+
+/**
+ * The strip of fragments — one-time codes, phone numbers, links — pulled out of
+ * the clips below it.
+ *
+ * The visual language carries the whole idea: a history card is a solid filled
+ * rectangle holding something the clipboard really contains, while these are
+ * dashed cut-outs under a caption that says where they came from. Nothing here
+ * is an entry of its own, and long-pressing one shows it highlighted inside the
+ * clip it was lifted from, which is the same claim made a second way.
+ */
+@Composable
+private fun ClipEntityStrip(
+    entities: List<ClipEntity>,
+    focused: Int?,
+    onPaste: (ClipEntity) -> Unit,
+) {
+    Column(modifier = Modifier.padding(top = 8.dp)) {
+        Row(
+            modifier = Modifier.padding(start = 12.dp, end = 12.dp, bottom = 5.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                Icons.Outlined.ContentCut,
+                contentDescription = null,
+                modifier = Modifier.size(12.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.width(5.dp))
+            Text(
+                "Found inside your clips · tap to paste just this part",
+                fontSize = 10.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        LazyRow(
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 10.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            itemsIndexed(entities, key = { _, entity -> entity.key }) { index, entity ->
+                ClipEntityChip(entity, focused = index == focused, onPaste = onPaste)
+            }
+        }
+    }
+}
+
+/** One dashed fragment chip: kind tag above the text that will be pasted. */
+@Composable
+private fun ClipEntityChip(
+    entity: ClipEntity,
+    focused: Boolean,
+    onPaste: (ClipEntity) -> Unit,
+) {
+    val accent = MaterialTheme.colorScheme.primary
+    val shape = RoundedCornerShape(10.dp)
+    var showSource by remember { mutableStateOf(false) }
+    Row(
+        modifier = Modifier
+            .focusRing(focused, shape)
+            .dashedOutline(accent.copy(alpha = 0.6f), 10.dp)
+            .pointerInput(entity.key) {
+                detectTapGestures(
+                    onTap = { onPaste(entity) },
+                    onLongPress = { showSource = true },
+                )
+            }
+            .padding(horizontal = 9.dp, vertical = 5.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (showSource) {
+            ClipEntitySourcePopup(entity, onDismiss = { showSource = false })
+        }
+        Icon(
+            when (entity.kind) {
+                ClipEntityKind.OTP -> Icons.Outlined.Password
+                ClipEntityKind.PHONE -> Icons.Outlined.Phone
+                ClipEntityKind.URL -> Icons.Outlined.Link
+            },
+            contentDescription = entity.kind.label,
+            modifier = Modifier.size(15.dp),
+            tint = accent,
+        )
+        Spacer(Modifier.width(6.dp))
+        Column {
+            Text(
+                entity.kind.tag,
+                fontSize = 8.sp,
+                letterSpacing = 0.8.sp,
+                fontWeight = FontWeight.Medium,
+                color = accent.copy(alpha = 0.85f),
+                maxLines = 1,
+            )
+            Text(
+                entity.value,
+                fontSize = 13.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.widthIn(max = 170.dp),
+            )
+        }
+    }
+}
+
+/**
+ * Press-and-hold proof that a chip is a cut-out: the clip it came from, shown
+ * with the fragment highlighted in place. Windowed around the fragment so a
+ * long clip does not turn the popup into a wall of text.
+ */
+@Composable
+private fun ClipEntitySourcePopup(entity: ClipEntity, onDismiss: () -> Unit) {
+    val kb = LocalKbTheme.current
+    val source = entity.sourceText
+    val from = (entity.start - SOURCE_CONTEXT_CHARS).coerceAtLeast(0)
+    val to = (entity.end + SOURCE_CONTEXT_CHARS).coerceAtMost(source.length)
+    val shown = remember(entity.key, source) {
+        buildAnnotatedString {
+            if (from > 0) append("…")
+            append(source.substring(from, entity.start))
+            withStyle(
+                SpanStyle(
+                    background = kb.accent.copy(alpha = 0.28f),
+                    fontWeight = FontWeight.Medium,
+                ),
+            ) {
+                append(source.substring(entity.start, entity.end))
+            }
+            append(source.substring(entity.end, to))
+            if (to < source.length) append("…")
+        }
+    }
+    Popup(
+        popupPositionProvider = rememberAboveAnchorPopup(),
+        onDismissRequest = onDismiss,
+    ) {
+        Surface(
+            shape = RoundedCornerShape(kb.popupRadiusDp.dp),
+            color = kb.popup,
+            shadowElevation = 6.dp,
+        ) {
+            Column(
+                modifier = Modifier
+                    .widthIn(min = 180.dp, max = 260.dp)
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                verticalArrangement = Arrangement.spacedBy(5.dp),
+            ) {
+                Text(
+                    "${entity.kind.label} · part of this clip",
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = kb.popupText.copy(alpha = 0.6f),
+                )
+                Text(
+                    shown,
+                    fontSize = 11.sp,
+                    color = kb.popupText,
+                    maxLines = 5,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+    }
+}
+
+/** Characters of surrounding clip shown either side of a fragment. */
+private const val SOURCE_CONTEXT_CHARS = 60
+
+/**
+ * Dashed rounded outline with no fill. Deliberately unlike every filled card in
+ * the panel — it is the signal that what it wraps was cut out of something else.
+ */
+private fun Modifier.dashedOutline(color: Color, radius: Dp, width: Dp = 1.dp) = drawBehind {
+    val line = width.toPx()
+    drawRoundRect(
+        color = color,
+        topLeft = Offset(line / 2, line / 2),
+        size = Size(size.width - line, size.height - line),
+        cornerRadius = CornerRadius(radius.toPx()),
+        style = Stroke(
+            width = line,
+            pathEffect = PathEffect.dashPathEffect(floatArrayOf(7f, 5f)),
+        ),
+    )
 }
 
 /** Small round action button on a clipboard card. */

@@ -1302,6 +1302,7 @@ open class WMKeyboardService : InputMethodService() {
                 onClipboardDelete = ::onClipboardDelete,
                 onClipboardSearchToggle = ::onClipboardSearchToggle,
                 onClipboardSuggestionDismiss = ::onClipboardSuggestionDismiss,
+                onClipboardEntity = ::onClipboardEntityTapped,
                 onSnippet = ::onSnippetTapped,
                 onOneHanded = ::onOneHandedChange,
                 onOneHandedSide = ::onOneHandedSideChange,
@@ -7761,6 +7762,22 @@ open class WMKeyboardService : InputMethodService() {
         // has served its purpose once something was pasted.
         clearClipboardSuggestion()
         purgeAfterPasswordPaste(item)
+    }
+
+    /**
+     * A fragment chip was tapped: paste just that part of the clip.
+     *
+     * The clip itself stays in history — only a piece of it was used. The
+     * password sweep still runs against the parent clip, because a code pasted
+     * into a password field leaves the whole SMS sitting on the system
+     * clipboard for every app to read.
+     */
+    fun onClipboardEntityTapped(entity: com.wasimaster.wmkeyboard.core.clipboard.ClipEntity) {
+        vibrate()
+        commitToField(entity.value)
+        clearClipboardSuggestion()
+        clipboardStore.items().firstOrNull { it.id == entity.sourceId }
+            ?.let(::purgeAfterPasswordPaste)
     }
 
     /**

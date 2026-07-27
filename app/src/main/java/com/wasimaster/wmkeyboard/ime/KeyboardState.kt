@@ -286,7 +286,10 @@ fun panelFocusRegions(panel: PanelMode): List<FocusRegion> = when (panel) {
     PanelMode.EMOJI -> listOf(FocusRegion.SEARCH, FocusRegion.CHIPS, FocusRegion.RESULTS)
     PanelMode.GIF, PanelMode.STICKER -> listOf(FocusRegion.SEARCH, FocusRegion.CHIPS, FocusRegion.RESULTS)
     PanelMode.SYMBOLS -> listOf(FocusRegion.CHIPS, FocusRegion.RESULTS)
-    PanelMode.CLIPBOARD, PanelMode.DICTIONARY,
+    // The clipboard's chips are the fragments pulled out of its history.
+    PanelMode.CLIPBOARD ->
+        listOf(FocusRegion.SEARCH, FocusRegion.CHIPS, FocusRegion.RESULTS)
+    PanelMode.DICTIONARY,
     PanelMode.WEB_SEARCH, PanelMode.IMAGE_SEARCH, PanelMode.WIKIPEDIA,
     -> listOf(FocusRegion.SEARCH, FocusRegion.RESULTS)
     PanelMode.TOOLBOX, PanelMode.SNIPPETS, PanelMode.THEMES, PanelMode.MODES,
