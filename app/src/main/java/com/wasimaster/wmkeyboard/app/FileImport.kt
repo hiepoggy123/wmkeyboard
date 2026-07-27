@@ -474,6 +474,10 @@ private fun rememberProposal(
                     }
                     StickerImportResult.NotAStickerPack ->
                         "That file is not a WMKeyboard sticker pack."
+                    is StickerImportResult.NoStickers -> buildString {
+                        append("No stickers could be read out of that pack.")
+                        for (line in result.repairs.take(5)) append("\n• $line")
+                    }
                     StickerImportResult.TooManyPacks ->
                         "You already have ${StickerPackStore.MAX_PACKS} packs. Delete one first."
                     StickerImportResult.Failed -> "That file could not be read."

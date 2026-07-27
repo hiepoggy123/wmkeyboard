@@ -267,6 +267,117 @@ class StickerPackFileTest {
         assertEquals(emptyList<String>(), File(temp.root, "target").list()!!.sorted())
     }
 
+    /**
+     * The shape a hand-written pack actually arrives in — which is how the
+     * addon repository's own sticker pack was written, and why it installed as
+     * an empty pack until the reader learned to read it.
+     */
+    @Test
+    fun `reads a hand-written manifest that puts stickers beside pack`() {
+        val manifest = """
+            {"format":"wmkeyboard-stickers","version":1,
+             "pack":{"id":"undraw","name":"unDraw"},
+             "stickers":[
+               {"id":"airplane","name":"Airplane","file":"stickers/airplane.png"},
+               {"id":"barbecue","name":"Barbecue","file":"stickers/barbecue.png"}
+             ]}
+        """.trimIndent()
+        val out = ByteArrayOutputStream()
+        ZipOutputStream(out).use { zip ->
+            zip.putNextEntry(ZipEntry("pack.json"))
+            zip.write(manifest.toByteArray())
+            zip.closeEntry()
+            for (name in listOf("airplane", "barbecue")) {
+                zip.putNextEntry(ZipEntry("stickers/$name.png"))
+                zip.write(byteArrayOf(1, 2, 3))
+                zip.closeEntry()
+            }
+        }
+
+        val result = StickerPackFile.import(
+            ByteArrayInputStream(out.toByteArray()),
+            store("target"),
+            normalize = passthrough,
+        ) as StickerImportResult.Imported
+
+        assertEquals("unDraw", result.pack.name)
+        assertEquals(listOf("Airplane", "Barbecue"), result.pack.stickers.map { it.name })
+        assertTrue(result.repairs.isEmpty())
+    }
+
+    @Test
+    fun `a bare file name finds an image filed under stickers`() {
+        val manifest = """
+            {"format":"wmkeyboard-stickers","version":1,"pack":{"id":"p","name":"Cats"},
+             "stickers":[{"id":"a","file":"a.png","name":"cat"}]}
+        """.trimIndent()
+        val out = ByteArrayOutputStream()
+        ZipOutputStream(out).use { zip ->
+            zip.putNextEntry(ZipEntry("pack.json"))
+            zip.write(manifest.toByteArray())
+            zip.closeEntry()
+            zip.putNextEntry(ZipEntry("stickers/a.png"))
+            zip.write(byteArrayOf(9))
+            zip.closeEntry()
+        }
+
+        val result = StickerPackFile.import(
+            ByteArrayInputStream(out.toByteArray()),
+            store("target"),
+            normalize = passthrough,
+        ) as StickerImportResult.Imported
+
+        assertEquals(listOf("cat"), result.pack.stickers.map { it.name })
+    }
+
+    @Test
+    fun `a pack whose images all fail is refused rather than imported empty`() {
+        val manifest = """
+            {"format":"wmkeyboard-stickers","version":1,"pack":{"id":"p","name":"Cats","stickers":[
+              {"id":"a","fileName":"a.webp","mime":"image/webp","name":"gone"}
+            ]}}
+        """.trimIndent()
+        val out = ByteArrayOutputStream()
+        ZipOutputStream(out).use { zip ->
+            zip.putNextEntry(ZipEntry("pack.json"))
+            zip.write(manifest.toByteArray())
+            zip.closeEntry()
+        }
+
+        val target = store("target")
+        val result = StickerPackFile.import(
+            ByteArrayInputStream(out.toByteArray()),
+            target,
+            normalize = passthrough,
+        )
+
+        assertTrue(result.toString(), result is StickerImportResult.NoStickers)
+        assertTrue((result as StickerImportResult.NoStickers).repairs.single().contains("gone"))
+        // Nothing registered, and no orphan directory left behind.
+        assertTrue(target.isEmpty())
+        assertEquals(emptyList<String>(), File(temp.root, "target").list()!!.sorted())
+    }
+
+    @Test
+    fun `a manifest listing no stickers is refused`() {
+        val out = ByteArrayOutputStream()
+        ZipOutputStream(out).use { zip ->
+            zip.putNextEntry(ZipEntry("pack.json"))
+            zip.write("""{"format":"wmkeyboard-stickers","version":1,"pack":{"id":"p","name":"Empty"}}""".toByteArray())
+            zip.closeEntry()
+        }
+
+        val target = store("target")
+        val result = StickerPackFile.import(
+            ByteArrayInputStream(out.toByteArray()),
+            target,
+            normalize = passthrough,
+        )
+
+        assertTrue(result is StickerImportResult.NoStickers)
+        assertTrue(target.isEmpty())
+    }
+
     @Test
     fun `file name is sanitised`() {
         assertEquals(

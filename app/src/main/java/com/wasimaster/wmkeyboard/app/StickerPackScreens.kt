@@ -133,6 +133,12 @@ internal fun StickerPacksScreen(onNavigate: (String) -> Unit) {
                     }
                 }
                 StickerImportResult.NotAStickerPack -> "That file is not a WMKeyboard sticker pack."
+                is StickerImportResult.NoStickers -> buildString {
+                    append("No stickers could be read out of that pack.")
+                    for (line in result.repairs.take(MAX_SHOWN_REPAIRS)) append("\n• $line")
+                    val extra = result.repairs.size - MAX_SHOWN_REPAIRS
+                    if (extra > 0) append("\n• …and $extra more")
+                }
                 StickerImportResult.TooManyPacks ->
                     "You already have ${StickerPackStore.MAX_PACKS} packs. Delete one first."
                 StickerImportResult.Failed -> "That file could not be read."
@@ -504,6 +510,9 @@ internal fun StickerPackScreen(packId: String) {
 
 /** How many photos one trip through the picker may add. */
 private const val MAX_PICK = 30
+
+/** A pack that dropped every sticker has one reason per sticker; show a few. */
+private const val MAX_SHOWN_REPAIRS = 5
 
 private data class AddOutcome(
     val added: Int,

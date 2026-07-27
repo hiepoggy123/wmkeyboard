@@ -16,6 +16,16 @@ sealed interface StickerImportResult {
     /** No manifest, or a manifest for something else entirely. */
     data object NotAStickerPack : StickerImportResult
 
+    /**
+     * A valid manifest that yielded no usable stickers.
+     *
+     * Its own result rather than an `Imported` pack with an empty list: an empty
+     * pack installs successfully, appears in the list, and contains nothing,
+     * which reads as the app losing the images. [repairs] says what went wrong
+     * with each one.
+     */
+    data class NoStickers(val repairs: List<String>) : StickerImportResult
+
     /** [StickerPackStore.MAX_PACKS] reached. */
     data object TooManyPacks : StickerImportResult
 
@@ -31,6 +41,61 @@ private data class StickerEnvelope(
     val appVersionName: String = "",
     val pack: StickerPack,
 )
+
+/**
+ * The envelope as *read*, which is a looser thing than the envelope as written.
+ *
+ * A pack exported by the app round-trips through [StickerEnvelope] exactly. A
+ * pack written by hand — which the addon repository format explicitly invites —
+ * gets the shape wrong in three predictable ways, none of which is a reason to
+ * throw the images away:
+ *
+ * - `stickers[]` beside `pack` instead of inside it, because that reads more
+ *   naturally than nesting a list under a metadata object;
+ * - `file` instead of `fileName`, matching the key the ZIP calls it by;
+ * - a path (`stickers/happy.png`) instead of a bare name, because that is what
+ *   the entry is actually called in the archive.
+ *
+ * All three are accepted. Nothing here is used as a path — see [ReadSticker.source].
+ */
+@Serializable
+private data class ReadEnvelope(
+    val format: String = "",
+    val version: Int = 0,
+    val pack: ReadPack = ReadPack(),
+    val stickers: List<ReadSticker> = emptyList(),
+) {
+    /** The declared stickers, from wherever the author put them. */
+    val declared: List<ReadSticker> get() = pack.stickers.ifEmpty { stickers }
+}
+
+@Serializable
+private data class ReadPack(
+    val id: String = "",
+    val name: String = "",
+    val stickers: List<ReadSticker> = emptyList(),
+)
+
+@Serializable
+private data class ReadSticker(
+    val id: String = "",
+    val fileName: String = "",
+    /** What a hand-written manifest usually calls [fileName]. */
+    val file: String = "",
+    val mime: String = "",
+    val name: String = "",
+    val emojis: List<String> = emptyList(),
+    val addedAt: Long = 0L,
+) {
+    /**
+     * How this sticker names its image. A lookup key into the archive's entry
+     * names and nothing else — the file it is written to is always derived from
+     * a freshly minted sticker id — so a `/` in here is harmless.
+     */
+    val source: String get() = fileName.ifBlank { file }.trim()
+
+    fun label(): String = name.ifBlank { source }.ifBlank { id }
+}
 
 /**
  * A sticker pack as a shareable file: a ZIP holding a `pack.json` manifest and
@@ -152,54 +217,17 @@ object StickerPackFile {
         // directory with it.
         var unadopted: File? = null
         try {
-            val staged = HashMap<String, File>()
-            var manifest: String? = null
-            val read = runCatching {
-                ZipInputStream(input.buffered()).use { zip ->
-                    var count = 0
-                    var total = 0L
-                    while (true) {
-                        val entry = zip.nextEntry ?: break
-                        if (entry.isDirectory) continue
-                        if (++count > MAX_ENTRIES) break
-                        // The entry name is a lookup key, never a path.
-                        val name = entry.name
-                        if (name == MANIFEST) {
-                            manifest = zip.readBytes().decodeToString()
-                            continue
-                        }
-                        val target = File(staging, "e$count.bin")
-                        var written = 0L
-                        target.outputStream().buffered().use { sink ->
-                            val buffer = ByteArray(16 * 1024)
-                            while (true) {
-                                val n = zip.read(buffer)
-                                if (n <= 0) break
-                                written += n
-                                total += n
-                                if (written > StickerImage.MAX_SOURCE_BYTES || total > MAX_TOTAL_BYTES) break
-                                sink.write(buffer, 0, n)
-                            }
-                        }
-                        if (written > StickerImage.MAX_SOURCE_BYTES || total > MAX_TOTAL_BYTES) {
-                            target.delete()
-                            if (total > MAX_TOTAL_BYTES) break
-                        } else {
-                            staged[name] = target
-                        }
-                    }
-                }
-                true
-            }.getOrDefault(false)
-            if (!read && manifest == null) return StickerImportResult.Failed
+            val unpacked = unpack(input, staging)
+            if (!unpacked.read && unpacked.manifest == null) return StickerImportResult.Failed
+            val staged = unpacked.files
 
-            val envelope = manifest
-                ?.let { runCatching { json.decodeFromString<StickerEnvelope>(it) }.getOrNull() }
+            val envelope = unpacked.manifest
+                ?.let { runCatching { json.decodeFromString<ReadEnvelope>(it) }.getOrNull() }
                 ?: return StickerImportResult.NotAStickerPack
             if (envelope.format != FORMAT) return StickerImportResult.NotAStickerPack
 
             val repairs = ArrayList<String>()
-            val declared = envelope.pack.stickers
+            val declared = envelope.declared
             if (declared.size > StickerPackStore.MAX_STICKERS_PER_PACK) {
                 repairs += "Kept the first ${StickerPackStore.MAX_STICKERS_PER_PACK} stickers " +
                     "of ${declared.size}"
@@ -209,17 +237,17 @@ object StickerPackFile {
             unadopted = packDir
             val kept = ArrayList<CustomSticker>()
             for (declaredSticker in declared.take(StickerPackStore.MAX_STICKERS_PER_PACK)) {
-                val name = declaredSticker.fileName
-                if (name.isBlank() || name.contains('/') || name.contains('\\') || name.contains("..")) {
-                    repairs += "Dropped a sticker with an unusable file name"
+                val source = declaredSticker.source
+                if (source.isEmpty()) {
+                    repairs += "Dropped a sticker that doesn't name an image"
                     continue
                 }
-                val source = staged[STICKER_DIR + name] ?: staged[name]
-                if (source == null) {
+                val bytes = staged.lookUp(source)
+                if (bytes == null) {
                     repairs += "Dropped “${declaredSticker.label()}” — its image is missing"
                     continue
                 }
-                val processed = normalize(source.readBytes())
+                val processed = normalize(bytes.readBytes())
                 if (processed == null) {
                     repairs += "Dropped “${declaredSticker.label()}” — its image couldn't be read"
                     continue
@@ -232,13 +260,24 @@ object StickerPackFile {
                     repairs += "Dropped “${declaredSticker.label()}” — it couldn't be saved"
                     continue
                 }
-                kept += declaredSticker.copy(
+                kept += CustomSticker(
                     id = id,
                     fileName = fileName,
                     mime = processed.mime,
+                    name = declaredSticker.name.trim(),
+                    emojis = declaredSticker.emojis,
                     animated = processed.animated,
                     aspectRatio = processed.aspectRatio,
                     addedAt = if (declaredSticker.addedAt > 0) declaredSticker.addedAt else now,
+                )
+            }
+            // An empty pack is not a successful import. It installs, it appears
+            // in the list, and it holds nothing — which looks like the app threw
+            // the images away rather than like a manifest that didn't match its
+            // own archive. The repairs say which it was.
+            if (kept.isEmpty()) {
+                return StickerImportResult.NoStickers(
+                    repairs.ifEmpty { listOf("The manifest lists no stickers") },
                 )
             }
 
@@ -257,5 +296,93 @@ object StickerPackFile {
         }
     }
 
-    private fun CustomSticker.label(): String = name.ifBlank { fileName }
+    /** The archive spilled into a staging directory: entry name -> staged file. */
+    private class Unpacked(
+        val files: Map<String, File>,
+        val manifest: String?,
+        /** False when the archive read threw partway; a manifest may still have landed. */
+        val read: Boolean,
+    )
+
+    /**
+     * Spills every entry into [staging] under a name of our own choosing, and
+     * keeps the manifest as text.
+     *
+     * Nothing is written to a path derived from an entry name — the map's keys
+     * carry the names, and only for looking entries up afterwards.
+     */
+    private fun unpack(input: InputStream, staging: File): Unpacked {
+        val staged = HashMap<String, File>()
+        var manifest: String? = null
+        val read = runCatching {
+            ZipInputStream(input.buffered()).use { zip ->
+                var count = 0
+                var total = 0L
+                while (true) {
+                    val entry = zip.nextEntry ?: break
+                    if (entry.isDirectory) continue
+                    if (++count > MAX_ENTRIES) break
+                    val name = entry.name
+                    if (name == MANIFEST) {
+                        manifest = zip.readBytes().decodeToString()
+                        continue
+                    }
+                    val target = File(staging, "e$count.bin")
+                    val written = spill(zip, target, total)
+                    total += written
+                    if (written < 0 || written > StickerImage.MAX_SOURCE_BYTES) {
+                        target.delete()
+                        if (written < 0) break
+                    } else {
+                        staged[name] = target
+                    }
+                }
+            }
+            true
+        }.getOrDefault(false)
+        return Unpacked(staged, manifest, read)
+    }
+
+    /**
+     * Copies one entry into [target]. Returns the bytes written, or -1 once the
+     * archive as a whole has gone past [MAX_TOTAL_BYTES] — at which point there
+     * is no point reading the rest of it.
+     */
+    private fun spill(zip: ZipInputStream, target: File, soFar: Long): Long {
+        var written = 0L
+        var overran = false
+        target.outputStream().buffered().use { sink ->
+            val buffer = ByteArray(16 * 1024)
+            while (true) {
+                val n = zip.read(buffer)
+                if (n <= 0) break
+                written += n
+                if (soFar + written > MAX_TOTAL_BYTES) {
+                    overran = true
+                    break
+                }
+                if (written > StickerImage.MAX_SOURCE_BYTES) break
+                sink.write(buffer, 0, n)
+            }
+        }
+        return if (overran) -1 else written
+    }
+
+    /**
+     * Finds the archive entry a manifest entry names, trying what it said, that
+     * name under `stickers/`, and — last — its bare tail, so `stickers/a.png`,
+     * `a.png` and `images/a.png` all find `stickers/a.png`.
+     *
+     * Matching on the tail is safe because the value never becomes a path: the
+     * result is a staged file this importer wrote itself under a name it chose.
+     */
+    private fun Map<String, File>.lookUp(source: String): File? {
+        this[source]?.let { return it }
+        this[STICKER_DIR + source]?.let { return it }
+        val tail = source.substringAfterLast('/').substringAfterLast('\\')
+        if (tail.isEmpty() || tail == source) return null
+        return this[tail] ?: this[STICKER_DIR + tail] ?: entries
+            .firstOrNull { it.key.substringAfterLast('/') == tail }
+            ?.value
+    }
 }
