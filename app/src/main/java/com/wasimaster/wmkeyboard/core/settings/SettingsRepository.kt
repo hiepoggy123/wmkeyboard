@@ -377,10 +377,26 @@ enum class GifContentFilter { OFF, LOW, MEDIUM, HIGH }
 enum class GifSourceMode { TABS, MIX }
 
 /**
- * Key-press sound: which of the system's UI sound effects plays. All come
- * from the device's sound pack, so they match the stock keyboard's palette.
+ * Key-press sound. [CLICK] and [STANDARD] come from the device's own sound
+ * pack, so they match the stock keyboard's palette; [POP], [THOCK] and [CHIME]
+ * are synthesised in-app. [CUSTOM] plays a file from
+ * [com.wasimaster.wmkeyboard.core.feedback.SoundStore], named by
+ * [KeySoundSettings.customId].
  */
-enum class KeySoundStyle { CLICK, STANDARD, POP, THOCK, CHIME }
+enum class KeySoundStyle { CLICK, STANDARD, POP, THOCK, CHIME, CUSTOM }
+
+/**
+ * The installed key sound in use.
+ *
+ * A nested class holding one field looks like overkill, and would be, except
+ * that `KeyboardSettings` is at the JVM's 255-argument ceiling for the
+ * `copy$default` Kotlin generates for it — see the note on [CameraSettings].
+ * New settings go in a group; the DataStore key stays flat.
+ */
+data class KeySoundSettings(
+    /** [com.wasimaster.wmkeyboard.core.feedback.SoundStore] id, blank if none. */
+    val customId: String = "",
+)
 
 /**
  * Key-press haptic waveform.
@@ -776,6 +792,8 @@ data class KeyboardSettings(
     val keySoundStyle: KeySoundStyle = KeySoundStyle.CLICK,
     /** Sound-effect volume, 0..1 of the system media volume. */
     val keySoundVolume: Float = 0.5f,
+    /** Which installed sound [KeySoundStyle.CUSTOM] plays; see [KeySoundSettings]. */
+    val keySoundCustom: KeySoundSettings = KeySoundSettings(),
     /** Key-preview bubble settings; see [KeyPopupSettings]. */
     val popup: KeyPopupSettings = KeyPopupSettings(),
     // ---- accessibility ----
@@ -2026,6 +2044,7 @@ class SettingsRepository(private val context: Context) {
         private val COMPASS_SHOW_QIBLA = booleanPreferencesKey("compass_show_qibla")
         private val KEY_SOUND_STYLE = stringPreferencesKey("key_sound_style")
         private val KEY_SOUND_VOLUME = floatPreferencesKey("key_sound_volume")
+        private val KEY_SOUND_CUSTOM_ID = stringPreferencesKey("key_sound_custom_id")
         private val LEVEL_SHOW_ANGLES = booleanPreferencesKey("level_show_angles")
         private val REDO_USES_CTRL_Y = booleanPreferencesKey("redo_uses_ctrl_y")
         private val MOON_SOUTHERN = booleanPreferencesKey("moon_southern_hemisphere")
@@ -2311,6 +2330,9 @@ class SettingsRepository(private val context: Context) {
                 ?.let { runCatching { KeySoundStyle.valueOf(it) }.getOrNull() }
                 ?: defaults.keySoundStyle,
             keySoundVolume = p[KEY_SOUND_VOLUME] ?: defaults.keySoundVolume,
+            keySoundCustom = KeySoundSettings(
+                customId = p[KEY_SOUND_CUSTOM_ID] ?: defaults.keySoundCustom.customId,
+            ),
             popup = KeyPopupSettings(
                 enabled = p[KEY_POPUP] ?: defaults.popup.enabled,
                 minDurationMs = p[KEY_POPUP_MIN_DURATION] ?: defaults.popup.minDurationMs,
@@ -2816,6 +2838,17 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setKeySoundVolume(value: Float) =
         editPrefs { it[KEY_SOUND_VOLUME] = value.coerceIn(0.05f, 1f) }
+
+    /**
+     * Picks an installed sound and switches the style to
+     * [KeySoundStyle.CUSTOM] in one write — selecting a sound without also
+     * selecting the style would look like nothing happened.
+     */
+    suspend fun setKeySoundCustomId(value: String) =
+        editPrefs {
+            it[KEY_SOUND_CUSTOM_ID] = value
+            if (value.isNotBlank()) it[KEY_SOUND_STYLE] = KeySoundStyle.CUSTOM.name
+        }
 
     suspend fun setLevelShowAngles(value: Boolean) =
         editPrefs { it[LEVEL_SHOW_ANGLES] = value }

@@ -1,0 +1,308 @@
+package com.wasimaster.wmkeyboard.core.addons
+
+import com.wasimaster.wmkeyboard.core.directboot.DirectBoot
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
+import java.io.File
+
+/**
+ * A repository the user added, plus the last manifest we managed to fetch from
+ * it.
+ *
+ * The manifest is cached verbatim rather than as parsed objects so the Addons
+ * screen has something to show offline, and so a manifest written against a
+ * newer format survives a round-trip through an older build unchanged.
+ */
+@Serializable
+data class AddonRepoRef(
+    /** Exactly what the user pasted; shown back to them, never fetched. */
+    val url: String = "",
+    /** What [AddonRepoCodec.resolveManifestUrl] made of it; the fetch target. */
+    val manifestUrl: String = "",
+    val addedAt: Long = 0L,
+    val cachedManifest: String = "",
+    val fetchedAt: Long = 0L,
+    /**
+     * True for the repository the app ships pre-added. Tracked so removing it
+     * sticks: without this the seeding pass would helpfully add it back on the
+     * next launch, which reads as the app ignoring the user.
+     */
+    val seeded: Boolean = false,
+)
+
+/** What an install left behind, so uninstall can undo exactly that. */
+@Serializable
+data class InstalledAddon(
+    val version: String = "",
+    val type: AddonType = AddonType.Unknown,
+    /**
+     * The local handle the install produced — a custom theme or layout id, a
+     * pack id, a font or sound id, or a dictionary file path. Interpreted by
+     * type; see `AddonInstaller`.
+     */
+    val localRef: String = "",
+    val installedAt: Long = 0L,
+    /** Kept for the Installed list so it can be rendered without the manifest. */
+    val name: String = "",
+    val repoName: String = "",
+)
+
+/**
+ * Added repositories and installed addons, persisted under `filesDir/addons/`:
+ *
+ * ```
+ * addons/
+ * ├── repos.json       the user's repository list, with cached manifests
+ * └── installed.json   "<repoId>/<addonId>" -> what installing it created
+ * ```
+ *
+ * Same shape as [com.wasimaster.wmkeyboard.core.icons.IconPackStore] and for
+ * the same reasons: one store per process, every mutator writes immediately,
+ * and [revision] is how the UI notices.
+ *
+ * Files rather than DataStore, unlike `custom_themes` / `custom_layouts`. A
+ * cached manifest runs to several KB and `KeyboardSettings` is re-emitted to
+ * the IME on every settings change, so keeping manifests in preferences would
+ * push them through the keyboard's hot path on every keystroke-adjacent
+ * setting read, for no benefit — nothing in the addon layer is needed while
+ * typing.
+ */
+class AddonStore(private var baseDir: File?) {
+
+    @Serializable
+    private data class Snapshot(
+        val version: Int = FORMAT_VERSION,
+        val repos: List<AddonRepoRef> = emptyList(),
+    )
+
+    @Serializable
+    private data class InstalledSnapshot(
+        val version: Int = FORMAT_VERSION,
+        val installed: Map<String, InstalledAddon> = emptyMap(),
+    )
+
+    private val repoList = ArrayList<AddonRepoRef>()
+    private val installedMap = LinkedHashMap<String, InstalledAddon>()
+    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+
+    private val _revision = MutableStateFlow(0)
+
+    /** Bumped on every change, so Compose re-reads the store. */
+    val revision: StateFlow<Int> = _revision.asStateFlow()
+
+    init {
+        reload()
+    }
+
+    companion object {
+        @Volatile
+        private var shared: AddonStore? = null
+
+        /**
+         * The one store for this process. Created with no directory during
+         * direct boot and re-pointed by [attach] on unlock, exactly like the
+         * pack stores — before first unlock `filesDir` is not readable, and an
+         * addon list is not something the lock-screen keyboard needs.
+         */
+        fun get(context: android.content.Context): AddonStore =
+            shared ?: synchronized(this) {
+                shared ?: AddonStore(addonsDir(context)).also { shared = it }
+            }
+
+        /** Re-points the shared store after a direct-boot unlock. */
+        fun attach(context: android.content.Context) {
+            get(context).attach(addonsDir(context))
+        }
+
+        private fun addonsDir(context: android.content.Context): File? =
+            if (DirectBoot.isUserUnlocked(context)) {
+                File(context.applicationContext.filesDir, DIR_NAME)
+            } else {
+                null
+            }
+
+        private const val FORMAT_VERSION = 1
+
+        const val DIR_NAME = "addons"
+
+        /** Generous, but a list this long is a mistake rather than a use case. */
+        const val MAX_REPOS = 30
+
+        /** The repository the app ships pre-added, removable and sticky once removed. */
+        const val SEED_URL = "https://github.com/wasi-master/wmkeyboard-addon-repository"
+
+        private const val REPOS_FILE = "repos.json"
+        private const val INSTALLED_FILE = "installed.json"
+        private const val SEEDED_MARKER = ".seeded"
+    }
+
+    // ---- repositories --------------------------------------------------
+
+    @Synchronized
+    fun repos(): List<AddonRepoRef> = repoList.toList()
+
+    @Synchronized
+    fun repo(manifestUrl: String): AddonRepoRef? =
+        repoList.firstOrNull { it.manifestUrl == manifestUrl }
+
+    /**
+     * Adds a repository, or returns null when the URL doesn't resolve or the
+     * list is full. Adding one that is already present is not an error — it
+     * returns the existing entry, so pasting the same link twice, or following
+     * a deep link to a repository already added, both just work.
+     */
+    @Synchronized
+    fun addRepo(
+        pastedUrl: String,
+        now: Long = System.currentTimeMillis(),
+        seeded: Boolean = false,
+    ): AddonRepoRef? {
+        val manifestUrl = AddonRepoCodec.resolveManifestUrl(pastedUrl) ?: return null
+        repoList.firstOrNull { it.manifestUrl == manifestUrl }?.let { return it }
+        if (repoList.size >= MAX_REPOS) return null
+        val ref = AddonRepoRef(
+            url = pastedUrl.trim(),
+            manifestUrl = manifestUrl,
+            addedAt = now,
+            seeded = seeded,
+        )
+        repoList.add(ref)
+        save()
+        return ref
+    }
+
+    /** Stores a freshly fetched manifest against its repository. */
+    @Synchronized
+    fun cacheManifest(manifestUrl: String, text: String, now: Long = System.currentTimeMillis()) {
+        val index = repoList.indexOfFirst { it.manifestUrl == manifestUrl }
+        if (index < 0) return
+        repoList[index] = repoList[index].copy(cachedManifest = text, fetchedAt = now)
+        save()
+    }
+
+    @Synchronized
+    fun removeRepo(manifestUrl: String) {
+        val removed = repoList.firstOrNull { it.manifestUrl == manifestUrl } ?: return
+        repoList.remove(removed)
+        // Installs survive their repository being removed: the theme is still
+        // the user's theme. Only the update check goes away.
+        save()
+    }
+
+    /**
+     * Adds the bundled sample repository the first time this runs, so the
+     * Addons screen has something in it before the user has found a repository
+     * to paste. Recorded with a marker file rather than by checking whether the
+     * repository is present, so removing it is permanent.
+     */
+    @Synchronized
+    fun seedIfNeeded(now: Long = System.currentTimeMillis()) {
+        val dir = baseDir ?: return
+        val marker = File(dir, SEEDED_MARKER)
+        if (marker.exists()) return
+        runCatching {
+            dir.mkdirs()
+            marker.writeText(now.toString())
+        }
+        addRepo(SEED_URL, now = now, seeded = true)
+    }
+
+    // ---- installed addons ----------------------------------------------
+
+    @Synchronized
+    fun installed(): Map<String, InstalledAddon> = LinkedHashMap(installedMap)
+
+    @Synchronized
+    fun installed(key: String): InstalledAddon? = installedMap[key]
+
+    @Synchronized
+    fun markInstalled(key: String, record: InstalledAddon) {
+        installedMap[key] = record
+        save()
+    }
+
+    @Synchronized
+    fun markUninstalled(key: String) {
+        if (installedMap.remove(key) != null) save()
+    }
+
+    /**
+     * Drops records whose local target no longer exists — the user deleted the
+     * theme from the Themes screen, or the font from the font picker, without
+     * going through Addons. Without this the addon would keep reporting itself
+     * as installed and offer an Update for something that isn't there.
+     *
+     * [stillPresent] answers "does this local ref still exist?" per type; it is
+     * passed in because the store has no business knowing about themes.
+     */
+    @Synchronized
+    fun reconcileInstalled(stillPresent: (InstalledAddon) -> Boolean) {
+        val gone = installedMap.filterValues { !stillPresent(it) }.keys
+        if (gone.isEmpty()) return
+        gone.forEach { installedMap.remove(it) }
+        save()
+    }
+
+    // ---- persistence ---------------------------------------------------
+
+    @Synchronized
+    fun save() {
+        val dir = baseDir
+        if (dir != null) {
+            writeAtomically(File(dir, REPOS_FILE), json.encodeToString(Snapshot(repos = repoList.toList())))
+            writeAtomically(
+                File(dir, INSTALLED_FILE),
+                json.encodeToString(InstalledSnapshot(installed = LinkedHashMap(installedMap))),
+            )
+        }
+        _revision.value++
+    }
+
+    private fun writeAtomically(file: File, text: String) {
+        runCatching {
+            file.parentFile?.mkdirs()
+            val part = File(file.parentFile, file.name + ".part")
+            part.writeText(text)
+            if (!part.renameTo(file)) {
+                file.delete()
+                part.renameTo(file)
+            }
+        }
+    }
+
+    /** Points the store at [dir] and re-reads it. The direct-boot unlock path. */
+    @Synchronized
+    fun attach(dir: File?) {
+        if (dir?.absolutePath == baseDir?.absolutePath) return
+        baseDir = dir
+        reload()
+    }
+
+    @Synchronized
+    fun reload() {
+        repoList.clear()
+        installedMap.clear()
+        val dir = baseDir ?: run { _revision.value++; return }
+
+        val reposFile = File(dir, REPOS_FILE)
+        if (reposFile.exists()) {
+            runCatching {
+                val snapshot = json.decodeFromString<Snapshot>(reposFile.readText())
+                repoList.addAll(snapshot.repos.take(MAX_REPOS))
+            }
+        }
+
+        val installedFile = File(dir, INSTALLED_FILE)
+        if (installedFile.exists()) {
+            runCatching {
+                val snapshot = json.decodeFromString<InstalledSnapshot>(installedFile.readText())
+                installedMap.putAll(snapshot.installed)
+            }
+        }
+
+        _revision.value++
+    }
+}

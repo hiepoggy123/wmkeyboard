@@ -7,6 +7,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.googlefonts.GoogleFont
 import androidx.compose.ui.text.googlefonts.Font as DownloadableFont
 import com.wasimaster.wmkeyboard.R
+import com.wasimaster.wmkeyboard.core.fonts.FontStore
 import com.wasimaster.wmkeyboard.core.script.ScriptId
 import com.wasimaster.wmkeyboard.core.settings.EmojiFontChoice
 import java.io.File
@@ -247,7 +248,19 @@ object KeyboardFonts {
     fun displayName(id: String, customName: String = ""): String = when {
         id == CUSTOM_ID || id == CUSTOM_BENGALI_ID -> customName.ifBlank { "Custom font" }
         id.startsWith(GOOGLE_PREFIX) -> id.removePrefix(GOOGLE_PREFIX)
+        // Without a Context the store can't be asked for the real name; the
+        // context-aware overload below is what the settings screens use.
+        FontStore.storeIdOf(id) != null -> "Installed font"
         else -> "System default"
+    }
+
+    /**
+     * [displayName] with the installed-font library available, so a font from
+     * the library reads as its own name rather than a generic label.
+     */
+    fun displayName(context: Context, id: String, customName: String = ""): String {
+        val storeId = FontStore.storeIdOf(id) ?: return displayName(id, customName)
+        return FontStore.get(context).font(storeId)?.name ?: "Installed font"
     }
 
     fun customFontFile(context: Context): File =
@@ -274,7 +287,16 @@ object KeyboardFonts {
         id == CUSTOM_ID -> fileFamily(customFontFile(context))
         id == CUSTOM_BENGALI_ID -> fileFamily(customBengaliFontFile(context))
         id.startsWith(GOOGLE_PREFIX) -> googleFamily(id.removePrefix(GOOGLE_PREFIX))
-        else -> null
+        // A font installed into the library, from a repository or the user's
+        // own file. Null when it has since been deleted, which falls back to
+        // the system face rather than leaving keys blank.
+        else -> installedFontFile(context, id)?.let { fileFamily(it) }
+    }
+
+    /** The file behind an `installed:<id>` font id, if it is still there. */
+    private fun installedFontFile(context: Context, id: String): File? {
+        val storeId = FontStore.storeIdOf(id) ?: return null
+        return FontStore.get(context).existingFileFor(storeId)
     }
 
     /** The family emojis render with, or null for the system emoji font. */

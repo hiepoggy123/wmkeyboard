@@ -33,6 +33,9 @@ import com.wasimaster.wmkeyboard.core.settings.ConfigBackup
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.SettingsBackup
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
+import com.wasimaster.wmkeyboard.core.snippets.ImportedSnippets
+import com.wasimaster.wmkeyboard.core.snippets.SnippetFile
+import com.wasimaster.wmkeyboard.core.snippets.SnippetStore
 import com.wasimaster.wmkeyboard.core.stickers.StickerImportResult
 import com.wasimaster.wmkeyboard.core.stickers.StickerPackFile
 import com.wasimaster.wmkeyboard.core.stickers.StickerPackStore
@@ -76,6 +79,7 @@ object WMFileTypes {
         ConfigBackup.FILE_EXTENSION,
         StickerPackFile.FILE_EXTENSION,
         IconPackFile.FILE_EXTENSION,
+        SnippetFile.FILE_EXTENSION,
     )
 
     /** First four bytes of every ZIP local file header. */
@@ -86,6 +90,7 @@ object WMFileTypes {
         data class Theme(val theme: ThemeSpec) : Opened
         data class Layout(val layout: ImportedLayout) : Opened
         data class Config(val text: String, val parsed: ConfigBackup.Parsed) : Opened
+        data class Snippets(val snippets: ImportedSnippets) : Opened
 
         /** The older standalone `wmsettings.json`. */
         data class Settings(val text: String, val parsed: SettingsBackup.Parsed) : Opened
@@ -132,6 +137,7 @@ object WMFileTypes {
         ConfigBackup.decode(text)?.let { return Opened.Config(text, it) }
         SettingsBackup.decode(text)?.let { return Opened.Settings(text, it) }
         LayoutFile.decode(text)?.let { return Opened.Layout(it) }
+        SnippetFile.decode(text)?.let { return Opened.Snippets(it) }
         // A theme has no tag and every field has a default, so decoding any JSON
         // object at all succeeds and yields an all-defaults theme. The file name
         // is the only evidence there is that this one was meant to be a theme.
@@ -423,6 +429,29 @@ private fun rememberProposal(
             },
         )
 
+        is WMFileTypes.Opened.Snippets -> ImportProposal(
+            title = "Import ${state.snippets.snippets.size} snippets?",
+            body = "They are added alongside the snippets you already have — nothing " +
+                "is replaced.",
+            repairs = state.snippets.repairs,
+            apply = {
+                val store = withContext(Dispatchers.IO) {
+                    SnippetStore(File(context.filesDir, "snippets/snippets.json"))
+                }
+                // Ids in the file are ignored; add() assigns fresh ones, so
+                // importing the same pack twice gives two independent sets
+                // rather than silently overwriting the first.
+                withContext(Dispatchers.IO) {
+                    for (snippet in state.snippets.snippets) {
+                        store.add(snippet.label, snippet.text, snippet.trigger)
+                    }
+                    // add() is in-memory only; save() is what writes the file.
+                    store.save()
+                }
+                "Imported ${state.snippets.snippets.size} snippets."
+            },
+        )
+
         WMFileTypes.Opened.Stickers -> ImportProposal(
             title = "Import sticker pack?",
             body = "The pack is added to your own stickers, and its images are copied " +
@@ -471,8 +500,8 @@ private fun rememberProposal(
 
         WMFileTypes.Opened.Unrecognized -> ImportProposal(
             title = "Not a WM Keyboard file",
-            body = "That file doesn't hold a theme, layout, sticker pack, icon pack " +
-                "or backup this keyboard can read.",
+            body = "That file doesn't hold a theme, layout, snippet pack, sticker pack, " +
+                "icon pack or backup this keyboard can read.",
             apply = null,
         )
 

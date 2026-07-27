@@ -248,7 +248,15 @@ import kotlinx.coroutines.CoroutineScope
 import com.wasimaster.wmkeyboard.core.prediction.CustomDictionaries
 import com.wasimaster.wmkeyboard.core.prediction.DictionaryLoader
 import com.wasimaster.wmkeyboard.core.prediction.UserLexicon
+import com.wasimaster.wmkeyboard.core.feedback.SoundFile
+import com.wasimaster.wmkeyboard.core.feedback.SoundImportResult
+import com.wasimaster.wmkeyboard.core.feedback.SoundStore
+import com.wasimaster.wmkeyboard.core.fonts.FontFile
+import com.wasimaster.wmkeyboard.core.fonts.FontImportResult
+import com.wasimaster.wmkeyboard.core.fonts.FontStore
+import com.wasimaster.wmkeyboard.core.fonts.InstalledFont
 import com.wasimaster.wmkeyboard.core.snippets.Snippet
+import com.wasimaster.wmkeyboard.core.snippets.SnippetFile
 import com.wasimaster.wmkeyboard.core.snippets.SnippetStore
 import com.wasimaster.wmkeyboard.core.snippets.SnippetVariable
 import kotlinx.coroutines.delay
@@ -2336,13 +2344,18 @@ private fun KeySoundGroup(
                         "they match the stock keyboard: Click is the classic key tick, " +
                         "Standard the softer AOSP key press. Pop, Thock and Chime are " +
                         "WMKeyboard's own sounds — a soft bubble pop, a deep mechanical " +
-                        "bottom-out, and a small bell — identical on every device.",
+                        "bottom-out, and a small bell — identical on every device. " +
+                        "Install more from Addons, or import your own MP3 below.",
                 )
             }
+            // CUSTOM is deliberately not a segment: it names a file rather than
+            // a fixed style, so it lives in the list below where the sound can
+            // actually be chosen.
+            val builtIn = KeySoundStyle.entries.filter { it != KeySoundStyle.CUSTOM }
             SingleChoiceSegmentedButtonRow(modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 8.dp)) {
-                KeySoundStyle.entries.forEachIndexed { index, style ->
+                builtIn.forEachIndexed { index, style ->
                     SegmentedButton(
                         selected = settings.keySoundStyle == style,
                         onClick = {
@@ -2351,7 +2364,7 @@ private fun KeySoundGroup(
                             // hears the choice immediately.
                             KeySoundPlayer.preview(context, style, settings.keySoundVolume)
                         },
-                        shape = SegmentedButtonDefaults.itemShape(index, KeySoundStyle.entries.size),
+                        shape = SegmentedButtonDefaults.itemShape(index, builtIn.size),
                     ) {
                         Text(
                             when (style) {
@@ -2360,6 +2373,7 @@ private fun KeySoundGroup(
                                 KeySoundStyle.POP -> "Pop"
                                 KeySoundStyle.THOCK -> "Thock"
                                 KeySoundStyle.CHIME -> "Chime"
+                                KeySoundStyle.CUSTOM -> "Custom"
                             },
                             maxLines = 1,
                         )
@@ -2367,6 +2381,7 @@ private fun KeySoundGroup(
                 }
             }
         }
+        item { InstalledSoundSection(repository, settings) }
         item {
             SliderSetting(
                 "Sound volume",
@@ -2381,6 +2396,110 @@ private fun KeySoundGroup(
             }
         }
         trailing?.invoke(this)
+    }
+}
+
+/**
+ * The installed key sounds — whatever came from an addon repository, plus
+ * anything imported here — and the import button.
+ *
+ * Picking one also switches the style to [KeySoundStyle.CUSTOM]; choosing a
+ * sound and then finding the keyboard still clicking would be baffling.
+ */
+@Composable
+private fun InstalledSoundSection(repository: SettingsRepository, settings: KeyboardSettings) {
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val store = remember { SoundStore.get(context) }
+    val revision by store.revision.collectAsStateWithLifecycle()
+    val sounds = remember(revision) { store.sounds() }
+    var message by remember { mutableStateOf<String?>(null) }
+
+    val importLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            val result = withContext(Dispatchers.IO) {
+                runCatching {
+                    context.contentResolver.requireInputStream(uri).use {
+                        SoundFile.import(it, store, name = fontFileLabel(context, uri))
+                    }
+                }.getOrElse { SoundImportResult.Failed(it.message ?: "Couldn't read that file") }
+            }
+            when (result) {
+                is SoundImportResult.Imported -> {
+                    repository.setKeySoundCustomId(result.sound.id)
+                    KeySoundPlayer.preview(
+                        context, KeySoundStyle.CUSTOM, settings.keySoundVolume, result.sound.id,
+                    )
+                }
+                is SoundImportResult.NotASound -> message = result.message
+                SoundImportResult.TooManySounds ->
+                    message = "You already have ${SoundStore.MAX_SOUNDS} sounds. Remove one first."
+                is SoundImportResult.Failed -> message = result.message
+            }
+        }
+    }
+
+    message?.let { text ->
+        AlertDialog(
+            onDismissRequest = { message = null },
+            text = { Text(text) },
+            confirmButton = { TextButton(onClick = { message = null }) { Text("OK") } },
+        )
+    }
+
+    Column(modifier = Modifier.padding(vertical = 4.dp)) {
+        if (sounds.isEmpty()) {
+            CaptionText(
+                "No installed sounds yet. Install some from Addons, or import an " +
+                    "MP3 of your own.",
+            )
+        }
+        for (sound in sounds) {
+            val selected = settings.keySoundStyle == KeySoundStyle.CUSTOM &&
+                settings.keySoundCustom.customId == sound.id
+            ListItem(
+                headlineContent = { Text(sound.name) },
+                supportingContent = sound.author.takeIf { it.isNotBlank() }?.let { { Text(it) } },
+                trailingContent = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (selected) {
+                            Icon(
+                                Icons.Outlined.Check,
+                                contentDescription = "Selected",
+                                tint = MaterialTheme.colorScheme.primary,
+                            )
+                        }
+                        IconButton(onClick = {
+                            scope.launch {
+                                if (selected) repository.setKeySoundStyle(KeySoundStyle.CLICK)
+                                withContext(Dispatchers.IO) { store.delete(sound.id) }
+                                // The pool keeps its decoded copy independently
+                                // of the file, so it has to be told too.
+                                KeySoundPlayer.forgetCustom(sound.id)
+                            }
+                        }) {
+                            Icon(Icons.Outlined.Delete, contentDescription = "Remove ${sound.name}")
+                        }
+                    }
+                },
+                colors = transparentListColors(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        scope.launch { repository.setKeySoundCustomId(sound.id) }
+                        KeySoundPlayer.preview(
+                            context, KeySoundStyle.CUSTOM, settings.keySoundVolume, sound.id,
+                        )
+                    },
+            )
+        }
+        OutlinedButton(
+            onClick = { importLauncher.launch(SoundFile.IMPORT_MIME_TYPES) },
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+        ) { Text("Import sound file (.mp3)") }
     }
 }
 
@@ -4552,14 +4671,63 @@ private val FONT_MIME_TYPES = arrayOf(
 
 /**
  * Font picker: separate English and Bengali choices, each offering the
- * system default, curated Google Fonts (every row rendered in its own face
- * as a live preview — faces download on first view and are cached by the
- * system provider), plus an imported custom font file per script.
+ * system default, the installed-font library, curated Google Fonts (every row
+ * rendered in its own face as a live preview — faces download on first view and
+ * are cached by the system provider), plus the legacy single imported file per
+ * script.
+ *
+ * Importing a file here fills the library rather than overwriting one fixed
+ * slot, so importing a second font no longer evicts the first. The two old
+ * single-slot files still render and stay selectable for anyone who set one
+ * before the library existed; nothing migrates and nothing is lost.
  */
 @Composable
 private fun FontSettings(repository: SettingsRepository, settings: KeyboardSettings) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    val fontStore = remember { FontStore.get(context) }
+    val fontRevision by fontStore.revision.collectAsStateWithLifecycle()
+    val installedFonts = remember(fontRevision) { fontStore.fonts() }
+    var fontMessage by remember { mutableStateOf<String?>(null) }
+
+    fun importIntoLibrary(uri: android.net.Uri, apply: suspend (String) -> Unit) {
+        scope.launch {
+            val result = withContext(Dispatchers.IO) {
+                runCatching {
+                    context.contentResolver.requireInputStream(uri).use {
+                        FontFile.import(it, fontStore, name = fontFileLabel(context, uri))
+                    }
+                }.getOrElse { FontImportResult.Failed(it.message ?: "Couldn't read that file") }
+            }
+            when (result) {
+                is FontImportResult.Imported -> apply(FontStore.fontIdFor(result.font.id))
+                is FontImportResult.NotAFont -> fontMessage = result.message
+                FontImportResult.TooManyFonts ->
+                    fontMessage = "You already have ${FontStore.MAX_FONTS} fonts. Remove one first."
+                is FontImportResult.Failed -> fontMessage = result.message
+            }
+        }
+    }
+
+    fun deleteInstalled(font: InstalledFont) {
+        scope.launch {
+            val id = FontStore.fontIdFor(font.id)
+            // Drop the selection first, so the keyboard never renders against a
+            // file that is about to disappear.
+            if (settings.keyFontId == id) repository.setKeyFontId(KeyboardFonts.DEFAULT_ID)
+            if (settings.bengaliFontId == id) repository.setBengaliFontId(KeyboardFonts.DEFAULT_ID)
+            withContext(Dispatchers.IO) { fontStore.delete(font.id) }
+        }
+    }
+
+    fontMessage?.let { text ->
+        AlertDialog(
+            onDismissRequest = { fontMessage = null },
+            text = { Text(text) },
+            confirmButton = { TextButton(onClick = { fontMessage = null }) { Text("OK") } },
+        )
+    }
+
     Text(
         "Applies to key labels, suggestions and the keyboard's panels. The " +
             "English font is used in English mode, the Bengali font in Avro, " +
@@ -4578,14 +4746,9 @@ private fun FontSettings(repository: SettingsRepository, settings: KeyboardSetti
         customFile = KeyboardFonts.customFontFile(context),
         customName = settings.customFontName,
         onSelect = { id -> scope.launch { repository.setKeyFontId(id) } },
-        onImport = { uri ->
-            scope.launch {
-                val name = withContext(Dispatchers.IO) {
-                    importFontFile(context, uri, KeyboardFonts.customFontFile(context))
-                }
-                if (name != null) repository.setCustomFont(name)
-            }
-        },
+        onImport = { uri -> importIntoLibrary(uri) { repository.setKeyFontId(it) } },
+        installedFonts = installedFonts,
+        onDeleteInstalled = ::deleteInstalled,
     )
     // The Bengali font picker is the one script-specific face the user chooses by
     // hand; every other non-Latin script uses its Noto face automatically. Only
@@ -4600,14 +4763,9 @@ private fun FontSettings(repository: SettingsRepository, settings: KeyboardSetti
             customFile = KeyboardFonts.customBengaliFontFile(context),
             customName = settings.customBengaliFontName,
             onSelect = { id -> scope.launch { repository.setBengaliFontId(id) } },
-            onImport = { uri ->
-                scope.launch {
-                    val name = withContext(Dispatchers.IO) {
-                        importFontFile(context, uri, KeyboardFonts.customBengaliFontFile(context))
-                    }
-                    if (name != null) repository.setCustomBengaliFont(name)
-                }
-            },
+            onImport = { uri -> importIntoLibrary(uri) { repository.setBengaliFontId(it) } },
+            installedFonts = installedFonts,
+            onDeleteInstalled = ::deleteInstalled,
         )
     }
     // Curated font pickers for the other non-Latin scripts, each shown only while
@@ -4630,11 +4788,17 @@ private fun FontSettings(repository: SettingsRepository, settings: KeyboardSetti
 }
 
 /**
- * One script's font list: the default row, curated Google faces, and — for the
- * scripts that support it (English/Bengali) — the imported file and an import
- * button. Scripts that only offer curated faces pass [customFile] null; their
- * default row is relabelled via [defaultLabel] since it is the script's automatic
- * Noto face rather than the raw system font.
+ * One script's font list: the default row, any fonts installed into the
+ * library, curated Google faces, and — for the scripts that support it
+ * (English/Bengali) — the single imported file and an import button. Scripts
+ * that only offer curated faces pass [customFile] null; their default row is
+ * relabelled via [defaultLabel] since it is the script's automatic Noto face
+ * rather than the raw system font.
+ *
+ * [installedFonts] is the library filled by the Addons screen and by importing
+ * a file here. It sits above the Google faces because a font the user went and
+ * installed is more likely to be the one they want than the twentieth entry in
+ * a curated list.
  */
 @Composable
 private fun FontPickerSection(
@@ -4648,6 +4812,8 @@ private fun FontPickerSection(
     customFile: java.io.File? = null,
     customName: String = "",
     onImport: ((android.net.Uri) -> Unit)? = null,
+    installedFonts: List<InstalledFont> = emptyList(),
+    onDeleteInstalled: ((InstalledFont) -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val importFont = rememberLauncherForActivityResult(
@@ -4661,6 +4827,18 @@ private fun FontPickerSection(
                 sample = sample,
                 selected = selectedId == KeyboardFonts.DEFAULT_ID,
             ) { onSelect(KeyboardFonts.DEFAULT_ID) }
+        }
+        for (font in installedFonts) {
+            item {
+                val id = FontStore.fontIdFor(font.id)
+                FontChoiceRow(
+                    label = font.name,
+                    family = remember(id) { KeyboardFonts.family(context, id) },
+                    sample = sample,
+                    selected = selectedId == id,
+                    onDelete = onDeleteInstalled?.let { delete -> { delete(font) } },
+                ) { onSelect(id) }
+            }
         }
         for (name in googleNames) {
             item {
@@ -4701,6 +4879,7 @@ private fun FontChoiceRow(
     family: FontFamily?,
     sample: String,
     selected: Boolean,
+    onDelete: (() -> Unit)? = null,
     onClick: () -> Unit,
 ) {
     ListItem(
@@ -4712,13 +4891,22 @@ private fun FontChoiceRow(
                 maxLines = 1,
             )
         },
-        trailingContent = if (selected) {
+        trailingContent = if (selected || onDelete != null) {
             {
-                Icon(
-                    Icons.Outlined.Check,
-                    contentDescription = "Selected",
-                    tint = MaterialTheme.colorScheme.primary,
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (selected) {
+                        Icon(
+                            Icons.Outlined.Check,
+                            contentDescription = "Selected",
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                    if (onDelete != null) {
+                        IconButton(onClick = onDelete) {
+                            Icon(Icons.Outlined.Delete, contentDescription = "Remove $label")
+                        }
+                    }
+                }
             }
         } else {
             null
@@ -4735,6 +4923,21 @@ private fun FontChoiceRow(
  * or null when the stream can't be read or the platform can't parse the
  * file (the bad copy is deleted so it never sticks as the "custom font").
  */
+/**
+ * A human-readable name for a picked font file: the provider's display name
+ * with the extension stripped, since "Inter-Regular" reads better in the picker
+ * than "Inter-Regular.ttf".
+ */
+private fun fontFileLabel(context: Context, uri: android.net.Uri): String {
+    val name = runCatching {
+        context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+            val index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+            if (index >= 0 && cursor.moveToFirst()) cursor.getString(index) else null
+        }
+    }.getOrNull() ?: uri.lastPathSegment
+    return name?.substringBeforeLast('.')?.trim().orEmpty().ifBlank { "Imported font" }
+}
+
 private fun importFontFile(context: Context, uri: android.net.Uri, dest: java.io.File): String? {
     return runCatching {
         dest.parentFile?.mkdirs()
@@ -7291,6 +7494,7 @@ private fun SnippetSettings() {
     var snippets by remember { mutableStateOf<List<Snippet>>(emptyList()) }
     var editing by remember { mutableStateOf<Snippet?>(null) }
     var showAdd by remember { mutableStateOf(false) }
+    var message by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(Unit) {
         val s = withContext(Dispatchers.IO) { SnippetStore(file) }
@@ -7307,6 +7511,73 @@ private fun SnippetSettings() {
             }
             snippets = s.items()
         }
+    }
+
+    val exportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument(SnippetFile.MIME_TYPE),
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        val current = snippets
+        scope.launch {
+            val ok = withContext(Dispatchers.IO) {
+                runCatching {
+                    context.contentResolver.openOutputStream(uri)?.use { out ->
+                        out.write(
+                            SnippetFile.encode(
+                                current,
+                                appVersion = BuildConfig.VERSION_CODE,
+                                appVersionName = BuildConfig.VERSION_NAME,
+                            ).toByteArray(),
+                        )
+                    } ?: error("no stream")
+                }.isSuccess
+            }
+            message = if (ok) "Saved ${current.size} snippets." else "Could not write that file."
+        }
+    }
+
+    val importLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        val s = store ?: return@rememberLauncherForActivityResult
+        scope.launch {
+            val imported = withContext(Dispatchers.IO) {
+                runCatching {
+                    context.contentResolver.requireInputStream(uri)
+                        .use { SnippetFile.decode(it.readBytes().decodeToString()) }
+                }.getOrNull()
+            }
+            message = if (imported == null) {
+                "That file is not a WMKeyboard snippet pack."
+            } else {
+                // Added alongside what's already there, with fresh ids — an
+                // import should never quietly replace snippets someone wrote.
+                withContext(Dispatchers.IO) {
+                    for (snippet in imported.snippets) {
+                        s.add(snippet.label, snippet.text, snippet.trigger)
+                    }
+                    // add() is in-memory only; save() is what writes the file.
+                    s.save()
+                }
+                snippets = s.items()
+                buildString {
+                    append("Imported ${imported.snippets.size} snippets.")
+                    if (imported.repairs.isNotEmpty()) {
+                        append("\n\nChanged on the way in:")
+                        for (line in imported.repairs) append("\n• $line")
+                    }
+                }
+            }
+        }
+    }
+
+    message?.let { text ->
+        AlertDialog(
+            onDismissRequest = { message = null },
+            text = { Text(text) },
+            confirmButton = { TextButton(onClick = { message = null }) { Text("OK") } },
+        )
     }
 
     Text(
@@ -7342,10 +7613,20 @@ private fun SnippetSettings() {
         }
     }
     Spacer(Modifier.height(12.dp))
-    Button(
-        onClick = { showAdd = true },
+    Row(
         modifier = Modifier.padding(horizontal = 16.dp),
-    ) { Text("Add snippet") }
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Button(onClick = { showAdd = true }) { Text("Add snippet") }
+        OutlinedButton(
+            onClick = { importLauncher.launch(SnippetFile.IMPORT_MIME_TYPES) },
+        ) { Text("Import") }
+        OutlinedButton(
+            onClick = { exportLauncher.launch(SnippetFile.fileName()) },
+            enabled = snippets.isNotEmpty(),
+        ) { Text("Export") }
+    }
     Spacer(Modifier.height(12.dp))
     SettingsGroup {
         for (snippet in snippets) {

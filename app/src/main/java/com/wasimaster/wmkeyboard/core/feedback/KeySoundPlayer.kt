@@ -17,9 +17,10 @@ import kotlin.math.sin
  * sound-effect pack, matching the stock keyboard. Pop, Thock and Chime are
  * synthesized in-app and played through a [SoundPool]: many devices map the
  * spacebar, delete and return system effects to the same audio file, which
- * made the three styles indistinguishable. Lives outside the IME service so
- * the settings app and the sound & haptics tool can preview the sound being
- * adjusted.
+ * made the three styles indistinguishable. Custom is a file the user installed,
+ * from an addon repository or their own storage, played through the same pool.
+ * Lives outside the IME service so the settings app and the sound & haptics
+ * tool can preview the sound being adjusted.
  */
 object KeySoundPlayer {
 
@@ -37,6 +38,14 @@ object KeySoundPlayer {
     private val soundIds = mutableMapOf<KeySoundStyle, Int>()
     private val loadedIds = mutableSetOf<Int>()
 
+    /**
+     * Installed sounds, loaded on demand rather than up front — there can be
+     * thirty of them and only the selected one is ever played. Keyed by store
+     * id *and* modification time, so replacing a sound under the same id is
+     * picked up instead of replaying the stale sample.
+     */
+    private val customIds = mutableMapOf<String, Int>()
+
     /** Builds the pool and starts decoding so the first key press isn't late. */
     fun warmUp(context: Context) {
         ensurePool(context)
@@ -46,18 +55,33 @@ object KeySoundPlayer {
      * Rate-limited [play] for settings UIs: sounds the values being edited
      * (not yet necessarily persisted), at most once per [PREVIEW_GAP_MS].
      */
-    fun preview(context: Context, style: KeySoundStyle, volume: Float) {
+    fun preview(context: Context, style: KeySoundStyle, volume: Float, customId: String = "") {
         val now = SystemClock.uptimeMillis()
         if (now - lastPreviewAt < PREVIEW_GAP_MS) return
         lastPreviewAt = now
-        play(context, style, volume)
+        play(context, style, volume, customId)
     }
 
-    fun play(context: Context, style: KeySoundStyle, volume: Float) {
+    /**
+     * [customId] is the [SoundStore] id to play when [style] is
+     * [KeySoundStyle.CUSTOM], and ignored otherwise. A custom sound that has
+     * been deleted, or is still decoding, falls back to a system effect rather
+     * than to silence — a keystroke that makes no sound reads as a missed
+     * keystroke.
+     */
+    fun play(context: Context, style: KeySoundStyle, volume: Float, customId: String = "") {
         val vol = volume.coerceIn(0.05f, 1f)
         when (style) {
             KeySoundStyle.CLICK -> systemFx(context, AudioManager.FX_KEY_CLICK, vol)
             KeySoundStyle.STANDARD -> systemFx(context, AudioManager.FX_KEYPRESS_STANDARD, vol)
+            KeySoundStyle.CUSTOM -> {
+                val id = synchronized(this) { customSampleId(context, customId) }
+                if (id != null) {
+                    pool?.play(id, vol, vol, 1, 0, 1f)
+                } else {
+                    systemFx(context, AudioManager.FX_KEY_CLICK, vol)
+                }
+            }
             else -> {
                 val id = synchronized(this) {
                     ensurePool(context)
@@ -70,6 +94,36 @@ object KeySoundPlayer {
                     // back to the nearest system effect rather than silence.
                     systemFx(context, AudioManager.FX_KEYPRESS_STANDARD, vol)
                 }
+            }
+        }
+    }
+
+    /**
+     * The pool's sample id for an installed sound, loading it on first use.
+     * Null while it is still decoding, and on the press that triggers the load.
+     */
+    private fun customSampleId(context: Context, soundId: String): Int? {
+        if (soundId.isBlank()) return null
+        val file = SoundStore.get(context).existingFileFor(soundId) ?: return null
+        val key = "$soundId:${file.lastModified()}"
+        customIds[key]?.let { return it.takeIf { id -> id in loadedIds } }
+        val p = ensurePool(context)
+        customIds[key] = p.load(file.path, 1)
+        return null
+    }
+
+    /**
+     * Drops a sound the user deleted or replaced. The [SoundPool] holds the
+     * decoded sample independently of the file, so without this a deleted sound
+     * would keep playing until the process restarted.
+     */
+    @Synchronized
+    fun forgetCustom(soundId: String) {
+        val stale = customIds.keys.filter { it.substringBeforeLast(':') == soundId }
+        for (key in stale) {
+            customIds.remove(key)?.let { sampleId ->
+                pool?.unload(sampleId)
+                loadedIds.remove(sampleId)
             }
         }
     }
@@ -109,6 +163,7 @@ object KeySoundPlayer {
     /** One sine component: frequency sweeps [startHz] → [endHz] over the sound. */
     private class Partial(val startHz: Double, val endHz: Double, val gain: Double)
 
+    /** Only the three synthesised styles reach here; the rest never call it. */
     private fun synthesize(style: KeySoundStyle): ShortArray = when (style) {
         // Low sine with a quick downward pitch bend: a soft bubble-pop thump.
         KeySoundStyle.POP -> render(

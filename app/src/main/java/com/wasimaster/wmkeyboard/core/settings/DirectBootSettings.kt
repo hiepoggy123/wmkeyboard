@@ -36,6 +36,14 @@ fun KeyboardSettings.restrictedToDirectBoot(): KeyboardSettings {
         bengaliFontId = "default",
         scriptFontIds = emptyMap(),
         emojiFont = EmojiFontChoice.SYSTEM,
+        // An installed key sound is a file under filesDir too. Unlike the fonts
+        // there is no per-glyph fallback to hide it — the style would simply
+        // make no sound — so it drops back to the system click.
+        keySoundStyle = if (keySoundStyle == KeySoundStyle.CUSTOM) {
+            KeySoundStyle.CLICK
+        } else {
+            keySoundStyle
+        },
         // Contacts, contact e-mails and the installed-app list all come from
         // providers that need the user's credential.
         contactSuggestions = false,

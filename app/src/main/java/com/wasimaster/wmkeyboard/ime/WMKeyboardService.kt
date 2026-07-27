@@ -1110,12 +1110,15 @@ open class WMKeyboardService : InputMethodService() {
             imagesDir = store("clipboard/images"),
         )
         snippetStore = SnippetStore(store("snippets/snippets.json"))
-        // These two are process singletons that the settings app shares, so
-        // they know about direct boot themselves: [attach] re-points them at
+        // These are process singletons that the settings app shares, so they
+        // know about direct boot themselves: [attach] re-points them at
         // filesDir once it exists, and the icon store's revision flow is what
         // makes the keyboard redraw with the user's own icons.
         com.wasimaster.wmkeyboard.core.stickers.StickerPackStore.attach(this)
         com.wasimaster.wmkeyboard.core.icons.IconPackStore.attach(this)
+        com.wasimaster.wmkeyboard.core.fonts.FontStore.attach(this)
+        com.wasimaster.wmkeyboard.core.feedback.SoundStore.attach(this)
+        com.wasimaster.wmkeyboard.core.addons.AddonStore.attach(this)
         stickerPackStore = com.wasimaster.wmkeyboard.core.stickers.StickerPackStore.get(this)
     }
 
@@ -9273,7 +9276,12 @@ open class WMKeyboardService : InputMethodService() {
     ) {
         val settings = _uiState.value.settings
         if (!force && !settings.keySound) return
-        KeySoundPlayer.play(this, style ?: settings.keySoundStyle, volume ?: settings.keySoundVolume)
+        KeySoundPlayer.play(
+            this,
+            style ?: settings.keySoundStyle,
+            volume ?: settings.keySoundVolume,
+            settings.keySoundCustom.customId,
+        )
     }
 
     private fun doVibrate() {

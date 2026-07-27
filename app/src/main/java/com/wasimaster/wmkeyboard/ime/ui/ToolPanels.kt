@@ -1651,7 +1651,14 @@ internal fun SoundHapticsPanel(
         }
         if (settings.keySound) {
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                for (style in KeySoundStyle.entries) {
+                // CUSTOM names an installed file rather than a fixed style, and
+                // there is no file picker on the keyboard — so it only appears
+                // here when it is already the choice, to show what is selected
+                // and to let the user step off it.
+                val styles = KeySoundStyle.entries.filter {
+                    it != KeySoundStyle.CUSTOM || settings.keySoundStyle == KeySoundStyle.CUSTOM
+                }
+                for (style in styles) {
                     StyleChip(
                         label = when (style) {
                             KeySoundStyle.CLICK -> "Click"
@@ -1659,6 +1666,7 @@ internal fun SoundHapticsPanel(
                             KeySoundStyle.POP -> "Pop"
                             KeySoundStyle.THOCK -> "Thock"
                             KeySoundStyle.CHIME -> "Chime"
+                            KeySoundStyle.CUSTOM -> "Custom"
                         },
                         selected = settings.keySoundStyle == style,
                     ) { onAction(SoundHapticAction.SoundStyleChange(style)) }

@@ -99,9 +99,10 @@
 
         <!--
              Where an opened .wmtheme.json / .wmlayout.json / .wmsettings.json /
-             .wmconfig.json / .wmstickers lands: one confirm dialog, the import,
-             a result. Deliberately not MainActivity — tapping a theme in a file
-             manager should not drop anyone into the settings app.
+             .wmconfig.json / .wmsnippets.json / .wmstickers / .wmicons lands:
+             one confirm dialog, the import, a result. Deliberately not
+             MainActivity — tapping a theme in a file manager should not drop
+             anyone into the settings app.
         -->
         <activity
             android:name="com.wasimaster.wmkeyboard.app.ImportFileActivity"
@@ -156,6 +157,10 @@
                 <data android:pathPattern=".*\\..*\\.wmicons" />
                 <data android:pathPattern=".*\\..*\\..*\\.wmicons" />
                 <data android:pathPattern=".*\\..*\\..*\\..*\\.wmicons" />
+                <data android:pathPattern=".*\\.wmsnippets\\.json" />
+                <data android:pathPattern=".*\\..*\\.wmsnippets\\.json" />
+                <data android:pathPattern=".*\\..*\\..*\\.wmsnippets\\.json" />
+                <data android:pathPattern=".*\\..*\\..*\\..*\\.wmsnippets\\.json" />
             </intent-filter>
 
             <intent-filter android:label="@string/import_file_label">
@@ -187,6 +192,10 @@
                 <data android:pathPattern=".*\\..*\\.wmicons" />
                 <data android:pathPattern=".*\\..*\\..*\\.wmicons" />
                 <data android:pathPattern=".*\\..*\\..*\\..*\\.wmicons" />
+                <data android:pathPattern=".*\\.wmsnippets\\.json" />
+                <data android:pathPattern=".*\\..*\\.wmsnippets\\.json" />
+                <data android:pathPattern=".*\\..*\\..*\\.wmsnippets\\.json" />
+                <data android:pathPattern=".*\\..*\\..*\\..*\\.wmsnippets\\.json" />
             </intent-filter>
         </activity>
 
