@@ -107,18 +107,23 @@ private fun PluginList(
             )
         }
         if (panel.plugins.isEmpty()) {
-            Text(
-                "No plugins yet",
-                color = kb.keyText,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Medium,
-            )
-            Text(
-                "Plugins are small sandboxed tools you can add from an addon repository " +
-                    "or a .wmplugin file. They can't see what you type.",
-                color = kb.secondaryText,
-                fontSize = 12.sp,
-            )
+            // Only when nothing else has already explained the empty list. With
+            // the subsystem off, or every plugin switched off, the notice above
+            // says why — and "No plugins yet" beside it is simply untrue.
+            if (panel.notice == null) {
+                Text(
+                    "No plugins yet",
+                    color = kb.keyText,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                )
+                Text(
+                    "Plugins are small sandboxed tools you can add from an addon repository " +
+                        "or a .wmplugin file. They can't see what you type.",
+                    color = kb.secondaryText,
+                    fontSize = 12.sp,
+                )
+            }
             ToolPanelChip(label = "Manage plugins", onClick = onManage)
         } else {
             for (plugin in panel.plugins) {

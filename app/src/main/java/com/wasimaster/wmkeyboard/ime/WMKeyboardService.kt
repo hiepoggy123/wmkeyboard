@@ -6552,15 +6552,23 @@ open class WMKeyboardService : InputMethodService() {
         store.reconcile()
         // The subsystem is off until the user asks for it, so the panel says so
         // rather than looking like an empty feature.
-        val notice = if (store.subsystemEnabled()) {
-            null
-        } else {
-            "Plugins are turned off. Turn them on in Settings to install and run them."
+        // runnablePlugins, not plugins: a plugin switched off is one the user
+        // asked not to see here, and the runtime refuses to open it anyway — so
+        // listing it only offers a row that leads to "That plugin is turned off."
+        val runnable = if (store.subsystemEnabled()) store.runnablePlugins() else emptyList()
+        val notice = when {
+            !store.subsystemEnabled() ->
+                "Plugins are turned off. Turn them on in Settings to install and run them."
+            // Otherwise the empty state would read "No plugins yet" at someone
+            // who has several and switched them all off.
+            runnable.isEmpty() && store.plugins().isNotEmpty() ->
+                "Every plugin you have installed is switched off. Turn one on under Manage plugins."
+            else -> null
         }
         _uiState.update {
             it.copy(
                 plugins = PluginPanelUi.List(
-                    if (store.subsystemEnabled()) store.plugins() else emptyList(),
+                    runnable,
                     notice,
                 ),
                 pluginInputs = emptyMap(),
