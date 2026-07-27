@@ -231,7 +231,7 @@ enum class PanelMode {
     TRANSLATE, GIF, STICKER, WEB_SEARCH, IMAGE_SEARCH,
     OCR, QR_SCAN, VOICE, GRAMMAR,
     WIKIPEDIA, SYMBOLS, CALCULATOR, UNIT_CONVERT, CURRENCY, QR_GEN, PASSWORD_GEN, AI,
-    MODES, TYPING_TEST, MEDIA_CONTROL,
+    MODES, TYPING_TEST, MEDIA_CONTROL, PLUGINS,
 
     /** The CJK candidate grid: the strip's overflow, opened from its chevron. */
     CANDIDATES,
@@ -309,6 +309,9 @@ fun panelFocusRegions(panel: PanelMode): List<FocusRegion> = when (panel) {
     PanelMode.UNIT_CONVERT, PanelMode.CURRENCY, PanelMode.QR_GEN,
     PanelMode.PASSWORD_GEN, PanelMode.AI, PanelMode.TYPING_TEST,
     PanelMode.MEDIA_CONTROL,
+    // A plugin draws its own controls, so there is no fixed set of regions to
+    // cycle. Hardware navigation inside a plugin panel is future work.
+    PanelMode.PLUGINS,
     -> emptyList()
 }
 
@@ -865,6 +868,18 @@ data class KeyboardUiState(
     val stickerPackId: String? = null,
     /** Long-pressed sticker cell, showing its action sheet. */
     val stickerAction: com.wasimaster.wmkeyboard.core.tools.GifItem? = null,
+    /** What the Plugins panel is showing: the list, a running plugin, or a failure. */
+    val plugins: PluginPanelUi = PluginPanelUi.List(emptyList()),
+    /**
+     * Text in each of the running plugin's input widgets, by widget id.
+     *
+     * The host owns these, not the script. A plugin's `render()` describes a box
+     * and the keyboard fills it, so the plugin is told the contents of its own
+     * input and never sees a keystroke.
+     */
+    val pluginInputs: Map<String, String> = emptyMap(),
+    /** Which plugin input the keys are typing into, or null when they go to the field. */
+    val pluginFocusedInput: String? = null,
     val webSearch: WebSearchUi = WebSearchUi.Idle,
     val imageSearch: ImageSearchUi = ImageSearchUi.Idle,
     val translate: TranslateUi = TranslateUi(),
@@ -938,10 +953,55 @@ data class KeyboardUiState(
         get() = panel == PanelMode.AI && ai is AiUi.CustomInput
 
     /**
+     * Whether keystrokes belong to a plugin's own text box rather than to the
+     * text field.
+     *
+     * This is the single most safety-critical property in this file. While it is
+     * true, what the user types goes to a plugin instead of to the app they are
+     * writing in — so it has to become false the instant the panel closes, the
+     * field changes, or the keyboard hides, and the runtime is torn down at the
+     * same moment so there is nothing left to receive anything. Requiring the
+     * panel *and* a focused widget means neither condition alone can leak.
+     */
+    val pluginTypingActive: Boolean
+        get() = panel == PanelMode.PLUGINS && pluginFocusedInput != null
+
+    /**
      * The item a panel should ring in [region], or null when the ring is
      * elsewhere or absent. Lets a panel ask `state.focusedIndex() == i` without
      * unpacking [panelFocus] itself.
      */
     fun focusedIndex(region: FocusRegion = FocusRegion.RESULTS): Int? =
         panelFocus?.takeIf { it.region == region }?.index
+}
+
+/**
+ * What the Plugins panel is showing.
+ *
+ * The panel has two screens in one: the installed list, and whichever plugin is
+ * running. Keeping that in the state rather than in composable-local memory is
+ * what lets the service tear a plugin down — on panel close, on uninstall, on a
+ * runaway script — and have the panel follow it back to the list.
+ */
+sealed interface PluginPanelUi {
+
+    /** The installed plugins, ready to be opened. */
+    data class List(
+        val plugins: kotlin.collections.List<
+            com.wasimaster.wmkeyboard.core.plugins.InstalledPlugin,
+            >,
+        /** Set after a plugin was stopped, so the list can say why. */
+        val notice: String? = null,
+    ) : PluginPanelUi
+
+    /** A plugin drawing its own UI. */
+    data class Running(
+        val plugin: com.wasimaster.wmkeyboard.core.plugins.InstalledPlugin,
+        val ui: com.wasimaster.wmkeyboard.core.plugins.RenderedUi =
+            com.wasimaster.wmkeyboard.core.plugins.RenderedUi.EMPTY,
+        /** A call is taking long enough to deserve a spinner. */
+        val busy: Boolean = false,
+        /** The script failed; the plugin is still loaded and can be retried. */
+        val error: String? = null,
+    ) : PluginPanelUi
 }

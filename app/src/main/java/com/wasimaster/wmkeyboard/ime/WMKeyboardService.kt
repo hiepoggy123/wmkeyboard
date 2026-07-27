@@ -104,6 +104,11 @@ import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.ModeField
 import com.wasimaster.wmkeyboard.core.settings.OneHandedMode
 import com.wasimaster.wmkeyboard.core.settings.OneHandedSide
+import com.wasimaster.wmkeyboard.core.plugins.PluginEvent
+import com.wasimaster.wmkeyboard.core.plugins.PluginRuntime
+import com.wasimaster.wmkeyboard.core.plugins.PluginStore
+import com.wasimaster.wmkeyboard.core.plugins.RenderedUi
+import com.wasimaster.wmkeyboard.core.plugins.inputIds
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
 import com.wasimaster.wmkeyboard.core.settings.restrictedToDirectBoot
@@ -1413,6 +1418,11 @@ open class WMKeyboardService : InputMethodService() {
                 onAiToggleStripMarkdown = ::onAiToggleStripMarkdown,
                 onOpenToolSettings = ::openToolSettings,
                 onOpenRoute = ::openRoute,
+                onPluginOpen = ::onPluginOpen,
+                onPluginEvent = ::onPluginEvent,
+                onPluginInputFocus = ::onPluginInputFocus,
+                onPluginPaste = ::onPluginPaste,
+                onPluginCopy = ::onPluginCopy,
                 onDismissInlineSuggestions = ::onDismissInlineSuggestions,
                 onSmartAccept = ::onSmartSuggestionTapped,
                 onSmartOpen = ::onSmartSuggestionOpen,
@@ -1537,6 +1547,9 @@ open class WMKeyboardService : InputMethodService() {
             lastGestureWord = null
             lastAutocorrect = null
             pendingAutoSpace = false
+            // A genuinely different field. Whatever a plugin was collecting
+            // belonged to the last one, and the keys belong to this one.
+            stopPlugins()
         }
     }
 
@@ -1909,6 +1922,9 @@ open class WMKeyboardService : InputMethodService() {
         // Latches die with the keyboard, locked ones included.
         clearModifiers()
         resetHardwareKeyState()
+        // The keyboard is leaving the screen, so any plugin drawn on it stops
+        // here too -- along with the routing that was sending keys to its box.
+        stopPlugins()
         // Credentials for the field just left must not linger over the next
         // one, which may belong to another app entirely.
         if (_uiState.value.inlineSuggestions.isNotEmpty()) {
@@ -1932,6 +1948,8 @@ open class WMKeyboardService : InputMethodService() {
     }
 
     override fun onDestroy() {
+        pluginRuntime?.shutdown()
+        pluginRuntime = null
         KeyboardPassthrough.publishRegion(null)
         (getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager)
             .removePrimaryClipChangedListener(clipboardListener)
@@ -2301,6 +2319,15 @@ open class WMKeyboardService : InputMethodService() {
             return
         }
 
+        // A plugin's own text box has the keys. This returns before the field
+        // is touched, which is the whole guarantee: what the user types while a
+        // plugin input is focused never reaches the app behind the keyboard.
+        if (state.pluginTypingActive) {
+            pluginInputEdit { it + text }
+            consumeShift()
+            return
+        }
+
         if (state.emojiSearchActive) {
             text = fixedLayoutContextualVowel(text, state.emojiQuery.lastOrNull())
             updateQuery { it.copy(emojiQuery = it.emojiQuery + text) }
@@ -2604,6 +2631,10 @@ open class WMKeyboardService : InputMethodService() {
             aiCustomInputEdit { it.dropLast(1) }
             return
         }
+        if (state.pluginTypingActive) {
+            pluginInputEdit { it.dropLast(1) }
+            return
+        }
         if (state.emojiSearchActive) {
             if (state.emojiQuery.isNotEmpty()) {
                 updateQuery { it.copy(emojiQuery = it.emojiQuery.dropLast(1)) }
@@ -2803,7 +2834,7 @@ open class WMKeyboardService : InputMethodService() {
             state.allowsTypingIntelligence && state.language.gestureLexicon &&
             !state.typingTestActive && !state.emojiSearchActive &&
             !state.dictionarySearchActive && !state.mediaSearchActive &&
-            !state.clipboardSearchActive &&
+            !state.clipboardSearchActive && !state.pluginTypingActive &&
             state.voice.status != VoiceStatus.LISTENING &&
             state.voice.status != VoiceStatus.FINISHING &&
             state.voice.status != VoiceStatus.TRANSCRIBING
@@ -2912,6 +2943,12 @@ open class WMKeyboardService : InputMethodService() {
             aiCustomInputEdit { it + " " }
             return
         }
+        // Also ahead of the editor check: a plugin's box must take a space even
+        // in a window with no field focused at all.
+        if (_uiState.value.pluginTypingActive) {
+            pluginInputEdit { it + " " }
+            return
+        }
         val ic = currentInputConnection ?: return
         val state = _uiState.value
         val now = System.currentTimeMillis()
@@ -3013,6 +3050,12 @@ open class WMKeyboardService : InputMethodService() {
         // app behind the panel.
         if (state.aiCustomInputActive) {
             onAiRunCustom()
+            return
+        }
+        // Enter finishes typing into a plugin's box: it gives the keys back to
+        // the field rather than putting a newline in the app behind the panel.
+        if (state.pluginTypingActive) {
+            onPluginInputFocus(null)
             return
         }
         if (state.dictionarySearchActive) {
@@ -4540,6 +4583,7 @@ open class WMKeyboardService : InputMethodService() {
             ToolbarTool.PASSWORD_GEN -> onPanelChange(PanelMode.PASSWORD_GEN)
             ToolbarTool.TYPING_TEST -> onPanelChange(PanelMode.TYPING_TEST)
             ToolbarTool.MEDIA_CONTROL -> onPanelChange(PanelMode.MEDIA_CONTROL)
+            ToolbarTool.PLUGINS -> onPanelChange(PanelMode.PLUGINS)
             ToolbarTool.AI -> onPanelChange(PanelMode.AI)
             ToolbarTool.MODES -> onPanelChange(PanelMode.MODES)
             // Same moves the text-editing panel offers, one tap deep instead
@@ -4630,8 +4674,19 @@ open class WMKeyboardService : InputMethodService() {
                 stickerAction = null,
                 translate = TranslateUi(),
                 grammar = GrammarUi(available = GrammarChecker.available),
+                // Leaving the Plugins panel must hand the keys straight back to
+                // the field. This is the reset that guarantees it: whatever the
+                // panel was routing, the next state has nowhere to route to.
+                pluginFocusedInput = null,
+                pluginInputs = if (next == PanelMode.PLUGINS) it.pluginInputs else emptyMap(),
+                plugins = if (next == PanelMode.PLUGINS) it.plugins else PluginPanelUi.List(emptyList()),
             )
         }
+        // Leaving the panel ends the plugin session outright. Not paused, not
+        // backgrounded: the Globals are dropped and the thread is shut down, so
+        // after this there is no plugin left in the process to receive
+        // anything the user types.
+        if (_uiState.value.panel != PanelMode.PLUGINS) pluginRuntime?.close()
         // Either direction is a history surface changing hands — the emoji
         // panel's grids coming up, or the emoji row it hid coming back — so
         // this is where a ranking moved by earlier taps lands.
@@ -4670,6 +4725,7 @@ open class WMKeyboardService : InputMethodService() {
                 _uiState.update { it.copy(ai = aiInitialState(it.settings)) }
                 refreshAiHasText()
             }
+            PanelMode.PLUGINS -> openPluginList()
             PanelMode.TYPING_TEST -> {
                 // Flush the half-typed word first: the test swallows every
                 // key from here, so a composing word would otherwise hang
@@ -6030,6 +6086,173 @@ open class WMKeyboardService : InputMethodService() {
         vibrate()
         val next = !_uiState.value.settings.calcDegrees
         serviceScope.launch { settingsRepository.setCalcDegrees(next) }
+    }
+
+    // ---- plugins ----
+
+    /** Cap on one plugin text box, so a paste cannot be unbounded. */
+    private val PLUGIN_INPUT_MAX = 8 * 1024
+
+    /**
+     * The Lua runtime, created the first time the Plugins panel opens.
+     *
+     * Callbacks come back on the plugin thread, so every one of them is posted
+     * to [serviceScope] before it touches state — the keyboard's UI is only ever
+     * built on the main thread, and a plugin must never be able to change that.
+     */
+    private var pluginRuntime: PluginRuntime? = null
+
+    private fun requirePluginRuntime(): PluginRuntime =
+        pluginRuntime ?: PluginRuntime(
+            store = PluginStore.get(this),
+            listener = pluginListener,
+            post = { body -> serviceScope.launch { body() } },
+        ).also { pluginRuntime = it }
+
+    private val pluginListener = object : PluginRuntime.Listener {
+        override fun onUi(pluginId: String, ui: RenderedUi) {
+            _uiState.update { state ->
+                val running = state.plugins as? PluginPanelUi.Running ?: return@update state
+                if (running.plugin.id != pluginId) return@update state
+                // Buffers for boxes the plugin no longer draws are dropped, so a
+                // renamed widget cannot leave typed text hanging around.
+                val live = ui.inputIds()
+                state.copy(
+                    plugins = running.copy(ui = ui, error = null),
+                    pluginInputs = state.pluginInputs.filterKeys { it in live },
+                    pluginFocusedInput = state.pluginFocusedInput?.takeIf { it in live },
+                )
+            }
+        }
+
+        override fun onBusy(pluginId: String, busy: Boolean) {
+            _uiState.update { state ->
+                val running = state.plugins as? PluginPanelUi.Running ?: return@update state
+                if (running.plugin.id != pluginId) state else state.copy(plugins = running.copy(busy = busy))
+            }
+        }
+
+        override fun onError(pluginId: String, message: String) {
+            _uiState.update { state ->
+                val running = state.plugins as? PluginPanelUi.Running ?: return@update state
+                if (running.plugin.id != pluginId) state else state.copy(plugins = running.copy(error = message))
+            }
+        }
+
+        override fun onInputWrite(pluginId: String, inputId: String, text: String) {
+            _uiState.update { it.copy(pluginInputs = it.pluginInputs + (inputId to text)) }
+        }
+
+        override fun onStopped(pluginId: String, message: String, disabled: Boolean) {
+            // Back to the list, with the reason. Anything the user was typing
+            // into the stopped plugin goes with it.
+            _uiState.update {
+                it.copy(
+                    plugins = PluginPanelUi.List(PluginStore.get(this@WMKeyboardService).plugins(), message),
+                    pluginInputs = emptyMap(),
+                    pluginFocusedInput = null,
+                )
+            }
+        }
+    }
+
+    /** Shows the installed list. The panel's home screen. */
+    private fun openPluginList() {
+        pluginRuntime?.close()
+        val store = PluginStore.get(this)
+        store.reconcile()
+        _uiState.update {
+            it.copy(
+                plugins = PluginPanelUi.List(store.plugins()),
+                pluginInputs = emptyMap(),
+                pluginFocusedInput = null,
+            )
+        }
+    }
+
+    /** Loads and runs a plugin, replacing whatever was open. */
+    fun onPluginOpen(pluginId: String) {
+        vibrate()
+        val plugin = PluginStore.get(this).plugin(pluginId) ?: return openPluginList()
+        _uiState.update {
+            it.copy(
+                plugins = PluginPanelUi.Running(plugin),
+                pluginInputs = emptyMap(),
+                pluginFocusedInput = null,
+            )
+        }
+        requirePluginRuntime().open(pluginId)
+    }
+
+    /** Hands a tap, toggle or tab change to the running script. */
+    fun onPluginEvent(event: PluginEvent) {
+        vibrate()
+        pluginRuntime?.dispatch(event)
+    }
+
+    /**
+     * Points the keys at one of the plugin's text boxes, or back at the field.
+     *
+     * The one switch that decides where what the user types goes, so it is
+     * deliberately the only way [KeyboardUiState.pluginFocusedInput] is ever
+     * set, and it refuses while anything but a plugin is on screen.
+     */
+    fun onPluginInputFocus(inputId: String?) {
+        vibrate()
+        _uiState.update { state ->
+            if (inputId != null && state.plugins !is PluginPanelUi.Running) return@update state
+            state.copy(pluginFocusedInput = inputId)
+        }
+    }
+
+    /**
+     * Puts the clipboard's text into one of the plugin's boxes.
+     *
+     * This is how a plugin gets text the user already had, and it is a host
+     * action rather than an API: the user taps Paste, sees exactly what landed,
+     * and the plugin is told the contents of its own box. Nothing here is
+     * reachable from Lua.
+     */
+    fun onPluginPaste(inputId: String) {
+        vibrate()
+        val clip = clipboardStore.latestText().orEmpty()
+        if (clip.isEmpty()) return
+        pluginInputSet(inputId, clip.take(PLUGIN_INPUT_MAX))
+    }
+
+    /** Copies a plugin's output to the clipboard. */
+    fun onPluginCopy(text: String) {
+        vibrate()
+        if (text.isEmpty()) return
+        runCatching {
+            (getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager)
+                .setPrimaryClip(android.content.ClipData.newPlainText("", text))
+        }
+    }
+
+    /**
+     * Ends any plugin session and takes the keys back.
+     *
+     * Called when the keyboard leaves the screen and when the focused field
+     * changes. Both matter: a plugin input that stayed focused across either one
+     * would send the user's next sentence to a script instead of to their app,
+     * which is the single failure this whole design exists to prevent.
+     */
+    private fun stopPlugins() {
+        pluginRuntime?.close()
+        if (_uiState.value.pluginFocusedInput == null && _uiState.value.pluginInputs.isEmpty()) return
+        _uiState.update { it.copy(pluginFocusedInput = null, pluginInputs = emptyMap()) }
+    }
+
+    private fun pluginInputEdit(transform: (String) -> String) {
+        val id = _uiState.value.pluginFocusedInput ?: return
+        val current = _uiState.value.pluginInputs[id].orEmpty()
+        pluginInputSet(id, transform(current).take(PLUGIN_INPUT_MAX))
+    }
+
+    private fun pluginInputSet(id: String, text: String) {
+        _uiState.update { it.copy(pluginInputs = it.pluginInputs + (id to text)) }
+        pluginRuntime?.dispatch(PluginEvent.InputChanged(id, text))
     }
 
     // ---- typing speed test ----
@@ -7990,6 +8213,8 @@ open class WMKeyboardService : InputMethodService() {
             state.dictionarySearchActive -> state.dictionaryQuery.isNotEmpty()
             state.clipboardSearchActive -> state.clipboardQuery.isNotEmpty()
             state.mediaSearchActive && state.panel.hasMediaSearch -> state.mediaQuery.isNotEmpty()
+            state.pluginTypingActive ->
+                state.pluginInputs[state.pluginFocusedInput].orEmpty().isNotEmpty()
             else -> canDeleteField()
         }
     }
@@ -8994,7 +9219,7 @@ open class WMKeyboardService : InputMethodService() {
         return composingMode || state.emojiSearchActive ||
             (state.mediaSearchActive && state.panel.hasMediaSearch) ||
             state.dictionarySearchActive || state.clipboardSearchActive ||
-            state.typingTestActive
+            state.typingTestActive || state.pluginTypingActive
     }
 
     /**

@@ -33,6 +33,7 @@ import androidx.compose.material.icons.outlined.DocumentScanner
 import androidx.compose.material.icons.outlined.Draw
 import androidx.compose.material.icons.outlined.EditNote
 import androidx.compose.material.icons.outlined.EmojiEmotions
+import androidx.compose.material.icons.outlined.Extension
 import androidx.compose.material.icons.outlined.EmojiFlags
 import androidx.compose.material.icons.outlined.EmojiNature
 import androidx.compose.material.icons.outlined.EmojiObjects
@@ -148,6 +149,7 @@ object IconDefaults {
         ToolbarTool.PASSWORD_GEN -> Icons.Outlined.Password
         ToolbarTool.TYPING_TEST -> Icons.Outlined.Speed
         ToolbarTool.MEDIA_CONTROL -> Icons.Outlined.MusicNote
+        ToolbarTool.PLUGINS -> Icons.Outlined.Extension
         ToolbarTool.AI -> Icons.Outlined.AutoAwesome
         ToolbarTool.MODES -> Icons.Outlined.Tune
         ToolbarTool.CURSOR_LEFT -> Icons.AutoMirrored.Outlined.KeyboardArrowLeft

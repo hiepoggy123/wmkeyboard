@@ -264,7 +264,9 @@ import com.wasimaster.wmkeyboard.ime.isNumericPad
 import com.wasimaster.wmkeyboard.ime.hasMediaSearch
 import com.wasimaster.wmkeyboard.ime.HandwritingStatus
 import com.wasimaster.wmkeyboard.ime.FocusRegion
+import com.wasimaster.wmkeyboard.core.plugins.PluginEvent
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
+import com.wasimaster.wmkeyboard.ime.PluginPanelUi
 import com.wasimaster.wmkeyboard.ime.ModifierState
 import com.wasimaster.wmkeyboard.ime.authoredNumberRow
 import com.wasimaster.wmkeyboard.ime.LayoutMode
@@ -622,6 +624,11 @@ fun KeyboardScreen(
     onAiToggleStripMarkdown: () -> Unit = {},
     onOpenToolSettings: (ToolbarTool) -> Unit = {},
     onOpenRoute: (String) -> Unit = {},
+    onPluginOpen: (String) -> Unit = {},
+    onPluginEvent: (PluginEvent) -> Unit = {},
+    onPluginInputFocus: (String?) -> Unit = {},
+    onPluginPaste: (String) -> Unit = {},
+    onPluginCopy: (String) -> Unit = {},
     onDismissInlineSuggestions: () -> Unit = {},
     /** Smart chip tapped: type the answer over the text that triggered it. */
     onSmartAccept: () -> Unit = {},
@@ -786,6 +793,11 @@ fun KeyboardScreen(
                 onAiToggleStripMarkdown = onAiToggleStripMarkdown,
                 onOpenToolSettings = onOpenToolSettings,
                 onOpenRoute = onOpenRoute,
+                onPluginOpen = onPluginOpen,
+                onPluginEvent = onPluginEvent,
+                onPluginInputFocus = onPluginInputFocus,
+                onPluginPaste = onPluginPaste,
+                onPluginCopy = onPluginCopy,
             )
         }
     }
@@ -2560,6 +2572,7 @@ internal fun toolLabel(tool: ToolbarTool): String = when (tool) {
     ToolbarTool.PASSWORD_GEN -> "Password"
     ToolbarTool.TYPING_TEST -> "Typing speed"
     ToolbarTool.MEDIA_CONTROL -> "Media"
+    ToolbarTool.PLUGINS -> "Plugins"
     ToolbarTool.AI -> "AI"
     ToolbarTool.MODES -> "Modes"
     ToolbarTool.CURSOR_LEFT -> "Left"
@@ -2621,6 +2634,7 @@ private fun toolActive(tool: ToolbarTool, state: KeyboardUiState): Boolean = whe
     ToolbarTool.PASSWORD_GEN -> state.panel == PanelMode.PASSWORD_GEN
     ToolbarTool.TYPING_TEST -> state.panel == PanelMode.TYPING_TEST
     ToolbarTool.MEDIA_CONTROL -> state.panel == PanelMode.MEDIA_CONTROL
+    ToolbarTool.PLUGINS -> state.panel == PanelMode.PLUGINS
     ToolbarTool.AI -> state.panel == PanelMode.AI
     ToolbarTool.MODES -> state.panel == PanelMode.MODES || state.activeModeId != null
     // Stateless one-shot moves, like undo/redo: nothing to stay lit for.
@@ -4091,6 +4105,11 @@ private fun KeyboardBody(
     onAiToggleStripMarkdown: () -> Unit,
     onOpenToolSettings: (ToolbarTool) -> Unit,
     onOpenRoute: (String) -> Unit = {},
+    onPluginOpen: (String) -> Unit = {},
+    onPluginEvent: (PluginEvent) -> Unit = {},
+    onPluginInputFocus: (String?) -> Unit = {},
+    onPluginPaste: (String) -> Unit = {},
+    onPluginCopy: (String) -> Unit = {},
 ) {
     val drag = remember { ToolDragController() }
     // Mirror the drag's view of the bar when the tools read RTL, then flip the
@@ -4323,6 +4342,25 @@ private fun KeyboardBody(
                     onLayoutSelect = onLayoutSelect,
                     onClose = { onPanelChange(PanelMode.VOICE) },
                 )
+                PanelMode.PLUGINS -> FullBleedTool(
+                    state,
+                    title = (state.plugins as? PluginPanelUi.Running)?.plugin?.name ?: "Plugins",
+                    onClose = { onPanelChange(PanelMode.PLUGINS) },
+                    // While a plugin's text box has the keys, the rows render
+                    // below and the panel gives up the room for them.
+                    compact = state.pluginTypingActive,
+                ) {
+                    PluginPanel(
+                        state = state,
+                        onOpenPlugin = onPluginOpen,
+                        onEvent = onPluginEvent,
+                        onInputFocus = onPluginInputFocus,
+                        onToolInsert = onToolInsert,
+                        onCopy = onPluginCopy,
+                        onPaste = onPluginPaste,
+                        onManage = { onOpenRoute("plugins") },
+                    )
+                }
                 PanelMode.MEDIA_CONTROL -> FullBleedTool(
                     state,
                     title = "Media",
