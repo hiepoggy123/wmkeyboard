@@ -1744,7 +1744,11 @@ private fun TopBar(
                         .padding(horizontal = 5.dp),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text(text = emoji, fontSize = 22.sp, fontFamily = LocalEmojiFontFamily.current)
+                    Text(
+                        text = LocalEmojiShaper.current.shape(emoji),
+                        fontSize = 22.sp,
+                        fontFamily = LocalEmojiFontFamily.current,
+                    )
                 }
             }
             // Quick-punctuation chips ride the tail (the service leaves the list
@@ -2223,7 +2227,8 @@ private fun EmojiBarCell(
     onEmoji: (String) -> Unit,
 ) {
     Text(
-        text = emoji,
+        // Drawn as this font spells it; onEmoji still commits the standard form.
+        text = LocalEmojiShaper.current.shape(emoji),
         modifier = Modifier
             .width(width)
             .clickable { onEmoji(emoji) }
@@ -7993,7 +7998,7 @@ private fun EmojiCell(
     val onHaptic = LocalHapticFeedback.current
     Box {
         Text(
-            text = display,
+            text = LocalEmojiShaper.current.shape(display),
             modifier = Modifier
                 .focusRing(focused)
                 .pointerInput(base, display) {
@@ -8086,7 +8091,7 @@ private fun EmojiVariantPopup(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Text(
-                            text = display,
+                            text = LocalEmojiShaper.current.shape(display),
                             fontSize = 20.sp,
                             fontFamily = LocalEmojiFontFamily.current,
                         )
@@ -8196,7 +8201,7 @@ private fun EmojiVariantPopup(
                             Row {
                                 for (variant in row) {
                                     Text(
-                                        text = variant,
+                                        text = LocalEmojiShaper.current.shape(variant),
                                         modifier = Modifier
                                             .clickable { onPick(variant) }
                                             .padding(horizontal = 9.dp, vertical = 9.dp),
@@ -8298,7 +8303,7 @@ private fun FavouritesReorderPopup(
                                     modifier = Modifier.width(28.dp),
                                 )
                                 Text(
-                                    text = emoji,
+                                    text = LocalEmojiShaper.current.shape(emoji),
                                     fontSize = 24.sp,
                                     fontFamily = LocalEmojiFontFamily.current,
                                     modifier = Modifier.weight(1f),
@@ -8389,7 +8394,7 @@ private fun DualTonePicker(
             Row {
                 for (candidate in members) {
                     Text(
-                        text = candidate,
+                        text = LocalEmojiShaper.current.shape(candidate),
                         modifier = Modifier
                             .background(
                                 if (candidate == member) {
@@ -8408,7 +8413,7 @@ private fun DualTonePicker(
             }
         }
         Text(
-            text = preview,
+            text = LocalEmojiShaper.current.shape(preview),
             modifier = Modifier
                 .clickable { onPick(preview) }
                 .padding(6.dp),

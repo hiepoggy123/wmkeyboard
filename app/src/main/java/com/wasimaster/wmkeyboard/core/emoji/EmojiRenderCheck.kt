@@ -20,11 +20,20 @@ object EmojiRenderCheck {
     /**
      * The subset of [emojis] that [typeface] (or the system emoji font, when
      * null) cannot render as a single glyph.
+     *
+     * An emoji only counts as missing when *no* spelling of it draws. A
+     * third-party font whose ligatures are keyed on the unqualified sequence
+     * would otherwise fail every ZWJ emoji here and hide most of the catalog,
+     * when in fact [EmojiFontShaping] is about to draw them correctly — the two
+     * have to agree on what "this font can't draw it" means.
      */
     fun unrenderable(emojis: Collection<String>, typeface: Typeface?): Set<String> {
         val paint = Paint().apply {
             this.typeface = typeface ?: Typeface.DEFAULT
         }
-        return emojis.filterNotTo(HashSet()) { it.isEmpty() || paint.hasGlyph(it) }
+        return emojis.filterNotTo(HashSet()) { emoji ->
+            emoji.isEmpty() || paint.hasGlyph(emoji) ||
+                EmojiFontShaping.candidates(emoji).any { paint.hasGlyph(it) }
+        }
     }
 }

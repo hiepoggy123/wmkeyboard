@@ -47,6 +47,7 @@ import android.content.res.Configuration
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
+import com.wasimaster.wmkeyboard.core.emoji.EmojiFontShaping
 import com.wasimaster.wmkeyboard.core.settings.ColorVisionFilter
 import com.wasimaster.wmkeyboard.core.script.FontHint
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
@@ -133,6 +134,13 @@ val LocalKbTheme = staticCompositionLocalOf<KbTheme> {
  * display face has no emoji glyphs and vice versa.
  */
 val LocalEmojiFontFamily = staticCompositionLocalOf<FontFamily?> { null }
+
+/**
+ * Respells an emoji for whatever [LocalEmojiFontFamily] resolves to — see
+ * [EmojiShaper]. Only ever applied to text being *drawn*; what is committed to
+ * the field is the catalog's own standard spelling.
+ */
+val LocalEmojiShaper = staticCompositionLocalOf { EmojiFontShaping.Identity }
 
 /** Every Material text style re-based onto [family]; null keeps the defaults. */
 private fun typographyWith(family: FontFamily?): Typography {
@@ -519,6 +527,18 @@ fun KeyboardThemeProvider(settings: KeyboardSettings, content: @Composable () ->
             settings.emojiFontInstalled.installedId,
         )
     }
+    // Built from the Typeface rather than the FontFamily because the probe is
+    // Paint.hasGlyph. Identity for the system font, so the default keyboard
+    // pays nothing for this.
+    val emojiShaper = remember(settings.emojiFont, settings.emojiFontInstalled.installedId) {
+        EmojiFontShaping.forTypeface(
+            KeyboardFonts.emojiTypeface(
+                context,
+                settings.emojiFont,
+                settings.emojiFontInstalled.installedId,
+            ),
+        )
+    }
     MaterialTheme(
         colorScheme = schemeFor(kb),
         typography = remember(keyFontFamily) { typographyWith(keyFontFamily) },
@@ -526,6 +546,7 @@ fun KeyboardThemeProvider(settings: KeyboardSettings, content: @Composable () ->
         CompositionLocalProvider(
             LocalKbTheme provides kb,
             LocalEmojiFontFamily provides emojiFontFamily,
+            LocalEmojiShaper provides emojiShaper,
             content = content,
         )
     }
