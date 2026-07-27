@@ -1,0 +1,87 @@
+# Permissions
+
+There is one.
+
+```json
+"permissions": ["storage"]
+```
+
+Most plugins declare `[]` and need nothing.
+
+## `storage`
+
+Gives you `wm.storage`: a small string-to-string map that belongs to your plugin
+alone.
+
+```lua
+wm.storage.set("items", wm.json.encode(items))
+local saved = wm.storage.get("items")
+```
+
+- Local to the device. It cannot leave — there is no network API in the sandbox
+  for it to leave through.
+- Local to your plugin. No other plugin can read it.
+- Deleted when the user uninstalls you, and clearable by them any time from
+  **Settings → Tools → Plugins → your plugin**.
+- 128 keys, 64 characters per key, 8 KB per value, 64 KB in total.
+
+`set` returns `nil` and a reason when you are over quota. Say something; do not
+lose the user's data quietly.
+
+Declared permissions are shown to the user *before* they install, on the addon
+page and in the file-import confirmation. There is no runtime prompt, because
+with no way for data to leave the device there is nothing for a prompt to
+protect — and a prompt for something harmless mostly teaches people to dismiss
+prompts without reading them.
+
+## What you cannot ask for
+
+Not "what requires a permission" — what has no API at all:
+
+| | |
+|---|---|
+| What the user types | No key event API of any kind. |
+| The text they are writing in | No API returns the field's contents. |
+| The clipboard | No API. |
+| The network | No HTTP, no sockets, no URL handling. |
+| Files | No paths, no filesystem. |
+| Other apps, or the device | No package list, no identifiers, no sensors. |
+| Android permissions | A plugin cannot request any; it does not have that reach. |
+| Background work | No timers. Execution stops when the panel closes. |
+
+Adding `"permissions": ["network"]` to your manifest will not enable anything —
+it will make the app **refuse to install your plugin**, because it will not
+install something whose capabilities it cannot explain to the user. That refusal
+is deliberate: it is also how an old app version safely declines a plugin built
+for a newer one.
+
+## Getting text without reading it
+
+The replacement for the text APIs is the user, and it is less limiting than it
+sounds.
+
+**In:** draw a `ui.input`. The user types into it, or taps **Paste** beside it to
+drop in whatever they already copied. You are told the contents through
+`input_changed`. They can see exactly what they gave you.
+
+**Out:** draw a `ui.output`. The keyboard puts an **Insert** button under it, and
+tapping that puts your text where they are writing.
+
+So the flow for "encrypt the message I just wrote" is: select it, copy it, open
+your plugin, tap Paste, tap Encode, tap Insert. Six taps instead of two, and in
+exchange nothing on the keyboard can read anyone's messages.
+
+## Why it is this short
+
+A keyboard sees everything its user types. Third-party code that could read that
+text *and* reach the network is a keylogger with extra steps, and no consent
+dialog makes that untrue — the user cannot audit what a script does with a
+permission after they grant it.
+
+Google Play's Device and Network Abuse policy takes the same view for
+runtime-loaded interpreted code, and names Lua specifically: such code "must not
+allow potential violations of Google Play policies". That is a question about
+what is *possible*, not about what is consented to. The only answer that holds
+is not to build the capability.
+
+[SECURITY.md](SECURITY.md) covers how that is enforced.
