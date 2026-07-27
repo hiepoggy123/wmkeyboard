@@ -50,7 +50,7 @@ class EmojiCatalogTest {
     @Test fun everyParentIsItselfACatalogEntry() {
         for (entry in entries) {
             val parent = entry.parent ?: continue
-            assertTrue("parent ${parent} of ${entry.emoji} missing", parent in byEmoji)
+            assertTrue("parent $parent of ${entry.emoji} missing", parent in byEmoji)
             assertNull("parent $parent must be a base", byEmoji.getValue(parent).parent)
         }
     }

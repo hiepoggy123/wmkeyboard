@@ -2,7 +2,6 @@ package com.wasimaster.wmkeyboard.core.tools
 
 import java.security.SecureRandom
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -161,9 +160,9 @@ class PasswordGenTest {
         repeat(50) {
             val password = PasswordGen.password(spec, random)
             assertEquals(20, password.length)
-            assertTrue(password.any { it.isUpperCase() })
-            assertTrue(password.any { it.isDigit() })
-            assertTrue(password.any { !it.isLetterOrDigit() })
+            assertTrue(password.any { ch -> ch.isUpperCase() })
+            assertTrue(password.any { ch -> ch.isDigit() })
+            assertTrue(password.any { ch -> !ch.isLetterOrDigit() })
         }
     }
 
@@ -174,7 +173,7 @@ class PasswordGenTest {
         )
         repeat(20) {
             val password = PasswordGen.password(spec, random)
-            assertTrue(password.all { it in 'a'..'z' })
+            assertTrue(password.all { ch -> ch in 'a'..'z' })
         }
     }
 
@@ -185,7 +184,7 @@ class PasswordGenTest {
         )
         repeat(20) {
             val password = PasswordGen.password(spec, random)
-            assertTrue(password.none { it in "Il1O0o5S8B" })
+            assertTrue(password.none { ch -> ch in "Il1O0o5S8B" })
         }
     }
 
@@ -218,8 +217,8 @@ class CurrencyClientTest {
         val rates = CurrencyClient.parseErApi(
             """{"result":"success","rates":{"USD":1,"EUR":0.9,"BDT":120.5}}""",
         )
-        assertEquals(0.9, rates.rates["EUR"]!!, 1e-9)
-        assertEquals(1.0, rates.rates["USD"]!!, 1e-9)
+        assertEquals(0.9, rates.rates.getValue("EUR"), 1e-9)
+        assertEquals(1.0, rates.rates.getValue("USD"), 1e-9)
         // Cross conversion EUR -> BDT.
         assertEquals(
             120.5 / 0.9,
@@ -233,7 +232,7 @@ class CurrencyClientTest {
         val rates = CurrencyClient.parseFrankfurter(
             """{"amount":1.0,"base":"USD","rates":{"EUR":0.92,"GBP":0.79}}""",
         )
-        assertEquals(0.79, rates.rates["GBP"]!!, 1e-9)
+        assertEquals(0.79, rates.rates.getValue("GBP"), 1e-9)
         assertNotNull(rates.rates["USD"])
     }
 
@@ -261,7 +260,7 @@ class WikipediaClientTest {
             """{"query":{"search":[
                 {"title":"Kotlin (programming language)","snippet":"<span class=\"searchmatch\">Kotlin</span> is a language"},
                 {"title":"Kotlin River","snippet":"river in Russia"}
-            ]}}""",
+            ]}}""".trimIndent(),
         )
         assertEquals(2, results.size)
         assertEquals("Kotlin (programming language)", results[0].title)
@@ -273,7 +272,7 @@ class WikipediaClientTest {
         val summary = WikipediaClient.parseSummary(
             """{"title":"Dhaka","description":"Capital of Bangladesh",
                 "extract":"Dhaka is the capital city.",
-                "content_urls":{"desktop":{"page":"https://en.wikipedia.org/wiki/Dhaka"}}}""",
+                "content_urls":{"desktop":{"page":"https://en.wikipedia.org/wiki/Dhaka"}}}""".trimIndent(),
             fallbackUrl = "fallback",
         )
         assertEquals("Dhaka", summary.title)

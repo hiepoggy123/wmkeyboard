@@ -18,16 +18,16 @@ class VietnameseComposerTest {
 
     @Test
     fun factoryMapsTelexAndVniComposers() {
-        val telex = latinScript?.let { composerFor(it, ComposerType.TELEX) }
-        val vni = latinScript?.let { composerFor(it, ComposerType.VNI) }
+        val telex = composerFor(latinScript, ComposerType.TELEX)
+        val vni = composerFor(latinScript, ComposerType.VNI)
 
         assertNotNull(telex)
         assertTrue(telex is VietnameseTelexComposer)
-        assertTrue(telex!!.isTransliterating)
+        assertTrue(telex.isTransliterating)
 
         assertNotNull(vni)
         assertTrue(vni is VietnameseVniComposer)
-        assertTrue(vni!!.isTransliterating)
+        assertTrue(vni.isTransliterating)
         assertTrue(vni.bufferDigits)
     }
 

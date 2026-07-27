@@ -105,11 +105,26 @@ internal object VietnameseEngine {
             val lc = ch.lowercaseChar()
             if (vni) {
                 when (lc) {
-                    '1' -> { if (hasVowel()) toggleTone(VTone.ACUTE); continue }
-                    '2' -> { if (hasVowel()) toggleTone(VTone.GRAVE); continue }
-                    '3' -> { if (hasVowel()) toggleTone(VTone.HOOK); continue }
-                    '4' -> { if (hasVowel()) toggleTone(VTone.TILDE); continue }
-                    '5' -> { if (hasVowel()) toggleTone(VTone.DOT); continue }
+                    '1' -> {
+                        if (hasVowel()) toggleTone(VTone.ACUTE)
+                        continue
+                    }
+                    '2' -> {
+                        if (hasVowel()) toggleTone(VTone.GRAVE)
+                        continue
+                    }
+                    '3' -> {
+                        if (hasVowel()) toggleTone(VTone.HOOK)
+                        continue
+                    }
+                    '4' -> {
+                        if (hasVowel()) toggleTone(VTone.TILDE)
+                        continue
+                    }
+                    '5' -> {
+                        if (hasVowel()) toggleTone(VTone.DOT)
+                        continue
+                    }
                     '0' -> { tone = VTone.NONE; continue }
                     '6' -> { if (applyMark(letters, "aeo", VMark.CIRCUMFLEX)) continue }
                     '7' -> { if (applyMark(letters, "ou", VMark.HORN)) continue }

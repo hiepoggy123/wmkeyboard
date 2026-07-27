@@ -42,7 +42,7 @@ object IconOverrides {
             val source = entry.substring(separator + 1)
             if (source.isEmpty() || IconSlots.byId(slot) == null) return@mapNotNull null
             slot to source
-        }?.toMap() ?: emptyMap()
+        }?.toMap().orEmpty()
 
     fun encode(map: Map<String, String>): String =
         map.entries.joinToString(",") { (slot, source) -> "$slot=$source" }

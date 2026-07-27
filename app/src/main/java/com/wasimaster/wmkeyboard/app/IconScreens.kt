@@ -55,6 +55,7 @@ import com.wasimaster.wmkeyboard.core.icons.IconSlots
 import com.wasimaster.wmkeyboard.core.icons.SvgParser
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
+import com.wasimaster.wmkeyboard.core.util.requireInputStream
 import com.wasimaster.wmkeyboard.ime.ui.BuiltinIcons
 import com.wasimaster.wmkeyboard.ime.ui.SlotIcon
 import kotlinx.coroutines.Dispatchers
@@ -119,7 +120,7 @@ internal fun IconsScreen(repository: SettingsRepository, settings: KeyboardSetti
         scope.launch {
             val result = withContext(Dispatchers.IO) {
                 runCatching {
-                    context.contentResolver.openInputStream(uri)!!
+                    context.contentResolver.requireInputStream(uri)
                         .use { IconPackFile.import(it, store) }
                 }.getOrDefault(IconImportResult.Failed)
             }
@@ -141,10 +142,10 @@ internal fun IconsScreen(repository: SettingsRepository, settings: KeyboardSetti
         pendingSlot = null
         if (uri == null || slot == null) return@rememberLauncherForActivityResult
         scope.launch {
-            val mine = store.mine()
-            val ok = mine != null && withContext(Dispatchers.IO) {
+            val mine = store.mine() ?: return@launch
+            val ok = withContext(Dispatchers.IO) {
                 runCatching {
-                    val bytes = context.contentResolver.openInputStream(uri)!!.use { input ->
+                    val bytes = context.contentResolver.requireInputStream(uri).use { input ->
                         // Reads one byte past the cap: an oversized file is
                         // then rejected by setIcon rather than silently
                         // truncated into something that happens to parse.
@@ -157,7 +158,7 @@ internal fun IconsScreen(repository: SettingsRepository, settings: KeyboardSetti
             message = if (ok) {
                 // Pinning the slot to "My icons" is what makes the choice
                 // survive switching packs — it is an override, not a pack.
-                repository.setIconOverride(slot.id, IconOverrides.packSource(mine!!.id))
+                repository.setIconOverride(slot.id, IconOverrides.packSource(mine.id))
                 "Set a custom icon for ${slotLabel(slot)}."
             } else {
                 "That file could not be used as an icon. " +

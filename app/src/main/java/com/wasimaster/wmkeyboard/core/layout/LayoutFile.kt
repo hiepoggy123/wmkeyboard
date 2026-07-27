@@ -1,7 +1,6 @@
 package com.wasimaster.wmkeyboard.core.layout
 
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.encodeToString
 
 /**
  * A single layout as a shareable file.

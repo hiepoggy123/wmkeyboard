@@ -28,7 +28,7 @@ object CurrencyClient {
     internal fun parseErApi(body: String): Rates {
         val root = json.parseToJsonElement(body).jsonObject
         check(root["result"]?.jsonPrimitive?.content == "success") { "Rate API error" }
-        val rates = root["rates"]!!.jsonObject.mapNotNull { (code, value) ->
+        val rates = (root["rates"] ?: error("No rates in response")).jsonObject.mapNotNull { (code, value) ->
             value.jsonPrimitive.doubleOrNull?.let { code to it }
         }.toMap()
         check(rates.isNotEmpty()) { "No rates in response" }
@@ -37,7 +37,7 @@ object CurrencyClient {
 
     internal fun parseFrankfurter(body: String): Rates {
         val root = json.parseToJsonElement(body).jsonObject
-        val rates = root["rates"]!!.jsonObject.mapNotNull { (code, value) ->
+        val rates = (root["rates"] ?: error("No rates in response")).jsonObject.mapNotNull { (code, value) ->
             value.jsonPrimitive.doubleOrNull?.let { code to it }
         }.toMap()
         check(rates.isNotEmpty()) { "No rates in response" }

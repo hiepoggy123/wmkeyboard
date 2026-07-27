@@ -39,7 +39,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.verticalScroll
@@ -69,6 +68,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -855,8 +855,8 @@ internal fun CalendarPanel(
             )
         }
     }
-    var shownYear by remember { mutableStateOf(today.year) }
-    var shownMonth by remember { mutableStateOf(today.month) }
+    var shownYear by remember { mutableIntStateOf(today.year) }
+    var shownMonth by remember { mutableIntStateOf(today.month) }
     var selected by remember { mutableStateOf(today) }
 
     val monthFormat = remember { SimpleDateFormat("MMMM yyyy", Locale.getDefault()) }
@@ -1528,7 +1528,7 @@ internal fun SoundHapticsPanel(
     val audioManager = remember {
         context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
     }
-    var ringerMode by remember { mutableStateOf(audioManager.ringerMode) }
+    var ringerMode by remember { mutableIntStateOf(audioManager.ringerMode) }
     DisposableEffect(Unit) {
         val receiver = object : BroadcastReceiver() {
             override fun onReceive(receiverContext: Context?, intent: Intent?) {

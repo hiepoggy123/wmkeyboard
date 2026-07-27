@@ -7,6 +7,13 @@
          dictionary, translate, GIF/stickers (KLIPY/GIPHY), web/image
          search (Brave/Google). -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Read by the model downloaders to ask "is this connection metered?"
+         before pulling hundreds of megabytes. Declared here rather than
+         inherited from a dependency: the full flavour picks it up transitively
+         from ML Kit, but the lite flavour ships without those libraries, so
+         without this line ConnectivityManager.isActiveNetworkMetered throws a
+         SecurityException on lite builds. -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <!-- Only used by the optional camera tool (photo into the chat). -->
     <uses-permission android:name="android.permission.CAMERA" />
     <!-- Only used by the optional voice input tool; audio goes to the

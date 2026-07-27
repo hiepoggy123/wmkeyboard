@@ -23,7 +23,8 @@ fun LayoutSpec.compile(layer: LayoutLayer): KeyboardLayout = synchronized(compil
     // the grid through the same fallback chain.
     val resolved = layer(layer)
         ?: BuiltInLayouts.default.layer(layer)
-        ?: BuiltInLayouts.default.layer(LayoutLayer.LETTERS)!!
+        ?: BuiltInLayouts.default.layer(LayoutLayer.LETTERS)
+            ?: error("The default layout has no LETTERS layer")
     val built = KeyboardLayout(
         name = "$id/${layer.key}",
         rows = resolved.rows,

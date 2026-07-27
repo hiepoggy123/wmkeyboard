@@ -59,7 +59,7 @@ class IconPackFileTest {
                  "slots":[${slots.joinToString(",") { "\"$it\"" }}]}}
     """.trimIndent()
 
-    private fun import(bytes: ByteArray): IconImportResult =
+    private fun importPack(bytes: ByteArray): IconImportResult =
         IconPackFile.import(ByteArrayInputStream(bytes), store, now = 1_000L)
 
     // ---- round trip ----
@@ -77,7 +77,7 @@ class IconPackFileTest {
             store.fileFor(saved.id, it)
         }
 
-        val result = import(out.toByteArray()) as IconImportResult.Imported
+        val result = importPack(out.toByteArray()) as IconImportResult.Imported
         assertEquals(2, result.pack.slots.size)
         assertTrue(IconSlots.KEY_ENTER_SEND in result.pack.slots)
         // A fresh id, so importing the same file twice cannot collide.
@@ -91,7 +91,7 @@ class IconPackFileTest {
             manifest(slots = listOf(IconSlots.KEY_SHIFT)),
             mapOf("icons/${IconSlots.KEY_SHIFT}.svg" to svg),
         )
-        val result = import(bytes) as IconImportResult.Imported
+        val result = importPack(bytes) as IconImportResult.Imported
         assertEquals("Rounded", result.pack.name)
         assertEquals("Someone", result.pack.author)
         assertEquals("2.0", result.pack.version)
@@ -104,14 +104,14 @@ class IconPackFileTest {
             manifest(slots = emptyList()),
             mapOf("icons/${IconSlots.KEY_BACKSPACE}.svg" to svg),
         )
-        val result = import(bytes) as IconImportResult.Imported
+        val result = importPack(bytes) as IconImportResult.Imported
         assertEquals(listOf(IconSlots.KEY_BACKSPACE), result.pack.slots)
     }
 
     @Test
     fun `an icon at the archive root is accepted`() {
         val bytes = archive(manifest(), mapOf("${IconSlots.KEY_GLOBE}.svg" to svg))
-        val result = import(bytes) as IconImportResult.Imported
+        val result = importPack(bytes) as IconImportResult.Imported
         assertEquals(listOf(IconSlots.KEY_GLOBE), result.pack.slots)
     }
 
@@ -123,7 +123,7 @@ class IconPackFileTest {
             // Deliberately the other way round in the archive.
             slots.reversed().associate { "icons/$it.svg" to svg },
         )
-        val result = import(bytes) as IconImportResult.Imported
+        val result = importPack(bytes) as IconImportResult.Imported
         assertEquals(slots, result.pack.slots)
     }
 
@@ -135,19 +135,19 @@ class IconPackFileTest {
             manifest(format = "wmkeyboard-stickers", slots = listOf(IconSlots.KEY_SHIFT)),
             mapOf("icons/${IconSlots.KEY_SHIFT}.svg" to svg),
         )
-        assertEquals(IconImportResult.NotAnIconPack, import(bytes))
+        assertEquals(IconImportResult.NotAnIconPack, importPack(bytes))
     }
 
     @Test
     fun `no manifest is refused`() {
         val bytes = archive(null, mapOf("icons/${IconSlots.KEY_SHIFT}.svg" to svg))
-        assertEquals(IconImportResult.NotAnIconPack, import(bytes))
+        assertEquals(IconImportResult.NotAnIconPack, importPack(bytes))
     }
 
     @Test
     fun `a pack with nothing usable fails rather than installing empty`() {
         val bytes = archive(manifest(), emptyMap())
-        assertEquals(IconImportResult.Failed, import(bytes))
+        assertEquals(IconImportResult.Failed, importPack(bytes))
     }
 
     @Test
@@ -159,7 +159,7 @@ class IconPackFileTest {
                 "icons/${IconSlots.KEY_SHIFT}.svg" to svg,
             ),
         )
-        val result = import(bytes) as IconImportResult.Imported
+        val result = importPack(bytes) as IconImportResult.Imported
         assertEquals(listOf(IconSlots.KEY_SHIFT), result.pack.slots)
         assertTrue(result.repairs.any { "tool.timetravel.svg" in it })
     }
@@ -173,7 +173,7 @@ class IconPackFileTest {
                 "icons/${IconSlots.KEY_GLOBE}.svg" to svg,
             ),
         )
-        val result = import(bytes) as IconImportResult.Imported
+        val result = importPack(bytes) as IconImportResult.Imported
         assertEquals(listOf(IconSlots.KEY_GLOBE), result.pack.slots)
         assertTrue(result.repairs.any { IconSlots.KEY_SHIFT in it })
     }
@@ -194,7 +194,7 @@ class IconPackFileTest {
                 "icons/${IconSlots.KEY_GLOBE}.svg" to svg,
             ),
         )
-        val result = import(bytes) as IconImportResult.Imported
+        val result = importPack(bytes) as IconImportResult.Imported
         // The traversal name whose basename IS a known slot is still accepted —
         // but written under the slot's own derived name, inside the pack.
         val dir = File(temp.root, "iconpacks/${result.pack.id}")
@@ -228,14 +228,14 @@ class IconPackFileTest {
                 "icons/${IconSlots.KEY_GLOBE}.svg" to svg,
             ),
         )
-        val result = import(bytes) as IconImportResult.Imported
+        val result = importPack(bytes) as IconImportResult.Imported
         assertEquals(listOf(IconSlots.KEY_GLOBE), result.pack.slots)
     }
 
     @Test
     fun `a failed import leaves no half-written pack behind`() {
         val before = store.packs().size
-        assertEquals(IconImportResult.Failed, import(archive(manifest(), emptyMap())))
+        assertEquals(IconImportResult.Failed, importPack(archive(manifest(), emptyMap())))
         assertEquals(before, store.packs().size)
         // No orphan directories either: reload reconciles what is on disk.
         store.reload()
@@ -246,7 +246,7 @@ class IconPackFileTest {
     fun `too many packs is reported, not silently dropped`() {
         repeat(IconPackStore.MAX_PACKS) { i -> store.createPack("Pack $i", now = 1_000L + i) }
         val bytes = archive(manifest(), mapOf("icons/${IconSlots.KEY_SHIFT}.svg" to svg))
-        assertEquals(IconImportResult.TooManyPacks, import(bytes))
+        assertEquals(IconImportResult.TooManyPacks, importPack(bytes))
     }
 
     // ---- file name ----

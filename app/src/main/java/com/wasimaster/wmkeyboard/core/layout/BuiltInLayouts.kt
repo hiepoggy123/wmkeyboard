@@ -284,7 +284,7 @@ object BuiltInLayouts {
 
     fun byId(id: String): LayoutSpec? = all.firstOrNull { it.id == id }
 
-    val default: LayoutSpec get() = byId(DEFAULT_ID)!!
+    val default: LayoutSpec get() = byId(DEFAULT_ID) ?: error("Built-in layout $DEFAULT_ID is missing")
 
     /**
      * A starting Fn layer, for a layout that wants one.

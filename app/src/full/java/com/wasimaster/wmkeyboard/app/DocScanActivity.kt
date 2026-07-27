@@ -8,6 +8,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import com.google.mlkit.vision.documentscanner.GmsDocumentScannerOptions
 import com.google.mlkit.vision.documentscanner.GmsDocumentScanning
 import com.google.mlkit.vision.documentscanner.GmsDocumentScanningResult
+import com.wasimaster.wmkeyboard.core.util.requireInputStream
 import java.io.File
 
 /**
@@ -45,7 +46,7 @@ class DocScanActivity : ComponentActivity() {
         val pages = scan?.pages.orEmpty().mapIndexedNotNull { index, page ->
             runCatching {
                 val file = File(scanDir(), "SCAN_${System.currentTimeMillis()}_$index.jpg")
-                contentResolver.openInputStream(page.imageUri)!!.use { input ->
+                contentResolver.requireInputStream(page.imageUri).use { input ->
                     file.outputStream().use { output -> input.copyTo(output) }
                 }
                 file

@@ -39,7 +39,7 @@ object HandwritingModels {
     suspend fun isDownloaded(tag: String): Boolean = false
 
     suspend fun download(tag: String) {
-        throw IllegalStateException("Handwriting is not available in the lite build")
+        error("Handwriting is not available in the lite build")
     }
 
     suspend fun delete(tag: String) = Unit
@@ -56,7 +56,7 @@ class HandwritingRecognizerCache {
         writingAreaHeight: Float,
         maxCandidates: Int = 4,
     ): List<String> =
-        throw IllegalStateException("Handwriting is not available in the lite build")
+        error("Handwriting is not available in the lite build")
 
     fun close() = Unit
 }

@@ -1,7 +1,6 @@
 package com.wasimaster.wmkeyboard.core.icons
 
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.io.File
 import java.io.InputStream
@@ -265,6 +264,6 @@ object IconPackFile {
         if (!base.endsWith(".svg", ignoreCase = true)) return null
         val slot = base.dropLast(4).lowercase()
         if (!IconSlots.isWellFormed(slot)) return null
-        return if (IconSlots.byId(slot) != null) slot else null
+        return IconSlots.byId(slot)?.let { slot }
     }
 }

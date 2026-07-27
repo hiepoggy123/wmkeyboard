@@ -1,6 +1,5 @@
 package com.wasimaster.wmkeyboard.core.voice.whisper
 
-import android.content.Context
 import java.io.File
 import java.io.FileInputStream
 import java.io.IOException
@@ -53,7 +52,6 @@ object WhisperEngine {
      * message on failure.
      */
     fun transcribe(
-        context: Context,
         modelFile: File,
         vocabFile: File,
         pcm: FloatArray,
@@ -90,7 +88,7 @@ object WhisperEngine {
             try {
                 when {
                     signature == SIG_TRANSCRIBE_LANG -> itp.runSignature(
-                        mapOf(INPUT_NAME to input, INPUT_LANG to scalarInt(langToken!!)),
+                        mapOf(INPUT_NAME to input, INPUT_LANG to scalarInt(requireNotNull(langToken))),
                         mapOf(OUTPUT_NAME to output),
                         signature,
                     )

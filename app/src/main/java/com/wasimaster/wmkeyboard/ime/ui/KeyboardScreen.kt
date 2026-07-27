@@ -6,7 +6,6 @@ import com.wasimaster.wmkeyboard.BuildConfig
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.AnimationVector2D
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
@@ -17,9 +16,7 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -31,7 +28,6 @@ import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -68,7 +64,6 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
 import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
-import androidx.compose.foundation.lazy.staggeredgrid.items as staggeredItems
 import androidx.compose.foundation.lazy.staggeredgrid.itemsIndexed as staggeredItemsIndexed
 import androidx.compose.foundation.lazy.staggeredgrid.rememberLazyStaggeredGridState
 import androidx.compose.foundation.pager.HorizontalPager
@@ -83,9 +78,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material.icons.automirrored.outlined.Backspace
-import androidx.compose.material.icons.automirrored.outlined.Redo
-import androidx.compose.material.icons.automirrored.outlined.Send
-import androidx.compose.material.icons.automirrored.outlined.Undo
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.outlined.AudioFile
 import androidx.compose.material.icons.outlined.Description
@@ -102,20 +94,14 @@ import androidx.compose.material.icons.outlined.ContentPaste
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.DeleteSweep
 import androidx.compose.material.icons.outlined.DragHandle
-import androidx.compose.material.icons.outlined.Draw
 import androidx.compose.material.icons.outlined.EmojiEmotions
 import androidx.compose.material.icons.outlined.Fullscreen
-import androidx.compose.material.icons.outlined.Language
-import androidx.compose.material.icons.outlined.Password
-import androidx.compose.material.icons.outlined.Psychology
 import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material.icons.outlined.StarBorder
-import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.AutoAwesome
-import androidx.compose.material.icons.outlined.Translate
 import androidx.compose.material.icons.outlined.ArrowDropDown
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -126,10 +112,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.VerticalDivider
-import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
@@ -163,14 +145,11 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.PointerEventPass
@@ -209,7 +188,6 @@ import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
 import androidx.compose.ui.zIndex
-import android.os.Build
 import android.os.SystemClock
 import android.content.Context
 import android.view.accessibility.AccessibilityManager
@@ -255,7 +233,6 @@ import com.wasimaster.wmkeyboard.core.settings.OneHandedSide
 import com.wasimaster.wmkeyboard.core.settings.LetterSwipeAction
 import com.wasimaster.wmkeyboard.core.settings.SpaceSwipeAction
 import com.wasimaster.wmkeyboard.core.settings.SpacebarDisplay
-import com.wasimaster.wmkeyboard.core.settings.ThemeMode
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
 import com.wasimaster.wmkeyboard.core.settings.isSupportedTool
 import com.wasimaster.wmkeyboard.core.snippets.Snippet
@@ -549,20 +526,16 @@ fun KeyboardScreen(
     onFloatingMoved: (Float, Float) -> Unit = { _, _ -> },
     onFloatingResized: (Int, Float) -> Unit = { _, _ -> },
     onFloatingBounds: (IntRect) -> Unit = {},
-    onToggleSplit: () -> Unit = {},
     onToolbarToolsChange: (List<ToolbarTool>) -> Unit = {},
     onToolboxOrderChange: (List<ToolbarTool>) -> Unit = {},
     onToolSettings: (ToolbarTool) -> Unit = {},
     onToolboxHintDismiss: () -> Unit = {},
-    onFlashlightToggle: () -> Unit = {},
-    onUndoRedo: (Boolean) -> Unit = {},
     onWeatherRefresh: () -> Unit = {},
     onCameraSend: (java.io.File) -> Unit = {},
     onCameraPermissionRequest: () -> Unit = {},
     onCalendarPermissionRequest: () -> Unit = {},
     onScannedInsert: (String) -> Unit = {},
     onScannedUrlOpen: (String) -> Unit = {},
-    onDocScan: () -> Unit = {},
     onVoiceToggle: () -> Unit = {},
     onVoicePermissionRequest: () -> Unit = {},
     onVoiceUndo: () -> Unit = {},
@@ -578,8 +551,6 @@ fun KeyboardScreen(
     onDictionaryLookup: (String) -> Unit = {},
     onDictionarySearchToggle: () -> Unit = {},
     onDictionaryInsert: (String) -> Unit = {},
-    onIncognitoToggle: () -> Unit = {},
-    onAutocorrectToggle: () -> Unit = {},
     onThemeSelect: (String) -> Unit = {},
     onSoundHaptic: (SoundHapticAction) -> Unit = {},
     onHandwritingStroke: (HwStroke, IntSize) -> Unit = { _, _ -> },
@@ -638,7 +609,6 @@ fun KeyboardScreen(
     onToolPrefillConsumed: () -> Unit = {},
     /** Dismiss the keyboard — the hide-keyboard tool and the toolbar swipe-down. */
     onHideKeyboard: () -> Unit = {},
-    onOpenSettings: () -> Unit,
 ) {
     val rawState by stateFlow.collectAsState()
 
@@ -1110,7 +1080,7 @@ private fun OneHandedRail(
     current: OneHandedMode,
     onFlip: () -> Unit,
     onExit: () -> Unit,
-    modifier: Modifier,
+    modifier: Modifier = Modifier,
 ) {
     Column(
         modifier = modifier,
@@ -1805,7 +1775,7 @@ private fun ClipboardSuggestionChip(
     val feedback = LocalKeyPressFeedback.current
     val tint = kb.accent
     val fill = tint.copy(alpha = if (kb.dark) 0.20f else 0.11f)
-    
+
     val bitmap by produceState<ImageBitmap?>(initialValue = null, clip.imagePath) {
         if (clip.kind == ClipKind.IMAGE && clip.imagePath != null) {
             value = withContext(Dispatchers.IO) {
@@ -1848,9 +1818,10 @@ private fun ClipboardSuggestionChip(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            if (clip.kind == ClipKind.IMAGE && bitmap != null) {
+            val clipBitmap = bitmap
+            if (clip.kind == ClipKind.IMAGE && clipBitmap != null) {
                 Image(
-                    bitmap = bitmap!!,
+                    bitmap = clipBitmap,
                     contentDescription = null,
                     modifier = Modifier
                         .size(22.dp)
@@ -2843,10 +2814,10 @@ private fun Modifier.animateSharedPlacement(
                 // handoff, else this node's own previous spot for an ordinary
                 // reflow. A fresh node with neither has nowhere to come from.
                 val previous = when {
-                    handoff -> sharedPrevious!!
-                    !first -> ownPrevious!!
-                    else -> return@onPlaced
-                }
+                    handoff -> sharedPrevious
+                    !first -> ownPrevious
+                    else -> null
+                } ?: return@onPlaced
                 if (previous == position) return@onPlaced
                 val delta = previous - position
                 // A slide along the bar never changes height; a vertical move
@@ -3069,7 +3040,6 @@ private fun RowScope.ToolbarRow(
     // time to leave as it took to arrive; a shorter exit made closing a panel
     // finish ahead of the icons still sliding back into the freed slot.
     val enterMs = if (motion) ToolbarMotionMs else 0
-    val exitMs = enterMs
     // RTL scripts read the bar right-to-left, so the pinned tools mirror. The
     // drag controller mirrors its copy in lockstep (see KeyboardBody), so slot
     // hit-testing stays aligned with what's drawn.
@@ -3356,7 +3326,8 @@ private fun ToolboxPanel(
                             "other apps keep their own. Hold and drag a tool onto the toolbar to " +
                             "pin it, around this grid to reorder, or down here to remove it."
                     } else {
-                        "Hold and drag a tool onto the toolbar to pin it, around this grid to reorder — or drag a toolbar tool down here to remove it."
+                        "Hold and drag a tool onto the toolbar to pin it, around " +
+                            "this grid to reorder — or drag a toolbar tool down here to remove it."
                     },
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -3914,7 +3885,10 @@ private fun KeyboardBody(
                 when (row) {
                     // Disabling the toolbar drops the whole strip — suggestions
                     // and tools alike — so the keys claim its height.
-                    BarRow.TOPBAR -> if (state.settings.toolbarBehavior.enabled && !fullBleed && !emojiSearching && !clipboardSearching && !lockHidden) {
+                    BarRow.TOPBAR -> if (
+                        state.settings.toolbarBehavior.enabled && !fullBleed &&
+                        !emojiSearching && !clipboardSearching && !lockHidden
+                    ) {
                         TopBar(
                             state, onSuggestion, onEmoji, onEmojiSuggestion,
                             onPunctuation = onPunctuation,
@@ -4376,8 +4350,6 @@ private fun KeyboardBody(
                     AiPanel(
                         state = state,
                         onAction = onAiAction,
-                        onReplace = onAiReplace,
-                        onInsert = onAiInsert,
                         onRetry = onAiRetry,
                         onRunCustom = onAiRunCustom,
                         onPickModel = onAiPickModel,
@@ -4716,6 +4688,9 @@ private fun KeyRows(
                     // being drawn now. With spaceGlide off there is only ever
                     // one segment — the whole stroke, spacebar points included.
                     val segments = ArrayList<List<GesturePoint>>()
+                    // Reassigned wholesale whenever a word segment closes, so it
+                    // is a `var` holding a mutable buffer on purpose.
+                    @Suppress("DoubleMutabilityForCollection")
                     var seg = ArrayList<GesturePoint>()
                     var wasOverSpace = false
                     var samples = 0
@@ -5154,15 +5129,48 @@ private fun KeyRow(
         if (split) {
             val (left, right) = remember(keys) { splitKeys(keys) }
             for (key in left) {
-                KeyCell(key, keyHeightDp, state, onKey, onText, onCursorMove, onLayoutSelect, onLetterPositioned, onSpacePositioned, smartResolve)
+                KeyCell(
+                    key,
+                    keyHeightDp,
+                    state,
+                    onKey,
+                    onText,
+                    onCursorMove,
+                    onLayoutSelect,
+                    onLetterPositioned,
+                    onSpacePositioned,
+                    smartResolve,
+                )
             }
             Spacer(modifier = Modifier.weight(gridWeight * splitGapPercent / 100f))
             for (key in right) {
-                KeyCell(key, keyHeightDp, state, onKey, onText, onCursorMove, onLayoutSelect, onLetterPositioned, onSpacePositioned, smartResolve)
+                KeyCell(
+                    key,
+                    keyHeightDp,
+                    state,
+                    onKey,
+                    onText,
+                    onCursorMove,
+                    onLayoutSelect,
+                    onLetterPositioned,
+                    onSpacePositioned,
+                    smartResolve,
+                )
             }
         } else {
             for (key in keys) {
-                KeyCell(key, keyHeightDp, state, onKey, onText, onCursorMove, onLayoutSelect, onLetterPositioned, onSpacePositioned, smartResolve)
+                KeyCell(
+                    key,
+                    keyHeightDp,
+                    state,
+                    onKey,
+                    onText,
+                    onCursorMove,
+                    onLayoutSelect,
+                    onLetterPositioned,
+                    onSpacePositioned,
+                    smartResolve,
+                )
             }
         }
         if (sidePad > 0.01f) Spacer(modifier = Modifier.weight(sidePad))
@@ -5592,7 +5600,7 @@ private fun rowScaledKeyHeight(baseKeyHeightDp: Int, scale: Float?): Int =
 private fun KeyButton(
     key: Key,
     state: KeyboardUiState,
-    modifier: Modifier,
+    modifier: Modifier = Modifier,
     onKey: (Key) -> Unit,
     onText: (String) -> Unit,
     onCursorMove: (Int) -> Unit = {},
@@ -6115,7 +6123,7 @@ private fun KeyContent(key: Key, state: KeyboardUiState, contentColor: Color) {
             if (mainIcon != null) {
                 Icon(
                     mainIcon,
-                    contentDescription = key.label.ifBlank { key.icon ?: "" },
+                    contentDescription = key.label.ifBlank { key.icon.orEmpty()},
                     tint = contentColor,
                     modifier = Modifier
                         .align(Alignment.Center)
@@ -6959,7 +6967,9 @@ private fun EmojiPanel(
     // Gender/role variants (🏃‍♀️, 👨‍⚕️…) collapse under their base emoji;
     // the popup offers them, the grid stays tidy.
     val variantChildren = remember(state.emojiCatalog) {
-        state.emojiCatalog.filter { it.parent != null }.groupBy({ it.parent!! }, { it.emoji })
+        state.emojiCatalog
+            .mapNotNull { entry -> entry.parent?.let { parent -> parent to entry.emoji } }
+            .groupBy({ it.first }, { it.second })
     }
     val historyMode = state.settings.emojiTabMode
     val history = (if (historyMode == EmojiTabMode.MOST_USED) state.emojiFrequents else state.emojiRecents)
@@ -7960,8 +7970,8 @@ private fun DualTonePicker(
     onPick: (String) -> Unit,
 ) {
     var member by remember { mutableStateOf(members.first()) }
-    var first by remember { mutableStateOf(0) }
-    var second by remember { mutableStateOf(0) }
+    var first by remember { mutableIntStateOf(0) }
+    var second by remember { mutableIntStateOf(0) }
     // Not every combination is RGI (a toned person can't shake a neutral
     // hand), so a pick on one side seeds the other side too.
     val preview = index.tonedPair(member, first, second) ?: member
@@ -8529,7 +8539,7 @@ private fun SwipeToDeleteCard(
 ) {
     val offset = remember { Animatable(0f) }
     val scope = rememberCoroutineScope()
-    var width by remember { mutableStateOf(0) }
+    var width by remember { mutableIntStateOf(0) }
     Box(
         modifier = modifier
             .onGloballyPositioned { width = it.size.width }

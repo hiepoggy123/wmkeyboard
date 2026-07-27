@@ -28,6 +28,12 @@ litertlm = "0.14.0"
 # manifest merger rejects; 1.4.2 is the last single-artifact classic runtime
 # (org.tensorflow.lite.Interpreter + signature runners).
 litert = "1.4.2"
+# Static analysis. detekt 2.x is still alpha; 1.23.8 is the last stable line and
+# parses this project's Kotlin fine (no context receivers / `when` guards here).
+detekt = "1.23.8"
+# Slack's Compose lint checks: Android Lint rules for @Composable correctness
+# (unstable parameters, unremembered mutable state, modifier misuse, ...).
+composeLints = "1.5.3"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -71,9 +77,15 @@ litert = { group = "com.google.ai.edge.litert", name = "litert", version.ref = "
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
 kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutines" }
 
+# Static-analysis rule packs, pulled in via the detektPlugins / lintChecks
+# configurations rather than compiled into the app.
+detekt-formatting = { group = "io.gitlab.arturbosch.detekt", name = "detekt-formatting", version.ref = "detekt" }
+compose-lint-checks = { group = "com.slack.lint.compose", name = "compose-lint-checks", version.ref = "composeLints" }
+
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }

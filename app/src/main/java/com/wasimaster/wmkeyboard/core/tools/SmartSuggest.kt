@@ -446,7 +446,7 @@ object SmartSuggest {
     // ---- arithmetic ----
 
     private val CALC_TAIL = Regex("""(?<![\w.])([\d.,()+\-*/^%×÷−√πe ]{2,40}?)(=?)$""")
-    private val CALC_OPERATORS = "+-*/^%×÷−√"
+    private const val CALC_OPERATORS = "+-*/^%×÷−√"
     private val DATE_LIKE = Regex("""^\d{1,4}([/.\-])\d{1,2}(\1\d{1,4})?$""")
 
     private fun detectCalc(tail: String, ctx: Context): SmartHit? {

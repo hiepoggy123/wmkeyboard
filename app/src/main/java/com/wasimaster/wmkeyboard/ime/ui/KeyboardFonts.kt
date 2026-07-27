@@ -182,15 +182,45 @@ object KeyboardFonts {
         ),
         ScriptFontChoices(
             ScriptId.HANGUL, "Korean", "안녕하세요 · 가나다라",
-            listOf("Noto Serif KR", "Nanum Gothic", "Nanum Myeongjo", "Gowun Dodum", "Do Hyeon", "Jua", "Gothic A1", "Black Han Sans", "Sunflower"),
+            listOf(
+                "Noto Serif KR",
+                "Nanum Gothic",
+                "Nanum Myeongjo",
+                "Gowun Dodum",
+                "Do Hyeon",
+                "Jua",
+                "Gothic A1",
+                "Black Han Sans",
+                "Sunflower",
+            ),
         ),
         ScriptFontChoices(
             ScriptId.JAPANESE, "Japanese", "こんにちは · 日本語 あいう",
-            listOf("Noto Serif JP", "M PLUS 1p", "M PLUS Rounded 1c", "Sawarabi Mincho", "Sawarabi Gothic", "Kosugi Maru", "Zen Maru Gothic", "Shippori Mincho", "Dela Gothic One"),
+            listOf(
+                "Noto Serif JP",
+                "M PLUS 1p",
+                "M PLUS Rounded 1c",
+                "Sawarabi Mincho",
+                "Sawarabi Gothic",
+                "Kosugi Maru",
+                "Zen Maru Gothic",
+                "Shippori Mincho",
+                "Dela Gothic One",
+            ),
         ),
         ScriptFontChoices(
             ScriptId.HAN, "Chinese", "你好 · 汉字 中文",
-            listOf("Noto Serif SC", "Noto Sans TC", "Noto Serif TC", "ZCOOL XiaoWei", "ZCOOL QingKe HuangYou", "ZCOOL KuaiLe", "Ma Shan Zheng", "Long Cang", "Zhi Mang Xing"),
+            listOf(
+                "Noto Serif SC",
+                "Noto Sans TC",
+                "Noto Serif TC",
+                "ZCOOL XiaoWei",
+                "ZCOOL QingKe HuangYou",
+                "ZCOOL KuaiLe",
+                "Ma Shan Zheng",
+                "Long Cang",
+                "Zhi Mang Xing",
+            ),
         ),
     )
 

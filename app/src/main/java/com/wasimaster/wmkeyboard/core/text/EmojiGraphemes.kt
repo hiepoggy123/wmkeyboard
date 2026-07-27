@@ -50,6 +50,10 @@ object EmojiGraphemes {
      * dozen units is plenty, but a truncated lookback only ever shortens the
      * cluster, never corrupts it.
      */
+    // The ZWJ walk below reads as a one-shot loop to detekt: it only sees the
+    // unconditional `break` that ends the body, not the `continue` above it that
+    // makes the loop iterate over joined segments.
+    @Suppress("UnconditionalJumpStatementInLoop")
     fun deleteLength(before: CharSequence): Int {
         if (before.isEmpty()) return 0
         val cps = codePoints(before)

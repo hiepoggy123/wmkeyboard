@@ -14,6 +14,7 @@ import com.google.mlkit.vision.digitalink.recognition.WritingArea
 import com.wasimaster.wmkeyboard.core.script.LanguageDef
 import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
 import com.wasimaster.wmkeyboard.core.script.ScriptId
+import com.wasimaster.wmkeyboard.core.util.runCancellable
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -139,7 +140,7 @@ object HandwritingModels {
 
     suspend fun isDownloaded(tag: String): Boolean {
         val model = model(tag) ?: return false
-        return runCatching { manager.isModelDownloaded(model).await() }.getOrDefault(false)
+        return runCancellable { manager.isModelDownloaded(model).await() }.getOrDefault(false)
     }
 
     /** Downloads the model for [tag]; throws on failure (no network, no space). */
@@ -150,7 +151,7 @@ object HandwritingModels {
 
     suspend fun delete(tag: String) {
         val model = model(tag) ?: return
-        runCatching { manager.deleteDownloadedModel(model).await() }
+        runCancellable { manager.deleteDownloadedModel(model).await() }
     }
 }
 
@@ -196,7 +197,7 @@ class HandwritingRecognizerCache {
     ): List<String> {
         if (strokes.isEmpty()) return emptyList()
         val recognizer = recognizerFor(tag)
-            ?: throw IllegalStateException("No recognizer for $tag")
+            ?: error("No recognizer for $tag")
         val inkBuilder = Ink.builder()
         for (stroke in strokes) {
             val strokeBuilder = Ink.Stroke.builder()

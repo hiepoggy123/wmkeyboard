@@ -78,7 +78,7 @@ fun validateLayout(spec: LayoutSpec): List<LayoutFinding> {
         // enter — so it is fully typeable and nothing here should block it. This
         // keeps validate consistent with repair(), which drops an all-unusable
         // letters layer to null and promises the result can still be enabled.
-    } else if (letters.rows.none { it.isNotEmpty() }) {
+    } else if (letters.rows.all { it.isEmpty() }) {
         findings += LayoutFinding(
             LayoutSeverity.BLOCKING,
             "The letters layer has no keys.",
@@ -174,7 +174,7 @@ fun validateLayout(spec: LayoutSpec): List<LayoutFinding> {
             }
         }
 
-        val unknown = rows.flatten().count { it.action is KeyAction.Unknown }
+        val unknown = rows.sumOf { row -> row.count { it.action is KeyAction.Unknown } }
         if (unknown > 0) {
             findings += LayoutFinding(
                 LayoutSeverity.BLOCKING,
@@ -289,7 +289,7 @@ private fun Key.repairKey(label: String, repairs: MutableList<String>): Key? {
         repairs += "A key in the $label layer had no width; set it to 1."
         fixed = fixed.copy(width = 1f)
     } else if (width > MaxKeyWidth) {
-        repairs += "A key in the $label layer was ${width} wide; capped it at $MaxKeyWidth."
+        repairs += "A key in the $label layer was $width wide; capped it at $MaxKeyWidth."
         fixed = fixed.copy(width = MaxKeyWidth)
     }
     if (fixed.longPress.any { it.isEmpty() }) {

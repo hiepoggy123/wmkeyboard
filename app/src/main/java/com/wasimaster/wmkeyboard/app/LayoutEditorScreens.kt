@@ -20,11 +20,12 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Slider
 import com.wasimaster.wmkeyboard.core.layout.KeyRole
 import com.wasimaster.wmkeyboard.core.layout.LayerSpec
+import com.wasimaster.wmkeyboard.core.util.requireInputStream
+import com.wasimaster.wmkeyboard.core.util.runCancellable
 import kotlin.math.roundToInt
 import androidx.compose.material3.Button
 import com.wasimaster.wmkeyboard.core.layout.LayoutCodec
 import com.wasimaster.wmkeyboard.core.layout.repair
-import android.content.Context
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material.icons.outlined.FileOpen
@@ -140,7 +141,7 @@ internal fun KeyLayoutsScreen(
         pendingExport = null
         if (uri == null || layout == null) return@rememberLauncherForActivityResult
         scope.launch {
-            val ok = runCatching {
+            val ok = runCancellable {
                 val text = LayoutFile.encode(
                     layout,
                     appVersion = BuildConfig.VERSION_CODE,
@@ -165,7 +166,7 @@ internal fun KeyLayoutsScreen(
         scope.launch {
             val text = withContext(Dispatchers.IO) {
                 runCatching {
-                    context.contentResolver.openInputStream(uri)!!
+                    context.contentResolver.requireInputStream(uri)
                         .use { it.readBytes().decodeToString() }
                 }.getOrNull()
             }
@@ -766,8 +767,8 @@ internal fun KeyLayoutEditorScreen(
             "under Languages.",
     )
 
-    if (sheetOpen && selection != null && selectedKey != null) {
-        val ref = selection!!
+    val ref = selection
+    if (sheetOpen && ref != null && selectedKey != null) {
         KeyEditSheet(
             key = selectedKey,
             ref = ref,
@@ -889,11 +890,12 @@ private fun LayerChips(
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         items(LayoutLayer.entries) { layer ->
+            val authored = layout.layer(layer) != null
             FilterChip(
                 selected = layer == selected,
                 onClick = { onSelect(layer) },
                 label = { Text(layerTitle(layer), maxLines = 1) },
-                leadingIcon = if (layout.layer(layer) != null) {
+                leadingIcon = if (authored) {
                     {
                         Icon(
                             Icons.Outlined.Edit,
@@ -1069,9 +1071,10 @@ private fun RowScope.EditorKeyCell(
             // fonts render a bare matra (া, ি) as an orphaned mark. Showing the
             // pair identifies the key even when the top glyph is ambiguous. The
             // real keyboard swaps on shift instead, so this is editor-only.
-            if (!showShift && key.shiftLabel != null) {
+            val shiftLabel = key.shiftLabel
+            if (!showShift && shiftLabel != null) {
                 Text(
-                    text = key.shiftLabel!!,
+                    text = shiftLabel,
                     color = foreground.copy(alpha = 0.55f),
                     fontSize = 10.sp,
                     maxLines = 1,

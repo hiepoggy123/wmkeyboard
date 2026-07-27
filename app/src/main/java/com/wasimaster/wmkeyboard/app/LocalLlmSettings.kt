@@ -37,6 +37,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -82,8 +83,8 @@ internal fun LocalLlmModelManager(repository: SettingsRepository, settings: Keyb
     val filesDir = context.filesDir
     val states by LocalLlmDownloadManager.states.collectAsState()
     var customModels by remember { mutableStateOf(LocalLlmStore.customModels(filesDir)) }
-    var storageUsed by remember { mutableStateOf(0L) }
-    var orphanBytes by remember { mutableStateOf(0L) }
+    var storageUsed by remember { mutableLongStateOf(0L) }
+    var orphanBytes by remember { mutableLongStateOf(0L) }
     var meteredPending by remember { mutableStateOf<LocalLlmModel?>(null) }
     var importError by remember { mutableStateOf<String?>(null) }
     var importing by remember { mutableStateOf(false) }
@@ -604,6 +605,12 @@ private fun ImportModelButton(
     }
 }
 
+// The provider-supplied DISPLAY_NAME *is* sanitised below — reduced to its last
+// path segment with File(..).name, then required to carry a known extension — so
+// no directory component of it can reach the destination path. Lint matches the
+// raw column read flowing into a File(), and cannot see that reduction, so the
+// check is silenced here and left on everywhere else.
+@Suppress("UnsanitizedFilenameFromContentProvider")
 private fun importModel(context: Context, uri: android.net.Uri) {
     var name: String? = null
     var size = -1L
@@ -615,8 +622,11 @@ private fun importModel(context: Context, uri: android.net.Uri) {
                 .takeIf { it >= 0 }?.let { size = cursor.getLong(it) }
         }
     }
-    val fileName = name?.let { File(it).name }
-        ?: throw IllegalArgumentException("Couldn't read the file's name")
+    // DISPLAY_NAME comes straight from the provider and may contain path
+    // separators, so it is reduced to its last segment before it is ever used
+    // to build a path. File(..).name is that sanitisation step.
+    val reportedName = name ?: throw IllegalArgumentException("Couldn't read the file's name")
+    val fileName = File(reportedName).name
     val extension = fileName.substringAfterLast('.', "").lowercase()
     require(extension == "litertlm" || extension == "task") {
         "Not a model file — expected a .litertlm or .task file"

@@ -7,7 +7,6 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.add
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
@@ -177,7 +176,7 @@ object AiClient {
             config, system, user, maxTokens, onPhase, onPartial, isActive,
         )
         AiProvider.ON_DEVICE ->
-            throw IllegalStateException("On-device models run locally, not over HTTP")
+            error("On-device models run locally, not over HTTP")
     }
 
     /** Runs one system+user exchange, returning the assistant's text. */
@@ -195,7 +194,7 @@ object AiClient {
             // On-device inference needs a Context and model file; the IME
             // service routes to LocalLlmEngine before ever calling here.
             AiProvider.ON_DEVICE ->
-                throw IllegalStateException("On-device models run locally, not over HTTP")
+                error("On-device models run locally, not over HTTP")
         }
 
     private fun anthropic(config: Config, system: String, user: String, maxTokens: Int): String {

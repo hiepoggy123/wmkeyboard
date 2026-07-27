@@ -116,7 +116,7 @@ object AltCalendars {
         AltCalendar.PERSIAN -> persian(year, month, day).let {
             "${it.day} ${PERSIAN_MONTHS[it.month - 1]} ${it.year}"
         }
-        AltCalendar.BUDDHIST -> "${day} ${GREGORIAN_MONTHS[month - 1]} ${year + 543} BE"
+        AltCalendar.BUDDHIST -> "$day ${GREGORIAN_MONTHS[month - 1]} ${year + 543} BE"
         AltCalendar.JAPANESE -> japaneseEra(year, month, day).let { era ->
             "${era.kanji}${era.year}年${month}月${day}日 · ${era.romaji} ${era.year}"
         }

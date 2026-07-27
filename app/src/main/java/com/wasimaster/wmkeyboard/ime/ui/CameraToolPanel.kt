@@ -53,6 +53,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -84,6 +85,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import com.wasimaster.wmkeyboard.core.util.runCancellable
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
 import java.io.File
 import kotlinx.coroutines.Dispatchers
@@ -238,7 +240,7 @@ private fun CameraContent(
     var camera by remember { mutableStateOf<Camera?>(null) }
     // Current optical/digital zoom, shown as a pill and driven by pinch. Reset
     // when the camera rebinds (retake / lens switch both drop back to 1x).
-    var zoomRatio by remember(camera) { mutableStateOf(1f) }
+    var zoomRatio by remember(camera) { mutableFloatStateOf(1f) }
     var geometry by remember { mutableStateOf<PanelGeometry?>(null) }
     val windowHeight = LocalView.current.rootView.height
 
@@ -329,7 +331,7 @@ private fun CameraContent(
             val mirror = usingFront && state.settings.camera.mirrorFront
             val geo = geometry
             val capture = withContext(Dispatchers.IO) {
-                runCatching {
+                runCancellable {
                     val proxy = imageCapture.awaitCapture(context)
                     val upright = proxy.use { it.toFramedBitmap(mirror) }
                     // Crop to the part of the width-filling viewfinder that

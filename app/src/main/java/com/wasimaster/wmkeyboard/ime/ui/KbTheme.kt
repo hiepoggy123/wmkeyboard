@@ -578,10 +578,10 @@ private fun lerpLong(a: Long, b: Long, t: Float): Long =
 private fun Color.toArgbLong(): Long = toArgb().toLong() and 0xFFFFFFFFL
 
 private fun lerpColorOrNull(a: Color?, b: Color?, t: Float): Color? {
-    if (a == null && b == null) return null
     // A null border means "no outline"; fade it in/out via a transparent stand-in.
-    val from = a ?: b!!.copy(alpha = 0f)
-    val to = b ?: a!!.copy(alpha = 0f)
+    // Either elvis falling all the way through means both sides were absent.
+    val from = a ?: b?.copy(alpha = 0f) ?: return null
+    val to = b ?: a?.copy(alpha = 0f) ?: return null
     return lerp(from, to, t)
 }
 
@@ -603,7 +603,7 @@ private fun lerpGradient(
     if (a != null && b != null && (a.type != b.type || a.colors.size != b.colors.size)) {
         return if (t >= 0.5f) b else a
     }
-    val shape = a ?: b!!
+    val shape = a ?: b ?: return null
     val flatSolid = (if (a == null) aSolid else bSolid).toArgbLong()
     val flat = List(shape.colors.size) { flatSolid }
     val fromColors = a?.colors ?: flat

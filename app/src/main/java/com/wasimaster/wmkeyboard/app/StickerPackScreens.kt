@@ -58,6 +58,7 @@ import com.wasimaster.wmkeyboard.core.stickers.StickerImportResult
 import com.wasimaster.wmkeyboard.core.stickers.StickerPack
 import com.wasimaster.wmkeyboard.core.stickers.StickerPackFile
 import com.wasimaster.wmkeyboard.core.stickers.StickerPackStore
+import com.wasimaster.wmkeyboard.core.util.requireInputStream
 import com.wasimaster.wmkeyboard.ime.ui.rememberMediaImageLoader
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -118,7 +119,7 @@ internal fun StickerPacksScreen(onNavigate: (String) -> Unit) {
         scope.launch {
             val result = withContext(Dispatchers.IO) {
                 runCatching {
-                    context.contentResolver.openInputStream(uri)!!
+                    context.contentResolver.requireInputStream(uri)
                         .use { StickerPackFile.import(it, store) }
                 }.getOrDefault(StickerImportResult.Failed)
             }
@@ -329,7 +330,7 @@ internal fun StickerPackScreen(packId: String) {
                 var full = false
                 for (uri in uris) {
                     val bytes = runCatching {
-                        context.contentResolver.openInputStream(uri)!!.use { it.readBytes() }
+                        context.contentResolver.requireInputStream(uri).use { it.readBytes() }
                     }.getOrNull()
                     if (bytes == null) {
                         unreadable++

@@ -135,7 +135,7 @@ object WhisperDownloadManager {
      * remote name, and approximate size (progress fallback + space preflight).
      */
     private data class Part(val url: String, val finalFile: File, val approxBytes: Long) {
-        val part: File get() = File(finalFile.parentFile, "${finalFile.name}.part")
+        val partFile: File get() = File(finalFile.parentFile, "${finalFile.name}.part")
     }
 
     private suspend fun downloadModel(filesDir: File, model: WhisperModel) {
@@ -154,7 +154,7 @@ object WhisperDownloadManager {
 
         // Space preflight for everything still missing, up front.
         val stillNeeded = parts.filter { !it.finalFile.isFile }
-            .sumOf { it.approxBytes - it.part.length() }
+            .sumOf { it.approxBytes - it.partFile.length() }
         val free = StatFs(dir.path).availableBytes
         if (free < stillNeeded + SPACE_MARGIN_BYTES) {
             val neededMb = (stillNeeded + SPACE_MARGIN_BYTES) / 1e6
@@ -177,7 +177,7 @@ object WhisperDownloadManager {
     }
 
     private suspend fun downloadPart(modelId: String, p: Part, baseBytes: Long, grandTotal: Long) {
-        var resumeFrom = p.part.length()
+        var resumeFrom = p.partFile.length()
         val connection = URL(p.url).openConnection() as HttpURLConnection
         try {
             connection.connectTimeout = 15_000
@@ -198,7 +198,7 @@ object WhisperDownloadManager {
             var lastUpdate = 0L
 
             connection.inputStream.use { input ->
-                RandomAccessFile(p.part, "rw").use { out ->
+                RandomAccessFile(p.partFile, "rw").use { out ->
                     out.setLength(resumeFrom)
                     out.seek(resumeFrom)
                     val buffer = ByteArray(256 * 1024)
@@ -222,7 +222,7 @@ object WhisperDownloadManager {
             } else if (fileTotal < 0 && written < p.approxBytes * 9 / 10) {
                 throw IOException("The connection dropped mid-download — resume to continue")
             }
-            check(p.part.renameTo(p.finalFile)) {
+            check(p.partFile.renameTo(p.finalFile)) {
                 "could not move the finished download into place"
             }
         } finally {

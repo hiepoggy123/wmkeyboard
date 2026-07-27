@@ -46,7 +46,7 @@ object CustomDictionaries {
         languageDir(filesDir, langId)
             .listFiles { f -> f.isFile && f.extension == "txt" }
             ?.sortedBy { it.name }
-            ?: emptyList()
+            .orEmpty()
 
     /** Every entry across every list for one language, in file order. */
     fun entries(filesDir: File, langId: String): List<Pair<String, Int>> {

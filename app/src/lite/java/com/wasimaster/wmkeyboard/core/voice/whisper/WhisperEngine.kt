@@ -1,6 +1,5 @@
 package com.wasimaster.wmkeyboard.core.voice.whisper
 
-import android.content.Context
 import java.io.File
 
 /**
@@ -15,13 +14,12 @@ object WhisperEngine {
 
     @Suppress("UNUSED_PARAMETER")
     fun transcribe(
-        context: Context,
         modelFile: File,
         vocabFile: File,
         pcm: FloatArray,
         translate: Boolean,
         langToken: Int? = null,
-    ): String = throw IllegalStateException("Offline Whisper is not available in the lite build")
+    ): String = error("Offline Whisper is not available in the lite build")
 
     fun release() = Unit
 }

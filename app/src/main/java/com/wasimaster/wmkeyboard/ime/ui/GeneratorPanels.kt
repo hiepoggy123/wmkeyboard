@@ -6,7 +6,6 @@ import android.content.Context
 import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -32,7 +31,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -141,7 +139,7 @@ internal fun PasswordPanel(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                if (generated.isEmpty()) "…" else generated,
+                generated.ifEmpty { "…" },
                 color = kb.modifierKeyText,
                 fontSize = 15.sp,
                 fontFamily = FontFamily.Monospace,

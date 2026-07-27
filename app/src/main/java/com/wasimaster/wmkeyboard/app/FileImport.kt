@@ -39,6 +39,7 @@ import com.wasimaster.wmkeyboard.core.stickers.StickerPackStore
 import com.wasimaster.wmkeyboard.core.theme.ThemeCodec
 import com.wasimaster.wmkeyboard.core.theme.ThemeSpec
 import com.wasimaster.wmkeyboard.core.theme.withExtractedImages
+import com.wasimaster.wmkeyboard.core.util.requireInputStream
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -110,7 +111,7 @@ object WMFileTypes {
      */
     fun identify(context: android.content.Context, uri: Uri, name: String): Opened {
         val head = runCatching {
-            context.contentResolver.openInputStream(uri)!!.use { input ->
+            context.contentResolver.requireInputStream(uri).use { input ->
                 val buffer = ByteArray(4)
                 var read = 0
                 while (read < buffer.size) {
@@ -124,7 +125,7 @@ object WMFileTypes {
         if (head.contentEquals(ZIP_MAGIC)) return identifyArchive(context, uri)
 
         val text = runCatching {
-            context.contentResolver.openInputStream(uri)!!.use { it.readBytes().decodeToString() }
+            context.contentResolver.requireInputStream(uri).use { it.readBytes().decodeToString() }
         }.getOrNull() ?: return Opened.Unreadable
 
         // Tagged formats first, and in the order a tag can only mean one thing.
@@ -150,7 +151,7 @@ object WMFileTypes {
      */
     private fun identifyArchive(context: android.content.Context, uri: Uri): Opened {
         val manifest = runCatching {
-            context.contentResolver.openInputStream(uri)!!.use { input ->
+            context.contentResolver.requireInputStream(uri).use { input ->
                 java.util.zip.ZipInputStream(input.buffered()).use { zip ->
                     var scanned = 0
                     while (scanned++ < MANIFEST_SCAN_LIMIT) {
@@ -263,10 +264,11 @@ private fun ImportFileDialog(
         }
     }
 
-    if (message != null) {
+    val messageText = message
+    if (messageText != null) {
         AlertDialog(
             onDismissRequest = onClose,
-            text = { Text(message!!) },
+            text = { Text(messageText) },
             confirmButton = { TextButton(onClick = onClose) { Text("OK") } },
         )
         return
@@ -429,7 +431,7 @@ private fun rememberProposal(
                 val store = StickerPackStore.get(context)
                 val result = withContext(Dispatchers.IO) {
                     runCatching {
-                        context.contentResolver.openInputStream(uri)!!
+                        context.contentResolver.requireInputStream(uri)
                             .use { StickerPackFile.import(it, store) }
                     }.getOrDefault(StickerImportResult.Failed)
                 }
@@ -458,7 +460,7 @@ private fun rememberProposal(
                 val store = IconPackStore.get(context)
                 val result = withContext(Dispatchers.IO) {
                     runCatching {
-                        context.contentResolver.openInputStream(uri)!!
+                        context.contentResolver.requireInputStream(uri)
                             .use { IconPackFile.import(it, store) }
                     }.getOrDefault(IconImportResult.Failed)
                 }

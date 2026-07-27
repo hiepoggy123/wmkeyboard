@@ -9,6 +9,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
+import androidx.annotation.RequiresApi
 import androidx.core.content.ContextCompat
 import java.io.File
 
@@ -56,6 +57,10 @@ object GallerySaver {
         }
     }
 
+    // Guarded by the SDK_INT check in save(); the annotation states that
+    // contract so the API-level check can see it too (VOLUME_EXTERNAL_PRIMARY
+    // and the scoped-storage insert are Q+).
+    @RequiresApi(Build.VERSION_CODES.Q)
     private fun saveScoped(
         context: Context,
         file: File,

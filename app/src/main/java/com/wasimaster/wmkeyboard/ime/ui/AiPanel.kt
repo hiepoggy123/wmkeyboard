@@ -72,8 +72,6 @@ import kotlinx.coroutines.delay
 internal fun AiPanel(
     state: KeyboardUiState,
     onAction: (AiAction) -> Unit,
-    onReplace: () -> Unit,
-    onInsert: () -> Unit,
     onRetry: () -> Unit,
     onRunCustom: () -> Unit,
     onPickModel: (AiProvider, String?) -> Unit,

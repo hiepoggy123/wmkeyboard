@@ -51,12 +51,12 @@ import androidx.compose.material.icons.outlined.FlashlightOn
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.SelectAll
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -79,7 +79,6 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.google.android.gms.tasks.Task
@@ -91,6 +90,7 @@ import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
+import com.wasimaster.wmkeyboard.core.util.runCancellable
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
 import java.util.concurrent.Executors
 import kotlin.coroutines.resume
@@ -255,13 +255,13 @@ private fun OcrContent(
         feedback()
         scope.launch {
             val bitmap = withContext(Dispatchers.IO) {
-                runCatching {
+                runCancellable {
                     imageCapture.awaitCapture(context).use { it.toFramedBitmap(mirror = false) }
                 }.getOrNull()
             } ?: return@launch
             stage = OcrStage.Recognizing(bitmap)
             val lines = withContext(Dispatchers.Default) {
-                runCatching {
+                runCancellable {
                     var id = 0
                     recognizer.process(InputImage.fromBitmap(bitmap, 0)).await()
                         .textBlocks
@@ -312,7 +312,8 @@ private fun OcrContent(
             OcrStage.Viewfinder -> Unit
         }
 
-        if (provider != null && backOrFrontSelector(provider!!) == null) {
+        val activeProvider = provider
+        if (activeProvider != null && backOrFrontSelector(activeProvider) == null) {
             PanelCenteredMessage("This device has no camera.")
             return@Box
         }
@@ -605,7 +606,7 @@ private fun QrScanContent(
     // Current zoom, driven by pinch and shown as a pill. Zooming into a
     // small or distant code is often the difference between a decode and
     // not. Resets to 1x whenever the camera rebinds (e.g. after Rescan).
-    var zoomRatio by remember(camera) { mutableStateOf(1f) }
+    var zoomRatio by remember(camera) { mutableFloatStateOf(1f) }
 
     val provider by produceState<ProcessCameraProvider?>(null) {
         value = withContext(Dispatchers.IO) { ProcessCameraProvider.getInstance(context).get() }
@@ -663,13 +664,14 @@ private fun QrScanContent(
                 scanner.process(InputImage.fromBitmap(bitmap, rotation))
                     .addOnSuccessListener { barcodes ->
                         val hit = barcodes.firstOrNull { !it.rawValue.isNullOrEmpty() }
-                        if (hit != null && result == null) {
+                        val raw = hit?.rawValue
+                        if (hit != null && raw != null && result == null) {
                             if (haptics) feedback()
                             // Freeze into the result card either way — with
                             // auto-insert the text is already committed and
                             // the card shows what went in (Rescan re-arms).
-                            result = ScannedCode(hit.rawValue!!, barcodeFormatLabel(hit.format))
-                            if (autoInsert) onInsert(hit.rawValue!!)
+                            result = ScannedCode(raw, barcodeFormatLabel(hit.format))
+                            if (autoInsert) onInsert(raw)
                         }
                     }
                     .addOnCompleteListener { busy = false }
@@ -771,7 +773,8 @@ private fun QrScanContent(
             return@Box
         }
 
-        if (provider != null && backOrFrontSelector(provider!!) == null) {
+        val activeProvider = provider
+        if (activeProvider != null && backOrFrontSelector(activeProvider) == null) {
             PanelCenteredMessage("This device has no camera.")
             return@Box
         }

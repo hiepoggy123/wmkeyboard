@@ -83,7 +83,6 @@ import com.wasimaster.wmkeyboard.core.prediction.ContactNames
 import com.wasimaster.wmkeyboard.core.dictionaries.DictionaryStore
 import com.wasimaster.wmkeyboard.core.prediction.CompositeWordSource
 import com.wasimaster.wmkeyboard.core.prediction.CustomDictionaries
-import com.wasimaster.wmkeyboard.core.prediction.DictionaryLoader
 import com.wasimaster.wmkeyboard.core.prediction.MappedTrie
 import com.wasimaster.wmkeyboard.core.prediction.EnglishBengaliMap
 import com.wasimaster.wmkeyboard.core.prediction.KeyProximity
@@ -98,7 +97,6 @@ import com.wasimaster.wmkeyboard.core.prediction.WordSource
 import com.wasimaster.wmkeyboard.core.settings.EmojiFontChoice
 import com.wasimaster.wmkeyboard.core.settings.EmojiInsertMode
 import com.wasimaster.wmkeyboard.core.accessibility.KeyboardPassthrough
-import com.wasimaster.wmkeyboard.core.settings.HapticStyle
 import com.wasimaster.wmkeyboard.core.settings.HardwareKeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.KeyboardMode
 import com.wasimaster.wmkeyboard.core.settings.LetterSwipeAction
@@ -132,6 +130,7 @@ import com.wasimaster.wmkeyboard.core.tools.parseLeader
 import com.wasimaster.wmkeyboard.core.tools.pickerLetter
 import com.wasimaster.wmkeyboard.core.tools.resolvedToolLetters
 import com.wasimaster.wmkeyboard.core.tools.step
+import com.wasimaster.wmkeyboard.core.util.runCancellable
 import com.wasimaster.wmkeyboard.ime.ui.PanelFocusController
 import com.wasimaster.wmkeyboard.core.tools.DictionaryClient
 import com.wasimaster.wmkeyboard.core.tools.GifItem
@@ -186,7 +185,6 @@ import com.wasimaster.wmkeyboard.core.voice.whisper.WhisperEngine
 import com.wasimaster.wmkeyboard.core.voice.whisper.WhisperModel
 import com.wasimaster.wmkeyboard.core.voice.whisper.WhisperStore
 import com.wasimaster.wmkeyboard.core.settings.isWhisperEnabled
-import com.wasimaster.wmkeyboard.core.transliteration.AvroPhonetic
 import com.wasimaster.wmkeyboard.core.transliteration.BengaliGraphemes
 import com.wasimaster.wmkeyboard.core.transliteration.BengaliPhoneticIndex
 import com.wasimaster.wmkeyboard.R
@@ -552,23 +550,30 @@ open class WMKeyboardService : InputMethodService() {
 
     private fun updateScreenshotObserver(enabled: Boolean) {
         val hasPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            androidx.core.content.ContextCompat.checkSelfPermission(this, android.Manifest.permission.READ_MEDIA_IMAGES) == android.content.pm.PackageManager.PERMISSION_GRANTED
+            androidx.core.content.ContextCompat.checkSelfPermission(
+                this,
+                android.Manifest.permission.READ_MEDIA_IMAGES,
+            ) == android.content.pm.PackageManager.PERMISSION_GRANTED
         } else {
-            androidx.core.content.ContextCompat.checkSelfPermission(this, android.Manifest.permission.READ_EXTERNAL_STORAGE) == android.content.pm.PackageManager.PERMISSION_GRANTED
+            androidx.core.content.ContextCompat.checkSelfPermission(
+                this,
+                android.Manifest.permission.READ_EXTERNAL_STORAGE,
+            ) == android.content.pm.PackageManager.PERMISSION_GRANTED
         }
 
         if (enabled && hasPermission) {
             if (screenshotObserver == null) {
-                screenshotObserver = object : android.database.ContentObserver(android.os.Handler(android.os.Looper.getMainLooper())) {
+                val observer = object : android.database.ContentObserver(android.os.Handler(android.os.Looper.getMainLooper())) {
                     override fun onChange(selfChange: Boolean, uri: android.net.Uri?) {
                         super.onChange(selfChange, uri)
                         handleScreenshotAdded()
                     }
                 }
+                screenshotObserver = observer
                 contentResolver.registerContentObserver(
                     android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
                     true,
-                    screenshotObserver!!
+                    observer
                 )
             }
         } else {
@@ -608,7 +613,7 @@ open class WMKeyboardService : InputMethodService() {
                     val dateAdded = c.getLong(c.getColumnIndexOrThrow(android.provider.MediaStore.Images.Media.DATE_ADDED))
                     if (System.currentTimeMillis() / 1000 - dateAdded > 15) return@launch
 
-                    val path = c.getString(c.getColumnIndexOrThrow(android.provider.MediaStore.Images.Media.DATA)) ?: ""
+                    val path = c.getString(c.getColumnIndexOrThrow(android.provider.MediaStore.Images.Media.DATA)).orEmpty()
                     if (!path.contains("Screenshot", ignoreCase = true)) return@launch
 
                     val id = c.getLong(c.getColumnIndexOrThrow(android.provider.MediaStore.Images.Media._ID))
@@ -1255,7 +1260,7 @@ open class WMKeyboardService : InputMethodService() {
     override fun onCreateInputView(): View {
         val view = ComposeView(this)
         inputRootView = view
-        lifecycleOwner.attachTo(window.window!!.decorView)
+        lifecycleOwner.attachTo(requireNotNull(window.window).decorView)
         view.setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindow)
         view.setContent {
             KeyboardScreen(
@@ -1304,22 +1309,18 @@ open class WMKeyboardService : InputMethodService() {
                 onFloatingMoved = ::onFloatingMoved,
                 onFloatingResized = ::onFloatingResized,
                 onFloatingBounds = ::onFloatingBounds,
-                onToggleSplit = ::onToggleSplit,
                 onToolbarToolsChange = ::onToolbarToolsChange,
                 onToolboxOrderChange = ::onToolboxOrderChange,
                 onToolSettings = ::openToolSettings,
                 onToolboxHintDismiss = {
                     serviceScope.launch { settingsRepository.setToolboxHintDismissed(true) }
                 },
-                onFlashlightToggle = ::onFlashlightToggle,
-                onUndoRedo = ::onUndoRedo,
                 onWeatherRefresh = { refreshWeather(force = true) },
                 onCameraSend = ::onCameraSend,
                 onCameraPermissionRequest = ::onCameraPermissionRequest,
                 onCalendarPermissionRequest = ::onCalendarPermissionRequest,
                 onScannedInsert = ::onScannedTextInsert,
                 onScannedUrlOpen = ::onScannedUrlOpen,
-                onDocScan = ::onDocScanStart,
                 onVoiceToggle = ::onVoiceToggle,
                 onVoicePermissionRequest = ::onVoicePermissionRequest,
                 onVoiceUndo = ::onVoiceUndo,
@@ -1335,8 +1336,6 @@ open class WMKeyboardService : InputMethodService() {
                 onDictionaryLookup = ::onDictionaryLookup,
                 onDictionarySearchToggle = ::onDictionarySearchToggle,
                 onDictionaryInsert = ::onDictionaryInsert,
-                onIncognitoToggle = ::onIncognitoToggle,
-                onAutocorrectToggle = ::onAutocorrectToggle,
                 onThemeSelect = ::onThemeSelect,
                 onSoundHaptic = ::onSoundHaptic,
                 onHandwritingStroke = ::onHandwritingStroke,
@@ -1394,7 +1393,6 @@ open class WMKeyboardService : InputMethodService() {
                 onSmartOpen = ::onSmartSuggestionOpen,
                 onToolPrefillConsumed = ::onToolPrefillConsumed,
                 onHideKeyboard = ::onHideKeyboard,
-                onOpenSettings = ::openSettings,
             )
         }
         return view
@@ -1652,14 +1650,14 @@ open class WMKeyboardService : InputMethodService() {
                 // rather than at send time so the media panels can show up
                 // front that a GIF has nowhere to land (see [acceptsRichMedia]).
                 fieldContentMimeTypes = info
-                    ?.let { EditorInfoCompat.getContentMimeTypes(it).toList() }
+                    ?.let { editorInfo -> EditorInfoCompat.getContentMimeTypes(editorInfo).toList() }
                     .orEmpty(),
                 secureField = secure,
                 deviceLocked = isDeviceLocked(),
                 shiftState = autoCapitalizeShift(),
                 clipboardItems = clipboardStore.items(),
                 enterAction = info.enterAction(),
-                enterActionLabel = info?.actionLabel?.toString()?.takeIf { it.isNotBlank() },
+                enterActionLabel = info?.actionLabel?.toString()?.takeIf { label -> label.isNotBlank() },
                 handwriting = it.handwriting.copy(strokes = emptyList(), recognizing = false),
                 voice = it.voice.copy(
                     status = VoiceStatus.IDLE, partial = "", level = 0f,
@@ -1822,7 +1820,6 @@ open class WMKeyboardService : InputMethodService() {
         val stripHeightPx = (INLINE_CHIP_HEIGHT_DP * density.density).toInt()
         return runCatching {
             InlineAutofill.request(
-                context = this,
                 uiExtras = uiExtras,
                 stripHeightPx = stripHeightPx,
                 maxWidthPx = density.widthPixels,
@@ -3510,7 +3507,7 @@ open class WMKeyboardService : InputMethodService() {
                         .addCategory(Intent.CATEGORY_LAUNCHER)
                     val pm = packageManager
                     val labels = pm.queryIntentActivities(intent, 0)
-                        .mapNotNull { it.loadLabel(pm)?.toString() }
+                        .map { it.loadLabel(pm).toString() }
                         .distinct()
                     AppNames.fromNames(labels)
                 }.getOrDefault(AppNames.EMPTY)
@@ -4774,7 +4771,6 @@ open class WMKeyboardService : InputMethodService() {
             if (gen != voiceGeneration) return@launch
             val result = runCatching {
                 WhisperEngine.transcribe(
-                    this@WMKeyboardService,
                     WhisperStore.modelFile(filesDir, model),
                     WhisperStore.vocabFile(filesDir, model),
                     pcm,
@@ -5096,7 +5092,7 @@ open class WMKeyboardService : InputMethodService() {
             it.copy(handwriting = it.handwriting.copy(status = HandwritingStatus.DOWNLOADING, errorMessage = null))
         }
         serviceScope.launch {
-            val result = runCatching { HandwritingModels.download(tag) }
+            val result = runCancellable { HandwritingModels.download(tag) }
             _uiState.update {
                 if (it.handwriting.languageTag != tag) return@update it
                 it.copy(
@@ -5196,7 +5192,7 @@ open class WMKeyboardService : InputMethodService() {
         _uiState.update { it.copy(handwriting = it.handwriting.copy(recognizing = true)) }
         val ic = currentInputConnection
         val preContext = ic?.getTextBeforeCursor(20, 0)?.toString().orEmpty()
-        val result = runCatching {
+        val result = runCancellable {
             hwRecognizer.recognize(
                 tag = tag,
                 strokes = strokes,
@@ -6461,11 +6457,11 @@ open class WMKeyboardService : InputMethodService() {
             val ui = try {
                 val entries = withContext(Dispatchers.IO) { DictionaryClient.lookup(word) }
                 if (entries.isEmpty()) DictionaryUi.NotFound(word) else DictionaryUi.Ready(entries)
-            } catch (e: DictionaryClient.NotFoundException) {
+            } catch (_: DictionaryClient.NotFoundException) {
                 DictionaryUi.NotFound(word)
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 DictionaryUi.Error(word)
             }
             _uiState.update { it.copy(dictionary = ui) }
@@ -8996,13 +8992,11 @@ open class WMKeyboardService : InputMethodService() {
             android.provider.Settings.Global.getInt(contentResolver, "zen_mode", 0)
         }.getOrDefault(0)
         if (zen != 0) return true
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            val filter = nm.currentInterruptionFilter
-            return filter != NotificationManager.INTERRUPTION_FILTER_ALL &&
-                filter != NotificationManager.INTERRUPTION_FILTER_UNKNOWN
-        }
-        return false
+        // No SDK_INT guard: currentInterruptionFilter is API 23 and minSdk is 24.
+        val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val filter = nm.currentInterruptionFilter
+        return filter != NotificationManager.INTERRUPTION_FILTER_ALL &&
+            filter != NotificationManager.INTERRUPTION_FILTER_UNKNOWN
     }
 
     companion object {

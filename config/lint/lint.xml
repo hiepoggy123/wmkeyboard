@@ -1,0 +1,291 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Android Lint severity map for WM Keyboard.
+
+  `checkAllWarnings = true` in app/build.gradle.kts turns on every check Lint
+  ships, including the ~200 that are disabled by default. This file then does
+  two things:
+
+    1. Escalates the checks that catch *bugs* to `error`, so they fail the
+       build (`abortOnError = true`). These are the ones that produce crashes,
+       wrong text, dropped keystrokes or security holes.
+    2. Silences the checks that do not apply to an input method, each with the
+       reason written down. A check turned off without a reason gets turned off
+       again next time it is inconvenient.
+
+  Anything not listed keeps its default severity.
+-->
+<lint>
+
+    <!-- =================================================================== -->
+    <!-- ERRORS: crashes, wrong behaviour, data loss.                        -->
+    <!-- =================================================================== -->
+
+    <!-- API level misuse. The keyboard supports API 24..36, so an unguarded
+         API 33 call is a guaranteed crash on a real user's phone. -->
+    <issue id="NewApi" severity="error" />
+    <issue id="InlinedApi" severity="error" />
+    <issue id="UnusedAttribute" severity="error" />
+    <issue id="ObsoleteSdkInt" severity="error" />
+    <issue id="DeprecatedSinceApi" severity="error" />
+
+    <!-- Type/resource confusion the compiler cannot see. -->
+    <issue id="ResourceType" severity="error" />
+    <issue id="ResourceAsColor" severity="error" />
+    <issue id="WrongConstant" severity="error" />
+    <issue id="Range" severity="error" />
+    <issue id="HalfFloat" severity="error" />
+
+    <!-- Threading. The IME does trie loading, ML inference and network work off
+         the main thread; a misplaced call freezes typing. -->
+    <issue id="WrongThread" severity="error" />
+    <issue id="WrongCall" severity="error" />
+    <issue id="MissingSuperCall" severity="error" />
+
+    <!-- Lifecycle / resource leaks. An IME process lives for days. -->
+    <issue id="Recycle" severity="error" />
+    <issue id="StaticFieldLeak" severity="error" />
+    <issue id="HandlerLeak" severity="error" />
+    <issue id="ObsoleteSdkInt" severity="error" />
+
+    <!-- Permissions and intents. -->
+    <issue id="MissingPermission" severity="error" />
+    <issue id="UnsafeIntentLaunch" severity="error" />
+    <issue id="UnsafeImplicitIntentLaunch" severity="error" />
+    <issue id="LaunchActivityFromNotification" severity="error" />
+    <issue id="QueryPermissionsNeeded" severity="error" />
+
+    <!-- String formatting. This app formats strings in 34 languages; a format
+         mismatch is a crash in exactly the locale nobody tested. -->
+    <issue id="StringFormatInvalid" severity="error" />
+    <issue id="StringFormatMatches" severity="error" />
+    <issue id="StringFormatCount" severity="error" />
+    <issue id="PluralsCandidate" severity="error" />
+
+    <!-- Security. The keyboard sees every character the user types. -->
+    <issue id="TrustAllX509TrustManager" severity="error" />
+    <issue id="BadHostnameVerifier" severity="error" />
+    <issue id="AllowAllHostnameVerifier" severity="error" />
+    <issue id="InsecureBaseConfiguration" severity="error" />
+    <issue id="UnsanitizedFilenameFromContentProvider" severity="error" />
+    <issue id="SetJavaScriptEnabled" severity="error" />
+    <issue id="JavascriptInterface" severity="error" />
+    <issue id="UnsafeDynamicallyLoadedCode" severity="error" />
+    <issue id="UnsafeNativeCodeLocation" severity="error" />
+    <issue id="WorldReadableFiles" severity="error" />
+    <issue id="WorldWriteableFiles" severity="error" />
+    <issue id="SdCardPath" severity="error" />
+    <issue id="ExportedContentProvider" severity="error" />
+    <issue id="ExportedService" severity="error" />
+    <issue id="ExportedReceiver" severity="error" />
+    <issue id="GrantAllUris" severity="error" />
+    <issue id="HardcodedDebugMode" severity="error" />
+    <issue id="SecureRandom" severity="error" />
+    <issue id="TrulyRandom" severity="error" />
+    <issue id="PackageManagerGetSignatures" severity="error" />
+    <issue id="UnprotectedSMSBroadcastReceiver" severity="error" />
+    <issue id="MissingBackupPin" severity="error" />
+
+    <!-- Kotlin/Java interop correctness. -->
+    <issue id="KotlinNullnessAnnotation" severity="error" />
+    <issue id="NullSafeMutableLiveData" severity="error" />
+    <issue id="SuspiciousIndentation" severity="error" />
+
+    <!-- Compose. Recomposition bugs are invisible to the type checker: state
+         that is not remembered is silently reset on every frame, and a
+         coroutine launched in composition is launched again and again. -->
+    <issue id="UnrememberedMutableState" severity="error" />
+    <issue id="UnrememberedAnimatable" severity="error" />
+    <issue id="UnrememberedGetBackStackEntry" severity="error" />
+    <issue id="MutableCollectionMutableState" severity="error" />
+    <issue id="AutoboxingStateCreation" severity="error" />
+    <issue id="CoroutineCreationDuringComposition" severity="error" />
+    <issue id="FlowOperatorInvokedInComposition" severity="error" />
+    <issue id="StateFlowValueCalledInComposition" severity="error" />
+    <issue id="ProduceStateDoesNotAssignValue" severity="error" />
+    <issue id="RememberReturnType" severity="error" />
+    <issue id="CompositionLocalNaming" severity="error" />
+    <issue id="SuspiciousCompositionLocalModifierRead" severity="error" />
+    <issue id="ReturnFromAwaitPointerEventScope" severity="error" />
+    <issue id="MultipleAwaitPointerEventScopes" severity="error" />
+    <issue id="FrequentlyChangedStateReadInComposition" severity="error" />
+    <issue id="OpaqueUnitKey" severity="error" />
+    <issue id="ModifierFactoryUnreferencedReceiver" severity="error" />
+    <issue id="ModifierFactoryReturnType" severity="error" />
+    <issue id="ModifierNodeInspectableProperties" severity="error" />
+    <issue id="UnnecessaryComposedModifier" severity="error" />
+    <issue id="ComposableNaming" severity="error" />
+    <issue id="ComposableLambdaParameterPosition" severity="error" />
+
+    <!-- Warning, not error: the rule wants every trailing composable lambda
+         named `content`. Where the slot has a specific job — `trailing` on a
+         ListItem row, `preview` on a picker cell — that rename would make the
+         parameter mean less, not more. Kept visible so genuinely generic slots
+         still get named `content`. -->
+    <issue id="ComposableLambdaParameterNaming" severity="warning" />
+
+    <!-- Warning, not error: `Modifier.composed {}` is a performance
+         recommendation, not a defect, and the two uses here
+         (animatePlacement / animateSharedPlacement in KeyboardScreen) are
+         frame-timing-sensitive animation modifiers whose comments document a
+         one-frame-flash bug that was hard to get right. Porting them to
+         Modifier.Node is a real refactor and wants its own change. -->
+    <issue id="ComposeModifierComposed" severity="warning" />
+
+    <!-- Slack Compose lint checks (com.slack.lint.compose:compose-lint-checks).
+         The ones that are correctness rather than convention. -->
+    <issue id="ComposeMutableParameters" severity="error" />
+    <issue id="ComposeViewModelInjection" severity="error" />
+    <issue id="ComposeRememberMissing" severity="error" />
+    <issue id="ComposeUnstableCollections" severity="warning" />
+    <issue id="ComposeModifierMissing" severity="warning" />
+    <issue id="ComposeModifierReused" severity="error" />
+    <issue id="ComposeModifierWithoutDefault" severity="error" />
+    <issue id="ComposeParameterOrder" severity="warning" />
+    <issue id="ComposeContentEmitterReturningValues" severity="error" />
+
+    <!-- Warning, not error: this enforces the "one composable emits one thing"
+         convention. The keyboard's UI is built the other way round — a row
+         function emits its keys, a panel emits its header and body — and the
+         36 hits are that architecture, not 36 defects. Restructuring them all
+         is a UI refactor with real regression risk and no bug at the end of
+         it, so the rule stays visible rather than blocking. -->
+    <issue id="ComposeMultipleContentEmitters" severity="warning" />
+    <issue id="ComposeCompositionLocalUsage" severity="ignore" />
+    <issue id="ComposeNamingUppercase" severity="error" />
+    <issue id="ComposeNamingLowercase" severity="error" />
+    <issue id="ComposePreviewNaming" severity="ignore" />
+    <issue id="ComposePreviewPublic" severity="ignore" />
+    <issue id="ComposeM2Api" severity="warning" />
+
+    <!-- Manifest / packaging. -->
+    <issue id="ProtectedPermissions" severity="error" />
+    <issue id="WrongManifestParent" severity="error" />
+    <issue id="DuplicateActivity" severity="error" />
+    <issue id="MissingApplicationIcon" severity="error" />
+    <issue id="ProguardSplit" severity="error" />
+
+    <!-- =================================================================== -->
+    <!-- WARNINGS: worth fixing, but not build-breaking.                     -->
+    <!-- =================================================================== -->
+
+    <issue id="UnusedResources" severity="warning" />
+    <issue id="ObsoleteLintCustomCheck" severity="warning" />
+    <issue id="SyntheticAccessor" severity="warning" />
+    <issue id="ImplicitSamInstance" severity="warning" />
+    <issue id="NoHardKeywords" severity="warning" />
+    <issue id="KotlinPropertyAccess" severity="warning" />
+    <issue id="LambdaLast" severity="warning" />
+    <issue id="UnknownNullness" severity="ignore" />
+
+    <!-- =================================================================== -->
+    <!-- IGNORED, with reasons.                                              -->
+    <!-- =================================================================== -->
+
+    <!-- This is an input method, not an app with a UI surface that other people
+         translate. Strings are added constantly and localisation is tracked
+         through the language packs, not res/values-xx. -->
+    <issue id="MissingTranslation" severity="ignore" />
+    <issue id="ExtraTranslation" severity="ignore" />
+    <issue id="MissingQuantity" severity="ignore" />
+    <issue id="UnusedQuantity" severity="ignore" />
+    <issue id="TypographyEllipsis" severity="ignore" />
+    <issue id="TypographyQuotes" severity="ignore" />
+    <issue id="TypographyDashes" severity="ignore" />
+    <issue id="TypographyOther" severity="ignore" />
+    <issue id="TypographyFractions" severity="ignore" />
+    <issue id="SelectableText" severity="ignore" />
+
+    <!-- The UI is Compose. The XML-layout, RTL-attribute and view-hierarchy
+         checks have nothing to inspect and only fire on the two legacy XML
+         files that exist for the IME window shell. -->
+    <issue id="UseCompoundDrawables" severity="ignore" />
+    <issue id="InefficientWeight" severity="ignore" />
+    <issue id="DisableBaselineAlignment" severity="ignore" />
+    <issue id="ContentDescription" severity="ignore" />
+    <issue id="HardcodedText" severity="ignore" />
+    <issue id="RtlEnabled" severity="ignore" />
+    <issue id="RtlHardcoded" severity="ignore" />
+    <issue id="RtlSymmetry" severity="ignore" />
+    <issue id="RtlCompat" severity="ignore" />
+
+    <!-- Dependency freshness is a deliberate, documented decision here: several
+         versions are pinned in gradle/libs.versions.toml with a comment saying
+         why the newer one breaks (Coil 3.5 Kotlin metadata, LiteRT 2.x manifest
+         merge). Lint nagging about it is noise. -->
+    <issue id="GradleDependency" severity="ignore" />
+    <issue id="NewerVersionAvailable" severity="ignore" />
+    <issue id="AndroidGradlePluginVersion" severity="ignore" />
+    <issue id="OldTargetApi" severity="ignore" />
+    <issue id="KtxExtensionAvailable" severity="ignore" />
+    <issue id="UseTomlInstead" severity="ignore" />
+
+    <!-- Play-Store-specific policy checks. This app is distributed as an APK
+         and is not a Wear/TV/Auto/Chrome-OS target. -->
+    <issue id="GoogleAppIndexingWarning" severity="ignore" />
+    <issue id="GoogleAppIndexingApiWarning" severity="ignore" />
+    <issue id="MissingTvBanner" severity="ignore" />
+    <issue id="ImpliedTouchscreenHardware" severity="ignore" />
+    <issue id="MissingLeanbackLauncher" severity="ignore" />
+    <issue id="UnsupportedTvHardware" severity="ignore" />
+    <issue id="MissingClass" severity="warning" />
+    <issue id="ExpiredTargetSdkVersion" severity="ignore" />
+    <issue id="ExpiringTargetSdkVersion" severity="ignore" />
+    <issue id="MinSdkTooLow" severity="ignore" />
+
+    <!-- The APK deliberately bundles large assets: 183 dictionaries, emoji
+         tables, ML models. Size checks flag the whole design. -->
+    <issue id="UnusedIds" severity="ignore" />
+    <issue id="IconLauncherShape" severity="ignore" />
+    <issue id="IconDensities" severity="ignore" />
+    <issue id="IconMissingDensityFolder" severity="ignore" />
+    <issue id="IconDipSize" severity="ignore" />
+    <issue id="IconDuplicates" severity="ignore" />
+    <issue id="IconDuplicatesConfig" severity="ignore" />
+    <issue id="IconExpectedSize" severity="ignore" />
+    <issue id="IconLocation" severity="ignore" />
+    <issue id="IconColors" severity="ignore" />
+    <issue id="IconExtension" severity="ignore" />
+    <issue id="MonochromeLauncherIcon" severity="ignore" />
+
+    <!-- Reported by every Compose project because the Compose runtime itself
+         trips them; not actionable from this side. -->
+    <issue id="ModifierParameter" severity="ignore" />
+
+    <!-- Test sources are checked (checkTestSources = true), but the checks that
+         only make sense for shipping code are not applied to them. -->
+    <issue id="MissingPermission">
+        <ignore path="**/src/test/**" />
+        <ignore path="**/src/androidTest/**" />
+        <ignore path="**/src/testFull/**" />
+    </issue>
+
+    <!-- Unit tests run on the host JVM, never on a device, so the minSdk 24
+         API-level ceiling does not apply to them: `java.nio.file.Files` in a
+         JUnit test is a host API call, not a call that will ever reach an
+         API 24 phone. Instrumentation tests DO run on device and stay checked. -->
+    <issue id="NewApi">
+        <ignore path="**/src/test/**" />
+        <ignore path="**/src/testFull/**" />
+    </issue>
+    <issue id="InlinedApi">
+        <ignore path="**/src/test/**" />
+        <ignore path="**/src/testFull/**" />
+    </issue>
+    <!-- Same reasoning: a test asserting on a "/data/..." literal is checking
+         the direct-boot path contract, not hardcoding a device path. -->
+    <issue id="SdCardPath">
+        <ignore path="**/src/test/**" />
+        <ignore path="**/src/testFull/**" />
+    </issue>
+    <issue id="UnusedResources">
+        <ignore path="**/src/test/**" />
+        <ignore path="**/src/androidTest/**" />
+    </issue>
+
+    <!-- Generated sources: the .wmdict compiler output and BuildConfig. -->
+    <issue id="all">
+        <ignore path="**/build/generated/**" />
+    </issue>
+
+</lint>

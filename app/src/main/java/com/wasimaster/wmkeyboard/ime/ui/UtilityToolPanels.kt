@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.rememberScrollState
@@ -34,6 +33,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -41,7 +41,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -276,7 +275,7 @@ internal fun CalculatorPanel(
         ) {
             Column(Modifier.weight(1f)) {
                 Text(
-                    if (expression.isEmpty()) "0" else expression,
+                    expression.ifEmpty { "0" },
                     color = kb.modifierKeyText,
                     fontSize = 16.sp,
                     maxLines = 1,
@@ -419,7 +418,7 @@ internal fun UnitConverterPanel(
     val prefill = remember { state.toolPrefill as? ToolPrefill.Units }
     LaunchedEffect(Unit) { if (prefill != null) onPrefillConsumed() }
     var categoryIndex by rememberSaveable {
-        mutableStateOf(
+        mutableIntStateOf(
             UnitConvert.categories
                 .indexOfFirst { it.name == (prefill?.category ?: savedEntries.firstOrNull()?.first) }
                 .takeIf { it >= 0 } ?: 0
@@ -436,10 +435,10 @@ internal fun UnitConverterPanel(
             ?.let { category.units.indexOfFirst { unit -> unit.symbol == pick(it) } }
             ?.takeIf { it >= 0 }
     var fromIndex by rememberSaveable(categoryIndex) {
-        mutableStateOf(prefilledUnit { it.from } ?: savedUnit({ it.second }, 0))
+        mutableIntStateOf(prefilledUnit { it.from } ?: savedUnit({ it.second }, 0))
     }
     var toIndex by rememberSaveable(categoryIndex) {
-        mutableStateOf(prefilledUnit { it.to } ?: savedUnit({ it.third }, 1))
+        mutableIntStateOf(prefilledUnit { it.to } ?: savedUnit({ it.third }, 1))
     }
     var value by rememberSaveable { mutableStateOf(prefill?.value ?: "1") }
 

@@ -22,7 +22,7 @@ object LocalLlmEngine {
         system: String,
         user: String,
         onPartial: ((String) -> Unit)? = null,
-    ): String = throw IllegalStateException("On-device AI is not available in the lite build")
+    ): String = error("On-device AI is not available in the lite build")
 
     fun release() = Unit
 }

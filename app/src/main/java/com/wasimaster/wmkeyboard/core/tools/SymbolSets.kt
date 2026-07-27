@@ -1,7 +1,6 @@
 package com.wasimaster.wmkeyboard.core.tools
 
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
 /**

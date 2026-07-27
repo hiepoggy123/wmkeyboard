@@ -40,6 +40,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -89,8 +90,8 @@ internal fun WhisperModelManager(repository: SettingsRepository, settings: Keybo
     val scope = rememberCoroutineScope()
     val filesDir = context.filesDir
     val states by WhisperDownloadManager.states.collectAsState()
-    var storageUsed by remember { mutableStateOf(0L) }
-    var orphanBytes by remember { mutableStateOf(0L) }
+    var storageUsed by remember { mutableLongStateOf(0L) }
+    var orphanBytes by remember { mutableLongStateOf(0L) }
     var meteredPending by remember { mutableStateOf<WhisperModel?>(null) }
     var routingFor by remember { mutableStateOf<LanguageDef?>(null) }
     var browseOpen by remember { mutableStateOf(false) }
@@ -428,6 +429,10 @@ private fun WhisperRoutingOption(
  * actually enabled — see [WhisperCatalog.visibleFor] — so this list grows with
  * the Languages screen instead of listing graphs nothing would ever route to.
  */
+// `row` is a per-model renderer, not a single content slot: it is invoked once
+// per item across two disjoint lists, so there is no instance whose state could
+// move between call sites. SlotReused targets the single-instance case.
+@Suppress("SlotReused")
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun WhisperBrowseSection(

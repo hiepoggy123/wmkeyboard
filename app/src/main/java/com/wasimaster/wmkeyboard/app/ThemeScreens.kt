@@ -4,7 +4,6 @@ import android.graphics.BitmapFactory
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -17,7 +16,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -40,7 +38,6 @@ import androidx.compose.material.icons.outlined.FileUpload
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
@@ -57,6 +54,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -73,14 +71,12 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.lerp
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
@@ -103,6 +99,8 @@ import com.wasimaster.wmkeyboard.core.theme.keyShapeFor
 import com.wasimaster.wmkeyboard.core.theme.themeFromSeed
 import com.wasimaster.wmkeyboard.core.theme.withEmbeddedImages
 import com.wasimaster.wmkeyboard.core.theme.withExtractedImages
+import com.wasimaster.wmkeyboard.core.util.requireInputStream
+import com.wasimaster.wmkeyboard.core.util.runCancellable
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -236,10 +234,10 @@ fun ThemesScreen(
     ) { uri ->
         if (uri != null) {
             scope.launch(Dispatchers.IO) {
-                runCatching {
-                    val text = context.contentResolver.openInputStream(uri)!!
+                runCancellable {
+                    val text = context.contentResolver.requireInputStream(uri)
                         .use { it.readBytes().decodeToString() }
-                    val parsed = ThemeCodec.decode(text) ?: return@runCatching
+                    val parsed = ThemeCodec.decode(text) ?: return@runCancellable
                     val id = "custom_${System.currentTimeMillis()}"
                     // Set the fresh id first so the extracted image filenames key
                     // off it and stay unique against existing themes.
@@ -703,9 +701,9 @@ fun ThemeEditorScreen(
     ) { uri ->
         if (uri != null) {
             scope.launch(Dispatchers.IO) {
-                runCatching {
+                runCancellable {
                     val file = File(themeImagesDir(context), "${theme.id}_${System.currentTimeMillis()}.img")
-                    context.contentResolver.openInputStream(uri)!!.use { input ->
+                    context.contentResolver.requireInputStream(uri).use { input ->
                         file.outputStream().use { input.copyTo(it) }
                     }
                     theme.backgroundImage?.let { File(it).delete() }
@@ -728,12 +726,12 @@ fun ThemeEditorScreen(
     ) { uri ->
         if (uri != null) {
             scope.launch(Dispatchers.IO) {
-                runCatching {
+                runCancellable {
                     val file = File(
                         themeImagesDir(context),
                         "${theme.id}_land_${System.currentTimeMillis()}.img",
                     )
-                    context.contentResolver.openInputStream(uri)!!.use { input ->
+                    context.contentResolver.requireInputStream(uri).use { input ->
                         file.outputStream().use { input.copyTo(it) }
                     }
                     theme.backgroundImageLandscape?.let { File(it).delete() }
@@ -827,9 +825,10 @@ fun ThemeEditorScreen(
             Icon(Icons.Outlined.Image, contentDescription = null)
         },
         trailingContent = {
-            if (theme.backgroundImage != null) {
+            val existingImage = theme.backgroundImage
+            if (existingImage != null) {
                 TextButton(onClick = {
-                    theme.backgroundImage?.let { File(it).delete() }
+                    File(existingImage).delete()
                     update { t ->
                         // Give the board its alpha back if picking the image
                         // zeroed it, so removal doesn't leave a see-through board.
@@ -874,12 +873,13 @@ fun ThemeEditorScreen(
             modifier = Modifier.padding(horizontal = 16.dp),
         )
     }
-    if (cropOpen && theme.backgroundImage != null) {
+    val cropSource = theme.backgroundImage
+    if (cropOpen && cropSource != null) {
         CropImageDialog(
-            path = theme.backgroundImage!!,
+            path = cropSource,
             onCropped = { newPath ->
                 scope.launch {
-                    theme.backgroundImage?.let { File(it).delete() }
+                    File(cropSource).delete()
                     repository.upsertCustomTheme(theme.copy(backgroundImage = newPath))
                 }
                 cropOpen = false
@@ -901,9 +901,10 @@ fun ThemeEditorScreen(
         },
         leadingContent = { Icon(Icons.Outlined.Image, contentDescription = null) },
         trailingContent = {
-            if (theme.backgroundImageLandscape != null) {
+            val existingLandscapeImage = theme.backgroundImageLandscape
+            if (existingLandscapeImage != null) {
                 TextButton(onClick = {
-                    theme.backgroundImageLandscape?.let { File(it).delete() }
+                    File(existingLandscapeImage).delete()
                     update { t -> t.copy(backgroundImageLandscape = null) }
                 }) { Text("Remove") }
             }
@@ -922,12 +923,13 @@ fun ThemeEditorScreen(
             modifier = Modifier.clickable { cropLandscapeOpen = true },
         )
     }
-    if (cropLandscapeOpen && theme.backgroundImageLandscape != null) {
+    val cropLandscapeSource = theme.backgroundImageLandscape
+    if (cropLandscapeOpen && cropLandscapeSource != null) {
         CropImageDialog(
-            path = theme.backgroundImageLandscape!!,
+            path = cropLandscapeSource,
             onCropped = { newPath ->
                 scope.launch {
-                    theme.backgroundImageLandscape?.let { File(it).delete() }
+                    File(cropLandscapeSource).delete()
                     repository.upsertCustomTheme(theme.copy(backgroundImageLandscape = newPath))
                 }
                 cropLandscapeOpen = false
@@ -1259,8 +1261,8 @@ private fun CropImageDialog(
             }.getOrNull()
         }
     }
-    var aspect by rememberSaveable { mutableStateOf(2.4f) }
-    var zoom by remember { mutableStateOf(1f) }
+    var aspect by rememberSaveable { mutableFloatStateOf(2.4f) }
+    var zoom by remember { mutableFloatStateOf(1f) }
     var offset by remember { mutableStateOf(Offset.Zero) }
     var frame by remember { mutableStateOf(IntSize.Zero) }
     var saving by remember { mutableStateOf(false) }
@@ -1430,6 +1432,10 @@ private fun ColorRow(
 
 /** An optional color: shows the derived fallback until overridden; resettable. */
 @Composable
+// detekt (1.23, K1 frontend) reads `color ?: fallback` in this @Composable as
+// having an unreachable right-hand side. `color` is a nullable parameter with no
+// preceding narrowing, and the Kotlin 2.2 compiler reports nothing here.
+@Suppress("UnreachableCode")
 private fun NullableColorRow(
     title: String,
     color: Long?,
@@ -1502,7 +1508,7 @@ fun ColorPickerDialog(
         android.graphics.Color.colorToHSV(initialColor.toArgb(), arr)
         mutableStateOf(Triple(arr[0], arr[1], arr[2]))
     }
-    var alpha by remember { mutableStateOf(initialColor.alpha) }
+    var alpha by remember { mutableFloatStateOf(initialColor.alpha) }
     val current = Color(
         android.graphics.Color.HSVToColor(
             (alpha * 255).toInt().coerceIn(0, 255),

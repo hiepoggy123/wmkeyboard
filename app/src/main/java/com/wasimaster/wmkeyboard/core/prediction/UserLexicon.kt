@@ -1,7 +1,6 @@
 package com.wasimaster.wmkeyboard.core.prediction
 
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.io.File
 

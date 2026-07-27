@@ -23,7 +23,13 @@ object QrCodeGen {
      * or too long to encode. [ecc] is L/M/Q/H (higher survives more damage
      * but packs less data).
      */
-    fun bitmap(content: String, sizePx: Int, ecc: String = "M", foreground: Int = 0xFF000000.toInt(), background: Int = 0xFFFFFFFF.toInt()): Bitmap? {
+    fun bitmap(
+        content: String,
+        sizePx: Int,
+        ecc: String = "M",
+        foreground: Int = 0xFF000000.toInt(),
+        background: Int = 0xFFFFFFFF.toInt(),
+    ): Bitmap? {
         if (content.isBlank() || content.length > MAX_CHARS) return null
         val level = runCatching { ErrorCorrectionLevel.valueOf(ecc) }.getOrDefault(ErrorCorrectionLevel.M)
         val matrix = runCatching {

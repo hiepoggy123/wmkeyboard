@@ -69,7 +69,7 @@ class DictionaryClientTest {
     @Test
     fun `tolerates missing optional fields`() {
         val minimal = """[{"word":"cat","meanings":[{"partOfSpeech":"noun",
-            "definitions":[{"definition":"A small felid."}]}]}]"""
+            "definitions":[{"definition":"A small felid."}]}]}]""".trimIndent()
         val entries = DictionaryClient.parse(minimal)
         assertEquals(1, entries.size)
         assertEquals("", entries[0].phonetic)

@@ -51,7 +51,6 @@ object InlineAutofill {
      */
     @RequiresApi(Build.VERSION_CODES.R)
     fun request(
-        context: Context,
         uiExtras: Bundle,
         stripHeightPx: Int,
         maxWidthPx: Int,

@@ -3,4 +3,30 @@ plugins {
     alias(libs.plugins.android.application) apply false
     alias(libs.plugins.kotlin.compose) apply false
     alias(libs.plugins.kotlin.serialization) apply false
+    // Applied per-module rather than through `subprojects {}` so each project
+    // configures itself — cross-project configuration is what Gradle's isolated
+    // projects mode forbids, and it breaks configuration-cache reuse.
+    alias(libs.plugins.detekt) apply false
+}
+
+// One entry point for every analyser, so CI and humans run the same thing:
+//   ./gradlew staticAnalysis
+// Type-resolution detekt (detektFullDebug) is deliberately included instead of
+// the source-only `detekt` task — the rules that find real bugs (nullability,
+// unreachable code, ignored return values) need a resolved classpath.
+tasks.register("staticAnalysis") {
+    group = "verification"
+    description = "Runs every static analyser: Android Lint, detekt (with type resolution), and Kotlin compiler diagnostics."
+    // :tools:dictc is intentionally absent — its whole source set is symlinked
+    // app sources (see tools/dictc/build.gradle.kts), so analysing it would
+    // report the same five files twice.
+    dependsOn(
+        ":app:lintFullDebug",
+        ":app:detektFullDebug",
+        // The lite flavour compiles a different set of sources (the stubs in
+        // src/lite replace the ML Kit / LiteRT implementations), so it needs its
+        // own pass — a bug in a stub is invisible to the full-flavour run.
+        ":app:detektLiteDebug",
+        ":app:detektFullDebugUnitTest",
+    )
 }
