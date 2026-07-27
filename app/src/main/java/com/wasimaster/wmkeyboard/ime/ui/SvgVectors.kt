@@ -27,10 +27,14 @@ import kotlin.math.hypot
  * and is drawn without a tint by [SlotIcon].
  */
 fun SvgDoc.toImageVector(name: String): ImageVector {
+    val (defaultWidth, defaultHeight) = intrinsicSize(viewportWidth, viewportHeight)
     val builder = ImageVector.Builder(
         name = name,
-        defaultWidth = viewportWidth.dp,
-        defaultHeight = viewportHeight.dp,
+        defaultWidth = defaultWidth.dp,
+        defaultHeight = defaultHeight.dp,
+        // The *coordinate space* stays exactly as the file declared it — path
+        // data is written in these units, so changing it would move every
+        // point. Only the intrinsic size above is ours to decide.
         viewportWidth = viewportWidth,
         viewportHeight = viewportHeight,
     )
@@ -72,6 +76,33 @@ fun SvgDoc.toImageVector(name: String): ImageVector {
         if (transform != null) builder.clearGroup()
     }
     return builder.build()
+}
+
+/** Every icon slot in this keyboard is a 24dp box; nothing may exceed it. */
+private const val ICON_BOX_DP = 24f
+
+/**
+ * The dp size an icon reports when nobody gives it one.
+ *
+ * An `ImageVector`'s `defaultWidth`/`defaultHeight` are its intrinsic size, and
+ * a call site that doesn't pass a size modifier measures at exactly that. A
+ * pack is a file from a stranger, and `<svg width="512" height="512">` with no
+ * `viewBox` is a perfectly ordinary export — which would hand a 512dp icon to a
+ * toolbar button and blow the row apart. So the box is ours, not the file's.
+ *
+ * The longest side becomes 24dp and the aspect ratio is kept, rather than
+ * forcing a literal 24×24: a 48×24 icon squashed into a square is a *drawing*
+ * bug where this is a *layout* guard, and either way it can no longer measure
+ * larger than the box.
+ */
+private fun intrinsicSize(width: Float, height: Float): Pair<Float, Float> {
+    // A parse that produced a zero, negative or non-finite viewport has nothing
+    // to scale from; the box itself is the only sane answer.
+    if (!width.isFinite() || !height.isFinite() || width <= 0f || height <= 0f) {
+        return ICON_BOX_DP to ICON_BOX_DP
+    }
+    val scale = ICON_BOX_DP / maxOf(width, height)
+    return (width * scale).coerceIn(1f, ICON_BOX_DP) to (height * scale).coerceIn(1f, ICON_BOX_DP)
 }
 
 private fun Long?.toColorOrBlack(): Color = if (this == null) Color.Black else Color(toInt())

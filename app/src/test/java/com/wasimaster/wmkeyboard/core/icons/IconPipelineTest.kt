@@ -41,9 +41,12 @@ class IconPipelineTest {
         val doc = SvgParser.parse("""<svg viewBox="0 0 48 32"><path d="M0 0h48v32H0Z"/></svg>""")!!
         val vector = doc.toImageVector("test")
         assertEquals("test", vector.name)
+        // The coordinate space is the file's; the intrinsic size is ours, and
+        // never exceeds the 24dp icon box — see SvgVectorsTest.
         assertEquals(48f, vector.viewportWidth, 0f)
         assertEquals(32f, vector.viewportHeight, 0f)
-        assertEquals(48f, vector.defaultWidth.value, 0f)
+        assertEquals(24f, vector.defaultWidth.value, 0.01f)
+        assertEquals(16f, vector.defaultHeight.value, 0.01f)
     }
 
     @Test

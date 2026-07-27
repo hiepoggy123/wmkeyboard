@@ -42,6 +42,31 @@ class SvgParserTest {
         assertEquals(24f, doc.viewportWidth, 0f)
     }
 
+    /**
+     * `1e999` parses to `Float.POSITIVE_INFINITY`, which is positive and would
+     * pass a naive check — and then turns every derived coordinate into NaN.
+     */
+    @Test
+    fun `an infinite size is refused, not trusted`() {
+        val doc = SvgParser.parse(svg("""<path d="M0 0h10v10H0Z"/>""", """width="1e999" height="1e999""""))!!
+        assertEquals(24f, doc.viewportWidth, 0f)
+        assertEquals(24f, doc.viewportHeight, 0f)
+    }
+
+    @Test
+    fun `an absurd viewBox is refused`() {
+        val doc = SvgParser.parse(
+            svg("""<path d="M0 0h10v10H0Z"/>""", """viewBox="0 0 999999 999999""""),
+        )!!
+        assertEquals(24f, doc.viewportWidth, 0f)
+    }
+
+    @Test
+    fun `a large but plausible viewBox is kept`() {
+        val doc = SvgParser.parse(svg("""<path d="M0 0h10v10H0Z"/>""", """viewBox="0 0 512 512""""))!!
+        assertEquals(512f, doc.viewportWidth, 0f)
+    }
+
     // ---- monochrome detection ----
 
     @Test

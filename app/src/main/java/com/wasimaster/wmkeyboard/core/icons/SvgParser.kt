@@ -118,6 +118,17 @@ object SvgParser {
     private const val DEFAULT_VIEWPORT = 24f
 
     /**
+     * Largest viewport a file may declare.
+     *
+     * `width="1e999"` parses to `Float.POSITIVE_INFINITY`, which passes a naive
+     * `> 0` check and then turns every coordinate Compose derives from it into
+     * NaN — a vector that draws nothing and measures unpredictably. Anything
+     * past this is not a real icon, so it falls back to [DEFAULT_VIEWPORT]
+     * rather than being trusted or rejected.
+     */
+    private const val MAX_VIEWPORT = 100_000f
+
+    /**
      * Any DOCTYPE at all, wherever it appears. Matching one inside a comment
      * costs a legitimate file nothing but a rewrite, and the alternative is
      * reasoning about where a declaration can hide.
@@ -260,17 +271,21 @@ object SvgParser {
                 // A non-zero origin would need every path shifted; icons
                 // essentially never use one, so the width and height are taken
                 // and the origin ignored rather than silently mis-drawing.
-                if (w != null && w > 0f && h != null && h > 0f) {
-                    viewportWidth = w
-                    viewportHeight = h
+                if (usable(w) && usable(h)) {
+                    viewportWidth = w!!
+                    viewportHeight = h!!
                     return
                 }
             }
             val w = attributes.value("width")?.let(::parseLength)
             val h = attributes.value("height")?.let(::parseLength)
-            if (w != null && w > 0f) viewportWidth = w
-            if (h != null && h > 0f) viewportHeight = h
+            if (usable(w)) viewportWidth = w!!
+            if (usable(h)) viewportHeight = h!!
         }
+
+        /** Finite, positive and not absurd — see [MAX_VIEWPORT]. */
+        private fun usable(value: Float?): Boolean =
+            value != null && value.isFinite() && value > 0f && value <= MAX_VIEWPORT
 
         /**
          * [strokeOnly] elements (`line`, `polyline`) are not filled by SVG's

@@ -16,6 +16,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import com.wasimaster.wmkeyboard.core.icons.IconOverrides
 import com.wasimaster.wmkeyboard.core.icons.IconPackStore
+import com.wasimaster.wmkeyboard.core.icons.SvgDoc
 import com.wasimaster.wmkeyboard.core.settings.IconSettings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -128,7 +129,7 @@ fun buildIconSet(settings: IconSettings, store: IconPackStore): IconSet {
     // The active pack first, so a per-slot override written afterwards wins.
     if (activePackId.isNotEmpty()) {
         for ((slot, doc) in store.docs(activePackId)) {
-            resolved[slot] = ResolvedIcon(doc.toImageVector(slot), doc.monochrome)
+            resolved[slot] = doc.toResolvedIcon(slot) ?: continue
         }
     }
     for ((slot, source) in settings.overrides) {
@@ -138,7 +139,7 @@ fun buildIconSet(settings: IconSettings, store: IconPackStore): IconSet {
                 ?.let { ResolvedIcon(it, monochrome = true) }
             source.startsWith(IconOverrides.PACK_PREFIX) ->
                 store.docs(source.removePrefix(IconOverrides.PACK_PREFIX))[slot]
-                ?.let { ResolvedIcon(it.toImageVector(slot), it.monochrome) }
+                ?.toResolvedIcon(slot)
             else -> null
         }
         // A source naming a pack that was uninstalled, or an icon renamed out
@@ -148,3 +149,17 @@ fun buildIconSet(settings: IconSettings, store: IconPackStore): IconSet {
     }
     return if (resolved.isEmpty()) IconSet.Builtin else IconSet(resolved)
 }
+
+/**
+ * Builds the drawable form of a parsed icon, or null when it cannot be built.
+ *
+ * The parser is lenient by design and the vector builder is not: a document it
+ * accepted can still fail to become an [ImageVector] — unusable path data,
+ * geometry that overflows, a shape Compose's builder rejects. Every one of
+ * those is a stranger's file, and none of them is worth taking the keyboard
+ * down for. A null here leaves the slot to [IconDefaults], so the failure shows
+ * up as "this one icon didn't change" instead of a crash on the frame that
+ * first drew it.
+ */
+private fun SvgDoc.toResolvedIcon(slot: String): ResolvedIcon? =
+    runCatching { ResolvedIcon(toImageVector(slot), monochrome) }.getOrNull()
