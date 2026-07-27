@@ -501,7 +501,7 @@ enum class HapticStyle(val label: String) {
  * delay first, then drag — distance is deliberately not the discriminator,
  * a fast flick travels further than a careful drag.
  */
-enum class SpaceSwipeAction { NONE, LANGUAGE, CURSOR }
+enum class SpaceSwipeAction { NONE, LANGUAGE, CURSOR, NUMPAD }
 
 /**
  * What the resting spacebar label shows. [LANGUAGE] the current language name,
@@ -1646,8 +1646,9 @@ data class EmojiSettings(
      */
     val toneOverrideByLastUsed: Boolean = false,
     /**
-     * Close the emoji panel and return to the keys immediately after a single
-     * emoji is inserted, instead of staying open for a run of emoji.
+     * Close the current panel and return to the keys immediately after a single
+     * insert, instead of staying open for a run. Applies to the emoji panel (one
+     * emoji, then back to typing) and the clipboard panel (one paste, then back).
      */
     val closeAfterInsert: Boolean = false,
     /**
@@ -1836,11 +1837,89 @@ data class LayoutBehaviorSettings(
      * than one that cannot insert a newline.
      */
     val shiftEnterNewline: Boolean = false,
+    /**
+     * Whether the dedicated number row also shows while the symbols layer is up.
+     * Only meaningful when [KeyboardSettings.numberRow] is on. On by default (the
+     * long-standing behaviour); off keeps the digit row on the letters layer but
+     * drops it from ?123, where the symbols already carry their own top row.
+     */
+    val numberRowInSymbols: Boolean = true,
+    /**
+     * Height of the bottom row (space / enter), in dp, independent of the other
+     * keys' [KeyboardSettings.keyHeightDp]. 0 means "follow the key height" — the
+     * default, so the row is unchanged until asked. Raise it for a fatter,
+     * easier-to-hit spacebar without growing the whole keyboard.
+     */
+    val bottomRowHeightDp: Int = 0,
+    /**
+     * Symmetric horizontal padding added to both edges of the keyboard, as a
+     * fraction of its width per side (0 = none, the default; 0.15 = 15% shaved
+     * off each side). Narrows the keys toward the centre for thumb reach without
+     * docking to one side the way one-handed mode does. See [SidePadScaleRange].
+     */
+    val sidePadScale: Float = 0f,
+    /**
+     * How long, in ms, a second shift tap still counts as the double-tap that
+     * turns on caps lock. Lower makes caps lock quicker but easier to trigger by
+     * accident; higher makes a deliberate double-tap more forgiving. Default 350.
+     * See [ShiftCapsLockMsRange].
+     */
+    val shiftCapsLockMs: Int = 350,
+    /**
+     * Populate every letter key's long-press popup with the full set of accented
+     * variants for that letter (à á â ä ã å …), on top of whatever the layout
+     * already lists. Latin letters only. Off by default: the built-in popups are
+     * deliberately short, and the full set is a wall of glyphs most people never
+     * want. See [LatinAccents].
+     */
+    val showAllPopupKeys: Boolean = false,
+    /**
+     * The currency glyphs offered on the `$` key's long-press popup, in order.
+     * Empty (the default) uses the built-in set (৳ € £ ¥ ₹ ₿). Lets a user put
+     * their own currency first without editing a whole custom layout.
+     */
+    val currencyKeys: List<String> = emptyList(),
 ) {
     /** [langId]'s numeral system, [NumeralSystem.AUTO] when it has no entry. */
     fun numeralSystemFor(langId: String): NumeralSystem =
         numeralSystemByLang[langId] ?: NumeralSystem.AUTO
 }
+
+/** Bounds for [LayoutBehaviorSettings.sidePadScale]; the settings slider shares them. */
+val SidePadScaleRange = 0f..0.3f
+
+/** Bounds for [LayoutBehaviorSettings.shiftCapsLockMs]; the settings slider shares them. */
+val ShiftCapsLockMsRange = 150..600
+
+/** Bounds for [LayoutBehaviorSettings.bottomRowHeightDp] when non-zero. */
+val BottomRowHeightRange = 32..96
+
+/** The built-in currency glyphs, used when [LayoutBehaviorSettings.currencyKeys] is empty. */
+val DefaultCurrencyKeys = listOf("৳", "€", "£", "¥", "₹", "₿")
+
+/**
+ * Accent variants per base Latin letter, merged into a key's long-press popup
+ * when [LayoutBehaviorSettings.showAllPopupKeys] is on. Lowercase keys; the
+ * runtime upper-cases them to match the key's shift state.
+ */
+val LatinAccents: Map<Char, List<String>> = mapOf(
+    'a' to listOf("à", "á", "â", "ä", "ã", "å", "ā", "ą", "ǎ", "æ"),
+    'c' to listOf("ç", "ć", "č", "ċ"),
+    'd' to listOf("ð", "ď", "đ"),
+    'e' to listOf("è", "é", "ê", "ë", "ē", "ė", "ę", "ě", "ə"),
+    'g' to listOf("ğ", "ģ", "ġ"),
+    'i' to listOf("ì", "í", "î", "ï", "ī", "į", "ı"),
+    'l' to listOf("ł", "ĺ", "ľ", "ļ"),
+    'n' to listOf("ñ", "ń", "ň", "ņ", "ŋ"),
+    'o' to listOf("ò", "ó", "ô", "ö", "õ", "ø", "ō", "ő", "œ"),
+    'r' to listOf("ř", "ŕ", "ŗ"),
+    's' to listOf("ß", "ś", "š", "ş", "ș"),
+    't' to listOf("ť", "ţ", "ț", "þ"),
+    'u' to listOf("ù", "ú", "û", "ü", "ū", "ů", "ű", "ų"),
+    'w' to listOf("ŵ"),
+    'y' to listOf("ý", "ÿ", "ŷ"),
+    'z' to listOf("ž", "ź", "ż"),
+)
 
 /**
  * Suggestion-strip content options, grouped into their own object (see
@@ -1867,6 +1946,22 @@ data class SuggestionStripSettings(
      * class's JVM field ceiling.
      */
     val blockOffensiveWords: Boolean = true,
+    /**
+     * Type a space after a suggestion picked from the strip, so the next word
+     * starts cleanly without reaching for the spacebar. On by default. Off
+     * commits the word bare — for languages or fields where a trailing space is
+     * wrong more often than right. A word resumed mid-sentence (one already
+     * followed by a space) never gets a second one regardless.
+     */
+    val autoSpaceAfterSuggestion: Boolean = true,
+    /**
+     * Expand shortcuts stored in Android's personal dictionary: if an entry has
+     * a shortcut (e.g. "omw" → "on my way"), typing the shortcut offers the full
+     * phrase as a suggestion. Off by default and independent of mirroring words
+     * *into* that dictionary; reads the SHORTCUT column the platform dictionary
+     * UI fills in. See [com.wasimaster.wmkeyboard.core.prediction.SystemUserDictionary].
+     */
+    val expandUserDictShortcuts: Boolean = false,
 )
 
 /**
@@ -2118,6 +2213,14 @@ class SettingsRepository(private val context: Context) {
         private val SPACE_CURSOR_2D = booleanPreferencesKey("space_cursor_2d")
         private val HINT_FONT_SCALE = floatPreferencesKey("hint_font_scale")
         private val NUMBER_ROW_SHIFT_SYMBOLS = booleanPreferencesKey("number_row_shift_symbols")
+        private val NUMBER_ROW_IN_SYMBOLS = booleanPreferencesKey("number_row_in_symbols")
+        private val BOTTOM_ROW_HEIGHT = intPreferencesKey("bottom_row_height")
+        private val SIDE_PAD_SCALE = floatPreferencesKey("side_pad_scale")
+        private val SHIFT_CAPS_LOCK_MS = intPreferencesKey("shift_caps_lock_ms")
+        private val SHOW_ALL_POPUP_KEYS = booleanPreferencesKey("show_all_popup_keys")
+        private val CURRENCY_KEYS = stringPreferencesKey("currency_keys")
+        private val AUTO_SPACE_AFTER_SUGGESTION = booleanPreferencesKey("auto_space_after_suggestion")
+        private val EXPAND_USER_DICT_SHORTCUTS = booleanPreferencesKey("expand_user_dict_shortcuts")
         private val SMART_HIT_DETECTION = booleanPreferencesKey("smart_hit_detection")
         private val SPACEBAR_DISPLAY = stringPreferencesKey("spacebar_display")
         private val NUMERAL_SYSTEM_BY_LANG = stringPreferencesKey("numeral_system_by_lang")
@@ -2700,6 +2803,10 @@ class SettingsRepository(private val context: Context) {
                     ?: defaults.suggestionStrip.suggestionPrimaryCenter,
                 blockOffensiveWords = p[BLOCK_OFFENSIVE_WORDS]
                     ?: defaults.suggestionStrip.blockOffensiveWords,
+                autoSpaceAfterSuggestion = p[AUTO_SPACE_AFTER_SUGGESTION]
+                    ?: defaults.suggestionStrip.autoSpaceAfterSuggestion,
+                expandUserDictShortcuts = p[EXPAND_USER_DICT_SHORTCUTS]
+                    ?: defaults.suggestionStrip.expandUserDictShortcuts,
             ),
             longPressDelayMs = p[LONG_PRESS_DELAY] ?: defaults.longPressDelayMs,
             keyRepeatIntervalMs = p[KEY_REPEAT_INTERVAL] ?: defaults.keyRepeatIntervalMs,
@@ -2726,6 +2833,16 @@ class SettingsRepository(private val context: Context) {
                     ?: defaults.layoutBehavior.numeralCommitScope,
                 shiftEnterNewline =
                     p[SHIFT_ENTER_NEWLINE] ?: defaults.layoutBehavior.shiftEnterNewline,
+                numberRowInSymbols =
+                    p[NUMBER_ROW_IN_SYMBOLS] ?: defaults.layoutBehavior.numberRowInSymbols,
+                bottomRowHeightDp =
+                    p[BOTTOM_ROW_HEIGHT] ?: defaults.layoutBehavior.bottomRowHeightDp,
+                sidePadScale = p[SIDE_PAD_SCALE] ?: defaults.layoutBehavior.sidePadScale,
+                shiftCapsLockMs = p[SHIFT_CAPS_LOCK_MS] ?: defaults.layoutBehavior.shiftCapsLockMs,
+                showAllPopupKeys = p[SHOW_ALL_POPUP_KEYS] ?: defaults.layoutBehavior.showAllPopupKeys,
+                currencyKeys = p[CURRENCY_KEYS]
+                    ?.split('\n')?.filter { it.isNotEmpty() }
+                    ?: defaults.layoutBehavior.currencyKeys,
             ),
             rawClipboardShortcuts = p[RAW_CLIPBOARD_SHORTCUTS] ?: defaults.rawClipboardShortcuts,
             longPressLetterActions = LongPressLetterActions(
@@ -4336,6 +4453,34 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setBlockOffensiveWords(value: Boolean) =
         editPrefs { it[BLOCK_OFFENSIVE_WORDS] = value }
+
+    suspend fun setAutoSpaceAfterSuggestion(value: Boolean) =
+        editPrefs { it[AUTO_SPACE_AFTER_SUGGESTION] = value }
+
+    suspend fun setExpandUserDictShortcuts(value: Boolean) =
+        editPrefs { it[EXPAND_USER_DICT_SHORTCUTS] = value }
+
+    suspend fun setNumberRowInSymbols(value: Boolean) =
+        editPrefs { it[NUMBER_ROW_IN_SYMBOLS] = value }
+
+    suspend fun setBottomRowHeightDp(value: Int) =
+        editPrefs { it[BOTTOM_ROW_HEIGHT] = value.coerceIn(0, BottomRowHeightRange.last) }
+
+    suspend fun setSidePadScale(value: Float) =
+        editPrefs { it[SIDE_PAD_SCALE] = value.coerceIn(SidePadScaleRange.start, SidePadScaleRange.endInclusive) }
+
+    suspend fun setShiftCapsLockMs(value: Int) =
+        editPrefs { it[SHIFT_CAPS_LOCK_MS] = value.coerceIn(ShiftCapsLockMsRange.first, ShiftCapsLockMsRange.last) }
+
+    suspend fun setShowAllPopupKeys(value: Boolean) =
+        editPrefs { it[SHOW_ALL_POPUP_KEYS] = value }
+
+    /** Persist the currency long-press glyphs; empty list falls back to the built-in set. */
+    suspend fun setCurrencyKeys(value: List<String>) =
+        editPrefs {
+            val cleaned = value.map { it.trim() }.filter { it.isNotEmpty() }
+            if (cleaned.isEmpty()) it.remove(CURRENCY_KEYS) else it[CURRENCY_KEYS] = cleaned.joinToString("\n")
+        }
 
     suspend fun setContactSuggestions(value: Boolean) =
         editPrefs { it[CONTACT_SUGGESTIONS] = value }

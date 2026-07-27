@@ -126,6 +126,20 @@ sealed interface KeyAction {
      */
     @Serializable @SerialName("kana_variant") data object KanaVariant : KeyAction
 
+    /**
+     * Fires an Android broadcast with [action] as its intent action, so a key
+     * can trigger an automation app (Tasker et al.) or any app with a matching
+     * receiver — the keyboard equivalent of a physical macro key. Types no text
+     * and moves no cursor.
+     *
+     * The action string is the only payload; a receiver keys off it. Nothing is
+     * broadcast for a blank action. Purely user-authored — no built-in layout
+     * binds it — so an app must register a receiver for the exact string to
+     * observe anything, and a stray key on an imported layout does nothing on a
+     * device with no such receiver.
+     */
+    @Serializable @SerialName("broadcast") data class Broadcast(val action: String) : KeyAction
+
     /** A deliberate gap in the grid: drawn as empty space, swallows its taps. */
     @Serializable @SerialName("none") data object None : KeyAction
 

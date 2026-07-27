@@ -175,6 +175,10 @@ import com.wasimaster.wmkeyboard.core.feedback.KeySoundPlayer
 import com.wasimaster.wmkeyboard.core.handwriting.HandwritingModels
 import com.wasimaster.wmkeyboard.core.settings.EmojiBarContent
 import com.wasimaster.wmkeyboard.core.settings.EmojiBarCountRange
+import com.wasimaster.wmkeyboard.core.settings.BottomRowHeightRange
+import com.wasimaster.wmkeyboard.core.settings.SidePadScaleRange
+import com.wasimaster.wmkeyboard.core.settings.ShiftCapsLockMsRange
+import com.wasimaster.wmkeyboard.core.settings.DefaultCurrencyKeys
 import com.wasimaster.wmkeyboard.core.settings.EmojiBarMode
 import com.wasimaster.wmkeyboard.core.settings.EmojiFontChoice
 import com.wasimaster.wmkeyboard.core.settings.EmojiSkinTone
@@ -1420,6 +1424,7 @@ private fun SpaceSwipeSetting(
                 SpaceSwipeAction.NONE -> "Nothing"
                 SpaceSwipeAction.LANGUAGE -> "Language"
                 SpaceSwipeAction.CURSOR -> "Cursor"
+                SpaceSwipeAction.NUMPAD -> "Numpad"
             }
         },
         selected = value,
@@ -1545,6 +1550,17 @@ private fun TypingSettings(
                     "email addresses, web addresses, number and phone pads — are left alone, " +
                     "since a space there is a typo rather than a courtesy.",
             ) { scope.launch { repository.setAutoSpaceAfterPunctuation(it) } }
+        }
+        item {
+            ToggleSetting(
+                "Space after a suggestion",
+                "Add a space when you pick a word from the strip",
+                settings.suggestionStrip.autoSpaceAfterSuggestion,
+                info = "On (the default), tapping a suggestion commits the word and a trailing " +
+                    "space so the next word starts cleanly. Turn it off to commit the word bare " +
+                    "— for languages or fields where a trailing space is wrong more often than " +
+                    "right. A word you go back and resume never gets a doubled space either way.",
+            ) { scope.launch { repository.setAutoSpaceAfterSuggestion(it) } }
         }
         item {
             ToggleSetting(
@@ -2988,6 +3004,18 @@ private fun KeyPressSettings(repository: SettingsRepository, settings: KeyboardS
                     "values delete faster.",
             ) { scope.launch { repository.setKeyRepeatIntervalMs(it.toInt()) } }
         }
+        item {
+            SliderSetting(
+                "Caps-lock double-tap",
+                subtitle = "How fast a second shift tap turns on caps lock",
+                value = settings.layoutBehavior.shiftCapsLockMs.toFloat(),
+                range = ShiftCapsLockMsRange.first.toFloat()..ShiftCapsLockMsRange.last.toFloat(),
+                display = { "${it.toInt()} ms" },
+                info = "Two shift taps within this window lock caps. Shorter makes caps lock " +
+                    "quicker but easier to trigger by accident; longer is more forgiving of a " +
+                    "slow double-tap. 350 ms is the default.",
+            ) { scope.launch { repository.setShiftCapsLockMs(it.toInt()) } }
+        }
     }
 
     SettingsGroup("Long-press shortcuts") {
@@ -3002,6 +3030,17 @@ private fun KeyPressSettings(repository: SettingsRepository, settings: KeyboardS
         }
         item {
             ToggleSetting(
+                "All accents on long-press",
+                "Fill every letter's popup with its full set of accents",
+                settings.layoutBehavior.showAllPopupKeys,
+                info = "Adds the complete accent set for each Latin letter (à á â ä ã å ā …) to " +
+                    "its long-press popup, on top of whatever the layout already lists. Off by " +
+                    "default: the built-in popups are deliberately short, and the full set is a " +
+                    "lot of glyphs. Letters only.",
+            ) { scope.launch { repository.setShowAllPopupKeys(it) } }
+        }
+        item {
+            ToggleSetting(
                 "Hold ?123 for numpad",
                 "Long-press the symbols key to open the number pad",
                 settings.layoutBehavior.symbolsLongPressNumpad,
@@ -3010,6 +3049,39 @@ private fun KeyPressSettings(repository: SettingsRepository, settings: KeyboardS
                     "pad without leaving the current text box. A quick tap still switches " +
                     "layers as usual.",
             ) { scope.launch { repository.setSymbolsLongPressNumpad(it) } }
+        }
+        item {
+            // A44: the $ key's long-press currency glyphs, space-separated. Blank
+            // restores the built-in set. Mirrors the layout editor's alternates field.
+            var currencyText by remember(settings.layoutBehavior.currencyKeys) {
+                mutableStateOf(
+                    settings.layoutBehavior.currencyKeys
+                        .ifEmpty { DefaultCurrencyKeys }
+                        .joinToString(" "),
+                )
+            }
+            Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Currency keys", style = MaterialTheme.typography.bodyLarge)
+                    InfoButton(
+                        "Currency keys",
+                        "The glyphs offered on the \$ key's long-press popup, in order — put " +
+                            "your own currency first. Separate them with spaces. Leave it at the " +
+                            "default (৳ € £ ¥ ₹ ₿) or clear it to restore the built-in set.",
+                    )
+                }
+                OutlinedTextField(
+                    value = currencyText,
+                    onValueChange = {
+                        currencyText = it
+                        scope.launch {
+                            repository.setCurrencyKeys(it.trim().split(" ").filter { s -> s.isNotBlank() })
+                        }
+                    },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
         }
         item {
             ToggleSetting(
@@ -3370,6 +3442,17 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
                         "second symbols layer.",
                 ) { scope.launch { repository.setNumberRowShiftSymbols(it) } }
             }
+            item {
+                ToggleSetting(
+                    "Number row in symbols",
+                    "Also keep the digit row on the ?123 symbols layer",
+                    settings.layoutBehavior.numberRowInSymbols,
+                    info = "On (the default), the digit row stays put when you switch to the " +
+                        "symbols layer. Turn it off to drop the number row from ?123 — where the " +
+                        "symbols already carry their own top row — while keeping it on the letters. " +
+                        "The keyboard shrinks by a row on the symbols layer when this is off.",
+                ) { scope.launch { repository.setNumberRowInSymbols(it) } }
+            }
         }
     }
 
@@ -3407,6 +3490,31 @@ private fun LayoutSettings(repository: SettingsRepository, settings: KeyboardSet
                 info = "Taller keys are easier to hit but the keyboard covers more of the " +
                     "screen. The emoji, clipboard and snippet panels scale with this value too.",
             ) { scope.launch { repository.setKeyHeightDp(it.toInt()) } }
+        }
+        item {
+            SliderSetting(
+                "Bottom row height",
+                subtitle = "Height of the space / enter row, on its own",
+                value = settings.layoutBehavior.bottomRowHeightDp.toFloat(),
+                range = 0f..BottomRowHeightRange.last.toFloat(),
+                display = { if (it < 1f) "Follow keys" else "${it.toInt()} dp" },
+                info = "Give the bottom row — spacebar and enter — its own height, taller or " +
+                    "shorter than the letter keys, for an easier spacebar without growing the " +
+                    "whole keyboard. \"Follow keys\" (the default) keeps it the same as the rest. " +
+                    "Custom layouts that set their own row heights ignore this.",
+            ) { scope.launch { repository.setBottomRowHeightDp(it.toInt()) } }
+        }
+        item {
+            SliderSetting(
+                "Side padding",
+                subtitle = "Shave the keyboard's left and right edges toward the centre",
+                value = settings.layoutBehavior.sidePadScale,
+                range = SidePadScaleRange.start..SidePadScaleRange.endInclusive,
+                display = { "${(it * 100).toInt()}%" },
+                info = "Adds an equal margin on both sides, narrowing the keys toward the middle " +
+                    "for thumb reach — without docking to one edge the way one-handed mode does. " +
+                    "0% is the default. Stacks on top of the keyboard width above.",
+            ) { scope.launch { repository.setSidePadScale(it) } }
         }
         item {
             SliderSetting(
@@ -3935,12 +4043,12 @@ private fun EmojiSettings(repository: SettingsRepository, settings: KeyboardSett
     SettingsGroup("Emoji panel") {
         item {
             ToggleSetting(
-                "Return to keyboard after emoji",
-                "Close the panel the moment you insert one emoji",
+                "Return to keyboard after inserting",
+                "Close the panel the moment you insert one emoji or paste one clip",
                 settings.emoji.closeAfterInsert,
-                info = "By default the emoji panel stays open so you can pick several emoji in " +
-                    "a row. Turn this on to jump straight back to the keys after inserting a " +
-                    "single emoji.",
+                info = "By default the emoji and clipboard panels stay open so you can pick " +
+                    "several items in a row. Turn this on to jump straight back to the keys " +
+                    "after a single emoji or clipboard paste.",
             ) { scope.launch { repository.setEmojiCloseAfterInsert(it) } }
         }
         item {
@@ -4632,7 +4740,14 @@ private fun BackupSettings(repository: SettingsRepository) {
             OutlinedButton(
                 enabled = selectedSections().isNotEmpty(),
                 onClick = {
-                    exportLauncher.launch("wmkeyboard-backup.${ConfigBackup.FILE_EXTENSION}")
+                    // Datestamp the default name so successive backups don't
+                    // overwrite each other and each file self-labels when it was made.
+                    val stamp = java.time.format.DateTimeFormatter
+                        .ofPattern("yyyyMMdd-HHmmss")
+                        .format(java.time.LocalDateTime.now())
+                    exportLauncher.launch(
+                        "wmkeyboard-backup-$stamp.${ConfigBackup.FILE_EXTENSION}",
+                    )
                 },
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
             ) { Text("Export backup") }
@@ -8010,6 +8125,18 @@ private fun PrivacySettings(repository: SettingsRepository, settings: KeyboardSe
                     "it, and this writes outside the app. Follows \"Learn from typing\" and " +
                     "incognito, and existing entries are left alone when you turn it off.",
             ) { scope.launch { repository.setAddWordsToSystemDictionary(it) } }
+        }
+        item {
+            ToggleSetting(
+                "Expand dictionary shortcuts",
+                "Type a shortcut, get its full phrase as a suggestion",
+                settings.suggestionStrip.expandUserDictShortcuts,
+                info = "Android's personal dictionary lets each entry carry a shortcut — the same " +
+                    "list under System Settings → Languages & input → Dictionary. With this on, " +
+                    "typing a shortcut (say \"omw\") offers its full phrase (\"on my way\") as the " +
+                    "top suggestion. Off by default. Reloads when the keyboard next opens, so a " +
+                    "shortcut you just added shows up after switching apps.",
+            ) { scope.launch { repository.setExpandUserDictShortcuts(it) } }
         }
         item {
             ToggleSetting(

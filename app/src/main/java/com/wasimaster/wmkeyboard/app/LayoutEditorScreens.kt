@@ -1247,6 +1247,11 @@ internal val KeyActionCatalog: List<KeyActionOption> = listOf(
         { it is KeyAction.SendKey && it.keyCode == KEYCODE_DPAD_RIGHT },
     ),
     KeyActionOption(
+        "Broadcast intent", "Other",
+        "Fires an Android broadcast for automation apps (Tasker); set the action below",
+        { KeyAction.Broadcast("") }, { it is KeyAction.Broadcast },
+    ),
+    KeyActionOption(
         "Nothing", "Other", "A deliberate gap: drawn as empty space, swallows taps",
         { KeyAction.None }, { it == KeyAction.None },
     ),
@@ -1311,6 +1316,17 @@ private fun KeyEditSheet(
                 subtitle = option?.detail,
                 value = option?.title ?: "Unknown",
             ) { pickingAction = true }
+
+            // Broadcast keys carry a free-form action string the automation app
+            // listens for; every other action is self-contained.
+            (key.action as? KeyAction.Broadcast)?.let { broadcast ->
+                SheetField(
+                    label = "Broadcast action",
+                    value = broadcast.action,
+                    supporting = "The intent action an automation app listens for, " +
+                        "e.g. com.example.MACRO. Left blank, the key does nothing.",
+                ) { onChange(key.copy(action = KeyAction.Broadcast(it.trim()))) }
+            }
 
             KeyWidthRow(
                 width = key.width,

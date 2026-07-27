@@ -52,6 +52,40 @@ object SystemUserDictionary {
         }
     }
 
+    /**
+     * The shortcut → expansion entries in Android's personal dictionary (the
+     * SHORTCUT column the platform "Personal dictionary" UI fills in, e.g.
+     * "omw" → "on my way"). Lowercased shortcuts. Reads the whole table each
+     * call — cheap, small, and the caller caches it — and never throws: an OEM
+     * that hides the provider just yields an empty map. Powers
+     * [com.wasimaster.wmkeyboard.core.settings.SuggestionStripSettings.expandUserDictShortcuts].
+     */
+    fun shortcuts(context: Context): Map<String, String> {
+        val out = HashMap<String, String>()
+        runCatching {
+            context.contentResolver.query(
+                UserDictionary.Words.CONTENT_URI,
+                arrayOf(UserDictionary.Words.WORD, UserDictionary.Words.SHORTCUT),
+                null,
+                null,
+                null,
+            )?.use { cursor ->
+                val wordCol = cursor.getColumnIndex(UserDictionary.Words.WORD)
+                val shortcutCol = cursor.getColumnIndex(UserDictionary.Words.SHORTCUT)
+                if (wordCol >= 0 && shortcutCol >= 0) {
+                    while (cursor.moveToNext()) {
+                        val shortcut = cursor.getString(shortcutCol)?.trim()
+                        val word = cursor.getString(wordCol)?.trim()
+                        if (!shortcut.isNullOrEmpty() && !word.isNullOrEmpty()) {
+                            out[shortcut.lowercase()] = word
+                        }
+                    }
+                }
+            }
+        }
+        return out
+    }
+
     /** Loads the words already in the dictionary once, so we don't re-add them. */
     private fun seed(context: Context) {
         if (seeded) return

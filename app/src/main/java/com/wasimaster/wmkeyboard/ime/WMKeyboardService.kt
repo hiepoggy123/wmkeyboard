@@ -343,6 +343,13 @@ open class WMKeyboardService : InputMethodService() {
 
     private var composing = StringBuilder()
     private var previousWord: String? = null
+    /**
+     * shortcut → expansion from Android's personal dictionary, for
+     * [SuggestionStripSettings.expandUserDictShortcuts] (A28). Loaded off the
+     * main thread in [loadDictionariesAndEmoji]; empty until then and whenever
+     * the setting is off.
+     */
+    @Volatile private var userDictShortcuts: Map<String, String> = emptyMap()
     private var lastSpaceTime = 0L
     /** uptime of the last spacebar/volume caret-scrub step; see [CARET_SCRUB_WINDOW_MS]. */
     private var lastCaretScrubMs = 0L
@@ -1337,6 +1344,12 @@ open class WMKeyboardService : InputMethodService() {
             }
             gestureLexicon = englishEntries
             invalidateGestureLexicon()
+            // Personal-dictionary shortcut expansions (A28): one content query,
+            // off the main thread, refreshed each time the dictionaries reload.
+            userDictShortcuts = withContext(Dispatchers.Default) {
+                runCatching { SystemUserDictionary.shortcuts(applicationContext) }
+                    .getOrDefault(emptyMap())
+            }
             bengaliAssetEntries = bengaliEntries
             val customTries = withContext(Dispatchers.Default) { loadCustomDictionaries() }
             customDictionaries = customTries
@@ -2188,6 +2201,8 @@ open class WMKeyboardService : InputMethodService() {
             KeyAction.Fn -> onFn()
             // A key carrying its own modifiers, so it fires with no latch.
             is KeyAction.SendKey -> sendShortcut(key, Modifiers.None)
+            // Fire the user's broadcast; types nothing.
+            is KeyAction.Broadcast -> sendKeyBroadcast((key.action as KeyAction.Broadcast).action)
             // A deliberate gap in the grid, and a key from a build that knows an
             // action this one does not. Both swallow the tap: a custom layout is
             // repaired before it can be enabled, so neither should reach a
@@ -2292,6 +2307,20 @@ open class WMKeyboardService : InputMethodService() {
      * for shift, since TextView reads modifier state off the modifier key's own
      * events rather than off getMetaState().
      */
+    /**
+     * Fire a [KeyAction.Broadcast] key's intent (A62). Wrapped defensively: a
+     * malformed action or a locked-down OEM must never take the keyboard down,
+     * and a blank action is a no-op. The keyboard's own package is set as the
+     * target when a receiver in it exists is irrelevant here — the intent is
+     * left implicit so any app's registered receiver can observe it, which is
+     * the automation use case (Tasker et al.).
+     */
+    private fun sendKeyBroadcast(action: String) {
+        val trimmed = action.trim()
+        if (trimmed.isEmpty()) return
+        runCatching { sendBroadcast(android.content.Intent(trimmed)) }
+    }
+
     private fun sendShortcut(key: Key, modifiers: Modifiers): Boolean {
         val ic = currentInputConnection ?: return false
         val state = _uiState.value
@@ -2740,7 +2769,10 @@ open class WMKeyboardService : InputMethodService() {
             }
         }
         val now = System.currentTimeMillis()
-        val doubleTap = now - lastShiftTapTime < SHIFT_DOUBLE_TAP_MS
+        // The caps-lock double-tap window is user-tunable (A47); Fn and the
+        // modifier keys keep the fixed SHIFT_DOUBLE_TAP_MS.
+        val capsLockMs = _uiState.value.settings.layoutBehavior.shiftCapsLockMs
+        val doubleTap = now - lastShiftTapTime < capsLockMs
         lastShiftTapTime = now
         _uiState.update {
             val next = when {
@@ -4409,11 +4441,23 @@ open class WMKeyboardService : InputMethodService() {
             delay((suggestionCostMs / 2).coerceIn(16L, 40L))
             val started = SystemClock.uptimeMillis()
             val (results, emojis, bias) = withContext(Dispatchers.Default) {
-                val words = engine.suggest(
+                val suggested = engine.suggest(
                     composing = typed,
                     previousWord = previousWord,
                     avroMode = state.composer.isBengaliPhonetic,
                 )
+                // A28: a personal-dictionary shortcut typed in full offers its
+                // expansion as the top chip (e.g. "omw" → "on my way"). Prepended
+                // so it wins the primary slot; deduped against the word list.
+                val words = if (
+                    state.settings.suggestionStrip.expandUserDictShortcuts && typed.isNotEmpty()
+                ) {
+                    userDictShortcuts[typed.lowercase()]
+                        ?.let { listOf(it) + suggested.filterNot { w -> w == it } }
+                        ?: suggested
+                } else {
+                    suggested
+                }
                 // Next-letter distribution for smart key-hit detection. Only for
                 // plain Latin composing — conversion/transliteration IMEs commit
                 // through their own composer, where a Latin-letter nudge is wrong.
@@ -4610,9 +4654,11 @@ open class WMKeyboardService : InputMethodService() {
         // Normally the pick lands at the end of the text and earns a trailing
         // space to start the next word. But a word resumed mid-sentence (the
         // caret moved back onto it) already has a space after it — appending
-        // another would leave a double gap, so skip it when one is there.
+        // another would leave a double gap, so skip it when one is there. The
+        // trailing space itself is opt-out (A26): off commits the word bare.
         val nextChar = ic.getTextAfterCursor(1, 0)
-        val tail = if (nextChar.isNullOrEmpty() || !nextChar[0].isWhitespace()) " " else ""
+        val autoSpace = _uiState.value.settings.suggestionStrip.autoSpaceAfterSuggestion
+        val tail = if (autoSpace && (nextChar.isNullOrEmpty() || !nextChar[0].isWhitespace())) " " else ""
         // Commit in the case the strip is showing: a shift held over the strip
         // capitalizes the word the user is about to pick, matching the chip.
         val committed = displayCaseForShift(suggestion, _uiState.value.shiftState)
@@ -8631,6 +8677,31 @@ open class WMKeyboardService : InputMethodService() {
         }
     }
 
+    /**
+     * Fold the current panel away and return to the keys after a single insert,
+     * when "Return to keyboard after inserting" ([EmojiSettings.closeAfterInsert])
+     * is on. Shared by the emoji panel (see [onEmojiTapped]) and the clipboard
+     * panel, so one paste drops back to typing instead of leaving the panel up.
+     * A no-op when nothing is open — a strip chip tapped with no panel showing
+     * has nothing to close.
+     */
+    private fun closePanelAfterInsertIfEnabled() {
+        if (!_uiState.value.settings.emoji.closeAfterInsert) return
+        _uiState.update {
+            if (it.panel == PanelMode.NONE) {
+                it
+            } else {
+                it.copy(
+                    panel = PanelMode.NONE,
+                    emojiSearchActive = false,
+                    emojiQuery = "",
+                    emojiResults = emptyList(),
+                    panelFocus = null,
+                )
+            }
+        }
+    }
+
     fun onClipboardItemTapped(item: com.wasimaster.wmkeyboard.core.clipboard.ClipItem) {
         vibrate()
         when (item.kind) {
@@ -8656,6 +8727,7 @@ open class WMKeyboardService : InputMethodService() {
         // has served its purpose once something was pasted.
         clearClipboardSuggestion()
         purgeAfterPasswordPaste(item)
+        closePanelAfterInsertIfEnabled()
     }
 
     /**
@@ -8672,6 +8744,7 @@ open class WMKeyboardService : InputMethodService() {
         clearClipboardSuggestion()
         clipboardStore.items().firstOrNull { it.id == entity.sourceId }
             ?.let(::purgeAfterPasswordPaste)
+        closePanelAfterInsertIfEnabled()
     }
 
     /**

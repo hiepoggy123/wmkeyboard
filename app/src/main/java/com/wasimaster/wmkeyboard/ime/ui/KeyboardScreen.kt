@@ -235,6 +235,7 @@ import com.wasimaster.wmkeyboard.core.script.TextDirection
 import com.wasimaster.wmkeyboard.core.script.mapDigits
 import com.wasimaster.wmkeyboard.core.script.resolveNumeralDigits
 import com.wasimaster.wmkeyboard.core.settings.BarRow
+import com.wasimaster.wmkeyboard.core.settings.LatinAccents
 import com.wasimaster.wmkeyboard.core.settings.EmojiBarContent
 import com.wasimaster.wmkeyboard.core.settings.EmojiBarCountRange
 import com.wasimaster.wmkeyboard.core.settings.GrammarDialect
@@ -868,7 +869,14 @@ fun KeyboardScreen(
                 if (oneHanded == OneHandedMode.OFF) {
                     // Resizable width: below 100% the keyboard shrinks and sits
                     // at the chosen edge (or centered).
-                    val widthFraction = state.settings.keyboardWidthPercent / 100f
+                    // Side-padding (A50) shaves an equal fraction off each side
+                    // on top of the width setting, narrowing the keys toward the
+                    // centre for thumb reach; it rides on the same slack/centering
+                    // machinery below.
+                    val sidePad = state.settings.layoutBehavior.sidePadScale.coerceIn(0f, 0.3f)
+                    val widthFraction =
+                        (state.settings.keyboardWidthPercent / 100f * (1f - 2f * sidePad))
+                            .coerceAtLeast(0.2f)
                     val slack = 1f - widthFraction
                     val leftSlack = when (state.settings.keyboardAlignment) {
                         KeyboardAlignment.LEFT -> 0f
@@ -5222,7 +5230,8 @@ private fun KeyRows(
             // layer leads with its own digit row, which would be a second
             // copy directly underneath — `bodyRows` swaps that one out for
             // the symbols the layer otherwise has no room for.
-            val bodyRows = remember(layout, mode, state.settings.numberRow) {
+            val numberRow = numberRowShown(state)
+            val bodyRows = remember(layout, mode, numberRow) {
                 // Only when that first row really is the digits. A custom
                 // symbols layer that leads with something else would otherwise
                 // lose its top row outright, with nothing on screen to explain
@@ -5230,13 +5239,13 @@ private fun KeyRows(
                 val leadsWithDigits = layout.rows.firstOrNull()
                     ?.all { it.action == KeyAction.Text && (it.output ?: it.label).isSingleDigit() }
                     ?: false
-                if (state.settings.numberRow && mode == LayoutMode.SYMBOLS && leadsWithDigits) {
+                if (numberRow && mode == LayoutMode.SYMBOLS && leadsWithDigits) {
                     listOf(SymbolsFillRow) + layout.rows.drop(1)
                 } else {
                     layout.rows
                 }
             }
-            if (state.settings.numberRow) {
+            if (numberRow) {
                 // Follows the same guard as the pad itself, so a search box
                 // opened over a number field gets its digit row back.
                 val kind = if (numericPadActive(state)) state.fieldKind else FieldKind.TEXT
@@ -5302,13 +5311,26 @@ private fun KeyRows(
                     ),
                 )
             }
+            // Optional taller (or shorter) bottom row — space / enter — set
+            // independently of the other keys. Ignored when the layout carries
+            // its own per-row heights, so a custom layout's bottom row wins and
+            // the height is never applied twice. keyRowsHeight adds the same
+            // delta so the reserved height matches.
+            val bottomRowHeightDp = state.settings.layoutBehavior.bottomRowHeightDp
             bodyRows.forEachIndexed { index, row ->
                 // Per-row height multiplier from the layout, if any. Rounded to
                 // whole dp so the rendered height matches keyRowsHeight exactly
                 // (which sums the same rounded values).
-                val rowHeightDp = rowScaledKeyHeight(
-                    state.settings.keyHeightDp, layout.rowHeights?.getOrNull(index),
-                )
+                val rowHeightDp =
+                    if (bottomRowHeightDp > 0 && index == bodyRows.lastIndex &&
+                        layout.rowHeights == null
+                    ) {
+                        bottomRowHeightDp
+                    } else {
+                        rowScaledKeyHeight(
+                            state.settings.keyHeightDp, layout.rowHeights?.getOrNull(index),
+                        )
+                    }
                 KeyRow(
                     keys = row,
                     gridWeight = gridWeight,
@@ -5669,6 +5691,11 @@ internal fun currentLayout(state: KeyboardUiState): KeyboardLayout {
     // letters' long press are redundant — drop them so those keys go straight
     // to their accents (or lose their popup entirely).
     val stripDigits = state.settings.numberRow && state.layoutMode == LayoutMode.LETTERS
+    // A44: user-chosen currency glyphs replace the $ key's built-in popup.
+    val currencyKeys = state.settings.layoutBehavior.currencyKeys
+    // A43: merge the full accent set into each Latin letter's long-press popup.
+    val allAccents = state.settings.layoutBehavior.showAllPopupKeys &&
+        state.layoutMode == LayoutMode.LETTERS && !state.composer.isClusterShaping
     // A/C/V/X/Z/Y clipboard/undo/redo shortcuts only make sense on Latin letter keys.
     val clipboardKeys: Map<String, ClipboardKeyAction> =
         if (state.layoutMode == LayoutMode.LETTERS && !state.composer.isClusterShaping) {
@@ -5685,7 +5712,7 @@ internal fun currentLayout(state: KeyboardUiState): KeyboardLayout {
             emptyMap()
         }
     if (!commaAsEmoji && !globeAsEmoji && !stripDigits && clipboardKeys.isEmpty() &&
-        fieldKey == null && domainAlternates.isEmpty()
+        fieldKey == null && domainAlternates.isEmpty() && currencyKeys.isEmpty() && !allAccents
     ) {
         return base
     }
@@ -5716,6 +5743,21 @@ internal fun currentLayout(state: KeyboardUiState): KeyboardLayout {
                 }
                 if (stripDigits && mapped.longPress.any { it.isSingleDigit() }) {
                     mapped = mapped.copy(longPress = mapped.longPress.filterNot { it.isSingleDigit() })
+                }
+                // A44: the $ key takes the user's currency glyphs as its popup.
+                if (currencyKeys.isNotEmpty() && (mapped.output ?: mapped.label) == "$") {
+                    mapped = mapped.copy(longPress = currencyKeys)
+                }
+                // A43: merge the full accent variant set for this Latin letter,
+                // on top of whatever the layout already lists. Lowercase glyphs,
+                // matching the built-in accent popups; non-letters have no entry.
+                if (allAccents && mapped.action == KeyAction.Text) {
+                    val letter = mapped.output ?: mapped.label
+                    if (letter.length == 1) {
+                        LatinAccents[letter.lowercase().first()]?.let { extra ->
+                            mapped = mapped.copy(longPress = (mapped.longPress + extra).distinct())
+                        }
+                    }
                 }
                 // Keyed on what the key types, not what it is labelled: a layout
                 // that shows "A" and outputs "a" was silently skipped. A value
@@ -5886,6 +5928,20 @@ internal fun topBarHeight(settings: KeyboardSettings): Dp =
  * alternative and was rejected: every call site already has the state in scope,
  * so it would have touched every panel signature and bought nothing.
  */
+/**
+ * Whether the dedicated number row is drawn on the *current* layer. Honours the
+ * global [KeyboardSettings.numberRow] and the opt-out
+ * [LayoutBehaviorSettings.numberRowInSymbols], which drops the row from the
+ * ?123 / symbols layers where the symbols already carry their own top row.
+ * Shared by the render loop and [keyRowsHeight] so the reserved height and the
+ * drawn row always agree — otherwise a suppressed row would leave a blank gap.
+ */
+internal fun numberRowShown(state: KeyboardUiState): Boolean =
+    state.settings.numberRow &&
+        (state.settings.layoutBehavior.numberRowInSymbols ||
+            (state.layoutMode != LayoutMode.SYMBOLS &&
+                state.layoutMode != LayoutMode.SYMBOLS_SHIFTED))
+
 internal fun keyRowsHeight(state: KeyboardUiState): Dp {
     val settings = state.settings
     val rowSpan = state.layouts.rowSpan
@@ -5906,8 +5962,15 @@ internal fun keyRowsHeight(state: KeyboardUiState): Dp {
         sum + (settings.keyHeightDp.dp + keyGapV(settings) * 2) * (rowSpan - bodyRowCount)
     }
     height += KeyRowsPadVertical * 2
-    if (settings.numberRow) {
+    if (numberRowShown(state)) {
         height += settings.numberRowHeightDp.dp + keyGapV(settings) * 2
+    }
+    // The bottom row's independent height (A45) rides on top: the render loop
+    // swaps one base-height row for bottomRowHeightDp, so reserve the delta.
+    // Only when the layout has no per-row heights, matching the render guard.
+    val bottomRowHeightDp = settings.layoutBehavior.bottomRowHeightDp
+    if (bottomRowHeightDp > 0 && rowHeights == null) {
+        height += (bottomRowHeightDp - settings.keyHeightDp).dp
     }
     return height
 }
@@ -6841,6 +6904,16 @@ private fun Modifier.pointerInputKey(
                             lastY = change.position.y
                             accumulated = 0f
                             accumulatedY = 0f
+                            if (action == SpaceSwipeAction.NUMPAD) {
+                                // Discrete action (A39): open the numeric panel once
+                                // and go inert. The synthetic Numpad key routes
+                                // through the same onKey dispatch the ?123 long-press
+                                // uses. `hidden` latches so release types no space.
+                                onKey(Key(label = " ", action = KeyAction.Numpad))
+                                hidden = true
+                                change.consume()
+                                break
+                            }
                             if (action == SpaceSwipeAction.LANGUAGE) {
                                 // The movement that crossed the slop already
                                 // counts: a quick flick switches one language.
