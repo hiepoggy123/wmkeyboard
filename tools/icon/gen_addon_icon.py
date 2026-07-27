@@ -20,11 +20,11 @@ from gen_icon import C, f
 
 
 # ---------------------------------------------------------------- puzzle piece
-PIECE_W = 20.0          # body side, knob excluded
-PIECE_R = 2.2           # body corner radius
-KNOB_R = 4.6            # knob / socket radius
-KNOB_OFF = 0.55         # knob centre offset past the edge, in knob radii -> narrow neck
-TILT = -10.0            # degrees, for a bit of life
+PIECE_W = 21.5          # body side, knobs excluded
+PIECE_R = 4.3           # body corner radius, 0.20 of the side (chunky, Material-ish)
+KNOB_R = 3.65           # knob / socket radius, 0.17 of the side
+KNOB_OFF = 0.41         # knob centre offset past its edge, in knob radii -> ~0.3W neck
+TILT = 0.0              # degrees
 
 
 def circle(cx: float, cy: float, r: float) -> str:
@@ -33,20 +33,25 @@ def circle(cx: float, cy: float, r: float) -> str:
 
 
 def piece_paths() -> tuple[str, str]:
-    """(filled piece, socket to punch back out) centred on the pin, y-down.
+    """(filled piece, sockets to punch back out) centred on the pin, y-down.
 
-    Knob bulges past the right edge, socket bites into the left one, both sitting
-    far enough outside/inside their edge to leave a proper puzzle neck. The socket
-    is painted in the pin colour rather than subtracted -- the pin behind it is flat
+    The classic four-sided piece: knobs bulge past the top and right edges, sockets
+    bite into the left and bottom ones. Each circle centre sits a fraction of its
+    radius past its edge, which is what leaves a proper narrow neck. Sockets are
+    painted in the pin colour rather than subtracted -- the pin behind them is flat
     white, so the result is identical and the path data stays simple.
     """
     half, d = PIECE_W / 2, KNOB_R * KNOB_OFF
-    cx, cy = C, base.PIN_CY
+    bulge = KNOB_R + d                       # how far a knob reaches past its edge
+    # centre the union's bounding box (body + top/right knobs) on the pin
+    cx, cy = C - bulge / 2, base.PIN_CY + bulge / 2
     x, y = cx - half, cy - half
     body = base.rrect(x, y, PIECE_W, PIECE_W, PIECE_R)
-    knob = circle(x + PIECE_W + d, cy, KNOB_R)
-    socket = circle(x + d, cy, KNOB_R)
-    return body + " " + knob, socket
+    knobs = " ".join((circle(cx, y - d, KNOB_R),                  # top
+                      circle(x + PIECE_W + d, cy, KNOB_R)))       # right
+    sockets = " ".join((circle(x + d, cy, KNOB_R),                # left
+                        circle(cx, y + PIECE_W - d, KNOB_R)))     # bottom
+    return body + " " + knobs, sockets
 
 
 def foreground_svg() -> str:
