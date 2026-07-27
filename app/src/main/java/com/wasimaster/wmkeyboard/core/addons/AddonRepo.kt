@@ -127,6 +127,7 @@ enum class AddonType {
     @SerialName("font") Font,
     @SerialName("emoji_font") EmojiFont,
     @SerialName("sound") Sound,
+    @SerialName("plugin") Plugin,
     @SerialName("unknown") Unknown,
     ;
 
@@ -142,6 +143,7 @@ enum class AddonType {
             Font -> "Fonts"
             EmojiFont -> "Emoji fonts"
             Sound -> "Sounds"
+            Plugin -> "Plugins"
             Unknown -> "Other"
         }
 
@@ -162,6 +164,7 @@ enum class AddonType {
             Font -> "Font"
             EmojiFont -> "Emoji font"
             Sound -> "Key sound"
+            Plugin -> "Plugin"
             Unknown -> "Addon"
         }
 
@@ -180,6 +183,9 @@ enum class AddonType {
             // so it runs several times the size of a text face.
             Font, EmojiFont -> 32L * 1024 * 1024
             Sound -> 4L * 1024 * 1024
+            // A plugin is a manifest and a Lua file. Anything approaching this
+            // is not a keyboard panel tool.
+            Plugin -> 1L * 1024 * 1024
             Unknown -> 0L
         }
 
@@ -190,10 +196,24 @@ enum class AddonType {
      * — the words in a dictionary, the actual sticker images, the sound itself.
      * A theme or a font is judged by looking at the keyboard wearing it, which
      * a preview panel can't honestly reproduce, so those don't offer one.
+     *
+     * A plugin previews for a different reason than the rest: not so the user
+     * can judge the content, but so they can read what the thing is allowed to
+     * do before they let any of its code near their keyboard.
      */
     val previewable: Boolean
         get() = when (this) {
-            Snippets, Dictionary, Sound, Stickers -> true
+            Snippets, Dictionary, Sound, Stickers, Plugin -> true
             else -> false
         }
+
+    /**
+     * Whether a payload of this type is executable code.
+     *
+     * Exactly one type is, and it changes two rules: the checksum stops being
+     * optional (see `AddonDownloadManager`), and the detail page shows what the
+     * plugin may do before offering to install it.
+     */
+    val isExecutable: Boolean
+        get() = this == Plugin
 }

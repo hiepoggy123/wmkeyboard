@@ -245,6 +245,21 @@ object AddonDownloadManager {
             set(key, AddonStatus.Failed(FailReason.APP_TOO_OLD, "Needs a newer version of the app"))
             return
         }
+        // A missing checksum is tolerated everywhere else — the file arrived over
+        // https, and refusing a theme for want of a hash would block half the
+        // repositories anyone publishes. Code is different: "unverified" is not
+        // a state a plugin gets to be in, so for executable payloads the digest
+        // is mandatory rather than a badge.
+        if (entry.type.isExecutable && entry.sha256.isNullOrBlank()) {
+            set(
+                key,
+                AddonStatus.Failed(
+                    FailReason.REJECTED,
+                    "This plugin has no checksum, so it can't be verified",
+                ),
+            )
+            return
+        }
         val url = AddonRepoCodec.resolveAsset(manifestUrl, entry.path)
         if (url == null) {
             set(key, AddonStatus.Failed(FailReason.REJECTED, "The download link isn't a valid https URL"))

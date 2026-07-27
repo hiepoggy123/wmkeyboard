@@ -29,7 +29,9 @@ import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Category
 import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.Code
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.Download
@@ -42,6 +44,7 @@ import androidx.compose.material.icons.outlined.Mood
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.PlayArrow
+import androidx.compose.material.icons.outlined.Save
 import androidx.compose.material.icons.outlined.TextFields
 import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material3.AlertDialog
@@ -168,6 +171,7 @@ private val AddonType.icon
         AddonType.Font -> Icons.Outlined.TextFields
         AddonType.EmojiFont -> Icons.Outlined.Mood
         AddonType.Sound -> Icons.Outlined.GraphicEq
+        AddonType.Plugin -> Icons.Outlined.Code
         AddonType.Unknown -> Icons.Outlined.Extension
     }
 
@@ -189,6 +193,7 @@ private val AddonType.seed: Color
         AddonType.Font -> Color(0xFF6366F1)
         AddonType.EmojiFont -> Color(0xFFEAB308)
         AddonType.Sound -> Color(0xFFEF4444)
+        AddonType.Plugin -> Color(0xFF06B6D4)
         AddonType.Unknown -> Color(0xFF6B7280)
     }
 
@@ -811,6 +816,7 @@ private val AddonType.settingsRoute: String
         AddonType.Font -> "fonts"
         AddonType.EmojiFont -> "emoji"
         AddonType.Sound -> "keypress"
+        AddonType.Plugin -> "plugins"
         AddonType.Unknown -> "home"
     }
 
@@ -836,6 +842,7 @@ private val AddonType.settingsAnchor: String?
         AddonType.Font -> "Installed fonts"
         AddonType.EmojiFont -> "Emoji font"
         AddonType.Sound -> "Sound style"
+        AddonType.Plugin -> null
         AddonType.Unknown -> null
     }
 
@@ -862,6 +869,7 @@ private val AddonType.useLabel: String
         AddonType.Font -> "Fonts"
         AddonType.EmojiFont -> "Emoji"
         AddonType.Sound -> "Key press"
+        AddonType.Plugin -> "Plugins"
         AddonType.Unknown -> "Settings"
     }
 
@@ -1485,8 +1493,59 @@ private fun AddonPreviewSection(manifestUrl: String, entry: AddonEntry) {
             }
         }
 
+        is AddonPreviewContent.Plugin -> PluginPreview(shown)
+
         is AddonPreviewContent.Unreadable -> CaptionText(shown.message)
         null -> Unit
+    }
+}
+
+/**
+ * What a plugin is, and what it would be allowed to do, before it is installed.
+ *
+ * The one preview that exists for the user's safety rather than their taste.
+ * Everything else in this file previews content so someone can decide whether
+ * they like it; this previews *capability*, so they can decide whether to let a
+ * stranger's code run on their keyboard at all. It is deliberately shown above
+ * the Install button and phrased as plainly as the facts allow.
+ *
+ * The reassurance underneath is not marketing. There is no API in the sandbox
+ * for reading typed text, the field, the clipboard or the network, so "it cannot
+ * see what you type" is a statement about what was built, not a promise about
+ * how it behaves.
+ */
+@Composable
+private fun PluginPreview(plugin: AddonPreviewContent.Plugin) {
+    SettingsGroup("What this plugin can do") {
+        if (plugin.permissions.isEmpty()) {
+            item {
+                ListItem(
+                    headlineContent = { Text("Nothing outside its own panel") },
+                    leadingContent = {
+                        Icon(Icons.Outlined.CheckCircle, contentDescription = null)
+                    },
+                    colors = transparentListColors(),
+                )
+            }
+        } else {
+            for (permission in plugin.permissions) {
+                item {
+                    ListItem(
+                        headlineContent = { Text(permission.label) },
+                        leadingContent = {
+                            Icon(Icons.Outlined.Save, contentDescription = null)
+                        },
+                        colors = transparentListColors(),
+                    )
+                }
+            }
+        }
+        item {
+            CaptionText(
+                "Plugins run in a sandbox. This one cannot see what you type, read your " +
+                    "clipboard, or use the internet — those aren't things a plugin can ask for.",
+            )
+        }
     }
 }
 

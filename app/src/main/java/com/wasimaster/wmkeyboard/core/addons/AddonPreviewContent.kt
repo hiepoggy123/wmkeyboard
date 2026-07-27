@@ -1,5 +1,8 @@
 package com.wasimaster.wmkeyboard.core.addons
 
+import com.wasimaster.wmkeyboard.core.plugins.PluginFile
+import com.wasimaster.wmkeyboard.core.plugins.PluginManifestResult
+import com.wasimaster.wmkeyboard.core.plugins.PluginPermission
 import com.wasimaster.wmkeyboard.core.snippets.SnippetFile
 import java.io.File
 import java.util.zip.GZIPInputStream
@@ -51,6 +54,22 @@ sealed interface AddonPreviewContent {
         val total: Int,
     ) : AddonPreviewContent
 
+    /**
+     * What a plugin says about itself, and what it would be allowed to do.
+     *
+     * The odd one out: every other preview answers "is this content any good?",
+     * while this one answers "should I let this run at all?". Only the manifest
+     * is read — showing someone what a plugin claims it can do should not
+     * involve touching the code that would do it.
+     */
+    data class Plugin(
+        val name: String,
+        val version: String,
+        val author: String,
+        val description: String,
+        val permissions: List<PluginPermission>,
+    ) : AddonPreviewContent
+
     /** The payload downloaded but couldn't be read as its declared type. */
     data class Unreadable(val message: String) : AddonPreviewContent
 }
@@ -86,7 +105,25 @@ object AddonPreviewReader {
         AddonType.Dictionary -> readDictionary(entry, payload)
         AddonType.Sound -> AddonPreviewContent.Sound(payload)
         AddonType.Stickers -> readStickers(payload)
+        AddonType.Plugin -> readPlugin(payload)
         else -> AddonPreviewContent.Unreadable("This addon can't be previewed")
+    }
+
+    private fun readPlugin(payload: File): AddonPreviewContent {
+        val read = runCatching { payload.inputStream().use { PluginFile.readManifest(it) } }
+            .getOrNull()
+        return when (read) {
+            is PluginManifestResult.Ok -> AddonPreviewContent.Plugin(
+                name = read.manifest.name,
+                version = read.manifest.pluginVersion,
+                author = read.manifest.author,
+                description = read.manifest.description,
+                permissions = read.permissions,
+            )
+
+            is PluginManifestResult.Rejected -> AddonPreviewContent.Unreadable(read.reason)
+            else -> AddonPreviewContent.Unreadable("That file isn't a WM Keyboard plugin")
+        }
     }
 
     private fun readSnippets(payload: File): AddonPreviewContent {

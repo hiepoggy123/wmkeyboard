@@ -109,11 +109,29 @@ class AddonRepoCodecTest {
     }
 
     @Test
-    fun `only the content-is-the-choice types offer a preview`() {
+    fun `previews are offered where the payload is the decision`() {
         val previewable = AddonType.entries.filter { it.previewable }.toSet()
         assertEquals(
-            setOf(AddonType.Snippets, AddonType.Dictionary, AddonType.Sound, AddonType.Stickers),
+            setOf(
+                // Content is the choice: the words, the images, the sound itself.
+                AddonType.Snippets,
+                AddonType.Dictionary,
+                AddonType.Sound,
+                AddonType.Stickers,
+                // A plugin previews for a different reason -- not "is this any
+                // good" but "should I let this run at all", which is why the
+                // preview shows its capabilities rather than its content.
+                AddonType.Plugin,
+            ),
             previewable,
+        )
+    }
+
+    @Test
+    fun `a plugin is the only executable addon type`() {
+        assertEquals(
+            setOf(AddonType.Plugin),
+            AddonType.entries.filter { it.isExecutable }.toSet(),
         )
     }
 

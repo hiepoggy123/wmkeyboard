@@ -29,6 +29,10 @@ import com.wasimaster.wmkeyboard.core.icons.IconPackStore
 import com.wasimaster.wmkeyboard.core.layout.AssetLayouts
 import com.wasimaster.wmkeyboard.core.layout.ImportedLayout
 import com.wasimaster.wmkeyboard.core.layout.LayoutFile
+import com.wasimaster.wmkeyboard.core.plugins.PluginFile
+import com.wasimaster.wmkeyboard.core.plugins.PluginImportResult
+import com.wasimaster.wmkeyboard.core.plugins.PluginManifestResult
+import com.wasimaster.wmkeyboard.core.plugins.PluginStore
 import com.wasimaster.wmkeyboard.core.settings.ConfigBackup
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.SettingsBackup
@@ -80,6 +84,7 @@ object WMFileTypes {
         StickerPackFile.FILE_EXTENSION,
         IconPackFile.FILE_EXTENSION,
         SnippetFile.FILE_EXTENSION,
+        PluginFile.FILE_EXTENSION,
     )
 
     /** First four bytes of every ZIP local file header. */
@@ -102,6 +107,13 @@ object WMFileTypes {
          */
         data object Stickers : Opened
         data object Icons : Opened
+
+        /**
+         * A `.wmplugin`. Only the manifest is read here — importing re-opens the
+         * archive, and the script is never touched just to work out what a file
+         * is.
+         */
+        data object Plugin : Opened
 
         /** Readable, but not one of ours. */
         data object Unrecognized : Opened
@@ -163,7 +175,7 @@ object WMFileTypes {
                     while (scanned++ < MANIFEST_SCAN_LIMIT) {
                         val entry = zip.nextEntry ?: break
                         if (entry.isDirectory) continue
-                        if (entry.name != StickerPackFile.MANIFEST) continue
+                        if (entry.name !in ARCHIVE_MANIFESTS) continue
                         // Both manifests are small; the tag is near the front.
                         // (InputStream.readNBytes is API 33; minSdk here is 24.)
                         val out = java.io.ByteArrayOutputStream()
@@ -183,6 +195,7 @@ object WMFileTypes {
         return when {
             manifest.contains("\"${IconPackFile.FORMAT}\"") -> Opened.Icons
             manifest.contains("\"${StickerPackFile.FORMAT}\"") -> Opened.Stickers
+            manifest.contains("\"${PluginFile.FORMAT}\"") -> Opened.Plugin
             else -> Opened.Unrecognized
         }
     }
@@ -197,6 +210,14 @@ object WMFileTypes {
 
     /** Enough of a manifest to carry its format tag, with room to spare. */
     private const val MAX_MANIFEST_BYTES = 64 * 1024
+
+    /**
+     * The manifest names the archive formats use. Sticker and icon packs share
+     * `pack.json` and are told apart by their format tag; a plugin names its
+     * manifest differently so that a `.wmplugin` is recognisable without
+     * reading any Lua.
+     */
+    private val ARCHIVE_MANIFESTS = setOf(StickerPackFile.MANIFEST, PluginFile.MANIFEST)
 
     /** The provider's display name for [uri], or its last path segment. */
     fun displayName(context: android.content.Context, uri: Uri): String {
@@ -502,10 +523,12 @@ private fun rememberProposal(
             },
         )
 
+        WMFileTypes.Opened.Plugin -> pluginProposal(context, uri)
+
         WMFileTypes.Opened.Unrecognized -> ImportProposal(
             title = "Not a WM Keyboard file",
             body = "That file doesn't hold a theme, layout, snippet pack, sticker pack, " +
-                "icon pack or backup this keyboard can read.",
+                "icon pack, plugin or backup this keyboard can read.",
             apply = null,
         )
 
@@ -516,4 +539,70 @@ private fun rememberProposal(
             apply = null,
         )
     }
+}
+
+/**
+ * The confirmation for installing a plugin from a file.
+ *
+ * Says what the plugin claims to be and what it would be allowed to do *before*
+ * offering to install it, because this is the one import where the payload is
+ * somebody else's code rather than somebody else's data. The manifest is read
+ * here; the script is not read at all until the user opens the plugin.
+ */
+private fun pluginProposal(context: android.content.Context, uri: Uri): ImportProposal {
+    val read = runCatching {
+        context.contentResolver.requireInputStream(uri).use { PluginFile.readManifest(it) }
+    }.getOrNull()
+
+    val manifest = (read as? PluginManifestResult.Ok)
+        ?: return ImportProposal(
+            title = "Can't install that plugin",
+            body = (read as? PluginManifestResult.Rejected)?.reason
+                ?: "That file isn't a WM Keyboard plugin.",
+            apply = null,
+        )
+
+    val capabilities = if (manifest.permissions.isEmpty()) {
+        "It doesn't ask for anything beyond its own panel."
+    } else {
+        manifest.permissions.joinToString(prefix = "It can:\n", separator = "\n") { "• ${it.label}" }
+    }
+
+    return ImportProposal(
+        title = "Install “${manifest.manifest.name}”?",
+        body = buildString {
+            append(manifest.manifest.description.ifBlank { "A WM Keyboard plugin." })
+            append("\n\nVersion ${manifest.manifest.pluginVersion}")
+            if (manifest.manifest.author.isNotBlank()) append(" by ${manifest.manifest.author}")
+            append("\n\n").append(capabilities)
+            append(
+                "\n\nPlugins run in a sandbox: this one cannot see what you type, read " +
+                    "your clipboard, or use the internet.",
+            )
+        },
+        apply = {
+            val store = PluginStore.get(context)
+            val result = withContext(Dispatchers.IO) {
+                runCatching {
+                    context.contentResolver.requireInputStream(uri)
+                        .use { PluginFile.import(it, store) }
+                }.getOrDefault(PluginImportResult.Failed)
+            }
+            when (result) {
+                is PluginImportResult.Imported ->
+                    if (result.replaced) {
+                        "Updated ${result.plugin.name}. Open it from the Plugins tool."
+                    } else {
+                        "Installed ${result.plugin.name}. Open it from the Plugins tool."
+                    }
+
+                is PluginImportResult.Rejected -> result.reason
+                PluginImportResult.NotAPlugin -> "That file isn't a WM Keyboard plugin."
+                PluginImportResult.TooManyPlugins ->
+                    "You already have ${PluginStore.MAX_PLUGINS} plugins. Delete one first."
+
+                PluginImportResult.Failed -> "That plugin could not be installed."
+            }
+        },
+    )
 }

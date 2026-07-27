@@ -404,6 +404,24 @@
       "sizeBytes": 1088,
       "license": "CC0-1.0",
       "licenseFile": "sounds/SOUNDS-LICENSE.txt"
+    },
+    {
+      "id": "hello",
+      "type": "plugin",
+      "name": "Hello",
+      "version": "1.0.0",
+      "author": "Wasi Master",
+      "description": "The smallest possible plugin: a greeting and a button. Runs in the sandbox and asks for nothing.",
+      "tags": [
+        "demo",
+        "plugin",
+        "example"
+      ],
+      "path": "plugins/hello.wmplugin",
+      "sha256": "7178ee61b849eefda3cf3bc7e31b7c7c0f25f50db28c43a6bc1380b7a5bd7f8c",
+      "sizeBytes": 623,
+      "license": "MIT",
+      "licenseFile": "plugins/LICENSE.txt"
     }
   ]
 }

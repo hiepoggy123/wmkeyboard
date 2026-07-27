@@ -12,6 +12,9 @@ import com.wasimaster.wmkeyboard.core.icons.IconImportResult
 import com.wasimaster.wmkeyboard.core.icons.IconPackFile
 import com.wasimaster.wmkeyboard.core.icons.IconPackStore
 import com.wasimaster.wmkeyboard.core.layout.LayoutFile
+import com.wasimaster.wmkeyboard.core.plugins.PluginFile
+import com.wasimaster.wmkeyboard.core.plugins.PluginImportResult
+import com.wasimaster.wmkeyboard.core.plugins.PluginStore
 import com.wasimaster.wmkeyboard.core.prediction.CustomDictionaries
 import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
@@ -63,6 +66,7 @@ object AddonInstaller {
             AddonType.Font -> installFont(context, entry, payload, emoji = false)
             AddonType.EmojiFont -> installFont(context, entry, payload, emoji = true)
             AddonType.Sound -> installSound(context, entry, payload)
+            AddonType.Plugin -> installPlugin(context, payload)
             AddonType.Unknown -> Outcome.Rejected("This app version doesn't support that addon type")
         }
 
@@ -85,7 +89,34 @@ object AddonInstaller {
             AddonType.Font -> FontStore.get(context).delete(record.localRef)
             AddonType.EmojiFont -> uninstallEmojiFont(context, record.localRef)
             AddonType.Sound -> uninstallSound(context, record.localRef)
+            // Deletes the plugin's whole directory: script, stored data and log.
+            AddonType.Plugin -> PluginStore.get(context).delete(record.localRef)
             AddonType.Unknown -> Unit
+        }
+    }
+
+    // ---- plugins --------------------------------------------------------
+
+    /**
+     * Installs a `.wmplugin`.
+     *
+     * Nothing is applied and nothing runs: the script lands on disk and waits
+     * for the user to open it from the Plugins panel. Every other single-slot
+     * type switches to the thing just installed, because a sound that installs
+     * without the keyboard making it reads as an install that did nothing —
+     * but "apply" for code would mean "execute", which is not a thing an
+     * install should ever do on its own.
+     */
+    private fun installPlugin(context: Context, payload: File): Outcome {
+        val store = PluginStore.get(context)
+        return when (val result = payload.inputStream().use { PluginFile.import(it, store) }) {
+            is PluginImportResult.Imported -> Outcome.Installed(result.plugin.id)
+            is PluginImportResult.Rejected -> Outcome.Rejected(result.reason)
+            PluginImportResult.NotAPlugin -> Outcome.Rejected("That file isn't a WM Keyboard plugin")
+            PluginImportResult.TooManyPlugins ->
+                Outcome.Rejected("You already have the maximum of ${PluginStore.MAX_PLUGINS} plugins")
+
+            PluginImportResult.Failed -> Outcome.Rejected("That plugin couldn't be installed")
         }
     }
 
