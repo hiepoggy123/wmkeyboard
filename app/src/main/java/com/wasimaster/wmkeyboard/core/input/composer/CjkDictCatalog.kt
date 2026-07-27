@@ -83,10 +83,10 @@ object CjkDictCatalog {
             id = "jyutping",
             langId = "yue",
             displayName = "Cantonese Jyutping dictionary",
-            description = "Jyutping reading → Hanzi table (142k entries). Required for Cantonese conversion.",
+            description = "Jyutping reading → Hanzi table (163k entries). Required for Cantonese conversion.",
             url = "https://raw.githubusercontent.com/wasi-master/wmkeyboard-data/HEAD/cjk/jyutping.tsv",
-            sizeBytes = 2_927_279L,
-            sha256 = "5f1e53ce903e19d22441a052bb9c8aff4aedb79b090701ba100fa99c52af8ae0",
+            sizeBytes = 3_416_241L,
+            sha256 = "cc0666179df615846328ed1e86b621919553d8ff30905f30d0b6ff45315bcfba",
             fileName = "jyutping.tsv",
         ),
     )
