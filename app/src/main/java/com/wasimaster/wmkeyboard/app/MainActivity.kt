@@ -36,6 +36,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -2437,13 +2438,23 @@ private fun KeySoundGroup(
             val soundStore = remember { SoundStore.get(context) }
             val soundRevision by soundStore.revision.collectAsStateWithLifecycle()
             val installedSounds = remember(soundRevision) { soundStore.sounds() }
-            val styles = KeySoundStyle.entries
-            SingleChoiceSegmentedButtonRow(modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp)) {
-                styles.forEachIndexed { index, style ->
+            // Chips rather than a segmented row. Six equal segments across a
+            // phone leave ~55dp of label each, which truncated "Chime" to
+            // "Chim" and "Custom" to "Custo"; a segmented row set to scroll is
+            // worse still, since SegmentedButton has a wide minimum and only
+            // three and a half fit. Chips size to their own text, so every
+            // style keeps its real name, and the row scrolls only as far as it
+            // has to. Same control the addon type filter uses.
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                for (style in KeySoundStyle.entries) {
                     val custom = style == KeySoundStyle.CUSTOM
-                    SegmentedButton(
+                    FilterChip(
                         selected = settings.keySoundStyle == style,
                         enabled = !custom || installedSounds.isNotEmpty(),
                         onClick = {
@@ -2451,7 +2462,7 @@ private fun KeySoundGroup(
                                 if (custom) {
                                     // Falls back to the first installed sound
                                     // when none has been chosen yet, so the
-                                    // segment always makes a sound.
+                                    // chip always makes a sound.
                                     val id = settings.keySoundCustom.customId
                                         .takeIf { id -> installedSounds.any { it.id == id } }
                                         ?: installedSounds.first().id
@@ -2467,20 +2478,20 @@ private fun KeySoundGroup(
                                 }
                             }
                         },
-                        shape = SegmentedButtonDefaults.itemShape(index, styles.size),
-                    ) {
-                        Text(
-                            when (style) {
-                                KeySoundStyle.CLICK -> "Click"
-                                KeySoundStyle.STANDARD -> "Std"
-                                KeySoundStyle.POP -> "Pop"
-                                KeySoundStyle.THOCK -> "Thock"
-                                KeySoundStyle.CHIME -> "Chime"
-                                KeySoundStyle.CUSTOM -> "Custom"
-                            },
-                            maxLines = 1,
-                        )
-                    }
+                        label = {
+                            Text(
+                                when (style) {
+                                    KeySoundStyle.CLICK -> "Click"
+                                    KeySoundStyle.STANDARD -> "Standard"
+                                    KeySoundStyle.POP -> "Pop"
+                                    KeySoundStyle.THOCK -> "Thock"
+                                    KeySoundStyle.CHIME -> "Chime"
+                                    KeySoundStyle.CUSTOM -> "Custom"
+                                },
+                                maxLines = 1,
+                            )
+                        },
+                    )
                 }
             }
         }
