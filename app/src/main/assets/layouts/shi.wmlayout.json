@@ -1,0 +1,186 @@
+{
+  "format": "wmkeyboard-layout",
+  "version": 1,
+  "layout": {
+    "id": "asset_shi",
+    "name": "ⵜⴰⵛⵍⵃⵉⵢⵜ (Tachelhit)",
+    "langId": "shi",
+    "version": 2,
+    "layers": {
+      "letters": {
+        "rows": [
+          [
+            {
+              "label": "ⵇ"
+            },
+            {
+              "label": "ⵡ"
+            },
+            {
+              "label": "ⴻ"
+            },
+            {
+              "label": "ⵔ",
+              "longPress": [
+                "ⵕ"
+              ]
+            },
+            {
+              "label": "ⵜ",
+              "longPress": [
+                "ⵟ"
+              ]
+            },
+            {
+              "label": "ⵢ"
+            },
+            {
+              "label": "ⵓ"
+            },
+            {
+              "label": "ⵉ"
+            },
+            {
+              "label": "ⵒ"
+            }
+          ],
+          [
+            {
+              "label": "ⴰ"
+            },
+            {
+              "label": "ⵙ",
+              "longPress": [
+                "ⵚ"
+              ]
+            },
+            {
+              "label": "ⴷ",
+              "longPress": [
+                "ⴹ"
+              ]
+            },
+            {
+              "label": "ⴼ"
+            },
+            {
+              "label": "ⴳ",
+              "longPress": [
+                "ⴲ",
+                "ⴴ"
+              ]
+            },
+            {
+              "label": "ⵀ",
+              "longPress": [
+                "ⵁ",
+                "ⵃ"
+              ]
+            },
+            {
+              "label": "ⵊ"
+            },
+            {
+              "label": "ⴽ",
+              "longPress": [
+                "ⴾ"
+              ]
+            },
+            {
+              "label": "ⵍ"
+            }
+          ],
+          [
+            {
+              "label": "⇧",
+              "action": {
+                "type": "shift"
+              },
+              "width": 1.5
+            },
+            {
+              "label": "ⵣ",
+              "longPress": [
+                "ⵥ"
+              ]
+            },
+            {
+              "label": "ⵅ"
+            },
+            {
+              "label": "ⵛ"
+            },
+            {
+              "label": "ⵞ"
+            },
+            {
+              "label": "ⴱ"
+            },
+            {
+              "label": "ⵏ"
+            },
+            {
+              "label": "ⵎ"
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              },
+              "width": 1.5
+            }
+          ],
+          [
+            {
+              "label": "?123",
+              "action": {
+                "type": "symbols"
+              },
+              "width": 1.5
+            },
+            {
+              "label": ",",
+              "longPress": [
+                "!",
+                "?"
+              ],
+              "role": "Comma"
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 4
+            },
+            {
+              "label": ".",
+              "longPress": [
+                "…",
+                ",",
+                "?",
+                "!",
+                ":",
+                ";"
+              ],
+              "role": "Period"
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.5
+            }
+          ]
+        ]
+      }
+    }
+  }
+}

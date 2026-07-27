@@ -1,0 +1,224 @@
+{
+  "format": "wmkeyboard-layout",
+  "version": 1,
+  "layout": {
+    "id": "asset_ks",
+    "name": "کٲشُر (Kashmiri)",
+    "langId": "ks",
+    "version": 2,
+    "layers": {
+      "letters": {
+        "rows": [
+          [
+            {
+              "label": "ق"
+            },
+            {
+              "label": "و",
+              "shiftLabel": "ؤ",
+              "longPress": [
+                "ۄ"
+              ]
+            },
+            {
+              "label": "ع",
+              "shiftLabel": "غ"
+            },
+            {
+              "label": "ر",
+              "shiftLabel": "ڑ"
+            },
+            {
+              "label": "ت",
+              "shiftLabel": "ٹ",
+              "longPress": [
+                "ث",
+                "ة"
+              ]
+            },
+            {
+              "label": "ی",
+              "longPress": [
+                "ے",
+                "ؠ"
+              ]
+            },
+            {
+              "label": "ء",
+              "longPress": [
+                "أ",
+                "إ",
+                "آ"
+              ]
+            },
+            {
+              "label": "ہ",
+              "longPress": [
+                "ھ"
+              ]
+            },
+            {
+              "label": "خ"
+            },
+            {
+              "label": "ح"
+            },
+            {
+              "label": "ج"
+            }
+          ],
+          [
+            {
+              "label": "ا",
+              "shiftLabel": "آ",
+              "longPress": [
+                "ٲ",
+                "أ",
+                "إ"
+              ]
+            },
+            {
+              "label": "س",
+              "shiftLabel": "ص",
+              "longPress": [
+                "ث",
+                "ض"
+              ]
+            },
+            {
+              "label": "د",
+              "shiftLabel": "ڈ",
+              "longPress": [
+                "ذ"
+              ]
+            },
+            {
+              "label": "ف"
+            },
+            {
+              "label": "گ"
+            },
+            {
+              "label": "ک"
+            },
+            {
+              "label": "ل"
+            },
+            {
+              "label": "م"
+            },
+            {
+              "label": "ن",
+              "longPress": [
+                "ں"
+              ]
+            }
+          ],
+          [
+            {
+              "label": "⇧",
+              "action": {
+                "type": "shift"
+              },
+              "width": 1.5
+            },
+            {
+              "label": "ز",
+              "longPress": [
+                "ژ",
+                "ذ",
+                "ظ"
+              ]
+            },
+            {
+              "label": "ش"
+            },
+            {
+              "label": "ط",
+              "shiftLabel": "ظ"
+            },
+            {
+              "label": "ب"
+            },
+            {
+              "label": "و",
+              "shiftLabel": "ؤ",
+              "longPress": [
+                "ۄ"
+              ]
+            },
+            {
+              "label": "ی",
+              "longPress": [
+                "ے",
+                "ؠ"
+              ]
+            },
+            {
+              "label": "پ"
+            },
+            {
+              "label": "چ"
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              },
+              "width": 1.5
+            }
+          ],
+          [
+            {
+              "label": "?123",
+              "action": {
+                "type": "symbols"
+              },
+              "width": 1.5
+            },
+            {
+              "label": ",",
+              "longPress": [
+                "!",
+                "?"
+              ],
+              "role": "Comma"
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 4
+            },
+            {
+              "label": ".",
+              "longPress": [
+                "…",
+                ",",
+                "?",
+                "!",
+                ":",
+                ";"
+              ],
+              "role": "Period"
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.5
+            }
+          ]
+        ]
+      }
+    }
+  }
+}

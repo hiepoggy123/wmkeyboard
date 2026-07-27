@@ -1,0 +1,200 @@
+{
+  "format": "wmkeyboard-layout",
+  "version": 1,
+  "layout": {
+    "id": "asset_mzn",
+    "name": "مازرونی (Mazanderani)",
+    "langId": "mzn",
+    "version": 2,
+    "layers": {
+      "letters": {
+        "rows": [
+          [
+            {
+              "label": "ق"
+            },
+            {
+              "label": "و",
+              "shiftLabel": "ؤ"
+            },
+            {
+              "label": "ع",
+              "shiftLabel": "غ"
+            },
+            {
+              "label": "ر"
+            },
+            {
+              "label": "ت",
+              "shiftLabel": "ة",
+              "longPress": [
+                "ث"
+              ]
+            },
+            {
+              "label": "ی"
+            },
+            {
+              "label": "ء",
+              "longPress": [
+                "أ",
+                "إ",
+                "آ"
+              ]
+            },
+            {
+              "label": "ه"
+            },
+            {
+              "label": "خ"
+            },
+            {
+              "label": "ح"
+            },
+            {
+              "label": "ج"
+            }
+          ],
+          [
+            {
+              "label": "ا",
+              "shiftLabel": "آ",
+              "longPress": [
+                "أ",
+                "إ"
+              ]
+            },
+            {
+              "label": "س",
+              "shiftLabel": "ص",
+              "longPress": [
+                "ث",
+                "ض"
+              ]
+            },
+            {
+              "label": "د",
+              "longPress": [
+                "ذ"
+              ]
+            },
+            {
+              "label": "ف"
+            },
+            {
+              "label": "گ"
+            },
+            {
+              "label": "ک"
+            },
+            {
+              "label": "ل"
+            },
+            {
+              "label": "م"
+            },
+            {
+              "label": "ن"
+            }
+          ],
+          [
+            {
+              "label": "⇧",
+              "action": {
+                "type": "shift"
+              },
+              "width": 1.5
+            },
+            {
+              "label": "ز",
+              "longPress": [
+                "ژ",
+                "ذ",
+                "ظ"
+              ]
+            },
+            {
+              "label": "ش"
+            },
+            {
+              "label": "ط",
+              "shiftLabel": "ظ"
+            },
+            {
+              "label": "ب"
+            },
+            {
+              "label": "و",
+              "shiftLabel": "ؤ"
+            },
+            {
+              "label": "ی"
+            },
+            {
+              "label": "پ"
+            },
+            {
+              "label": "چ"
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              },
+              "width": 1.5
+            }
+          ],
+          [
+            {
+              "label": "?123",
+              "action": {
+                "type": "symbols"
+              },
+              "width": 1.5
+            },
+            {
+              "label": ",",
+              "longPress": [
+                "!",
+                "?"
+              ],
+              "role": "Comma"
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 4
+            },
+            {
+              "label": ".",
+              "longPress": [
+                "…",
+                ",",
+                "?",
+                "!",
+                ":",
+                ";"
+              ],
+              "role": "Period"
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.5
+            }
+          ]
+        ]
+      }
+    }
+  }
+}

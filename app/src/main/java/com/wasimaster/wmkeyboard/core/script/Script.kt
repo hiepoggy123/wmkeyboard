@@ -32,6 +32,7 @@ enum class ScriptId {
     TIFINAGH, CHEROKEE,
     NKO, CANADIAN_ABORIGINAL_SYLLABICS,
     TIBETAN,
+    OL_CHIKI, MEETEI_MAYEK,
 }
 
 /** Which way the script runs. Drives the suggestion strip's layout direction. */
@@ -414,6 +415,31 @@ object ScriptRegistry {
             composer = ComposerType.INDIC_CLUSTER,
             fontHint = FontHint.GENERIC,
             unicodeRange = 0x0F00..0x0FFF,
+        ),
+        // Ol Chiki (Santali) is a true alphabet, not an abugida — no virama or
+        // conjunct stacking, so it composes 1:1 like Thai/Lao rather than using
+        // the cluster composer.
+        ScriptDef(
+            id = ScriptId.OL_CHIKI,
+            direction = TextDirection.LTR,
+            hasLetterCase = false,
+            composer = ComposerType.NONE,
+            fontHint = FontHint.GENERIC,
+            unicodeRange = 0x1C50..0x1C7F,
+        ),
+        // Meetei Mayek (Manipuri) is an abugida with a virama-like killer stroke
+        // (Apun Iyek), so it rides the generic cluster composer like the other
+        // Brahmic-family scripts. Its extension block (vowel signs, U+AAE0..AAF6)
+        // falls outside unicodeRange's single contiguous span; that range is used
+        // for cluster-deletion bounds checks and the common case (consonants,
+        // U+ABC0..ABFF) is what matters there.
+        ScriptDef(
+            id = ScriptId.MEETEI_MAYEK,
+            direction = TextDirection.LTR,
+            hasLetterCase = false,
+            composer = ComposerType.INDIC_CLUSTER,
+            fontHint = FontHint.GENERIC,
+            unicodeRange = 0xABC0..0xABFF,
         ),
     ).associateBy { it.id }
 

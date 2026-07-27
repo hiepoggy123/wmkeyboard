@@ -1,0 +1,208 @@
+{
+  "format": "wmkeyboard-layout",
+  "version": 1,
+  "layout": {
+    "id": "asset_shn",
+    "name": "တႆး (Shan)",
+    "langId": "shn",
+    "version": 2,
+    "layers": {
+      "letters": {
+        "rows": [
+          [
+            {
+              "label": "ၵ",
+              "shiftLabel": "ၷ"
+            },
+            {
+              "label": "ၶ",
+              "shiftLabel": "င"
+            },
+            {
+              "label": "ၸ",
+              "shiftLabel": "ၹ"
+            },
+            {
+              "label": "ၺ",
+              "shiftLabel": "သ"
+            },
+            {
+              "label": "တ",
+              "shiftLabel": "ၻ"
+            },
+            {
+              "label": "ထ",
+              "shiftLabel": "ႀ"
+            },
+            {
+              "label": "ၼ",
+              "shiftLabel": "မ"
+            },
+            {
+              "label": "ပ",
+              "shiftLabel": "ၿ"
+            },
+            {
+              "label": "ၽ",
+              "shiftLabel": "ရ"
+            },
+            {
+              "label": "ၾ"
+            },
+            {
+              "label": "ဢ",
+              "shiftLabel": "ႁ"
+            }
+          ],
+          [
+            {
+              "label": "ေ",
+              "shiftLabel": "ႄ"
+            },
+            {
+              "label": "ျ",
+              "shiftLabel": "ှ"
+            },
+            {
+              "label": "ိ",
+              "shiftLabel": "ီ"
+            },
+            {
+              "label": "်",
+              "shiftLabel": "္"
+            },
+            {
+              "label": "ါ",
+              "shiftLabel": "ႃ"
+            },
+            {
+              "label": "့",
+              "shiftLabel": "ႇ",
+              "longPress": [
+                "ႉ",
+                "ႊ"
+              ]
+            },
+            {
+              "label": "ြ",
+              "shiftLabel": "ႂ"
+            },
+            {
+              "label": "ု",
+              "shiftLabel": "ႆ"
+            },
+            {
+              "label": "ူ",
+              "shiftLabel": "ႅ"
+            },
+            {
+              "label": "း",
+              "shiftLabel": "ႈ",
+              "longPress": [
+                "ႋ",
+                "ႌ",
+                "ႍ"
+              ]
+            }
+          ],
+          [
+            {
+              "label": "⇧",
+              "action": {
+                "type": "shift"
+              },
+              "width": 1.5
+            },
+            {
+              "label": "ဖ",
+              "shiftLabel": "ဎ"
+            },
+            {
+              "label": "ထ",
+              "shiftLabel": "ဓ"
+            },
+            {
+              "label": "ခ",
+              "shiftLabel": "ဃ"
+            },
+            {
+              "label": "လ",
+              "shiftLabel": "ဧ"
+            },
+            {
+              "label": "ဝ",
+              "shiftLabel": "ဘ"
+            },
+            {
+              "label": "ည",
+              "shiftLabel": "ဉ"
+            },
+            {
+              "label": "ာ",
+              "shiftLabel": "ဠ"
+            },
+            {
+              "label": "ယ"
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              },
+              "width": 1.5
+            }
+          ],
+          [
+            {
+              "label": "?123",
+              "action": {
+                "type": "symbols"
+              },
+              "width": 1.5
+            },
+            {
+              "label": ",",
+              "longPress": [
+                "!",
+                "?"
+              ],
+              "role": "Comma"
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 4
+            },
+            {
+              "label": ".",
+              "longPress": [
+                "…",
+                ",",
+                "?",
+                "!",
+                ":",
+                ";"
+              ],
+              "role": "Period"
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.5
+            }
+          ]
+        ]
+      }
+    }
+  }
+}

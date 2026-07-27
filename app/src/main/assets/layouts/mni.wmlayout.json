@@ -1,0 +1,207 @@
+{
+  "format": "wmkeyboard-layout",
+  "version": 1,
+  "layout": {
+    "id": "asset_mni",
+    "name": "ꯃꯩꯇꯩꯂꯣꯟ (Manipuri)",
+    "langId": "mni",
+    "version": 2,
+    "layers": {
+      "letters": {
+        "rows": [
+          [
+            {
+              "label": "ꯀ",
+              "longPress": [
+                "ꯛ",
+                "꯭"
+              ]
+            },
+            {
+              "label": "ꯁ"
+            },
+            {
+              "label": "ꯂ",
+              "longPress": [
+                "ꯜ"
+              ]
+            },
+            {
+              "label": "ꯃ",
+              "longPress": [
+                "ꯝ"
+              ]
+            },
+            {
+              "label": "ꯄ",
+              "longPress": [
+                "ꯞ"
+              ]
+            },
+            {
+              "label": "ꯅ",
+              "longPress": [
+                "ꯟ"
+              ]
+            },
+            {
+              "label": "ꯆ"
+            },
+            {
+              "label": "ꯇ",
+              "longPress": [
+                "ꯠ"
+              ]
+            },
+            {
+              "label": "ꯈ"
+            }
+          ],
+          [
+            {
+              "label": "ꯉ",
+              "longPress": [
+                "ꯡ",
+                "ꯪ"
+              ]
+            },
+            {
+              "label": "ꯊ"
+            },
+            {
+              "label": "ꯋ",
+              "longPress": [
+                "ꯧ"
+              ]
+            },
+            {
+              "label": "ꯌ",
+              "longPress": [
+                "ꯦ"
+              ]
+            },
+            {
+              "label": "ꯍ"
+            },
+            {
+              "label": "ꯎ",
+              "longPress": [
+                "ꯨ"
+              ]
+            },
+            {
+              "label": "ꯏ",
+              "longPress": [
+                "ꯢ",
+                "ꯤ"
+              ]
+            },
+            {
+              "label": "ꯐ"
+            },
+            {
+              "label": "ꯑ",
+              "longPress": [
+                "ꯥ",
+                "ꯣ",
+                "ꯩ"
+              ]
+            }
+          ],
+          [
+            {
+              "label": "⇧",
+              "action": {
+                "type": "shift"
+              },
+              "width": 1.5
+            },
+            {
+              "label": "ꯒ"
+            },
+            {
+              "label": "ꯓ"
+            },
+            {
+              "label": "ꯔ"
+            },
+            {
+              "label": "ꯕ"
+            },
+            {
+              "label": "ꯖ"
+            },
+            {
+              "label": "ꯗ"
+            },
+            {
+              "label": "ꯘ"
+            },
+            {
+              "label": "ꯙ"
+            },
+            {
+              "label": "ꯚ"
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              },
+              "width": 1.5
+            }
+          ],
+          [
+            {
+              "label": "?123",
+              "action": {
+                "type": "symbols"
+              },
+              "width": 1.5
+            },
+            {
+              "label": ",",
+              "longPress": [
+                "!",
+                "?"
+              ],
+              "role": "Comma"
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 4
+            },
+            {
+              "label": ".",
+              "longPress": [
+                "…",
+                ",",
+                "?",
+                "!",
+                ":",
+                ";"
+              ],
+              "role": "Period"
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.5
+            }
+          ]
+        ]
+      }
+    }
+  }
+}

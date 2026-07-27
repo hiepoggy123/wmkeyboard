@@ -42,9 +42,9 @@ class DictionaryCatalogTest {
     @Test
     fun urlsPointAtTheDataRepo() {
         for (entry in DictionaryCatalog.entries) {
+            val stem = entry.fileStem ?: "${entry.repoCode}_${entry.suffix}"
             assertEquals(
-                "https://raw.githubusercontent.com/wasi-master/wmkeyboard-data/" +
-                    "HEAD/data/${entry.repoCode}/${entry.repoCode}_full.txt.gz",
+                "https://raw.githubusercontent.com/wasi-master/wmkeyboard-data/HEAD/data/${entry.repoCode}/$stem.txt.gz",
                 entry.url,
             )
         }

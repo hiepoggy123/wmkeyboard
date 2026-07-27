@@ -51,6 +51,8 @@ internal fun viramaFor(id: ScriptId): Char? = when (id) {
     ScriptId.SINHALA -> '්'
     ScriptId.MYANMAR -> '္'
     ScriptId.KHMER -> '្'
+    // Meetei Mayek's Apun Iyek is a virama-equivalent killer stroke.
+    ScriptId.MEETEI_MAYEK -> '꯭'
     // Thai and Lao stack no conjuncts; they fall back to grapheme deletion.
     else -> null
 }

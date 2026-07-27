@@ -1,0 +1,200 @@
+{
+  "format": "wmkeyboard-layout",
+  "version": 1,
+  "layout": {
+    "id": "asset_tcy",
+    "name": "ತುಳು (Tulu)",
+    "langId": "tcy",
+    "version": 2,
+    "layers": {
+      "letters": {
+        "rows": [
+          [
+            {
+              "label": "ೌ",
+              "shiftLabel": "ಔ"
+            },
+            {
+              "label": "ೈ",
+              "shiftLabel": "ಐ"
+            },
+            {
+              "label": "ಾ",
+              "shiftLabel": "ಆ"
+            },
+            {
+              "label": "ೀ",
+              "shiftLabel": "ಈ"
+            },
+            {
+              "label": "ೂ",
+              "shiftLabel": "ಊ"
+            },
+            {
+              "label": "ಬ",
+              "shiftLabel": "ಭ"
+            },
+            {
+              "label": "ಹ",
+              "shiftLabel": "ಙ"
+            },
+            {
+              "label": "ಗ",
+              "shiftLabel": "ಘ"
+            },
+            {
+              "label": "ದ",
+              "shiftLabel": "ಧ"
+            },
+            {
+              "label": "ಜ",
+              "shiftLabel": "ಝ"
+            },
+            {
+              "label": "ಡ",
+              "shiftLabel": "ಢ"
+            }
+          ],
+          [
+            {
+              "label": "ೋ",
+              "shiftLabel": "ಓ"
+            },
+            {
+              "label": "ೇ",
+              "shiftLabel": "ಏ"
+            },
+            {
+              "label": "್",
+              "shiftLabel": "ಅ"
+            },
+            {
+              "label": "ಿ",
+              "shiftLabel": "ಇ"
+            },
+            {
+              "label": "ು",
+              "shiftLabel": "ಉ"
+            },
+            {
+              "label": "ಪ",
+              "shiftLabel": "ಫ"
+            },
+            {
+              "label": "ರ"
+            },
+            {
+              "label": "ಕ",
+              "shiftLabel": "ಖ"
+            },
+            {
+              "label": "ತ",
+              "shiftLabel": "ಥ"
+            },
+            {
+              "label": "ಚ",
+              "shiftLabel": "ಛ"
+            },
+            {
+              "label": "ಟ",
+              "shiftLabel": "ಠ"
+            }
+          ],
+          [
+            {
+              "label": "⇧",
+              "action": {
+                "type": "shift"
+              },
+              "width": 1.5
+            },
+            {
+              "label": "ಂ",
+              "shiftLabel": "ಁ"
+            },
+            {
+              "label": "ಮ",
+              "shiftLabel": "ಣ"
+            },
+            {
+              "label": "ನ"
+            },
+            {
+              "label": "ವ"
+            },
+            {
+              "label": "ಲ",
+              "shiftLabel": "ಳ"
+            },
+            {
+              "label": "ಸ",
+              "shiftLabel": "ಶ"
+            },
+            {
+              "label": "ಷ"
+            },
+            {
+              "label": "ಯ"
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              },
+              "width": 1.5
+            }
+          ],
+          [
+            {
+              "label": "?123",
+              "action": {
+                "type": "symbols"
+              },
+              "width": 1.5
+            },
+            {
+              "label": ",",
+              "longPress": [
+                "!",
+                "?"
+              ],
+              "role": "Comma"
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 4
+            },
+            {
+              "label": ".",
+              "longPress": [
+                "…",
+                ",",
+                "?",
+                "!",
+                ":",
+                ";"
+              ],
+              "role": "Period"
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.5
+            }
+          ]
+        ]
+      }
+    }
+  }
+}

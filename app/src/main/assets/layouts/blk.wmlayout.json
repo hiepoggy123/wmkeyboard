@@ -1,0 +1,200 @@
+{
+  "format": "wmkeyboard-layout",
+  "version": 1,
+  "layout": {
+    "id": "asset_blk",
+    "name": "ပအိုဝ် (Pa'O)",
+    "langId": "blk",
+    "version": 2,
+    "layers": {
+      "letters": {
+        "rows": [
+          [
+            {
+              "label": "ဆ",
+              "shiftLabel": "ဈ"
+            },
+            {
+              "label": "တ",
+              "shiftLabel": "ဒ"
+            },
+            {
+              "label": "န",
+              "shiftLabel": "ဏ"
+            },
+            {
+              "label": "မ",
+              "shiftLabel": "ရ"
+            },
+            {
+              "label": "အ",
+              "shiftLabel": "ဩ"
+            },
+            {
+              "label": "ပ",
+              "shiftLabel": "ဗ"
+            },
+            {
+              "label": "က",
+              "shiftLabel": "ဂ"
+            },
+            {
+              "label": "င",
+              "shiftLabel": "ဣ"
+            },
+            {
+              "label": "သ",
+              "shiftLabel": "ဥ"
+            },
+            {
+              "label": "စ",
+              "shiftLabel": "ဇ"
+            },
+            {
+              "label": "ဟ",
+              "shiftLabel": "ဦ"
+            }
+          ],
+          [
+            {
+              "label": "ေ",
+              "shiftLabel": "ဲ"
+            },
+            {
+              "label": "ျ",
+              "shiftLabel": "ှ"
+            },
+            {
+              "label": "ိ",
+              "shiftLabel": "ီ"
+            },
+            {
+              "label": "်",
+              "shiftLabel": "္"
+            },
+            {
+              "label": "ါ",
+              "shiftLabel": "ဤ"
+            },
+            {
+              "label": "့",
+              "shiftLabel": "ံ"
+            },
+            {
+              "label": "ြ",
+              "shiftLabel": "ွ"
+            },
+            {
+              "label": "ု",
+              "shiftLabel": "ဋ"
+            },
+            {
+              "label": "ူ",
+              "shiftLabel": "ဌ"
+            },
+            {
+              "label": "း",
+              "shiftLabel": "ဍ"
+            }
+          ],
+          [
+            {
+              "label": "⇧",
+              "action": {
+                "type": "shift"
+              },
+              "width": 1.5
+            },
+            {
+              "label": "ဖ",
+              "shiftLabel": "ဎ"
+            },
+            {
+              "label": "ထ",
+              "shiftLabel": "ဓ"
+            },
+            {
+              "label": "ခ",
+              "shiftLabel": "ဃ"
+            },
+            {
+              "label": "လ",
+              "shiftLabel": "ဧ"
+            },
+            {
+              "label": "ဘ",
+              "shiftLabel": "ဝ"
+            },
+            {
+              "label": "ည",
+              "shiftLabel": "ဉ"
+            },
+            {
+              "label": "ာ",
+              "shiftLabel": "ဠ"
+            },
+            {
+              "label": "ယ"
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              },
+              "width": 1.5
+            }
+          ],
+          [
+            {
+              "label": "?123",
+              "action": {
+                "type": "symbols"
+              },
+              "width": 1.5
+            },
+            {
+              "label": ",",
+              "longPress": [
+                "!",
+                "?"
+              ],
+              "role": "Comma"
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 4
+            },
+            {
+              "label": ".",
+              "longPress": [
+                "…",
+                ",",
+                "?",
+                "!",
+                ":",
+                ";"
+              ],
+              "role": "Period"
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.5
+            }
+          ]
+        ]
+      }
+    }
+  }
+}
