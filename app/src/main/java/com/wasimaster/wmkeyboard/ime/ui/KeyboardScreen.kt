@@ -180,6 +180,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.withStyle
@@ -4823,6 +4824,16 @@ private val SymbolsShiftedFillRow = listOf(
     Key("≥", longPress = listOf("≫")),
 )
 
+/**
+ * Marks the key grid so a UI test can ask whether it is on screen at all.
+ *
+ * Several panels take the keys away from the user's field and are expected to
+ * draw a set of their own underneath — a plugin's text box shipped doing the
+ * first half and not the second, leaving a focused box with nothing to type
+ * into it. `KeyRowsVisibilityTest` renders the real screen and checks this tag.
+ */
+const val KeyRowsTestTag: String = "wm:key-rows"
+
 @Composable
 private fun KeyRows(
     state: KeyboardUiState,
@@ -5026,6 +5037,7 @@ private fun KeyRows(
     Box(
         modifier = Modifier
             .fillMaxWidth()
+            .testTag(KeyRowsTestTag)
             .onGloballyPositioned {
                 boxOrigin = it.positionInRoot()
                 boxSize = it.size
