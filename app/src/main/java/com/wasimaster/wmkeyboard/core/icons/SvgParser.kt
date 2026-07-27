@@ -118,22 +118,51 @@ object SvgParser {
     private const val DEFAULT_VIEWPORT = 24f
 
     /**
+     * Any DOCTYPE at all, wherever it appears. Matching one inside a comment
+     * costs a legitimate file nothing but a rewrite, and the alternative is
+     * reasoning about where a declaration can hide.
+     */
+    private val DOCTYPE = Regex("<!DOCTYPE", RegexOption.IGNORE_CASE)
+
+    /**
+     * Sets a parser feature where the implementation has one, and shrugs where
+     * it doesn't. Safe only because [parse] has already refused any DOCTYPE by
+     * inspection; without that, a silently-unset feature would be a hole.
+     */
+    private fun SAXParserFactory.disableQuietly(feature: String, value: Boolean) {
+        runCatching { setFeature(feature, value) }
+    }
+
+    /**
      * The [SvgDoc] for [text], or null when it is not usable SVG at all —
      * malformed XML, no root `<svg>`, or nothing drawable inside.
      */
     fun parse(text: String): SvgDoc? {
         if (text.length > MAX_SOURCE_BYTES) return null
+        // The XXE guard, done here rather than by asking the parser to do it.
+        //
+        // Android's SAX implementation recognises only the two `namespaces`
+        // features and throws SAXNotRecognizedException for anything else —
+        // including Apache's `disallow-doctype-decl`. Setting it inside the
+        // runCatching below therefore failed *every* parse on device while
+        // passing on the JVM, which is exactly the kind of difference a unit
+        // test cannot see. Rejecting the declaration by inspection works on
+        // both, and is the guarantee the format documents anyway: "a DOCTYPE
+        // declaration causes the file to be rejected outright".
+        //
+        // With no DOCTYPE there is no DTD, so there are no entities to expand
+        // and nothing for an external reference to hang off — which is what
+        // makes the best-effort feature calls below safe to lose.
+        if (DOCTYPE.containsMatchIn(text)) return null
+
         val handler = SvgHandler()
         val parsed = runCatching {
             val factory = SAXParserFactory.newInstance().apply {
                 isNamespaceAware = false
-                // XXE guard. Not every implementation knows every feature, so
-                // each is set independently and a refusal to *disable* one is
-                // fatal — failing closed is the point.
-                setFeature("http://apache.org/xml/features/disallow-doctype-decl", true)
-                setFeature("http://xml.org/sax/features/external-general-entities", false)
-                setFeature("http://xml.org/sax/features/external-parameter-entities", false)
-                setXIncludeAware(false)
+                disableQuietly("http://apache.org/xml/features/disallow-doctype-decl", true)
+                disableQuietly("http://xml.org/sax/features/external-general-entities", false)
+                disableQuietly("http://xml.org/sax/features/external-parameter-entities", false)
+                runCatching { setXIncludeAware(false) }
             }
             factory.newSAXParser().parse(InputSource(StringReader(text)), handler)
         }

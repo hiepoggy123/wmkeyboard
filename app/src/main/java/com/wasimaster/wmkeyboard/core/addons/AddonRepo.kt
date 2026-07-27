@@ -113,6 +113,25 @@ enum class AddonType {
         }
 
     /**
+     * Singular form, for naming one addon.
+     *
+     * Spelled out rather than derived from [label], because dropping a
+     * trailing "s" turns "Dictionaries" into "Dictionarie".
+     */
+    val singularLabel: String
+        get() = when (this) {
+            Theme -> "Theme"
+            Layout -> "Layout"
+            Dictionary -> "Dictionary"
+            Snippets -> "Snippet pack"
+            Stickers -> "Sticker pack"
+            IconPack -> "Icon pack"
+            Font -> "Font"
+            Sound -> "Key sound"
+            Unknown -> "Addon"
+        }
+
+    /**
      * Largest payload worth downloading, matched to whatever the importer on
      * the other end will actually accept — there is no point streaming 60 MB
      * of dictionary only for the importer to refuse it at 32.

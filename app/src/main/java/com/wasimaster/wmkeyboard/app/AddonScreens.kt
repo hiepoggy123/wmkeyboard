@@ -219,7 +219,7 @@ internal fun AddonsScreen(prefillUrl: String = "", onNavigate: (String) -> Unit)
                         supportingContent = {
                             Text(
                                 buildString {
-                                    append(record.type.label.removeSuffix("s"))
+                                    append(record.type.singularLabel)
                                     if (record.version.isNotBlank()) append(" · ${record.version}")
                                     if (record.repoName.isNotBlank()) append(" · ${record.repoName}")
                                 },
@@ -466,7 +466,7 @@ private fun AddonRow(entry: AddonEntry, repo: AddonRepoInfo, onClick: () -> Unit
         supportingContent = {
             Text(
                 buildString {
-                    append(entry.type.label.removeSuffix("s"))
+                    append(entry.type.singularLabel)
                     if (entry.version.isNotBlank()) append(" · ${entry.version}")
                     entry.sizeBytes?.let { append(" · ${formatBytes(it)}") }
                 },
@@ -575,7 +575,7 @@ internal fun AddonDetailScreen(manifestUrl: String, addonId: String) {
         Spacer(Modifier.height(4.dp))
         Text(
             buildString {
-                append(entry.type.label.removeSuffix("s"))
+                append(entry.type.singularLabel)
                 if (entry.version.isNotBlank()) append(" · ${entry.version}")
                 if (entry.author.isNotBlank()) append(" · ${entry.author}")
             },

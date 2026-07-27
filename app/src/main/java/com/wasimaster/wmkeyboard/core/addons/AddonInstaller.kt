@@ -72,6 +72,8 @@ object AddonInstaller {
      */
     suspend fun uninstall(context: Context, record: InstalledAddon) {
         when (record.type) {
+            // deleteCustomTheme already falls the active theme back to a
+            // built-in when the deleted one was in use.
             AddonType.Theme -> SettingsRepository(context).deleteCustomTheme(record.localRef)
             AddonType.Layout -> SettingsRepository(context).deleteCustomLayout(record.localRef)
             AddonType.Dictionary -> File(record.localRef).delete()
@@ -95,7 +97,12 @@ object AddonInstaller {
         // any absolute path the file arrived with — a theme must never point
         // at a file outside our own storage.
         val stored = theme.copy(id = id).withExtractedImages(themeImagesDir(context))
-        SettingsRepository(context).upsertCustomTheme(stored)
+        val repository = SettingsRepository(context)
+        repository.upsertCustomTheme(stored)
+        // Switch to it, the same as opening a .wmtheme.json file does. A theme
+        // that installs without changing anything visible reads as an install
+        // that didn't work.
+        repository.setKeyboardThemeId(id)
         return Outcome.Installed(id)
     }
 
