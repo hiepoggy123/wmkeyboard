@@ -98,3 +98,16 @@
 -keep class org.tensorflow.lite.** { *; }
 -keep interface org.tensorflow.lite.** { *; }
 -dontwarn org.tensorflow.lite.**
+
+# --- LuaJ (plugin sandbox) ---------------------------------------------------
+# No -keep rules on purpose. PluginSandbox constructs every library class it
+# wants directly, so R8 keeps the interpreter by reference and strips the parts
+# nothing points at — luajava (Java interop), luajc (bytecode backend), the
+# JSR-223 script engine, the AST parser. That stripping is a security property
+# in its own right: the reflective Java-coercion surface never ships. Only the
+# warnings need silencing, because those stripped corners reference optional
+# dependencies that are on no classpath here (the POM declares none).
+-dontwarn org.apache.bcel.**
+-dontwarn javax.script.**
+-dontwarn org.luaj.vm2.luajc.**
+-dontwarn org.luaj.vm2.script.**

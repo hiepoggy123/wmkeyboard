@@ -113,6 +113,15 @@ private val bundledAttributions: List<Attribution> = buildList {
             "https://github.com/zxing/zxing",
         ),
     )
+    add(
+        Attribution(
+            "LuaJ",
+            "Lua interpreter that runs plugins inside their sandbox",
+            "Copyright (c) 2007 LuaJ. All rights reserved.",
+            "MIT", "mit-luaj.txt",
+            "https://github.com/luaj/luaj",
+        ),
+    )
     if (BuildConfig.ENABLE_GRAMMAR) {
         add(
             Attribution(

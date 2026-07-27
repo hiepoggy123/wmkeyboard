@@ -435,6 +435,11 @@ dependencies {
     implementation(libs.coil.network.okhttp)
     implementation(libs.zxing.core)
 
+    // The plugin sandbox. Both flavors: it is a small pure-JVM interpreter with
+    // no native code and no transitive dependencies, so there is nothing for
+    // "lite" to save by leaving it out.
+    implementation(libs.luaj.jse)
+
     debugImplementation(libs.androidx.compose.ui.tooling)
 
     testImplementation(libs.junit)
