@@ -27,6 +27,19 @@ the monogram font. Pass `--font PATH` if it is not at
 | `mipmap-*/ic_launcher{,_round}.webp` | legacy pre-O icons, centre-72dp crop |
 | `app/src/main/ic_launcher-playstore.png` | 512px store icon, full bleed |
 
+## Addon-repository variant
+
+`gen_addon_icon.py` renders the same lockup with a puzzle piece in the pin
+instead of the monogram — the mark for an addon repository. It imports
+`gen_icon.py`, so palette, geometry and safe-zone scale stay in step.
+
+```bash
+python3 tools/icon/gen_addon_icon.py --out ../wmkeyboard-addon-repository/icon.png
+```
+
+`--size` defaults to 256px (what `repo.icon` in the repo format wants); it needs
+no font.
+
 ## Notes
 
 - The monogram is **Amaz Obitaem Ostrov Italic**, converted to outlines. The
