@@ -1,10 +1,15 @@
 ---
-title: "WM Keyboard Addon Repository Format"
+title: "Addon repository format"
 description: "The published spec for wmkeyboard-repo.json — what a repository author writes."
 sidebar:
   label: "Repository format"
   order: 2
+  badge:
+    text: "v1"
+    variant: "tip"
 ---
+
+import { FileTree, Steps } from '@astrojs/starlight/components';
 
 Version 1 · status: **implemented** — shipping in WM Keyboard
 
@@ -12,27 +17,39 @@ WM Keyboard can install extra **themes, layouts, dictionaries, snippet packs, st
 
 A repository is nothing more than an **index over files the app already knows how to import** — the addon files are the same formats the app produces when you export a theme/layout/etc. from the app itself. There is no packaging, signing or build step.
 
-> The full, forkable sample lives at
-> **https://github.com/wasi-master/wmkeyboard-addon-repository** — clone it as a starting point.
-
----
+:::tip[Start from the sample]
+The full, forkable sample lives at
+**https://github.com/wasi-master/wmkeyboard-addon-repository** — clone it as a
+starting point.
+:::
 
 ## 1. Repository layout
 
-```
-wmkeyboard-repo.json      ← required: the manifest (repo root)
-icon.png                  ← optional: repo icon
-README.md                 ← optional but recommended
-themes/       *.wmtheme.json
-layouts/      *.wmlayout.json
-dictionaries/ <langId>.txt
-snippets/     *.wmsnippets.json
-stickers/     *.wmstickers
-icons/        *.wmicons
-fonts/        *.ttf, *.otf     ← text faces and emoji faces alike
-sounds/       *.mp3
-previews/     *.png            ← optional screenshots
-```
+<FileTree>
+
+- wmkeyboard-repo.json required — the manifest, at the repo root
+- icon.png optional repo icon
+- README.md optional but recommended
+- themes/
+  - midnight.wmtheme.json
+- layouts/
+  - workman-bn.wmlayout.json
+- dictionaries/
+  - fr.txt
+- snippets/
+  - email.wmsnippets.json
+- stickers/
+  - moments.wmstickers
+- icons/
+  - rounded.wmicons
+- fonts/
+  - inter.ttf text faces and emoji faces alike
+- sounds/
+  - thock.mp3
+- previews/
+  - midnight.png optional screenshots
+
+</FileTree>
 
 Folder names are a convention, not a rule — the manifest's `path` fields are what actually locate files.
 
@@ -41,7 +58,7 @@ Folder names are a convention, not a rule — the manifest's `path` fields are w
 Must sit at the repository root and validate against
 [`wmkeyboard-repo.schema.json`](/schemas/wmkeyboard-repo.schema.json) (JSON Schema draft 2020-12).
 
-```json
+```json title="wmkeyboard-repo.json"
 {
   "$schema": "https://raw.githubusercontent.com/wasi-master/wmkeyboard-addon-repository/main/docs/addons/wmkeyboard-repo.schema.json",
   "format": "wmkeyboard-repo",
@@ -65,7 +82,6 @@ Must sit at the repository root and validate against
 | `format` | ✔ | Magic tag, exactly `"wmkeyboard-repo"`. The client rejects anything else. |
 | `version` | ✔ | Manifest schema version. Currently `1`. |
 | `repo.id` | ✔ | Stable id, reverse-DNS recommended. Namespaces installed addons. |
-| `repo.name` | ✔ | Shown in the repo list. |
 | `repo.{description,author,homepage,icon,updatedAt}` | | Optional metadata. `icon` is relative or absolute (see §4). |
 | `addons` | ✔ | Array of addon entries (§3). May be empty. |
 
@@ -73,7 +89,7 @@ Unknown fields are ignored, so future versions can add fields without breaking o
 
 ## 3. Addon entry
 
-```json
+```json title="One entry in addons[]"
 {
   "id": "midnight",
   "type": "theme",
@@ -170,9 +186,18 @@ The app derives the raw manifest URL from what the user pastes:
 | a direct `raw.githubusercontent.com/.../wmkeyboard-repo.json` | used as-is |
 | any other `https` URL to a manifest | used as-is |
 
-Relative paths resolve against that manifest URL's directory. **`https` only** — plain `http` and non-URL schemes are rejected.
+Relative paths resolve against that manifest URL's directory.
 
-## 5. Payload formats (these ARE the app's native import/export formats)
+:::caution[https only]
+Plain `http` and non-URL schemes are rejected — for the manifest and for every
+payload, preview and licence file it references.
+:::
+
+## 5. Payload formats
+
+These **are** the app's native import/export formats — to make a
+theme/layout/snippet/sticker/icon payload, export it from the app and drop the
+file into your repo.
 
 | `type` | File | Format |
 |---|---|---|
@@ -188,18 +213,17 @@ Relative paths resolve against that manifest URL's directory. **`https` only** �
 | `sound` | `*.mp3` | A single short key-press sound. Keep it under ~300 ms and a few tens of KB: it is loaded into a `SoundPool` and replayed on every keystroke. |
 | `plugin` | `*.wmplugin` | ZIP archive containing a `plugin.json` manifest (`"format":"wmkeyboard-plugin"`) and a Lua script. **The only payload that is code rather than data** — see [Plugins](#plugins). |
 
-To make a theme/layout/snippet/sticker/icon payload, just **export it from the app** and drop the file into your repo — the exported files already match these formats.
-
-
 ### Plugins
 
-```
-cipher.wmplugin
-├── plugin.json
-└── main.lua
-```
+<FileTree>
 
-```json
+- cipher.wmplugin a ZIP, renamed
+  - plugin.json
+  - main.lua
+
+</FileTree>
+
+```json title="plugin.json"
 {
   "format": "wmkeyboard-plugin",
   "version": 1,
@@ -216,8 +240,8 @@ cipher.wmplugin
 
 A plugin is a Lua script that draws a small tool panel. It runs in a sandbox
 with no way to read what the user types, read the text field, read the
-clipboard, or use the network — see `docs/plugins/` in the app repository for
-the developer guide and the full security model.
+clipboard, or use the network — see the [plugin developer guide](/plugins/overview/)
+and the full [security model](/plugins/security/).
 
 Three things differ from every other type, all because the payload is code:
 
@@ -237,13 +261,16 @@ rebuilds do not churn the index.
 
 ### Sticker packs
 
-```
-mypack.wmstickers
-├── pack.json
-└── stickers/<stickerId>.<ext>
-```
+<FileTree>
 
-```json
+- mypack.wmstickers a ZIP, renamed
+  - pack.json
+  - stickers/
+    - airplane.png one file per sticker
+
+</FileTree>
+
+```json title="pack.json"
 {
   "format": "wmkeyboard-stickers",
   "version": 1,
@@ -284,13 +311,16 @@ so any common raster format works. Limits: at most 500 entries and 64 MB per arc
 
 ### Icon packs
 
-```
-mypack.wmicons
-├── pack.json
-└── icons/<slotId>.svg
-```
+<FileTree>
 
-```json
+- mypack.wmicons a ZIP, renamed
+  - pack.json
+  - icons/
+    - tool.clipboard.svg one file per replaced slot
+
+</FileTree>
+
+```json title="pack.json"
 {
   "format": "wmkeyboard-icons",
   "version": 1,
@@ -341,9 +371,11 @@ and CSS `<style>` blocks are skipped — an icon that leans on them renders as
 whatever is left rather than failing to import. Each SVG must be under 256 KB,
 and the archive under 8 MB with at most 400 entries.
 
-A DOCTYPE declaration causes the file to be **rejected outright**: packs are
-untrusted input, and an external entity there would be a file-disclosure hole.
-Do not ship SVGs with one — most exporters can be told to omit it.
+:::danger[No DOCTYPE declarations]
+A DOCTYPE causes the file to be **rejected outright**: packs are untrusted
+input, and an external entity there would be a file-disclosure hole. Do not ship
+SVGs with one — most exporters can be told to omit it.
+:::
 
 ### The registered-language constraint
 
@@ -363,10 +395,11 @@ app:
 The URL is percent-encoded and resolved by the same rules as pasted input
 (§4) — **`https` only**.
 
+:::note[A link is a shortcut, not an install button]
 A link can never install anything or add a repository on its own. It navigates
 to a page showing the repository's host, the addon and its author, and the user
-taps Install; that tap is also what adds the repository to their list. Treat the
-links as a shortcut to the page, not as an install button.
+taps Install; that tap is also what adds the repository to their list.
+:::
 
 ## 7. Versioning & updates
 
@@ -376,16 +409,27 @@ links as a shortcut to the page, not as an install button.
 
 ## 8. Publishing checklist
 
+<Steps>
+
 1. Put `wmkeyboard-repo.json` at the repo root; list every addon.
+
 2. Add the payload files; set each `path`.
-3. Optionally fill `sha256` and `sizeBytes`. **Neither is required** — a manifest without them
-   is valid and its addons install normally, just marked unverified. If you do want them, don't
-   compute them by hand; run `python3 tools/build_index.py` (in the
+
+3. Optionally fill `sha256` and `sizeBytes`. **Neither is required** — a
+   manifest without them is valid and its addons install normally, just marked
+   unverified. If you do want them, don't compute them by hand; run
+   `python3 tools/build_index.py` (in the
    [sample repo](https://github.com/wasi-master/wmkeyboard-addon-repository/blob/main/tools/build_index.py))
    after every payload change and it keeps them current.
-4. State a licence on every addon — `license`, and `licenseFile` when you have the text.
-5. Validate: `python3 tools/validate.py` runs the JSON Schema plus the file-existence and
-   checksum checks a schema can't express.
+
+4. State a licence on every addon — `license`, and `licenseFile` when you have
+   the text.
+
+5. Validate: `python3 tools/validate.py` runs the JSON Schema plus the
+   file-existence and checksum checks a schema can't express.
+
 6. Push to a public `https` host and share the repo URL.
 
-See also: [CLIENT_DESIGN.md](/development/addon-repos/client-design/) for how the app fetches, resolves and installs these.
+</Steps>
+
+See also: [Client design](/development/addon-repos/client-design/) for how the app fetches, resolves and installs these.

@@ -141,9 +141,18 @@ from renamed pages.
 ## Current state / handoff notes
 
 - All stub pages carry `:::caution[Draft page]` + a `Planned coverage` outline.
-- Legacy docs were moved in with history intact: architecture, addon-repos
-  (dev section), and all five plugin pages — these are **real content
-  already**, only light Starlight-isation (components, screenshots) pending.
+  Outlines were audited against the codebase (toolbar tool registry, the
+  settings nav graph, layout assets) — still verify details, but the page *set*
+  is believed complete.
+- `reference/settings/` mirrors the app's real navigation graph (the NavHost in
+  `app/.../MainActivity.kt`): one page per screen, small sub-screens folded
+  into their parent's page. Per-tool settings screens (one per toolbar tool)
+  are documented on each tool's guide page, not as separate reference pages.
+- Legacy docs were moved in with history intact and have been restyled to
+  Starlight MDX (components, asides, FileTree): all five plugin pages and the
+  addon-repos section — these are **real content already**, only screenshots
+  pending. `development/architecture.md` and `client-design.md` intentionally
+  stay plain Markdown.
 - The addon repo JSON schema is served at `/schemas/wmkeyboard-repo.schema.json`
   (source: `public/schemas/`).
 - `site` in `astro.config.mjs` and both GitHub URLs are placeholders — fix

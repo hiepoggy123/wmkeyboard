@@ -6,11 +6,14 @@ sidebar:
   order: 1
 ---
 
+import { LinkCard, CardGrid } from '@astrojs/starlight/components';
+import SettingsPath from '@components/SettingsPath.astro';
+
 A plugin is a small Lua script that adds a tool to the keyboard. It draws a
 panel — some text, a few buttons, maybe a text box — and does whatever you write
 it to do.
 
-```lua
+```lua title="main.lua"
 function render()
   return ui.column {
     ui.label { text = "Hello!", style = "title" },
@@ -27,14 +30,28 @@ That is a complete plugin, minus its `plugin.json`.
 
 ## Start here
 
-- **[Getting started](/plugins/getting-started/)** — build a working cipher tool from an
-  empty folder. Assumes you have never written Lua.
-- **[API reference](/plugins/api-reference/)** — the manifest, every widget, every
-  event, every `wm.*` function, and every limit.
-- **[Permissions](/plugins/permissions/)** — the one thing a plugin can ask for, and the
-  many it cannot.
-- **[Security](/plugins/security/)** — what the sandbox does, what it deliberately does
-  not offer, and where its limits actually are.
+<CardGrid>
+	<LinkCard
+		title="Getting started"
+		description="Build a working cipher tool from an empty folder. Assumes you have never written Lua."
+		href="/plugins/getting-started/"
+	/>
+	<LinkCard
+		title="API reference"
+		description="The manifest, every widget, every event, every wm.* function, and every limit."
+		href="/plugins/api-reference/"
+	/>
+	<LinkCard
+		title="Permissions"
+		description="The one thing a plugin can ask for, and the many it cannot."
+		href="/plugins/permissions/"
+	/>
+	<LinkCard
+		title="Security"
+		description="What the sandbox does, what it deliberately does not offer, and where its limits actually are."
+		href="/plugins/security/"
+	/>
+</CardGrid>
 
 ## What a plugin can do
 
@@ -51,9 +68,11 @@ Compute things, and draw its own panel. That is genuinely the whole list.
   information, no permissions of its own.
 - **Run in the background.** A plugin only runs while its panel is open.
 
-These are not settings, and there is no version of a plugin that gets around
-them — the sandbox has no function for any of it. See [SECURITY.md](/plugins/security/)
-for how that is enforced and what the residual risks honestly are.
+:::note[These are absences, not settings]
+There is no version of a plugin that gets around them — the sandbox has no
+function for any of it. See [Security](/plugins/security/) for how that is
+enforced and what the residual risks honestly are.
+:::
 
 Text still gets into a plugin: you type into its box, or tap **Paste** on it.
 Results come back out when you tap **Insert** under a result. Both directions
@@ -72,5 +91,9 @@ are meant to be read:
 | **Todo List** | `wm.storage` — the one capability a plugin can ask for. |
 | **Text Tools** | The paste-in, transform, insert-out flow. |
 
-Turn plugins on under **Settings → Tools → Plugins** (they are off until you ask
-for them), then install from the Addons screen or open a `.wmplugin` file.
+:::tip[Enabling plugins]
+Plugins are **off until you ask for them**. Turn them on here, then install from
+the Addons screen or open a `.wmplugin` file:
+
+<SettingsPath path="Tools / Plugins" />
+:::

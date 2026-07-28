@@ -8,14 +8,6 @@ sidebar:
 
 Everything a plugin can use. If it is not here, it does not exist.
 
-- [The manifest](#the-manifest)
-- [Your two functions](#your-two-functions)
-- [Widgets](#widgets)
-- [Events](#events)
-- [`wm.*`](#wm)
-- [The Lua you get](#the-lua-you-get)
-- [Limits](#limits)
-
 ## The manifest
 
 `plugin.json`, at the top level of the archive.
@@ -31,11 +23,13 @@ Everything a plugin can use. If it is not here, it does not exist.
 | `description` | — | One or two sentences. |
 | `apiVersion` | — | The API level you need. `1`. A higher number than the app knows is refused. |
 | `entry` | — | The script inside the archive. Defaults to `main.lua`. |
-| `permissions` | — | See [PERMISSIONS.md](/plugins/permissions/). Usually `[]`. |
+| `permissions` | — | See [Permissions](/plugins/permissions/). Usually `[]`. |
 
-A manifest this build does not fully understand is **refused**, not repaired —
-including any permission string it does not recognise. Half-understood code does
-not get to run.
+:::note[Refused, not repaired]
+A manifest this build does not fully understand is **refused** — including any
+permission string it does not recognise. Half-understood code does not get to
+run.
+:::
 
 ## Your two functions
 
@@ -186,7 +180,7 @@ If the manifest did not declare `storage`, `wm.storage` is simply `nil`.
 
 `wm.text`, `wm.clipboard`, `wm.http`, `wm.net`, `wm.files` — there is no API for
 reading what the user types, reading the field, reading the clipboard, or
-reaching the network. See [SECURITY.md](/plugins/security/).
+reaching the network. See [Security](/plugins/security/).
 
 ## The Lua you get
 
@@ -208,10 +202,11 @@ precompiled Lua is refused at install.
 
 **`collectgarbage`** exists but does nothing and returns 0.
 
-One incompatibility worth knowing: adding to the `string` table works for
-`string.mine(s)` but not for `s:mine()`. Method syntax resolves through a
-process-wide table that is frozen so one plugin cannot rewrite string handling
-for every other one.
+:::note[One incompatibility worth knowing]
+Adding to the `string` table works for `string.mine(s)` but not for `s:mine()`.
+Method syntax resolves through a process-wide table that is frozen so one plugin
+cannot rewrite string handling for every other one.
+:::
 
 ## Limits
 
