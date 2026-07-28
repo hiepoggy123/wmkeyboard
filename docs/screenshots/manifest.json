@@ -119,5 +119,93 @@
     "status": "todo",
     "notes": "This is the PluginPreview composable in AddonScreens.kt. Use a plugin from the sample repository (wasi-master/wmkeyboard-addon-repository) that declares at least one permission (e.g. local storage) so the list isn't empty/less illustrative.",
     "kind": "still"
+  },
+  {
+    "id": "accessibility/vision-group",
+    "page": "docs/src/content/docs/accessibility/overview.mdx",
+    "file": "src/assets/screens/accessibility/vision-group.webp",
+    "caption": "The Vision group at the top of the Accessibility screen.",
+    "host": "settings",
+    "setup": [
+      "Not deep-link allowlisted (only typing/appearance/themes/languages/tools/search are). From the settings root, tap the \"Accessibility\" group.",
+      "Screenshot the Vision group (colour vision, high contrast keys, key outlines, bold labels, readable font, text size, keyboard font row) at the top of the screen."
+    ],
+    "status": "todo",
+    "notes": "Route is \"accessibility\", screen title \"Accessibility\" (MainActivity.kt:682-690). No wmkeyboard:// deep link exists for it.",
+    "kind": "still"
+  },
+  {
+    "id": "accessibility/screen-reader-modes",
+    "page": "docs/src/content/docs/accessibility/overview.mdx",
+    "file": "src/assets/screens/accessibility/screen-reader-modes.webp",
+    "caption": "TalkBack support set to Gestures, with the four modes shown in the picker.",
+    "host": "settings",
+    "setup": [
+      "Navigate to settings root → Accessibility.",
+      "Tap the \"TalkBack support\" choice setting to open its picker, showing Off / Labels / Explore / Gestures."
+    ],
+    "status": "todo",
+    "notes": "ChoiceSetting in AccessibilityScreens.kt:38-57, backed by settings.screenReaderMode (default LABELS).",
+    "kind": "still"
+  },
+  {
+    "id": "accessibility/gestures-service-required",
+    "page": "docs/src/content/docs/accessibility/overview.mdx",
+    "file": "src/assets/screens/accessibility/gestures-service-required.webp",
+    "caption": "The extra row that appears when TalkBack support is set to Gestures, before the service is granted.",
+    "host": "settings",
+    "setup": [
+      "Navigate to settings root → Accessibility.",
+      "Set \"TalkBack support\" to \"Gestures\" to reveal the \"Keyboard gestures service required\" row (only shows in this mode).",
+      "Do NOT actually grant the accessibility service for this shot — capture the ungranted state."
+    ],
+    "status": "todo",
+    "notes": "NavRow only rendered when settings.screenReaderMode == PASSTHROUGH, AccessibilityScreens.kt:172-192.",
+    "kind": "still"
+  },
+  {
+    "id": "accessibility/high-contrast-live",
+    "page": "docs/src/content/docs/accessibility/overview.mdx",
+    "file": "src/assets/screens/accessibility/high-contrast-live.webp",
+    "caption": "High contrast keys turned on: a flat board with maximum-contrast labels.",
+    "host": "harness-field",
+    "setup": [
+      "Turn on Accessibility → High contrast keys.",
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
+      "Focus the field so the keyboard shows, then capture."
+    ],
+    "status": "todo",
+    "notes": "Verify visually that gradients/background image/animation are absent per KbTheme.kt:427-453 (forces pure black/white board+key, kills gradients/bg image/animation, keeps theme accent).",
+    "kind": "still"
+  },
+  {
+    "id": "accessibility/color-vision-live",
+    "page": "docs/src/content/docs/accessibility/overview.mdx",
+    "file": "src/assets/screens/accessibility/color-vision-live.webp",
+    "caption": "The Deutan colour vision filter applied to a keyboard theme.",
+    "host": "harness-field",
+    "setup": [
+      "Pick a theme with visibly distinct hues (not the flat default) so the correction is visible in the shot.",
+      "Turn on Accessibility → Colour vision → Deutan.",
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
+      "Focus the field so the keyboard shows, then capture."
+    ],
+    "status": "todo",
+    "notes": "Daltonization pipeline in core/theme ColorVision.kt; a before/after pair (this shot vs the theme's normal screenshot elsewhere) would illustrate the effect best if the docs later want a comparison.",
+    "kind": "still"
+  },
+  {
+    "id": "accessibility/touch-group",
+    "page": "docs/src/content/docs/accessibility/overview.mdx",
+    "file": "src/assets/screens/accessibility/touch-group.webp",
+    "caption": "The Touch group: ignore repeated presses and long-press delay.",
+    "host": "settings",
+    "setup": [
+      "Navigate to settings root → Accessibility.",
+      "Scroll to the Touch group at the bottom of the screen (sliders + the Key size & spacing / Haptics & sound links)."
+    ],
+    "status": "todo",
+    "notes": "Group at AccessibilityScreens.kt:213-260.",
+    "kind": "still"
   }
 ]
