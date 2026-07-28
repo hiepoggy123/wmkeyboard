@@ -2857,5 +2857,105 @@
     "status": "todo",
     "notes": "Crop/scroll to the Suggestions group specifically, not the whole Typing screen.",
     "kind": "still"
+  },
+  {
+    "id": "tools/instruments-settings-utilities-group",
+    "page": "docs/src/content/docs/tools/instruments.mdx",
+    "file": "src/assets/screens/tools/instruments-settings-utilities-group.webp",
+    "caption": "The Utilities group under Settings \u2192 Tools: Flashlight, Compass, Bubble level, Calendar, Weather and Moon phase.",
+    "host": "settings",
+    "setup": [
+      "am start -a android.intent.action.VIEW -d wmkeyboard://settings/tools",
+      "Scroll down to the 'Utilities' group (near the bottom of the Tools list)."
+    ],
+    "status": "todo",
+    "notes": "This is a Settings-app screenshot, not the live keyboard toolbox \u2014 the toolbox grid itself has no 'Utilities' label (verified: the string only appears in app/.../MainActivity.kt, never in feature/ime/).",
+    "kind": "still"
+  },
+  {
+    "id": "tools/flashlight-toggled-on",
+    "page": "docs/src/content/docs/tools/instruments.mdx",
+    "file": "src/assets/screens/tools/flashlight-toggled-on.webp",
+    "caption": "Flashlight is a direct toggle \u2014 no panel opens; the toolbox tile lights up while the torch is on.",
+    "host": "harness-blank",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode blank --es theme dark",
+      "Focus the field, open the keyboard, open the toolbox (grid button on the toolbar), tap Flashlight to turn the torch on. Needs a device with a flash."
+    ],
+    "status": "todo",
+    "notes": "Capture the toolbox tile itself lit with its accent color (#FFCA28), not a panel \u2014 Flashlight never opens one.",
+    "kind": "still"
+  },
+  {
+    "id": "tools/compass-panel-qibla",
+    "page": "docs/src/content/docs/tools/instruments.mdx",
+    "file": "src/assets/screens/tools/compass-panel-qibla.webp",
+    "caption": "The compass panel: rotating rose, degree readout, and the qibla marker pointing toward Mecca.",
+    "host": "harness-blank",
+    "setup": [
+      "Before shooting: under Settings \u2192 Tools \u2192 Weather, save a location (needed for the qibla bearing); under Settings \u2192 Tools \u2192 Compass, turn on 'Show qibla'.",
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode blank --es theme dark",
+      "Focus the field, open the keyboard, open the toolbox, tap Compass. Orient the device so the rose and the \ud83d\udd4b marker are both clearly visible."
+    ],
+    "status": "todo",
+    "notes": "Without a saved location the panel shows 'Qibla needs a saved location (weather tool settings)' instead of the marker \u2014 set the location first.",
+    "kind": "still"
+  },
+  {
+    "id": "tools/level-panel",
+    "page": "docs/src/content/docs/tools/instruments.mdx",
+    "file": "src/assets/screens/tools/level-panel.webp",
+    "caption": "Bubble level: a bullseye bubble plus a vertical and horizontal tube vial, with an angle readout below.",
+    "host": "harness-blank",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode blank --es theme dark",
+      "Focus the field, open the keyboard, open the toolbox, tap Bubble level. Tilt the device slightly off-flat so the bubble and vials are visibly off-center rather than all accent-colored."
+    ],
+    "status": "todo",
+    "notes": "",
+    "kind": "still"
+  },
+  {
+    "id": "tools/moon-phase-panel",
+    "page": "docs/src/content/docs/tools/instruments.mdx",
+    "file": "src/assets/screens/tools/moon-phase-panel.webp",
+    "caption": "Moon phase: the current lit fraction, phase name, and next full/new moon dates \u2014 computed on-device.",
+    "host": "harness-blank",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode blank --es theme dark",
+      "Focus the field, open the keyboard, open the toolbox, tap Moon phase."
+    ],
+    "status": "todo",
+    "notes": "No network wait needed \u2014 this panel is pure arithmetic and renders instantly.",
+    "kind": "still"
+  },
+  {
+    "id": "tools/weather-panel-ready",
+    "page": "docs/src/content/docs/tools/instruments.mdx",
+    "file": "src/assets/screens/tools/weather-panel-ready.webp",
+    "caption": "Weather: current conditions plus a stat grid \u2014 feels-like, humidity, wind, and whatever else Open-Meteo returns for that location.",
+    "host": "harness-blank",
+    "setup": [
+      "Before shooting: under Settings \u2192 Tools \u2192 Weather, search and save a location so the panel has data.",
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode blank --es theme dark",
+      "Focus the field, open the keyboard, open the toolbox, tap Weather, wait for the fetch to finish (Ready state, not Loading)."
+    ],
+    "status": "todo",
+    "notes": "Prefer a location/time where Open-Meteo returns the optional stats (rain chance, cloud cover, pressure, UV, sunrise/sunset) so the full wrapping grid is visible.",
+    "kind": "still"
+  },
+  {
+    "id": "tools/weather-options-location",
+    "page": "docs/src/content/docs/tools/instruments.mdx",
+    "file": "src/assets/screens/tools/weather-options-location.webp",
+    "caption": "Weather's settings: a location search or coordinate entry, and the Fahrenheit toggle.",
+    "host": "settings",
+    "setup": [
+      "am start -a android.intent.action.VIEW -d wmkeyboard://settings/tools",
+      "Tap Weather to open its settings screen (only the top-level Tools list is deep-link addressable, not the individual tool/WEATHER route)."
+    ],
+    "status": "todo",
+    "notes": "Optionally capture the location-edit dialog open (tap the Location row) rather than just the summary row, to show the search field.",
+    "kind": "still"
   }
 ]

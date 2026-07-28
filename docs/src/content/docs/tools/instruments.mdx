@@ -1,24 +1,115 @@
 ---
 title: "Instruments"
-description: "Flashlight, compass, spirit level, moon phase and weather — glanceable tools between sentences."
+description: "Flashlight, compass, bubble level, moon phase and weather — glanceable tools between sentences."
 sidebar:
   order: 15
 ---
 
-:::caution[Draft page]
-Scaffolding only — real content pending. The outline below is the checklist for what this page must cover.
-:::
+import PhoneFrame from '@components/PhoneFrame.astro';
+import SettingsPath from '@components/SettingsPath.astro';
+import KeyCap from '@components/KeyCap.astro';
 
-## Planned coverage
+"Instruments" is this site's name for five small utility tools — **Flashlight**, **Compass**, **Bubble level**, **Moon phase**, and **Weather** — that Settings groups together as "Utilities," alongside [Calendar](/tools/calendar/), so you never have to leave the keyboard to check one. Four of the five open as a panel that replaces the key rows; Flashlight is the odd one out, a single tap with no panel at all.
 
-- Flashlight toggle
-- Compass — plus optional Qibla direction
-- Spirit level
-- Moon phase display
-- Weather panel (network; where data comes from)
-- Why these live on a keyboard at all (the no-app-switch principle)
+<PhoneFrame caption="The Utilities group under Settings → Tools: Flashlight, Compass, Bubble level, Calendar, Weather and Moon phase.">
+  {/* shot: tools/instruments-settings-utilities-group */}
+</PhoneFrame>
 
-{/* TODO(sonnet): replace this stub. Turn the outline into real sections,
-   add screenshots with <PhoneFrame>, mark settings with <SettingsPath>,
-   keys with <KeyCap>, and edition limits with <Flavor>.
-   Conventions live in docs/CONTENT_GUIDE.md. */}
+Open any of the five from the toolbar (if you've pinned it) or the toolbox — none of the five ships pinned to the toolbar by default, and none is part of the onboarding wizard's recommended starter set, so the first time you want one you'll likely find it in the toolbox rather than the toolbar. The toolbox itself doesn't label a "Utilities" section the way Settings does, but its default ranking keeps these five (plus Calendar and Wikipedia) clustered together near the end of the grid, after the everyday text tools. None of the five needs an Android runtime permission: the torch doesn't need the `CAMERA` permission (that's only for the separate [camera tool](/tools/camera/)), and Weather's location is typed or searched, never read from the device's GPS. None is limited to either edition — Full and Lite behave identically across all five.
+
+## Flashlight: a one-tap torch
+
+Tapping **Flashlight** turns the device's torch on or off immediately — there's no panel to open or close. If the device has no flash, a toast says "This device has no flashlight" and nothing else happens.
+
+The toolbox tile also mirrors the torch's real state: if you flip the torch on from the system quick-settings tile instead of the keyboard, the Flashlight tile lights up to match, and turning it off from either place turns it off in both.
+
+<PhoneFrame caption="Flashlight is a direct toggle — no panel opens; the toolbox tile lights up while the torch is on.">
+  {/* shot: tools/flashlight-toggled-on */}
+</PhoneFrame>
+
+### Options
+
+<SettingsPath path="Tools / Flashlight" />
+
+- **Auto-off with keyboard** — on by default. On, closing the keyboard or switching apps switches the torch off with it, so it's never left burning in your pocket. Off, the torch stays on until you toggle it again, from the tool or the system quick-settings tile.
+
+## Compass, with an optional qibla bearing
+
+**Compass** draws a live rose from the device's rotation-vector sensor, with a fixed needle at the top marking the way you're actually facing. The heading glides smoothly rather than jumping with every sensor sample, and if a device has no orientation sensor at all the panel just says so instead of drawing an empty rose.
+
+Turn on **Show qibla** and a 🕋 marker rides the rose, pointing toward the Kaaba — but the compass has no location field of its own. It reuses whatever location you've already saved in the [Weather](#weather) tool's settings; without one saved, the panel prints "Qibla needs a saved location (weather tool settings)" instead of a bearing. Everything is calculated on-device from that saved latitude and longitude — the compass itself never touches the network.
+
+<PhoneFrame caption="The compass panel: rotating rose, degree readout, and the qibla marker pointing toward Mecca.">
+  {/* shot: tools/compass-panel-qibla */}
+</PhoneFrame>
+
+### Options
+
+<SettingsPath path="Tools / Compass" />
+
+- **Degree readout** — on by default. Shows the numeric heading and a 16-point cardinal (N, NNE, NE, … NNW) under the rose; while the sensor hasn't reported yet it reads "Calibrating…" instead.
+- **Show qibla** — off by default. If you turn this on before saving a location, the settings screen itself shows a caution: "No location saved yet — set one under Tools → Weather."
+
+## Bubble level
+
+**Bubble level** turns the accelerometer (or the gravity sensor, if the device has one) into three gauges at once: a circular bullseye bubble that combines pitch and roll, plus a vertical and a horizontal tube vial that each track one axis alone. The bullseye turns accent-colored once both pitch and roll are within about a degree of flat; each tube vial turns accent-colored independently, on its own single-axis threshold — so it's possible for a vial to read level a moment before or after the bullseye agrees.
+
+<PhoneFrame caption="Bubble level: a bullseye bubble plus a vertical and horizontal tube vial, with an angle readout below.">
+  {/* shot: tools/level-panel */}
+</PhoneFrame>
+
+### Options
+
+<SettingsPath path="Tools / Bubble level" />
+
+- **Angle readout** — on by default. Shows pitch and roll in degrees below the gauges, colored to match the bullseye's flat/not-flat state.
+
+## Moon phase
+
+**Moon phase** is arithmetic, not a lookup — the panel computes the current phase from a fixed synodic-month constant and a reference new moon, with nothing fetched over the network. It's accurate to within a few hours, which is plenty for "is it worth looking up tonight" but not built for precise astronomical prediction.
+
+The panel shows a painted lit/dark disc, one of eight phase names (New moon, Waxing crescent, First quarter, Waxing gibbous, Full moon, Waning gibbous, Last quarter, Waning crescent), the percentage illuminated, how many days into the roughly 30-day cycle you are, and the dates of the next full and new moon.
+
+<PhoneFrame caption="Moon phase: the current lit fraction, phase name, and next full/new moon dates — computed on-device.">
+  {/* shot: tools/moon-phase-panel */}
+</PhoneFrame>
+
+### Options
+
+<SettingsPath path="Tools / Moon phase" />
+
+- **Southern hemisphere** — off by default. Mirrors the lit disc the way the moon actually looks south of the equator; it only changes the drawing, not the phase name, dates, or illumination percentage.
+
+## Weather
+
+**Weather** shows current conditions and a same-day high/low for one saved location, sourced from [Open-Meteo](https://open-meteo.com) — no account and no API key required. You set the location yourself by searching a city or place name (which hits Open-Meteo's geocoding endpoint) or typing latitude/longitude directly; the keyboard never requests device location access to fill this in for you.
+
+A fetched result is cached for 15 minutes, so reopening the panel is usually instant; a refresh button in the panel forces a new request. Until you save a location the panel shows a prompt with an **Open settings** shortcut instead of any weather data, and if a fetch fails it shows a retry button rather than stale numbers.
+
+<PhoneFrame caption="Weather: current conditions plus a stat grid — feels-like, humidity, wind, and whatever else Open-Meteo returns for that location.">
+  {/* shot: tools/weather-panel-ready */}
+</PhoneFrame>
+
+Once a location is set, the panel shows an emoji and short description for the current conditions, the place name with today's high and low, and a wrapping grid of stats: feels-like temperature, humidity, and wind speed with an 8-point cardinal direction always appear, and rain chance, cloud cover, pressure, UV index, sunrise, and sunset each appear only when Open-Meteo's response actually includes them.
+
+### Options
+
+<SettingsPath path="Tools / Weather" />
+
+<PhoneFrame caption="Weather's settings: a location search or coordinate entry, and the Fahrenheit toggle.">
+  {/* shot: tools/weather-options-location */}
+</PhoneFrame>
+
+- **Location** — unset by default. Opens a dialog with a search field (backed by Open-Meteo's geocoding API) and manual latitude/longitude fields for entering coordinates yourself, if you'd rather skip the search.
+- **Fahrenheit** — off by default, so temperatures show in Celsius until you turn this on.
+
+The settings screen's own privacy note: "Weather and place search both use Open-Meteo, only when you use them — the keyboard makes no other network requests." Weather is the only one of the five instruments that reaches the network at all; see [network policy](/privacy/network/) for what every network-touching feature sends and when.
+
+## Details & edge cases
+
+- **None have a default hardware-keyboard letter.** Unlike tools such as web search (<KeyCap>W</KeyCap>) or dictionary (<KeyCap>D</KeyCap>), none of these five instruments ships with a leader-key letter out of the box — reach them through the toolbox shortcut (double-tap <KeyCap>Ctrl</KeyCap>, then <KeyCap>T</KeyCap>) or [rebind a letter to one yourself](/reference/shortcuts/).
+- **Four keep working before your first unlock; Weather doesn't.** Flashlight, Compass, Bubble level, and Moon phase are all direct-boot safe — they're pure sensor readings or arithmetic, so they work even right after a restart, before you've entered your PIN or pattern for the first time. Weather is the one exception in this group: it needs network access and reads a location saved in credential-encrypted storage, neither of which is available until you unlock.
+- **Every tool here has more than a bare switch.** Each of the five gets a "Tune" icon in <SettingsPath path="Tools" />, meaning it has real options beyond the shared Enabled toggle — none of them is one of the toggle-only tools on that screen.
+- Turning colored tool icons on under <SettingsPath path="Tools" /> tints each of these five with its own accent color in the toolbox (and in the Tools list itself); the pinned toolbar row keeps the theme's plain icon color regardless, same as every other tool.
+
+For the toolbar/toolbox mechanics these five share with every other tool — pinning, the toolbox drag, and what "direct-boot safe" means more broadly — see [the toolbar](/tools/overview/).
