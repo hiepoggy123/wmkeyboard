@@ -130,7 +130,7 @@
       "Not deep-link allowlisted (only typing/appearance/themes/languages/tools/search are). From the settings root, tap the \"Accessibility\" group.",
       "Screenshot the Vision group (colour vision, high contrast keys, key outlines, bold labels, readable font, text size, keyboard font row) at the top of the screen."
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "Route is \"accessibility\", screen title \"Accessibility\" (MainActivity.kt:682-690). No wmkeyboard:// deep link exists for it.",
     "kind": "still"
   },
@@ -144,7 +144,7 @@
       "Navigate to settings root \u2192 Accessibility.",
       "Tap the \"TalkBack support\" choice setting to open its picker, showing Off / Labels / Explore / Gestures."
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "ChoiceSetting in AccessibilityScreens.kt:38-57, backed by settings.screenReaderMode (default LABELS).",
     "kind": "still"
   },
@@ -174,7 +174,7 @@
       "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
       "Focus the field so the keyboard shows, then capture."
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "Verify visually that gradients/background image/animation are absent per KbTheme.kt:427-453 (forces pure black/white board+key, kills gradients/bg image/animation, keeps theme accent).",
     "kind": "still"
   },
@@ -190,7 +190,7 @@
       "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
       "Focus the field so the keyboard shows, then capture."
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "Daltonization pipeline in core/theme ColorVision.kt; a before/after pair (this shot vs the theme's normal screenshot elsewhere) would illustrate the effect best if the docs later want a comparison.",
     "kind": "still"
   },
@@ -204,7 +204,7 @@
       "Navigate to settings root \u2192 Accessibility.",
       "Scroll to the Touch group at the bottom of the screen (sliders + the Key size & spacing / Haptics & sound links)."
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "Group at AccessibilityScreens.kt:213-260.",
     "kind": "still"
   },
@@ -1836,7 +1836,7 @@
       "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind password",
       "Focus the field so the keyboard shows; the suggestion strip should be entirely absent"
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "isSecureField()/suppressesSuggestions() force this for password variations regardless of the 'Suggestions in every field' override \u2014 WMKeyboardService.kt:10494-10529.",
     "kind": "still"
   },
@@ -1993,7 +1993,7 @@
       "Set the phone's ringer to silent or vibrate so the warning banner (\"Phone is on vibrate\" / \"Phone is silenced\") renders",
       "Open DocsShotActivity in field mode, focus the field, open the toolbar and tap the Sound & haptics tool to open its panel"
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "Panel is SoundHapticsPanel in feature/ime/.../ui/ToolPanels.kt; only shows the ringer banner when Key sound is on and ringerMode != NORMAL.",
     "kind": "still"
   },
@@ -2209,7 +2209,7 @@
       "Tap the field to bring up the keyboard",
       "Tap the ?123 key to open the first symbol page"
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "Shows LayoutMode.SYMBOLS (BuiltInLayouts.kt symbolRows). Make sure the '=\\<' key (goes to page 2) is visible at 1.5x width in the bottom-left of the third row.",
     "kind": "still"
   },
