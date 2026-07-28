@@ -1,23 +1,90 @@
 ---
 title: "Installation"
-description: "Download WM Keyboard, pick an edition, and install it on your device."
+description: "Build WM Keyboard from source, pick Full or Lite, and install it on your device."
 sidebar:
   order: 1
 ---
 
-:::caution[Draft page]
-Scaffolding only — real content pending. The outline below is the checklist for what this page must cover.
-:::
+import PhoneFrame from '@components/PhoneFrame.astro';
+import SettingsPath from '@components/SettingsPath.astro';
+import Flavor from '@components/Flavor.astro';
+import { Steps } from '@astrojs/starlight/components';
 
-## Planned coverage
+WM Keyboard doesn't have a packaged release yet — you build the APK yourself with Gradle, in two editions, and install it like any other app. It takes a few minutes and no developer experience beyond running commands from a terminal.
 
-- Where to get the APK (GitHub releases; F-Droid/Play status)
-- Choosing Full vs Lite before you download (link to Editions)
-- Installing from an APK: unknown-sources prompt, first launch
-- Updating and what carries over
-- System requirements (Android version, storage)
+## Building the APK
 
-{/* TODO(sonnet): replace this stub. Turn the outline into real sections,
-   add screenshots with <PhoneFrame>, mark settings with <SettingsPath>,
-   keys with <KeyCap>, and edition limits with <Flavor>.
-   Conventions live in docs/CONTENT_GUIDE.md. */}
+<Steps>
+
+1. Install a JDK 17 or newer and the Android SDK. (The dictionary-compiler build tool pins its own JDK 17 toolchain, auto-provisioned via Foojay if you don't already have one.)
+
+2. Clone the repository and, from its root, run one of:
+
+   ```sh
+   ./gradlew assembleFullDebug   # every feature
+   ./gradlew assembleLiteDebug   # smaller download, fewer tools
+   ```
+
+   Swap `Debug` for `Release` if you want a release build; without a configured signing key it falls back to the debug signature, which is fine for installing on your own device but means the APK won't accept updates signed by a different machine later.
+
+3. The APK lands under `app/build/outputs/apk/full/debug/` (or `lite/debug/`) — copy it to your device and install it.
+
+</Steps>
+
+<PhoneFrame caption="First launch after install, before the setup wizard starts.">
+  {/* shot: start/first-launch */}
+</PhoneFrame>
+
+## Choosing an edition
+
+Both editions are the same keyboard — same layouts, prediction, themes, and tools — the difference is which on-device intelligence ships in the box:
+
+| | <Flavor edition="full" /> | <Flavor edition="lite" /> |
+|---|---|---|
+| Handwriting, OCR text scan, QR/barcode scanner, document scanner | Included | Not included |
+| Grammar check (Harper) | Included | Not included |
+| Offline Whisper voice dictation | Included | Not included |
+| On-device local LLM | Included | Not included |
+
+Lite leaves out the ML Kit and Harper native libraries those features need, so its APK is meaningfully smaller — a locally built release measured around 65 MB for Full versus 15 MB for Lite (arm64-v8a; exact numbers shift as dependencies update). If you're short on storage or don't need handwriting, scanning, grammar checking, or offline voice/LLM features, Lite gets you everything else for a fraction of the download.
+
+See [Full vs Lite](/start/editions/) for the complete feature comparison and how to tell which edition you're already running.
+
+## Installing from the APK
+
+Android blocks installs from outside the Play Store by default, so you'll see an "install unknown apps" prompt the first time you install the file — grant permission to whichever app you used to open it (Files, a browser download, etc.) and continue. This is standard Android behavior, not anything WM Keyboard adds.
+
+Opening the app for the first time drops you straight into a short setup wizard rather than a home screen — see [Enable the keyboard](/start/setup/) for what each step does. The wizard won't run again on later launches once you've completed it.
+
+## Updating and what carries over
+
+Installing a new build over an existing install (same package, same signing key) works like any Android app update — your settings, themes, learned words, snippets, and everything else stay exactly as they were, automatically.
+
+Reinstalling from scratch or moving to a new phone is different: nothing carries over automatically unless you've set one of these up beforehand.
+
+<SettingsPath path="Data / Backup & restore" />
+
+Export your configuration to a file you keep or move to another device, then import it after reinstalling. You choose what's included per export; the defaults are:
+
+| Included by default | Off by default |
+|---|---|
+| Settings, themes, snippets, custom word lists, addon repository list | API keys inside settings, stickers, icons, learned dictionary, clipboard history |
+
+Import always shows a confirmation before it writes anything, so restoring isn't something you discover after the fact.
+
+<SettingsPath path="Data / Privacy / Android backup / Back up with Android" />
+
+A separate, **off by default** toggle that opts the keyboard into Android's own backup and phone-to-phone transfer system, independent of the manual export above. Leave it off (the default) and Android won't carry any WM Keyboard data across a device switch on its own; turn it on and Android's platform-level backup includes this app the next time it runs.
+
+## System requirements
+
+- **Android 7.0 (API 24) or newer** — this is the floor the app is built against; it targets Android 16 (API 36).
+- **A 64-bit ARM device.** The APK is built for arm64-v8a only — no armeabi-v7a, x86, or x86_64 variant exists, so a 32-bit or x86 device can't install it regardless of Android version.
+- Camera, microphone, and sensor access are all optional — every hardware-backed tool (camera scanner, voice dictation, compass, etc.) declares the underlying hardware feature as non-required in the manifest, so missing hardware just disables that one tool rather than blocking install.
+
+## Details & edge cases
+
+- There's no in-app auto-updater; each new build is a manual install like the first one.
+- If you build release APKs on more than one machine without sharing a signing keystore, they'll carry different signatures and Android will refuse to install one over the other — you'll need to uninstall first, which loses data unless you've exported a backup.
+- The Backup & restore export has a separate "include API keys" switch (off by default) for the translate, GIF, search, and AI tool keys you may have entered — exporting with it on produces a file worth treating like a password, since anyone with the file gets those keys too.
+- Data that's cheap to re-fetch — downloaded (not custom) dictionaries, emoji keyword packs, Whisper/LLM model weights, cached camera captures — is deliberately left out of both the manual backup and Android's own backup, since re-downloading is simpler than restoring it.
