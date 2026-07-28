@@ -134,6 +134,11 @@ private fun FieldScreen(kind: String, action: String, hint: String, prefill: Str
             singleLine = kind != "multiline",
             minLines = if (kind == "multiline") 3 else 1,
             keyboardOptions = KeyboardOptions(keyboardType = keyboardType, imeAction = imeAction),
+            visualTransformation = if (kind == "password") {
+                androidx.compose.ui.text.input.PasswordVisualTransformation()
+            } else {
+                androidx.compose.ui.text.input.VisualTransformation.None
+            },
         )
     }
 }

@@ -12,7 +12,7 @@ import KeyCap from '@components/KeyCap.astro';
 WM Keyboard reads what kind of field you've tapped into (email, phone number, password, and five others) straight from the app's own field description, and quietly changes the keys on offer to match. None of this needs a setting: it's the same keyboard reacting to what's under your thumb.
 
 <PhoneFrame caption="An email field: the bottom-row comma has become @, and the period key's long-press offers .com, .net, .org, .edu, .co.">
-  {/* shot: typing/field-adaptation-email */}
+  ![An email field: the bottom-row comma has become @, and the period key's long-press offers .com, .net, .org, .edu, .co.](@assets/screens/typing/field-adaptation-email.webp)
 </PhoneFrame>
 
 ## How the keyboard reads a field
@@ -26,7 +26,7 @@ A password field is a separate signal entirely. It doesn't get its own `FieldKin
 ## Typing in email and web address fields
 
 <PhoneFrame caption="A URL field: the comma key has become /, with ? # & = on its long-press.">
-  {/* shot: typing/field-adaptation-uri */}
+  ![A URL field: the comma key has become /, with ? # & = on its long-press.](@assets/screens/typing/field-adaptation-uri.webp)
 </PhoneFrame>
 
 Email and URL fields keep the ordinary letter layout (you're typing words either way), but two keys on the **bottom row only** change to match:
@@ -39,7 +39,7 @@ The swap only touches the bottom row on purpose: a Dvorak layout has real `.` an
 ## Typing in number, phone, date, and time fields
 
 <PhoneFrame caption="A phone-number field: a 4-by-4 dial pad in phone order, not calculator order.">
-  {/* shot: typing/field-adaptation-numpad */}
+  ![A phone-number field: a 4-by-4 dial pad in phone order, not calculator order.](@assets/screens/typing/field-adaptation-numpad.webp)
 </PhoneFrame>
 
 The five numeric-pad field kinds each get their own 4-column keypad, with digits arranged phone-pad style (1-2-3 on top, not 7-8-9 like a calculator), delete in the top-right corner, enter in the bottom-right, and the remaining two keys tailored to what that field type needs:
@@ -67,7 +67,7 @@ Don't confuse this with the standalone **Numpad** tool in the toolbox, which is 
 ## Typing in a password field
 
 <PhoneFrame caption="A password field: the suggestion strip stays hidden, and pasting into it wipes the clip afterward.">
-  {/* shot: typing/field-adaptation-password */}
+  ![A password field: the suggestion strip stays hidden, and pasting into it wipes the clip afterward.](@assets/screens/typing/field-adaptation-password.webp)
 </PhoneFrame>
 
 `secureField` drives a wider set of behavior than just "hide the suggestion strip":

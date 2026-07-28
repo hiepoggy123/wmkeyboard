@@ -2008,7 +2008,7 @@
       "Focus the field to bring up the keyboard.",
       "Optionally long-press the period key to show the domain-endings popup before capturing, or capture the resting state showing the @ key on the bottom row."
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "The swap only affects the last row's comma/period keys; keep the shot wide enough to show the full bottom row so the @ key and period long-press area are legible.",
     "kind": "still"
   },
@@ -2023,7 +2023,7 @@
       "Focus the field to bring up the keyboard.",
       "Optionally long-press the comma-turned-/ key to show its ? # & = alternates before capturing."
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "Same bottom-row framing as the email shot; DocsShotActivity's field kind extra is 'uri'.",
     "kind": "still"
   },
@@ -2037,7 +2037,7 @@
       "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind phone --es hint \"Phone number\"",
       "Focus the field to bring up the field-adapted keypad."
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "Confirm the digit order reads 1-2-3 on top (phone-pad), not 7-8-9 (calculator) \u2014 this is the detail the caption calls out. kind=number or kind=date/time would also work if a different variant is preferred later; phone was chosen since DocsShotActivity explicitly supports it and it exercises the *, #, long-press set.",
     "kind": "still"
   },
@@ -2052,7 +2052,7 @@
       "Focus the field and type a few characters so the masked dots are visible.",
       "Confirm the suggestion strip area shows no candidates (it should be empty/collapsed, not just blank placeholders)."
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "Purely visual: the masked field plus an empty suggestion strip is the whole story here since the clipboard-purge and voice-block behaviors aren't visible in a single still.",
     "kind": "still"
   },
