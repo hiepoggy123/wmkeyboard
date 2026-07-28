@@ -5,19 +5,98 @@ sidebar:
   order: 2
 ---
 
-:::caution[Draft page]
-Scaffolding only — real content pending. The outline below is the checklist for what this page must cover.
+import Flavor from '@components/Flavor.astro';
+import { Steps } from '@astrojs/starlight/components';
+
+WM Keyboard is a standard Gradle/AGP Android project — there's no special bootstrap script, and everything from the dictionary compiler to the two build flavors runs through ordinary Gradle tasks. This page covers what you need installed, what `assembleFullDebug` and `assembleLiteDebug` actually differ on, and the handful of things that trip people up the first time.
+
+## Setting up your toolchain
+
+<Steps>
+
+1. **Install a JDK.** You need JDK 17 or newer just to launch the `gradlew` script — Gradle itself then runs on a JDK 21 toolchain that it downloads automatically via [Foojay](https://foojay.io/) the first time you build, per `gradle/gradle-daemon-jvm.properties`. You don't need to install JDK 21 yourself.
+
+2. **Install the Android SDK** with `compileSdk` 36 available (Android Studio's SDK Manager handles this, or `sdkmanager` on the command line). `minSdk` is 24 (Android 7.0); `targetSdk` is 36.
+
+3. **Clone the repo and build.**
+
+   ```sh
+   git clone <repo-url>
+   cd WMKeyboard
+   ./gradlew assembleFullDebug
+   ```
+
+   The first run downloads the Gradle 9.5 distribution, the JDK 21 toolchain, and every Maven dependency, so budget a few minutes and a good connection. Later builds are incremental.
+
+4. **Install it.** `adb install app/build/outputs/apk/full/debug/app-full-arm64-v8a-debug.apk` — the `arm64-v8a` segment comes from the ABI split (`splits.abi` in `app/build.gradle.kts`), not from the version name. Then open the app and follow the setup card to enable WM Keyboard as a system input method. See [installation](/start/installation/) and [initial setup](/start/setup/) for the in-app side of this.
+
+</Steps>
+
+:::note[JDK 21 runs Gradle, not your code]
+Don't confuse the auto-provisioned JDK 21 toolchain with the project's own bytecode target. Every module compiles to Java 11 bytecode (`sourceCompatibility`/`targetCompatibility` and Kotlin's `jvmTarget` are all set to 11) — JDK 21 is only what the Gradle daemon itself runs on.
 :::
 
-## Planned coverage
+## Building full vs. lite
 
-- Prerequisites: JDK 17+ (21 toolchain auto-provisioned), Android SDK 36
-- assembleFullDebug vs assembleLiteDebug; what flavors change
-- Native bits: the Harper Rust JNI build (cargo-ndk)
-- Running static analysis (./gradlew staticAnalysis)
-- Common build problems
+WM Keyboard ships as two build flavors on the same `capabilities` flavor dimension, declared identically in `:app` and all 19 `:core:*`/`:feature:*` modules (the standalone `:tools:dictc` compiler is a plain JVM module and doesn't carry flavors at all):
 
-{/* TODO(sonnet): replace this stub. Turn the outline into real sections,
-   add screenshots with <PhoneFrame>, mark settings with <SettingsPath>,
-   keys with <KeyCap>, and edition limits with <Flavor>.
-   Conventions live in docs/CONTENT_GUIDE.md. */}
+- **`assembleFullDebug`** — every feature: ML Kit handwriting recognition, ML Kit OCR/QR/document scanning, the Harper grammar checker, the local LLM tool, and offline Whisper dictation.
+- **`assembleLiteDebug`** — all five of those switched off, which drops roughly 100 MB of ML Kit models and the Harper native library from the install. Useful for low-storage devices.
+
+Both flavors exist on every module so the project builds uniformly across variants, but only three modules actually carry different source code per flavor — `core/voice`, `core/intelligence`, and `feature/ime` each have a real `src/full/` and `src/lite/` split. Everywhere else the flavor dimension is structural only; the sources compiling under `full` and `lite` are identical. `core/config` mirrors the same five `ENABLE_*` flags as `BuildConfig` booleans so library modules can read them without depending on `:app`.
+
+See [full vs. lite](/start/editions/) for what this means from the user's side, and [architecture](/development/architecture/) for how the module graph is laid out.
+
+## Rebuilding the native grammar engine
+
+<Flavor edition="full" /> — the grammar checker's native library only ships in full builds.
+
+The grammar tool's linter is a Rust `cdylib` (`native/harper-jni/`) wrapping [Harper](https://github.com/automattic/harper)'s `harper-core` behind a small JNI surface, with `core/intelligence/src/main/java/com/wasimaster/wmkeyboard/core/grammar/HarperNative.kt` as the Kotlin entry point. The prebuilt `.so` files are committed to the repo under `core/intelligence/src/full/jniLibs/<abi>/`, so **a normal `assembleFullDebug` never touches Rust or the NDK at all.** You only need to rebuild this if you're editing `native/harper-jni/src/lib.rs` itself or bumping the `harper-core` version:
+
+```sh
+# One-time setup
+rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
+cargo install cargo-ndk
+brew install --cask android-ndk   # or any NDK; set ANDROID_NDK_HOME
+
+# Build all three ABIs, from native/harper-jni/
+ANDROID_NDK_HOME=/opt/homebrew/share/android-ndk \
+cargo ndk -t arm64-v8a -t armeabi-v7a -t x86_64 --platform 24 \
+  -o ../../core/intelligence/src/full/jniLibs build --release
+```
+
+:::caution[Output path differs from the native README]
+`native/harper-jni/README.md` still gives `-o ../../app/src/main/jniLibs` as the output path. That directory doesn't exist anymore — the library moved to `core/intelligence/src/full/jniLibs` when the project modularized. Use the path above, not the one in the crate's own README.
+:::
+
+`--platform 24` matches the app's `minSdk` exactly. Of the three ABIs cargo-ndk builds, only `arm64-v8a` actually ships in the final APK — `splits.abi` in `app/build.gradle.kts` excludes the others and disables the universal APK, so `armeabi-v7a` and `x86_64` `.so` files exist in the source tree but never reach a device build from this project as-is.
+
+## Running static analysis
+
+```sh
+./gradlew staticAnalysis
+```
+
+This one task chains every analyzer the project uses: Android Lint (`lintFullDebug`), and type-resolved detekt for `:app` (both flavors, plus its unit tests) and for eighteen library modules across `core/*` and `feature/*`. `core/config` is skipped because it has no Kotlin sources, and `tools:dictc` is skipped because its source set is symlinked from `:app` and would just report the same files twice. Detekt additionally runs a separate `lite` pass for `core/voice`, `core/intelligence`, and `feature/ime` — the three modules with real full/lite source divergence — since a bug in a lite-only stub is invisible to the full-flavor run.
+
+detekt 1.23's Android integration doesn't register `detekt<Variant>` tasks under AGP 9, so these are hand-registered by a convention plugin (`wmkeyboard.detekt`) rather than coming from the detekt Gradle plugin directly — each module gets its own `detektFullDebug`/`detektLiteDebug` task analyzing only its own sources against its own compile classpath, which avoids the false positives you'd get analyzing one module's code against another's classpath.
+
+Both analyzers read from curated configs rather than defaults: `config/detekt/detekt.yml` builds on detekt's default ruleset (not the more opinionated `allRules`), and `config/lint/lint.xml` starts from every Lint check enabled — including the roughly 200 that are off by default — then silences the ones that don't apply to an IME, each with a written reason, and escalates crash-class issues to build-breaking errors. There's no baseline file anywhere in the repo, so `staticAnalysis` is expected to run clean; a new finding is a real regression, not baseline noise to suppress.
+
+If you want the Kotlin compiler itself to fail the build on any warning (unused results, redundant casts, and the like), pass `-PwarningsAsErrors=true`:
+
+```sh
+./gradlew assemble -PwarningsAsErrors=true
+```
+
+This is off by default so a mid-refactor warning doesn't block a local build.
+
+See [contributing](/development/contributing/) for when static analysis is required before a PR merges, and [testing](/development/testing/) for running the unit test suite itself.
+
+## Details & edge cases
+
+- **No `local.properties` is required to build.** API keys for the network tools (GIF/sticker search, web search, translation) are read from `local.properties`, falling back to environment variables, falling back to an empty string — a missing key never fails the build, the affected tool just shows a "needs API key" panel at runtime.
+- **A missing release keystore doesn't fail a release build either.** If `RELEASE_STORE_FILE` isn't set or the file doesn't exist, `assembleFullRelease` silently signs with the debug keyconfig instead of failing, so you always get an installable APK even without release signing set up.
+- **Module build files can't declare their own repositories.** `settings.gradle.kts` sets `repositoriesMode = FAIL_ON_PROJECT_REPOS`, so only the `google()`/`mavenCentral()` repositories declared centrally are allowed — adding a `repositories { }` block inside any module's `build.gradle.kts` hard-fails the build rather than silently working.
+- **Dictionaries compile automatically.** Every build variant wires in a `compileBundledDictionaries` task that runs the `:tools:dictc` compiler over `dictionaries-src/*.txt` and produces the `.wmdict` assets bundled into the APK — there's no separate manual compilation step. See [the dictionary pipeline](/development/dictionaries/) for the format and how to add or edit a wordlist.
+- **There's no CI pipeline or contribution template in this repo yet** — `./gradlew staticAnalysis` and `./gradlew testFullDebugUnitTest` are the same checks a human runs locally, so running them yourself before opening a PR is the closest thing to a gate that exists today.

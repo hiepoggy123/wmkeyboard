@@ -3236,5 +3236,20 @@
     "status": "todo",
     "notes": "Not in the deep-link allowlist beyond 'typing' itself (which is allowlisted); the Smart chips group is partway down that screen so a scroll is needed after the deep link lands.",
     "kind": "still"
+  },
+  {
+    "id": "development/diagnostics-screen",
+    "page": "docs/src/content/docs/development/testing.mdx",
+    "file": "src/assets/screens/development/diagnostics-screen.webp",
+    "caption": "Settings \u2192 About \u2192 Diagnostics: filterable app log, crash records, and a one-tap report export.",
+    "host": "settings",
+    "setup": [
+      "Not deep-link allowlisted (only typing/appearance/themes/languages/tools/search are) \u2014 navigate by hand: open the app, tap into Settings, tap About, tap Diagnostics.",
+      "Type a few characters into any field first, or trigger a tool error, so the App log group isn't empty for the shot.",
+      "Leave 'Include the system log' toggled off (its real default) unless specifically demonstrating that toggle."
+    ],
+    "status": "todo",
+    "notes": "Backed by core/common/.../debug/DebugLog.kt (CAPACITY=500 ring buffer, CRASH_CAPACITY=10) and app/.../DebugLogScreen.kt. Route is composable(\"debug_log\") off MainActivity.kt's about screen, not itself deep-link allowlisted. Also relevant to reference/settings/about.mdx (different page, different agent) \u2014 this entry is independent, capture once and it can serve either page if convenient, but each page's manifest is authoritative for its own placeholder id.",
+    "kind": "still"
   }
 ]
