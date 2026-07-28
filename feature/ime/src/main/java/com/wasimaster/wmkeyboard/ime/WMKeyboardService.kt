@@ -208,7 +208,6 @@ import com.wasimaster.wmkeyboard.core.voice.whisper.WhisperStore
 import com.wasimaster.wmkeyboard.core.settings.isWhisperEnabled
 import com.wasimaster.wmkeyboard.core.transliteration.BengaliGraphemes
 import com.wasimaster.wmkeyboard.core.transliteration.BengaliPhoneticIndex
-import com.wasimaster.wmkeyboard.ime.R
 import com.wasimaster.wmkeyboard.core.layout.AssetLayouts
 import com.wasimaster.wmkeyboard.core.layout.BuiltInLayouts
 import com.wasimaster.wmkeyboard.core.layout.ClipboardKeyAction
@@ -2674,28 +2673,22 @@ open class WMKeyboardService : InputMethodService() {
             }
         }
 
-        // The typing test scores keystrokes instead of committing them, so
-        // it takes the character before any suggestion or field machinery
-        // sees it — nothing typed during a run reaches the user's text.
-        if (state.typingTestActive) {
-            typingTestType(text)
-            consumeShift()
-            return
+        // Three buffers that live on the keyboard itself and take the character
+        // before any suggestion or field machinery sees it:
+        //  - the typing test scores keystrokes instead of committing them, so
+        //    nothing typed during a run reaches the user's text;
+        //  - the AI Custom instruction composes on the key rows;
+        //  - a plugin's own text box has the keys.
+        // Returning here, before the field is touched, is the whole guarantee:
+        // what the user types into one of these never reaches the app behind
+        // the keyboard.
+        val takenByKeyboardBuffer = when {
+            state.typingTestActive -> { typingTestType(text); true }
+            state.aiCustomInputActive -> { aiCustomInputEdit { it + text }; true }
+            state.pluginTypingActive -> { pluginInputEdit { it + text }; true }
+            else -> false
         }
-
-        // The AI Custom instruction composes on the key rows — characters go
-        // into its buffer, never the field behind the panel.
-        if (state.aiCustomInputActive) {
-            aiCustomInputEdit { it + text }
-            consumeShift()
-            return
-        }
-
-        // A plugin's own text box has the keys. This returns before the field
-        // is touched, which is the whole guarantee: what the user types while a
-        // plugin input is focused never reaches the app behind the keyboard.
-        if (state.pluginTypingActive) {
-            pluginInputEdit { it + text }
+        if (takenByKeyboardBuffer) {
             consumeShift()
             return
         }

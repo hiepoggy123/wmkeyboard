@@ -266,26 +266,24 @@ object SvgParser {
         private fun readViewport(attributes: Attributes) {
             val box = attributes.value("viewBox")?.trim()?.split(Regex("[,\\s]+"))
             if (box != null && box.size == 4) {
-                val w = box[2].toFloatOrNull()
-                val h = box[3].toFloatOrNull()
+                val w = usable(box[2].toFloatOrNull())
+                val h = usable(box[3].toFloatOrNull())
                 // A non-zero origin would need every path shifted; icons
                 // essentially never use one, so the width and height are taken
                 // and the origin ignored rather than silently mis-drawing.
-                if (usable(w) && usable(h)) {
-                    viewportWidth = w!!
-                    viewportHeight = h!!
+                if (w != null && h != null) {
+                    viewportWidth = w
+                    viewportHeight = h
                     return
                 }
             }
-            val w = attributes.value("width")?.let(::parseLength)
-            val h = attributes.value("height")?.let(::parseLength)
-            if (usable(w)) viewportWidth = w!!
-            if (usable(h)) viewportHeight = h!!
+            usable(attributes.value("width")?.let(::parseLength))?.let { viewportWidth = it }
+            usable(attributes.value("height")?.let(::parseLength))?.let { viewportHeight = it }
         }
 
-        /** Finite, positive and not absurd — see [MAX_VIEWPORT]. */
-        private fun usable(value: Float?): Boolean =
-            value != null && value.isFinite() && value > 0f && value <= MAX_VIEWPORT
+        /** [value] back when it is finite, positive and not absurd — see [MAX_VIEWPORT] — else null. */
+        private fun usable(value: Float?): Float? =
+            value?.takeIf { it.isFinite() && it > 0f && it <= MAX_VIEWPORT }
 
         /**
          * [strokeOnly] elements (`line`, `polyline`) are not filled by SVG's

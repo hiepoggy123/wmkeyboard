@@ -94,7 +94,7 @@ class EmojiFontCoverage internal constructor(
             val glyphs = LinkedHashMap<Int, Int>()
             val sequences = HashSet<Long>()
             font.table(TAG_CMAP)?.let { readCmap(font, it, glyphs, sequences) }
-            val ligatures = font.table(TAG_GSUB)?.let { readLigatures(font, it) } ?: emptySet()
+            val ligatures = font.table(TAG_GSUB)?.let { readLigatures(font, it) }.orEmpty()
             if (glyphs.isEmpty()) return null
             return EmojiFontCoverage(glyphs, sequences, ligatures)
         }

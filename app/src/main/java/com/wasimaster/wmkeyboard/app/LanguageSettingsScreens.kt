@@ -672,7 +672,7 @@ private fun CjkDictPackManager(
                     // table ships (currently Xiaohe), so the rest are shown but
                     // disabled rather than silently doing nothing.
                     val ready = scheme == DoublePinyinScheme.OFF || DoublePinyin.tableFor(scheme) != null
-                    val select = { scope.launch { repository.setPinyinDoublePinyin(scheme) }; Unit }
+                    val select: () -> Unit = { scope.launch { repository.setPinyinDoublePinyin(scheme) } }
                     ListItem(
                         headlineContent = {
                             Text(if (ready) scheme.displayName else "${scheme.displayName} — coming soon")

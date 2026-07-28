@@ -255,6 +255,9 @@ import com.wasimaster.wmkeyboard.core.settings.SpaceSwipeAction
 import com.wasimaster.wmkeyboard.core.settings.SpacebarDisplay
 import com.wasimaster.wmkeyboard.core.settings.ThemeMode
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import kotlin.math.roundToInt
 import kotlinx.coroutines.CoroutineScope
 import com.wasimaster.wmkeyboard.core.emoji.EmojiDictCatalog
@@ -1042,7 +1045,7 @@ internal fun SettingsGroup(
     // arrives at from search — or from an addon's Use button — are a whole
     // section rather than one row: "Icon pack", "Your packs", "Installed
     // fonts". Unnamed groups have nothing to match on and stay plain.
-    MaybeHighlightable(title) {
+    HighlightableRow(title) {
         if (title != null) SectionHeader(title)
         Column(
             modifier = Modifier.padding(horizontal = 16.dp),
@@ -1065,12 +1068,6 @@ internal fun SettingsGroup(
         }
         Spacer(Modifier.height(8.dp))
     }
-}
-
-/** [HighlightableRow] when there is a title to match on, the content otherwise. */
-@Composable
-private fun MaybeHighlightable(title: String?, content: @Composable () -> Unit) {
-    if (title == null) content() else HighlightableRow(title, content)
 }
 
 /** ListItem colors that let the group card's surface show through. */
@@ -4790,9 +4787,10 @@ private fun BackupSettings(repository: SettingsRepository) {
                 onClick = {
                     // Datestamp the default name so successive backups don't
                     // overwrite each other and each file self-labels when it was made.
-                    val stamp = java.time.format.DateTimeFormatter
-                        .ofPattern("yyyyMMdd-HHmmss")
-                        .format(java.time.LocalDateTime.now())
+                    // Locale.US, not the default: on a Thai-Buddhist locale the
+                    // platform formatter stamps 2569 for 2026, and a filename that
+                    // sorts by date has to mean the same thing everywhere.
+                    val stamp = SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(Date())
                     exportLauncher.launch(
                         "wmkeyboard-backup-$stamp.${ConfigBackup.FILE_EXTENSION}",
                     )

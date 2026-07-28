@@ -42,6 +42,7 @@ import com.wasimaster.wmkeyboard.core.plugins.PluginLabelStyle
 import com.wasimaster.wmkeyboard.core.plugins.PluginWidget
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
 import com.wasimaster.wmkeyboard.ime.PluginPanelUi
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 
 /**
@@ -405,7 +406,14 @@ private fun InputWidget(
         if (!focused) return@LaunchedEffect
         // A frame's grace: the panel is still resizing when the focus lands.
         delay(80)
-        runCatching { requester.bringIntoView() }
+        try {
+            requester.bringIntoView()
+        } catch (e: CancellationException) {
+            // The panel closed mid-scroll; cancellation belongs to the caller.
+            throw e
+        } catch (_: Exception) {
+            // The node went away — nothing left to bring into view.
+        }
     }
     Column(
         modifier = Modifier

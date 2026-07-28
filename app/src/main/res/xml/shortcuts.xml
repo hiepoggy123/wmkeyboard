@@ -13,14 +13,23 @@
      app/SettingsShortcuts.kt back into a NavHost route. The intent is explicit
      (targetPackage + targetClass), so no manifest intent-filter is involved and
      nothing outside the launcher can send one.
+
+     tools:targetApi="25" on each entry: shortcuts arrived in API 25 and minSdk
+     is 24, where the platform simply ignores this file. That is the intended
+     behaviour — no shortcuts on 24, shortcuts everywhere above — so the
+     attributes are declared unconditionally rather than duplicated into a
+     values-v25 variant.
 -->
-<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+<shortcuts
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
     <shortcut
         android:enabled="true"
         android:icon="@drawable/ic_shortcut_tools"
         android:shortcutId="tools"
         android:shortcutLongLabel="@string/shortcut_tools_long"
-        android:shortcutShortLabel="@string/shortcut_tools_short">
+        android:shortcutShortLabel="@string/shortcut_tools_short"
+        tools:targetApi="25">
         <intent
             android:action="android.intent.action.VIEW"
             android:data="wmkeyboard://settings/tools"
@@ -32,7 +41,8 @@
         android:icon="@drawable/ic_shortcut_languages"
         android:shortcutId="languages"
         android:shortcutLongLabel="@string/shortcut_languages_long"
-        android:shortcutShortLabel="@string/shortcut_languages_short">
+        android:shortcutShortLabel="@string/shortcut_languages_short"
+        tools:targetApi="25">
         <intent
             android:action="android.intent.action.VIEW"
             android:data="wmkeyboard://settings/languages"
@@ -44,7 +54,8 @@
         android:icon="@drawable/ic_shortcut_typing"
         android:shortcutId="typing"
         android:shortcutLongLabel="@string/shortcut_typing_long"
-        android:shortcutShortLabel="@string/shortcut_typing_short">
+        android:shortcutShortLabel="@string/shortcut_typing_short"
+        tools:targetApi="25">
         <intent
             android:action="android.intent.action.VIEW"
             android:data="wmkeyboard://settings/typing"
@@ -56,7 +67,8 @@
         android:icon="@drawable/ic_shortcut_themes"
         android:shortcutId="themes"
         android:shortcutLongLabel="@string/shortcut_themes_long"
-        android:shortcutShortLabel="@string/shortcut_themes_short">
+        android:shortcutShortLabel="@string/shortcut_themes_short"
+        tools:targetApi="25">
         <intent
             android:action="android.intent.action.VIEW"
             android:data="wmkeyboard://settings/themes"

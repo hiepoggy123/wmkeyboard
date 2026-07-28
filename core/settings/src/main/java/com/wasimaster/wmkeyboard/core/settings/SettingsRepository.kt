@@ -4383,9 +4383,9 @@ class SettingsRepository(private val context: Context) {
 
     /** Persist the currency long-press glyphs; empty list falls back to the built-in set. */
     suspend fun setCurrencyKeys(value: List<String>) =
-        editPrefs {
+        editPrefs { prefs ->
             val cleaned = value.map { it.trim() }.filter { it.isNotEmpty() }
-            if (cleaned.isEmpty()) it.remove(CURRENCY_KEYS) else it[CURRENCY_KEYS] = cleaned.joinToString("\n")
+            if (cleaned.isEmpty()) prefs.remove(CURRENCY_KEYS) else prefs[CURRENCY_KEYS] = cleaned.joinToString("\n")
         }
 
     suspend fun setContactSuggestions(value: Boolean) =

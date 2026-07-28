@@ -422,7 +422,8 @@ private val SettingRows: List<SettingsSearchEntry> = listOfNotNull(
     ),
     entry(
         "Dictionaries",
-        "The seed bigrams, loanword map and offensive-word list are hand-curated for this project; downloadable wordlists keep their sources' licences",
+        "The seed bigrams, loanword map and offensive-word list are hand-curated for this project; " +
+            "downloadable wordlists keep their sources' licences",
         "About",
         "about",
     ),

@@ -87,7 +87,7 @@ object JyutpingFuzzy {
     }
 
     private fun initialOf(syllable: String): String =
-        INITIALS.firstOrNull { syllable.startsWith(it) } ?: ""
+        INITIALS.firstOrNull { syllable.startsWith(it) }.orEmpty()
 
     /**
      * Every lazy-pronunciation variant of [syllable] (including itself) that

@@ -28,6 +28,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -73,7 +74,7 @@ internal fun DebugLogScreen() {
     var query by remember { mutableStateOf("") }
     var minLevel by remember { mutableStateOf(LogLevel.DEBUG) }
     // Bumped to re-read the log after a clear, since neither store is a Flow.
-    var revision by remember { mutableStateOf(0) }
+    var revision by remember { mutableIntStateOf(0) }
 
     val entries by produceState(emptyList<LogEntry>(), revision) {
         value = DebugLog.snapshot().asReversed()

@@ -35,6 +35,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -71,7 +72,7 @@ internal object SettingsHighlight {
      * request a frame after making it. Comparing this against the value the
      * screen saw when it opened tells the two apart.
      */
-    var serial: Int by mutableStateOf(0)
+    var serial: Int by mutableIntStateOf(0)
         private set
 
     fun request(title: String) {
@@ -94,10 +95,15 @@ internal object SettingsHighlight {
  * is the setting the user searched for. Matching is on the title, which is
  * unique within a screen — the only scope where two rows are ever composed at
  * the same time.
+ *
+ * A null [title] is a row nothing can match on — it still gets the wrapper, so
+ * that a group which names itself only once it has content ("Repositories")
+ * keeps its children's state when the name appears. Branching on the title
+ * around [content] instead would move the slot and discard everything inside.
  */
 @Composable
-internal fun HighlightableRow(title: String, content: @Composable () -> Unit) {
-    val requested = SettingsHighlight.target == title
+internal fun HighlightableRow(title: String?, content: @Composable () -> Unit) {
+    val requested = title != null && SettingsHighlight.target == title
     var flashing by remember { mutableStateOf(false) }
     val requester = remember { BringIntoViewRequester() }
     val color by animateColorAsState(

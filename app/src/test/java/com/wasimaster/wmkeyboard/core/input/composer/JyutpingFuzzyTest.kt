@@ -13,8 +13,8 @@ class JyutpingFuzzyTest {
 
     /** The real inventory, so the validity filter is the shipped one. */
     private val inventory: Set<String> by lazy {
-        File("src/main/assets/dictionaries/jyutping_syllables.txt")
-            .readText().lineSequence().let(JyutpingSyllables::parse)
+        val asset = File("src/main/assets/dictionaries/jyutping_syllables.txt").readText()
+        JyutpingSyllables.parse(asset.lineSequence())
             .also { assertTrue("jyutping inventory missing", it.size > 400) }
     }
 

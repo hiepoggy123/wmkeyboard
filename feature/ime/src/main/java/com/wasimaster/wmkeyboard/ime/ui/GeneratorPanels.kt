@@ -218,8 +218,9 @@ internal fun PasswordPanel(
                     val next = separators[
                         (separators.indexOf(settings.passwordGenerator.ppSeparator) + 1).mod(separators.size),
                     ]
+                    val separator = settings.passwordGenerator.ppSeparator
                     ToolPanelChip(
-                        "Sep: ${if (settings.passwordGenerator.ppSeparator.isEmpty()) "none" else "“${settings.passwordGenerator.ppSeparator}”"}",
+                        "Sep: ${if (separator.isEmpty()) "none" else "“$separator”"}",
                     ) { onSetting(PwSettingAction.Separator(next)) }
                     ToolPanelChip("Capitalize", selected = settings.passwordGenerator.ppCapitalize) {
                         onSetting(PwSettingAction.Capitalize(!settings.passwordGenerator.ppCapitalize))

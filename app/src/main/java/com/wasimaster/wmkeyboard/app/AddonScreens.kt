@@ -71,6 +71,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -1177,7 +1178,7 @@ private val PREVIEW_STRIP_HEIGHT = 220.dp
 private fun PreviewGallery(previews: List<String>) {
     if (previews.isEmpty()) return
     val loader = rememberMediaImageLoader()
-    var viewing by remember(previews) { mutableStateOf(-1) }
+    var viewing by remember(previews) { mutableIntStateOf(-1) }
 
     if (previews.size == 1) {
         val url = previews.first()

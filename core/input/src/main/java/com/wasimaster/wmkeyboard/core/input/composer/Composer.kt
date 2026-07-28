@@ -130,7 +130,9 @@ interface Composer {
      * that prefix is the key worth learning, not the whole thing — and which
      * reading space it belongs to. A no-op for everything that does not convert.
      */
-    fun learnChoice(buffer: String, index: Int) = Unit
+    fun learnChoice(buffer: String, index: Int) {
+        // Nothing to learn: the default composer has no candidate list to reorder.
+    }
 
     /** A transliterator's buffer (roman, or jamo) rendered as script text. */
     fun composeBuffer(buffer: String): String = buffer

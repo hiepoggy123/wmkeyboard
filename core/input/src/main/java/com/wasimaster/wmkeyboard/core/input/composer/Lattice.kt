@@ -354,8 +354,9 @@ object Lattice {
         val end = live[n]?.maxByOrNull { it.score } ?: return emptyList()
         val path = ArrayList<Edge>()
         var cur: Path? = end
-        while (cur?.edge != null) {
-            path.add(cur.edge!!)
+        while (cur != null) {
+            val edge = cur.edge ?: break
+            path.add(edge)
             cur = cur.prev
         }
         path.reverse()

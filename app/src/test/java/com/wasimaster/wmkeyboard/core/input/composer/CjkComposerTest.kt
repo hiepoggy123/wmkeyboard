@@ -216,8 +216,8 @@ class CjkComposerTest {
      * cannot reproduce which prefixes happen to collide.
      */
     private val shippedSyllables: Set<String> by lazy {
-        File("src/main/assets/dictionaries/pinyin_syllables.txt")
-            .readText().lineSequence().let(PinyinSyllables::parse)
+        val asset = File("src/main/assets/dictionaries/pinyin_syllables.txt").readText()
+        PinyinSyllables.parse(asset.lineSequence())
             .also { assertTrue("inventory asset is missing or empty", it.size > 400) }
     }
 
@@ -492,8 +492,8 @@ class CjkComposerTest {
         // this asset at runtime, so a syllable the rules cannot spell would be
         // silently untypeable on the 注音 pad. Read from disk the way
         // AssetLayoutsTest reaches the shipped layouts.
-        val inventory = File("src/main/assets/dictionaries/pinyin_syllables.txt")
-            .readText().lineSequence().let(PinyinSyllables::parse)
+        val asset = File("src/main/assets/dictionaries/pinyin_syllables.txt").readText()
+        val inventory = PinyinSyllables.parse(asset.lineSequence())
         assertTrue("inventory asset is missing or empty", inventory.size > 400)
         val unencodable = inventory.filter { ZhuyinSyllables.encode(it).isEmpty() }.sorted()
         assertEquals("syllables with no bopomofo spelling: $unencodable", emptyList<String>(), unencodable)

@@ -47,7 +47,7 @@ object PinyinFuzzy {
     }
 
     private fun initialOf(syllable: String): String =
-        INITIALS.firstOrNull { syllable.startsWith(it) } ?: ""
+        INITIALS.firstOrNull { syllable.startsWith(it) }.orEmpty()
 
     /**
      * Every valid fuzzy variant of [syllable] (including itself), keeping only

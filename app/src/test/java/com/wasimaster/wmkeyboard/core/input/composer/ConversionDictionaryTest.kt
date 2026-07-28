@@ -69,7 +69,11 @@ class ConversionDictionaryTest {
      * only kana on device. Readings here are deliberately unsorted (`row10` sorts
      * before `row2`) so the load path's sort carries the full row count too.
      */
+    // System.gc() below is the measurement, not a hint: the assertion is about
+    // what the table *retains*, so the garbage from building it has to be gone
+    // before the heap is read.
     @Test
+    @Suppress("ExplicitGarbageCollectionCall")
     fun `a pack-sized table loads and stays small enough to query`() {
         val rows = 1_081_860
         val lines = Sequence {
@@ -77,6 +81,7 @@ class ConversionDictionaryTest {
                 private var i = 0
                 override fun hasNext() = i < rows
                 override fun next(): String {
+                    if (i >= rows) throw NoSuchElementException()
                     i++
                     return "reading$i\t漢字$i\t${i % 1000}"
                 }

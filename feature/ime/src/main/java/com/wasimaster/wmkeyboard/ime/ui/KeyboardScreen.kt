@@ -9767,19 +9767,20 @@ private fun ClipVideoBody(item: ClipItem) {
         formatFileSize(item.fileSize),
     ).joinToString(" · ")
 
-    if (frame == null) {
+    val thumbnail = frame
+    if (thumbnail == null) {
         ClipFileBody(item)
         return
     }
     Column {
         Box(contentAlignment = Alignment.Center) {
             Image(
-                bitmap = frame!!,
+                bitmap = thumbnail,
                 contentDescription = "Copied video",
                 modifier = Modifier
                     .fillMaxWidth()
                     .aspectRatio(
-                        (frame!!.width.toFloat() / frame!!.height.coerceAtLeast(1))
+                        (thumbnail.width.toFloat() / thumbnail.height.coerceAtLeast(1))
                             .coerceIn(MIN_THUMBNAIL_RATIO, MAX_THUMBNAIL_RATIO),
                     )
                     .background(MaterialTheme.colorScheme.surfaceContainerHigh, shape)
