@@ -1762,7 +1762,7 @@
       "Not deep-link allowlisted (only typing, appearance, themes, languages, tools, search are) \u2014 navigate by tap: open the app, tap 'Backup & restore' in the Data group on the home screen.",
       "Capture with the default export-toggle state (Settings/Themes/Snippets/Custom word lists/Addon repositories on; Dictionary/Clipboard/Sticker packs/Icon packs off) so the screenshot matches the documented defaults."
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "Screen is BackupSettings composable, MainActivity.kt:4589. Show the 'Include in export' toggle group; scroll position should include at least the top few rows (Settings, Include API keys hidden since Settings default is on but API keys default off, Themes) so the visible defaults are checkable against the docs table.",
     "kind": "still"
   },
@@ -1776,7 +1776,7 @@
       "From the Backup & restore screen, tap 'Import backup' and pick a previously-exported .wmconfig.json file (or one with a couple of sections, e.g. a small file with Themes + Snippets, so the dialog's bulleted section list is short enough to read in the screenshot).",
       "Capture the resulting 'Import backup?' AlertDialog (MainActivity.kt:4823-4841 / FileImport.kt:390-407) before tapping Import or Cancel."
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "Use a test file that does NOT include secrets, so the screenshot shows the plain merge/replace sentence without the extra API-key warning paragraph \u2014 keeps the caption's claim clean. A separate capture with a secrets-containing file could be added later if the reviewer wants that state shown too, but it's not required by this page.",
     "kind": "still"
   },
@@ -1791,7 +1791,7 @@
       "Tap Privacy from the settings home list (it's under the Data group, alongside Backup & restore)",
       "Capture at the top of the screen: On-device learning group (Learn from typing, Add words to the system dictionary, Expand dictionary shortcuts, Incognito mode, Follow private browsing)"
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "The privacy route is NOT in the deep-link allowlist (only typing/appearance/themes/languages/tools/search are) -- reach it by tapping through the settings home screen's Data group rather than a wmkeyboard://settings/privacy deep link.",
     "kind": "still"
   },
@@ -1806,7 +1806,7 @@
       "Tap Privacy from the settings home list (Data group)",
       "Scroll to the bottom, past the Android backup group, to the Your data group"
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "Shows the Your data group's single Clear learned words button. There is no confirmation dialog on tap (verified in MainActivity.kt) -- do not tap it during capture unless intentionally showing the post-clear state.",
     "kind": "still"
   },
@@ -3219,7 +3219,7 @@
     "setup": [
       "am start -a android.intent.action.VIEW -d wmkeyboard://settings/privacy"
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "Full-screen shot of the Privacy settings screen showing all three SettingsGroup headers (On-device learning, Android backup, Your data) \u2014 scroll to capture all three if they don't fit in one viewport, or take the top of the screen where On-device learning starts.",
     "kind": "still"
   },
