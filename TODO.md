@@ -54,7 +54,8 @@ Working checklist. Roadmap-level planning lives in [docs/ROADMAP.md](docs/ROADMA
 
 ## Known gaps / polish
 
-- [ ] Avro: khanda-ta (ৎ), explicit hasant edge cases, য-ফলা shortcuts
+- [x] Avro: khanda-ta (ৎ) via backquote and word-final hasant collapse,
+      backquote as cluster-breaker, "Z" as an unambiguous য-ফলা
 - [ ] Seed dictionaries are small; autocorrect confidence is conservative
 - [x] Settings search box
 - [x] App icon
