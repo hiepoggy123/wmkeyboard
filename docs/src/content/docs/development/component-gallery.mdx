@@ -16,6 +16,7 @@ import ThemePreview from '@components/ThemePreview.astro';
 import GestureDemo from '@components/GestureDemo.astro';
 import qwertyAfar from '../../../../../app/src/main/assets/layouts/aa.wmlayout.json';
 import bengali from '../../../../../app/src/main/assets/layouts/bpy_bengali.wmlayout.json';
+import midnight from '@assets/themes/midnight.wmtheme.json';
 
 Every custom component the docs can use, rendered live. Import from
 `@components/*`; conventions live in
@@ -50,10 +51,19 @@ layouts with a shift layer get a toggle:
 
 ## ThemePreview
 
-Illustrative swatch grid recolouring a mock keyboard. Default presets shown;
-pass a `themes` array for page-specific palettes:
+Renders real theme specs — the same format as `.wmtheme.json` exports —
+on a mock keyboard. The showcase set exercises gradients (linear, radial,
+sweep), translucent keys, pill/cut key shapes, borders, key sheens and the
+HUE_CYCLE animation:
 
-<ThemePreview caption="Presets are illustrative, not the app's real theme list." />
+<ThemePreview caption="ThemeSpec-shaped approximations of several built-in themes." />
+
+Pass `specs` to render an actual export file:
+
+<ThemePreview
+	specs={[midnight]}
+	caption="The Midnight theme from the addon repository, rendered from its real .wmtheme.json."
+/>
 
 ## GestureDemo
 

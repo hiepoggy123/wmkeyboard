@@ -75,7 +75,7 @@ All in `src/components/`, importable via the `@components/*` alias
 | `<PhoneFrame caption="…">` | Every screenshot. Empty `<PhoneFrame />` renders a "screenshot pending" placeholder — acceptable in drafts, not in finished pages | |
 | `<LayoutExplorer layout={json} />` | Interactive keyboard rendered from a real `.wmlayout.json` (import it from `app/src/main/assets/layouts/`, five `../` up). Prefer over static layout screenshots | see gallery |
 | `<GestureDemo type="…" />` | Conceptual gesture loop: `space-swipe`, `space-hold`, `long-press`, `glide`. Reduced-motion safe | see gallery |
-| `<ThemePreview />` | Swatch grid recolouring a mock keyboard; optional `themes` array | see gallery |
+| `<ThemePreview />` | Mock keyboard rendering real ThemeSpec objects (`.wmtheme.json` format) via `specs`; built-in showcase set by default | see gallery |
 
 Live demos of everything: `/development/component-gallery/`.
 

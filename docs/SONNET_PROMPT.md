@@ -104,8 +104,10 @@ Three of the four already exist, demoed live on
   `space-swipe | space-hold | long-press | glide`. Honours reduced motion.
   Extend with new types in the same file if a page needs one (keep the
   keyframe style consistent).
-- **`<ThemePreview />`** — swatch grid recolouring a mock keyboard; pass a
-  `themes` array for page-specific palettes.
+- **`<ThemePreview />`** — mock keyboard rendering real ThemeSpec objects
+  (the `.wmtheme.json` export format: gradients, key shapes, borders,
+  translucent keys, FLOW/HUE_CYCLE animations). Pass `specs={[themeJson]}`
+  with an imported export file; defaults to a built-in showcase set.
 
 Still to build, dependency-free (vanilla `<script>`):
 

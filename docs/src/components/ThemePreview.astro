@@ -1,110 +1,225 @@
 ---
 /**
- * Theme swatch grid that live-recolours a mock keyboard, drawn to match the
- * real WM Keyboard anatomy: toolbar of round icon buttons, borderless
- * soft-rounded keys with corner hint characters, "◂ English ▸" spacebar and
- * an accent enter key.
+ * Renders real WM Keyboard themes (`.wmtheme.json` / ThemeSpec objects) as a
+ * live mock keyboard with a swatch per theme.
  *
- *   <ThemePreview />                      — built-in presets
- *   <ThemePreview themes={[{ name, board, key, text, accent, bar }]} />
+ *   import midnight from '@assets/themes/midnight.wmtheme.json';
+ *   <ThemePreview specs={[midnight]} />
+ *   <ThemePreview />        — built-in showcase set (ThemeSpec-shaped)
  *
- * `board` may be a gradient. Purely illustrative — real theming docs live
- * in /themes/.
+ * Honoured fields: boardBackground, boardGradient (LINEAR/RADIAL/SWEEP +
+ * angle), backgroundImageBase64 (+opacity/blur), keyShape (ROUNDED/PILL/
+ * CUT/SQUIRCLE), keyGradient, keyBackground/keyText (alpha included),
+ * modifierKeyBackground/Text, enterKeyBackground/Text, keyBorderColor/
+ * WidthDp, keyCornerRadiusDp, toolbarIcon, toolCircleBackground/
+ * ActiveBackground, toolCircleRadiusDp, animation FLOW/HUE_CYCLE +
+ * animationSpeed, accent (active tool ring), dark.
+ * Not renderable in a static mock (ignored): pressedKeyBackground,
+ * gestureTrailColor, popup colors/radius, chipBackground, suggestionText,
+ * landscape background image.
  */
-interface Theme {
+interface Gradient {
+	colors: number[];
+	type?: 'LINEAR' | 'RADIAL' | 'SWEEP';
+	angleDeg?: number;
+}
+interface Spec {
+	id?: string;
 	name: string;
-	board: string;
-	key: string;
-	text: string;
-	accent: string;
-	bar: string;
+	dark?: boolean;
+	boardBackground?: number;
+	boardGradient?: Gradient | null;
+	backgroundImageBase64?: string | null;
+	backgroundImageOpacity?: number;
+	backgroundImageBlur?: number;
+	keyShape?: 'ROUNDED' | 'PILL' | 'CUT' | 'SQUIRCLE';
+	keyGradient?: Gradient | null;
+	keyBackground?: number;
+	keyText?: number;
+	modifierKeyBackground?: number;
+	modifierKeyText?: number | null;
+	enterKeyBackground?: number;
+	enterKeyText?: number;
+	keyBorderColor?: number | null;
+	keyBorderWidthDp?: number;
+	accent?: number;
+	toolbarIcon?: number | null;
+	toolCircleBackground?: number | null;
+	toolCircleActiveBackground?: number | null;
+	keyCornerRadiusDp?: number | null;
+	toolCircleRadiusDp?: number | null;
+	animation?: 'NONE' | 'FLOW' | 'HUE_CYCLE';
+	animationSpeed?: number;
 }
 interface Props {
-	themes?: Theme[];
+	specs?: Spec[];
 	caption?: string;
 }
-const DEFAULTS: Theme[] = [
-	{ name: 'Midnight', board: 'linear-gradient(180deg,#0e1b33,#0a1224)', key: '#1d2b47', text: '#dbe4f8', accent: '#3b82f6', bar: '#16233c' },
-	{ name: 'AMOLED', board: '#000000', key: '#15151a', text: '#e8e8ee', accent: '#4c8df6', bar: '#0a0a0d' },
-	{ name: 'Daylight', board: '#e8ebf4', key: '#ffffff', text: '#1d2033', accent: '#5058dd', bar: '#dde1ee' },
-	{ name: 'Sunset', board: 'linear-gradient(160deg,#2b1a3d,#4d1d3a)', key: '#3a2450', text: '#ffe9f2', accent: '#ff7aa2', bar: '#331f47' },
-	{ name: 'Forest', board: '#12211a', key: '#1e3629', text: '#e3f2e9', accent: '#4fce8d', bar: '#182b21' },
-	{ name: 'High contrast', board: '#000000', key: '#101010', text: '#ffffff', accent: '#ffd400', bar: '#000000' },
-];
-const { themes = DEFAULTS, caption } = Astro.props;
-const first = themes[0];
 
-// [label, hint?] per key; mirrors the app's default English layout.
+/** ARGB long (0xAARRGGBB, decimal in JSON) → CSS rgba(). */
+function css(v: number | null | undefined, fallback: string): string {
+	if (v == null) return fallback;
+	const n = Number(v) >>> 0;
+	const a = ((n >>> 24) & 255) / 255;
+	return `rgba(${(n >>> 16) & 255},${(n >>> 8) & 255},${n & 255},${+a.toFixed(3)})`;
+}
+function gradient(g: Gradient): string {
+	const stops = g.colors.map((c) => css(c, 'transparent')).join(',');
+	switch (g.type ?? 'LINEAR') {
+		case 'RADIAL':
+			return `radial-gradient(circle at 50% 35%, ${stops})`;
+		case 'SWEEP':
+			return `conic-gradient(from ${g.angleDeg ?? 0}deg at 50% 50%, ${stops})`;
+		default:
+			// Android's angle and CSS's angle zero-points differ; close enough for a mock.
+			return `linear-gradient(${(g.angleDeg ?? 45) + 90}deg, ${stops})`;
+	}
+}
+function imageMime(b64: string): string {
+	if (b64.startsWith('iVBOR')) return 'image/png';
+	if (b64.startsWith('R0lGO')) return 'image/gif';
+	if (b64.startsWith('UklGR')) return 'image/webp';
+	return 'image/jpeg';
+}
+
+/** ThemeSpec → the CSS custom properties the mock consumes. */
+function toVars(s: Spec): { vars: string; anim: string; dur: number; chipBg: string; chipKey: string } {
+	const keyText = css(s.keyText, '#e9e9ee');
+	const fillColor = css(s.boardBackground, '#17181c');
+	const fillImg = s.boardGradient ? gradient(s.boardGradient) : 'none';
+	const shape = s.keyShape ?? 'ROUNDED';
+	const radius =
+		shape === 'PILL' ? '999px'
+		: shape === 'SQUIRCLE' ? '38%'
+		: shape === 'CUT' ? '0px'
+		: `${s.keyCornerRadiusDp ?? 9}px`;
+	const clip =
+		shape === 'CUT'
+			? 'polygon(12% 0,88% 0,100% 22%,100% 78%,88% 100%,12% 100%,0 78%,0 22%)'
+			: 'none';
+	const v: Record<string, string> = {
+		'--tp-fill-color': fillColor,
+		'--tp-fill-img': fillImg,
+		'--tp-bgimg': s.backgroundImageBase64
+			? `url(data:${imageMime(s.backgroundImageBase64)};base64,${s.backgroundImageBase64})`
+			: 'none',
+		'--tp-bgimg-op': String(s.backgroundImageOpacity ?? 1),
+		'--tp-bgimg-blur': `${s.backgroundImageBlur ?? 0}px`,
+		'--tp-key': css(s.keyBackground, '#303338'),
+		'--tp-key-img': s.keyGradient ? gradient(s.keyGradient) : 'none',
+		'--tp-keytext': keyText,
+		'--tp-mod': css(s.modifierKeyBackground, '#222428'),
+		'--tp-modtext': css(s.modifierKeyText, keyText),
+		'--tp-enter': css(s.enterKeyBackground, '#4c8df6'),
+		'--tp-entertext': css(s.enterKeyText, '#0b1220'),
+		'--tp-radius': radius,
+		'--tp-clip': clip,
+		'--tp-bw': `${s.keyBorderWidthDp ?? 0}px`,
+		'--tp-bc': css(s.keyBorderColor, 'transparent'),
+		'--tp-accent': css(s.accent, '#8ab4f8'),
+		'--tp-tool-bg': css(s.toolCircleBackground, css(s.modifierKeyBackground, '#222428')),
+		'--tp-tool-active': css(s.toolCircleActiveBackground, css(s.accent, '#8ab4f8')),
+		'--tp-tool-icon': css(s.toolbarIcon, keyText),
+		'--tp-tool-radius': s.toolCircleRadiusDp != null ? `${s.toolCircleRadiusDp}px` : '50%',
+	};
+	return {
+		vars: Object.entries(v)
+			.map(([k, val]) => `${k}:${val}`)
+			.join(';'),
+		anim: (s.animation ?? 'NONE').toLowerCase(),
+		dur: 16 / (s.animationSpeed || 1),
+		chipBg: s.boardGradient ? gradient(s.boardGradient) : fillColor,
+		chipKey: css(s.keyBackground, '#303338'),
+	};
+}
+
+// Showcase set: ThemeSpec-shaped objects (same fields as .wmtheme.json),
+// approximating a spread of the app's built-in themes.
+const DEFAULTS: Spec[] = [
+	{ name: 'Ocean', boardBackground: 0xff151c20, keyBackground: 0xff2c3745, keyText: 0xffe9e9ee, modifierKeyBackground: 0xff212739, enterKeyBackground: 0xff3b82c4, enterKeyText: 0xfff4f4f8, accent: 0xff76a7d6, toolCircleBackground: 0xff2c3847 },
+	{ name: 'Pitch black', boardBackground: 0xff000000, keyBackground: 0xff1a1c21, keyText: 0xffe9e9ee, modifierKeyBackground: 0xff101216, enterKeyBackground: 0xff4c8df6, enterKeyText: 0xfff4f4f8, accent: 0xff7faff9, toolCircleBackground: 0xff1e2025 },
+	{ name: 'Snow', dark: false, boardBackground: 0xffe3e6ec, keyBackground: 0xffffffff, keyText: 0xff1b1c20, modifierKeyBackground: 0xffcbd1dd, enterKeyBackground: 0xff5b7db1, enterKeyText: 0xfff4f4f8, accent: 0xff506e9c, toolCircleBackground: 0xffffffff },
+	{ name: 'Nebula', boardGradient: { colors: [0xff2a1758, 0xff15306b, 0xff0b1b3a], type: 'LINEAR', angleDeg: 135 }, keyBackground: 0x59453076, modifierKeyBackground: 0x40311f5c, keyText: 0xfff2ecff, enterKeyBackground: 0xff8e5ac8, enterKeyText: 0xfff6f0ff, accent: 0xffb79cff, toolCircleBackground: 0x59453076 },
+	{ name: 'Aurora', boardGradient: { colors: [0xff0e3b43, 0xff14543b, 0xff14324f], type: 'SWEEP', angleDeg: 0 }, keyBackground: 0x59204a44, modifierKeyBackground: 0x40163830, keyText: 0xffe6fff4, enterKeyBackground: 0xff3e8e5a, enterKeyText: 0xfff4f4f8, accent: 0xff7ce8b5, toolCircleBackground: 0x59204a44, animation: 'HUE_CYCLE', animationSpeed: 0.6 },
+	{ name: 'Bubble', keyShape: 'PILL', boardGradient: { colors: [0xff16302e, 0xff0d1517], type: 'RADIAL' }, keyBackground: 0x5926504b, modifierKeyBackground: 0x401b3b37, keyText: 0xffe9e9ee, enterKeyBackground: 0xff00897b, enterKeyText: 0xfff4f4f8, accent: 0xff4daca2, toolCircleBackground: 0x5926504b },
+	{ name: 'Facet', keyShape: 'CUT', boardGradient: { colors: [0xff23262c, 0xff14161a], type: 'LINEAR', angleDeg: 90 }, keyGradient: { colors: [0x14ffffff, 0x00ffffff], type: 'LINEAR', angleDeg: 90 }, keyBackground: 0xff31353c, keyText: 0xffe9e9ee, modifierKeyBackground: 0xff24262c, enterKeyBackground: 0xff7a8699, enterKeyText: 0xfff4f4f8, accent: 0xffa2aab8, keyBorderColor: 0x338a94a6, keyBorderWidthDp: 1 },
+];
+
+const { specs = DEFAULTS, caption } = Astro.props;
+const model = specs.map((s) => ({ name: s.name, ...toVars(s) }));
+const first = model[0];
+
 const ROW1: [string, string?][] = [['q'], ['w'], ['e', 'è'], ['r'], ['t'], ['y'], ['u', 'ù'], ['i', 'ì'], ['o', 'ò'], ['p']];
 const ROW2: [string, string?][] = [['a', '@'], ['s', '#'], ['d', '$'], ['f'], ['g', '&'], ['h'], ['j'], ['k', '('], ['l', ')']];
 const ROW3: [string, string?][] = [['z', '*'], ['x', '"'], ['c', "'"], ['v'], ['b', ';'], ['n', '!'], ['m', '?']];
 ---
 
-<figure
-	class="wm-theme-preview not-content"
-	style={`--tp-board:${first.board};--tp-key:${first.key};--tp-text:${first.text};--tp-accent:${first.accent};--tp-bar:${first.bar}`}
->
-	<div class="tp-swatches" role="tablist" aria-label="Theme presets">
-		{themes.map((t, i) => (
-			<button
-				type="button"
-				role="tab"
-				class="tp-swatch"
-				aria-selected={i === 0 ? 'true' : 'false'}
-				data-board={t.board}
-				data-key={t.key}
-				data-text={t.text}
-				data-accent={t.accent}
-				data-bar={t.bar}
-			>
-				<span class="tp-chip" style={`background:${t.board}`}>
-					<span class="tp-chip-key" style={`background:${t.key};border-color:${t.accent}`}></span>
-				</span>
-				{t.name}
-			</button>
-		))}
-	</div>
+<figure class="wm-theme-preview not-content" style={first.vars} data-anim={first.anim} data-dur={first.dur}>
+	{model.length > 1 && (
+		<div class="tp-swatches" role="tablist" aria-label="Themes">
+			{model.map((t, i) => (
+				<button
+					type="button"
+					role="tab"
+					class="tp-swatch"
+					aria-selected={i === 0 ? 'true' : 'false'}
+					data-vars={t.vars}
+					data-anim={t.anim}
+					data-dur={t.dur}
+				>
+					<span class="tp-chip" style={`background:${t.chipBg}`}>
+						<span class="tp-chip-key" style={`background:${t.chipKey}`}></span>
+					</span>
+					{t.name}
+				</button>
+			))}
+		</div>
+	)}
 
 	<div class="tp-board" aria-hidden="true">
-		<div class="tp-toolbar">
-			<span class="tp-tool">
-				<svg viewBox="0 0 24 24"><path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
-			</span>
-			<span class="tp-tool">
-				<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="9" cy="10" r="1.1" fill="currentColor"/><circle cx="15" cy="10" r="1.1" fill="currentColor"/><path d="M8.5 14.5c1 1.2 2.2 1.8 3.5 1.8s2.5-.6 3.5-1.8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-			</span>
-			<span class="tp-tool">
-				<svg viewBox="0 0 24 24"><rect x="6" y="5" width="12" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M9 5V4a1.5 1.5 0 0 1 1.5-1.5h3A1.5 1.5 0 0 1 15 4v1" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>
-			</span>
-			<span class="tp-tool">
-				<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-			</span>
-		</div>
-		<div class="tp-row">
-			{ROW1.map(([c, hint]) => (
-				<span class="tp-key">{c}{hint && <i class="tp-hint">{hint}</i>}</span>
-			))}
-		</div>
-		<div class="tp-row tp-row-inset">
-			{ROW2.map(([c, hint]) => (
-				<span class="tp-key">{c}{hint && <i class="tp-hint">{hint}</i>}</span>
-			))}
-		</div>
-		<div class="tp-row">
-			<span class="tp-key tp-mod tp-wide">⇧</span>
-			{ROW3.map(([c, hint]) => (
-				<span class="tp-key">{c}{hint && <i class="tp-hint">{hint}</i>}</span>
-			))}
-			<span class="tp-key tp-mod tp-wide">⌫</span>
-		</div>
-		<div class="tp-row">
-			<span class="tp-key tp-mod tp-wide tp-small">?123</span>
-			<span class="tp-key">,<i class="tp-hint">!</i></span>
-			<span class="tp-key tp-spacebar"><span class="tp-space-label">◂&ensp;English&ensp;▸</span></span>
-			<span class="tp-key">.<i class="tp-hint">…</i></span>
-			<span class="tp-key tp-enter tp-wide">
-				<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M15.5 15.5L20 20" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
-			</span>
+		<div class="tp-bgimg"></div>
+		<div class="tp-fill"></div>
+		<div class="tp-ui">
+			<div class="tp-toolbar">
+				<span class="tp-tool tp-tool-on">
+					<svg viewBox="0 0 24 24"><path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+				</span>
+				<span class="tp-tool">
+					<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="9" cy="10" r="1.1" fill="currentColor"/><circle cx="15" cy="10" r="1.1" fill="currentColor"/><path d="M8.5 14.5c1 1.2 2.2 1.8 3.5 1.8s2.5-.6 3.5-1.8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+				</span>
+				<span class="tp-tool">
+					<svg viewBox="0 0 24 24"><rect x="6" y="5" width="12" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M9 5V4a1.5 1.5 0 0 1 1.5-1.5h3A1.5 1.5 0 0 1 15 4v1" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>
+				</span>
+				<span class="tp-tool">
+					<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+				</span>
+			</div>
+			<div class="tp-row">
+				{ROW1.map(([c, hint]) => (
+					<span class="tp-key">{c}{hint && <i class="tp-hint">{hint}</i>}</span>
+				))}
+			</div>
+			<div class="tp-row tp-row-inset">
+				{ROW2.map(([c, hint]) => (
+					<span class="tp-key">{c}{hint && <i class="tp-hint">{hint}</i>}</span>
+				))}
+			</div>
+			<div class="tp-row">
+				<span class="tp-key tp-mod tp-wide">⇧</span>
+				{ROW3.map(([c, hint]) => (
+					<span class="tp-key">{c}{hint && <i class="tp-hint">{hint}</i>}</span>
+				))}
+				<span class="tp-key tp-mod tp-wide">⌫</span>
+			</div>
+			<div class="tp-row">
+				<span class="tp-key tp-mod tp-wide tp-small">?123</span>
+				<span class="tp-key">,<i class="tp-hint">!</i></span>
+				<span class="tp-key tp-spacebar"><span class="tp-space-label">◂&ensp;English&ensp;▸</span></span>
+				<span class="tp-key">.<i class="tp-hint">…</i></span>
+				<span class="tp-key tp-enter tp-wide">
+					<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M15.5 15.5L20 20" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+				</span>
+			</div>
 		</div>
 	</div>
 	{caption && <figcaption>{caption}</figcaption>}
@@ -150,41 +265,75 @@ const ROW3: [string, string?][] = [['z', '*'], ['x', '"'], ['c', "'"], ['v'], ['
 		width: 0.6em;
 		height: 0.6em;
 		border-radius: 2px;
-		border: 1px solid;
 	}
 
 	.tp-board {
+		position: relative;
+		overflow: hidden;
+		border-radius: 1rem;
+		border: 1px solid var(--sl-color-gray-5);
+		max-width: 27rem;
+	}
+	.tp-bgimg {
+		position: absolute;
+		inset: 0;
+		background: var(--tp-bgimg) center / cover no-repeat;
+		opacity: var(--tp-bgimg-op);
+		filter: blur(var(--tp-bgimg-blur));
+	}
+	.tp-fill {
+		position: absolute;
+		inset: 0;
+		background-color: var(--tp-fill-color);
+		background-image: var(--tp-fill-img);
+		background-size: 100% 100%;
+		transition: background-color 250ms ease;
+	}
+	/* Live theme animations. FLOW drifts the gradient; HUE_CYCLE rotates hue. */
+	[data-anim='flow'] .tp-fill {
+		background-size: 300% 300%;
+		animation: tp-flow calc(var(--dur, 16) * 1s) linear infinite alternate;
+	}
+	[data-anim='hue_cycle'] .tp-fill {
+		animation: tp-hue calc(var(--dur, 16) * 1s) linear infinite;
+	}
+	@keyframes tp-flow {
+		from { background-position: 0% 0%; }
+		to { background-position: 100% 100%; }
+	}
+	@keyframes tp-hue {
+		from { filter: hue-rotate(0deg); }
+		to { filter: hue-rotate(360deg); }
+	}
+	.tp-ui {
+		position: relative;
 		display: flex;
 		flex-direction: column;
-		gap: 7px;
-		padding: 12px 8px 10px;
-		border-radius: 1rem;
-		background: var(--tp-board);
-		border: 1px solid var(--sl-color-gray-5);
-		transition: background 250ms ease;
-		max-width: 26rem;
+		gap: 8px;
+		padding: 12px 8px 12px;
 	}
 	.tp-toolbar {
 		display: flex;
 		justify-content: space-around;
 		align-items: center;
-		padding: 0 0.6rem 0.3rem;
+		padding: 0 0.6rem 0.2rem;
 	}
 	.tp-tool {
 		display: inline-flex;
-		width: 1.9rem;
-		height: 1.9rem;
+		width: 2.1rem;
+		height: 2.1rem;
 		align-items: center;
 		justify-content: center;
-		border-radius: 50%;
-		background: var(--tp-bar);
-		color: var(--tp-text);
-		opacity: 0.85;
-		transition: background 250ms ease, color 250ms ease;
+		border-radius: var(--tp-tool-radius);
+		background: var(--tp-tool-bg);
+		color: var(--tp-tool-icon);
+	}
+	.tp-tool-on {
+		background: var(--tp-tool-active);
 	}
 	.tp-tool svg {
-		width: 1.05rem;
-		height: 1.05rem;
+		width: 1.1rem;
+		height: 1.1rem;
 	}
 	.tp-row {
 		display: flex;
@@ -198,28 +347,31 @@ const ROW3: [string, string?][] = [['z', '*'], ['x', '"'], ['c', "'"], ['v'], ['
 		position: relative;
 		flex: 1 1 0;
 		min-width: 0;
-		padding: 0.62em 0;
-		border-radius: 0.62em;
-		background: var(--tp-key);
-		color: var(--tp-text);
-		font-size: 0.78rem;
+		padding: 0.95em 0;
+		border-radius: var(--tp-radius);
+		clip-path: var(--tp-clip);
+		background-color: var(--tp-key);
+		background-image: var(--tp-key-img);
+		border: var(--tp-bw) solid var(--tp-bc);
+		color: var(--tp-keytext);
+		font-size: 0.82rem;
 		line-height: 1;
 		text-align: center;
-		transition: background 250ms ease, color 250ms ease;
 	}
 	.tp-hint {
 		position: absolute;
-		top: 3px;
-		right: 5px;
-		font-size: 0.5rem;
+		top: 4px;
+		right: 6px;
+		font-size: 0.52rem;
 		font-style: normal;
 		opacity: 0.55;
 	}
 	.tp-mod {
-		background: color-mix(in srgb, var(--tp-key) 55%, var(--tp-board));
+		background-color: var(--tp-mod);
+		color: var(--tp-modtext);
 	}
 	.tp-wide { flex-grow: 1.55; }
-	.tp-small { font-size: 0.62rem; padding-top: 0.78em; padding-bottom: 0.78em; }
+	.tp-small { font-size: 0.64rem; padding-top: 1.1em; padding-bottom: 1.1em; }
 	.tp-spacebar {
 		flex-grow: 4.2;
 		display: flex;
@@ -227,7 +379,7 @@ const ROW3: [string, string?][] = [['z', '*'], ['x', '"'], ['c', "'"], ['v'], ['
 		justify-content: center;
 	}
 	.tp-space-label {
-		font-size: 0.6rem;
+		font-size: 0.62rem;
 		letter-spacing: 0.04em;
 		opacity: 0.55;
 	}
@@ -235,36 +387,34 @@ const ROW3: [string, string?][] = [['z', '*'], ['x', '"'], ['c', "'"], ['v'], ['
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		background: var(--tp-accent);
-		color: #fff;
+		background-color: var(--tp-enter);
+		color: var(--tp-entertext);
 	}
 	.tp-enter svg {
-		width: 0.95rem;
-		height: 0.95rem;
-	}
-	:global(:root[data-theme='light']) .tp-enter,
-	.tp-enter {
-		color: color-mix(in srgb, var(--tp-board) 20%, #fff);
+		width: 1rem;
+		height: 1rem;
 	}
 	figcaption {
 		margin-top: 0.5rem;
 		color: var(--sl-color-gray-3);
 		font-size: var(--sl-text-sm);
 	}
+	@media (prefers-reduced-motion: reduce) {
+		.tp-fill { animation: none !important; }
+	}
 </style>
 
 <script>
 	document.querySelectorAll('.wm-theme-preview').forEach((root) => {
 		const el = root as HTMLElement;
+		el.style.setProperty('--dur', el.dataset.dur ?? '16');
 		root.querySelectorAll<HTMLButtonElement>('.tp-swatch').forEach((btn) => {
 			btn.addEventListener('click', () => {
 				root.querySelectorAll('.tp-swatch').forEach((b) => b.setAttribute('aria-selected', 'false'));
 				btn.setAttribute('aria-selected', 'true');
-				el.style.setProperty('--tp-board', btn.dataset.board ?? '');
-				el.style.setProperty('--tp-key', btn.dataset.key ?? '');
-				el.style.setProperty('--tp-text', btn.dataset.text ?? '');
-				el.style.setProperty('--tp-accent', btn.dataset.accent ?? '');
-				el.style.setProperty('--tp-bar', btn.dataset.bar ?? '');
+				el.setAttribute('style', btn.dataset.vars ?? '');
+				el.style.setProperty('--dur', btn.dataset.dur ?? '16');
+				el.dataset.anim = btn.dataset.anim ?? 'none';
 			});
 		});
 	});
