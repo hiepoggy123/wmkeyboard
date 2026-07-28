@@ -17,6 +17,8 @@ import GestureDemo from '@components/GestureDemo.astro';
 import qwertyAfar from '../../../../../app/src/main/assets/layouts/aa.wmlayout.json';
 import bengali from '../../../../../app/src/main/assets/layouts/bpy_bengali.wmlayout.json';
 import midnight from '@assets/themes/midnight.wmtheme.json';
+import FilterTable from '@components/FilterTable.astro';
+import languages from '@data/languages.json';
 
 Every custom component the docs can use, rendered live. Import from
 `@components/*`; conventions live in
@@ -63,6 +65,19 @@ Pass `specs` to render an actual export file:
 <ThemePreview
 	specs={[midnight]}
 	caption="The Midnight theme from the addon repository, rendered from its real .wmtheme.json."
+/>
+
+## FilterTable
+
+Client-filterable, sortable table for big datasets. Live on the
+[language overview](/languages/overview/) (352 rows) and
+[dictionaries](/languages/dictionaries/) (333 rows) pages; data is generated
+from the app's registries by `docs/scripts/extract_data.py`:
+
+<FilterTable
+	columns={[{ label: 'Id' }, { label: 'Name' }, { label: 'Script' }]}
+	rows={languages.slice(0, 40).map((l) => [l.id, l.name, l.script])}
+	placeholder="Filter (first 40 languages shown here)…"
 />
 
 ## GestureDemo

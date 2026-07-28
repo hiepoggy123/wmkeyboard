@@ -93,7 +93,7 @@ function toVars(s: Spec): { vars: string; anim: string; dur: number; chipBg: str
 	const shape = s.keyShape ?? 'ROUNDED';
 	const radius =
 		shape === 'PILL' ? '999px'
-		: shape === 'SQUIRCLE' ? '38%'
+		: shape === 'SQUIRCLE' ? '0.95rem'
 		: shape === 'CUT' ? '0px'
 		: `${s.keyCornerRadiusDp ?? 9}px`;
 	const clip =
@@ -372,7 +372,7 @@ const ROW3: [string, string?][] = [['z', '*'], ['x', '"'], ['c', "'"], ['v'], ['
 		color: var(--tp-keytext);
 		font-family: 'Roboto', var(--sl-font);
 		font-weight: 400;
-		font-size: 1.05rem;
+		font-size: 1.45rem;
 		line-height: 1;
 		text-align: center;
 	}
@@ -380,7 +380,7 @@ const ROW3: [string, string?][] = [['z', '*'], ['x', '"'], ['c', "'"], ['v'], ['
 		position: absolute;
 		top: 4px;
 		right: 7px;
-		font-size: 0.58rem;
+		font-size: 0.65rem;
 		font-style: normal;
 		opacity: 0.55;
 	}
@@ -390,13 +390,11 @@ const ROW3: [string, string?][] = [['z', '*'], ['x', '"'], ['c', "'"], ['v'], ['
 	}
 	.tp-wide { flex-grow: 1.55; }
 	.tp-small { font-size: 0.72rem; font-weight: 500; }
-	/* The app's spacebar is a full pill regardless of the theme's key shape. */
 	.tp-spacebar {
 		flex-grow: 4.2;
-		border-radius: 999px;
 	}
 	.tp-space-label {
-		font-size: 0.72rem;
+		font-size: 0.8rem;
 		letter-spacing: 0.04em;
 		opacity: 0.55;
 	}

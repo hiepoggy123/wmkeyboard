@@ -17,9 +17,25 @@ Scaffolding only — real content pending. The outline below is the checklist fo
 - Per-app language memory; Android subtype switcher integration
 - What ships: 393 layouts — 18 built-in + 375 bundled asset layouts
 - The long tail: Indic InScript, Cyrillic minorities, Ethiopic, syllabics, historic scripts — and conlangs (Toki Pona, Quenya, Esperanto family)
-- The full supported-language table (make it filterable)
 
 {/* TODO(sonnet): replace this stub. Turn the outline into real sections,
    add screenshots with <PhoneFrame>, mark settings with <SettingsPath>,
    keys with <KeyCap>, and edition limits with <Flavor>.
-   Conventions live in docs/CONTENT_GUIDE.md. */}
+   Conventions live in docs/CONTENT_GUIDE.md.
+   The table below is real content — keep it (regenerate the data with
+   docs/scripts/extract_data.py when the registry changes). */}
+
+## Every language
+
+import FilterTable from '@components/FilterTable.astro';
+import languages from '@data/languages.json';
+
+All {languages.length} registered languages. Filter by name, id or script;
+click a heading to sort.
+
+<FilterTable
+	columns={[{ label: 'Id' }, { label: 'Name' }, { label: 'English name' }, { label: 'Script' }]}
+	rows={languages.map((l) => [l.id, l.name, l.english, l.script])}
+	placeholder="Filter 352 languages…"
+	caption="Generated from the app's language registry."
+/>

@@ -92,7 +92,7 @@ reference image files that don't exist yet, the build fails on missing assets.
 
 ### Phase 3 — interactive elements (mostly built — use them)
 
-Three of the four already exist, demoed live on
+All of them exist, demoed live on
 `/development/component-gallery/` (source: `src/components/`):
 
 - **`<LayoutExplorer layout={json} />`** — renders any `.wmlayout.json`
@@ -109,10 +109,14 @@ Three of the four already exist, demoed live on
   translucent keys, FLOW/HUE_CYCLE animations). Pass `specs={[themeJson]}`
   with an imported export file; defaults to a built-in showcase set.
 
-Still to build, dependency-free (vanilla `<script>`):
+- **`<FilterTable columns rows />`** — filterable, sortable table; already
+  embedded with real registry data on `languages/overview` and
+  `languages/dictionaries` (those tables are finished content — keep them).
+  Regenerate the JSON with `python3 docs/scripts/extract_data.py` if the
+  registries change.
 
-**Filterable tables** — the 352-language matrix and 333-wordlist list.
-Skip it rather than shipping something janky.
+All four interactive elements are built — nothing left in this phase unless a
+page invents a new need.
 
 ### Phase 4 — screenshot manifest sweep
 

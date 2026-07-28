@@ -20,4 +20,32 @@ Scaffolding only — real content pending. The outline below is the checklist fo
 {/* TODO(sonnet): replace this stub. Turn the outline into real sections,
    add screenshots with <PhoneFrame>, mark settings with <SettingsPath>,
    keys with <KeyCap>, and edition limits with <Flavor>.
-   Conventions live in docs/CONTENT_GUIDE.md. */}
+   Conventions live in docs/CONTENT_GUIDE.md.
+   The table below is real content — keep it (regenerate the data with
+   docs/scripts/extract_data.py when the catalog changes). */}
+
+## Every wordlist
+
+import FilterTable from '@components/FilterTable.astro';
+import wordlists from '@data/wordlists.json';
+
+All {wordlists.length} downloadable wordlists. Word counts are the full list;
+the Small/Medium/Large tiers keep the most frequent 50k/150k/300k words.
+
+<FilterTable
+	columns={[
+		{ label: 'Id' },
+		{ label: 'Language' },
+		{ label: 'Words', numeric: true },
+		{ label: 'Download', numeric: true },
+	]}
+	rows={wordlists.map((w) => [
+		w.id,
+		w.name,
+		w.words.toLocaleString('en-US'),
+		`${(w.gzBytes / 1024 / 1024).toFixed(w.gzBytes < 1024 * 1024 ? 2 : 1)} MB`,
+	])}
+	extras={wordlists.map((w) => w.english)}
+	placeholder="Filter 333 wordlists…"
+	caption="Generated from the app's dictionary catalog; sizes are the gzipped downloads."
+/>

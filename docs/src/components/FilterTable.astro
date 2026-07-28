@@ -1,0 +1,178 @@
+---
+/**
+ * Client-filterable, sortable table for large datasets (the 352-language
+ * matrix, the 333-wordlist catalogue).
+ *
+ *   <FilterTable
+ *     columns={[{ label: 'Language' }, { label: 'Words', numeric: true }]}
+ *     rows={rows}                 // string[][] matching columns
+ *     placeholder="Filter languages…"
+ *   />
+ *
+ * Filtering is a case-insensitive substring match across every cell.
+ * Click a header to sort (numeric columns sort by parsed value).
+ * Dependency-free.
+ */
+interface Column {
+	label: string;
+	numeric?: boolean;
+}
+interface Props {
+	columns: Column[];
+	rows: string[][];
+	/** Extra per-row search terms not shown as cells (e.g. English names). */
+	extras?: string[];
+	placeholder?: string;
+	caption?: string;
+}
+const { columns, rows, extras = [], placeholder = 'Filter…', caption } = Astro.props;
+---
+
+<figure class="wm-filter-table not-content">
+	<div class="ft-bar">
+		<input type="search" placeholder={placeholder} aria-label={placeholder} />
+		<span class="ft-count" data-total={rows.length}>{rows.length} rows</span>
+	</div>
+	<div class="ft-scroll">
+		<table>
+			<thead>
+				<tr>
+					{columns.map((c) => (
+						<th
+							scope="col"
+							data-numeric={c.numeric ? '1' : undefined}
+							aria-sort="none"
+							title="Click to sort"
+						>{c.label}</th>
+					))}
+				</tr>
+			</thead>
+			<tbody>
+				{rows.map((r, ri) => (
+					<tr data-extra={extras[ri]}>
+						{r.map((cell, i) => (
+							<td class:list={{ 'ft-num': columns[i]?.numeric }}>{cell}</td>
+						))}
+					</tr>
+				))}
+			</tbody>
+		</table>
+	</div>
+	{caption && <figcaption>{caption}</figcaption>}
+</figure>
+
+<style>
+	.wm-filter-table {
+		margin: 1.5rem 0;
+	}
+	.ft-bar {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		margin-bottom: 0.6rem;
+	}
+	input {
+		flex: 1;
+		max-width: 20rem;
+		padding: 0.45em 0.9em;
+		border: 1px solid var(--sl-color-gray-5);
+		border-radius: 999px;
+		background: var(--sl-color-gray-6);
+		color: var(--sl-color-white);
+		font-size: var(--sl-text-sm);
+	}
+	input:focus {
+		outline: none;
+		border-color: var(--sl-color-accent);
+	}
+	.ft-count {
+		color: var(--sl-color-gray-3);
+		font-size: var(--sl-text-xs);
+		white-space: nowrap;
+	}
+	.ft-scroll {
+		max-height: 28rem;
+		overflow: auto;
+		border: 1px solid var(--sl-color-gray-5);
+		border-radius: 0.6rem;
+	}
+	table {
+		width: 100%;
+		border-collapse: collapse;
+		font-size: var(--sl-text-sm);
+	}
+	thead th {
+		position: sticky;
+		top: 0;
+		z-index: 1;
+		background: var(--sl-color-gray-6);
+		color: var(--sl-color-white);
+		text-align: left;
+		padding: 0.5rem 0.9rem;
+		border-bottom: 1px solid var(--sl-color-gray-5);
+		cursor: pointer;
+		user-select: none;
+		white-space: nowrap;
+	}
+	thead th[aria-sort='ascending']::after { content: ' ↑'; color: var(--sl-color-accent); }
+	thead th[aria-sort='descending']::after { content: ' ↓'; color: var(--sl-color-accent); }
+	td {
+		padding: 0.4rem 0.9rem;
+		border-bottom: 1px solid var(--sl-color-gray-6);
+		color: var(--sl-color-gray-2);
+	}
+	td:first-child {
+		color: var(--sl-color-white);
+	}
+	.ft-num {
+		text-align: right;
+		font-variant-numeric: tabular-nums;
+	}
+	tbody tr:hover {
+		background: color-mix(in srgb, var(--sl-color-accent-low) 35%, transparent);
+	}
+	figcaption {
+		margin-top: 0.5rem;
+		color: var(--sl-color-gray-3);
+		font-size: var(--sl-text-sm);
+	}
+</style>
+
+<script>
+	document.querySelectorAll('.wm-filter-table').forEach((root) => {
+		const input = root.querySelector<HTMLInputElement>('input')!;
+		const count = root.querySelector<HTMLElement>('.ft-count')!;
+		const tbody = root.querySelector<HTMLTableSectionElement>('tbody')!;
+		const rows = Array.from(tbody.rows);
+		const haystack = rows.map((r) => ((r.textContent ?? '') + ' ' + (r.dataset.extra ?? '')).toLowerCase());
+
+		input.addEventListener('input', () => {
+			const q = input.value.trim().toLowerCase();
+			let shown = 0;
+			rows.forEach((r, i) => {
+				const hit = !q || haystack[i].includes(q);
+				r.style.display = hit ? '' : 'none';
+				if (hit) shown++;
+			});
+			count.textContent = q ? `${shown} of ${count.dataset.total}` : `${count.dataset.total} rows`;
+		});
+
+		root.querySelectorAll<HTMLTableCellElement>('thead th').forEach((th, col) => {
+			th.addEventListener('click', () => {
+				const dir = th.getAttribute('aria-sort') === 'ascending' ? 'descending' : 'ascending';
+				root.querySelectorAll('thead th').forEach((h) => h.setAttribute('aria-sort', 'none'));
+				th.setAttribute('aria-sort', dir);
+				const mul = dir === 'ascending' ? 1 : -1;
+				const numeric = th.dataset.numeric === '1';
+				const key = (r: HTMLTableRowElement) => r.cells[col]?.textContent?.trim() ?? '';
+				const sorted = rows.slice().sort((a, b) => {
+					if (numeric) {
+						return mul * ((parseFloat(key(a).replace(/[^\d.]/g, '')) || 0) - (parseFloat(key(b).replace(/[^\d.]/g, '')) || 0));
+					}
+					return mul * key(a).localeCompare(key(b), undefined, { sensitivity: 'base' });
+				});
+				sorted.forEach((r) => tbody.appendChild(r));
+			});
+		});
+	});
+</script>
