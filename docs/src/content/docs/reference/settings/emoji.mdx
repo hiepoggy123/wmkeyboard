@@ -1,22 +1,185 @@
 ---
 title: "Emoji"
-description: "Emoji access, suggestions, skin tones, the panel and emoji fonts."
+description: "Every row on the Emoji settings screen — access, suggestions, skin tones, the panel, the emoji row, fonts, and keyword packs."
 sidebar:
   order: 14
 ---
 
-:::caution[Draft page]
-Scaffolding only — real content pending. The outline below is the checklist for what this page must cover.
+import PhoneFrame from '@components/PhoneFrame.astro';
+import SettingsPath from '@components/SettingsPath.astro';
+import KeyCap from '@components/KeyCap.astro';
+
+The Emoji screen collects every setting behind emoji access, suggestions, the panel, and emoji fonts in one place, grouped exactly as they appear on screen. This page is the field reference — for the emoji panel itself (search, skin tones, favourites) see [Emoji picker & search](/emoji/picker/), and for the reasoning behind fonts, keyword packs, suggestions, and the emoji row see [Emoji customization](/emoji/customization/).
+
+<PhoneFrame caption="The Emoji settings screen, showing Access and Suggestions at the top.">
+  {/* shot: reference/settings/emoji-overview */}
+</PhoneFrame>
+
+## Options
+
+<SettingsPath path="Emoji" />
+
+### Access
+
+<SettingsPath path="Emoji / Access" />
+
+| Setting | Control | Options / range | Default |
+|---|---|---|---|
+| Emoji button in toolbar | Toggle | — | On |
+| Full-screen emoji panel | Toggle | — | On |
+
+**Emoji button in toolbar** keeps a one-tap emoji launcher in the top bar even while suggestions are showing.
+
+**Full-screen emoji panel** makes the panel take over the whole keyboard: the toolbar, emoji row, and symbol row step aside, and the category tabs move into the row they leave behind, next to a back button. Turn it off to keep the toolbar within reach while picking emoji.
+
+Two more emoji-access toggles live on a different screen — see [Details & edge cases](#details--edge-cases) below.
+
+### Suggestions
+
+<SettingsPath path="Emoji / Suggestions" />
+
+| Setting | Control | Options / range | Default |
+|---|---|---|---|
+| Emoji suggestions | Toggle | — | On |
+| Emoji suggestion tap *(shown only when Emoji suggestions is on)* | Choice | Replace word / Keep word | Replace word |
+
+**Emoji suggestions** appends matching emoji to the end of the suggestion strip as you finish typing a whole word, in English or Bengali — "birthday" offers 🎂🎉🥳.
+
+**Emoji suggestion tap** decides what happens when you tap one: **Replace word** swaps the typed word for the emoji entirely (Gboard-style — "birthday" plus a tap on 🎂 leaves just 🎂); **Keep word** adds the emoji after it instead ("birthday 🎂").
+
+:::note
+Typing `:cat:` to search or auto-commit an emoji from the suggestion strip is a separate toggle on the [Typing](/reference/settings/typing/) screen, not this one — see [Details & edge cases](#details--edge-cases).
 :::
 
-## Planned coverage
+### Skin tone
 
-- Access options (globe/long-press/row); suggestions & triggers
-- Skin tone defaults; panel behaviour (recents vs most-used, history)
-- Emoji row modes
-- Emoji style & fonts, including font-coverage repair
+<SettingsPath path="Emoji / Skin tone" />
 
-{/* TODO(sonnet): replace this stub. Turn the outline into real sections,
-   add screenshots with <PhoneFrame>, mark settings with <SettingsPath>,
-   keys with <KeyCap>, and edition limits with <Flavor>.
-   Conventions live in docs/CONTENT_GUIDE.md. */}
+| Setting | Control | Options / range | Default |
+|---|---|---|---|
+| Default skin tone | Choice | ✋ / ✋🏻 / ✋🏼 / ✋🏽 / ✋🏾 / ✋🏿 | ✋ (None) |
+| Override with last used | Toggle | — | Off |
+
+**Default skin tone** sets the Fitzpatrick tone applied to toned emoji (👍, 🙏, 🧑…) in the suggestion strip and emoji search results. The emoji panel's own grid is separate — it always follows whichever tone you last picked per emoji from that emoji's long-press popup.
+
+**Override with last used**, off by default, makes an emoji you've already picked a tone for use that tone in suggestions and search too, instead of the default above.
+
+### Emoji panel
+
+<SettingsPath path="Emoji / Emoji panel" />
+
+| Setting | Control | Options / range | Default |
+|---|---|---|---|
+| Return to keyboard after inserting | Toggle | — | Off |
+| History tab | Choice | Recent / Most used | Recent |
+| Clear recents button | Toggle | — | Off |
+| Kaomoji and Emoticons | Toggle | — | Off |
+| Emoji descriptions | Toggle | — | On |
+| Emoji keywords | Opens **Emoji keywords** | — | — |
+
+**Return to keyboard after inserting** closes the emoji panel (and the clipboard panel, which shares this setting) the moment you insert a single emoji or paste a single clip, instead of leaving it open to pick several in a row.
+
+**History tab** sets what the panel's first tab shows: **Recent** lists emoji in the order you last used them; **Most used** ranks by frequency. Favourited emoji are pinned to the front of either list.
+
+**Kaomoji and Emoticons** adds two extra tabs — Kaomoji (Japanese-style faces) and Emoticons (Western ASCII faces) — to the end of the panel's tab strip. Full coverage: [Kaomoji & text art](/emoji/kaomoji/).
+
+**Emoji descriptions** shows the emoji's Unicode name above the favourite and skin-tone controls on its long-press popup, so near-identical emoji are easier to tell apart.
+
+**Emoji keywords** is a navigation row, not a setting stored here — it opens the sub-screen documented below.
+
+<PhoneFrame caption="The Emoji panel group, with the Emoji keywords row at the bottom.">
+  {/* shot: reference/settings/emoji-panel-group */}
+</PhoneFrame>
+
+### Emoji row
+
+<SettingsPath path="Emoji / Emoji row" />
+
+| Setting | Control | Options / range | Default |
+|---|---|---|---|
+| Emoji row | Choice | Off / Button / Own row | Off |
+| Emoji row content *(hidden when Emoji row is Off)* | Choice | Most used / Recent / Favourites | Most used |
+| Emojis in the row *(same visibility gate)* | Slider | 3–16 | 8 |
+| Scroll the emoji row *(same visibility gate)* | Toggle | — | Off |
+
+**Emoji row** controls a dedicated strip of your own emoji, similar to Gboard's. **Off** (default) hides it entirely. **Button** adds a toggle to the toolbar that swaps the suggestion strip for the emoji row on tap. **Own row** keeps it permanently visible between the toolbar and the keys.
+
+**Emoji row content** picks what fills the row — Favourites always sort first regardless of which of the three you choose.
+
+**Emojis in the row** splits the row's width into this many slots and shrinks the emoji to fit, so a higher number packs more, smaller emoji across. With **Scroll the emoji row** off, anything past the last slot simply isn't shown; on, the rest are a sideways swipe away.
+
+When Emoji row is set to **Own row**, a caption on this screen points to **Rows & bars** for where the row sits relative to the toolbar and symbol row — by default it's first, above both.
+
+<PhoneFrame caption="The Emoji row group with Own row selected.">
+  {/* shot: reference/settings/emoji-row-group */}
+</PhoneFrame>
+
+### Emoji style
+
+<SettingsPath path="Emoji / Emoji style" />
+
+| Setting | Control | Options / range | Default |
+|---|---|---|---|
+| Emoji font | Choice | System / Google / Installed / Custom | System |
+| Hide emoji this phone can't display | Toggle | — | Off |
+
+**Emoji font** decides which font draws emoji on the keyboard itself — WM Keyboard ships no emoji font of its own. A live preview row (😀😂🥰😎🤔👍❤️🎉) rendered through the real shaping pipeline shows exactly what the panel will draw. **System** uses your phone's own emoji pack; **Google** fetches Noto Color Emoji once through the system font provider and caches it; **Installed** picks from an emoji font installed via [Addons](/addons/installing/); **Custom** uses a single font file you import via a document picker. Text you send stays plain Unicode regardless of the choice — other apps and phones draw it with their own emoji font.
+
+**Hide emoji this phone can't display**, off by default, hides an emoji from the panel, search, and suggestions only when *neither* the chosen font *nor* the phone's own system font can draw it — an emoji missing from just the chosen font is instead silently drawn in the phone's system font, in a different style.
+
+<PhoneFrame caption="The Emoji style group, with the live font preview row and font choices.">
+  {/* shot: reference/settings/emoji-style-group */}
+</PhoneFrame>
+
+Long-pressing any emoji in the panel opens its favourite and skin-tone controls — two-person emoji like 🤝 let you set each person's tone independently.
+
+## Emoji keywords
+
+<SettingsPath path="Emoji / Emoji panel / Emoji keywords" />
+
+Reached from the **Emoji keywords** row in the Emoji panel group above, this sub-screen manages the per-language dictionaries emoji search matches against. English and Bengali keywords ship built in; everything else needs a pack.
+
+| Setting | Control | Options / range | Default |
+|---|---|---|---|
+| Download automatically | Toggle | — | On |
+
+**Download automatically** fetches a keyword pack — roughly 100 KB — in the background the first time you enable a language you type in. Off leaves it to the Download button next to each language below.
+
+Below that, one group appears per language you've enabled (plus any language that already has a downloaded or imported pack, even if you've since turned it off). Each group shows:
+
+- A download/delete row with the pack's emoji count and size, for any language the data repository covers.
+- Any packs you've imported by hand, each with its own delete button.
+- **Import pack** (a document picker) and **From URL** buttons.
+
+Packs stack on top of the bundled English/Bengali keywords rather than replacing them, and a language can have several at once. The import format is a tab-separated file — one emoji per line, then its comma-separated keywords, and optionally a display name — with lines starting `# ` ignored; the JSON emoji dictionaries from the [wmkeyboard-data](https://github.com/wasi-master/wmkeyboard-data) repository import as they are, with no conversion needed.
+
+<PhoneFrame caption="The Emoji keywords screen, with per-language download and import controls.">
+  {/* shot: reference/settings/emoji-keywords-screen */}
+</PhoneFrame>
+
+The data repository currently covers 125 downloadable language packs — fewer than its raw language count because a handful of codes get remapped or merged with duplicates, and a few packs the source data leaves nearly empty are left out.
+
+Each enabled language's own settings screen also carries a matching **Emoji** group with the same download row and a shortcut back to this same screen — so you can start a download from either place and see the same state in both.
+
+## Details & edge cases
+
+- **Two more emoji-access shortcuts live on a different screen.** **Emoji key instead of 🌐** (on by default) turns the <KeyCap>🌐</KeyCap> key into an emoji-panel launcher, and **Comma key opens emoji** (off by default) does the same to the comma key; they're under <SettingsPath path="Layout & size / Bottom-row keys" />, not here. Turning on the comma-key version also removes the emoji tool from the toolbar, per its own info text.
+- **Inline `:word:` emoji search is a Typing setting, not an Emoji one.** <SettingsPath path="Typing / Suggestions / Inline emoji search" /> (on by default) turns a colon at a word boundary into a live emoji search in the suggestion strip, and auto-commits exact shortcode matches like `:tada:`. It's unrelated to the **Emoji suggestions** toggle above.
+- **Emoji suggestion tap only appears while Emoji suggestions is on** — turning suggestions off hides the choice entirely rather than disabling it.
+- **Emoji row content, count, and scrolling only appear while Emoji row is not Off.**
+- **Installed and Custom emoji fonts each reveal their own extra controls** — a font list pulled from Addons for Installed, an import button for Custom — only while that choice is selected.
+- **Kaomoji and emoticons insert as plain text.** Tapping one from those two tabs types it directly; it is never added to your emoji recents or most-used history.
+- **Power Saving mode can drop emoji suggestions independently of the toggle here.** See [Power saving](/typing/power-saving/) for its own emoji-prediction toggle.
+- **The toolbar's Emoji tool has its own mini-settings panel** with a duplicate "Emoji button in toolbar" toggle and an "All emoji settings" shortcut back to this screen — see [Tools](/tools/overview/) for toolbar-tool customization in general.
+- **No edition differences.** Every setting on this screen and its keyword sub-screen works the same on both the full and lite builds.
+
+## Related pages
+
+- [Emoji picker & search](/emoji/picker/) — the panel itself: search, skin tones, favourites and recents.
+- [Emoji customization](/emoji/customization/) — the reasoning behind fonts, keyword packs, suggestions, and the emoji row.
+- [Kaomoji & text art](/emoji/kaomoji/) — what the Kaomoji and Emoticons tabs add.
+- [Layout & size](/reference/settings/layout/) — the 🌐-key and comma-key emoji shortcuts.
+- [Typing](/reference/settings/typing/) — inline `:word:` emoji search and shortcodes.
+- [Rows & bars](/reference/settings/rows/) — where the emoji row sits relative to the toolbar and symbol row.
+- [Addons](/addons/installing/) — installing emoji fonts for the Installed choice.
+- [Power saving](/typing/power-saving/) — dropping emoji suggestions to save battery.

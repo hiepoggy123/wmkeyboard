@@ -5,18 +5,135 @@ sidebar:
   order: 13
 ---
 
-:::caution[Draft page]
-Scaffolding only — real content pending. The outline below is the checklist for what this page must cover.
-:::
+import PhoneFrame from '@components/PhoneFrame.astro';
+import SettingsPath from '@components/SettingsPath.astro';
 
-## Planned coverage
+**Keyboard modes** is a single screen with two levels: a list of modes, and a per-mode editor that decides what a mode changes and when it turns on. For the concepts behind modes — how activation is resolved, and the on-keyboard Modes tool that lets you override the pick by hand — see [Modes & the symbol row](/typing/modes/); this page walks the settings screen itself.
 
-- The modes list; creating a mode
-- What a mode changes: theme, emoji row, symbol row, pinned tools, toolbox order, symbol sets
-- Auto-activation: app picker and field-type rules
-- 'Drags edit the active mode' behaviour
+<PhoneFrame caption="Keyboard modes: the six default modes, each with its auto-activation summary, plus New mode.">
+  {/* shot: reference/settings/modes-list */}
+</PhoneFrame>
 
-{/* TODO(sonnet): replace this stub. Turn the outline into real sections,
-   add screenshots with <PhoneFrame>, mark settings with <SettingsPath>,
-   keys with <KeyCap>, and edition limits with <Flavor>.
-   Conventions live in docs/CONTENT_GUIDE.md. */}
+You reach this screen three ways: Home → **Keyboard modes**, the settings search index, or the on-keyboard **Modes** tool's own settings entry (**Edit keyboard modes**, which shows the live mode count as its value). All three land on the same list.
+
+## The modes list
+
+<SettingsPath path="Keyboard modes" />
+
+Each row shows the mode's icon, its name, and a one-line summary of what triggers it: **"Manual only (Modes tool)"** for a mode with no apps or field types bound, otherwise **"Auto: N apps"** and/or the field types it's bound to (for example **"Auto: 6 apps + text fields"**). Tapping a row opens that mode's editor; the trailing delete icon removes the mode immediately, with no confirmation prompt.
+
+**New mode** adds a row and opens a fresh editor. The mode isn't written to disk until you make your first edit inside it — backing out of an untouched new-mode editor leaves nothing behind.
+
+## Editing a mode
+
+Tapping a mode opens **Edit mode**, starting with its **Name** (shown in the Modes tool) and **Icon** — a picker of 36 bare-icon chips (tune, chat, forum, write, note, article, book, mail, lock, shield, key, web, search, code, terminal, work, school, science, home, person, group, call, shopping, money, calendar, game, music, video, camera, palette, travel, fitness, cloud, bolt, star, favorite) in a scrolling grid, no text labels or clear option.
+
+<PhoneFrame caption="Edit mode: name, icon, and the What this mode changes group.">
+  {/* shot: reference/settings/mode-editor-top */}
+</PhoneFrame>
+
+### What this mode changes
+
+Every override here defaults to **Inherit** — unset, so the mode falls through to whatever the global setting says — except on the six built-in modes, which ship with specific values (see the table below).
+
+| Override | Options |
+| --- | --- |
+| Emoji row | Inherit / Off / Button / Row |
+| Symbol row | Inherit / On / Off |
+| Theme | Inherit, or any built-in or custom theme |
+| Custom pinned tools | Off, or a toolbar tool list of its own |
+| Custom toolbox order | Off, or a toolbox order of its own |
+| Custom symbol sets | Off, or a symbol-set list of its own |
+
+**Theme** opens a picker: Inherit, Default (system), the built-in themes, then your own custom themes alphabetically. A **Clear** button appears once a theme is set. Picking one adds a note that while the mode is active, the keyboard wears that theme regardless of what's set elsewhere — including standing down an auto light/dark pair for the mode's lifetime — and your own choice returns unchanged the moment the mode ends.
+
+**Custom pinned tools**, once turned on, reveals a **Pinned tools behaviour** choice — **Add to mine** (appends to your global pins) or **Replace mine** (only these tools are pinned) — a chip picker over your currently enabled, build-supported tools, and a **Modify pinned tool order** drag-to-reorder dialog. Switching to "Add to mine" drops any tool that's already one of your global pins, so it doesn't appear twice.
+
+**Custom toolbox order** works the same way minus the append/replace choice: turning it on seeds an empty list, a chip picker adds tools, and **Modify toolbox order** reorders them. The picked tools lead the toolbox panel; everything else keeps its usual place behind them.
+
+**Custom symbol sets** seeds from your current symbol-row sets (or the built-in defaults if none are enabled), offers every set — built-in and custom — as toggle chips, guards against emptying the list to zero, and reorders with **Modify symbol set order**. The first set in that order is what the symbol row opens on while the mode is active.
+
+<PhoneFrame caption="A mode's Custom pinned tools turned on, with its own tool chips and reorder option.">
+  {/* shot: reference/settings/mode-editor-custom-tools */}
+</PhoneFrame>
+
+### Activate automatically for
+
+<PhoneFrame caption="Field-type chips and the bound app list at the bottom of the mode editor.">
+  {/* shot: reference/settings/mode-editor-activation */}
+</PhoneFrame>
+
+**Field types** is a row of chips for the six kinds a mode can match: Password, Email, URL, Number, Phone, Text. **Text** means plain free-text only — a password field is excluded from it even though it also reports as text-capable, so a mode bound to Text can never take over a login form.
+
+Below that is the app list: one row per bound app (resolved to its display name, falling back to the raw package name), each removable, plus an **Add app** row that opens a searchable picker of every launcher app on the device.
+
+Setting apps and field types together means both must match — a mode bound to your chat apps and the Text field type stays off their search boxes. Setting only one matches on that alone; setting neither leaves the mode manual-only, reachable only from the Modes tool. When several modes match at once, one that names a field type beats one that only names apps, and a mode picked by hand from the Modes tool wins until you switch apps. See [How a mode gets picked](/typing/modes/#how-a-mode-gets-picked) for the full resolution order.
+
+### Reset and delete
+
+At the bottom of the editor, **Delete mode** removes it immediately, no confirmation. **Reset to default** appears only on the six built-in modes (matched by ID, so an edited built-in still offers it) — a user-created mode has nothing to reset to. It asks to confirm first: resetting discards your edits and puts the mode's pinned tools, toolbox order, symbol row, apps and field types back to what it ships with.
+
+## The six default modes
+
+Six modes are seeded on first run. You can edit or delete any of them freely.
+
+| Mode | Emoji row | Symbol row | Toolbar | Toolbox leads with | Apps | Field types |
+| --- | --- | --- | --- | --- | --- | --- |
+| **Passwords** | Off | Off | Replaced: password generator, clipboard, settings | Password generator, clipboard, snippets, numpad, symbols, settings | — | Password |
+| **Email** | Inherit | On (Email, Punctuation) | Inherit | Clipboard, snippets, text edit, voice, symbols | — | Email |
+| **Browser** | Inherit | On (Web) | Inherit | Clipboard, web search, snippets, QR scan, voice, incognito | — | URL |
+| **Chat** | Always on | Inherit | Added: emoji, GIF, sticker, voice | Grammar, translate, camera, image search, clipboard, snippets, then the pinned four | Messenger, Instagram, Telegram, WhatsApp, Signal, Discord | Text |
+| **Writing** | Inherit | On (Punctuation) | Replaced: AI, text edit, voice, clipboard, emoji | Grammar, dictionary, OCR, doc scan, calendar, clipboard, snippets, translate, undo, redo, then the pinned five | Keep, Google Docs, Samsung Notes, Word, OneNote, Obsidian, Notion, Evernote, Joplin, Gmail, Outlook, Yahoo Mail, ProtonMail, K-9 Mail | Text |
+| **Coding** | Inherit | On (Coding, Math) | Inherit | Snippets, clipboard, text edit, symbols, calculator, numpad, undo, redo, cursor keys | Termux, Acode, RK Editor, Spck | — |
+
+Passwords and Writing replace the toolbar outright rather than adding to it; Chat appends its four tools to whatever you already have pinned. If your install already had a saved mode list before Chat and Writing existed, both were appended once automatically on upgrade — but a mode you've since deleted isn't re-added.
+
+## Rearranging tools
+
+<SettingsPath path="Keyboard modes / Rearranging tools" />
+
+This toggle lives on the modes list screen, not inside an individual editor — it governs what happens when you drag a tool on the keyboard itself while a mode with its own pinned tools or toolbox order is active.
+
+**Drags edit the active mode** — on by default — sends that drag into the currently active mode, so the rearrangement sticks specifically for apps that resolve to that mode, while every other app keeps its own arrangement. Turn it off and drags always edit the global tool order instead; if the active mode still prescribes its own list, that list keeps winning on screen regardless, since a mode's fixed list applies on every redraw. A mode with no pinned tools or toolbox order of its own is unaffected either way, since there's nothing for it to own.
+
+Tool order can differ per app: whichever mode an app resolves to decides the arrangement you see there.
+
+## Options
+
+<SettingsPath path="Keyboard modes" />
+
+| Setting | Default |
+| --- | --- |
+| Keyboard modes list | 6 seeded modes (table above) |
+| Drags edit the active mode | On |
+
+<SettingsPath path="Keyboard modes / Edit mode" />
+
+| Setting | Default |
+| --- | --- |
+| Name | Mode-specific (see table above) |
+| Icon | Mode-specific |
+| Emoji row | Inherit, except the six built-ins listed above |
+| Symbol row | Inherit, except the six built-ins listed above |
+| Theme | Inherit |
+| Custom pinned tools | Off, except Passwords/Chat/Writing |
+| Custom toolbox order | Off — all six built-ins define their own toolbox order |
+| Custom symbol sets | Off, except Email/Browser/Writing/Coding |
+| Field types | Mode-specific |
+| Apps | Mode-specific |
+
+## Details & edge cases
+
+- **A brand-new mode isn't saved until its first edit.** Navigating into a freshly created mode's editor and backing out without changing anything leaves the modes list exactly as it was.
+- **Only the six shipped modes offer Reset to default**, matched by ID — renaming a built-in mode doesn't lose its reset option, but a mode you created from scratch never gets one.
+- **Deleting a mode, from either the list or the editor, has no confirmation dialog.** Resetting a built-in mode does.
+- **Field types beat apps when modes collide.** If two modes could both apply, the one that names a field type is preferred over one that only names apps — a password field inside a coding app still gets the Passwords mode.
+- **The tool and symbol-set pickers only offer what's currently available.** A tool that's disabled globally, or unsupported in your build (for example a lite build without the tools that need ML Kit or the grammar engine), doesn't appear in a mode's own pinned-tools or toolbox-order chip list either.
+- **Legacy installs migrate quietly.** Older Browser and Email modes that still carried hard-coded app lists from before they became field-only are migrated to app-less bindings automatically when their settings are next read.
+
+## Related pages
+
+- [Modes & the symbol row](/typing/modes/) — the concepts: how activation is resolved, the on-keyboard Modes tool for manual overrides, and the symbol row these modes can also control.
+- [Rows & bars](/reference/settings/rows/) — the global symbol row, row order and symbol-set editor that a mode's overrides sit on top of.
+- [Themes](/reference/settings/themes/) — the theme picker a mode's Theme override opens.
+- [Tools](/reference/settings/tools/) — the toolbar tools and toolbox a mode's pinned-tools and toolbox-order overrides rearrange.

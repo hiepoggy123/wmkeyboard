@@ -1,24 +1,77 @@
 ---
 title: "Settings A–Z"
-description: "Every screen of the settings app, every toggle, every slider — documented."
+description: "How the settings app is organized — six home-screen groups, a search screen that indexes almost every row, and a map to every screen in this section."
 sidebar:
   label: "Overview"
   order: 1
 ---
 
-:::caution[Draft page]
-Scaffolding only — real content pending. The outline below is the checklist for what this page must cover.
-:::
+import PhoneFrame from '@components/PhoneFrame.astro';
 
-## Planned coverage
+WM Keyboard's settings app opens to a Home screen with fifteen rows sorted into six groups. Tap any row to open its screen, or tap the magnifier at the top to search across almost everything in one field.
 
-- The home screen's six groups: Typing / Keyboard / Features / Accessibility / Data / About
-- Settings search (magnifier on the home screen) — indexes nearly every row
-- The setup card (enable IME / switch keyboard) and the onboarding wizard
-- One docs page per screen below; per-tool screens are covered under Tools
-- Route names in this section match the app's internal navigation for deep-linking
+<PhoneFrame caption="The Home screen: Typing, Keyboard, Features, Accessibility, Data and About, each its own card.">
+  {/* shot: reference/settings/home-screen */}
+</PhoneFrame>
 
-{/* TODO(sonnet): replace this stub. Turn the outline into real sections,
-   add screenshots with <PhoneFrame>, mark settings with <SettingsPath>,
-   keys with <KeyCap>, and edition limits with <Flavor>.
-   Conventions live in docs/CONTENT_GUIDE.md. */}
+## Browsing the six groups
+
+Home has no toggles of its own — it's pure navigation, plus the [setup card](/start/setup/) pinned above the groups. Each row below opens one screen, documented on its own page in this section:
+
+**Typing**
+- [Typing](/reference/settings/typing/) — autocorrect, suggestions, gestures
+  - [Dictionaries & words](/reference/settings/dictionaries/) — personal dictionary, custom word lists, the blacklist, emoji keywords; a sub-screen reached from both Typing and Emoji, not a Home row of its own
+- [Key press](/reference/settings/keypress/) — haptics, key popup, long-press shortcuts
+- [Languages](/reference/settings/languages/) — installed languages and layouts
+
+**Keyboard**
+- [Appearance](/reference/settings/appearance/) — themes, fonts, toolbar style
+  - [Keyboard themes](/reference/settings/themes/) — theme list and editor
+  - [Keyboard font](/reference/settings/fonts/) — Google Fonts, imported fonts
+  - [Icons](/reference/settings/icons/) — icon packs and per-slot overrides
+- [Layout & size](/reference/settings/layout/) — key size, number row, one-handed, split & floating
+- [Key layouts](/reference/settings/keymaps/) — design your own key grid, or start from a built-in one
+- [Rows & bars](/reference/settings/rows/) — symbol row, emoji row, row order & symbol sets
+- [Keyboard modes](/reference/settings/modes/) — per-app setups: email, browser, coding, passwords
+
+**Features**
+- [Emoji](/reference/settings/emoji/) — suggestions, emoji row, emoji style, favourites
+- [Tools](/reference/settings/tools/) — the master tool list; each tool's own screen is documented on its guide page, not here
+- [Addons](/reference/settings/addons/) — repositories, installed addons, sticker packs, and the plugin manager (the sticker-pack and plugin managers are also addon-install destinations, so they're covered here rather than under Tools)
+
+**Accessibility**
+- [Accessibility](/reference/settings/accessibility/) — contrast, colour vision, TalkBack, reduced motion
+
+**Data**
+- [Privacy](/reference/settings/privacy/) — on-device learning, incognito
+- [Backup & restore](/reference/settings/backup/) — export your settings to a file, or restore them
+
+**About**
+- [About & diagnostics](/reference/settings/about/) — version, licence, open-source notices, diagnostics
+
+That's 19 screens in total: the 15 Home rows, plus four sub-screens (Dictionaries, Themes, Fonts, Icons) that earned their own page instead of folding into a parent's.
+
+## Searching instead of browsing
+
+Tap the magnifier on Home to open a full-screen search field, which grabs focus immediately so you can start typing without another tap. Before you type anything it shows a hint: Search every setting by name — "haptic", "number row", "incognito" — or by the tool it belongs to.
+
+<PhoneFrame caption="Typing a query in Settings search — each result carries a breadcrumb to the screen it lives on.">
+  {/* shot: reference/settings/search-results */}
+</PhoneFrame>
+
+Every word you type has to match something for a result to show up — searching "emoji row" won't surface every row that merely mentions emoji, only ones that match both words. Results rank exact and prefix title matches above ones that only match the description, and each one shows a breadcrumb (like "Tools › Camera") under its title so you know where it lives before you tap it.
+
+Tapping a result takes you straight to the owning screen, scrolls to that exact row, and gives it a brief highlight so you don't have to hunt for it — the search doesn't just open the right screen, it points at the right row. Toolbar tools are searchable too: every enabled tool gets an entry automatically, so a newly added tool is findable the moment it ships, without a docs or search-index update.
+
+## Getting there directly
+
+Two related topics live on their own pages rather than here:
+
+- The setup card that gets WM Keyboard enabled and active, and the first-run onboarding wizard — see [Enable the keyboard](/start/setup/).
+- Opening a settings screen from a launcher shortcut or a `wmkeyboard://settings/` link — see [Deep links & launcher shortcuts](/reference/deep-links/). Only six routes are linkable this way: Typing, Appearance, Themes, Languages, Tools, and Search.
+
+## Details & edge cases
+
+- Per-tool settings live on each tool's own guide page under [Tools](/tools/overview/), cross-linked from [the Tools screen page](/reference/settings/tools/) — not documented separately here. The sticker-pack manager and plugin manager are the two exceptions: both are opened from a tool's detail screen *and* from Addons (installing a sticker pack or a plugin addon lands you in the same manager), so they're covered under [Addons](/reference/settings/addons/) instead.
+- Screen transitions are a quick 220ms slide-and-fade. If you've turned on reduced motion under [Accessibility](/reference/settings/accessibility/), that collapses to an instant cut with no animation at all.
+- Every screen in this section is reachable from Home in one or two taps — nothing here requires a hidden gesture or a developer option to reach.

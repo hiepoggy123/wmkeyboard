@@ -1,22 +1,82 @@
 ---
 title: "Privacy"
-description: "Learning, incognito, backup opt-in and clearing your data."
+description: "Every row on the Privacy screen — on-device learning, incognito, Android backup, and the one button that clears learned data."
 sidebar:
   order: 18
 ---
 
-:::caution[Draft page]
-Scaffolding only — real content pending. The outline below is the checklist for what this page must cover.
-:::
+import PhoneFrame from '@components/PhoneFrame.astro';
+import SettingsPath from '@components/SettingsPath.astro';
 
-## Planned coverage
+The Privacy screen collects on-device learning, incognito, Android's own backup opt-in, and the one button that clears learned data — three groups, in that order, nothing else. This page is the field reference; for the reasoning and the rest of the privacy story, start at [Privacy at a glance](/privacy/overview/).
 
-- On-device learning toggles; system dictionary sharing
-- Incognito settings
-- Android backup opt-in
-- Clear your data (per-category)
+<PhoneFrame caption="The Privacy screen: On-device learning, Android backup, and Your data groups.">
+  {/* shot: reference/settings/privacy-screen-groups */}
+</PhoneFrame>
 
-{/* TODO(sonnet): replace this stub. Turn the outline into real sections,
-   add screenshots with <PhoneFrame>, mark settings with <SettingsPath>,
-   keys with <KeyCap>, and edition limits with <Flavor>.
-   Conventions live in docs/CONTENT_GUIDE.md. */}
+## Options
+
+<SettingsPath path="Privacy" />
+
+### On-device learning
+
+<SettingsPath path="Privacy / On-device learning" />
+
+| Setting | Control | Default |
+|---|---|---|
+| Learn from typing | Toggle | **On** |
+| Add words to the system dictionary | Toggle | Off |
+| Expand dictionary shortcuts | Toggle | Off |
+| Incognito mode | Toggle | Off |
+| Follow private browsing | Toggle | **On** |
+
+**Learn from typing** is the master switch for the on-device word and word-pair lexicon; turning it off stops new learning without deleting anything already learned. **Add words to the system dictionary** additionally writes learned words to Android's own personal dictionary (System Settings → Languages & input → Dictionary) so other keyboards and the platform spell checker see them too — it's the one setting in this group that writes outside the app, which is why it defaults off even though the keyboard's own learning already covers the same ground. **Expand dictionary shortcuts** reads that same system dictionary the other way: type a shortcut you've defined there (say "omw") and it offers the full phrase ("on my way") as a suggestion.
+
+**Incognito mode** and **Follow private browsing** are covered in full, including exactly what pausing learning and clipboard capture means, on [Incognito & secure fields](/privacy/incognito/) — worth knowing here is that **Follow private browsing** defaults to **on**, the opposite of what its neighbor "Incognito mode" does, and that two related toggles, **Pause learning** and **Pause clipboard capture** (both on by default), live on a separate screen, <SettingsPath path="Tools / Incognito" />, not on this one. "Follow private browsing" itself also appears on that Tools screen — it's the same setting shown in both places, not a second copy.
+
+### Android backup
+
+<SettingsPath path="Privacy / Android backup" />
+
+| Setting | Control | Default |
+|---|---|---|
+| Back up with Android | Toggle | Off |
+
+**Back up with Android** folds the keyboard into Android's own backup and phone-to-phone transfer system. Off by default, so nothing this keyboard stores is copied anywhere until you turn it on. Once on, settings, themes, layouts, snippets, learned words, sticker and icon packs, and plugins are all included — and so are any saved API keys (Translate, AI tools, and the rest). Left out, because the keyboard can fetch them again on its own: voice and AI models, downloaded dictionaries, and emoji-keyword packs. A cloud backup is only made on devices that can encrypt it with your screen lock.
+
+<PhoneFrame caption="The info dialog for Back up with Android, listing what's included and excluded.">
+  {/* shot: reference/settings/privacy-backup-info-dialog */}
+</PhoneFrame>
+
+This is a different screen from the sibling **Backup & restore** item on the Settings home screen (route `backup`), which exports and imports a settings file by hand and never touches Google at all. See [Backup & restore](/privacy/backup/) for both paths side by side, and the [Backup & restore reference](/reference/settings/backup/) for that screen's own fields.
+
+### Your data
+
+<SettingsPath path="Privacy / Your data" />
+
+A single button, **Clear learned words** — no toggle, no confirmation prompt. Tapping it immediately deletes three files: your word and word-pair lexicon, your emoji-usage history, and your Chinese/Japanese/Cantonese pick history. It does **not** touch the language-mix tracker that remembers which language you tend to reach for when mixing languages.
+
+<PhoneFrame caption="Clear learned words, the only control in the Your data group.">
+  {/* shot: reference/settings/privacy-clear-learned-words */}
+</PhoneFrame>
+
+This is the only bulk clear on this screen. Personal dictionary entries, clipboard history, and downloads each have their own per-item controls elsewhere — see [Your data on device](/privacy/data/#clearing-whats-stored) for the complete map of where every other category's clear control actually lives.
+
+## Details & edge cases
+
+- **"Clear learned words" is one bulk action, not a per-category picker.** There's no dialog letting you choose which of the three files to wipe — tapping the button deletes all three at once, instantly, with no undo.
+- **"Follow private browsing" isn't two settings.** The row here and the row of the same name under <SettingsPath path="Tools / Incognito" /> both read and write `autoIncognito` — flip it in either place and the other reflects the change.
+- **Saved API keys are included in an Android backup**, not excluded the way large downloads are. If that matters to you, use [Backup & restore](/privacy/backup/)'s manual export instead, which never leaves the device.
+- **A cloud backup needs an encryptable screen lock.** On a device without one, turning "Back up with Android" on has nothing to actually back up into — Android's own backup system requires it.
+- **The footer caption undersells the network side.** The screen's own note — "WM Keyboard works offline: dictionaries, Bengali transliteration and emoji search are all bundled, and there is no telemetry. The one exception is the optional weather tool, which fetches conditions from Open-Meteo only when you open it (and can be disabled under Tools)" — is accurate but incomplete; several other tools also reach the network, each off until you use it. See [Privacy at a glance](/privacy/overview/) for the complete list.
+- **No edition differences.** Every setting on this screen behaves the same on both the full and lite builds.
+
+## Related pages
+
+- [Privacy at a glance](/privacy/overview/) — what leaves the device and what never does, with the receipts.
+- [Your data on device](/privacy/data/) — everything stored locally, where, and every way to clear it — not just the one button on this screen.
+- [Incognito & secure fields](/privacy/incognito/) — incognito mode, private-browsing detection, and password/secure-field handling in full.
+- [Network policy](/privacy/network/) — the complete tool-by-tool table of what reaches the network and why.
+- [Backup & restore](/privacy/backup/) — the guide covering both this screen's "Back up with Android" and the separate manual export/import screen.
+- [Backup & restore reference](/reference/settings/backup/) — the field list for that separate screen.
+- [Tool settings reference](/reference/settings/tools/) — the master tool list; it's still an outline page. The "Tools / Incognito" toggles that live outside this screen are covered above and in [Incognito & secure fields](/privacy/incognito/); Clipboard's own settings are on its [tool guide](/tools/clipboard/).

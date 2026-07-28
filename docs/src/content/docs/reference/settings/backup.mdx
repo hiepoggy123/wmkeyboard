@@ -1,21 +1,98 @@
 ---
 title: "Backup & restore"
-description: "Export and import a settings file, section by section."
+description: "Every switch on the Backup & restore screen — what goes in an export, and what an import merges or replaces."
 sidebar:
   order: 19
 ---
 
-:::caution[Draft page]
-Scaffolding only — real content pending. The outline below is the checklist for what this page must cover.
+import PhoneFrame from '@components/PhoneFrame.astro';
+import SettingsPath from '@components/SettingsPath.astro';
+
+The Backup & restore screen is where you write your keyboard to a file and read one back in. This page is the field reference for every switch, button, and message on it — for the reasoning behind the merge-vs-replace split and a walkthrough of moving to a new phone, see [Backup & restore](/privacy/backup/) instead.
+
+<PhoneFrame caption="The Backup & restore screen: what to include, plus the export and import buttons.">
+  {/* shot: reference/settings/backup-screen */}
+</PhoneFrame>
+
+## Options
+
+<SettingsPath path="Data / Backup & restore" />
+
+Reach it from the **Data** group on the settings home screen, or by searching "Backup & restore" in settings search.
+
+### Export
+
+The **Include in export** group is ten independent toggles, top to bottom:
+
+| Setting | Subtitle | Default |
+|---|---|---|
+| Settings | Every keyboard preference | On |
+| Include API keys *(shown only while Settings is on)* | Translate, GIF, search and AI keys | Off |
+| Themes | Your custom themes | On |
+| Dictionary | Words the keyboard learned from you | Off |
+| Clipboard | Saved clipboard history | Off |
+| Snippets | Your saved text snippets | On |
+| Sticker packs | Your own sticker packs, images and all | Off |
+| Icon packs | Your own icon packs, images and all | Off |
+| Custom word lists | Word lists you imported for any language | On |
+| Addon repositories | The addon sources you added, so you can reinstall from them | On |
+
+:::note[Nothing here is a saved preference]
+Unlike almost every other screen in this reference, none of these ten switches are stored settings — they're local to the screen. Reopen **Backup & restore** later and every switch is back to the defaults above, regardless of what you chose last time.
 :::
 
-## Planned coverage
+Sticker packs and icon packs default off because their images make the file larger, not because of any privacy concern; Dictionary and Clipboard default off because they're your personal typing history rather than configuration. Addon repositories carries only the repository addresses you've added, not the addons installed from them — an installed theme already travels inside Themes, an installed icon pack inside Icon packs.
 
-- Export: section selection, 'include API keys' switch
-- Import flow; what merges vs replaces
-- Links to the Backup & restore guide
+**Export backup** is disabled until at least one toggle above is on. Tapping it opens Android's save dialog with a name of the form `wmkeyboard-backup-<date>-<time>.wmconfig.json`, timestamped down to the second so repeated exports don't overwrite each other. The file goes wherever you choose — nothing is uploaded anywhere. Afterward you see one of:
 
-{/* TODO(sonnet): replace this stub. Turn the outline into real sections,
-   add screenshots with <PhoneFrame>, mark settings with <SettingsPath>,
-   keys with <KeyCap>, and edition limits with <Flavor>.
-   Conventions live in docs/CONTENT_GUIDE.md. */}
+| Result | Message |
+|---|---|
+| Wrote successfully, Settings on with Include API keys on | "Backup exported, API keys included. Treat that file as a password." |
+| Wrote successfully, otherwise | "Backup exported." |
+| Couldn't write the file | "Could not write that file." |
+
+### Import
+
+**Import backup** opens a document picker for any file type. It reads the file and tries to decode it before changing anything — nothing is written until you confirm a dialog:
+
+| Outcome | What happens |
+|---|---|
+| File is a current `.wmconfig.json` bundle | An "Import backup?" dialog lists each section found (for example "Themes: 3 custom themes"), states that settings merge while dictionary, clipboard, and snippets replace, and adds a warning if the file contains API keys |
+| File is a legacy `.wmsettings.json` file | An "Import settings?" dialog states how many settings will be overwritten, warns about included API keys, and notes any entries that couldn't be read and will be skipped |
+| File can't be read from disk | "Could not read that file." |
+| File doesn't decode as either format | "That file is not a WMKeyboard backup." |
+
+<PhoneFrame caption="The import confirmation dialog, listing what a backup file contains before anything is applied.">
+  {/* shot: reference/settings/backup-import-confirm */}
+</PhoneFrame>
+
+Confirming a current-format import applies each section independently and merges or replaces depending on which one it is:
+
+| Section | On import |
+|---|---|
+| Settings | **Merges** — only the preferences present in the file are overwritten; everything else on the device is left as-is |
+| Themes | **Replaces** — the entire custom-theme list is swapped for what's in the file |
+| Dictionary | **Replaces** |
+| Clipboard | **Replaces** |
+| Snippets | **Replaces** |
+| Sticker packs | **Replaces** — the local collection is cleared and rebuilt from the file |
+| Icon packs | **Replaces** — same clear-and-rebuild |
+| Custom word lists | **Replaces** — same clear-and-rebuild |
+| Addon repositories | **Merges** — incoming repository addresses are added to your existing list; a duplicate address is skipped, not overwritten |
+
+Settings import is rollback-safe: after writing, the keyboard re-reads its own settings to confirm they still parse, and undoes the write if they don't. The other sections in the same file still apply even when settings roll back. After a confirmed import you see either "Restored `<sections>`." (a lowercase, comma-separated list of what changed) or "Nothing to restore from that file.", with "\n\nThe settings couldn't be applied and were left unchanged." appended if the settings portion rolled back. A confirmed legacy import instead reports "Restored `<N>` settings.", or "That backup could not be applied — your settings are unchanged." if it rolled back.
+
+Opening a `.wmconfig.json` or `.wmsettings.json` file from a file manager routes through this same read-then-confirm flow rather than importing silently.
+
+## Details & edge cases
+
+- **Two file formats, one import path.** `.wmconfig.json` is the current, full-bundle format that **Export backup** writes today. `.wmsettings.json` is an older, settings-only format that the app still accepts on import for files made by earlier versions — nothing in the current app writes one anymore.
+- **The Themes toggle's own in-app description undersells it.** Its info text says a theme's background image "doesn't travel to another phone — only the theme itself does." In the current app it does travel: a background image is embedded in the export and written back to local storage on import, so a restored theme keeps its image. See [Backup & restore](/privacy/backup/#exporting-a-config-file) for the accurate version.
+- **The API-keys warning applies to a manual export only.** It has no effect on Android's own backup system, which is a separate opt-in covered on the [Privacy](/reference/settings/privacy/) screen and copies saved API keys regardless of anything on this page.
+- **Addon repositories is a bookmark list, not the addons themselves.** What an installed addon leaves behind on this screen is in whichever section matches its type — a theme, icon pack, or sticker pack you installed from a repository is already covered by that section.
+
+## Related pages
+
+- [Backup & restore](/privacy/backup/) — the guide: why each default is what it is, Android's own backup system, and a step-by-step for moving to a new phone.
+- [Privacy](/reference/settings/privacy/) — the **Back up with Android** toggle that folds the keyboard into Android's own backup, separate from the export on this page.
+- [What are addons?](/addons/overview/) — how installed addons relate to the repositories this screen's Addon repositories toggle backs up.

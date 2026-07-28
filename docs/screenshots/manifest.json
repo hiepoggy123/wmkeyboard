@@ -3398,5 +3398,1067 @@
     "status": "todo",
     "notes": "Reconstructed manually \u2014 the writer agent's structured-output call dropped due to a connection error after the file edit itself succeeded.",
     "kind": "still"
+  },
+  {
+    "id": "reference/settings/home-screen",
+    "page": "docs/src/content/docs/reference/settings/index.mdx",
+    "file": "src/assets/screens/reference/settings/home-screen.webp",
+    "caption": "The Home screen: Typing, Keyboard, Features, Accessibility, Data and About, each its own card.",
+    "host": "settings",
+    "setup": [
+      "am start -a android.intent.action.VIEW -d wmkeyboard://settings/typing",
+      "Then press back once to land on Home (Home itself has no direct deep-link route; typing is the nearest allowlisted route and backing out is faster than the app icon's default launch, which may show onboarding on a fresh install)."
+    ],
+    "status": "todo",
+    "notes": "Scroll position should show at least the Typing and Keyboard groups; the setup card at top will read 'WM Keyboard is your active keyboard' if the harness device already has it enabled \u2014 that's the desired state for a clean shot.",
+    "kind": "still"
+  },
+  {
+    "id": "reference/settings/search-results",
+    "page": "docs/src/content/docs/reference/settings/index.mdx",
+    "file": "src/assets/screens/reference/settings/search-results.webp",
+    "caption": "Typing a query in Settings search \u2014 each result carries a breadcrumb to the screen it lives on.",
+    "host": "settings",
+    "setup": [
+      "am start -a android.intent.action.VIEW -d wmkeyboard://settings/search",
+      "Type a query such as \"haptic\" into the focused search field so results populate before the shot."
+    ],
+    "status": "todo",
+    "notes": "Pick a query that returns 3-6 results so the breadcrumb text is legible at phone-frame scale; avoid a query with only one hit.",
+    "kind": "still"
+  },
+  {
+    "id": "reference/settings/about-screen",
+    "page": "docs/src/content/docs/reference/settings/about.mdx",
+    "file": "src/assets/screens/reference/settings/about-screen.webp",
+    "caption": "The About screen: Share, App, Documentation, Third party, and Word lists groups.",
+    "host": "settings",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.MainActivity (launches straight to the Settings home screen)",
+      "'about' is not in the wmkeyboard://settings/<route> deep-link allowlist (only typing, appearance, themes, languages, tools, search are) \u2014 tap the 'About' row inside the standalone 'About' group near the bottom of the home screen instead",
+      "capture the resulting About screen, scrolled to show at least the Share and App groups"
+    ],
+    "status": "todo",
+    "notes": "Home screen has a dedicated SettingsGroup(\"About\") with a single HomeItem that navigates to route \"about\" (MainActivity.kt ~line 872). Full scroll shows five groups: Share, App, Documentation, Third party, Word lists.",
+    "kind": "still"
+  },
+  {
+    "id": "reference/settings/licenses-screen",
+    "page": "docs/src/content/docs/reference/settings/about.mdx",
+    "file": "src/assets/screens/reference/settings/licenses-screen.webp",
+    "caption": "The open-source licences list, grouped by bundled components, downloadable data packs, and online services.",
+    "host": "settings",
+    "setup": [
+      "From the About screen (see about-screen entry), tap 'Open-source licences' under the 'Third party' group",
+      "capture the top of the list showing the 'Bundled in the app' group header and its first several rows"
+    ],
+    "status": "todo",
+    "notes": "A full-flavor build shows 19 bundled entries (12 always-present + 7 gated behind ENABLE_GRAMMAR/ENABLE_ML_KIT_*/ENABLE_LOCAL_LLM/ENABLE_WHISPER in app/build.gradle.kts); lite shows 12. Capture from a full build so all three groups (bundled/data packs/services) and the flavor-gated rows are visible if scrolled.",
+    "kind": "still"
+  },
+  {
+    "id": "reference/settings/diagnostics-screen",
+    "page": "docs/src/content/docs/reference/settings/about.mdx",
+    "file": "src/assets/screens/reference/settings/diagnostics-screen.webp",
+    "caption": "Diagnostics: report actions, the app log with its filter and level chips, and Clear app log at the bottom.",
+    "host": "settings",
+    "setup": [
+      "From the About screen (see about-screen entry), tap 'Diagnostics' under the 'App' group",
+      "reproduce at least one logged event beforehand (open any panel) so the App log list isn't empty for the shot",
+      "capture the top of the Diagnostics screen: Report group (Share diagnostics / Copy to clipboard / Include the system log toggle) through the App log filter and level chips"
+    ],
+    "status": "todo",
+    "notes": "Route is \"debug_log\", also not deep-link allowlisted. Crashes group only renders if core/common's DebugLog crash file is non-empty \u2014 leave it out of frame unless deliberately capturing that state, in which case use a separate entry.",
+    "kind": "still"
+  },
+  {
+    "id": "reference/settings/accessibility-vision-group",
+    "page": "docs/src/content/docs/reference/settings/accessibility.mdx",
+    "file": "src/assets/screens/reference/settings/accessibility-vision-group.webp",
+    "caption": "The Vision group at the top of the Accessibility screen.",
+    "host": "settings",
+    "setup": [
+      "am start -a android.intent.action.VIEW -d wmkeyboard://settings/typing",
+      "accessibility is not in the deep-link allowlist (only typing, appearance, themes, languages, tools, search are) \u2014 from the settings home screen, tap the Accessibility row under the Accessibility group to reach this screen, then screenshot the Vision group at the top"
+    ],
+    "status": "todo",
+    "notes": "Same screenshot subject as accessibility/vision-group registered by the finished /accessibility/overview/ guide page, but a distinct asset id/path under reference/settings/ per the manifest namespace rule \u2014 capture agent may reuse a single capture for both ids if convenient, but register/file both separately.",
+    "kind": "still"
+  },
+  {
+    "id": "reference/settings/accessibility-color-vision-picker",
+    "page": "docs/src/content/docs/reference/settings/accessibility.mdx",
+    "file": "src/assets/screens/reference/settings/accessibility-color-vision-picker.webp",
+    "caption": "Colour vision set to Deutan, with the five filter options shown in the picker.",
+    "host": "settings",
+    "setup": [
+      "Navigate to the Accessibility screen (no direct deep link; via Settings home > Accessibility)",
+      "Tap the Colour vision row to open its choice picker and select Deutan"
+    ],
+    "status": "todo",
+    "notes": "Picker options in order: Off, Deutan, Protan, Tritan, Grey (on-screen label is 'Grey', not 'Grayscale').",
+    "kind": "still"
+  },
+  {
+    "id": "reference/settings/accessibility-screen-reader-group",
+    "page": "docs/src/content/docs/reference/settings/accessibility.mdx",
+    "file": "src/assets/screens/reference/settings/accessibility-screen-reader-group.webp",
+    "caption": "TalkBack support set to Gestures, with the Keyboard gestures service row asking to be granted.",
+    "host": "settings",
+    "setup": [
+      "Navigate to the Accessibility screen (via Settings home > Accessibility)",
+      "Set TalkBack support to Gestures so the conditional Keyboard gestures service row appears",
+      "Capture before granting the 'WM Keyboard gestures' accessibility service so the row reads 'Keyboard gestures service required'"
+    ],
+    "status": "todo",
+    "notes": "Same subject as accessibility/gestures-service-required from the finished guide page; distinct id/path per this page's manifest namespace.",
+    "kind": "still"
+  },
+  {
+    "id": "reference/settings/accessibility-touch-group",
+    "page": "docs/src/content/docs/reference/settings/accessibility.mdx",
+    "file": "src/assets/screens/reference/settings/accessibility-touch-group.webp",
+    "caption": "The Touch group: ignore repeated presses and long-press delay.",
+    "host": "settings",
+    "setup": [
+      "Navigate to the Accessibility screen (via Settings home > Accessibility)",
+      "Scroll to the bottom Touch group and screenshot Ignore repeated presses, Long-press delay, Key size & spacing, and Haptics & sound rows"
+    ],
+    "status": "todo",
+    "notes": "Same subject as accessibility/touch-group from the finished guide page; distinct id/path per this page's manifest namespace.",
+    "kind": "still"
+  },
+  {
+    "id": "reference/settings/addons-home",
+    "page": "docs/src/content/docs/reference/settings/addons.mdx",
+    "file": "src/assets/screens/reference/settings/addons-home.webp",
+    "caption": "The Addons screen: repositories you've added, plus everything installed from them.",
+    "host": "settings",
+    "setup": [
+      "adb shell am start -a android.intent.action.VIEW -d \"wmkeyboard://addons\"  # this is AddonDeepLink's own scheme, not the wmkeyboard://settings/<route> shortcut allowlist (which does NOT include \"addons\")"
+    ],
+    "status": "todo",
+    "notes": "Best captured once the seeded sample repository (AddonStore.SEED_URL) has finished loading, so both the Repositories and Installed groups have content instead of the empty/loading state.",
+    "kind": "still"
+  },
+  {
+    "id": "reference/settings/addon-detail-page",
+    "page": "docs/src/content/docs/reference/settings/addons.mdx",
+    "file": "src/assets/screens/reference/settings/addon-detail-page.webp",
+    "caption": "An addon's detail page: previews, description, licence, and the install action.",
+    "host": "settings",
+    "setup": [
+      "adb shell am start -a android.intent.action.VIEW -d \"wmkeyboard://addons\"",
+      "Tap the seeded sample repository row to open its catalogue",
+      "Tap an addon card that has at least one preview screenshot in its manifest, so the PreviewGallery section renders"
+    ],
+    "status": "todo",
+    "notes": "No direct deep link exists to one specific addon without already knowing its repo URL and addon id (that's the wmkeyboard://addon?repo=...&id=... form, documented in reference/deep-links.mdx). Pick whichever card in the sample repo has previews.",
+    "kind": "still"
+  },
+  {
+    "id": "reference/settings/sticker-packs-list",
+    "page": "docs/src/content/docs/reference/settings/addons.mdx",
+    "file": "src/assets/screens/reference/settings/sticker-packs-list.webp",
+    "caption": "Sticker packs: your own packs, plus New pack and Import a pack.",
+    "host": "settings",
+    "setup": [
+      "Open Settings home",
+      "Tap the search icon and search \"Sticker packs\"",
+      "Tap the result (breadcrumb Tools \u203a Stickers)"
+    ],
+    "status": "todo",
+    "notes": "Route is sticker_packs, not deep-link allowlisted. Create one or two packs with a handful of stickers each before capturing so the thumbnail strips and \"N sticker(s)\" subtitles are visible rather than an empty list.",
+    "kind": "still"
+  },
+  {
+    "id": "reference/settings/plugins-screen",
+    "page": "docs/src/content/docs/reference/settings/addons.mdx",
+    "file": "src/assets/screens/reference/settings/plugins-screen.webp",
+    "caption": "Plugins: the Allow plugins switch and what a plugin can and can't do.",
+    "host": "settings",
+    "setup": [
+      "Open Settings home",
+      "Tap the search icon and search \"Manage plugins\"",
+      "Tap the result (breadcrumb Tools \u203a Plugins)"
+    ],
+    "status": "todo",
+    "notes": "Route is plugins, not deep-link allowlisted. The 'What a plugin can and can't do' static group shows regardless of switch state; turn Allow plugins on first if the shot should also include the Installed/Add groups.",
+    "kind": "still"
+  },
+  {
+    "id": "reference/settings/plugin-detail-screen",
+    "page": "docs/src/content/docs/reference/settings/addons.mdx",
+    "file": "src/assets/screens/reference/settings/plugin-detail-screen.webp",
+    "caption": "A plugin's own screen: enabled switch, capabilities, stored data, and the log.",
+    "host": "settings",
+    "setup": [
+      "Turn on Allow plugins (Tools \u203a Plugins)",
+      "Install any .wmplugin file (from an addon repository's Plugin entry, or Install from a file with a prepared sample plugin)",
+      "From the Plugins screen's Installed group, tap \"Manage <plugin name>\""
+    ],
+    "status": "todo",
+    "notes": "Needs a real installed plugin (route plugin/{pluginId}) \u2014 use a small sample .wmplugin fixture if the seeded addon repo has no Plugin-type entry. The Log group only appears once the plugin has printed or errored at least once, so trigger it before capturing if that group should be visible.",
+    "kind": "still"
+  },
+  {
+    "id": "reference/settings/appearance-overview",
+    "page": "docs/src/content/docs/reference/settings/appearance.mdx",
+    "file": "src/assets/screens/reference/settings/appearance-overview.webp",
+    "caption": "The Appearance settings screen, showing Style, Keys, and Toolbar.",
+    "host": "settings",
+    "setup": [
+      "am start -a android.intent.action.VIEW -d wmkeyboard://settings/appearance"
+    ],
+    "status": "todo",
+    "notes": "Top of the Appearance screen \u2014 Style group (3 nav rows) and start of Keys group should be visible without scrolling on a typical device.",
+    "kind": "still"
+  },
+  {
+    "id": "reference/settings/appearance-keys",
+    "page": "docs/src/content/docs/reference/settings/appearance.mdx",
+    "file": "src/assets/screens/reference/settings/appearance-keys.webp",
+    "caption": "The Keys sliders \u2014 corner radius, label size, and hint size.",
+    "host": "settings",
+    "setup": [
+      "am start -a android.intent.action.VIEW -d wmkeyboard://settings/appearance",
+      "scroll to the Keys group"
+    ],
+    "status": "todo",
+    "notes": "Scroll past the Style group's three nav rows to reach the Keys group's three sliders.",
+    "kind": "still"
+  },
+  {
+    "id": "reference/settings/appearance-toolbar",
+    "page": "docs/src/content/docs/reference/settings/appearance.mdx",
+    "file": "src/assets/screens/reference/settings/appearance-toolbar.webp",
+    "caption": "The Toolbar group, with the confirmation dialog for turning the toolbar off.",
+    "host": "settings",
+    "setup": [
+      "am start -a android.intent.action.VIEW -d wmkeyboard://settings/appearance",
+      "scroll to the Toolbar group",
+      "tap the 'Show the toolbar' toggle to trigger the 'Disable the toolbar?' AlertDialog"
+    ],
+    "status": "todo",
+    "notes": "Two options: capture the flat toolbar row list, or capture the AlertDialog overlay (title 'Disable the toolbar?', MainActivity.kt:3401-3423) triggered by turning off 'Show the toolbar'. The dialog is the more distinctive shot since the row list itself is long (13 rows) and won't fit one screen anyway.",
+    "kind": "still"
+  },
+  {
+    "id": "reference/settings/backup-screen",
+    "page": "docs/src/content/docs/reference/settings/backup.mdx",
+    "file": "src/assets/screens/reference/settings/backup-screen.webp",
+    "caption": "The Backup & restore screen: what to include, plus the export and import buttons.",
+    "host": "settings",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.MainActivity",
+      "Route 'backup' is NOT in the wmkeyboard://settings deep-link allowlist (SettingsShortcuts.kt only allows typing/appearance/themes/languages/tools/search) \u2014 no deep link works here.",
+      "Tap-sequence: on the settings home screen, tap the 'Data' group, then tap 'Backup & restore'.",
+      "Scroll so the full 'Include in export' toggle group and the Export/Import buttons are visible in frame (may need two shots or a tall capture)."
+    ],
+    "status": "todo",
+    "notes": "Shows the 10-toggle export list at its default state (Settings/Themes/Snippets/Custom word lists/Addon repositories on, the rest off) plus the Export backup and Import backup buttons below.",
+    "kind": "still"
+  },
+  {
+    "id": "reference/settings/backup-import-confirm",
+    "page": "docs/src/content/docs/reference/settings/backup.mdx",
+    "file": "src/assets/screens/reference/settings/backup-import-confirm.webp",
+    "caption": "The import confirmation dialog, listing what a backup file contains before anything is applied.",
+    "host": "settings",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.MainActivity",
+      "No deep link for 'backup' route (not in the allowlist) \u2014 navigate via Data > Backup & restore.",
+      "Push a sample .wmconfig.json backup file to the device first (adb push), or export one from the app, then tap 'Import backup' and pick that file to trigger the 'Import backup?' AlertDialog.",
+      "Capture while the AlertDialog is showing, before tapping Import or Cancel."
+    ],
+    "status": "todo",
+    "notes": "Dialog text is built dynamically per section found in the file (e.g. 'Themes: 3 custom themes') plus a fixed merge/replace sentence and an optional API-keys warning line \u2014 pick a sample file with at least 2-3 sections and, ideally, one containing API keys so the warning line is visible too.",
+    "kind": "still"
+  },
+  {
+    "id": "reference/settings/dictionary-personal",
+    "page": "docs/src/content/docs/reference/settings/dictionaries.mdx",
+    "file": "src/assets/screens/reference/settings/dictionary-personal.webp",
+    "caption": "The Personal dictionary screen: learned and manually-added words, most-used first.",
+    "host": "settings",
+    "setup": [
+      "adb shell am start -a android.intent.action.VIEW -d 'wmkeyboard://settings/typing'",
+      "Scroll to the Suggestions group and tap Personal dictionary.",
+      "Have a mix of typed (low count) and manually-added (weight 200, reads 'Added by you') words so both row styles show."
+    ],
+    "status": "todo",
+    "notes": "Route 'dictionary' is not deep-link allowlisted (only typing/appearance/themes/languages/tools/search are, per SettingsShortcuts.kt), so deep-link to typing and tap the Suggestions row.",
+    "kind": "still"
+  },
+  {
+    "id": "reference/settings/dictionary-custom",
+    "page": "docs/src/content/docs/reference/settings/dictionaries.mdx",
+    "file": "src/assets/screens/reference/settings/dictionary-custom.webp",
+    "caption": "Custom dictionaries, grouped by language, with Import and From URL actions.",
+    "host": "settings",
+    "setup": [
+      "adb shell am start -a android.intent.action.VIEW -d 'wmkeyboard://settings/typing'",
+      "Scroll to the Suggestions group and tap Custom dictionaries.",
+      "Import at least one word list for one enabled language beforehand so a populated group and an empty group both appear if possible."
+    ],
+    "status": "todo",
+    "notes": "Route 'customdictionaries' is not deep-link allowlisted; reached via Typing screen only.",
+    "kind": "still"
+  },
+  {
+    "id": "reference/settings/dictionary-blacklist",
+    "page": "docs/src/content/docs/reference/settings/dictionaries.mdx",
+    "file": "src/assets/screens/reference/settings/dictionary-blacklist.webp",
+    "caption": "The Suggestion blacklist editor, empty until you add a word.",
+    "host": "settings",
+    "setup": [
+      "adb shell am start -a android.intent.action.VIEW -d 'wmkeyboard://settings/typing'",
+      "Scroll to the Suggestions group and tap Suggestion blacklist.",
+      "Add 2-3 words beforehand so the alphabetically-sorted list isn't empty."
+    ],
+    "status": "todo",
+    "notes": "Route 'blacklist' is not deep-link allowlisted; reached via Typing screen only.",
+    "kind": "still"
+  },
+  {
+    "id": "reference/settings/dictionary-emoji-keywords",
+    "page": "docs/src/content/docs/reference/settings/dictionaries.mdx",
+    "file": "src/assets/screens/reference/settings/dictionary-emoji-keywords.webp",
+    "caption": "Emoji keywords: the Downloads toggle, a bundled-catalog row, and an imported pack for one language.",
+    "host": "settings",
+    "setup": [
+      "adb shell am start -a android.intent.action.VIEW -d 'wmkeyboard://settings/search'",
+      "Search 'Emoji keywords' and tap the result (the Emoji screen itself is not deep-link allowlisted, so search is the reliable path).",
+      "Have one language with a downloaded bundled catalog and a second with an imported pack so both row kinds are visible under the Downloads toggle."
+    ],
+    "status": "todo",
+    "notes": "Route 'emoji' and 'emojikeywords' are both outside SettingsShortcuts.Routes (only typing/appearance/themes/languages/tools/search). Falling back to settings search is the cleanest path.",
+    "kind": "still"
+  },
+  {
+    "id": "reference/settings/emoji-overview",
+    "page": "docs/src/content/docs/reference/settings/emoji.mdx",
+    "file": "src/assets/screens/reference/settings/emoji-overview.webp",
+    "caption": "The Emoji settings screen, showing Access and Suggestions at the top.",
+    "host": "settings",
+    "setup": [
+      "am start -a android.intent.action.VIEW -d wmkeyboard://settings/emoji",
+      "Screen opens scrolled to the top \u2014 Access and Suggestions groups visible."
+    ],
+    "status": "todo",
+    "notes": "Top of the Emoji settings screen (route emoji, deep-link allowlisted).",
+    "kind": "still"
+  },
+  {
+    "id": "reference/settings/emoji-panel-group",
+    "page": "docs/src/content/docs/reference/settings/emoji.mdx",
+    "file": "src/assets/screens/reference/settings/emoji-panel-group.webp",
+    "caption": "The Emoji panel group, with the Emoji keywords row at the bottom.",
+    "host": "settings",
+    "setup": [
+      "am start -a android.intent.action.VIEW -d wmkeyboard://settings/emoji",
+      "Scroll to the 'Emoji panel' group (Return to keyboard after inserting ... Emoji keywords NavRow)."
+    ],
+    "status": "todo",
+    "notes": "Scroll-position shot; no deep link to the exact scroll offset, tap-scroll needed after opening route emoji.",
+    "kind": "still"
+  },
+  {
+    "id": "reference/settings/emoji-row-group",
+    "page": "docs/src/content/docs/reference/settings/emoji.mdx",
+    "file": "src/assets/screens/reference/settings/emoji-row-group.webp",
+    "caption": "The Emoji row group with Own row selected.",
+    "host": "settings",
+    "setup": [
+      "am start -a android.intent.action.VIEW -d wmkeyboard://settings/emoji",
+      "Scroll to 'Emoji row' group",
+      "Set Emoji row = Own row so the content/count/scroll rows and the Rows & bars caption are all visible"
+    ],
+    "status": "todo",
+    "notes": "Set Emoji row to 'Own row' before the shot so the conditional rows (content, count, scroll) and the caption about Rows & bars all render.",
+    "kind": "still"
+  },
+  {
+    "id": "reference/settings/emoji-style-group",
+    "page": "docs/src/content/docs/reference/settings/emoji.mdx",
+    "file": "src/assets/screens/reference/settings/emoji-style-group.webp",
+    "caption": "The Emoji style group, with the live font preview row and font choices.",
+    "host": "settings",
+    "setup": [
+      "am start -a android.intent.action.VIEW -d wmkeyboard://settings/emoji",
+      "Scroll to the bottom 'Emoji style' group"
+    ],
+    "status": "todo",
+    "notes": "Shows the live 8-emoji preview row plus the Emoji font choice and Hide emoji this phone can't display toggle.",
+    "kind": "still"
+  },
+  {
+    "id": "reference/settings/emoji-keywords-screen",
+    "page": "docs/src/content/docs/reference/settings/emoji.mdx",
+    "file": "src/assets/screens/reference/settings/emoji-keywords-screen.webp",
+    "caption": "The Emoji keywords screen, with per-language download and import controls.",
+    "host": "settings",
+    "setup": [
+      "am start -a android.intent.action.VIEW -d wmkeyboard://settings/emoji",
+      "Tap the 'Emoji keywords' row in the Emoji panel group (route emojikeywords is not itself deep-link allowlisted, reach it by tap)"
+    ],
+    "status": "todo",
+    "notes": "Sub-screen reached only by tapping the NavRow from the Emoji settings screen \u2014 emojikeywords is not on the deep-link allowlist.",
+    "kind": "still"
+  },
+  {
+    "id": "reference/settings/fonts-english-section",
+    "page": "docs/src/content/docs/reference/settings/fonts.mdx",
+    "file": "src/assets/screens/reference/settings/fonts-english-section.webp",
+    "caption": "The Keyboard font screen: English font section with Google Fonts, each row previewed in its own face.",
+    "host": "settings",
+    "setup": [
+      "am start -a android.intent.action.VIEW -d wmkeyboard://settings/fonts",
+      "scroll to top so the English font section's curated Google Fonts list is visible"
+    ],
+    "status": "todo",
+    "notes": "Route 'fonts' is allowlisted for deep-link (verified in MainActivity.kt NavHost). This can reuse/match the themes/font-picker-english shot already registered by the themes/fonts.mdx page if the capture team wants to dedupe \u2014 same screen, same section.",
+    "kind": "still"
+  },
+  {
+    "id": "reference/settings/icons-overview",
+    "page": "docs/src/content/docs/reference/settings/icons.mdx",
+    "file": "src/assets/screens/reference/settings/icons-overview.webp",
+    "caption": "The Icons screen: the active pack (with export and delete on each installed row), then the slot list.",
+    "host": "settings",
+    "setup": [
+      "am start -a android.intent.action.VIEW -d wmkeyboard://settings/appearance",
+      "Tap the 'Icons' row under Style to open the Icons screen ('icons' is not itself in the shortcut deep-link allowlist, so route there via Appearance)",
+      "Scroll so the Icon pack group (Built-in icons + at least one installed pack with its Export/Delete icon buttons visible) is in frame"
+    ],
+    "status": "todo",
+    "notes": "Install at least one icon pack beforehand (import a .wmicons file, or install one from an addon repo) so an installed-pack row with Export/Delete trailing icons is visible, not just Built-in icons.",
+    "kind": "still"
+  },
+  {
+    "id": "reference/settings/icons-delete-confirm",
+    "page": "docs/src/content/docs/reference/settings/icons.mdx",
+    "file": "src/assets/screens/reference/settings/icons-delete-confirm.webp",
+    "caption": "Confirming deletion of an installed icon pack.",
+    "host": "settings",
+    "setup": [
+      "am start -a android.intent.action.VIEW -d wmkeyboard://settings/appearance",
+      "Tap 'Icons' to open the Icons screen",
+      "Install an icon pack first if none is present, then tap the trash/Delete icon on that pack's row to open the 'Delete <pack name>?' AlertDialog"
+    ],
+    "status": "todo",
+    "notes": "Dialog text is 'Delete <pack name>? Its <N> icon(s) are removed from this device.' with Delete/Cancel buttons.",
+    "kind": "still"
+  },
+  {
+    "id": "reference/settings/icons-slot-picker",
+    "page": "docs/src/content/docs/reference/settings/icons.mdx",
+    "file": "src/assets/screens/reference/settings/icons-slot-picker.webp",
+    "caption": "The per-slot picker: search, the built-in grid, and Use my own SVG\u2026",
+    "host": "settings",
+    "setup": [
+      "am start -a android.intent.action.VIEW -d wmkeyboard://settings/appearance",
+      "Tap 'Icons' to open the Icons screen",
+      "Tap any slot row (e.g. 'Shift' in the Keys group) to open its IconPickerDialog"
+    ],
+    "status": "todo",
+    "notes": "Dialog shows a 'Search Material Symbols' field, a scrollable grid of the 181 built-in icons, a 'Use my own SVG\u2026' button, and 'Use default'/'Cancel' buttons.",
+    "kind": "still"
+  },
+  {
+    "id": "reference/settings/key-layouts-list",
+    "page": "docs/src/content/docs/reference/settings/keymaps.mdx",
+    "file": "src/assets/screens/reference/settings/key-layouts-list.webp",
+    "caption": "The Key layouts screen: your own layouts, an import row, and the enabled built-ins.",
+    "host": "settings",
+    "setup": [
+      "am start -n com.wasimaster.wmkeyboard/.app.MainActivity",
+      "Tap 'Key layouts' under the Keyboard group on Settings home ('keymaps' is not on the wmkeyboard://settings/ deep-link allowlist, so this needs a tap sequence, not a deep link)."
+    ],
+    "status": "todo",
+    "notes": "Fresh install shows QWERTY + Avro + Probhat + Jatiya under Built in, and empty 'Your layouts'. For a more interesting shot, add/edit one custom layout first so 'Your layouts' isn't showing its empty state.",
+    "kind": "still"
+  },
+  {
+    "id": "reference/settings/key-layouts-delete-confirm",
+    "page": "docs/src/content/docs/reference/settings/keymaps.mdx",
+    "file": "src/assets/screens/reference/settings/key-layouts-delete-confirm.webp",
+    "caption": "Confirming a reset on an edited built-in layout.",
+    "host": "settings",
+    "setup": [
+      "From the Key layouts list, edit a Built in layout (e.g. QWERTY) so it carries an override.",
+      "Back out to the Key layouts list, then tap the Reset icon on that row."
+    ],
+    "status": "todo",
+    "notes": "Must edit a shipped layout first, otherwise its row has no Delete/Reset button at all.",
+    "kind": "still"
+  },
+  {
+    "id": "reference/settings/layout-editor-grid",
+    "page": "docs/src/content/docs/reference/settings/keymaps.mdx",
+    "file": "src/assets/screens/reference/settings/layout-editor-grid.webp",
+    "caption": "The visual layout editor: the Letters layer, a key selected, and its row action bar.",
+    "host": "settings",
+    "setup": [
+      "From the Key layouts list, tap any enabled layout to open Edit layout.",
+      "Tap a key in the grid so the row action bar and row height slider appear before capturing."
+    ],
+    "status": "todo",
+    "notes": "Capture on the Letters layer with a key selected so the row action bar (Row N, add/duplicate/delete row) and row height slider are both visible.",
+    "kind": "still"
+  },
+  {
+    "id": "reference/settings/key-edit-sheet",
+    "page": "docs/src/content/docs/reference/settings/keymaps.mdx",
+    "file": "src/assets/screens/reference/settings/key-edit-sheet.webp",
+    "caption": "The key edit sheet: label, output, action, width, and long-press alternates.",
+    "host": "settings",
+    "setup": [
+      "From Edit layout, tap any Text-action key to open its bottom sheet.",
+      "Scroll the sheet so Label/Output/Action/Width and the long-press alternates field are all in frame."
+    ],
+    "status": "todo",
+    "notes": "Pick a key with the 'Types text' action so the icon/icon-hint/alternates/field-adaptation fields (text-action-only) are shown, not just the universal fields.",
+    "kind": "still"
+  },
+  {
+    "id": "reference/settings/layout-json",
+    "page": "docs/src/content/docs/reference/settings/keymaps.mdx",
+    "file": "src/assets/screens/reference/settings/layout-json.webp",
+    "caption": "The Layout JSON screen: the stored layout as text, with syntax highlighting.",
+    "host": "settings",
+    "setup": [
+      "From Edit layout, tap 'Edit as JSON' to open Layout JSON.",
+      "Scroll the text field so real syntax-highlighted content is visible, not just the top of an empty-looking field."
+    ],
+    "status": "todo",
+    "notes": "Capture on a layout with a nontrivial layer (a few rows/keys) so the JSON isn't a near-empty document.",
+    "kind": "still"
+  },
+  {
+    "id": "reference/settings/keypress-overview",
+    "page": "docs/src/content/docs/reference/settings/keypress.mdx",
+    "file": "src/assets/screens/reference/settings/keypress-overview.webp",
+    "caption": "The top of the Key press screen: the Haptic feedback group with its style chips.",
+    "host": "settings",
+    "setup": [
+      "am start -n com.wasimaster.wmkeyboard/.app.MainActivity",
+      "Tap the \"Key press\" tile on the settings home grid (route \"keypress\" is not in the wmkeyboard://settings/ deep-link allowlist \u2014 only typing, appearance, themes, languages, tools, search are \u2014 so there is no am start -d shortcut)."
+    ],
+    "status": "todo",
+    "notes": "Top of screen, no scroll needed: Key press haptics toggle + Haptic style chip row visible without scrolling on a standard phone height.",
+    "kind": "still"
+  },
+  {
+    "id": "reference/settings/keypress-haptic-custom-sliders",
+    "page": "docs/src/content/docs/reference/settings/keypress.mdx",
+    "file": "src/assets/screens/reference/settings/keypress-haptic-custom-sliders.webp",
+    "caption": "Haptic style set to Custom, showing the strength and intensity sliders.",
+    "host": "settings",
+    "setup": [
+      "am start -n com.wasimaster.wmkeyboard/.app.MainActivity",
+      "Tap \"Key press\", then tap the \"Custom\" chip under Haptic style to reveal the Haptic strength and Haptic intensity sliders."
+    ],
+    "status": "todo",
+    "notes": "Same underlying UI state as typing/haptic-style-custom-sliders on the /typing/feedback/ guide page, but scoped/named separately per this page's own manifest namespace \u2014 capture once and it may be reusable, otherwise capture the same state twice.",
+    "kind": "still"
+  },
+  {
+    "id": "reference/settings/keypress-popup-timing",
+    "page": "docs/src/content/docs/reference/settings/keypress.mdx",
+    "file": "src/assets/screens/reference/settings/keypress-popup-timing.webp",
+    "caption": "Key popup and Timing groups, mid-screen.",
+    "host": "settings",
+    "setup": [
+      "am start -n com.wasimaster.wmkeyboard/.app.MainActivity",
+      "Tap \"Key press\", scroll to where the Key popup group's sliders (Popup font size, Popup height) meet the Timing group's sliders (Long-press delay, Key repeat interval, Caps-lock double-tap)."
+    ],
+    "status": "todo",
+    "notes": "Pick a scroll position that shows the boundary between the two groups so both headers are visible.",
+    "kind": "still"
+  },
+  {
+    "id": "reference/settings/keypress-long-press-shortcuts",
+    "page": "docs/src/content/docs/reference/settings/keypress.mdx",
+    "file": "src/assets/screens/reference/settings/keypress-long-press-shortcuts.webp",
+    "caption": "Long-press shortcuts: the currency keys field and the Hold-letter toggles.",
+    "host": "settings",
+    "setup": [
+      "am start -n com.wasimaster.wmkeyboard/.app.MainActivity",
+      "Tap \"Key press\", scroll to the bottom Long-press shortcuts group so the Currency keys text field and at least a few of the Hold A/C/X/V/Z/Y toggles are visible together."
+    ],
+    "status": "todo",
+    "notes": "Currency keys field should show its backfilled default (\u09f3 \u20ac \u00a3 \u00a5 \u20b9 \u20bf) since it has never been edited on a fresh install.",
+    "kind": "still"
+  },
+  {
+    "id": "reference/settings/languages-top",
+    "page": "docs/src/content/docs/reference/settings/languages.mdx",
+    "file": "src/assets/screens/reference/settings/languages-top.webp",
+    "caption": "The Languages screen: Your languages, Add language, and (once more than one layout is enabled) Switch order.",
+    "host": "settings",
+    "setup": [
+      "adb shell am start -a android.intent.action.VIEW -d wmkeyboard://settings/languages"
+    ],
+    "status": "todo",
+    "notes": "Fresh install shows 2 rows (English, \u09ac\u09be\u0982\u09b2\u09be) plus Add language; Switch order group is visible since 4 layouts are enabled by default. Capture without scrolling.",
+    "kind": "still"
+  },
+  {
+    "id": "reference/settings/add-language-screen",
+    "page": "docs/src/content/docs/reference/settings/languages.mdx",
+    "file": "src/assets/screens/reference/settings/add-language-screen.webp",
+    "caption": "Add language: search matches endonym, English name, id, and locale tag.",
+    "host": "settings",
+    "setup": [
+      "adb shell am start -a android.intent.action.VIEW -d wmkeyboard://settings/languages",
+      "tap 'Add language'"
+    ],
+    "status": "todo",
+    "notes": "Leave the search box empty so the shot shows registry order (English, \u09ac\u09be\u0982\u09b2\u09be, Fran\u00e7ais, ...) rather than alphabetical \u2014 this is the visual proof for the 'not alphabetical' claim in the text.",
+    "kind": "still"
+  },
+  {
+    "id": "reference/settings/languages-bottom",
+    "page": "docs/src/content/docs/reference/settings/languages.mdx",
+    "file": "src/assets/screens/reference/settings/languages-bottom.webp",
+    "caption": "Further down the screen: Per-app language, System language switcher, and Complex scripts.",
+    "host": "settings",
+    "setup": [
+      "adb shell am start -a android.intent.action.VIEW -d wmkeyboard://settings/languages",
+      "scroll to the bottom of the screen"
+    ],
+    "status": "todo",
+    "notes": "Complex scripts group is visible by default because Bengali (INDIC_CLUSTER script) is enabled out of the box.",
+    "kind": "still"
+  },
+  {
+    "id": "reference/settings/language-detail-bengali",
+    "page": "docs/src/content/docs/reference/settings/languages.mdx",
+    "file": "src/assets/screens/reference/settings/language-detail-bengali.webp",
+    "caption": "Bengali's own screen: Layouts, Numerals, Also suggest from, Dictionary, and Emoji.",
+    "host": "settings",
+    "setup": [
+      "adb shell am start -a android.intent.action.VIEW -d wmkeyboard://settings/languages",
+      "tap '\u09ac\u09be\u0982\u09b2\u09be \u00b7 Bangla'"
+    ],
+    "status": "todo",
+    "notes": "Bengali is a good representative because it's enabled by default, has a bundled dictionary, a downloadable wordlist, an emoji pack, and shows Also suggest from (English is the other enabled language) \u2014 but has no CJK options group.",
+    "kind": "still"
+  },
+  {
+    "id": "reference/settings/cjk-options-chinese",
+    "page": "docs/src/content/docs/reference/settings/languages.mdx",
+    "file": "src/assets/screens/reference/settings/cjk-options-chinese.webp",
+    "caption": "Chinese options: the conversion-dictionary packs, Traditional characters, Fuzzy Pinyin, and Double Pinyin.",
+    "host": "settings",
+    "setup": [
+      "adb shell am start -a android.intent.action.VIEW -d wmkeyboard://settings/languages",
+      "tap 'Add language', search 'chinese', tap the Chinese entry to add and open it",
+      "scroll to the 'Chinese options' group at the bottom"
+    ],
+    "status": "todo",
+    "notes": "Capture with Traditional characters toggled on so the Standard/Taiwan/Hong Kong radio group is also visible in frame. Note for the capture operator: a stale code comment in LanguageSettingsScreens.kt implies only the Xiaohe Double Pinyin scheme is selectable ('coming soon' for the rest) \u2014 verified false in current source (DoublePinyin.kt has tables for all 5 non-Off schemes), so the screenshot should show none of them disabled.",
+    "kind": "still"
+  },
+  {
+    "id": "reference/settings/layout-overview",
+    "page": "docs/src/content/docs/reference/settings/layout.mdx",
+    "file": "src/assets/screens/reference/settings/layout-overview.webp",
+    "caption": "The Layout & size screen, opening on the Number row and Numerals groups.",
+    "host": "settings",
+    "setup": [
+      "Not deep-link allowlisted (SettingsShortcuts.Routes = typing, appearance, themes, languages, tools, search only) \u2014 navigate manually: launch the app, tap the 'Layout & size' tile on the home screen (AspectRatio icon)."
+    ],
+    "status": "todo",
+    "notes": "Capture with default (off) state \u2014 Number row off, so only the toggle and the Numerals group's Type native digits in row show below it.",
+    "kind": "still"
+  },
+  {
+    "id": "reference/settings/layout-per-screen-editor",
+    "page": "docs/src/content/docs/reference/settings/layout.mdx",
+    "file": "src/assets/screens/reference/settings/layout-per-screen-editor.webp",
+    "caption": "A Per-screen sizing row expanded, with Keyboard scale and the other override sliders.",
+    "host": "settings",
+    "setup": [
+      "From the Layout & size screen (see layout-overview setup), scroll to 'Per-screen sizing' and tap the 'Landscape' row to expand its inline editor."
+    ],
+    "status": "todo",
+    "notes": "Shows Keyboard scale, Key height, Bottom padding, Keyboard width, Font size sliders plus the 'Follow portrait again' row once any field is touched.",
+    "kind": "still"
+  },
+  {
+    "id": "reference/settings/layout-one-handed-split-floating",
+    "page": "docs/src/content/docs/reference/settings/layout.mdx",
+    "file": "src/assets/screens/reference/settings/layout-one-handed-split-floating.webp",
+    "caption": "One-handed mode set to Right, with the Portrait width, height, and side sliders below it.",
+    "host": "settings",
+    "setup": [
+      "From the Layout & size screen, scroll to 'One-handed, split & floating' and set One-handed mode to Right so the Portrait/Landscape sub-sliders render."
+    ],
+    "status": "todo",
+    "notes": "Default is One-handed mode = Off, which hides the per-orientation sliders \u2014 set it to Right for the capture so the full group is visible.",
+    "kind": "still"
+  },
+  {
+    "id": "reference/settings/layout-bottom-row-keys",
+    "page": "docs/src/content/docs/reference/settings/layout.mdx",
+    "file": "src/assets/screens/reference/settings/layout-bottom-row-keys.webp",
+    "caption": "The Bottom-row keys group: Comma key opens emoji and Emoji key instead of the globe key.",
+    "host": "settings",
+    "setup": [
+      "From the Layout & size screen, scroll to the bottom 'Bottom-row keys' group."
+    ],
+    "status": "todo",
+    "notes": "Default state: Comma key opens emoji = Off, Emoji key instead of globe = On.",
+    "kind": "still"
+  },
+  {
+    "id": "reference/settings/modes-list",
+    "page": "docs/src/content/docs/reference/settings/modes.mdx",
+    "file": "src/assets/screens/reference/settings/modes-list.webp",
+    "caption": "Keyboard modes: the six default modes, each with its auto-activation summary, plus New mode.",
+    "host": "settings",
+    "setup": [
+      "'modes' is NOT in the wmkeyboard://settings/ deep-link allowlist (only typing, appearance, themes, languages, tools, search are) \u2014 no direct deep link works here",
+      "Open WM Keyboard settings, tap the Keyboard group's 'Keyboard modes' row (subtitle 'Per-app setups: email, browser, coding, passwords')",
+      "Capture on a fresh/default install so all six seeded modes are visible with their default binding summaries"
+    ],
+    "status": "todo",
+    "notes": "Row order is settings.keyboardModes as stored (seed order: Passwords, Email, Browser, Chat, Writing, Coding), each showing its icon + modeBindingsSummary (e.g. 'Auto: text fields', 'Auto: 6 apps + text fields', 'Auto: password fields'). New mode row has a plain Add icon at the bottom.",
+    "kind": "still"
+  },
+  {
+    "id": "reference/settings/mode-editor-top",
+    "page": "docs/src/content/docs/reference/settings/modes.mdx",
+    "file": "src/assets/screens/reference/settings/mode-editor-top.webp",
+    "caption": "Edit mode: name, icon, and the What this mode changes group.",
+    "host": "settings",
+    "setup": [
+      "From Keyboard modes, tap a built-in mode, e.g. Chat",
+      "Screenshot the top of the editor: Name field, Icon row, then Emoji row / Symbol row / Theme choices at the top of 'What this mode changes'"
+    ],
+    "status": "todo",
+    "notes": "Chat ships with emojiBarMode ALWAYS and no themeId set, so Theme should show 'Inherit \u2014 whatever theme is set' with no Clear button in this shot.",
+    "kind": "still"
+  },
+  {
+    "id": "reference/settings/mode-editor-custom-tools",
+    "page": "docs/src/content/docs/reference/settings/modes.mdx",
+    "file": "src/assets/screens/reference/settings/mode-editor-custom-tools.webp",
+    "caption": "A mode's Custom pinned tools turned on, with its own tool chips and reorder option.",
+    "host": "settings",
+    "setup": [
+      "From Keyboard modes, tap Chat (ships with toolbarTools already set, toolbarToolsAppend = true)",
+      "Scroll to the Custom pinned tools toggle (already on) and capture the revealed Pinned tools behaviour choice ('Add to mine'), the tool chip picker, and Modify pinned tool order"
+    ],
+    "status": "todo",
+    "notes": "No extra taps needed to reveal this section on Chat since it's a built-in with the toggle already on; the four selected chips should be Emoji, GIF, Sticker, Voice.",
+    "kind": "still"
+  },
+  {
+    "id": "reference/settings/mode-editor-activation",
+    "page": "docs/src/content/docs/reference/settings/modes.mdx",
+    "file": "src/assets/screens/reference/settings/mode-editor-activation.webp",
+    "caption": "Field-type chips and the bound app list at the bottom of the mode editor.",
+    "host": "settings",
+    "setup": [
+      "From Keyboard modes, tap Chat (has both apps and fieldKinds set, so it also shows the 'Both have to match' caption)",
+      "Scroll to 'Activate automatically for': the Text field-type chip selected, the caption, and the bound chat-app list (Messenger, Instagram, Telegram, WhatsApp, Signal, Discord) with the Add app row below"
+    ],
+    "status": "todo",
+    "notes": "Chat is the only default mode with both apps and field types set, making it the best example of the AND-match caption text.",
+    "kind": "still"
+  },
+  {
+    "id": "reference/settings/privacy-screen-groups",
+    "page": "docs/src/content/docs/reference/settings/privacy.mdx",
+    "file": "src/assets/screens/reference/settings/privacy-screen-groups.webp",
+    "caption": "The Privacy screen: On-device learning, Android backup, and Your data groups.",
+    "host": "settings",
+    "setup": [
+      "Privacy is NOT in the wmkeyboard://settings/<route> deep-link allowlist (SettingsShortcuts.kt only allows typing, appearance, themes, languages, tools, search) \u2014 cannot use the am start -d wmkeyboard://settings/... shortcut.",
+      "Launch com.wasimaster.wmkeyboard/.app.MainActivity normally, then tap through: Settings home -> 'Privacy' tile under the 'Data' group.",
+      "theme=dark (default)"
+    ],
+    "status": "todo",
+    "notes": "Full-screen capture of all three SettingsGroups (On-device learning / Android backup / Your data) stacked; may need a scroll or a shortened device chrome to fit all three plus the footer caption in one shot \u2014 if it doesn't fit, prioritize showing all group headers over the footer text.",
+    "kind": "still"
+  },
+  {
+    "id": "reference/settings/privacy-backup-info-dialog",
+    "page": "docs/src/content/docs/reference/settings/privacy.mdx",
+    "file": "src/assets/screens/reference/settings/privacy-backup-info-dialog.webp",
+    "caption": "The info dialog for Back up with Android, listing what's included and excluded.",
+    "host": "settings",
+    "setup": [
+      "Navigate to Settings -> Privacy (same tap path as privacy-screen-groups; no deep link available).",
+      "Tap the (i) info button next to 'Back up with Android' to open its explanation dialog (BACKUP_INFO text, MainActivity.kt:8403-8413)."
+    ],
+    "status": "todo",
+    "notes": "The dialog text is long \u2014 make sure the sentence 'Note that this does include saved API keys' is visible/legible in the crop, it's the one detail the page calls out as worth knowing.",
+    "kind": "still"
+  },
+  {
+    "id": "reference/settings/privacy-clear-learned-words",
+    "page": "docs/src/content/docs/reference/settings/privacy.mdx",
+    "file": "src/assets/screens/reference/settings/privacy-clear-learned-words.webp",
+    "caption": "Clear learned words, the only control in the Your data group.",
+    "host": "settings",
+    "setup": [
+      "Navigate to Settings -> Privacy (same tap path as privacy-screen-groups; no deep link available).",
+      "Scroll to the bottom 'Your data' group showing the standalone 'Clear learned words' OutlinedButton."
+    ],
+    "status": "todo",
+    "notes": "No dialog appears on tap \u2014 do not capture mid-tap, just the resting button in its group.",
+    "kind": "still"
+  },
+  {
+    "id": "reference/settings/rows-overview",
+    "page": "docs/src/content/docs/reference/settings/rows.mdx",
+    "file": "src/assets/screens/reference/settings/rows-overview.webp",
+    "caption": "The Rows & bars screen: Symbol row, Row order, and Symbol sets groups.",
+    "host": "settings",
+    "setup": [
+      "Navigate: Settings home -> Keyboard group -> \"Rows & bars\" row (no deep-link route allowlisted for this screen; 'rows' is not in SettingsShortcuts.Routes, so open via in-app navigation)"
+    ],
+    "status": "todo",
+    "notes": "Full-screen capture showing all three groups if they fit; scroll to top first.",
+    "kind": "still"
+  },
+  {
+    "id": "reference/settings/rows-symbol-sets",
+    "page": "docs/src/content/docs/reference/settings/rows.mdx",
+    "file": "src/assets/screens/reference/settings/rows-symbol-sets.webp",
+    "caption": "The Symbol sets group, with the edit icon open on Coding.",
+    "host": "settings",
+    "setup": [
+      "Navigate to Rows & bars (see rows-overview setup)",
+      "Scroll to the Symbol sets group",
+      "Tap the edit (pencil) icon on the Coding row to show Edit symbol set open, or capture the list row with the icon visible if a two-shot composite is preferred"
+    ],
+    "status": "todo",
+    "notes": "Caption implies the edit screen is open on Coding \u2014 capture either the Symbol sets list with Coding's edit icon highlighted, or the Edit symbol set screen itself pre-filled with Coding's name/characters. Pick whichever the capture agent finds clearer; both are defensible readings of the caption.",
+    "kind": "still"
+  },
+  {
+    "id": "reference/settings/themes-gallery-overview",
+    "page": "docs/src/content/docs/reference/settings/themes.mdx",
+    "file": "src/assets/screens/reference/settings/themes-gallery-overview.webp",
+    "caption": "The theme gallery: Mode, Auto (light + dark), and the Themes grid.",
+    "host": "settings",
+    "setup": [
+      "am start -a android.intent.action.VIEW -d \"wmkeyboard://settings/themes\"",
+      "Scroll so Mode, Material You colors, the Auto (light + dark) group (collapsed, Auto theme off), and the top of the Themes grid (Default card + a couple of built-in cards) are all visible in one frame"
+    ],
+    "status": "todo",
+    "notes": "ThemesScreen (ThemeScreens.kt:294-589). Keep Auto theme off for this shot so the collapsed state is what's shown; the expanded/Auto-on state is its own shot below.",
+    "kind": "still"
+  },
+  {
+    "id": "reference/settings/themes-auto-schedule",
+    "page": "docs/src/content/docs/reference/settings/themes.mdx",
+    "file": "src/assets/screens/reference/settings/themes-auto-schedule.webp",
+    "caption": "Auto theme on, with Time of day chosen and both clock rows visible.",
+    "host": "settings",
+    "setup": [
+      "am start -a android.intent.action.VIEW -d \"wmkeyboard://settings/themes\"",
+      "Tap the Auto theme switch on",
+      "Tap the Trigger segmented row's \"Time of day\" segment",
+      "Frame the Light theme / Dark theme picker rows, the Trigger row, and the Light theme from / Dark theme from time rows together"
+    ],
+    "status": "todo",
+    "notes": "Auto theme defaults off (AutoThemeSettings.enabled = false); Trigger defaults to System light/dark. This shot needs SCHEDULE selected to show the two time rows (7:00 AM / 7:00 PM defaults).",
+    "kind": "still"
+  },
+  {
+    "id": "reference/settings/themes-delete-confirm",
+    "page": "docs/src/content/docs/reference/settings/themes.mdx",
+    "file": "src/assets/screens/reference/settings/themes-delete-confirm.webp",
+    "caption": "Deleting a custom theme asks for confirmation before removing it.",
+    "host": "settings",
+    "setup": [
+      "am start -a android.intent.action.VIEW -d \"wmkeyboard://settings/themes\"",
+      "Tap Create theme to seed a disposable custom theme (named \"My theme\")",
+      "Back out to the gallery, find the new card under Your themes, tap its trash icon",
+      "Capture the resulting \u201cDelete theme?\u201d AlertDialog"
+    ],
+    "status": "todo",
+    "notes": "Dialog text is exact: title \"Delete theme?\", body \u201c\u201c${theme.name}\u201d will be removed permanently.\u201d (ThemeScreens.kt:715-716). Do not actually confirm delete if the capture harness needs the theme to stay for other shots \u2014 or delete last.",
+    "kind": "still"
+  },
+  {
+    "id": "reference/settings/themes-editor-overview",
+    "page": "docs/src/content/docs/reference/settings/themes.mdx",
+    "file": "src/assets/screens/reference/settings/themes-editor-overview.webp",
+    "caption": "The theme editor, live preview pinned above the color and shape controls.",
+    "host": "settings",
+    "setup": [
+      "am start -a android.intent.action.VIEW -d \"wmkeyboard://settings/themes\"",
+      "Tap Create theme (theme_edit/{id} is not in the wmkeyboard://settings deep-link allowlist \u2014 SettingsShortcuts.Routes only has typing/appearance/themes/languages/tools/search \u2014 so reach the editor by tapping through)",
+      "Scroll so the live preview, Theme name field, and the top of \"Start from a color\" (Dark theme switch + seed swatch row) are all visible"
+    ],
+    "status": "todo",
+    "notes": "ThemeEditorScreen (ThemeScreens.kt:727-1196). A freshly created theme is blue/dark by default (seeded from SeedSwatches.first(), dark = true).",
+    "kind": "still"
+  },
+  {
+    "id": "reference/settings/themes-editor-crop",
+    "page": "docs/src/content/docs/reference/settings/themes.mdx",
+    "file": "src/assets/screens/reference/settings/themes-editor-crop.webp",
+    "caption": "Cropping a background image: pinch to zoom, drag to reposition, three aspect presets.",
+    "host": "settings",
+    "setup": [
+      "In the theme editor (see themes-editor-overview setup), scroll to Board, tap Background image, pick a sample photo",
+      "Tap Crop image to open CropImageDialog",
+      "adb shell screenrecord --time-limit 6 --bit-rate 8M /sdcard/rec.mp4 &",
+      "Perform a slow pinch-zoom then a drag-to-pan gesture inside the crop frame",
+      "wait; adb pull /sdcard/rec.mp4",
+      "ffmpeg -i rec.mp4 -vf \"fps=15,scale=540:-1\" -c:v libwebp_anim -loop 0 -q:v 70 -an themes-editor-crop.webp"
+    ],
+    "status": "todo",
+    "notes": "Motion-only behavior (pinch/pan feel doesn't read in a still). Requires the still sibling reference/settings/themes-editor-crop-still below for reduced-motion readers; both entries share this page's single placeholder id/comment.",
+    "kind": "anim"
+  },
+  {
+    "id": "reference/settings/themes-editor-crop-still",
+    "page": "docs/src/content/docs/reference/settings/themes.mdx",
+    "file": "src/assets/screens/reference/settings/themes-editor-crop-still.webp",
+    "caption": "Cropping a background image: pinch to zoom, drag to reposition, three aspect presets.",
+    "host": "settings",
+    "setup": [
+      "Same setup as reference/settings/themes-editor-crop, but take a single screenshot mid-gesture (image panned/zoomed off-center) with the Keyboard/Wide/Square aspect segmented row visible instead of recording video"
+    ],
+    "status": "todo",
+    "notes": "Reduced-motion fallback for reference/settings/themes-editor-crop \u2014 not referenced by its own placeholder comment in the page; swapped in by the capture pipeline when reduced motion is preferred.",
+    "kind": "still"
+  },
+  {
+    "id": "reference/settings/tools-list",
+    "page": "docs/src/content/docs/reference/settings/tools.mdx",
+    "file": "src/assets/screens/reference/settings/tools-list.webp",
+    "caption": "The Tools screen: Colorful tool icons, then every tool grouped by what it does.",
+    "host": "settings",
+    "setup": [
+      "am start -a android.intent.action.VIEW -d wmkeyboard://settings/tools",
+      "scroll to show the Colorful tool icons toggle plus the start of the Panels group"
+    ],
+    "status": "todo",
+    "notes": "Top of the Tools list screen (ToolsSettings composable). Capture with default settings (all 60 tools enabled, colorful icons on) so the tune-icon and switch pattern is visible on a few rows.",
+    "kind": "still"
+  },
+  {
+    "id": "reference/settings/tool-detail-top",
+    "page": "docs/src/content/docs/reference/settings/tools.mdx",
+    "file": "src/assets/screens/reference/settings/tool-detail-top.webp",
+    "caption": "A tool's own detail screen: Enabled, Icon colour, and its keyword shortcut field above the tool's own settings.",
+    "host": "settings",
+    "setup": [
+      "am start -a android.intent.action.VIEW -d wmkeyboard://settings/tools",
+      "tap a tool row that has a keyword shortcut and options past the shared rows \u2014 e.g. Calculator or Wikipedia \u2014 to land on tool/{toolName}",
+      "capture the top of that screen: Enabled switch, Icon colour row, Keyword shortcut field"
+    ],
+    "status": "todo",
+    "notes": "No deep-link route exists for an individual tool/{toolName} screen (not in the allowlist) \u2014 requires a tap sequence from the Tools list. Pick a tool with both a keyword (present in SmartSuggest.defaultKeywords) and a tune icon so all three shared rows plus a hint of tool-specific settings are visible.",
+    "kind": "still"
+  },
+  {
+    "id": "reference/settings/typing-overview",
+    "page": "docs/src/content/docs/reference/settings/typing.mdx",
+    "file": "src/assets/screens/reference/settings/typing-overview.webp",
+    "caption": "The Typing settings screen, scrolled to the Automatic corrections group.",
+    "host": "settings",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.MainActivity -a android.intent.action.VIEW -d wmkeyboard://settings/typing",
+      "screen opens already scrolled to the top (Automatic corrections group) \u2014 no further scroll needed"
+    ],
+    "status": "todo",
+    "notes": "Route is deep-link allowlisted (SettingsShortcuts.kt Routes set). Capture with Autocorrect on so the confidence slider and the three gated toggles are visible.",
+    "kind": "still"
+  },
+  {
+    "id": "reference/settings/typing-suggestions-group",
+    "page": "docs/src/content/docs/reference/settings/typing.mdx",
+    "file": "src/assets/screens/reference/settings/typing-suggestions-group.webp",
+    "caption": "The Suggestions group, including the three dictionary and blacklist navigation rows.",
+    "host": "settings",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.MainActivity -a android.intent.action.VIEW -d wmkeyboard://settings/typing",
+      "scroll down to the 'Suggestions' group heading"
+    ],
+    "status": "todo",
+    "notes": "Consider adding 1-2 blacklist words beforehand so the Suggestion blacklist row shows a count subtitle instead of the empty-state text.",
+    "kind": "still"
+  },
+  {
+    "id": "reference/settings/typing-smart-chips-group",
+    "page": "docs/src/content/docs/reference/settings/typing.mdx",
+    "file": "src/assets/screens/reference/settings/typing-smart-chips-group.webp",
+    "caption": "The Smart chips group: the master switch and its four per-family toggles.",
+    "host": "settings",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.MainActivity -a android.intent.action.VIEW -d wmkeyboard://settings/typing",
+      "scroll down to the 'Smart chips' group heading"
+    ],
+    "status": "todo",
+    "notes": "Default currency is BDT (Taka) \u2014 the Convert currencies subtitle will read 'offers the amount in BDT' unless the device's currencyTo has been changed first.",
+    "kind": "still"
+  },
+  {
+    "id": "reference/settings/typing-gestures-group",
+    "page": "docs/src/content/docs/reference/settings/typing.mdx",
+    "file": "src/assets/screens/reference/settings/typing-gestures-group.webp",
+    "caption": "The Gestures group: the spacebar's Quick swipe and Hold + swipe pickers.",
+    "host": "settings",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.MainActivity -a android.intent.action.VIEW -d wmkeyboard://settings/typing",
+      "scroll down to the 'Gestures' group, framing the 'Quick swipe on spacebar' and 'Hold + swipe on spacebar' rows"
+    ],
+    "status": "todo",
+    "notes": "Full-flavor build will additionally show 'Handwrite with swipes' above Glide across spacebar; lite build skips straight to it. Pick one flavor consistently with other Gestures-related screenshots on typing/gestures.mdx and typing/glide-typing.mdx.",
+    "kind": "still"
+  },
+  {
+    "id": "reference/settings/typing-volume-keys-group",
+    "page": "docs/src/content/docs/reference/settings/typing.mdx",
+    "file": "src/assets/screens/reference/settings/typing-volume-keys-group.webp",
+    "caption": "Volume cursor control and its media-aware release toggle.",
+    "host": "settings",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.MainActivity -a android.intent.action.VIEW -d wmkeyboard://settings/typing",
+      "scroll down to the 'Volume keys' group",
+      "tap 'Volume cursor control' to turn it on, which reveals 'Release while audio plays' below it"
+    ],
+    "status": "todo",
+    "notes": "Both rows only appear together once Volume cursor control is on (default off) \u2014 must toggle it on before capturing.",
+    "kind": "still"
+  },
+  {
+    "id": "reference/settings/typing-physical-keyboard-group",
+    "page": "docs/src/content/docs/reference/settings/typing.mdx",
+    "file": "src/assets/screens/reference/settings/typing-physical-keyboard-group.webp",
+    "caption": "The Physical keyboard group, with Tool shortcuts list showing the current shortcut key.",
+    "host": "settings",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.MainActivity -a android.intent.action.VIEW -d wmkeyboard://settings/typing",
+      "scroll to the bottom, to the 'Physical keyboard' group"
+    ],
+    "status": "todo",
+    "notes": "Tool shortcuts list row only appears while the 'Tool shortcuts' toggle above it is on (default on) \u2014 no action needed at defaults.",
+    "kind": "still"
+  },
+  {
+    "id": "reference/settings/typing-hwshortcuts-screen",
+    "page": "docs/src/content/docs/reference/settings/typing.mdx",
+    "file": "src/assets/screens/reference/settings/typing-hwshortcuts-screen.webp",
+    "caption": "The Tool shortcuts list screen: every tool with its assigned letter.",
+    "host": "settings",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.MainActivity -a android.intent.action.VIEW -d wmkeyboard://settings/typing",
+      "scroll to 'Physical keyboard' and tap the 'Tool shortcuts list' row (route 'hwshortcuts' is NOT deep-link allowlisted \u2014 SettingsShortcuts.kt Routes only contains typing/appearance/themes/languages/tools/search \u2014 so this screen must be reached by the tap, not a second am start)"
+    ],
+    "status": "todo",
+    "notes": "Capture at default bindings (23 letters bound, Reset to defaults not pressed) so it matches the default table on typing/hardware-keyboard.mdx.",
+    "kind": "still"
   }
 ]
