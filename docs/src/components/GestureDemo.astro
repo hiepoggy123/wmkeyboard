@@ -17,7 +17,7 @@ const { type, caption } = Astro.props;
 const ROWS = [10, 9, 7];
 ---
 
-<figure class="wm-gesture-demo" data-type={type}>
+<figure class="wm-gesture-demo not-content" data-type={type}>
 	<div class="gd-stage" aria-hidden="true">
 		<div class="gd-board">
 			{type === 'glide' && (
@@ -55,8 +55,8 @@ const ROWS = [10, 9, 7];
 		)}
 		{type === 'space-hold' && (
 			<div class="gd-picker">
-				<span>English</span>
 				<span class="gd-pick-active">বাংলা</span>
+				<span>English</span>
 				<span>Español</span>
 			</div>
 		)}
@@ -138,7 +138,7 @@ const ROWS = [10, 9, 7];
 
 	/* ------- space-swipe ------- */
 	[data-type='space-swipe'] .gd-finger {
-		top: 87%;
+		top: 83.8%;
 		animation: gd-swipe-x 3.2s ease-in-out infinite;
 	}
 	@keyframes gd-swipe-x {
@@ -158,8 +158,8 @@ const ROWS = [10, 9, 7];
 	}
 	.gd-lang-a { animation: gd-lang-a 3.2s infinite; }
 	.gd-lang-b { animation: gd-lang-b 3.2s infinite; color: var(--sl-color-accent); }
-	@keyframes gd-lang-a { 0%, 55% { opacity: 1; } 65%, 100% { opacity: 0; } }
-	@keyframes gd-lang-b { 0%, 55% { opacity: 0; } 65%, 95% { opacity: 1; } 100% { opacity: 0; } }
+	@keyframes gd-lang-a { 0%, 34% { opacity: 1; } 48%, 100% { opacity: 0; } }
+	@keyframes gd-lang-b { 0%, 36% { opacity: 0; } 50%, 95% { opacity: 1; } 100% { opacity: 0; } }
 
 	/* ------- space-hold ------- */
 	[data-type='space-hold'] .gd-finger {
@@ -167,12 +167,12 @@ const ROWS = [10, 9, 7];
 		animation: gd-hold-y 3.6s ease-in-out infinite;
 	}
 	@keyframes gd-hold-y {
-		0%, 10% { top: 87%; opacity: 0; transform: scale(1); }
+		0%, 10% { top: 83.8%; opacity: 0; transform: scale(1); }
 		18% { opacity: 1; transform: scale(1); }
-		26% { transform: scale(1.35); top: 87%; }
+		26% { transform: scale(1.35); top: 83.8%; }
 		40% { transform: scale(1); }
-		55%, 70% { top: 52%; opacity: 1; }
-		85%, 100% { top: 52%; opacity: 0; }
+		55%, 70% { top: 41.5%; opacity: 1; }
+		85%, 100% { top: 41.5%; opacity: 0; }
 	}
 	.gd-picker {
 		position: absolute;
@@ -205,8 +205,8 @@ const ROWS = [10, 9, 7];
 
 	/* ------- long-press ------- */
 	[data-type='long-press'] .gd-finger {
-		left: 31%;
-		top: 22%;
+		left: 28.8%;
+		top: 38.7%;
 		animation: gd-press 3s ease-in-out infinite;
 	}
 	@keyframes gd-press {
@@ -218,8 +218,8 @@ const ROWS = [10, 9, 7];
 	}
 	.gd-popup {
 		position: absolute;
-		left: 31%;
-		top: 6%;
+		left: 28.8%;
+		top: 7%;
 		transform: translateX(-50%);
 		display: flex;
 		gap: 0.5em;

@@ -1,12 +1,15 @@
 ---
 /**
- * Theme swatch grid that live-recolours a mock keyboard.
+ * Theme swatch grid that live-recolours a mock keyboard, drawn to match the
+ * real WM Keyboard anatomy: toolbar of round icon buttons, borderless
+ * soft-rounded keys with corner hint characters, "◂ English ▸" spacebar and
+ * an accent enter key.
  *
  *   <ThemePreview />                      — built-in presets
  *   <ThemePreview themes={[{ name, board, key, text, accent, bar }]} />
  *
- * Colours are plain CSS values (gradients allowed for `board`). Purely
- * illustrative — real theming docs live in /themes/.
+ * `board` may be a gradient. Purely illustrative — real theming docs live
+ * in /themes/.
  */
 interface Theme {
 	name: string;
@@ -21,20 +24,24 @@ interface Props {
 	caption?: string;
 }
 const DEFAULTS: Theme[] = [
-	{ name: 'Midnight', board: '#17182b', key: '#24263e', text: '#edeefb', accent: '#6c74f6', bar: '#1d1f33' },
-	{ name: 'AMOLED', board: '#000000', key: '#111114', text: '#e8e8ee', accent: '#4c8df6', bar: '#0a0a0d' },
-	{ name: 'Daylight', board: '#eef0f7', key: '#ffffff', text: '#1d2033', accent: '#5058dd', bar: '#e2e5f0' },
-	{ name: 'Sunset', board: 'linear-gradient(150deg,#2b1a3d,#4d1d3a)', key: '#3a2450', text: '#ffe9f2', accent: '#ff7aa2', bar: '#331f47' },
-	{ name: 'Forest', board: '#12211a', key: '#1c3328', text: '#e3f2e9', accent: '#4fce8d', bar: '#182b21' },
-	{ name: 'High contrast', board: '#000000', key: '#000000', text: '#ffffff', accent: '#ffd400', bar: '#000000' },
+	{ name: 'Midnight', board: 'linear-gradient(180deg,#0e1b33,#0a1224)', key: '#1d2b47', text: '#dbe4f8', accent: '#3b82f6', bar: '#16233c' },
+	{ name: 'AMOLED', board: '#000000', key: '#15151a', text: '#e8e8ee', accent: '#4c8df6', bar: '#0a0a0d' },
+	{ name: 'Daylight', board: '#e8ebf4', key: '#ffffff', text: '#1d2033', accent: '#5058dd', bar: '#dde1ee' },
+	{ name: 'Sunset', board: 'linear-gradient(160deg,#2b1a3d,#4d1d3a)', key: '#3a2450', text: '#ffe9f2', accent: '#ff7aa2', bar: '#331f47' },
+	{ name: 'Forest', board: '#12211a', key: '#1e3629', text: '#e3f2e9', accent: '#4fce8d', bar: '#182b21' },
+	{ name: 'High contrast', board: '#000000', key: '#101010', text: '#ffffff', accent: '#ffd400', bar: '#000000' },
 ];
 const { themes = DEFAULTS, caption } = Astro.props;
 const first = themes[0];
-const KEY_ROWS = ['qwertyuiop', 'asdfghjkl', 'zxcvbnm'];
+
+// [label, hint?] per key; mirrors the app's default English layout.
+const ROW1: [string, string?][] = [['q'], ['w'], ['e', 'è'], ['r'], ['t'], ['y'], ['u', 'ù'], ['i', 'ì'], ['o', 'ò'], ['p']];
+const ROW2: [string, string?][] = [['a', '@'], ['s', '#'], ['d', '$'], ['f'], ['g', '&'], ['h'], ['j'], ['k', '('], ['l', ')']];
+const ROW3: [string, string?][] = [['z', '*'], ['x', '"'], ['c', "'"], ['v'], ['b', ';'], ['n', '!'], ['m', '?']];
 ---
 
 <figure
-	class="wm-theme-preview"
+	class="wm-theme-preview not-content"
 	style={`--tp-board:${first.board};--tp-key:${first.key};--tp-text:${first.text};--tp-accent:${first.accent};--tp-bar:${first.bar}`}
 >
 	<div class="tp-swatches" role="tablist" aria-label="Theme presets">
@@ -59,26 +66,45 @@ const KEY_ROWS = ['qwertyuiop', 'asdfghjkl', 'zxcvbnm'];
 	</div>
 
 	<div class="tp-board" aria-hidden="true">
-		<div class="tp-bar">
-			<span class="tp-sugg tp-sugg-accent">keyboard</span>
-			<span class="tp-sugg">keyboards</span>
-			<span class="tp-sugg">key</span>
+		<div class="tp-toolbar">
+			<span class="tp-tool">
+				<svg viewBox="0 0 24 24"><path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+			</span>
+			<span class="tp-tool">
+				<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="9" cy="10" r="1.1" fill="currentColor"/><circle cx="15" cy="10" r="1.1" fill="currentColor"/><path d="M8.5 14.5c1 1.2 2.2 1.8 3.5 1.8s2.5-.6 3.5-1.8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+			</span>
+			<span class="tp-tool">
+				<svg viewBox="0 0 24 24"><rect x="6" y="5" width="12" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M9 5V4a1.5 1.5 0 0 1 1.5-1.5h3A1.5 1.5 0 0 1 15 4v1" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>
+			</span>
+			<span class="tp-tool">
+				<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+			</span>
 		</div>
-		{KEY_ROWS.map((row, i) => (
-			<div class="tp-row">
-				{i === 2 && <span class="tp-key tp-wide">⇧</span>}
-				{row.split('').map((c) => (
-					<span class="tp-key">{c}</span>
-				))}
-				{i === 2 && <span class="tp-key tp-wide">⌫</span>}
-			</div>
-		))}
 		<div class="tp-row">
-			<span class="tp-key tp-wide">?123</span>
-			<span class="tp-key">,</span>
-			<span class="tp-key tp-spacebar"></span>
-			<span class="tp-key">.</span>
-			<span class="tp-key tp-wide tp-enter">⏎</span>
+			{ROW1.map(([c, hint]) => (
+				<span class="tp-key">{c}{hint && <i class="tp-hint">{hint}</i>}</span>
+			))}
+		</div>
+		<div class="tp-row tp-row-inset">
+			{ROW2.map(([c, hint]) => (
+				<span class="tp-key">{c}{hint && <i class="tp-hint">{hint}</i>}</span>
+			))}
+		</div>
+		<div class="tp-row">
+			<span class="tp-key tp-mod tp-wide">⇧</span>
+			{ROW3.map(([c, hint]) => (
+				<span class="tp-key">{c}{hint && <i class="tp-hint">{hint}</i>}</span>
+			))}
+			<span class="tp-key tp-mod tp-wide">⌫</span>
+		</div>
+		<div class="tp-row">
+			<span class="tp-key tp-mod tp-wide tp-small">?123</span>
+			<span class="tp-key">,<i class="tp-hint">!</i></span>
+			<span class="tp-key tp-spacebar"><span class="tp-space-label">◂&ensp;English&ensp;▸</span></span>
+			<span class="tp-key">.<i class="tp-hint">…</i></span>
+			<span class="tp-key tp-enter tp-wide">
+				<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M15.5 15.5L20 20" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+			</span>
 		</div>
 	</div>
 	{caption && <figcaption>{caption}</figcaption>}
@@ -98,6 +124,7 @@ const KEY_ROWS = ['qwertyuiop', 'asdfghjkl', 'zxcvbnm'];
 		display: inline-flex;
 		align-items: center;
 		gap: 0.45em;
+		margin: 0;
 		padding: 0.25em 0.7em 0.25em 0.3em;
 		border: 1px solid var(--sl-color-gray-5);
 		border-radius: 999px;
@@ -125,63 +152,99 @@ const KEY_ROWS = ['qwertyuiop', 'asdfghjkl', 'zxcvbnm'];
 		border-radius: 2px;
 		border: 1px solid;
 	}
+
 	.tp-board {
 		display: flex;
 		flex-direction: column;
-		gap: 6px;
-		padding: 10px;
-		border-radius: 0.9rem;
+		gap: 7px;
+		padding: 12px 8px 10px;
+		border-radius: 1rem;
 		background: var(--tp-board);
 		border: 1px solid var(--sl-color-gray-5);
 		transition: background 250ms ease;
 		max-width: 26rem;
 	}
-	.tp-bar {
+	.tp-toolbar {
 		display: flex;
+		justify-content: space-around;
+		align-items: center;
+		padding: 0 0.6rem 0.3rem;
+	}
+	.tp-tool {
+		display: inline-flex;
+		width: 1.9rem;
+		height: 1.9rem;
+		align-items: center;
 		justify-content: center;
-		gap: 1.2em;
-		padding: 0.3em 0 0.45em;
-		border-radius: 0.5em;
+		border-radius: 50%;
 		background: var(--tp-bar);
-		transition: background 250ms ease;
-	}
-	.tp-sugg {
 		color: var(--tp-text);
-		opacity: 0.75;
-		font-size: 0.72rem;
-		transition: color 250ms ease;
+		opacity: 0.85;
+		transition: background 250ms ease, color 250ms ease;
 	}
-	.tp-sugg-accent {
-		color: var(--tp-accent);
-		opacity: 1;
-		font-weight: 650;
+	.tp-tool svg {
+		width: 1.05rem;
+		height: 1.05rem;
 	}
 	.tp-row {
 		display: flex;
 		justify-content: center;
-		gap: 5px;
+		gap: 6px;
+	}
+	.tp-row-inset {
+		padding: 0 4.5%;
 	}
 	.tp-key {
+		position: relative;
 		flex: 1 1 0;
 		min-width: 0;
-		padding: 0.5em 0;
-		border-radius: 0.4em;
+		padding: 0.62em 0;
+		border-radius: 0.62em;
 		background: var(--tp-key);
 		color: var(--tp-text);
-		font-size: 0.7rem;
+		font-size: 0.78rem;
 		line-height: 1;
 		text-align: center;
 		transition: background 250ms ease, color 250ms ease;
 	}
-	.tp-wide {
-		flex-grow: 1.6;
+	.tp-hint {
+		position: absolute;
+		top: 3px;
+		right: 5px;
+		font-size: 0.5rem;
+		font-style: normal;
+		opacity: 0.55;
 	}
+	.tp-mod {
+		background: color-mix(in srgb, var(--tp-key) 55%, var(--tp-board));
+	}
+	.tp-wide { flex-grow: 1.55; }
+	.tp-small { font-size: 0.62rem; padding-top: 0.78em; padding-bottom: 0.78em; }
 	.tp-spacebar {
-		flex-grow: 4.5;
+		flex-grow: 4.2;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+	.tp-space-label {
+		font-size: 0.6rem;
+		letter-spacing: 0.04em;
+		opacity: 0.55;
 	}
 	.tp-enter {
+		display: flex;
+		align-items: center;
+		justify-content: center;
 		background: var(--tp-accent);
-		color: var(--tp-board);
+		color: #fff;
+	}
+	.tp-enter svg {
+		width: 0.95rem;
+		height: 0.95rem;
+	}
+	:global(:root[data-theme='light']) .tp-enter,
+	.tp-enter {
+		color: color-mix(in srgb, var(--tp-board) 20%, #fff);
 	}
 	figcaption {
 		margin-top: 0.5rem;
