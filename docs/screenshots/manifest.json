@@ -3181,5 +3181,60 @@
     "status": "todo",
     "notes": "Insert score commits text in the form '83 WPM \u00b7 96% accuracy (30s)'. A personal-best banner is a nice-to-have if this isn't the first run at that config, but not required.",
     "kind": "still"
+  },
+  {
+    "id": "privacy/tools-enabled-switches",
+    "page": "docs/src/content/docs/privacy/network.mdx",
+    "file": "src/assets/screens/privacy/tools-enabled-switches.webp",
+    "caption": "The Tools screen: every tool has its own Enabled switch, on by default.",
+    "host": "settings",
+    "setup": [
+      "adb shell am start -a android.intent.action.VIEW -d wmkeyboard://settings/tools"
+    ],
+    "status": "todo",
+    "notes": "Top-level Tools settings screen (ToolsSettings composable, MainActivity.kt ~line 5873) listing every ToolbarTool with its Enabled switch; enabledTools defaults to every tool. 'tools' is in the SettingsShortcuts deep-link allowlist, so the single adb command lands directly on this screen.",
+    "kind": "still"
+  },
+  {
+    "id": "privacy/ai-ollama-plain-http",
+    "page": "docs/src/content/docs/privacy/network.mdx",
+    "file": "src/assets/screens/privacy/ai-ollama-plain-http.webp",
+    "caption": "AI tool settings: a self-hosted Ollama or LM Studio server address, with the plain-HTTP disclosure below it.",
+    "host": "settings",
+    "setup": [
+      "adb shell am start -a android.intent.action.VIEW -d wmkeyboard://settings/tools",
+      "Tap the 'AI' row to open Tools / AI writing tools",
+      "Tap the Ollama or LM Studio provider chip to reveal the server-address field and the 'Traffic to a self-hosted server is plain HTTP, and the app allows cleartext traffic app-wide to support it. Keep the server on a network you trust.' note"
+    ],
+    "status": "todo",
+    "notes": "The per-tool AI screen (route 'tool/AI') is not in the deep-link allowlist (only typing/appearance/themes/languages/tools/search are), so this needs a tap after landing on Tools \u2014 no direct wmkeyboard:// URI. This id is distinct from tools/ai.mdx's own registered shots (ai-panel-idle, ai-need-setup, ai-result-ready, ai-settings-providers, ai-settings-local-catalog) \u2014 none of those already cover the Ollama/LM Studio plain-HTTP note specifically, so this is not a duplicate, but double-check at capture time in case that page's manifest grew one since.",
+    "kind": "still"
+  },
+  {
+    "id": "privacy/privacy-screen-groups",
+    "page": "docs/src/content/docs/privacy/overview.mdx",
+    "file": "src/assets/screens/privacy/privacy-screen-groups.webp",
+    "caption": "The Privacy screen: On-device learning, Android backup, and Your data groups.",
+    "host": "settings",
+    "setup": [
+      "am start -a android.intent.action.VIEW -d wmkeyboard://settings/privacy"
+    ],
+    "status": "todo",
+    "notes": "Full-screen shot of the Privacy settings screen showing all three SettingsGroup headers (On-device learning, Android backup, Your data) \u2014 scroll to capture all three if they don't fit in one viewport, or take the top of the screen where On-device learning starts.",
+    "kind": "still"
+  },
+  {
+    "id": "privacy/smart-chips-currency-toggle",
+    "page": "docs/src/content/docs/privacy/overview.mdx",
+    "file": "src/assets/screens/privacy/smart-chips-currency-toggle.webp",
+    "caption": "Convert currencies, on by default under Smart chips \u2014 the one smart chip that reaches the network.",
+    "host": "settings",
+    "setup": [
+      "am start -a android.intent.action.VIEW -d wmkeyboard://settings/typing",
+      "Scroll to the Smart chips group and ensure Convert currencies is visible with its toggle in the on state."
+    ],
+    "status": "todo",
+    "notes": "Not in the deep-link allowlist beyond 'typing' itself (which is allowlisted); the Smart chips group is partway down that screen so a scroll is needed after the deep link lands.",
+    "kind": "still"
   }
 ]
