@@ -5,20 +5,117 @@ sidebar:
   order: 7
 ---
 
-:::caution[Draft page]
-Scaffolding only — real content pending. The outline below is the checklist for what this page must cover.
-:::
+import PhoneFrame from '@components/PhoneFrame.astro';
+import SettingsPath from '@components/SettingsPath.astro';
+import KeyCap from '@components/KeyCap.astro';
 
-## Planned coverage
+Plug in a Bluetooth or USB keyboard and WM Keyboard doesn't just get out of the way — it keeps running the same engine underneath. Autocorrect, suggestions and transliteration all work on physical keystrokes exactly as they do on the soft keys, and a leader key opens any tool without your hand ever leaving the keyboard.
 
-- Enabling hardware keyboard input; the interception gate
-- What you get: autocorrect, suggestions, text transforms on physical typing
-- The leader key: double-tap Ctrl, then a letter opens a tool; editable bindings
-- Arrow-key panel navigation and the drawn focus ring; Esc behaviour
-- Number keys pick suggestions; 'Ctrl shortcuts as raw key events'
-- Shortcut table (link to Reference → Shortcuts)
+<PhoneFrame caption="Typing on a physical keyboard: a word underlined mid-correction in the field.">
+  {/* shot: typing/hardware-typing-live */}
+</PhoneFrame>
 
-{/* TODO(sonnet): replace this stub. Turn the outline into real sections,
-   add screenshots with <PhoneFrame>, mark settings with <SettingsPath>,
-   keys with <KeyCap>, and edition limits with <Flavor>.
-   Conventions live in docs/CONTENT_GUIDE.md. */}
+## Typing on a physical keyboard
+
+<SettingsPath path="Typing / Physical keyboard / Process hardware keys" />
+
+With **Process hardware keys** on (the default), a key you press on a physical keyboard runs through the exact same code path as a tap on the screen: phonetic layouts transliterate as you go, words compose for suggestions, autocorrect fires on <KeyCap>Space</KeyCap>, and <KeyCap>⌫</KeyCap> undoes a swipe or a correction instead of just deleting a character. If you've turned on wrap-around-selection for brackets and quotes, that carries over too — select some text and type an opening bracket or quote on the physical keyboard and it wraps the selection, same as it would from a tap.
+
+Turn the toggle off and physical keys type their raw characters straight into the field, letting the keyboard's own layout — and the system, not WM Keyboard's autocorrect — own input entirely.
+
+Two things stay true no matter how this toggle is set:
+
+- **Shortcuts, navigation and function keys always go straight to the app.** <KeyCap>Ctrl</KeyCap>+<KeyCap>C</KeyCap>, the arrow keys, <KeyCap>Tab</KeyCap>, <KeyCap>Esc</KeyCap> and forward-delete are never intercepted for typing — only actual character keys are. AltGr combinations are the one exception that looks like a shortcut but isn't: a German keyboard's AltGr+Q for "@" arrives as Ctrl+Alt together, and the keyboard treats that as a character rather than a shortcut, decoding it the same way the system does.
+- **Password fields and structured fields never get autocorrect help.** Email, URL, number, phone, date, time and date-time fields, and anything marked as a password, always take raw physical typing — there's nothing to transliterate or correct in a field that isn't ordinary prose.
+
+A physical dead key (an accent key that combines with the next letter) is composed by Android itself before the keystroke reaches the keyboard, so WM Keyboard doesn't try to run its own accent logic on top — you get the accented character the same way any other app would see it. One soft-keyboard-only behavior worth knowing: a bare press of the physical <KeyCap>Shift</KeyCap> key is just a modifier, so it doesn't cycle a selection's capitalization the way tapping the on-screen <KeyCap>Shift</KeyCap> key does.
+
+## Opening tools with the leader key
+
+<SettingsPath path="Typing / Physical keyboard / Tool shortcuts list" />
+
+**Tool shortcuts** (on by default) let you open any tool without touching the screen at all. Double-tap <KeyCap>Ctrl</KeyCap> — nothing else uses that combination, so it's safe by default — and a small overlay appears listing the letters on offer. Press a bound letter and its tool opens; press <KeyCap>T</KeyCap> for the full toolbox, or <KeyCap>?</KeyCap> to expand the overlay into a complete legend. If you don't press anything, the overlay disappears on its own after a few seconds.
+
+<PhoneFrame caption="The tool-picker overlay after double-tapping Ctrl, showing the bound letters.">
+  {/* shot: typing/hardware-tool-picker */}
+</PhoneFrame>
+
+The default letter for each tool is close to its own initial, wherever that letter was still free:
+
+| Key | Tool | Key | Tool |
+| --- | --- | --- | --- |
+| <KeyCap>A</KeyCap> | AI writing tools | <KeyCap>P</KeyCap> | Password generator |
+| <KeyCap>B</KeyCap> | Power saving | <KeyCap>Q</KeyCap> | QR code generator |
+| <KeyCap>C</KeyCap> | Clipboard | <KeyCap>R</KeyCap> | Translate |
+| <KeyCap>D</KeyCap> | Dictionary | <KeyCap>S</KeyCap> | Snippets |
+| <KeyCap>E</KeyCap> | Emoji | <KeyCap>U</KeyCap> | Unit converter |
+| <KeyCap>G</KeyCap> | GIFs | <KeyCap>V</KeyCap> | Voice typing |
+| <KeyCap>H</KeyCap> | Hide keyboard | <KeyCap>W</KeyCap> | Web search |
+| <KeyCap>I</KeyCap> | Image search | <KeyCap>X</KeyCap> | Text editing |
+| <KeyCap>K</KeyCap> | Stickers | <KeyCap>Y</KeyCap> | Special symbols |
+| <KeyCap>L</KeyCap> | Calculator | <KeyCap>Z</KeyCap> | Undo |
+| <KeyCap>M</KeyCap> | Media controls | | |
+| <KeyCap>N</KeyCap> | Numpad | | |
+| <KeyCap>O</KeyCap> | Settings shortcut | | |
+
+Open **Tool shortcuts list** (reachable only while Tool shortcuts is on) to change any of it: tap the shortcut key row to pick a different double-tapped modifier (<KeyCap>Ctrl</KeyCap>, <KeyCap>Alt</KeyCap> or <KeyCap>Shift</KeyCap>) or capture an arbitrary chord live from an attached keyboard, and tap any tool's row to type a new single letter or digit for it. **Reset to defaults** puts every letter and the shortcut key itself back the way they started.
+
+<PhoneFrame caption="The Tool shortcuts list screen: every tool with the letter that opens it.">
+  {/* shot: typing/hardware-shortcuts-list */}
+</PhoneFrame>
+
+<KeyCap>T</KeyCap> and <KeyCap>?</KeyCap> are reserved and can never be bound to a tool — they always open the toolbox and the cheat sheet, respectively. <KeyCap>F</KeyCap> and <KeyCap>J</KeyCap> have no default binding; whatever tool you'd want on them is still one press away through the toolbox until you assign it a letter yourself. The full binding table and cheat sheet also live in [Hardware shortcuts](/reference/shortcuts/).
+
+## Driving a tool with the keyboard
+
+<SettingsPath path="Typing / Physical keyboard / Arrow keys move a highlight" />
+
+Once a tool is open, **Arrow keys move a highlight** (on by default) lets you drive it without touching the screen. The arrow keys move a highlighted outline over the panel's results, chips or search box, <KeyCap>Enter</KeyCap> activates whatever's highlighted, and <KeyCap>Tab</KeyCap> jumps between the panel's sections — search, category chips, then results — once the highlight exists. The highlight is a filled, outlined ring in your theme's accent color, and it only ever appears after you press a key; it never shows up while you're using the keyboard by touch.
+
+<PhoneFrame caption="The focus ring highlighting a result inside an open panel after an arrow-key press.">
+  {/* shot: typing/hardware-focus-ring */}
+</PhoneFrame>
+
+<SettingsPath path="Typing / Physical keyboard / Esc closes the tool" />
+
+**Esc closes the tool** (on by default) makes <KeyCap>Esc</KeyCap> shut whatever panel or picker the keyboard has open. It only ever consumes the key when the keyboard actually has something open — with nothing open, <KeyCap>Esc</KeyCap> goes straight to the app, so it still stops a page loading or backs out of insert mode in an editor.
+
+## Picking a suggestion from the keyboard
+
+<SettingsPath path="Typing / Physical keyboard / Number keys pick suggestions" />
+
+Since the suggestion strip can't be tapped while you're typing on a physical keyboard, **Number keys pick suggestions** gives you a keystroke instead, with three modes:
+
+- **Off** — number keys always type digits.
+- **After the shortcut key** (the default) — double-tap the shortcut key, then press <KeyCap>1</KeyCap> through <KeyCap>9</KeyCap> to commit that suggestion.
+- **Alt + number** — <KeyCap>Alt</KeyCap>+<KeyCap>1</KeyCap> through <KeyCap>Alt</KeyCap>+<KeyCap>9</KeyCap> commit directly, one keystroke shorter, but opt-in: browsers, editors and chat apps often claim Alt+number for tab or workspace switching.
+
+Either way there's no slot for suggestion "10" — only the first nine entries in the strip are reachable by number.
+
+## Options
+
+<SettingsPath path="Typing / Physical keyboard" />
+
+| Setting | Default |
+| --- | --- |
+| Process hardware keys | On |
+| Tool shortcuts | On |
+| Shortcut key | Double-tap Ctrl |
+| Arrow keys move a highlight | On |
+| Esc closes the tool | On |
+| Number keys pick suggestions | After the shortcut key |
+| Show the keyboard for shortcuts | On |
+
+**Show the keyboard for shortcuts** covers the case where you have a physical keyboard attached and no reason for the on-screen keyboard to be up — pressing a shortcut that opens a tool brings it up anyway, since the tool needs somewhere to draw, and it's hidden again once you close the tool.
+
+A related setting lives elsewhere: <SettingsPath path="Appearance / Only toolbar with hardware keyboard" /> hides the key grid entirely — leaving just the suggestion strip and toolbar — whenever a physical keyboard is attached, since you're typing on the physical keys anyway. It's off by default and doesn't affect anything documented on this page.
+
+## Details and edge cases
+
+- **The tool picker waits about three seconds for a letter** before it disarms itself if you don't press one; that timeout isn't adjustable from settings.
+- **Reserved chords still work as a shortcut key, with a warning.** If you capture a chord like Ctrl+C, Ctrl+V, Ctrl+S or Ctrl+Tab as your shortcut key, the picker warns you it's "usually the app's own shortcut" but still lets you use it — it's a nudge, not a block.
+- **Process hardware keys only governs typed characters.** Turning it off stops physical keys from running through autocorrect and suggestions, but Tool shortcuts, panel navigation and Esc keep working regardless — none of them touch typed text, so none of them are governed by that toggle.
+- **No edition split.** Everything on this page works the same on both the full and lite builds.
+- **Presence detection is automatic.** The keyboard notices a physical keyboard is attached (and detaches) through the system's own configuration, which is also what drives the separate "Only toolbar with hardware keyboard" setting above.
+
+For the complete shortcut and cheat-sheet reference in one table, see [Hardware shortcuts](/reference/shortcuts/). For the toolbar setting that hides the key grid when a keyboard is attached, see [Appearance settings](/reference/settings/appearance/).

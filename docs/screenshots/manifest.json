@@ -1870,5 +1870,521 @@
     "status": "todo",
     "notes": "'tools' is on the wmkeyboard:// deep-link allowlist (SettingsShortcuts.kt:38); the Clipboard sub-screen itself is reached by tap from there, not by its own deep link.",
     "kind": "still"
+  },
+  {
+    "id": "typing/long-press-popup",
+    "page": "docs/src/content/docs/typing/basics.mdx",
+    "file": "src/assets/screens/typing/long-press-popup.webp",
+    "caption": "Holding a letter opens its accent and symbol alternates.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
+      "Focus the field, then press and hold a letter key (e.g. 'e', whose alternates are 3 \u00e8 \u00e9 \u00ea \u00eb) until the popup opens \u2014 default long-press delay is 300ms \u2014 and capture while still holding."
+    ],
+    "status": "todo",
+    "notes": "Pick a letter whose popup shows both a digit and accents (e/u/i/o) so the shot demonstrates both alternate kinds at once.",
+    "kind": "still"
+  },
+  {
+    "id": "typing/shift-states",
+    "page": "docs/src/content/docs/typing/basics.mdx",
+    "file": "src/assets/screens/typing/shift-states.webp",
+    "caption": "Shift off, one-shot Shift, and Caps Lock \u2014 the three states the key cycles through.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
+      "Capture the Shift key in three states \u2014 untouched (off), after one tap (one-shot Shift), after a second tap within 350ms of the first (Caps Lock) \u2014 and composite into one frame or a 3-up."
+    ],
+    "status": "todo",
+    "notes": "Caps-lock double-tap window is shiftCapsLockMs, default 350ms; a second tap slower than that just toggles back to off instead of locking.",
+    "kind": "still"
+  },
+  {
+    "id": "typing/hold-letter-clipboard",
+    "page": "docs/src/content/docs/typing/basics.mdx",
+    "file": "src/assets/screens/typing/hold-letter-clipboard.webp",
+    "caption": "With Hold C to copy turned on, holding C copies the selection instead of opening its accent popup.",
+    "host": "harness-field",
+    "setup": [
+      "First enable the shortcut manually: open Settings, tap the Key press tile from the home grid (route 'keypress' is not in the wmkeyboard:// deep-link allowlist), scroll to Long-press shortcuts, turn on 'Hold C to copy' (off by default).",
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text --es text \"Sample text to select\"",
+      "Select some text in the field, then press and hold the C key until the copy fires."
+    ],
+    "status": "todo",
+    "notes": "All six hold-letter shortcuts (A/C/X/V/Z/Y) are off by default and independent \u2014 this shot needs at least Hold C to copy turned on first.",
+    "kind": "still"
+  },
+  {
+    "id": "typing/enter-action-icons",
+    "page": "docs/src/content/docs/typing/basics.mdx",
+    "file": "src/assets/screens/typing/enter-action-icons.webp",
+    "caption": "Enter drawing a field's own action icon.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text --es action search"
+    ],
+    "status": "todo",
+    "notes": "DocsShotActivity's --es action only covers send|search|go|done|next (5 of 7 EnterAction states). PREVIOUS and CUSTOM (an app-supplied label drawn as text, e.g. 'Reply') aren't reachable through the harness; if a CUSTOM/PREVIOUS shot is wanted, it needs a real third-party app field instead.",
+    "kind": "still"
+  },
+  {
+    "id": "typing/number-row",
+    "page": "docs/src/content/docs/typing/basics.mdx",
+    "file": "src/assets/screens/typing/number-row.webp",
+    "caption": "The number row above the letters.",
+    "host": "harness-field",
+    "setup": [
+      "First enable it manually: Settings \u2192 tap the Layout & size tile from the home grid (route 'layout' is not deep-link allowlisted) \u2192 turn on 'Number row' (off by default).",
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text"
+    ],
+    "status": "todo",
+    "notes": "Optionally switch the active language to Bengali or Arabic first (per-language Numerals setting) to show native digits instead of 0-9 in the same shot.",
+    "kind": "still"
+  },
+  {
+    "id": "typing/keypress-settings-overview",
+    "page": "docs/src/content/docs/typing/feedback.mdx",
+    "file": "src/assets/screens/typing/keypress-settings-overview.webp",
+    "caption": "The Key press screen: haptic style chips above the key press sound group.",
+    "host": "settings",
+    "setup": [
+      "am start -a android.intent.action.VIEW -d wmkeyboard://settings/typing (deep-link allowlist doesn't include a direct keypress route; navigate: Home -> Key press tile, or search \"Key press\" in settings search)"
+    ],
+    "status": "todo",
+    "notes": "Top of the Key press screen, showing the Haptic feedback group's master toggle and style chips scrolled into view.",
+    "kind": "still"
+  },
+  {
+    "id": "typing/haptic-style-custom-sliders",
+    "page": "docs/src/content/docs/typing/feedback.mdx",
+    "file": "src/assets/screens/typing/haptic-style-custom-sliders.webp",
+    "caption": "Haptic style chips, with the strength and intensity sliders shown for Custom.",
+    "host": "settings",
+    "setup": [
+      "Navigate to Key press settings",
+      "Tap the Custom haptic style chip so the Haptic strength and Haptic intensity sliders appear below it"
+    ],
+    "status": "todo",
+    "notes": "Needs Custom selected as the active haptic style before the screenshot.",
+    "kind": "still"
+  },
+  {
+    "id": "typing/keysound-style-chips",
+    "page": "docs/src/content/docs/typing/feedback.mdx",
+    "file": "src/assets/screens/typing/keysound-style-chips.webp",
+    "caption": "Sound style chips with the volume slider below.",
+    "host": "settings",
+    "setup": [
+      "Navigate to Key press settings, scroll to Key press sound",
+      "Turn Key sound on so the style chips and volume slider are visible (not disabled/greyed)"
+    ],
+    "status": "todo",
+    "notes": "Show the six style chips (Click/Standard/Pop/Thock/Chime/Custom) and the Sound volume slider together.",
+    "kind": "still"
+  },
+  {
+    "id": "typing/sound-haptics-toolbar-panel",
+    "page": "docs/src/content/docs/typing/feedback.mdx",
+    "file": "src/assets/screens/typing/sound-haptics-toolbar-panel.webp",
+    "caption": "The Sound & haptics toolbar panel, with the ringer warning banner shown.",
+    "host": "harness-field",
+    "setup": [
+      "From Tools settings, enable and pin the Sound & haptics tool to the toolbar",
+      "Set the phone's ringer to silent or vibrate so the warning banner (\"Phone is on vibrate\" / \"Phone is silenced\") renders",
+      "Open DocsShotActivity in field mode, focus the field, open the toolbar and tap the Sound & haptics tool to open its panel"
+    ],
+    "status": "todo",
+    "notes": "Panel is SoundHapticsPanel in feature/ime/.../ui/ToolPanels.kt; only shows the ringer banner when Key sound is on and ringerMode != NORMAL.",
+    "kind": "still"
+  },
+  {
+    "id": "typing/field-adaptation-email",
+    "page": "docs/src/content/docs/typing/field-adaptation.mdx",
+    "file": "src/assets/screens/typing/field-adaptation-email.webp",
+    "caption": "An email field: the bottom-row comma has become @, and the period key's long-press offers .com, .net, .org, .edu, .co.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind email --es hint \"Email address\"",
+      "Focus the field to bring up the keyboard.",
+      "Optionally long-press the period key to show the domain-endings popup before capturing, or capture the resting state showing the @ key on the bottom row."
+    ],
+    "status": "todo",
+    "notes": "The swap only affects the last row's comma/period keys; keep the shot wide enough to show the full bottom row so the @ key and period long-press area are legible.",
+    "kind": "still"
+  },
+  {
+    "id": "typing/field-adaptation-uri",
+    "page": "docs/src/content/docs/typing/field-adaptation.mdx",
+    "file": "src/assets/screens/typing/field-adaptation-uri.webp",
+    "caption": "A URL field: the comma key has become /, with ? # & = on its long-press.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind uri --es hint \"Website\"",
+      "Focus the field to bring up the keyboard.",
+      "Optionally long-press the comma-turned-/ key to show its ? # & = alternates before capturing."
+    ],
+    "status": "todo",
+    "notes": "Same bottom-row framing as the email shot; DocsShotActivity's field kind extra is 'uri'.",
+    "kind": "still"
+  },
+  {
+    "id": "typing/field-adaptation-numpad",
+    "page": "docs/src/content/docs/typing/field-adaptation.mdx",
+    "file": "src/assets/screens/typing/field-adaptation-numpad.webp",
+    "caption": "A phone-number field: a 4-by-4 dial pad in phone order, not calculator order.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind phone --es hint \"Phone number\"",
+      "Focus the field to bring up the field-adapted keypad."
+    ],
+    "status": "todo",
+    "notes": "Confirm the digit order reads 1-2-3 on top (phone-pad), not 7-8-9 (calculator) \u2014 this is the detail the caption calls out. kind=number or kind=date/time would also work if a different variant is preferred later; phone was chosen since DocsShotActivity explicitly supports it and it exercises the *, #, long-press set.",
+    "kind": "still"
+  },
+  {
+    "id": "typing/field-adaptation-password",
+    "page": "docs/src/content/docs/typing/field-adaptation.mdx",
+    "file": "src/assets/screens/typing/field-adaptation-password.webp",
+    "caption": "A password field: the suggestion strip stays hidden, and pasting into it wipes the clip afterward.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind password --es hint \"Password\"",
+      "Focus the field and type a few characters so the masked dots are visible.",
+      "Confirm the suggestion strip area shows no candidates (it should be empty/collapsed, not just blank placeholders)."
+    ],
+    "status": "todo",
+    "notes": "Purely visual: the masked field plus an empty suggestion strip is the whole story here since the clipboard-purge and voice-block behaviors aren't visible in a single still.",
+    "kind": "still"
+  },
+  {
+    "id": "typing/glide-trail",
+    "page": "docs/src/content/docs/typing/glide-typing.mdx",
+    "file": "src/assets/screens/typing/glide-trail.webp",
+    "caption": "A glide in progress: the comet-style trail follows the stroke and fades behind it.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
+      "adb shell settings put system show_touches 1",
+      "adb shell screenrecord --time-limit 6 --bit-rate 8M /sdcard/rec.mp4 &",
+      "adb shell input swipe <h-key-x> <h-key-y> <o-key-x> <o-key-y> 600   # trace a slow multi-letter glide, e.g. h-e-l-l-o",
+      "wait; adb pull /sdcard/rec.mp4",
+      "ffmpeg -i rec.mp4 -ss 0.5 -t 3.5 -vf \"fps=15,scale=540:-1\" -c:v libwebp_anim -loop 0 -q:v 70 -an glide-trail.webp"
+    ],
+    "status": "todo",
+    "notes": "Animated WebP \u2014 the trail only reads in motion. show_touches on so the finger dot is visible alongside the trail. Requires a still sibling for reduced-motion readers (see typing/glide-trail-still below); both entries share the same placeholder id/comment in the page.",
+    "kind": "anim"
+  },
+  {
+    "id": "typing/glide-live-preview",
+    "page": "docs/src/content/docs/typing/glide-typing.mdx",
+    "file": "src/assets/screens/typing/glide-live-preview.webp",
+    "caption": "Mid-swipe: the suggestion strip already shows the leading candidate before the finger lifts.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
+      "adb shell input swipe <h-key-x> <h-key-y> <o-key-x> <o-key-y> 600 &",
+      "adb exec-out screencap -p > glide-live-preview.png   # capture partway through the swipe, before the finger lifts",
+      "cwebp -q 88 glide-live-preview.png -o glide-live-preview.webp"
+    ],
+    "status": "todo",
+    "notes": "Timing-sensitive still capture (same caveat as the glide-trail-still entry) \u2014 needs the screencap to land mid-swipe, before input swipe's synthetic finger-up. May require status: blocked with a manual capture note if adb timing proves unreliable.",
+    "kind": "still"
+  },
+  {
+    "id": "typing/glide-alternates",
+    "page": "docs/src/content/docs/typing/glide-typing.mdx",
+    "file": "src/assets/screens/typing/glide-alternates.webp",
+    "caption": "After the swipe lands, alternates sit either side of the committed word in the suggestion strip.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
+      "adb shell input swipe <h-key-x> <h-key-y> <o-key-x> <o-key-y> 400",
+      "adb exec-out screencap -p > glide-alternates.png",
+      "cwebp -q 88 glide-alternates.png -o glide-alternates.webp"
+    ],
+    "status": "todo",
+    "notes": "Capture right after finger-up so the committed word is bolded center with two alternates flanking it in the suggestion strip.",
+    "kind": "still"
+  },
+  {
+    "id": "typing/glide-multiword",
+    "page": "docs/src/content/docs/typing/glide-typing.mdx",
+    "file": "src/assets/screens/typing/glide-multiword.webp",
+    "caption": "One continuous stroke crossing the spacebar mid-glide, committing a full phrase.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
+      "adb shell input swipe <h-key-x> <h-key-y> <space-x> <space-y> 300",
+      "adb shell input swipe <space-x> <space-y> <t-key-x> <t-key-y> 300   # continue into a second word across the spacebar",
+      "adb exec-out screencap -p > glide-multiword.png",
+      "cwebp -q 88 glide-multiword.png -o glide-multiword.webp"
+    ],
+    "status": "todo",
+    "notes": "Two chained input swipe calls approximate one continuous stroke; may need adb shell input motionevent DOWN/MOVE/UP sequencing instead if separate swipes don't register as one glide. Show the committed phrase in the text field, not mid-gesture.",
+    "kind": "still"
+  },
+  {
+    "id": "typing/glide-settings-gestures",
+    "page": "docs/src/content/docs/typing/glide-typing.mdx",
+    "file": "src/assets/screens/typing/glide-settings-gestures.webp",
+    "caption": "The Gestures group on the Typing settings screen.",
+    "host": "settings",
+    "setup": [
+      "adb shell am start -a android.intent.action.VIEW -d \"wmkeyboard://settings/typing\"",
+      "scroll down to the Gestures group",
+      "adb exec-out screencap -p > glide-settings-gestures.png",
+      "cwebp -q 88 glide-settings-gestures.png -o glide-settings-gestures.webp"
+    ],
+    "status": "todo",
+    "notes": "typing is an allowlisted deep-link route. Frame the Gesture typing toggle plus the three trail sliders; scroll position needs a manual swipe since the group sits partway down the screen.",
+    "kind": "still"
+  },
+  {
+    "id": "typing/hardware-typing-live",
+    "page": "docs/src/content/docs/typing/hardware-keyboard.mdx",
+    "file": "src/assets/screens/typing/hardware-typing-live.webp",
+    "caption": "Typing on a physical keyboard: a word underlined mid-correction in the field.",
+    "host": "harness-field",
+    "setup": [
+      "Attach a Bluetooth/USB keyboard, or in an emulator enable Extended controls > Keyboard > 'Show taps'/hardware keyboard passthrough.",
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
+      "Ensure Typing > Physical keyboard > 'Process hardware keys' is on and a phonetic/suggestion-generating language is active, then type on the physical keyboard until autocorrect underlines a word."
+    ],
+    "status": "todo",
+    "notes": "Needs an actual physical/emulated hardware keyboard input source, not just the on-screen IME; DocsShotActivity only sets up the focused field.",
+    "kind": "still"
+  },
+  {
+    "id": "typing/hardware-tool-picker",
+    "page": "docs/src/content/docs/typing/hardware-keyboard.mdx",
+    "file": "src/assets/screens/typing/hardware-tool-picker.webp",
+    "caption": "The tool-picker overlay after double-tapping Ctrl, showing the bound letters.",
+    "host": "harness-field",
+    "setup": [
+      "Attach a hardware keyboard (see hardware-typing-live setup).",
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
+      "Double-tap the physical Ctrl key to arm the picker, then screenshot immediately (it auto-disarms after about 3 seconds)."
+    ],
+    "status": "todo",
+    "notes": "Timing-sensitive capture; the overlay is drawn over the top strip, not a full panel.",
+    "kind": "still"
+  },
+  {
+    "id": "typing/hardware-shortcuts-list",
+    "page": "docs/src/content/docs/typing/hardware-keyboard.mdx",
+    "file": "src/assets/screens/typing/hardware-shortcuts-list.webp",
+    "caption": "The Tool shortcuts list screen: every tool with the letter that opens it.",
+    "host": "settings",
+    "setup": [
+      "am start -a android.intent.action.VIEW -d wmkeyboard://settings/typing",
+      "Tap 'Tool shortcuts list' under the Physical keyboard group (only visible while Tool shortcuts is on) to open the letter-binding screen."
+    ],
+    "status": "todo",
+    "notes": "Route 'hwshortcuts' is not in the deep-link allowlist (only typing/appearance/themes/languages/tools/search are) \u2014 must navigate via a tap from the Typing screen.",
+    "kind": "still"
+  },
+  {
+    "id": "typing/hardware-focus-ring",
+    "page": "docs/src/content/docs/typing/hardware-keyboard.mdx",
+    "file": "src/assets/screens/typing/hardware-focus-ring.webp",
+    "caption": "The focus ring highlighting a result inside an open panel after an arrow-key press.",
+    "host": "harness-field",
+    "setup": [
+      "Attach a hardware keyboard (see hardware-typing-live setup).",
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
+      "Double-tap Ctrl, press E to open the Emoji tool, then press an arrow key to draw the focus ring on a result."
+    ],
+    "status": "todo",
+    "notes": "Ring is a 2dp accent outline plus 16%-alpha accent fill; only ever drawn after a key press, never in touch mode.",
+    "kind": "still"
+  },
+  {
+    "id": "typing/symbols-page-open",
+    "page": "docs/src/content/docs/typing/modes.mdx",
+    "file": "src/assets/screens/typing/symbols-page-open.webp",
+    "caption": "The symbol page open over a message field, with the second symbol page one tap away.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
+      "Tap the field to bring up the keyboard",
+      "Tap the ?123 key to open the first symbol page"
+    ],
+    "status": "todo",
+    "notes": "Shows LayoutMode.SYMBOLS (BuiltInLayouts.kt symbolRows). Make sure the '=\\<' key (goes to page 2) is visible at 1.5x width in the bottom-left of the third row.",
+    "kind": "still"
+  },
+  {
+    "id": "typing/symbol-row-picker",
+    "page": "docs/src/content/docs/typing/modes.mdx",
+    "file": "src/assets/screens/typing/symbol-row-picker.webp",
+    "caption": "The symbol row above the key grid, with its set picker open.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
+      "In Settings, turn on Rows & bars > Symbol row (off by default) before this shot",
+      "Tap the field, then tap the chip at the left edge of the symbol row to open the set dropdown"
+    ],
+    "status": "todo",
+    "notes": "SymbolRowStrip, KeyboardScreen.kt:2394-2466. Dropdown only appears/is clickable when more than one symbol set is enabled (all 5 are enabled by default).",
+    "kind": "still"
+  },
+  {
+    "id": "typing/modes-tool-panel",
+    "page": "docs/src/content/docs/typing/modes.mdx",
+    "file": "src/assets/screens/typing/modes-tool-panel.webp",
+    "caption": "The Modes tool: Automatic at the top, then one row per mode with its auto-activation summary.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
+      "Tap the field, open the toolbox, and open the Modes tool"
+    ],
+    "status": "todo",
+    "notes": "ModesPanel, KeyboardScreen.kt:2494-2570+. Shows the leading 'Automatic \u2014 Follow each mode's app and field bindings' row followed by the 6 seeded modes with icon/name/modeSummary subtitle.",
+    "kind": "still"
+  },
+  {
+    "id": "typing/modes-manual-picker",
+    "page": "docs/src/content/docs/typing/modes.mdx",
+    "file": "src/assets/screens/typing/modes-manual-picker.webp",
+    "caption": "The Modes tool open, showing the manual override list.",
+    "host": "harness-field",
+    "setup": [
+      "Same as typing/modes-tool-panel \u2014 this can reuse the same capture or a near-duplicate with a mode row highlighted/selected"
+    ],
+    "status": "todo",
+    "notes": "Duplicate/alternate framing of the Modes tool; consider merging with modes-tool-panel if the capture agent judges one shot covers both captions.",
+    "kind": "still"
+  },
+  {
+    "id": "typing/power-saving-toolbar-toggle",
+    "page": "docs/src/content/docs/typing/power-saving.mdx",
+    "file": "src/assets/screens/typing/power-saving-toolbar-toggle.webp",
+    "caption": "Tapping the Power saving toolbar tile \u2014 the toast confirms it switched on.",
+    "host": "harness-field",
+    "setup": [
+      "am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
+      "Open the keyboard, tap the toolbox, and pin Power saving to the toolbar first if it isn't already there (it is not a default or recommended tool)",
+      "Tap the Power saving toolbar tile once to trigger the 'Power saving on' toast, and capture while the toast is visible"
+    ],
+    "status": "todo",
+    "notes": "Power saving is not in DefaultToolbarTools or RecommendedTools, so it must be dragged into the toolbar from the toolbox before it can be tapped. The toast is transient (Toast.LENGTH_SHORT) so timing the capture matters.",
+    "kind": "still"
+  },
+  {
+    "id": "typing/power-saving-settings-triggers",
+    "page": "docs/src/content/docs/typing/power-saving.mdx",
+    "file": "src/assets/screens/typing/power-saving-settings-triggers.webp",
+    "caption": "The Power saving group: the switch, the automatic trigger picker, and the battery slider.",
+    "host": "settings",
+    "setup": [
+      "am start -a android.intent.action.VIEW -d wmkeyboard://settings/tools",
+      "Tap the Power saving tile to open its detail screen (tool/POWER_SAVING is not itself in the deep-link allowlist, only the top-level 'tools' route is)",
+      "Capture the 'Power saving' settings group at the top of the screen: Power saving now, Switch on by itself, Low battery is, Off while charging"
+    ],
+    "status": "todo",
+    "notes": "Set Switch on by itself to 'Battery is low' or 'Battery saver or low battery' before capturing so the Low battery is slider and Off while charging toggle are both visible (they're conditionally shown).",
+    "kind": "still"
+  },
+  {
+    "id": "typing/power-saving-what-to-drop",
+    "page": "docs/src/content/docs/typing/power-saving.mdx",
+    "file": "src/assets/screens/typing/power-saving-what-to-drop.webp",
+    "caption": "The What to drop group \u2014 eleven independent switches.",
+    "host": "settings",
+    "setup": [
+      "am start -a android.intent.action.VIEW -d wmkeyboard://settings/tools",
+      "Tap the Power saving tile, then scroll down to the 'What to drop' settings group",
+      "Capture enough of the scroll to show several of the eleven toggles (Key vibration through On-device models)"
+    ],
+    "status": "todo",
+    "notes": "The full group is 11 toggles and likely needs two frames or a tall crop to show entirely; a single screenshot showing the group header plus the first several rows is acceptable.",
+    "kind": "still"
+  },
+  {
+    "id": "typing/size-position-settings-overview",
+    "page": "docs/src/content/docs/typing/size-position.mdx",
+    "file": "src/assets/screens/typing/size-position-settings-overview.webp",
+    "caption": "The Size & position group: key height, key spacing, width and position sliders.",
+    "host": "settings",
+    "setup": [
+      "Home \u2192 Keyboard group \u2192 Layout & size (no deep link: 'layout' is not on the wmkeyboard://settings/<route> allowlist, which is only typing, appearance, themes, languages, tools, search \u2014 verified in app/src/main/java/com/wasimaster/wmkeyboard/app/SettingsShortcuts.kt)",
+      "Scroll to the 'Size & position' group and frame Key height, Key spacing, Keyboard width sliders"
+    ],
+    "status": "todo",
+    "notes": "LayoutSettings() composable at MainActivity.kt:3429; this group starts at line 3501.",
+    "kind": "still"
+  },
+  {
+    "id": "typing/size-position-per-screen",
+    "page": "docs/src/content/docs/typing/size-position.mdx",
+    "file": "src/assets/screens/typing/size-position-per-screen.webp",
+    "caption": "Per-screen sizing: Landscape expanded, showing the Keyboard scale slider.",
+    "host": "settings",
+    "setup": [
+      "Home \u2192 Keyboard group \u2192 Layout & size",
+      "Scroll to 'Per-screen sizing' and tap the 'Landscape' row to expand its editor (Keyboard scale, Key height, Bottom padding, Keyboard width, Font size sliders)"
+    ],
+    "status": "todo",
+    "notes": "Group at MainActivity.kt:3590-3695; expanded editor renders under whichever ScreenVariant row is tapped.",
+    "kind": "still"
+  },
+  {
+    "id": "typing/size-position-one-handed",
+    "page": "docs/src/content/docs/typing/size-position.mdx",
+    "file": "src/assets/screens/typing/size-position-one-handed.webp",
+    "caption": "One-handed mode docked to the right edge, with the flip and exit rail.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text --es hint Message",
+      "Focus the field, then in WM Keyboard settings turn on Layout & size \u2192 One-handed, split & floating \u2192 One-handed mode \u2192 Right (default side), or tap the One-handed toolbar tile if pinned",
+      "Capture with some typed text visible so the docked shape and rail are both legible"
+    ],
+    "status": "todo",
+    "notes": "Rail is OneHandedRail composable, KeyboardScreen.kt:1144-1174 \u2014 arrow-flip icon on top, Fullscreen exit icon below, fixed at ONE_HANDED_RAIL_WEIGHT=0.16f of the row width.",
+    "kind": "still"
+  },
+  {
+    "id": "typing/size-position-split",
+    "page": "docs/src/content/docs/typing/size-position.mdx",
+    "file": "src/assets/screens/typing/size-position-split.webp",
+    "caption": "Split keyboard: each row divided into left and right halves with a center gap.",
+    "host": "harness-blank",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode blank",
+      "In WM Keyboard settings turn on Layout & size \u2192 One-handed, split & floating \u2192 Split keyboard, then focus the blank target to bring the keyboard up",
+      "A landscape or tablet-width capture shows the split most clearly, though it renders at any width"
+    ],
+    "status": "todo",
+    "notes": "Split gap default 12%, range 5-40%; spacebar is divided between the two halves too.",
+    "kind": "still"
+  },
+  {
+    "id": "typing/size-position-floating",
+    "page": "docs/src/content/docs/typing/size-position.mdx",
+    "file": "src/assets/screens/typing/size-position-floating.webp",
+    "caption": "The floating panel's handle bar: dock button, drag pill, and resize grip.",
+    "host": "harness-blank",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode blank",
+      "In WM Keyboard settings turn on Layout & size \u2192 One-handed, split & floating \u2192 Floating keyboard, then focus the blank target",
+      "Frame the handle bar closely: Fullscreen dock icon (left), drag pill (middle third), two-diagonal-line resize grip (right)"
+    ],
+    "status": "todo",
+    "notes": "FloatingHandleBar composable, KeyboardScreen.kt:1049 on. Still fallback for the size-position-floating-resize anim below (reduced-motion pair).",
+    "kind": "still"
+  },
+  {
+    "id": "typing/size-position-floating-resize",
+    "page": "docs/src/content/docs/typing/size-position.mdx",
+    "file": "src/assets/screens/typing/size-position-floating-resize.webp",
+    "caption": "Dragging the resize grip changes width and height together.",
+    "host": "harness-blank",
+    "setup": [
+      "Same floating-keyboard setup as typing/size-position-floating",
+      "Record a short loop: drag the resize grip up-and-out to grow the panel, since dragging up on the top-bar grip grows it (KeyboardScreen.kt:1019-1032), then let it settle back"
+    ],
+    "status": "todo",
+    "notes": "Motion-only behavior; typing/size-position-floating is the required still/reduced-motion sibling for this same feature.",
+    "kind": "anim"
   }
 ]
