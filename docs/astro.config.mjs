@@ -24,12 +24,12 @@ export default defineConfig({
 		starlight({
 			title: 'WM Keyboard',
 			description:
-				'A modern, privacy-first Android keyboard — offline intelligence, 34+ languages, themes, tools and an addon ecosystem.',
+				'A modern, privacy-first Android keyboard — offline intelligence, 350+ languages, themes, tools and an addon ecosystem.',
 			logo: {
-				src: './src/assets/logo.svg',
+				src: './src/assets/logo-mark.png',
 				alt: 'WM Keyboard',
 			},
-			favicon: '/favicon.svg',
+			favicon: '/favicon.png',
 			social: [
 				{ icon: 'github', label: 'GitHub', href: 'https://github.com/wasi-master/wmkeyboard' },
 			],

@@ -53,9 +53,15 @@
 	line-height: 1.12;
 }
 
-/* Soft brand glow behind the hero image. */
+/* Soft brand glow behind the hero image; the mark is a full-bleed square. */
 [data-has-hero] .hero img {
+	border-radius: 22%;
 	filter: drop-shadow(0 0 3rem rgba(108, 116, 246, 0.45));
+}
+
+/* The navbar logo is the same full-bleed mark — round it like a launcher icon. */
+.site-title img {
+	border-radius: 22%;
 }
 
 /* Subtle radial wash behind the whole hero. */

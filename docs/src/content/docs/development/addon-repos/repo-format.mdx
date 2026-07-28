@@ -345,10 +345,13 @@ informational — import ignores them — and can be left out of a hand-built pa
 
 | Group | Ids | Count |
 |---|---|---|
-| Tools | `tool.<toolbar tool>` — `tool.clipboard`, `tool.gif`, `tool.sticker`, `tool.voice`, … | 58 |
-| Keys | `key.shift`, `key.shift_on`, `key.shift_lock`, `key.backspace`, `key.globe`, `key.emoji`, and `key.enter` plus `key.enter_{search,send,go,next,previous,done}` | 13 |
+| Tools | `tool.<toolbar tool>` — `tool.clipboard`, `tool.gif`, `tool.sticker`, `tool.voice`, … | 60 |
+| Keys | `key.shift`, `key.shift_on`, `key.shift_lock`, `key.backspace`, `key.forward_delete`, `key.globe`, `key.emoji`, and `key.enter` plus `key.enter_{search,send,go,next,previous,done}` | 14 |
 | Toolbar chrome | `chrome.toolbox`, `chrome.panel_back`, `chrome.suggestions_expand`, `chrome.emoji_shortcut`, `chrome.search_close`, `chrome.incognito` | 6 |
 | Emoji tabs | `emoji_tab.search`, `emoji_tab.recent`, `emoji_tab.most_used`, and one per category (`smileys`, `people`, `animals`, `nature`, `food`, `travel`, `activities`, `objects`, `symbols`, `flags`) | 13 |
+
+The Tools row is derived from the app's tool list, so its count grows with
+every new tool; the other three groups are fixed lists in the app.
 
 A pack does **not** have to be complete: any slot it leaves out keeps the app's
 built-in icon. The `slots` list is advisory — the app walks the archive's

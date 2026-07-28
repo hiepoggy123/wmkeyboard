@@ -106,9 +106,9 @@ roughly in order of value:
    framework needed).
 2. **Layout explorer**: render a keyboard layout as HTML from its data file so
    readers can hover keys to see long-press popups. Worth building once,
-   reusable for all 34 languages + notation layouts.
+   reusable for all 393 layouts + notation layouts.
 3. **Theme preview**: swatch grid that live-recolours an HTML keyboard mockup.
-4. **Searchable tables**: the 183-dictionary list and 34-language matrix
+4. **Searchable tables**: the 333-wordlist list and 352-language matrix
    should be filterable (a `<script>` in the MDX is fine at this scale).
 5. Mermaid/diagram embeds for the developer section (addon install pipeline,
    IME lifecycle).
@@ -119,8 +119,14 @@ widget needs a framework, question it first.
 ## Voice & style calibration
 
 - Explain jargon on first use, then use it freely (glossary backs you up).
-- Numbers are features: "183 languages", "24 Whisper models" — be exact,
-  and verify the number in code before writing it.
+- Numbers are features: "332 languages", "27 Whisper models" — be exact,
+  and verify the number in code before writing it. Headline counts were
+  code-verified on 2026-07-28: 352 registered languages, 393 layouts
+  (18 built-in + 375 asset), 333 wordlists (332 languages), 125 emoji keyword
+  packs, 27 Whisper models, 8 local LLMs, 60 toolbar tools, 11 addon types,
+  8 alternative calendars, 22 fancy-text layouts, 18 snippet variables,
+  Emoji 16.0 catalog (1,913 base emoji). Re-verify before reuse — several
+  of these drift with every feature release.
 - The privacy section is the trust anchor: every network claim there needs a
   file/class reference in a code comment or PR description, even though the
   prose itself stays reference-free.
