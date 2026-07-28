@@ -1,0 +1,45 @@
+---
+/**
+ * Edition availability pill. WM Keyboard ships in two flavors:
+ * `full` (ML Kit, Whisper, local LLM, …) and `lite`.
+ *
+ * Usage:
+ *   <Flavor edition="full" />   → “Full edition only”
+ *   <Flavor edition="both" />   → “All editions”
+ */
+interface Props {
+	edition: 'full' | 'lite' | 'both';
+}
+const { edition } = Astro.props;
+const label =
+	edition === 'full' ? 'Full edition only' : edition === 'lite' ? 'Lite edition only' : 'All editions';
+---
+
+<span class:list={['flavor', edition]}>{label}</span>
+
+<style>
+	.flavor {
+		display: inline-block;
+		padding: 0.15em 0.65em;
+		border-radius: 999px;
+		font-size: var(--sl-text-xs);
+		font-weight: 650;
+		letter-spacing: 0.02em;
+		vertical-align: middle;
+	}
+	.full {
+		background: linear-gradient(135deg, rgba(76, 141, 246, 0.2), rgba(139, 92, 246, 0.2));
+		border: 1px solid var(--wm-violet);
+		color: var(--sl-color-white);
+	}
+	.lite {
+		border: 1px solid var(--sl-color-gray-4);
+		background: var(--sl-color-gray-6);
+		color: var(--sl-color-gray-2);
+	}
+	.both {
+		border: 1px solid var(--sl-color-green, #2f9e69);
+		background: rgba(47, 158, 105, 0.12);
+		color: var(--sl-color-white);
+	}
+</style>

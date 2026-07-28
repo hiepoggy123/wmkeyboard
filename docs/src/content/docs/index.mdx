@@ -1,0 +1,75 @@
+---
+title: "WM Keyboard"
+description: "A modern, privacy-first Android keyboard — offline intelligence, 34+ languages, themes, tools and an addon ecosystem."
+template: splash
+editUrl: false
+lastUpdated: false
+hero:
+  title: "Type anything. Share nothing."
+  tagline: A modern, privacy-first Android keyboard with first-class Bengali support — offline prediction, 34+ languages, a full tool belt, themes, addons and Lua plugins.
+  image:
+    alt: WM Keyboard logo — a gradient keyboard glyph
+    file: ../../assets/logo.svg
+  actions:
+    - text: Get started
+      link: /start/installation/
+      icon: right-arrow
+    - text: Explore features
+      link: /typing/basics/
+      icon: rocket
+      variant: minimal
+    - text: GitHub
+      link: https://github.com/wasi-master/wmkeyboard
+      icon: external
+      variant: minimal
+---
+
+import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+## Why WM Keyboard
+
+<CardGrid stagger>
+	<Card title="Offline first" icon="seti:lock">
+		Dictionaries, prediction, autocorrect, transliteration and emoji search all run on
+		device. No telemetry, no cloud round-trips — the network is opt-in, per tool.
+	</Card>
+	<Card title="34+ languages" icon="translate">
+		Data-driven language registry with Avro-style Bengali phonetic typing, CJK input,
+		downloadable dictionaries for 183 languages — plus musical notation, braille
+		chording and Morse.
+	</Card>
+	<Card title="A real tool belt" icon="setting">
+		Clipboard manager, translator, OCR & QR scanner, voice typing (online and offline
+		Whisper), handwriting, GIFs & stickers, calculator, media controls, even an
+		on-device LLM.
+	</Card>
+	<Card title="Yours to shape" icon="puzzle">
+		Material You themes with a full editor, icon packs, addon repositories you can
+		self-host, and sandboxed Lua plugins that add new tools to the keyboard.
+	</Card>
+</CardGrid>
+
+## Jump in
+
+<CardGrid>
+	<LinkCard
+		title="Install & set up"
+		description="Get the APK, enable the keyboard, and take the two-minute tour."
+		href="/start/installation/"
+	/>
+	<LinkCard
+		title="Every setting, explained"
+		description="The reference section documents every screen, toggle and slider."
+		href="/reference/settings/"
+	/>
+	<LinkCard
+		title="Build an addon repository"
+		description="Publish themes, layouts, dictionaries and more from any static host."
+		href="/addons/overview/"
+	/>
+	<LinkCard
+		title="Write a Lua plugin"
+		description="A panel, a few buttons, and your own logic — no Android toolchain needed."
+		href="/plugins/getting-started/"
+	/>
+</CardGrid>

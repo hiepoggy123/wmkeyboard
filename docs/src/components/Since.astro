@@ -1,0 +1,26 @@
+---
+/**
+ * “Available since” version pill.
+ * Usage: <Since v="1.4" />
+ */
+interface Props {
+	v: string;
+}
+const { v } = Astro.props;
+---
+
+<span class="since">Since v{v}</span>
+
+<style>
+	.since {
+		display: inline-block;
+		padding: 0.15em 0.65em;
+		border: 1px solid var(--sl-color-accent);
+		border-radius: 999px;
+		background: var(--sl-color-accent-low);
+		color: var(--sl-color-white);
+		font-size: var(--sl-text-xs);
+		font-weight: 650;
+		vertical-align: middle;
+	}
+</style>

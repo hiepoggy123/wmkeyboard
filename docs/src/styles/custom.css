@@ -1,0 +1,134 @@
+/* WM Keyboard docs theme.
+   Brand: launcher gradient #4C8DF6 → #8B5CF6 on deep navy (#191C42). */
+
+:root {
+	--sl-font: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+	--sl-font-mono: 'JetBrains Mono Variable', ui-monospace, monospace;
+
+	/* Brand stops, usable anywhere. */
+	--wm-blue: #4c8df6;
+	--wm-violet: #8b5cf6;
+	--wm-gradient: linear-gradient(135deg, var(--wm-blue), var(--wm-violet));
+}
+
+/* Dark theme (default). Navy-tinted grays, brand accent. */
+:root {
+	--sl-color-accent-low: #232a63;
+	--sl-color-accent: #6c74f6;
+	--sl-color-accent-high: #c8d3ff;
+	--sl-color-white: #ffffff;
+	--sl-color-gray-1: #edeefb;
+	--sl-color-gray-2: #c2c4d7;
+	--sl-color-gray-3: #8b8fae;
+	--sl-color-gray-4: #575b7c;
+	--sl-color-gray-5: #383c58;
+	--sl-color-gray-6: #24263e;
+	--sl-color-black: #17182b;
+}
+
+/* Light theme. */
+:root[data-theme='light'] {
+	--sl-color-accent-low: #dfe4ff;
+	--sl-color-accent: #5058dd;
+	--sl-color-accent-high: #29307f;
+	--sl-color-white: #17182b;
+	--sl-color-gray-1: #24263e;
+	--sl-color-gray-2: #383c58;
+	--sl-color-gray-3: #575b7c;
+	--sl-color-gray-4: #8b8fae;
+	--sl-color-gray-5: #c2c4d7;
+	--sl-color-gray-6: #edeefb;
+	--sl-color-gray-7: #f6f7fd;
+	--sl-color-black: #ffffff;
+}
+
+/* ---------- Hero ---------- */
+
+/* Gradient headline on the splash page. */
+[data-has-hero] .hero h1 {
+	background: var(--wm-gradient);
+	-webkit-background-clip: text;
+	background-clip: text;
+	color: transparent;
+	line-height: 1.12;
+}
+
+/* Soft brand glow behind the hero image. */
+[data-has-hero] .hero img {
+	filter: drop-shadow(0 0 3rem rgba(108, 116, 246, 0.45));
+}
+
+/* Subtle radial wash behind the whole hero. */
+[data-has-hero] .page {
+	background:
+		radial-gradient(120rem 40rem at 50% -12rem, rgba(76, 141, 246, 0.12), transparent 60%),
+		var(--sl-color-bg);
+}
+
+/* ---------- Content polish ---------- */
+
+/* Rounded screenshots and images inside content. */
+.sl-markdown-content img {
+	border-radius: 0.75rem;
+}
+
+/* Card hover lift (Starlight <Card>/<LinkCard>). */
+.sl-markdown-content .card,
+.sl-markdown-content a.sl-link-card {
+	transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
+}
+.sl-markdown-content a.sl-link-card:hover,
+.sl-markdown-content .card:hover {
+	transform: translateY(-2px);
+	border-color: var(--sl-color-accent);
+	box-shadow: 0 6px 24px rgba(76, 141, 246, 0.14);
+}
+
+/* <kbd> — used by the KeyCap component and plain markdown alike. */
+.sl-markdown-content kbd {
+	display: inline-block;
+	min-width: 1.6em;
+	padding: 0.12em 0.5em;
+	border: 1px solid var(--sl-color-gray-4);
+	border-bottom-width: 2.5px;
+	border-radius: 0.45em;
+	background: var(--sl-color-gray-6);
+	color: var(--sl-color-white);
+	font-family: var(--sl-font-mono);
+	font-size: 0.82em;
+	line-height: 1.5;
+	text-align: center;
+	white-space: nowrap;
+}
+
+/* Sidebar: current-page marker gets a gradient bar. */
+.sidebar-content a[aria-current='page'] {
+	background: linear-gradient(
+		90deg,
+		rgba(76, 141, 246, 0.18),
+		rgba(139, 92, 246, 0.12)
+	);
+	border-inline-start: 3px solid var(--wm-blue);
+	border-start-start-radius: 0;
+	border-end-start-radius: 0;
+}
+
+/* Slightly tighter, calmer sidebar text. */
+.sidebar-content summary .group-label > span {
+	font-weight: 650;
+	letter-spacing: 0.01em;
+}
+
+/* Tables: rounded container, sticky-friendly. */
+.sl-markdown-content table {
+	border-radius: 0.6rem;
+	overflow: hidden;
+}
+
+/* Reusable gradient-text helper for MDX. */
+.wm-gradient-text {
+	background: var(--wm-gradient);
+	-webkit-background-clip: text;
+	background-clip: text;
+	color: transparent;
+}

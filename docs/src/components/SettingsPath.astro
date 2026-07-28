@@ -1,0 +1,67 @@
+---
+/**
+ * Breadcrumb chip showing where a setting lives in the app.
+ * Usage: <SettingsPath path="Typing / Autocorrect / Confidence" />
+ * Always renders the app name as the first crumb.
+ */
+interface Props {
+	path: string;
+}
+const { path } = Astro.props;
+const crumbs = ['WM Keyboard', ...path.split('/').map((c) => c.trim())];
+---
+
+<span class="settings-path" title={`Settings location: ${crumbs.join(' → ')}`}>
+	<svg
+		aria-hidden="true"
+		width="14"
+		height="14"
+		viewBox="0 0 24 24"
+		fill="none"
+		stroke="currentColor"
+		stroke-width="2"
+		stroke-linecap="round"
+		stroke-linejoin="round"
+	>
+		<circle cx="12" cy="12" r="3"></circle>
+		<path
+			d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"
+		></path>
+	</svg>
+	{
+		crumbs.map((crumb, i) => (
+			<>
+				{i > 0 && <span class="sep" aria-hidden="true">›</span>}
+				<span class="crumb">{crumb}</span>
+			</>
+		))
+	}
+</span>
+
+<style>
+	.settings-path {
+		display: inline-flex;
+		align-items: center;
+		flex-wrap: wrap;
+		gap: 0.35em;
+		padding: 0.3em 0.75em;
+		margin-block: 0.25rem;
+		border: 1px solid var(--sl-color-gray-5);
+		border-radius: 999px;
+		background: var(--sl-color-gray-6);
+		color: var(--sl-color-gray-2);
+		font-size: var(--sl-text-sm);
+		line-height: 1.4;
+	}
+	.settings-path svg {
+		color: var(--sl-color-accent);
+		flex-shrink: 0;
+	}
+	.sep {
+		color: var(--sl-color-gray-4);
+	}
+	.crumb:last-child {
+		color: var(--sl-color-white);
+		font-weight: 600;
+	}
+</style>
