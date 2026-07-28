@@ -42,7 +42,7 @@ data class DictionaryEntry(
 
 /**
  * The downloadable wordlist for every language the registry knows and the data
- * repo covers (183 of them; identity mapping except Wikipedia-style codes:
+ * repo covers (over 300 of them; identity mapping except Wikipedia-style codes:
  * `roa_rup`->`rup`, `mhr`->`chm`, `bxr`->`bua`, `nrm`->`nrf`, and `pt`/`pt_br`
  * both feeding `pt`). Regenerate the table against a fresh repo checkout with
  * a directory listing — sizes and counts are display/progress hints, not

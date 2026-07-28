@@ -33,7 +33,7 @@ Working checklist. Roadmap-level planning lives in [docs/ROADMAP.md](docs/ROADMA
 - [x] Emoji skin-tone variants via long-press (Emoji_Modifier_Base ranges,
       ZWJ-safe) + 8 tests
 - [x] One-handed mode (left/right, side rail on keyboard, appearance setting)
-- [x] Emoji overhaul: full Unicode 17.0 catalog (1914 base emojis, CLDR en+bn
+- [x] Emoji overhaul: full Unicode 17.0 catalog (1913 base emojis, CLDR en+bn
       keywords, generator in tools/emoji/), data-driven RGI variant index with
       per-person dual skin tones (🤝-style two-slot picker), gender variants
       collapsed under base with long-press popup, favourites pinned in
