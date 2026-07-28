@@ -4460,5 +4460,270 @@
     "status": "todo",
     "notes": "Capture at default bindings (23 letters bound, Reset to defaults not pressed) so it matches the default table on typing/hardware-keyboard.mdx.",
     "kind": "still"
+  },
+  {
+    "id": "themes/background-image-live",
+    "page": "docs/src/content/docs/themes/backgrounds.mdx",
+    "file": "src/assets/screens/themes/background-image-live.webp",
+    "caption": "A theme with a background image showing through the keys.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
+      "Switch active keyboard theme to one with a background image set (create/edit one first under Appearance > Keyboard themes if none exists) before focusing the field",
+      "theme=dark (default) recommended so the photo reads clearly against the board scrim"
+    ],
+    "status": "todo",
+    "notes": "Needs a theme pre-configured with backgroundImage set, board color alpha raised partway as a scrim, and a moderate blur so the shot demonstrates the opacity/blur/tint combination rather than a raw unedited photo.",
+    "kind": "still"
+  },
+  {
+    "id": "themes/background-crop-dialog",
+    "page": "docs/src/content/docs/themes/backgrounds.mdx",
+    "file": "src/assets/screens/themes/background-crop-dialog.webp",
+    "caption": "Cropping a background image to the keyboard's 2.4:1 aspect ratio.",
+    "host": "settings",
+    "setup": [
+      "am start -a android.intent.action.VIEW -d wmkeyboard://settings/themes",
+      "Tap edit (pencil) on any theme to open the editor, scroll to Board, pick or use an existing Background image, then tap 'Crop image' to open the CropImageDialog with the Keyboard (2.4:1) preset selected"
+    ],
+    "status": "todo",
+    "notes": "This is a dialog overlay, not the field harness \u2014 capture it directly from the app's own theme editor screen rather than DocsShotActivity.",
+    "kind": "still"
+  },
+  {
+    "id": "themes/background-landscape",
+    "page": "docs/src/content/docs/themes/backgrounds.mdx",
+    "file": "src/assets/screens/themes/background-landscape.webp",
+    "caption": "A theme with distinct portrait and landscape background images.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
+      "Configure a theme with both Background image and Landscape background image set to visibly different photos, activate it, then rotate the device/emulator to landscape before capturing",
+      "Capture a matching portrait shot of the same theme too if space allows, to show the contrast"
+    ],
+    "status": "todo",
+    "notes": "Requires rotating the harness activity to landscape; confirm DocsShotActivity doesn't lock orientation before relying on this.",
+    "kind": "still"
+  },
+  {
+    "id": "themes/editor-live-preview",
+    "page": "docs/src/content/docs/themes/editor.mdx",
+    "file": "src/assets/screens/themes/editor-live-preview.webp",
+    "caption": "The theme editor, with the live preview pinned above the color and shape controls.",
+    "host": "settings",
+    "setup": [
+      "am start -a android.intent.action.VIEW -d wmkeyboard://settings/themes",
+      "Tap 'Create theme' to open a fresh custom theme in the editor (or tap the pencil on any existing custom theme)"
+    ],
+    "status": "todo",
+    "notes": "Capture the top of ThemeEditorScreen: ThemePreview widget, theme name field, and the start of the 'Start from a color' section.",
+    "kind": "still"
+  },
+  {
+    "id": "themes/editor-seed-swatches",
+    "page": "docs/src/content/docs/themes/editor.mdx",
+    "file": "src/assets/screens/themes/editor-seed-swatches.webp",
+    "caption": "Start from a color: the Dark theme switch and seed swatch row.",
+    "host": "settings",
+    "setup": [
+      "am start -a android.intent.action.VIEW -d wmkeyboard://settings/themes",
+      "Tap 'Create theme' (or the pencil on a custom theme) to open the editor",
+      "The 'Start from a color' section with the Dark theme switch and the 15-swatch row is at the top, just below the theme name field"
+    ],
+    "status": "todo",
+    "notes": "SeedSwatches has 15 colors in a LazyRow; frame the row wide enough to show several swatches plus the Dark theme switch above it.",
+    "kind": "still"
+  },
+  {
+    "id": "themes/editor-gradient",
+    "page": "docs/src/content/docs/themes/editor.mdx",
+    "file": "src/assets/screens/themes/editor-gradient.webp",
+    "caption": "A board gradient turned on: type, angle, and color-stop controls.",
+    "host": "settings",
+    "setup": [
+      "am start -a android.intent.action.VIEW -d wmkeyboard://settings/themes",
+      "Tap the pencil on any custom theme to open the editor",
+      "Scroll to the 'Board' section and turn on the 'Gradient background' switch",
+      "Capture the expanded gradient editor: preview strip, Linear/Radial/Sweep picker, angle slider, and color stop rows"
+    ],
+    "status": "todo",
+    "notes": "Angle slider is hidden when Radial is selected, so leave the default Linear type selected for this shot.",
+    "kind": "still"
+  },
+  {
+    "id": "themes/editor-corners-animation",
+    "page": "docs/src/content/docs/themes/editor.mdx",
+    "file": "src/assets/screens/themes/editor-corners-animation.webp",
+    "caption": "Theme-specific corner radii, with the Key, Popup, and Tool circle sliders.",
+    "host": "settings",
+    "setup": [
+      "am start -a android.intent.action.VIEW -d wmkeyboard://settings/themes",
+      "Tap the pencil on any custom theme to open the editor",
+      "Scroll to the 'Corners' section and turn on 'Theme-specific corner radii' so the three sliders appear",
+      "Capture the Corners section (and ideally scroll to include the start of the Animation section below it)"
+    ],
+    "status": "todo",
+    "notes": "If Corners and Animation don't fit in one frame at readable size, split into two separate stills instead and adjust the page's single PhoneFrame to two, or crop tightly on Corners only.",
+    "kind": "still"
+  },
+  {
+    "id": "themes/editor-delete-confirm",
+    "page": "docs/src/content/docs/themes/editor.mdx",
+    "file": "src/assets/screens/themes/editor-delete-confirm.webp",
+    "caption": "Deleting a custom theme asks for confirmation before removing it.",
+    "host": "settings",
+    "setup": [
+      "am start -a android.intent.action.VIEW -d wmkeyboard://settings/themes",
+      "Tap the trash icon on any custom theme's card in the 'Your themes' section",
+      "Capture the resulting 'Delete theme?' confirmation dialog"
+    ],
+    "status": "todo",
+    "notes": "Needs at least one existing custom theme on the device first (create one via 'Create theme' if none exist).",
+    "kind": "still"
+  },
+  {
+    "id": "themes/font-picker-english",
+    "page": "docs/src/content/docs/themes/fonts.mdx",
+    "file": "src/assets/screens/themes/font-picker-english.webp",
+    "caption": "The Keyboard font screen: curated Google Fonts, each row previewed in its own face.",
+    "host": "settings",
+    "setup": [
+      "adb shell am start -a android.intent.action.VIEW -d wmkeyboard://settings/appearance",
+      "Tap 'Keyboard font' to open the fonts screen (route is not itself deep-link allowlisted)",
+      "Scroll to the English font section so several curated Google Fonts rows are visible with their live previews"
+    ],
+    "status": "todo",
+    "notes": "English section is always present regardless of enabled languages. Let a couple of Google Font rows finish downloading/rendering (system font provider caches after first fetch) before capturing so previews aren't showing placeholder glyphs.",
+    "kind": "still"
+  },
+  {
+    "id": "themes/font-picker-script",
+    "page": "docs/src/content/docs/themes/fonts.mdx",
+    "file": "src/assets/screens/themes/font-picker-script.webp",
+    "caption": "A script-specific picker (Devanagari): the automatic Noto face, a short curated list, and any installed fonts that declare coverage for the script.",
+    "host": "settings",
+    "setup": [
+      "Enable a Devanagari-script language (e.g. Hindi) under Languages first, so the Devanagari font section appears",
+      "adb shell am start -a android.intent.action.VIEW -d wmkeyboard://settings/appearance",
+      "Tap 'Keyboard font', scroll to the 'Devanagari font' section",
+      "Capture with the 'Automatic (Noto)' default row visible plus a few curated alternatives below it"
+    ],
+    "status": "todo",
+    "notes": "Devanagari has 7 curated alternatives (Noto Serif Devanagari, Hind, Mukta, Baloo 2, Tiro Devanagari Hindi, Rozha One, Kalam) so the list has enough visual variety. No import button appears in this section by design (import is English/Bengali only) \u2014 don't crop it out expecting one.",
+    "kind": "still"
+  },
+  {
+    "id": "themes/icons-screen-overview",
+    "page": "docs/src/content/docs/themes/icon-packs.mdx",
+    "file": "src/assets/screens/themes/icons-screen-overview.webp",
+    "caption": "The Icons screen: the active pack, and every replaceable slot grouped by where it appears.",
+    "host": "settings",
+    "setup": [
+      "am start -a android.intent.action.VIEW -d wmkeyboard://settings/appearance (icons is not itself deep-link allowlisted)",
+      "Tap the 'Icons' row"
+    ],
+    "status": "todo",
+    "notes": "Show the Icon pack section (Built-in icons selected) plus the top of the grouped slot list (Tools/Keys/Toolbar/Emoji tabs headers visible).",
+    "kind": "still"
+  },
+  {
+    "id": "themes/icons-slot-picker",
+    "page": "docs/src/content/docs/themes/icon-packs.mdx",
+    "file": "src/assets/screens/themes/icons-slot-picker.webp",
+    "caption": "Picking a replacement for the Shift icon: built-in alternatives, or an SVG of your own.",
+    "host": "settings",
+    "setup": [
+      "am start -a android.intent.action.VIEW -d wmkeyboard://settings/appearance",
+      "Tap 'Icons'",
+      "Tap the Shift row in the Keys group to open its picker dialog"
+    ],
+    "status": "todo",
+    "notes": "Dialog should show the built-in Material Symbols grid plus the 'Use my own SVG\u2026' row at the bottom.",
+    "kind": "still"
+  },
+  {
+    "id": "themes/icons-addon-apply-prompt",
+    "page": "docs/src/content/docs/themes/icon-packs.mdx",
+    "file": "src/assets/screens/themes/icons-addon-apply-prompt.webp",
+    "caption": "After installing an icon pack from an addon repository, the app asks whether to switch to it.",
+    "host": "settings",
+    "setup": [
+      "Requires a test addon repository containing at least one icon_pack entry",
+      "Navigate to Settings > Addons, open that repository, tap Install on an icon pack",
+      "Capture the resulting 'Use its icons on the keyboard now?' dialog (Switch to it / dismiss buttons)"
+    ],
+    "status": "todo",
+    "notes": "Needs a seeded test repo URL from whoever owns addon-repo fixtures \u2014 flagging as the one shot in this set that isn't reachable with just the shipped app.",
+    "kind": "still"
+  },
+  {
+    "id": "themes/gallery-grid",
+    "page": "docs/src/content/docs/themes/overview.mdx",
+    "file": "src/assets/screens/themes/gallery-grid.webp",
+    "caption": "The theme gallery: custom themes on top, built-in themes below.",
+    "host": "settings",
+    "setup": [
+      "am start -a android.intent.action.VIEW -d wmkeyboard://settings/themes"
+    ],
+    "status": "todo",
+    "notes": "Capture with at least one custom theme saved so the 'Your themes' section is visible above 'Built-in'; 2-column grid, ThemeScreens.kt.",
+    "kind": "still"
+  },
+  {
+    "id": "themes/amoled-default-theme",
+    "page": "docs/src/content/docs/themes/overview.mdx",
+    "file": "src/assets/screens/themes/amoled-default-theme.webp",
+    "caption": "Mode set to Amoled: a true-black board under the Default theme.",
+    "host": "harness-field",
+    "setup": [
+      "am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
+      "In settings, set Appearance > Keyboard themes > Mode to Amoled and theme to Default (system), ensure device is in dark mode, then focus the field to show the keyboard"
+    ],
+    "status": "todo",
+    "notes": "Only visible when effective mode is dark (Mode=Amoled alone does nothing in light mode) and the active theme is Default (system) \u2014 built-in/custom themes ignore Mode.",
+    "kind": "still"
+  },
+  {
+    "id": "themes/auto-theme-sun",
+    "page": "docs/src/content/docs/themes/overview.mdx",
+    "file": "src/assets/screens/themes/auto-theme-sun.webp",
+    "caption": "Auto theme on, with Sunrise & sunset chosen as the trigger.",
+    "host": "settings",
+    "setup": [
+      "am start -a android.intent.action.VIEW -d wmkeyboard://settings/themes",
+      "Toggle Auto theme on and select Sunrise & sunset as the trigger; needs a saved location in the weather tool for the informative copy to show, otherwise it shows the 'No location saved yet' fallback text"
+    ],
+    "status": "todo",
+    "notes": "ThemeScreens.kt Auto (light + dark) section; capture with a location already saved so the sunrise/sunset copy shows rather than the fallback message.",
+    "kind": "still"
+  },
+  {
+    "id": "themes/gallery-export-import",
+    "page": "docs/src/content/docs/themes/sharing.mdx",
+    "file": "src/assets/screens/themes/gallery-export-import.webp",
+    "caption": "The theme gallery, with export and import actions above the cards.",
+    "host": "settings",
+    "setup": [
+      "am start -a android.intent.action.VIEW -d wmkeyboard://settings/themes",
+      "Screenshot the top of the Keyboard themes screen showing the Create theme / Import row above the gallery."
+    ],
+    "status": "todo",
+    "notes": "ThemeScreens.kt:510-530 \u2014 the Import button sits next to Create theme, right above the Default card and gallery.",
+    "kind": "still"
+  },
+  {
+    "id": "themes/file-import-confirm",
+    "page": "docs/src/content/docs/themes/sharing.mdx",
+    "file": "src/assets/screens/themes/file-import-confirm.webp",
+    "caption": "Opening a theme file from a file manager shows a one-tap import confirmation.",
+    "host": "harness-blank",
+    "setup": [
+      "Place a sample .wmtheme.json file on-device (e.g. via adb push to Downloads).",
+      "Open a file manager app and tap the file, or use: am start -a android.intent.action.VIEW -d file://<path>/Sample.wmtheme.json -t application/json",
+      "Screenshot the resulting 'Import into WM Keyboard' confirm dialog (FileImport.kt ImportFileActivity)."
+    ],
+    "status": "todo",
+    "notes": "Dialog title is literally \"Import {theme.name}?\" with body \"The theme is added to your themes and applied to the keyboard.\" and a single Import button (FileImport.kt:361-375). Activity is excludeFromRecents and translucent, so capture may need a real file-manager tap sequence rather than the DocsShotActivity harness.",
+    "kind": "still"
   }
 ]

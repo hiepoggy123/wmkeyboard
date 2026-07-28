@@ -54,6 +54,10 @@ A pack can come from two places, and both end up in the same list of installed p
 
 **From an addon repository.** Icon packs are one of the addon types a repository can host. They're capped at 8 MB and, unlike dictionaries or sticker packs, can't be previewed before you install: a set of glyphs is hard to judge from a text description, so it's install-and-look rather than preview-and-decide. Installing is a two-step handoff: the pack lands on the device first, then a dialog asks **"Use its icons on the keyboard now?"** with a **Switch to it** button. Declining leaves the pack installed but inactive, so you can come back to it later from the Icons screen without reinstalling.
 
+<PhoneFrame caption="After installing an icon pack from an addon repository, the app asks whether to switch to it.">
+  {/* shot: themes/icons-addon-apply-prompt */}
+</PhoneFrame>
+
 **Importing a file directly.** You don't need a repository at all: **Import an icon pack** on the Icons screen opens a file picker for any `.wmicons` file, the same format a repository ships. This is the flow for a pack a friend sent you directly rather than one hosted anywhere. Importing switches to the pack immediately, since installing one and not using it isn't usually what you wanted.
 
 Either way, the device holds at most 20 icon packs at once (the reserved "My icons" pack counts toward that total too), and every SVG inside a pack is still limited to 256 KB.
