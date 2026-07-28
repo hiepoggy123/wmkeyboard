@@ -4251,7 +4251,7 @@
       "am start -a android.intent.action.VIEW -d \"wmkeyboard://settings/themes\"",
       "Scroll so Mode, Material You colors, the Auto (light + dark) group (collapsed, Auto theme off), and the top of the Themes grid (Default card + a couple of built-in cards) are all visible in one frame"
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "ThemesScreen (ThemeScreens.kt:294-589). Keep Auto theme off for this shot so the collapsed state is what's shown; the expanded/Auto-on state is its own shot below.",
     "kind": "still"
   },
@@ -4267,7 +4267,7 @@
       "Tap the Trigger segmented row's \"Time of day\" segment",
       "Frame the Light theme / Dark theme picker rows, the Trigger row, and the Light theme from / Dark theme from time rows together"
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "Auto theme defaults off (AutoThemeSettings.enabled = false); Trigger defaults to System light/dark. This shot needs SCHEDULE selected to show the two time rows (7:00 AM / 7:00 PM defaults).",
     "kind": "still"
   },
@@ -4283,7 +4283,7 @@
       "Back out to the gallery, find the new card under Your themes, tap its trash icon",
       "Capture the resulting \u201cDelete theme?\u201d AlertDialog"
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "Dialog text is exact: title \"Delete theme?\", body \u201c\u201c${theme.name}\u201d will be removed permanently.\u201d (ThemeScreens.kt:715-716). Do not actually confirm delete if the capture harness needs the theme to stay for other shots \u2014 or delete last.",
     "kind": "still"
   },
@@ -4298,7 +4298,7 @@
       "Tap Create theme (theme_edit/{id} is not in the wmkeyboard://settings deep-link allowlist \u2014 SettingsShortcuts.Routes only has typing/appearance/themes/languages/tools/search \u2014 so reach the editor by tapping through)",
       "Scroll so the live preview, Theme name field, and the top of \"Start from a color\" (Dark theme switch + seed swatch row) are all visible"
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "ThemeEditorScreen (ThemeScreens.kt:727-1196). A freshly created theme is blue/dark by default (seeded from SeedSwatches.first(), dark = true).",
     "kind": "still"
   },
@@ -4316,7 +4316,7 @@
       "wait; adb pull /sdcard/rec.mp4",
       "ffmpeg -i rec.mp4 -vf \"fps=15,scale=540:-1\" -c:v libwebp_anim -loop 0 -q:v 70 -an themes-editor-crop.webp"
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "Motion-only behavior (pinch/pan feel doesn't read in a still). Requires the still sibling reference/settings/themes-editor-crop-still below for reduced-motion readers; both entries share this page's single placeholder id/comment.",
     "kind": "anim"
   },
@@ -4329,7 +4329,7 @@
     "setup": [
       "Same setup as reference/settings/themes-editor-crop, but take a single screenshot mid-gesture (image panned/zoomed off-center) with the Keyboard/Wide/Square aspect segmented row visible instead of recording video"
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "Reduced-motion fallback for reference/settings/themes-editor-crop \u2014 not referenced by its own placeholder comment in the page; swapped in by the capture pipeline when reduced motion is preferred.",
     "kind": "still"
   },
@@ -4515,7 +4515,7 @@
       "am start -a android.intent.action.VIEW -d wmkeyboard://settings/themes",
       "Tap 'Create theme' to open a fresh custom theme in the editor (or tap the pencil on any existing custom theme)"
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "Capture the top of ThemeEditorScreen: ThemePreview widget, theme name field, and the start of the 'Start from a color' section.",
     "kind": "still"
   },
@@ -4530,7 +4530,7 @@
       "Tap 'Create theme' (or the pencil on a custom theme) to open the editor",
       "The 'Start from a color' section with the Dark theme switch and the 15-swatch row is at the top, just below the theme name field"
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "SeedSwatches has 15 colors in a LazyRow; frame the row wide enough to show several swatches plus the Dark theme switch above it.",
     "kind": "still"
   },
@@ -4546,7 +4546,7 @@
       "Scroll to the 'Board' section and turn on the 'Gradient background' switch",
       "Capture the expanded gradient editor: preview strip, Linear/Radial/Sweep picker, angle slider, and color stop rows"
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "Angle slider is hidden when Radial is selected, so leave the default Linear type selected for this shot.",
     "kind": "still"
   },
@@ -4562,7 +4562,7 @@
       "Scroll to the 'Corners' section and turn on 'Theme-specific corner radii' so the three sliders appear",
       "Capture the Corners section (and ideally scroll to include the start of the Animation section below it)"
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "If Corners and Animation don't fit in one frame at readable size, split into two separate stills instead and adjust the page's single PhoneFrame to two, or crop tightly on Corners only.",
     "kind": "still"
   },
@@ -4577,7 +4577,7 @@
       "Tap the trash icon on any custom theme's card in the 'Your themes' section",
       "Capture the resulting 'Delete theme?' confirmation dialog"
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "Needs at least one existing custom theme on the device first (create one via 'Create theme' if none exist).",
     "kind": "still"
   },

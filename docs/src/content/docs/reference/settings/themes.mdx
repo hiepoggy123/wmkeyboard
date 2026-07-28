@@ -12,7 +12,7 @@ import KeyCap from '@components/KeyCap.astro';
 Two screens live behind **Keyboard themes**: a gallery for picking, creating, and managing themes, and an editor for building one from scratch. This page is the field reference for both. For the reasoning and the bigger picture, read [Theming overview](/themes/overview/) and [Theme editor](/themes/editor/) instead.
 
 <PhoneFrame caption="The theme gallery: Mode, Auto (light + dark), and the Themes grid.">
-{/* shot: reference/settings/themes-gallery-overview */}
+![The theme gallery: Mode, Auto (light + dark), and the Themes grid.](@assets/screens/reference/settings/themes-gallery-overview.webp)
 </PhoneFrame>
 
 ## Theme list
@@ -44,7 +44,7 @@ Both apply to the settings app itself and to the **Default (system)** theme only
 Choosing **Sunrise & sunset** shows explanatory text instead of a control: it reads the location already saved in the weather tool and computes locally, with no network call, falling back to System light/dark if no location is saved. While Auto theme is on, the Themes grid below still shows which card is selected, but tapping one only previews it; a note above the grid says so.
 
 <PhoneFrame caption="Auto theme on, with Time of day chosen and both clock rows visible.">
-{/* shot: reference/settings/themes-auto-schedule */}
+![Auto theme on, with Time of day chosen and both clock rows visible.](@assets/screens/reference/settings/themes-auto-schedule.webp)
 </PhoneFrame>
 
 ### Themes
@@ -62,7 +62,7 @@ Choosing **Sunrise & sunset** shows explanatory text instead of a control: it re
 The grid runs two cards per row: **Default (system)** first (no edit, export, or delete, since it's generated live rather than stored), then **Your themes** (only shown once you have at least one), then **Built-in** with its own note, "Tap to use. The pencil makes an editable copy." Built-in cards never show a delete button.
 
 <PhoneFrame caption="Deleting a custom theme asks for confirmation before removing it.">
-{/* shot: reference/settings/themes-delete-confirm */}
+![Deleting a custom theme asks for confirmation before removing it.](@assets/screens/reference/settings/themes-delete-confirm.webp)
 </PhoneFrame>
 
 There are 26 built-in themes: 18 original WM Keyboard designs plus 8 ports of well-known editor color schemes (Dracula, Nord, Solarized Dark, Solarized Light, Catppuccin Mocha, Catppuccin Latte, Tokyo Night, Cyberpunk). See [Theming overview](/themes/overview/#choosing-a-theme) for the full list and what each one showcases.
@@ -74,7 +74,7 @@ There are 26 built-in themes: 18 original WM Keyboard designs plus 8 ports of we
 Every field here writes and applies the instant you touch it, so there's no save step. A live keyboard preview is pinned at the top and redraws on every change (the gradient animation itself is static in this preview; see it move only on the real keyboard).
 
 <PhoneFrame caption="The theme editor, live preview pinned above the color and shape controls.">
-{/* shot: reference/settings/themes-editor-overview */}
+![The theme editor, live preview pinned above the color and shape controls.](@assets/screens/reference/settings/themes-editor-overview.webp)
 </PhoneFrame>
 
 ### Theme name and start-from-a-color
@@ -187,7 +187,7 @@ The **Gradient background** (Board) and **Key gradient** (Keys) rows share one e
 ### Cropping an image
 
 <PhoneFrame caption="Cropping a background image: pinch to zoom, drag to reposition, three aspect presets.">
-{/* shot: reference/settings/themes-editor-crop */}
+![Cropping a background image: pinch to zoom, drag to reposition, three aspect presets.](@assets/screens/reference/settings/themes-editor-crop.webp)
 </PhoneFrame>
 
 Pinch to zoom and drag to pan; the image is always scaled to fill the frame, so there's never a gap at the edges. Three aspect presets: **Keyboard** (2.4:1, the default), **Wide** (1.7:1), and **Square** (1:1). Confirming writes a new JPEG and deletes the source file. The crop isn't reversible from inside the editor, so re-picking the original photo starts a fresh crop.

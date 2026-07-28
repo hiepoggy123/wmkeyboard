@@ -11,7 +11,7 @@ import SettingsPath from '@components/SettingsPath.astro';
 The theme editor is where a single custom theme gets built: every color, the key shape, optional gradients, corner-radius overrides, and a live-animated background if you want one. Every field here applies and saves the instant you touch it; there's no separate save step.
 
 <PhoneFrame caption="The theme editor, with the live preview pinned above the color and shape controls.">
-  {/* shot: themes/editor-live-preview */}
+  ![The theme editor, with the live preview pinned above the color and shape controls.](@assets/screens/themes/editor-live-preview.webp)
 </PhoneFrame>
 
 ## Creating a theme
@@ -29,7 +29,7 @@ Importing a `.wmtheme.json` file (from the gallery's Import button or by opening
 At the top of the editor, a **Dark theme** switch and a row of swatches let you regenerate every color at once from a single seed:
 
 <PhoneFrame caption="Start from a color: the Dark theme switch and seed swatch row.">
-  {/* shot: themes/editor-seed-swatches */}
+  ![Start from a color: the Dark theme switch and seed swatch row.](@assets/screens/themes/editor-seed-swatches.webp)
 </PhoneFrame>
 
 Tapping a swatch, or flipping Dark theme, recomputes the board, key, accent, and popup colors from that seed and shade. It deliberately preserves everything that isn't seed-derived, so a reseed doesn't erase work you've already done elsewhere in the editor: your background image and its opacity/blur, both gradients, the key shape, the key border color and width, the gesture-trail color, all three corner-radius overrides, and the animation type and speed all carry over untouched. Anything you hand-picked that *is* seed-derived (like a manually recolored key-text or popup color) gets overwritten by the reseed, since there's no way to tell "kept the default" apart from "picked to match."
@@ -76,7 +76,7 @@ Any row left on Auto shows an "Auto" label under its name instead of a fixed val
 Both **Board** and **Keys** can carry an optional gradient instead of (technically, painted over) their solid color, toggled on with a switch next to each. Turning one on seeds it with a sensible default (the board gradient starts as a 135° linear blend from Background to Accent, the key gradient as a subtle 90° white sheen), which you can then reshape:
 
 <PhoneFrame caption="A board gradient turned on: type, angle, and color-stop controls.">
-  {/* shot: themes/editor-gradient */}
+  ![A board gradient turned on: type, angle, and color-stop controls.](@assets/screens/themes/editor-gradient.webp)
 </PhoneFrame>
 
 - **Type** — Linear, Radial, or Sweep.
@@ -88,7 +88,7 @@ Both **Board** and **Keys** can carry an optional gradient instead of (technical
 Off by default, so keys everywhere follow the global sliders under Appearance → Keys. Turning on **Theme-specific corner radii** seeds three independent sliders for this theme alone:
 
 <PhoneFrame caption="Theme-specific corner radii, with the Key, Popup, and Tool circle sliders.">
-  {/* shot: themes/editor-corners-animation */}
+  ![Theme-specific corner radii, with the Key, Popup, and Tool circle sliders.](@assets/screens/themes/editor-corners-animation.webp)
 </PhoneFrame>
 
 - **Key corner radius** — 0–28dp, seeded from the global Key corner radius slider (default 8dp) when you turn the switch on.
@@ -122,7 +122,7 @@ There's no Save or Apply button anywhere in this screen: every field write goes 
 **Deleting** a custom theme is a gallery action too: tap the trash icon on its card. A confirmation dialog asks "Delete theme?" with a note that it will be removed permanently, and deleting also removes the theme's background image file(s) (portrait and landscape) from storage so they don't linger as orphaned files:
 
 <PhoneFrame caption="Deleting a custom theme asks for confirmation before removing it.">
-  {/* shot: themes/editor-delete-confirm */}
+  ![Deleting a custom theme asks for confirmation before removing it.](@assets/screens/themes/editor-delete-confirm.webp)
 </PhoneFrame>
 
 Delete (and export) aren't offered for built-in themes or the Default theme, only for themes in Your Themes.
