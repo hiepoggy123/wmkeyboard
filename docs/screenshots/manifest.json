@@ -3018,5 +3018,50 @@
     "status": "todo",
     "notes": "This group only renders when a conjunct-forming (INDIC_CLUSTER) script is enabled; Bengali's default-enabled layouts satisfy that.",
     "kind": "still"
+  },
+  {
+    "id": "typing/spacebar-cursor-swipe",
+    "page": "docs/src/content/docs/typing/gestures.mdx",
+    "file": "src/assets/screens/typing/spacebar-cursor-swipe.webp",
+    "caption": "Dragging the spacebar moves the text cursor a character at a time.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind multiline",
+      "In settings, set Typing / Gestures / Hold + swipe on spacebar to Cursor (it's the default)",
+      "Drag the spacebar horizontally and hold mid-drag for the capture"
+    ],
+    "status": "todo",
+    "notes": "Show the cursor mid-field after a few character-steps of drag; a still frame is fine since the motion itself is generic left/right dragging.",
+    "kind": "still"
+  },
+  {
+    "id": "typing/backspace-word-swipe",
+    "page": "docs/src/content/docs/typing/gestures.mdx",
+    "file": "src/assets/screens/typing/backspace-word-swipe.webp",
+    "caption": "Dragging backspace to the left deletes text a word at a time instead of a character at a time.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind multiline --es text \"the quick brown fox jumps\"",
+      "Confirm Typing / Backspace / Swipe to delete words is on (default)",
+      "Press backspace and drag left past the first word's threshold, hold mid-gesture for the capture"
+    ],
+    "status": "todo",
+    "notes": "Capture mid-drag so a word or two is visibly gone but the finger is still down on backspace, if the harness can hold a synthetic touch.",
+    "kind": "still"
+  },
+  {
+    "id": "typing/volume-cursor-control",
+    "page": "docs/src/content/docs/typing/gestures.mdx",
+    "file": "src/assets/screens/typing/volume-cursor-control.webp",
+    "caption": "With Volume cursor control on, the hardware volume keys move the text cursor instead of the volume.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind multiline",
+      "Turn on Typing / Volume keys / Volume cursor control",
+      "adb shell input keyevent KEYCODE_VOLUME_DOWN (moves cursor left) or KEYCODE_VOLUME_UP, then capture the field with the cursor visibly moved"
+    ],
+    "status": "todo",
+    "notes": "No dedicated on-screen UI changes for this feature \u2014 the shot just needs to show the text field with a moved cursor position; caption/context carries the explanation. Consider whether this shot is worth capturing at all vs. relying on the settings-screen shot alone; flagging for the capture-phase owner's judgement.",
+    "kind": "still"
   }
 ]
