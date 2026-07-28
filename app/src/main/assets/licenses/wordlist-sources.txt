@@ -1,0 +1,80 @@
+Downloadable word-frequency lists, offensive word lists and emoji keyword
+dictionaries — sources and licences
+==========================================================================
+
+The wordlists the app can download (Settings > Languages > Dictionaries)
+are packaged in the WM Keyboard data repository
+(https://github.com/wasi-master/wmkeyboard-data), which redistributes data
+from the open-source projects below. Some datasets have been reformatted,
+trimmed, compressed or reorganized; original attribution and licensing
+remain unchanged. The repository's data/README.md carries the complete
+per-language attribution table; this file lists every source and its
+licence.
+
+Word-frequency lists
+--------------------
+
+  hermitdave/FrequencyWords (OpenSubtitles 2018)
+  https://github.com/hermitdave/FrequencyWords — CC BY-SA 4.0
+  (most languages)
+
+  Leipzig Corpora Collection
+  https://wortschatz.uni-leipzig.de/ — CC BY 4.0
+  (about a hundred languages)
+
+  Wikimedia data dumps
+  https://dumps.wikimedia.org/ — CC BY-SA 4.0
+  (about two hundred smaller-Wikipedia languages)
+
+  rspeer/wordfreq
+  https://github.com/rspeer/wordfreq — MIT
+  (bn, ca, hi, ja, ta, uk)
+
+  Per-language sources: urduhack/urdu-words (ur),
+  kasunw22/sinhala-para-dict (si),
+  vigneshwaran-chandrasekaran/tamil-language-words-list (ta),
+  tahmid02016/bangla-wordlist (bn), the Official Lojban Dictionary (jbo),
+  the Klingon Dictionary at klingonska.org (tlh), the Ardalambion Quenya
+  wordlist (qya), the lipu Linku Toki Pona dictionary (tok),
+  motaitalic/devanagari-documentation (bho, brx, doi, ks, mai, raj),
+  Balochi datasets by Zaanthai and mainkilora (bgn), Unicode CLDR (blo),
+  Chakma datasets by amlan107 and dipongkar01 (ccp), the eBible Corpus and
+  Glot500 (quc), the eBible Corpus with arndri/rohingya-tweet-id and
+  freococo/rohingya_asr_audio (rhg), the ETCBC Peshitta Syriac Corpus
+  (syr), and the Cantonese Wikipedia dump with OpenCC (yue). Each keeps
+  the licence stated in the data repository's attribution table (CC BY-SA
+  4.0 / CC BY-SA 3.0, MIT, Apache-2.0, or public domain).
+
+  Romanized lists: Malayalam via knadh/ml2en over the FrequencyWords list;
+  Roman Urdu from Khubaib01/RomanUrdu-NLP-Sentiment-Corpus (Apache-2.0).
+
+Offensive word lists (optional suggestion filters)
+--------------------------------------------------
+
+  LDNOOBWV2 (List of Dirty, Naughty, Obscene and Otherwise Bad Words V2)
+  https://github.com/LDNOOBWV2/... — CC0 1.0 Universal
+
+  okineadev/profanity-list — The Unlicense
+  4troDev/profanity.csv — MIT
+  blue-eyes-vn/vietnamese-offensive-words — MIT
+  drizki/indonesian-badwords — MIT
+  kateryna-bobrovnyk/obscene-ukr — MIT
+  thisandagain/washyourmouthoutwithsoap — MIT
+
+Emoji keyword dictionaries
+--------------------------
+
+  Derived from Unicode CLDR annotations and Unicode Emoji Data, extracted
+  via KDE's kemoji (https://github.com/KDE/kemoji). The data is licensed
+  under the Unicode License v3 (see unicode-3.0.txt) / CC0 1.0.
+
+---
+
+Licence summaries. CC BY / CC BY-SA: you may share and adapt the material,
+with attribution; ShareAlike additionally requires derived data to stay
+under the same licence. CC0 / Unlicense: public-domain dedication, no
+conditions. MIT and Apache-2.0: permissive, notice-preserving; their full
+texts are bundled beside this file. Full Creative Commons texts:
+https://creativecommons.org/licenses/by-sa/4.0/legalcode
+https://creativecommons.org/licenses/by/4.0/legalcode
+https://creativecommons.org/publicdomain/zero/1.0/legalcode

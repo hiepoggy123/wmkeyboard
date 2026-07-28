@@ -26,17 +26,22 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * Attribution and licence notices.
+ * Attribution and licence notices, in three sections.
  *
  * Every third-party component that ships inside the APK is listed here with
- * its licence, and the full licence texts are bundled as assets under
- * `assets/licenses/` — Apache-2.0 §4(a) and the MIT/OFL/Unicode notices all
- * require the text to travel with the binary, not merely a link to it.
- * Online services the tools call are listed separately: no code of theirs is
- * distributed, but their terms still ask to be credited.
+ * its licence, and the full licence texts (or, for aggregated sources, a
+ * notice naming each one) are bundled as assets under `assets/licenses/` —
+ * Apache-2.0 §4(a) and the MIT/BSD/OFL/Unicode notices all require the text
+ * to travel with the binary, not merely a link to it. Data packs the app
+ * downloads on demand are listed the same way: their licences (CC BY,
+ * CC BY-SA, BSD, …) attach to the data wherever it ends up, bundled or not.
+ * Online services the tools call are listed last: no code or data of theirs
+ * is distributed, but their terms still ask to be credited.
  */
 
 internal const val SOURCE_URL = "https://github.com/wasi-master/WMKeyboard"
+internal const val DOCS_URL = "https://wmkeyboard.pages.dev"
+private const val PRIVACY_POLICY_URL = "$DOCS_URL/privacy/overview/"
 private const val PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=${BuildConfig.APPLICATION_ID}"
 private const val FDROID_URL = "https://f-droid.org/packages/${BuildConfig.APPLICATION_ID}/"
 
@@ -71,7 +76,7 @@ private val bundledAttributions: List<Attribution> = buildList {
     add(
         Attribution(
             "AndroidX & Jetpack Compose",
-            "UI toolkit, navigation, DataStore, CameraX, emoji2",
+            "UI toolkit, navigation, DataStore, CameraX, autofill",
             "Copyright The Android Open Source Project",
             "Apache-2.0", "apache-2.0.txt",
             "https://developer.android.com/jetpack/androidx",
@@ -137,7 +142,7 @@ private val bundledAttributions: List<Attribution> = buildList {
                 "Rust crates used by Harper",
                 "Transitive dependencies linked into the grammar library",
                 "Copyright the respective crate authors",
-                "MIT / Apache-2.0", "mit.txt",
+                "MIT / Apache-2.0 / others", "harper-third-party.txt",
                 "https://crates.io",
             ),
         )
@@ -178,8 +183,8 @@ private val bundledAttributions: List<Attribution> = buildList {
             Attribution(
                 "OpenAI Whisper",
                 "Speech recognition model (TFLite conversions run on-device)",
-                "Copyright OpenAI",
-                "MIT", "mit.txt",
+                "Copyright (c) 2022 OpenAI",
+                "MIT", "mit-whisper.txt",
                 "https://github.com/openai/whisper",
             ),
         )
@@ -187,8 +192,8 @@ private val bundledAttributions: List<Attribution> = buildList {
             Attribution(
                 "whisper_android",
                 "Reference for the mel-spectrogram and tokenizer port",
-                "Copyright Vilas Nandeshwar and contributors",
-                "MIT", "mit.txt",
+                "Copyright (c) 2023 Vilas Ninawe",
+                "MIT", "mit-whisper-android.txt",
                 "https://github.com/vilassn/whisper_android",
             ),
         )
@@ -206,18 +211,9 @@ private val bundledAttributions: List<Attribution> = buildList {
         Attribution(
             "gemoji",
             "Emoji shortcodes (the :tada: names GitHub, Discord and Slack use)",
-            "Copyright GitHub, Inc.",
-            "MIT", "mit.txt",
+            "Copyright (c) 2019 GitHub, Inc.",
+            "MIT", "mit-gemoji.txt",
             "https://github.com/github/gemoji",
-        ),
-    )
-    add(
-        Attribution(
-            "CC-CEDICT",
-            "Chinese Pinyin conversion dictionary (downloadable pack)",
-            "Copyright MDBG and CC-CEDICT contributors",
-            "CC BY-SA 4.0", "cc-by-sa-4.0.txt",
-            "https://cc-cedict.org/",
         ),
     )
     add(
@@ -231,11 +227,11 @@ private val bundledAttributions: List<Attribution> = buildList {
     )
     add(
         Attribution(
-            "mozc & SudachiDict",
-            "Japanese kana→kanji conversion dictionary (downloadable pack)",
-            "Copyright Google Inc. and Works Applications Co., Ltd.",
-            "BSD-3-Clause / Apache-2.0", "bsd-3-clause.txt",
-            "https://github.com/google/mozc",
+            "LSHK Jyutping table",
+            "Cantonese Jyutping syllable inventory",
+            "Copyright the Linguistic Society of Hong Kong",
+            "CC BY 4.0", "cc-by-4.0-lshk.txt",
+            "https://github.com/lshk-org/jyutping-table",
         ),
     )
     add(
@@ -257,6 +253,73 @@ private val bundledAttributions: List<Attribution> = buildList {
         ),
     )
 }
+
+/**
+ * Data the app downloads on demand rather than bundling: the CJK conversion
+ * packs and the per-language wordlists, offensive lists and emoji keyword
+ * dictionaries served from the wmkeyboard-data repository. Their licences
+ * attach to the data itself, so they are listed with full notices exactly
+ * like the bundled components.
+ */
+private val dataPackAttributions: List<Attribution> = listOf(
+    Attribution(
+        "Frequency wordlists",
+        "Prediction wordlists for 300+ languages, from FrequencyWords " +
+            "(OpenSubtitles), Leipzig Corpora, Wikimedia, wordfreq and others",
+        "Copyright the respective corpus authors",
+        "CC BY-SA 4.0 / CC BY 4.0 / MIT / others", "wordlist-sources.txt",
+        "https://github.com/wasi-master/wmkeyboard-data",
+    ),
+    Attribution(
+        "Offensive word lists",
+        "Optional suggestion-filter lists for downloaded languages",
+        "Aggregated from LDNOOBW V2, profanity-list and other open lists",
+        "CC0 / Unlicense / MIT", "wordlist-sources.txt",
+        "https://github.com/wasi-master/wmkeyboard-data",
+    ),
+    Attribution(
+        "Emoji keyword dictionaries",
+        "Emoji search keywords in 141 languages, extracted via KDE's kemoji",
+        "Copyright Unicode, Inc. (CLDR annotations and emoji data)",
+        "Unicode License v3", "unicode-3.0.txt",
+        "https://github.com/KDE/kemoji",
+    ),
+    Attribution(
+        "CC-CEDICT",
+        "Chinese Pinyin conversion dictionary",
+        "Copyright MDBG and CC-CEDICT contributors",
+        "CC BY-SA 4.0", "cc-by-sa-4.0.txt",
+        "https://cc-cedict.org/",
+    ),
+    Attribution(
+        "mozc",
+        "Japanese kana→kanji conversion dictionary (dictionary_oss)",
+        "Copyright 2010-2021 Google Inc.",
+        "BSD-3-Clause", "bsd-3-clause.txt",
+        "https://github.com/google/mozc",
+    ),
+    Attribution(
+        "rime-cantonese & CC-Canto",
+        "Cantonese Jyutping conversion dictionary",
+        "Copyright CanCLID and Pleco Inc.",
+        "CC BY 4.0 / CC BY-SA 3.0", "jyutping-sources.txt",
+        "https://github.com/rime/rime-cantonese",
+    ),
+    Attribution(
+        "Chinese stroke code table",
+        "Stroke-sequence input for Chinese",
+        "Copyright (c) 2021, FeiJiang Ye",
+        "BSD-2-Clause", "bsd-2-clause-stroke.txt",
+        "https://github.com/yefeijiang/Chinese-characters-code-table",
+    ),
+    Attribution(
+        "Unicode Unihan database",
+        "Cangjie input code table (kCangjie field)",
+        "Copyright Unicode, Inc.",
+        "Unicode License v3", "unicode-3.0.txt",
+        "https://www.unicode.org/",
+    ),
+)
 
 /**
  * Services the tools call over the network. Nothing of theirs is bundled, so
@@ -369,6 +432,19 @@ internal fun AboutSettings(
             "provided the copyright notice and licence text travel with it.",
     )
 
+    SettingsGroup("Documentation") {
+        item {
+            NavRow("User guide", DOCS_URL.removePrefix("https://")) {
+                uriHandler.openUri(DOCS_URL)
+            }
+        }
+        item {
+            NavRow("Privacy policy", "What leaves the device, what never does") {
+                uriHandler.openUri(PRIVACY_POLICY_URL)
+            }
+        }
+    }
+
     SettingsGroup("Third party") {
         item {
             NavRow("Open-source licences", "Libraries and data bundled in this build") {
@@ -381,8 +457,10 @@ internal fun AboutSettings(
         item {
             NavRow(
                 "Dictionaries",
-                "The English and Bengali word lists, bigrams and the loanword map are " +
-                    "hand-curated for this project and covered by its licence",
+                "The seed bigrams, loanword map and offensive-word list are " +
+                    "hand-curated for this project and covered by its licence; " +
+                    "downloadable wordlists keep their sources' licences, listed " +
+                    "under Open-source licences",
             ) {}
         }
     }
@@ -393,8 +471,9 @@ internal fun LicensesScreen(onOpenLicenseText: (String) -> Unit) {
     val uriHandler = LocalUriHandler.current
 
     CaptionText(
-        "Components bundled in this build. Tap a row for its full licence text; " +
-            "rows without a bundled text open the provider's terms.",
+        "Components bundled in this build and data the app can download. Tap a " +
+            "row for its full licence text; rows without a bundled text open " +
+            "the provider's terms.",
     )
     SettingsGroup("Bundled in the app") {
         bundledAttributions.forEach { entry ->
@@ -406,6 +485,20 @@ internal fun LicensesScreen(onOpenLicenseText: (String) -> Unit) {
             }
         }
     }
+    SettingsGroup("Downloadable data packs") {
+        dataPackAttributions.forEach { entry ->
+            item {
+                NavRow(entry.name, "${entry.used}\n${entry.copyright} · ${entry.license}") {
+                    if (entry.licenseAsset != null) onOpenLicenseText(entry.licenseAsset)
+                    else uriHandler.openUri(entry.url)
+                }
+            }
+        }
+    }
+    CaptionText(
+        "Data packs are fetched on demand from the WM Keyboard data repository " +
+            "and keep their upstream licences whether or not they are installed.",
+    )
     SettingsGroup("Online services") {
         serviceAttributions.forEach { entry ->
             item {

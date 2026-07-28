@@ -412,6 +412,8 @@ private val SettingRows: List<SettingsSearchEntry> = listOfNotNull(
     entry("Licence", "MIT — © 2026 Wasi Master", "About", "about"),
     entry("Source code", "https://", "About", "about"),
     entry("Open-source licences", "Libraries and data bundled in this build", "About", "about"),
+    entry("User guide", "Documentation for every feature", "About", "about"),
+    entry("Privacy policy", "What leaves the device, what never does", "About", "about"),
     entry(
         "Diagnostics",
         "What the keyboard recorded about itself — read it, or send it with a bug report",
@@ -420,7 +422,7 @@ private val SettingRows: List<SettingsSearchEntry> = listOfNotNull(
     ),
     entry(
         "Dictionaries",
-        "The English and Bengali word lists, bigrams and the loanword map are hand-curated for this project and covered by its licence",
+        "The seed bigrams, loanword map and offensive-word list are hand-curated for this project; downloadable wordlists keep their sources' licences",
         "About",
         "about",
     ),

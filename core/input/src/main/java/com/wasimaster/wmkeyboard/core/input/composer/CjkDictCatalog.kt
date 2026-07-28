@@ -30,11 +30,11 @@ data class CjkDictPack(
 }
 
 /**
- * The curated CJK dictionary packs, one per language. Bigger and better than the
- * tiny bundled `pinyin.tsv` / `ja_kana.tsv`: CC-CEDICT-derived Hanzi for Chinese,
- * a mozc/SudachiDict-derived kana→kanji table for Japanese. The URLs and
- * checksums are filled once the packs are built and hosted; until then the pack
- * is [CjkDictPack.available] == false and the settings row says so.
+ * The curated CJK dictionary packs, one per input scheme: CC-CEDICT-derived
+ * Hanzi for Pinyin, a Mozc-derived kana→kanji table for Japanese, and the
+ * jyutping/stroke/cangjie tables from their sources in the data repo. A pack
+ * whose URL or checksum is blank is [CjkDictPack.available] == false and the
+ * settings row says so.
  */
 object CjkDictCatalog {
 
