@@ -1,6 +1,6 @@
 ---
 title: "Backup & restore"
-description: "Export everything, restore anywhere — and control what Android's own backup may take."
+description: "Export everything, restore anywhere, and control what Android's own backup may take."
 sidebar:
   order: 5
 ---
@@ -25,10 +25,10 @@ is its own switch:
 | Section | Default | What it covers |
 |---|---|---|
 | Settings | On | Every keyboard preference |
-| Include API keys | Off | Translate, GIF, search and AI keys — only shown while Settings is on |
+| Include API keys | Off | Translate, GIF, search and AI keys (only shown while Settings is on) |
 | Themes | On | Your custom themes, including their background images |
 | Dictionary | Off | Words and next-word patterns the keyboard learned from you |
-| Clipboard | Off | Saved clipboard history (text only — images and files stay local) |
+| Clipboard | Off | Saved clipboard history (text only; images and files stay local) |
 | Snippets | On | Your saved text snippets |
 | Sticker packs | Off | Your own sticker packs, images and all |
 | Icon packs | Off | Your own icon packs, images and all |
@@ -36,20 +36,20 @@ is its own switch:
 | Addon repositories | On | The repository addresses you added, so a restore can reinstall from them |
 
 Sticker packs and icon packs default off only because their images make the
-file large, not because there's anything private about them — turn them on
+file large, not because there's anything private about them: turn them on
 and a restore on another phone gets working packs, not empty shells. The
 personal ones (dictionary, clipboard) default off because they're your typing
 history rather than configuration.
 
 Tap **Export backup** to write a `wmkeyboard-backup-<date>-<time>.wmconfig.json`
-file through Android's own save dialog — it goes wherever you choose, not to
+file through Android's own save dialog: it goes wherever you choose, not to
 any WM Keyboard server. Nothing in the file selection persists between visits
 to this screen: reopen it later and every switch is back to its default.
 
 :::note[Addon repositories, not addons]
 The addon repositories section is just the list of repository addresses
 you've added, so a restore can point back at them. The addons you installed
-*from* those repositories already travel inside their own sections — an
+*from* those repositories already travel inside their own sections: an
 installed theme is in Themes, an installed icon pack is in Icon packs. See
 [Installing addons](/addons/installing/) for how that catalogue works.
 :::
@@ -57,8 +57,8 @@ installed theme is in Themes, an installed icon pack is in Icon packs. See
 ## Importing a file
 
 **Import backup** opens a file picker and reads the file before touching
-anything. You get a confirmation dialog listing exactly what's inside — for
-example "Themes: 3 custom themes" — before anything is applied, and importing
+anything. You get a confirmation dialog listing exactly what's inside (for
+example "Themes: 3 custom themes") before anything is applied, and importing
 is refused outright if the file isn't a WM Keyboard backup.
 
 Opening a `.wmconfig.json` file from a file manager works the same way: it
@@ -74,12 +74,12 @@ more than the in-app dialog's one-line summary suggests:
 | Section | On import |
 |---|---|
 | Settings | **Merges.** Only the preferences named in the file are overwritten; everything else on the device is untouched. |
-| Themes | **Replaces.** Your entire custom-theme list is swapped for what's in the file — custom themes you made since the backup are gone. |
+| Themes | **Replaces.** Your entire custom-theme list is swapped for what's in the file: custom themes you made since the backup are gone. |
 | Dictionary, clipboard, snippets | **Replaces.** The on-device copy is overwritten by what's in the file. |
 | Sticker packs, icon packs, custom word lists | **Replaces.** The whole local collection is cleared and rebuilt from the file. |
 | Addon repositories | **Merges.** Incoming addresses are added to your existing list rather than replacing it (duplicates are skipped). |
 
-If the file includes API keys, the dialog warns you before you confirm — see
+If the file includes API keys, the dialog warns you before you confirm; see
 [Secrets stay out by default](#secrets-stay-out-by-default) below.
 
 Settings import specifically is rollback-safe: after writing, the keyboard
@@ -95,27 +95,27 @@ API keys for Translate, GIF search, web search and the AI tools are excluded
 from every export unless you turn on **Include API keys**, which only appears
 while the Settings section itself is included. Leaving it off means the file
 is safe to store in a synced folder or hand to someone else; turning it on
-means the opposite — the keys sit in the file as plain text, and the app
+means the opposite: the keys sit in the file as plain text, and the app
 warns you about it after export: "Backup exported, API keys included. Treat
 that file as a password." An incoming file with keys in it gets the same
 warning before you confirm the import, since those keys will overwrite the
 ones already set on the device.
 
 This redaction is specific to the file you export yourself. It doesn't apply
-to Android's own backup below — turning that on does copy your saved API keys
+to Android's own backup below: turning that on does copy your saved API keys
 along with everything else, because the whole settings store travels as one
 piece there.
 
 ## Android's own backup
 
 Separately from exporting a file, you can let Android's built-in backup
-system cover the keyboard too — the same mechanism that restores your other
-apps after a factory reset or backs up during a phone-to-phone transfer.
+system cover the keyboard too (the same mechanism that restores your other
+apps after a factory reset or backs up during a phone-to-phone transfer).
 
 <SettingsPath path="Privacy / Android backup / Back up with Android" />
 
 This is off by default. With it off, Android's backup agent writes nothing
-for WM Keyboard at all — not a partial copy, nothing. Turn it on and a backup
+for WM Keyboard at all: not a partial copy, nothing. Turn it on and a backup
 made this way restores settings, themes, layouts, snippets, learned words,
 sticker and icon packs, and plugins on a new device or after a reinstall.
 
@@ -135,7 +135,7 @@ export:
   encrypt it under your own screen lock. If the device can't, no backup is
   written even with the toggle on.
 - **Restore isn't gated by the toggle.** If you ever receive a backup made
-  while the switch was on — after a reinstall, say — it restores regardless
+  while the switch was on (after a reinstall, say), it restores regardless
   of the switch's current state. The reasoning: a restore can only replay
   data an earlier install was allowed to back up in the first place, so
   blocking it on a fresh install would just discard a backup you already
@@ -147,7 +147,7 @@ export:
 
 Reach it from the home screen or by searching "Backup & restore" in settings
 search. Its export switches are the ones described in
-[Exporting a config file](#exporting-a-config-file) above — unlike most
+[Exporting a config file](#exporting-a-config-file) above: unlike most
 settings screens, none of them are persisted preferences; every switch resets
 to its default each time you reopen the screen.
 
@@ -162,7 +162,7 @@ to its default each time you reopen the screen.
 
 1. On the old phone, open **Backup & restore**, choose the sections you want,
    and export a `.wmconfig.json` file.
-2. Move that file to the new phone however you like — it's a plain file you
+2. Move that file to the new phone however you like: it's a plain file you
    control, so email, a cable, or any file-sync app all work.
 3. Install WM Keyboard on the new phone and either open the file from a file
    manager, or open **Backup & restore** and use **Import backup**.
@@ -174,28 +174,28 @@ overwrite: because themes, sticker packs, icon packs and custom word lists
 all *replace* rather than merge on import, restoring onto a phone that
 already has its own customizations in those categories discards them in
 favor of what's in the file. A manual export is also the more complete of
-the two paths for anything it includes — it isn't subject to Android's size
+the two paths for anything it includes: it isn't subject to Android's size
 quota or its encryption requirement, so a set of sticker packs too large for
 an Android backup still moves fine as a file you export by hand.
 
 ## Details & edge cases
 
 - **File formats.** Export currently produces one file type,
-  `.wmconfig.json` — the full-bundle format described above. An older,
+  `.wmconfig.json`: the full-bundle format described above. An older,
   settings-only `.wmsettings.json` format still exists and is still accepted
   on import, for backups made by earlier versions of the app; nothing in the
   current app writes one anymore. Opening either from a file manager prompts
-  you to import it — it doesn't install anything the way tapping a theme or
+  you to import it; it doesn't install anything the way tapping a theme or
   plugin file does.
 - **Theme backgrounds do travel.** A custom theme's background image is
   embedded in the export file and written back to local storage on import,
-  so a restore on a different phone gets a working theme, image included —
+  so a restore on a different phone gets a working theme, image included,
   not just the color settings.
 - **A failed write leaves nothing behind.** If the app can't write to the
   file you chose, you get "Could not write that file" rather than a
   half-written export.
 - **Backups don't cover installed addons directly.** What travels in the
-  Addons section is the repository list, not the addon files themselves —
+  Addons section is the repository list, not the addon files themselves;
   those are already accounted for in Themes, Icon packs, and the rest. See
   [What are addons?](/addons/overview/) for how repositories and installed
   addons relate.

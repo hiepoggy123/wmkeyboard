@@ -1,6 +1,6 @@
 ---
 title: "The keyboard adapts to the field"
-description: "Email fields get @, URL fields get /, password fields get privacy — automatically."
+description: "Email fields get @, URL fields get /, and password fields get privacy automatically."
 sidebar:
   order: 4
 ---
@@ -9,7 +9,7 @@ import PhoneFrame from '@components/PhoneFrame.astro';
 import SettingsPath from '@components/SettingsPath.astro';
 import KeyCap from '@components/KeyCap.astro';
 
-WM Keyboard reads what kind of field you've tapped into — email, phone number, password, and five others — straight from the app's own field description, and quietly changes the keys on offer to match. None of this needs a setting: it's the same keyboard reacting to what's under your thumb.
+WM Keyboard reads what kind of field you've tapped into (email, phone number, password, and five others) straight from the app's own field description, and quietly changes the keys on offer to match. None of this needs a setting: it's the same keyboard reacting to what's under your thumb.
 
 <PhoneFrame caption="An email field: the bottom-row comma has become @, and the period key's long-press offers .com, .net, .org, .edu, .co.">
   {/* shot: typing/field-adaptation-email */}
@@ -17,11 +17,11 @@ WM Keyboard reads what kind of field you've tapped into — email, phone number,
 
 ## How the keyboard reads a field
 
-Every field an app gives you carries an `EditorInfo` with a type — the same information Android's own keyboards read. WM Keyboard turns that into one of eight `FieldKind` values: `TEXT`, `EMAIL`, `URI`, `NUMBER`, `PHONE`, `DATE`, `TIME`, `DATETIME`. Five of them — `NUMBER`, `PHONE`, `DATE`, `TIME`, `DATETIME` — are numeric-pad kinds and get a dedicated keypad instead of the letter layouts; the other three (`TEXT`, `EMAIL`, `URI`) keep the letters but adjust individual keys, covered below.
+Every field an app gives you carries an `EditorInfo` with a type (the same information Android's own keyboards read). WM Keyboard turns that into one of eight `FieldKind` values: `TEXT`, `EMAIL`, `URI`, `NUMBER`, `PHONE`, `DATE`, `TIME`, `DATETIME`. Five of them (`NUMBER`, `PHONE`, `DATE`, `TIME`, `DATETIME`) are numeric-pad kinds and get a dedicated keypad instead of the letter layouts; the other three (`TEXT`, `EMAIL`, `URI`) keep the letters but adjust individual keys, covered below.
 
-This detection is automatic and isn't a setting you can turn off — it runs on every field focus, for every app, on both editions.
+This detection is automatic and isn't a setting you can turn off: it runs on every field focus, for every app, on both editions.
 
-A password field is a separate signal entirely. It doesn't get its own `FieldKind` — a masked text field reports `FieldKind.TEXT`, identically to an ordinary prose box — because the privacy behavior a password needs (suggestions off, nothing learned, clipboard cleaned up) applies just as much to a numeric PIN field as to a text one. Instead there's a second, independent flag, `secureField`, computed from the field's password variation (or, for a numeric field, its PIN variation) alongside `FieldKind`. A 4-digit PIN box is a good example of both firing together: it's `FieldKind.NUMBER` (so it gets the numeric keypad) **and** `secureField = true` (so it gets every privacy rule below) at once.
+A password field is a separate signal entirely. It doesn't get its own `FieldKind` (a masked text field reports `FieldKind.TEXT`, identically to an ordinary prose box), because the privacy behavior a password needs (suggestions off, nothing learned, clipboard cleaned up) applies just as much to a numeric PIN field as to a text one. Instead there's a second, independent flag, `secureField`, computed from the field's password variation (or, for a numeric field, its PIN variation) alongside `FieldKind`. A 4-digit PIN box is a good example of both firing together: it's `FieldKind.NUMBER` (so it gets the numeric keypad) **and** `secureField = true` (so it gets every privacy rule below) at once.
 
 ## Typing in email and web address fields
 
@@ -29,12 +29,12 @@ A password field is a separate signal entirely. It doesn't get its own `FieldKin
   {/* shot: typing/field-adaptation-uri */}
 </PhoneFrame>
 
-Email and URL fields keep the ordinary letter layout — you're typing words either way — but two keys on the **bottom row only** change to match:
+Email and URL fields keep the ordinary letter layout (you're typing words either way), but two keys on the **bottom row only** change to match:
 
 - **Email fields** (`FieldKind.EMAIL`): the comma key becomes <KeyCap>@</KeyCap>, and the period key's long-press gains domain endings ahead of its usual alternates: `.com`, `.net`, `.org`, `.edu`, `.co`.
 - **URL fields** (`FieldKind.URI`): the comma key becomes <KeyCap>/</KeyCap> (long-press `?`, `#`, `&`, `=`), and the period key's long-press gains `.com`, `.org`, `.net`, `www.`, `https://`, `/`.
 
-The swap only touches the bottom row on purpose — a Dvorak layout has real `.` and `,` letter keys elsewhere on the board, and those stay untouched. It's also scoped to the letters layer only; switching to the symbols page shows the normal punctuation. Like field detection itself, this isn't a toggle anywhere in settings — it's on whenever the field kind matches.
+The swap only touches the bottom row on purpose: a Dvorak layout has real `.` and `,` letter keys elsewhere on the board, and those stay untouched. It's also scoped to the letters layer only; switching to the symbols page shows the normal punctuation. Like field detection itself, this isn't a toggle anywhere in settings; it's on whenever the field kind matches.
 
 ## Typing in number, phone, date, and time fields
 
@@ -42,7 +42,7 @@ The swap only touches the bottom row on purpose — a Dvorak layout has real `.`
   {/* shot: typing/field-adaptation-numpad */}
 </PhoneFrame>
 
-The five numeric-pad field kinds each get their own 4-column keypad — digits arranged phone-pad style (1-2-3 on top, not 7-8-9 like a calculator), delete in the top-right corner, enter in the bottom-right, and the remaining two keys tailored to what that field type needs:
+The five numeric-pad field kinds each get their own 4-column keypad, with digits arranged phone-pad style (1-2-3 on top, not 7-8-9 like a calculator), delete in the top-right corner, enter in the bottom-right, and the remaining two keys tailored to what that field type needs:
 
 | Field kind | Right column | Bottom-left | Bottom-right | Notes |
 | --- | --- | --- | --- | --- |
@@ -52,16 +52,16 @@ The five numeric-pad field kinds each get their own 4-column keypad — digits a
 | Time | `:` (long-press `.`), space | `.` | `-` | Colon-led for `17:45` |
 | Date & time | `/` (long-press `.`), `:` | `-` | space | Date and time separators together |
 
-These five keypads are shared across every built-in layout — only the default QWERTY layout defines them, and every other language layout inherits the same set — but a custom `.wmlayout.json` can override any of the five with its own key rows if it needs to.
+These five keypads are shared across every built-in layout (only the default QWERTY layout defines them, and every other language layout inherits the same set), but a custom `.wmlayout.json` can override any of the five with its own key rows if it needs to.
 
-The keypad shows up whenever the field kind calls for it, with one exception: if focus has actually been rerouted to something that needs letters — an in-panel search box (emoji, dictionary, clipboard, media), a plugin's own text field, or the typing-test tool — the letter layout stays up instead, since a digits-only pad would leave those impossible to type in.
+The keypad shows up whenever the field kind calls for it, with one exception: if focus has actually been rerouted to something that needs letters, such as an in-panel search box (emoji, dictionary, clipboard, media), a plugin's own text field, or the typing-test tool, the letter layout stays up instead, since a digits-only pad would leave those impossible to type in.
 
 <SettingsPath path="Key press / Key popup / Popup on number pads" />
 
-The floating character bubble that normally appears above a held key is off by default on these five keypads — turn on **Popup on number pads** (only shown once **Key popup** itself is on) to bring it back. It's off by default because, over a PIN, echoing each digit large enough to read is closer to a shoulder-surfing risk than a help.
+The floating character bubble that normally appears above a held key is off by default on these five keypads. Turn on **Popup on number pads** (only shown once **Key popup** itself is on) to bring it back. It's off by default because, over a PIN, echoing each digit large enough to read is closer to a shoulder-surfing risk than a help.
 
 :::note[Not the Numpad tool]
-Don't confuse this with the standalone **Numpad** tool in the toolbox, which is a separate calculator-style keypad panel you open on purpose from any field. Its own phone-vs-calculator digit order is a toggle under that tool's own settings and has no effect on the field-adapted keypads described here — those are always phone-pad ordered.
+Don't confuse this with the standalone **Numpad** tool in the toolbox, which is a separate calculator-style keypad panel you open on purpose from any field. Its own phone-vs-calculator digit order is a toggle under that tool's own settings and has no effect on the field-adapted keypads described here; those are always phone-pad ordered.
 :::
 
 ## Typing in a password field
@@ -72,27 +72,28 @@ Don't confuse this with the standalone **Numpad** tool in the toolbox, which is 
 
 `secureField` drives a wider set of behavior than just "hide the suggestion strip":
 
-- **Suggestions never show.** Password variations force the suggestion strip off unconditionally — the one case <SettingsPath path="Typing / Suggestions / Suggestions in every field" /> can't override, since that setting exists specifically to make hidden strips show anyway on ordinary fields.
-- **Autocorrect, gesture typing, and phonetic composing turn off too — and not only in password fields.** These, along with on-device learning, are gated on a broader check than `secureField` alone: it also excludes every structured field kind (`EMAIL`, `URI`, `NUMBER`, `PHONE`, `DATE`, `TIME`, `DATETIME`), not just secure ones. A keypad has no words to autocorrect, and an email address shouldn't be second-guessed either. Only a plain `TEXT` field that also isn't secure gets the full typing-intelligence treatment.
-- **Nothing is learned.** The same gate feeds <SettingsPath path="Privacy / On-device learning / Learn from typing" /> — typing in a password field, or any structured field, never reaches the on-device learning dictionary.
-- **Voice typing refuses to start.** Both the voice panel and the toolbar strip's dictation toggle decline while a secure field is focused — the toolbar toggle shows a toast reading "Voice typing is unavailable in password fields," while the panel shows its own inline notice instead ("Voice input is unavailable in password fields.").
-- **Clipboard history stops recording** while a secure field has focus — new copies (and screenshot-to-clipboard captures) are skipped for as long as it's focused.
+- **Suggestions never show.** Password variations force the suggestion strip off unconditionally (the one case <SettingsPath path="Typing / Suggestions / Suggestions in every field" /> can't override), since that setting exists specifically to make hidden strips show anyway on ordinary fields.
+- **Autocorrect and gesture typing turn off too, and not only in password fields.** These, along with on-device learning, are gated on a broader check than `secureField` alone: it also excludes every structured field kind (`EMAIL`, `URI`, `NUMBER`, `PHONE`, `DATE`, `TIME`, `DATETIME`), not just secure ones. A keypad has no words to autocorrect, and an email address shouldn't be second-guessed either. Only a plain `TEXT` field that also isn't secure gets the full typing-intelligence treatment.
+- **Phonetic (Avro) composing is the one exception: it keeps running everywhere, including password fields.** Bengali transliteration turns roman key presses into Bengali as you type, and that step isn't gated on the same check at all: turning it off in a secure or structured field would mean the roman keys commit untransliterated instead of no Bengali being produced. Only the suggestion-feeding side of composing (plain English composing, which exists purely to feed autocorrect and suggestions) is gated alongside autocorrect and gesture typing.
+- **Nothing is learned.** The same gate feeds <SettingsPath path="Privacy / On-device learning / Learn from typing" />: typing in a password field, or any structured field, never reaches the on-device learning dictionary.
+- **Voice typing refuses to start.** Both the voice panel and the toolbar strip's dictation toggle decline while a secure field is focused. The toolbar toggle shows a toast reading "Voice typing is unavailable in password fields," while the panel shows its own inline notice instead ("Voice input is unavailable in password fields.").
+- **Clipboard history stops recording** while a secure field has focus, so new copies (and screenshot-to-clipboard captures) are skipped for as long as it's focused.
 - **Pasting into a password field can wipe the clip afterward.** See [Clipboard: passwords are handled deliberately](/tools/clipboard/#passwords-are-handled-deliberately) for the full paste-time purge behavior and its setting.
 
 :::note[Password manager suggestions are a separate feature]
-<SettingsPath path="Typing / Suggestions / Password manager suggestions" /> shows your system autofill service's saved-login chips inline in the suggestion strip. It isn't gated by `secureField` — it's tied to a login field, not a secure one — and the chips are drawn entirely by your password manager: the keyboard is only told their size and never sees the username or password inside them. It needs Android 11+ and a password manager set as your system autofill service, and turns itself off automatically while incognito mode is on.
+<SettingsPath path="Typing / Suggestions / Password manager suggestions" /> shows your system autofill service's saved-login chips inline in the suggestion strip. It isn't gated by `secureField` (it's tied to a login field, not a secure one), and the chips are drawn entirely by your password manager: the keyboard is only told their size and never sees the username or password inside them. It needs Android 11+ and a password manager set as your system autofill service, and turns itself off automatically while incognito mode is on.
 :::
 
 ## When an app gets its own field wrong
 
-There's no manual override for field detection — no setting to force a field to be treated as a password or an email box. Detection reads only the field's real `inputType`, every time it's focused, and there's nothing else to configure.
+There's no manual override for field detection: no setting to force a field to be treated as a password or an email box. Detection reads only the field's real `inputType`, every time it's focused, and there's nothing else to configure.
 
 Two related things exist, but neither is a correction for a misreporting app:
 
-- **`FORCE_ASCII`**: if a field sets this flag and your current layout isn't Latin-script, the keyboard switches to your first enabled Latin layout for that field — the app declaring a hard constraint, not a workaround for bad detection.
+- **`FORCE_ASCII`**: if a field sets this flag and your current layout isn't Latin-script, the keyboard switches to your first enabled Latin layout for that field (the app declaring a hard constraint, not a workaround for bad detection).
 - **`hintLocales`**: an app can hint which language a field expects; honored only if you already have that language enabled. It's advisory, and never overrides field-kind detection.
 
-[Keyboard modes](/typing/modes/) look like an override at first glance — you can manually pin the built-in **Passwords** mode over any field — but a manually pinned mode only changes cosmetic and toolbar state (theme, toolbar tools, symbol row, emoji row). It does **not** touch `secureField`, so it can't turn on suggestion-hiding, learning-off, or clipboard purging for a field an app has genuinely mislabeled. If a login field is reported as plain text, pinning Passwords dresses the keyboard for it but doesn't restore the actual privacy protections — those come only from the field's real, correctly-reported type.
+[Keyboard modes](/typing/modes/) look like an override at first glance (you can manually pin the built-in **Passwords** mode over any field), but a manually pinned mode only changes cosmetic and toolbar state (theme, toolbar tools, symbol row, emoji row). It does **not** touch `secureField`, so it can't turn on suggestion-hiding, learning-off, or clipboard purging for a field an app has genuinely mislabeled. If a login field is reported as plain text, pinning Passwords dresses the keyboard for it but doesn't restore the actual privacy protections; those come only from the field's real, correctly-reported type.
 
 ## Options
 
@@ -110,11 +111,11 @@ Two related things exist, but neither is a correction for a misreporting app:
 
 ## Details and edge cases
 
-- **A password field's `FieldKind` is `TEXT`, not a dedicated kind.** If you're reading behavior off the field kind alone, remember password status is the separate `secureField` flag layered on top — a numeric PIN field carries both `FieldKind.NUMBER` and `secureField = true` simultaneously.
-- **The typing-intelligence cutoff is broader than "passwords only."** Autocorrect, gesture typing, phonetic (Avro) composing, and learning all turn off for every field kind except plain, non-secure `TEXT` — that includes email and URL fields, not just passwords and numeric pads.
+- **A password field's `FieldKind` is `TEXT`, not a dedicated kind.** If you're reading behavior off the field kind alone, remember password status is the separate `secureField` flag layered on top: a numeric PIN field carries both `FieldKind.NUMBER` and `secureField = true` simultaneously.
+- **The typing-intelligence cutoff is broader than "passwords only."** Autocorrect, gesture typing, and learning all turn off for every field kind except plain, non-secure `TEXT`, which includes email and URL fields, not just passwords and numeric pads. Phonetic (Avro) composing is the one exception: it keeps running in every field, secure or structured, since it exists to transliterate roman keys into Bengali rather than to feed suggestions.
 - **The suggestion strip is force-emptied a second time**, independent of the strip-hiding check above, as a backstop specifically for secure fields.
 - **The email/URL key swap has no toggle.** It's derived purely from field kind and layout mode (letters layer only); there's nothing to turn off short of the field itself not being an email or URL field.
-- **A custom layout can override any of the five numeric keypads** by defining its own `NUMBER`/`PHONE`/`DATE`/`TIME`/`DATETIME` layer — anything it doesn't define falls back to the shared ones described above.
+- **A custom layout can override any of the five numeric keypads** by defining its own `NUMBER`/`PHONE`/`DATE`/`TIME`/`DATETIME` layer; anything it doesn't define falls back to the shared ones described above.
 - **No edition split.** Field-kind detection, the key swaps, the five keypads, and every secure-field behavior on this page work identically on the full and lite builds.
 
 For symbol-page cycling and how a keyboard mode can bind itself to a field kind, see [Modes & the symbol row](/typing/modes/). For the paste-time clipboard purge in full, see [Clipboard manager](/tools/clipboard/).

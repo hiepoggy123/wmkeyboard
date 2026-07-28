@@ -1,6 +1,6 @@
 ---
 title: "Settings A–Z"
-description: "How the settings app is organized — six home-screen groups, a search screen that indexes almost every row, and a map to every screen in this section."
+description: "How the settings app is organized: six home-screen groups, a search screen that indexes almost every row, and a map to every screen in this section."
 sidebar:
   label: "Overview"
   order: 1
@@ -16,7 +16,7 @@ WM Keyboard's settings app opens to a Home screen with fifteen rows sorted into 
 
 ## Browsing the six groups
 
-Home has no toggles of its own — it's pure navigation, plus the [setup card](/start/setup/) pinned above the groups. Each row below opens one screen, documented on its own page in this section:
+Home has no toggles of its own; it's pure navigation, plus the [setup card](/start/setup/) pinned above the groups. Each row below opens one screen, documented on its own page in this section:
 
 **Typing**
 - [Typing](/reference/settings/typing/) — autocorrect, suggestions, gestures
@@ -53,25 +53,25 @@ That's 19 screens in total: the 15 Home rows, plus four sub-screens (Dictionarie
 
 ## Searching instead of browsing
 
-Tap the magnifier on Home to open a full-screen search field, which grabs focus immediately so you can start typing without another tap. Before you type anything it shows a hint: Search every setting by name — "haptic", "number row", "incognito" — or by the tool it belongs to.
+Tap the magnifier on Home to open a full-screen search field, which grabs focus immediately so you can start typing without another tap. Before you type anything it shows a hint: Search every setting by name (like "haptic", "number row", or "incognito"), or by the tool it belongs to.
 
 <PhoneFrame caption="Typing a query in Settings search — each result carries a breadcrumb to the screen it lives on.">
   {/* shot: reference/settings/search-results */}
 </PhoneFrame>
 
-Every word you type has to match something for a result to show up — searching "emoji row" won't surface every row that merely mentions emoji, only ones that match both words. Results rank exact and prefix title matches above ones that only match the description, and each one shows a breadcrumb (like "Tools › Camera") under its title so you know where it lives before you tap it.
+Every word you type has to match something for a result to show up: searching "emoji row" won't surface every row that merely mentions emoji, only ones that match both words. Results rank exact and prefix title matches above ones that only match the description, and each one shows a breadcrumb (like "Tools › Camera") under its title so you know where it lives before you tap it.
 
-Tapping a result takes you straight to the owning screen, scrolls to that exact row, and gives it a brief highlight so you don't have to hunt for it — the search doesn't just open the right screen, it points at the right row. Toolbar tools are searchable too: every enabled tool gets an entry automatically, so a newly added tool is findable the moment it ships, without a docs or search-index update.
+Tapping a result takes you straight to the owning screen, scrolls to that exact row, and gives it a brief highlight so you don't have to hunt for it: the search doesn't just open the right screen, it points at the right row. Toolbar tools are searchable too: every enabled tool gets an entry automatically, so a newly added tool is findable the moment it ships, without a docs or search-index update.
 
 ## Getting there directly
 
 Two related topics live on their own pages rather than here:
 
-- The setup card that gets WM Keyboard enabled and active, and the first-run onboarding wizard — see [Enable the keyboard](/start/setup/).
-- Opening a settings screen from a launcher shortcut or a `wmkeyboard://settings/` link — see [Deep links & launcher shortcuts](/reference/deep-links/). Only six routes are linkable this way: Typing, Appearance, Themes, Languages, Tools, and Search.
+- The setup card that gets WM Keyboard enabled and active, and the first-run onboarding wizard. See [Enable the keyboard](/start/setup/).
+- Opening a settings screen from a launcher shortcut or a `wmkeyboard://settings/` link. See [Deep links & launcher shortcuts](/reference/deep-links/). Only six routes are linkable this way: Typing, Appearance, Themes, Languages, Tools, and Search.
 
 ## Details & edge cases
 
-- Per-tool settings live on each tool's own guide page under [Tools](/tools/overview/), cross-linked from [the Tools screen page](/reference/settings/tools/) — not documented separately here. The sticker-pack manager and plugin manager are the two exceptions: both are opened from a tool's detail screen *and* from Addons (installing a sticker pack or a plugin addon lands you in the same manager), so they're covered under [Addons](/reference/settings/addons/) instead.
+- Per-tool settings live on each tool's own guide page under [Tools](/tools/overview/), cross-linked from [the Tools screen page](/reference/settings/tools/), not documented separately here. The sticker-pack manager and plugin manager are the two exceptions: both are opened from a tool's detail screen *and* from Addons (installing a sticker pack or a plugin addon lands you in the same manager), so they're covered under [Addons](/reference/settings/addons/) instead.
 - Screen transitions are a quick 220ms slide-and-fade. If you've turned on reduced motion under [Accessibility](/reference/settings/accessibility/), that collapses to an instant cut with no animation at all.
-- Every screen in this section is reachable from Home in one or two taps — nothing here requires a hidden gesture or a developer option to reach.
+- Every screen in this section is reachable from Home in one or two taps; nothing here requires a hidden gesture or a developer option to reach.

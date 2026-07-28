@@ -22,7 +22,7 @@ it's worth keeping them apart.
 
 Incognito is one boolean, flipped from either of two places:
 
-- The **Incognito** tool in the toolbox — tap it to toggle, and you'll feel a
+- The **Incognito** tool in the toolbox: tap it to toggle, and you'll feel a
   short vibration and see a toast: `Incognito on — typing is not learned` or
   `Incognito off`. It isn't pinned to the toolbar by default, so open the
   toolbox (the grid button) to find it the first time.
@@ -32,16 +32,16 @@ Incognito is one boolean, flipped from either of two places:
 Both control one underlying setting, so toggling either place flips the
 other. On top of that manual switch, WM Keyboard can turn incognito on for
 you automatically: when a field asks Android not to personalize learning from
-it — which is exactly what a Chrome incognito tab does for every field inside
+it (which is exactly what a Chrome incognito tab does for every field inside
 it, and what other browsers and some password managers do for their own
-private screens — incognito switches on for that field only, and switches
+private screens), incognito switches on for that field only, and switches
 back off the moment you leave it. This never touches the manual switch, so a
 private tab doesn't accidentally leave incognito on everywhere else. It's
 controlled by <SettingsPath path="Privacy / On-device learning / Follow private browsing" />,
 on by default.
 
 That automatic trigger relies entirely on a flag the host app has to set. An
-app that never sends it can't be detected this way — there's no way for the
+app that never sends it can't be detected this way: there's no way for the
 keyboard to otherwise know it's inside a private tab. If you tap the
 Incognito tool while a field is already auto-incognito, there's nothing left
 for the switch to turn off, so you get a toast instead:
@@ -49,12 +49,12 @@ for the switch to turn off, so you get a toast instead:
 
 ## What incognito pauses
 
-Turning incognito on does exactly four things — nothing more:
+Turning incognito on does exactly four things (nothing more):
 
 1. **Pauses clipboard capture.** Nothing you copy joins clipboard history
    while it's on.
 2. **Pauses learning.** The on-device word and phrase lexicon stops picking
-   up anything new, and so does the CJK pick history — the two go quiet
+   up anything new, and so does the CJK pick history: the two go quiet
    together. Emoji usage (what feeds the emoji panel's Recent and Most used
    tabs) is tracked separately and keeps recording regardless of incognito.
 3. **Blocks password-manager autofill chips.** The inline autofill strip a
@@ -64,16 +64,16 @@ Turning incognito on does exactly four things — nothing more:
    that it's on.
 
 Two of those four have their own switches, tucked away from the Privacy
-screen under <SettingsPath path="Tools / Incognito" /> — **Pause learning**
+screen under <SettingsPath path="Tools / Incognito" />: **Pause learning**
 and **Pause clipboard capture**, both on by default. Turn both off there and
 flipping "Incognito mode" on Privacy still blocks autofill chips and still
 shows the badge; it just stops pausing anything. The autofill block is the
-one effect that isn't gated by either of those two switches — it follows
+one effect that isn't gated by either of those two switches: it follows
 incognito unconditionally.
 
 :::note[What incognito leaves alone]
 Incognito never turns off the suggestion strip, autocorrect, or gesture
-typing — those keep using whatever the keyboard already knows. Only the
+typing: those keep using whatever the keyboard already knows. Only the
 *writing* of new words and clips pauses; the reading of what's already
 learned doesn't. If you want the strip itself gone, that's what secure
 fields are for, below.
@@ -82,7 +82,7 @@ fields are for, below.
 ## Password and secure fields
 
 Independently of incognito, the keyboard checks whether the field you're
-typing into is a password field — the input type Android password boxes,
+typing into is a password field: the input type Android password boxes,
 visible-password fields, and PIN-style number fields all declare. Detection
 needs no permission and no guessing: it reads directly off the field's
 declared input type.
@@ -93,21 +93,21 @@ declared input type.
 
 A secure field switches off, for as long as it has focus:
 
-- The suggestion strip — this is the one thing the
+- The suggestion strip: this is the one thing the
   [Suggestions in every field](/typing/field-adaptation/) override can never
   bring back.
 - Autocorrect and gesture typing.
 - Autocapitalization for handwritten words.
 - Smart suggestion chips (calculator, currency, unit conversions, tool
   shortcuts).
-- Learning — the same lexicon incognito pauses, paused here too.
+- Learning: the same lexicon incognito pauses, paused here too.
 - **Voice dictation, entirely.** Tapping the voice tool in a password field
   shows `Voice typing is unavailable in password fields` instead of
-  starting — this is a hard block, not just a hidden strip.
+  starting: this is a hard block, not just a hidden strip.
 
 What a secure field does *not* switch off is character entry itself.
-Transliteration composing — the mechanism that turns romanized keystrokes
-into Bengali, or any other transliterating script — still runs in password
+Transliteration composing (the mechanism that turns romanized keystrokes
+into Bengali, or any other transliterating script) still runs in password
 fields, because without it the untransliterated Latin letters would commit
 instead. Handwriting recognition still commits the word you wrote; it simply
 offers no candidate list to pick from, and doesn't remember the word
@@ -119,8 +119,8 @@ The clipboard tool treats password-shaped clips two different ways,
 depending on whether you're copying or pasting.
 
 When you **copy** something, a clip can be flagged sensitive by the app it
-came from — Android lets an app mark what it puts on the clipboard, and a
-password manager does exactly that when you copy a login — or, if you turn
+came from (Android lets an app mark what it puts on the clipboard, and a
+password manager does exactly that when you copy a login), or, if you turn
 on **Recognise them yourself**, by an on-device check: a clip counts only
 when the *whole* thing is one token that reads as generated rather than
 typed (a short one-time-code shape, or a longer mix of cases, digits and
@@ -128,7 +128,7 @@ symbols), so a code quoted inside a message or a copied link is left alone.
 <SettingsPath path="Tools / Clipboard / Sensitive clips" /> decides what
 happens to a flagged clip: keep it like any other, hide it and expire it
 quickly (the default), or never save it at all. A hidden clip renders masked
-behind a lock icon, with just a character count in place of the text — tap it
+behind a lock icon, with just a character count in place of the text: tap it
 and it pastes straight into the field, the same as any other clip; there's no
 reveal-in-place. Pinning one overrides all of that, since pinning is an
 explicit "keep this."
@@ -138,29 +138,29 @@ explicit "keep this."
 </PhoneFrame>
 
 **Pasting** is the other half, and it's unconditional on the sensitivity
-detection above: paste anything into a password field — from the clipboard
+detection above: paste anything into a password field (from the clipboard
 panel, the paste chip, hold-<KeyCap>V</KeyCap>, or
-<KeyCap>Ctrl</KeyCap>+<KeyCap>V</KeyCap> —
+<KeyCap>Ctrl</KeyCap>+<KeyCap>V</KeyCap>)
 and the keyboard deletes that entry from history *and* clears the system
 clipboard behind it, so nothing sits there readable by every other app on
 the device. This only fires for pastes the keyboard itself makes; a paste
 through the field's own long-press menu isn't covered. It's controlled by
 **Forget after pasting a password**, on by default, under
-<SettingsPath path="Tools / Clipboard / History" /> — it sits with the rest
+<SettingsPath path="Tools / Clipboard / History" />: it sits with the rest
 of clipboard history rather than beside the sensitive-clip options below.
 
 <PhoneFrame caption="Sensitive-clip handling under Passwords & codes, both on by default.">
   {/* shot: privacy/clipboard-settings-passwords */}
 </PhoneFrame>
 
-Neither of these depends on incognito being on — they run any time the
+Neither of these depends on incognito being on: they run any time the
 clipboard tool is enabled. And regardless of any of the above, nothing is
 ever captured into history at all, sensitive or not, while you're inside a
 secure field, or while incognito's clipboard pause applies.
 
 ## What incognito doesn't hide
 
-Incognito and secure fields are entirely local-processing decisions — pause
+Incognito and secure fields are entirely local-processing decisions: pause
 learning, pause clipboard capture, hide a strip. Neither one ever stops text
 you type from reaching the app you typed it into; that was never their job.
 Two things worth knowing specifically:
@@ -168,7 +168,7 @@ Two things worth knowing specifically:
 - **Network tools aren't gated by either.** Translate, web and image search,
   GIF and sticker search, and the AI tool all send whatever you type into
   their panel to that tool's own provider, exactly as normal, whether
-  incognito is on or off — and even inside a password field, since only
+  incognito is on or off, and even inside a password field, since only
   voice dictation is blocked there. If you don't want a particular tool
   touching the network, disable that tool; incognito won't do it for you.
   See [Network policy](/privacy/network/) for the full rundown of what each
@@ -177,11 +177,11 @@ Two things worth knowing specifically:
   default it uses Android's own speech recognizer, which prefers an
   on-device model but transparently falls back to a network recognizer for
   languages the on-device model doesn't cover. That fallback has nothing to
-  do with incognito — it's only ever blocked by the secure-field check
+  do with incognito; it's only ever blocked by the secure-field check
   above.
 
 :::tip[Hiding the toolbar on the lock screen]
-That's a related but separate setting —
+That's a related but separate setting:
 <SettingsPath path="Appearance / Toolbar / Hide toolbar & clipboard on lock screen" />,
 off by default. It drops the entire suggestion-and-toolbar strip and blocks
 the clipboard panel while the device is locked, so copied one-time codes and
@@ -230,14 +230,14 @@ For every other clipboard and tool setting, see the
 ## Details & edge cases
 
 - **Incognito and secure fields stack independently.** A password field is
-  already secure on its own account — its detection doesn't depend on
+  already secure on its own account: its detection doesn't depend on
   incognito being on. Learning is already off there either way, but autofill
-  chips aren't gated by the secure-field check at all, only by incognito —
+  chips aren't gated by the secure-field check at all, only by incognito,
   so turning incognito on inside a password field is what blocks them; it
   isn't redundant the way it is for learning.
 - **Existing learned words are never touched.** Turning on incognito, or
   turning off "Learn from typing" entirely, only stops *new* words and
-  patterns from being recorded — nothing already learned is deleted. Wiping
+  patterns from being recorded; nothing already learned is deleted. Wiping
   what's already stored is a separate action; see
   [Your data on device](/privacy/data/).
 - **"Add words to the system dictionary"** follows the same learning and
@@ -245,7 +245,7 @@ For every other clipboard and tool setting, see the
   it rather than needing incognito awareness of its own.
 - **The badge is the only visual difference.** Outside the small icon next
   to the toolbar and the active state on the Incognito tool, the keyboard
-  looks identical whether incognito is on or off — there's no separate
+  looks identical whether incognito is on or off; there's no separate
   "incognito theme."
 - **A field can't be un-incognito'd from the app side.** Once a field sets
   the no-personalized-learning flag, the only way to type into it without

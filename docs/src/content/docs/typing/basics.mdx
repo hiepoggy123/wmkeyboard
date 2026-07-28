@@ -10,17 +10,17 @@ import SettingsPath from '@components/SettingsPath.astro';
 import KeyCap from '@components/KeyCap.astro';
 import GestureDemo from '@components/GestureDemo.astro';
 
-Every key on WM Keyboard does more than the letter printed on it: a tap commits that letter, but a hold opens accents, digits, symbols, or — on six letters you can arm yourself — an editing shortcut. This page covers what a single key does under your finger, before you get into gestures that move across keys.
+Every key on WM Keyboard does more than the letter printed on it: a tap commits that letter, but a hold opens accents, digits, symbols, or (on six letters you can arm yourself) an editing shortcut. This page covers what a single key does under your finger, before you get into gestures that move across keys.
 
 ## Tapping and long-pressing a key
 
 <SettingsPath path="Key press / Key popup" />
 
-While a key is held, its character floats in a bubble above your finger — the **key popup** — so you can confirm what you hit before you let go. It's on by default, and by default it grows upward from the pressed key itself rather than floating with a gap (the **Popup on key** toggle). It lingers for a minimum of 150&nbsp;ms even on a fast tap, so a quick press still leaves a readable flash, and it's hidden by default on number, phone, and date/time keypads — including a numeric PIN field, where echoing each digit large enough to read over your shoulder isn't wanted.
+While a key is held, its character floats in a bubble above your finger (the **key popup**), so you can confirm what you hit before you let go. It's on by default, and by default it grows upward from the pressed key itself rather than floating with a gap (the **Popup on key** toggle). It lingers for a minimum of 150&nbsp;ms even on a fast tap, so a quick press still leaves a readable flash, and it's hidden by default on number, phone, and date/time keypads, including a numeric PIN field, where echoing each digit large enough to read over your shoulder isn't wanted.
 
 <GestureDemo type="long-press" caption="Hold a key past the long-press delay to open its alternates." />
 
-Hold past the **long-press delay** (300&nbsp;ms by default) and, if the key has any, its alternates pop up: `Q`–`P` lead with digits 1–0, `A`–`L` and `Z`–`M` lead with a symbol (`@`, `#`, `$`, `&`…), and a handful of letters also carry accented forms after that first alternate — `e`, `u`, `i`, `o` after their digit (`e` → è é ê ë, `u` → ù ú û ü, and so on), and `a`, `s`, `z`, `c`, `n` after their symbol. The first alternate doubles as a small corner hint on the key itself — the **Long-press hints** toggle, on by default — so you can see what a hold will lead with before you commit to it.
+Hold past the **long-press delay** (300&nbsp;ms by default) and, if the key has any, its alternates pop up: `Q`–`P` lead with digits 1–0, `A`–`L` and `Z`–`M` lead with a symbol (`@`, `#`, `$`, `&`…), and a handful of letters also carry accented forms after that first alternate: `e`, `u`, `i`, `o` after their digit (`e` → è é ê ë, `u` → ù ú û ü, and so on), and `a`, `s`, `z`, `c`, `n` after their symbol. The first alternate doubles as a small corner hint on the key itself (the **Long-press hints** toggle, on by default), so you can see what a hold will lead with before you commit to it.
 
 <PhoneFrame caption="Holding a letter opens its accent and symbol alternates.">
   {/* shot: typing/long-press-popup */}
@@ -30,21 +30,21 @@ A few more long-press behaviors live under the same **Long-press shortcuts** set
 
 <SettingsPath path="Key press / Long-press shortcuts" />
 
-- **All accents on long-press** (off by default) adds each Latin letter's complete accent set to its long-press popup, on top of whatever the built-in list already shows — the digit or symbol stays, alongside every accent.
+- **All accents on long-press** (off by default) adds each Latin letter's complete accent set to its long-press popup, on top of whatever the built-in list already shows: the digit or symbol stays, alongside every accent.
 - **Hold ?123 for numpad** (off by default) makes long-pressing the symbols key open a full numeric keypad panel over the current field; a quick tap still just switches to the symbols layer as usual.
-- **Currency keys** lets you reorder or replace the glyphs the <KeyCap>$</KeyCap> key's popup offers (৳ € £ ¥ ₹ ₿ by default) — put your own currency first, space-separated.
+- **Currency keys** lets you reorder or replace the glyphs the <KeyCap>$</KeyCap> key's popup offers (৳ € £ ¥ ₹ ₿ by default); put your own currency first, space-separated.
 
 ## Shift, caps lock, and auto-capitalization
 
 <SettingsPath path="Key press / Timing" />
 
-<KeyCap>Shift</KeyCap> cycles through three states. From off, one tap arms a one-shot **Shift** that capitalizes only the next letter and then reverts on its own. A second tap that lands within the **caps-lock double-tap** window (350&nbsp;ms by default, adjustable 150–600&nbsp;ms) locks **Caps Lock** instead. From either Shift or Caps Lock, a single tap that *isn't* a fast double-tap turns it back off — you don't need to double-tap again to get out of caps lock, one plain tap exits it.
+<KeyCap>Shift</KeyCap> cycles through three states. From off, one tap arms a one-shot **Shift** that capitalizes only the next letter and then reverts on its own. A second tap that lands within the **caps-lock double-tap** window (350&nbsp;ms by default, adjustable 150–600&nbsp;ms) locks **Caps Lock** instead. From either Shift or Caps Lock, a single tap that *isn't* a fast double-tap turns it back off. You don't need to double-tap again to get out of caps lock; one plain tap exits it.
 
-<PhoneFrame caption="Shift off, one-shot Shift, and Caps Lock — the three states the key cycles through.">
+<PhoneFrame caption="Shift off, one-shot Shift, and Caps Lock: the three states the key cycles through.">
   {/* shot: typing/shift-states */}
 </PhoneFrame>
 
-Auto-capitalization arms Shift for you at the start of a sentence, but only when three things line up: **Auto-capitalize** is on (the default), the field is a plain text field rather than a structured keypad, and the active language's script actually has letter case — Bengali, for instance, doesn't, so auto-capitalize never fires while typing it. It re-checks after every sentence-ending mark (`.`, `!`, `?`, `।`) as well as when you move the cursor or switch fields, and it never touches Caps Lock — an all-caps statement you locked in stays locked in regardless of what auto-capitalize would otherwise do.
+Auto-capitalization arms Shift for you at the start of a sentence, but only when three things line up: **Auto-capitalize** is on (the default), the field is a plain text field rather than a structured keypad, and the active language's script actually has letter case. Bengali, for instance, doesn't, so auto-capitalize never fires while typing it. It re-checks after every sentence-ending mark (`.`, `!`, `?`, `।`) as well as when you move the cursor or switch fields, and it never touches Caps Lock: an all-caps statement you locked in stays locked in regardless of what auto-capitalize would otherwise do.
 
 <SettingsPath path="Typing / Automatic corrections" />
 
@@ -54,7 +54,7 @@ That toggle lives on the Typing screen rather than here; see [Autocorrect](/smar
 
 <SettingsPath path="Key press / Long-press shortcuts" />
 
-Six letters can each be armed to run an editing command on long-press instead of opening their accent popup: <KeyCap>A</KeyCap> selects all, <KeyCap>C</KeyCap> copies, <KeyCap>X</KeyCap> cuts, <KeyCap>V</KeyCap> pastes, <KeyCap>Z</KeyCap> undoes, <KeyCap>Y</KeyCap> redoes. Every one of the six is **off by default** — you turn on the ones you want individually. Once a letter's shortcut is on, it fully **replaces** that letter's accent popup on long-press; the two never combine, so `hold C` either shows `'çć` or copies, never both. Copy and cut select everything first if nothing is already selected, so a bare `hold C` on an untouched field copies the whole field.
+Six letters can each be armed to run an editing command on long-press instead of opening their accent popup: <KeyCap>A</KeyCap> selects all, <KeyCap>C</KeyCap> copies, <KeyCap>X</KeyCap> cuts, <KeyCap>V</KeyCap> pastes, <KeyCap>Z</KeyCap> undoes, <KeyCap>Y</KeyCap> redoes. Every one of the six is **off by default**, and you turn on the ones you want individually. Once a letter's shortcut is on, it fully **replaces** that letter's accent popup on long-press; the two never combine, so `hold C` either shows `'çć` or copies, never both. Copy and cut select everything first if nothing is already selected, so a bare `hold C` on an untouched field copies the whole field.
 
 <PhoneFrame caption="With Hold C to copy turned on, holding C copies the selection instead of opening its accent popup.">
   {/* shot: typing/hold-letter-clipboard */}
@@ -68,19 +68,19 @@ This is a different mechanism from <KeyCap>Ctrl</KeyCap>+letter on a physical ke
 
 <SettingsPath path="Typing / Enter key" />
 
-The key's icon and behavior follow whatever the focused field asks for: Search, Send, Go, Next, Previous, or Done, each with its own icon, or a plain newline when the field doesn't specify. When an app supplies its own label instead of a standard action — "Reply", "Post" — the key draws that text directly rather than an icon.
+The key's icon and behavior follow whatever the focused field asks for: Search, Send, Go, Next, Previous, or Done, each with its own icon, or a plain newline when the field doesn't specify. When an app supplies its own label instead of a standard action ("Reply", "Post"), the key draws that text directly rather than an icon.
 
 <PhoneFrame caption="Enter drawing a field's own action icon.">
   {/* shot: typing/enter-action-icons */}
 </PhoneFrame>
 
-**Shift + Enter types a newline** (off by default) lets you press <KeyCap>Shift</KeyCap> then <KeyCap>Enter</KeyCap> — or hold Shift on a physical keyboard — to force a line break in a field that would otherwise send or search on Enter. The key itself changes to the newline symbol while Shift is armed, so it never promises a Send it isn't about to do. Only a Shift you pressed yourself counts here: the one-shot Shift auto-capitalize arms at the start of a message is ignored, so the first line of a chat message still sends normally, and Caps Lock is ignored too.
+**Shift + Enter types a newline** (off by default) lets you press <KeyCap>Shift</KeyCap> then <KeyCap>Enter</KeyCap> (or hold Shift on a physical keyboard) to force a line break in a field that would otherwise send or search on Enter. The key itself changes to the newline symbol while Shift is armed, so it never promises a Send it isn't about to do. Only a Shift you pressed yourself counts here: the one-shot Shift auto-capitalize arms at the start of a message is ignored, so the first line of a chat message still sends normally, and Caps Lock is ignored too.
 
 ## Number row and numerals
 
 <SettingsPath path="Layout & size / Number row" />
 
-**Number row** (off by default) adds a dedicated 1–0 row above the letters, so digits don't need a long-press. Turning it on drops the digit that would otherwise be the top row's first long-press alternate, since it's redundant once the row is there. A few sub-settings appear once it's on: **Number row height** (32–100&nbsp;dp), **Symbols on shift** (off by default — holding Shift swaps the row to `= \ < > [ ] { } | ~` instead of digits), and **Number row in symbols** (on by default — keeps the digit row visible on the ?123 layer too; the symbols layer's own second page still carries its own arrow and comparison symbols regardless of this toggle).
+**Number row** (off by default) adds a dedicated 1–0 row above the letters, so digits don't need a long-press. Turning it on drops the digit that would otherwise be the top row's first long-press alternate, since it's redundant once the row is there. A few sub-settings appear once it's on: **Number row height** (32–100&nbsp;dp), **Symbols on shift** (off by default: holding Shift swaps the row to `= \ < > [ ] { } | ~` instead of digits), and **Number row in symbols** (on by default: keeps the digit row visible on the ?123 layer too; the symbols layer's own second page still carries its own arrow and comparison symbols regardless of this toggle).
 
 <PhoneFrame caption="The number row above the letters.">
   {/* shot: typing/number-row */}
@@ -88,21 +88,21 @@ The key's icon and behavior follow whatever the focused field asks for: Search, 
 
 <SettingsPath path="Layout & size / Numerals" />
 
-Separately, **numeral system** controls which *glyphs* the number row and keypad show, per language — Arabic can display ٠-٩ while English next to it stays on 0-9. Every language defaults to **Auto**, which follows that language's own convention (Arabic → Arabic-Indic, Persian/Urdu → Persian, Bengali → Bengali, Devanagari-script languages → Devanagari, everything else → Latin); you can override it per language. That's set on each language's own screen — see [Languages](/languages/overview/) — not here. What this screen's **Type native digits in** setting controls is separate: whether those native glyphs are what actually gets *committed* when you type them. **Text fields** (the default) keeps plain 0-9 committed in number, phone, and date/time fields even if a language's display digits are non-Latin, while typing the native glyphs everywhere else; **Everywhere** commits the native glyphs unconditionally; **Display only** always types plain ASCII digits no matter what's shown on the keys.
+Separately, **numeral system** controls which *glyphs* the number row and keypad show, per language: Arabic can display ٠-٩ while English next to it stays on 0-9. Every language defaults to **Auto**, which follows that language's own convention (Arabic → Arabic-Indic, Persian/Urdu → Persian, Bengali → Bengali, Devanagari-script languages → Devanagari, everything else → Latin); you can override it per language. That's set on each language's own screen, not here (see [Languages](/languages/overview/)). What this screen's **Type native digits in** setting controls is separate: whether those native glyphs are what actually gets *committed* when you type them. **Text fields** (the default) keeps plain 0-9 committed in number, phone, and date/time fields even if a language's display digits are non-Latin, while typing the native glyphs everywhere else; **Everywhere** commits the native glyphs unconditionally; **Display only** always types plain ASCII digits no matter what's shown on the keys.
 
 ## Smart key-hit detection
 
 <SettingsPath path="Typing / Suggestions" />
 
-**Smart key-hit detection** (off by default) quietly widens a key's touch target toward whichever letter the dictionary predicts is likely to come next as you type a word, so a tap that lands just inside a neighboring key can still commit the letter you meant — only near the shared edge; a deliberate press in the middle of a key is never changed. It only affects the letters layer, and it needs [Suggestions](/smart/suggestions/) turned on to have anything to predict from. See [Autocorrect](/smart/autocorrect/#reducing-typos-before-they-happen) for how it fits alongside autocorrect as a second, earlier line of defense against typos.
+**Smart key-hit detection** (off by default) quietly widens a key's touch target toward whichever letter the dictionary predicts is likely to come next as you type a word, so a tap that lands just inside a neighboring key can still commit the letter you meant, but only near the shared edge; a deliberate press in the middle of a key is never changed. It only affects the letters layer, and it needs [Suggestions](/smart/suggestions/) turned on to have anything to predict from. See [Autocorrect](/smart/autocorrect/#reducing-typos-before-they-happen) for how it fits alongside autocorrect as a second, earlier line of defense against typos.
 
 ## Multi-touch and key repeat
 
-Every finger on the keyboard is tracked independently, so pressing a second key before releasing the first works correctly — both keys register, whether that's rollover typing across the letters or two fast taps landing on the very same key. <KeyCap>⌫</KeyCap> and <KeyCap>Space</KeyCap> are the keys that auto-repeat on a hold on the default layout: after the long-press delay, they fire again every **key repeat interval** (50&nbsp;ms by default, adjustable 20–200&nbsp;ms) for as long as you hold them, and held backspace stops on its own once there's nothing left to delete. A forward-delete key (<KeyCap>⌦</KeyCap>) repeats the same way if you've added one to a [custom layout](/languages/custom-layouts/) — no built-in layout places it, and a physical keyboard's own Delete-forward key goes straight to the system instead of through this engine. Every other key long-presses into its popup or shortcut instead of repeating.
+Every finger on the keyboard is tracked independently, so pressing a second key before releasing the first works correctly: both keys register, whether that's rollover typing across the letters or two fast taps landing on the very same key. <KeyCap>⌫</KeyCap> and <KeyCap>Space</KeyCap> are the keys that auto-repeat on a hold on the default layout: after the long-press delay, they fire again every **key repeat interval** (50&nbsp;ms by default, adjustable 20–200&nbsp;ms) for as long as you hold them, and held backspace stops on its own once there's nothing left to delete. A forward-delete key (<KeyCap>⌦</KeyCap>) repeats the same way if you've added one to a [custom layout](/languages/custom-layouts/); no built-in layout places it, and a physical keyboard's own Delete-forward key goes straight to the system instead of through this engine. Every other key long-presses into its popup or shortcut instead of repeating.
 
 <SettingsPath path="Accessibility / Touch" />
 
-If you've turned on **Ignore repeated presses** (off by default) to filter out a hand tremor's accidental double-taps, auto-repeat deliberately bypasses it — the software repeat is already deterministic, so filtering it would just cap how fast delete or space could go.
+If you've turned on **Ignore repeated presses** (off by default) to filter out a hand tremor's accidental double-taps, auto-repeat deliberately bypasses it: the software repeat is already deterministic, so filtering it would just cap how fast delete or space could go.
 
 Backspace also has its own drag-to-delete-whole-words gesture, on by default, that's separate from this hold-and-repeat: see [Gestures](/typing/gestures/) for how it works.
 
@@ -140,11 +140,11 @@ A handful of related settings live elsewhere:
 
 ## Details & edge cases
 
-- **A hold-shortcut on A/C/X/V/Z/Y fully replaces that letter's accent popup, not adds to it** — with "Hold C to copy" on, `c` no longer offers `'çć` on long-press at all.
+- **A hold-shortcut on A/C/X/V/Z/Y fully replaces that letter's accent popup, not adds to it.** With "Hold C to copy" on, `c` no longer offers `'çć` on long-press at all.
 - **Exiting Caps Lock only takes one tap.** The double-tap window only matters going *into* Caps Lock; any single tap while Shift or Caps Lock is already active turns it off.
-- **The Enter key never lies about what it's about to do.** With Shift + Enter's newline override active, the key visibly redraws to the newline symbol first — it doesn't silently swap behavior behind an unchanged icon.
-- **The long-press delay is duplicated in two places.** It's a Key press → Timing slider (150–700&nbsp;ms) and again, framed for hand tremor, under Accessibility → Touch (150–800&nbsp;ms, a slightly wider range) — both sliders move the same underlying setting.
-- **Number row height is independent of key height** — shrinking the digit row doesn't touch the letter keys below it, so it's a way to get quick number access without paying for a full extra row of keyboard height.
-- **Ignore repeated presses only filters repeats of the *same* key** — typing two different keys quickly is never blocked, so it can be raised without slowing down normal typing.
+- **The Enter key never lies about what it's about to do.** With Shift + Enter's newline override active, the key visibly redraws to the newline symbol first; it doesn't silently swap behavior behind an unchanged icon.
+- **The long-press delay is duplicated in two places.** It's a Key press → Timing slider (150–700&nbsp;ms) and again, framed for hand tremor, under Accessibility → Touch (150–800&nbsp;ms, a slightly wider range); both sliders move the same underlying setting.
+- **Number row height is independent of key height.** Shrinking the digit row doesn't touch the letter keys below it, so it's a way to get quick number access without paying for a full extra row of keyboard height.
+- **Ignore repeated presses only filters repeats of the *same* key.** Typing two different keys quickly is never blocked, so it can be raised without slowing down normal typing.
 
 See [Gestures](/typing/gestures/) for spacebar swipes, cursor control, and the backspace word-delete drag; [Hardware keyboards](/typing/hardware-keyboard/) for how physical Ctrl/Shift shortcuts differ from the on-screen ones on this page; and [Sound & vibration](/typing/feedback/) for the rest of what the Key press screen controls.

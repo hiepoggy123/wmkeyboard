@@ -20,13 +20,13 @@ and **Themes**. They're drawn bottom-up, so on most launchers **Themes**
 lands closest to the icon and **Tools** furthest away, even though this list
 states them in the order they're declared.
 
-Each shortcut is a static entry — the platform publishes them at install
+Each shortcut is a static entry: the platform publishes them at install
 time, and there's no runtime code involved. They only exist on Android 7.1
 (API 25) and above; WM Keyboard's minimum supported version is Android 7.0
 (API 24), where the platform ignores the shortcuts file entirely and
 long-pressing the icon does nothing extra.
 
-<PhoneFrame caption="A settings screen reached from a launcher shortcut — this one opened straight to Themes.">
+<PhoneFrame caption="A settings screen reached from a launcher shortcut. This one opened straight to Themes.">
   {/* shot: reference/settings-deep-link-destination */}
 </PhoneFrame>
 
@@ -52,7 +52,7 @@ Only six routes are recognized:
 | `tools` | Tools |
 | `search` | In-app settings search |
 
-A route outside this list — or a link with a different host entirely — goes
+A route outside this list, or a link with a different host entirely, goes
 nowhere; nothing crashes, the app just doesn't navigate. Matching is
 case-insensitive, ignores anything after a `?`, and accepts either the
 regular form (`wmkeyboard://settings/themes`) or the opaque form
@@ -60,11 +60,11 @@ regular form (`wmkeyboard://settings/themes`) or the opaque form
 
 Only four of these six routes have a home-screen shortcut. **Appearance**
 and **search** are recognized by the parser but nothing in the app links to
-them today — reaching them means constructing the explicit intent yourself,
+them today: reaching them means constructing the explicit intent yourself,
 as above.
 
 :::note[Not reachable from the web]
-Settings links only work as the explicit intent inside a launcher shortcut —
+Settings links only work as the explicit intent inside a launcher shortcut:
 the manifest declares no browsable filter for `wmkeyboard://settings/*`, so a
 link on a website or in a chat app can't open a settings screen this way.
 :::
@@ -81,14 +81,14 @@ A repository's README, a forum post, or a message can link straight into the
 | `wmkeyboard://addon?repo=<address>&id=<addonId>` | That addon's detail page |
 
 The `url` and `repo` values go through the same address resolution as pasting
-one by hand — a bare `github.com/user/repo` becomes a raw-content URL, a
+one by hand: a bare `github.com/user/repo` becomes a raw-content URL, a
 plain address gets `wmkeyboard-repo.json` appended, and so on. See
 [Installing addons](/addons/installing/#adding-a-repository) for the full
 resolution table rather than duplicating it here. If the address doesn't
 resolve, or an `addon` link is missing its `repo` or `id` parameter, the link
 goes nowhere rather than opening a broken screen.
 
-<PhoneFrame caption="Following a wmkeyboard://repo?url=… link pre-fills the add-repository dialog — nothing is fetched until you tap Add.">
+<PhoneFrame caption="Following a wmkeyboard://repo?url=… link pre-fills the add-repository dialog, but nothing is fetched until you tap Add.">
   {/* shot: reference/addon-link-prefilled-repo */}
 </PhoneFrame>
 
@@ -96,22 +96,22 @@ Unlike settings links, these **are** reachable from the web: the manifest
 declares a browsable `VIEW` filter for the `addons`, `repo`, and `addon`
 hosts, so tapping one of these links anywhere on the device opens WM
 Keyboard. If the app is already open, a second link is delivered to the
-running instance instead of stacking a second copy — following the same link
+running instance instead of stacking a second copy. Following the same link
 twice, or the same link the app already handled, is harmless.
 
 :::note[Links open, they don't install]
 A link only ever navigates. It never adds a repository and never installs an
-addon by itself — you still tap **Add**, and then **Install**, on the screen
+addon by itself: you still tap **Add**, and then **Install**, on the screen
 it lands you on. See [Installing addons](/addons/installing/) for what
 happens after that.
 :::
 
 ## Opening files WM Keyboard made
 
-WM Keyboard registers a file association for each of its own formats — most
+WM Keyboard registers a file association for each of its own formats, most
 of them things it exports itself, plus a couple it only ever reads (a
 plugin file is built by its author, not the app, and the settings-only
-backup has no export button left) — so tapping one of these in a file
+backup has no export button left), so tapping one of these in a file
 manager offers to import it instead of opening it as plain text:
 
 | Extension | What it holds |
@@ -122,10 +122,10 @@ manager offers to import it instead of opening it as plain text:
 | `.wmstickers` | A sticker pack (ZIP) |
 | `.wmicons` | An icon pack (ZIP) |
 | `.wmplugin` | A Lua plugin package (ZIP) |
-| `.wmconfig.json` | A full backup — any combination of settings, themes, dictionary, clipboard, snippets, stickers, icons, custom word lists, and addon repositories, whichever you chose to include when it was exported |
+| `.wmconfig.json` | A full backup: any combination of settings, themes, dictionary, clipboard, snippets, stickers, icons, custom word lists, and addon repositories, whichever you chose to include when it was exported |
 | `.wmsettings.json` | An older, settings-only backup format |
 
-This opens a separate, minimal activity — not the settings app itself, since
+This opens a separate, minimal activity, not the settings app itself, since
 tapping a theme in a file manager shouldn't drop you into full settings. It
 always shows exactly one confirmation dialog before doing anything, and the
 dialog tells you what happens next:
@@ -149,15 +149,15 @@ dialog tells you what happens next:
 - **Settings backup** (`.wmsettings.json`) — merges into your current
   settings the same way a config backup's settings do: entries named in the
   file overwrite the matching ones on the device, and anything the file
-  doesn't mention — including a setting added in a version newer than the
-  backup — is left untouched. Same warning for API keys.
+  doesn't mention (including a setting added in a version newer than the
+  backup) is left untouched. Same warning for API keys.
 - **Plugin** (`.wmplugin`) — see below; this one has an extra gate.
 
 <PhoneFrame caption="The one-time confirm dialog shown before any file import goes through.">
   {/* shot: reference/file-import-dialog */}
 </PhoneFrame>
 
-A `.wmtheme.json` file has no internal tag — any JSON object decodes
+A `.wmtheme.json` file has no internal tag: any JSON object decodes
 successfully to an all-defaults theme, so the file's name is the only signal
 that it was meant to be a theme. Renaming a `.wmtheme.json` file, or pointing
 one at unrelated JSON, will "succeed" as an all-defaults theme rather than
@@ -165,22 +165,22 @@ failing.
 
 ### Plugins get an extra gate
 
-Opening a `.wmplugin` file doesn't install it the way the other formats do —
+Opening a `.wmplugin` file doesn't install it the way the other formats do;
 it's gated twice:
 
-<PhoneFrame caption="Opening a plugin file while the Plugins subsystem is off — nothing installs or runs.">
+<PhoneFrame caption="Opening a plugin file while the Plugins subsystem is off: nothing installs or runs.">
   {/* shot: reference/plugin-import-gate */}
 </PhoneFrame>
 
 1. If the Plugins subsystem is off, the dialog just says plugins are turned
-   off and how to enable them — it doesn't show the plugin's name or
+   off and how to enable them; it doesn't show the plugin's name or
    anything else about it, and nothing installs.
 2. If it's on, the dialog reads the plugin's manifest and shows its name,
    description, version, author, and the specific capabilities it declares
-   (or a line saying it asks for nothing beyond its own panel) — plus an
+   (or a line saying it asks for nothing beyond its own panel), plus an
    unconditional line that plugins run in a sandbox and can't see what you
    type, read your clipboard, or use the internet. Only after that do you get
-   an **Import** button — the same confirm button every other file type on
+   an **Import** button, the same confirm button every other file type on
    this page uses. Installs are capped at 50 plugins.
 
 ## Options
@@ -188,9 +188,9 @@ it's gated twice:
 <SettingsPath path="Tools / Plugins" />
 
 The Plugins subsystem is off by default. This is the only setting that
-changes how a deep link or file import behaves — every other link and
+changes how a deep link or file import behaves: every other link and
 shortcut on this page works unconditionally. See [Plugins overview](/plugins/overview/)
-for what the sandbox allows once it's on — opening a `.wmplugin` file goes
+for what the sandbox allows once it's on. Opening a `.wmplugin` file goes
 through the exact same sandbox and the same toggle as installing one from an
 addon repository.
 
@@ -198,7 +198,7 @@ addon repository.
 
 - **Custom scheme, not App Links.** All of these use `wmkeyboard://` rather
   than `https://` App Links, so there's no domain to verify and no
-  `assetlinks.json` to host — nothing about a link needs a real web page to
+  `assetlinks.json` to host: nothing about a link needs a real web page to
   exist on the other end.
 - **Settings shortcuts vs. addon links have different reach.** Settings links
   work only as the explicit intent baked into a launcher shortcut; addon
@@ -208,12 +208,12 @@ addon repository.
   activity, excluded from the recents list, so a stray import screen doesn't
   linger in your app switcher.
 - **Content URIs only.** File-association matching is by content URI and file
-  name, not MIME type — every export uses a compound extension like
+  name, not MIME type: every export uses a compound extension like
   `.wmtheme.json` specifically so it doesn't claim every plain `.json` file
   on the device. Bare `file://` links aren't matched.
 - **A repeated link is harmless.** Because the app launches in single-top
-  mode, tapping the same addon link twice — or tapping one while the app is
-  already open — delivers it to the running instance rather than opening a
+  mode, tapping the same addon link twice, or tapping one while the app is
+  already open, delivers it to the running instance rather than opening a
   second copy. Pasting a repository you've already added just reopens it.
 - **A backup that isn't one fails safely.** If a `.wmconfig.json` or
   `.wmsettings.json` file's content doesn't actually decode as a backup, or a

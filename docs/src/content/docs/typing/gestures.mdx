@@ -10,13 +10,13 @@ import SettingsPath from '@components/SettingsPath.astro';
 import KeyCap from '@components/KeyCap.astro';
 import GestureDemo from '@components/GestureDemo.astro';
 
-Past tapping and long-pressing individual keys, WM Keyboard has a handful of drag gestures that move across or along a key — the spacebar, backspace, and the volume rocker each do something different when you swipe instead of tap. This page covers what those drags do once they're moving; where a gesture is fully owned by another page, it links there instead of repeating it.
+Past tapping and long-pressing individual keys, WM Keyboard has a handful of drag gestures that move across or along a key: the spacebar, backspace, and the volume rocker each do something different when you swipe instead of tap. This page covers what those drags do once they're moving; where a gesture is fully owned by another page, it links there instead of repeating it.
 
 ## Which swipe fires: quick vs hold
 
 <SettingsPath path="Typing / Gestures" />
 
-The spacebar has two independent swipe slots — **Quick swipe on spacebar** (default **Language**) and **Hold + swipe on spacebar** (default **Cursor**) — and which one a given drag resolves to depends on *when* the drag starts relative to the long-press delay, not how far it travels. The full timing engine, the language-switch behavior, and the hold-drag picker list all live on [Switching languages](/languages/switching/); this page covers the other two things a slot can be set to: **Cursor** and **Numpad**.
+The spacebar has two independent swipe slots: **Quick swipe on spacebar** (default **Language**) and **Hold + swipe on spacebar** (default **Cursor**), and which one a given drag resolves to depends on *when* the drag starts relative to the long-press delay, not how far it travels. The full timing engine, the language-switch behavior, and the hold-drag picker list all live on [Switching languages](/languages/switching/); this page covers the other two things a slot can be set to: **Cursor** and **Numpad**.
 
 <GestureDemo type="space-swipe" caption="A spacebar swipe resolves to whichever action its slot is set to." />
 
@@ -24,7 +24,7 @@ Each slot's options are **Nothing**, **Language**, **Cursor**, or **Numpad**. A 
 
 ## Moving the cursor with a spacebar swipe
 
-Set a slot to **Cursor** and dragging it moves the text cursor instead of typing: the keyboard steps the caret one character for every 16&nbsp;dp of horizontal travel, in whichever direction you drag. Any in-progress composing text — a word mid-transliteration, for instance — commits first, without autocorrect, so the cursor lands where you actually see it rather than jumping past a word that's still being corrected.
+Set a slot to **Cursor** and dragging it moves the text cursor instead of typing: the keyboard steps the caret one character for every 16&nbsp;dp of horizontal travel, in whichever direction you drag. Any in-progress composing text (a word mid-transliteration, for instance) commits first, without autocorrect, so the cursor lands where you actually see it rather than jumping past a word that's still being corrected.
 
 <PhoneFrame caption="Dragging the spacebar moves the text cursor a character at a time.">
   {/* shot: typing/spacebar-cursor-swipe */}
@@ -38,15 +38,15 @@ Set a slot to **Cursor** and dragging it moves the text cursor instead of typing
 
 <SettingsPath path="Typing / Gestures / Swipe down to hide" />
 
-A straight downward drag on the spacebar — past a short threshold, and steeper than it is wide — dismisses the keyboard. It's off by default, so a stray vertical wobble mid-drag never closes the keyboard on you. The 2-D cursor touchpad, when on, only claims the vertical axis ahead of this once the drag has actually resolved to the Cursor action — and which slot governs that resolution depends on hold time, same as any other spacebar swipe (see above). With the defaults (Quick swipe = Language, Hold + swipe = Cursor), a downward flick fast enough to clear the hide threshold before the long-press delay elapses is still governed by the quick-swipe slot, so it dismisses the keyboard rather than moving the cursor; only a drag held past that delay hands the vertical axis to the touchpad.
+A straight downward drag on the spacebar (past a short threshold, and steeper than it is wide) dismisses the keyboard. It's off by default, so a stray vertical wobble mid-drag never closes the keyboard on you. The 2-D cursor touchpad, when on, only claims the vertical axis ahead of this once the drag has actually resolved to the Cursor action, and which slot governs that resolution depends on hold time, same as any other spacebar swipe (see above). With the defaults (Quick swipe = Language, Hold + swipe = Cursor), a downward flick fast enough to clear the hide threshold before the long-press delay elapses is still governed by the quick-swipe slot, so it dismisses the keyboard rather than moving the cursor; only a drag held past that delay hands the vertical axis to the touchpad.
 
 :::note
-There's a second, separate **Swipe down to hide** toggle for the toolbar strip, under Appearance → Toolbar. It looks like the same setting but controls a different element — a downward swipe on the toolbar, not the spacebar. The two are independent switches.
+There's a second, separate **Swipe down to hide** toggle for the toolbar strip, under Appearance → Toolbar. It looks like the same setting but controls a different element: a downward swipe on the toolbar, not the spacebar. The two are independent switches.
 :::
 
 ## Opening the numpad with a swipe
 
-Set a slot to **Numpad** and crossing the initial touch-slop opens the [numeric keypad panel](/tools/text-editing/#the-numeric-keypad) immediately — there's no further distance to drag, the swipe just triggers the panel and then goes inert until you release (which types nothing). It's the same panel <KeyCap>?123</KeyCap>'s long-press and the toolbar's Numpad tool open; see [Text editing](/tools/text-editing/) for what's on it.
+Set a slot to **Numpad** and crossing the initial touch-slop opens the [numeric keypad panel](/tools/text-editing/#the-numeric-keypad) immediately: there's no further distance to drag, the swipe just triggers the panel and then goes inert until you release (which types nothing). It's the same panel <KeyCap>?123</KeyCap>'s long-press and the toolbar's Numpad tool open; see [Text editing](/tools/text-editing/) for what's on it.
 
 ## Deleting whole words with backspace
 
@@ -58,15 +58,15 @@ Set a slot to **Numpad** and crossing the initial touch-slop opens the [numeric 
   {/* shot: typing/backspace-word-swipe */}
 </PhoneFrame>
 
-Each step costs a certain amount of leftward travel, and the cost shrinks as you go — clearing a whole sentence is one long, continuous pull rather than a series of separate flicks. The first word costs the most travel; every word after that costs less, down to a floor past which extra words don't get any cheaper. Dragging back to the right doesn't undelete anything — it just re-anchors the gesture, so the next word costs the full first-word distance again rather than picking up where the shrinking curve left off.
+Each step costs a certain amount of leftward travel, and the cost shrinks as you go: clearing a whole sentence is one long, continuous pull rather than a series of separate flicks. The first word costs the most travel; every word after that costs less, down to a floor past which extra words don't get any cheaper. Dragging back to the right doesn't undelete anything; it just re-anchors the gesture, so the next word costs the full first-word distance again rather than picking up where the shrinking curve left off.
 
-One step deletes any trailing whitespace plus the run of same-kind characters behind the cursor — letters and digits count as one kind, punctuation as another — so a step never stalls on a run like `...` or a string of dashes, but it also means a word that's glued to punctuation (a contraction, a trailing comma) can take more than one step to fully clear, since the letters and the punctuation are different kinds and each gets its own step.
+One step deletes any trailing whitespace plus the run of same-kind characters behind the cursor (letters and digits count as one kind, punctuation as another), so a step never stalls on a run like `...` or a string of dashes, but it also means a word that's glued to punctuation (a contraction, a trailing comma) can take more than one step to fully clear, since the letters and the punctuation are different kinds and each gets its own step.
 
 A few things a word-delete step does specially, rather than falling back to plain character deletion:
 
 - If there's an active text **selection**, one step clears the whole selection instead of doing word math.
-- If a word is still mid-composition — a transliteration buffer, for a phonetic layout — one step clears the entire composing word in one go.
-- Inside a panel's own search box (emoji, clipboard, or dictionary search, a plugin's text field, the typing-test box) or mid-stroke on a handwriting panel, word deletion steps down to deleting one character at a time instead — word-deleting the field behind the overlay would be invisible and wrong, so it doesn't try.
+- If a word is still mid-composition (a transliteration buffer, for a phonetic layout), one step clears the entire composing word in one go.
+- Inside a panel's own search box (emoji, clipboard, or dictionary search, a plugin's text field, the typing-test box) or mid-stroke on a handwriting panel, word deletion steps down to deleting one character at a time instead: word-deleting the field behind the overlay would be invisible and wrong, so it doesn't try.
 
 See [Sound & vibration](/typing/feedback/) for the **Vibrate on delete swipe** haptic that ticks on each word this gesture removes.
 
@@ -74,19 +74,19 @@ See [Sound & vibration](/typing/feedback/) for the **Vibrate on delete swipe** h
 
 <SettingsPath path="Typing / Volume keys" />
 
-**Volume cursor control** (off by default) repurposes the hardware volume rocker while the keyboard is on screen: volume down moves the cursor one character left, volume up moves it one character right. Holding a volume key repeats for free — it rides Android's own hardware key-repeat rather than a separate timer — and both the press and release are swallowed so the app underneath never sees a stray volume keypress. It only applies while the keyboard is actually shown; as soon as it closes, the volume keys go back to controlling volume.
+**Volume cursor control** (off by default) repurposes the hardware volume rocker while the keyboard is on screen: volume down moves the cursor one character left, volume up moves it one character right. Holding a volume key repeats for free (it rides Android's own hardware key-repeat rather than a separate timer), and both the press and release are swallowed so the app underneath never sees a stray volume keypress. It only applies while the keyboard is actually shown; as soon as it closes, the volume keys go back to controlling volume.
 
 <PhoneFrame caption="With Volume cursor control on, the hardware volume keys move the text cursor instead of the volume.">
   {/* shot: typing/volume-cursor-control */}
 </PhoneFrame>
 
-**Release while audio plays** (on by default) hands the volume keys back to normal volume control the instant something is actually playing — music, a video, a podcast — so typing a reply never costs you the ability to turn the sound down, and hands them back to the cursor the moment playback stops. It re-checks on every single key press rather than latching once, so starting or stopping playback mid-typing takes effect immediately. Turn it off if you'd rather the volume keys always move the cursor while the keyboard is open, playback or not.
+**Release while audio plays** (on by default) hands the volume keys back to normal volume control the instant something is actually playing (music, a video, a podcast), so typing a reply never costs you the ability to turn the sound down, and hands them back to the cursor the moment playback stops. It re-checks on every single key press rather than latching once, so starting or stopping playback mid-typing takes effect immediately. Turn it off if you'd rather the volume keys always move the cursor while the keyboard is open, playback or not.
 
 ## Gestures that live on other pages
 
 A few more drags belong to features big enough to have their own page, so they're only linked here:
 
-- **Language switching** — the spacebar's Language swipe, the hold-drag picker list, and the globe key's tap-vs-long-press — is fully covered on [Switching languages](/languages/switching/).
+- **Language switching** (the spacebar's Language swipe, the hold-drag picker list, and the globe key's tap-vs-long-press) is fully covered on [Switching languages](/languages/switching/).
 - **Swiping across the letters** to write a whole word, or to draw handwriting instead, is controlled by one setting (what a letter-area swipe does) with two outcomes: [Glide typing](/typing/glide-typing/) for the default word-swipe mode, and [Handwriting](/tools/handwriting/#handwriting-without-opening-the-panel) for drawing ink over the keys instead.
 
 A printable table of every gesture on one page lives at [Gesture cheat sheet](/reference/gestures/).
@@ -112,11 +112,11 @@ Reach these from the **Typing** tile in settings, or search "Gestures", "Backspa
 
 ## Details & edge cases
 
-- **Numpad is a discrete action, not a distance-based one.** Unlike Cursor, which keeps stepping for as long as you keep dragging, a swipe assigned to Numpad only needs to clear the initial slop once — the panel opens immediately and the rest of the drag does nothing.
+- **Numpad is a discrete action, not a distance-based one.** Unlike Cursor, which keeps stepping for as long as you keep dragging, a swipe assigned to Numpad only needs to clear the initial slop once: the panel opens immediately and the rest of the drag does nothing.
 - **Two settings share the label "Swipe down to hide."** One lives here under Typing → Gestures and applies to the spacebar; a separate one under Appearance → Toolbar applies to the toolbar strip. They don't affect each other.
 - **The 2-D cursor touchpad only takes precedence over swipe-down-to-hide once a drag has resolved to Cursor.** Which slot governs a drag depends on hold time; with the defaults (Quick swipe = Language, Hold + swipe = Cursor), a fast downward flick within the long-press delay is still governed by the quick-swipe slot and dismisses the keyboard instead of moving the cursor down through lines.
-- **Backspace's word-delete acceleration resets on a reversal, not on release.** Dragging right mid-swipe doesn't bring back a deleted word — it only means the *next* leftward word costs full travel again instead of the shrunk amount.
+- **Backspace's word-delete acceleration resets on a reversal, not on release.** Dragging right mid-swipe doesn't bring back a deleted word; it only means the *next* leftward word costs full travel again instead of the shrunk amount.
 - **Volume-key cursor control re-checks "is audio playing" on every key press**, not once at the start of the drag, so it hands control back and forth live as playback starts and stops mid-session.
-- **Word deletion falls back to character-by-character inside overlay search boxes** — emoji/clipboard/dictionary search, a plugin text field, the typing-test box, or an in-progress handwriting stroke — since word-deleting the real field hidden behind the overlay would be invisible and wrong.
+- **Word deletion falls back to character-by-character inside overlay search boxes** (emoji/clipboard/dictionary search, a plugin text field, the typing-test box, or an in-progress handwriting stroke), since word-deleting the real field hidden behind the overlay would be invisible and wrong.
 
 See [Keys & typing basics](/typing/basics/) for tap and long-press behavior on individual keys, [Switching languages](/languages/switching/) for the spacebar's Language swipe and the hold-drag picker, [Glide typing](/typing/glide-typing/) for swiping across the letters, and [Text editing](/tools/text-editing/) for the numpad panel and other cursor tools.

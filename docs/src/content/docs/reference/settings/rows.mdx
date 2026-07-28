@@ -8,7 +8,7 @@ sidebar:
 import PhoneFrame from '@components/PhoneFrame.astro';
 import SettingsPath from '@components/SettingsPath.astro';
 
-The Rows & bars screen controls the strip of rows that can stack above the key grid — turning the symbol row on, reordering the rows, and editing which characters each symbol set offers. This page is the field reference; for the reasoning behind each option, read [Modes & the symbol row](/typing/modes/) instead.
+The Rows & bars screen controls the strip of rows that can stack above the key grid: turning the symbol row on, reordering the rows, and editing which characters each symbol set offers. This page is the field reference; for the reasoning behind each option, read [Modes & the symbol row](/typing/modes/) instead.
 
 <PhoneFrame caption="The Rows & bars screen: Symbol row, Row order, and Symbol sets groups.">
   {/* shot: reference/settings/rows-overview */}
@@ -28,7 +28,7 @@ The screen has three groups, top to bottom: Symbol row, Row order, and Symbol se
 |---|---|---|
 | Symbol row | Toggle | Off |
 
-A single toggle. Its info button explains what it does: the row shows one symbol set at a time, and a chip at the row's left edge switches between whichever sets you've enabled — a keyboard mode can also pick a set automatically per app. See [The symbol row](/typing/modes/#the-symbol-row) for how the row behaves once it's on.
+A single toggle. Its info button explains what it does: the row shows one symbol set at a time, and a chip at the row's left edge switches between whichever sets you've enabled; a keyboard mode can also pick a set automatically per app. See [The symbol row](/typing/modes/#the-symbol-row) for how the row behaves once it's on.
 
 ### Row order
 
@@ -36,11 +36,11 @@ A single toggle. Its info button explains what it does: the row shows one symbol
 
 | Row | Reorderable | Live status shown here |
 |---|---|---|
-| Emoji row | Yes | Off — enable it in Emoji settings / Behind a toolbar button / Own row, depending on Emoji settings' **Emoji row** |
-| Suggestions & toolbar | No — always shown | Always shown |
+| Emoji row | Yes | Off (enable it in Emoji settings) / Behind a toolbar button / Own row, depending on Emoji settings' **Emoji row** |
+| Suggestions & toolbar | No (always shown) | Always shown |
 | Symbol row | Yes | On / Off, depending on the Symbol row toggle above |
 
-**Default order: Emoji row, Suggestions & toolbar, Symbol row.** Each row's status line is read-only here — the emoji row's is driven by the **Emoji row** setting on the [Emoji](/reference/settings/emoji/) screen, and the symbol row's by the toggle above; this list only controls the stacking order, not whether a row shows. The toolbar has no up/down buttons of its own since it's always on, but a tap on the emoji or symbol row's arrow swaps it with whichever row is in the neighboring slot — including the toolbar — so it still moves when a swap lands next to it. A hidden row keeps its slot empty rather than collapsing the stack; turning it back on doesn't change where it lands.
+**Default order: Emoji row, Suggestions & toolbar, Symbol row.** Each row's status line is read-only here: the emoji row's is driven by the **Emoji row** setting on the [Emoji](/reference/settings/emoji/) screen, and the symbol row's by the toggle above; this list only controls the stacking order, not whether a row shows. The toolbar has no up/down buttons of its own since it's always on, but a tap on the emoji or symbol row's arrow swaps it with whichever row is in the neighboring slot (including the toolbar), so it still moves when a swap lands next to it. A hidden row keeps its slot empty rather than collapsing the stack; turning it back on doesn't change where it lands.
 
 ### Symbol sets
 
@@ -56,7 +56,7 @@ One row per set, built-in sets first in their shipped order, then any custom set
 | Math | `±` `×` `÷` `≠` `≈` `≤` `≥` `√` `π` `∞` `°` `²` `³` `½` `¼` `¾` `%` `‰` `∑` `∫` `Δ` `μ` | Yes |
 | Punctuation | `—` `–` `…` `•` `·` `‘` `’` `“` `”` `«` `»` `¡` `¿` `§` `¶` `†` `©` `®` `™` `№` | Yes |
 
-All five ship enabled, and Punctuation is the set the row's picker opens on the first time you use it. Unchecking a set's box removes it from the row's picker; the app won't let the last checked box go to zero, so at least one set always stays available. There are no custom sets by default — **New symbol set** at the bottom of the group adds one from scratch.
+All five ship enabled, and Punctuation is the set the row's picker opens on the first time you use it. Unchecking a set's box removes it from the row's picker; the app won't let the last checked box go to zero, so at least one set always stays available. There are no custom sets by default. **New symbol set** at the bottom of the group adds one from scratch.
 
 <PhoneFrame caption="The Symbol sets group, with the edit icon open on Coding.">
   {/* shot: reference/settings/rows-symbol-sets */}
@@ -71,18 +71,18 @@ Tapping a set's edit icon opens **Edit symbol set**, with two fields:
 | Name | Single-line text |
 | Characters & snippets | Multi-line text, space-separated |
 
-Save splits the characters field on whitespace, so a multi-character snippet like `https://` counts as one entry the same as a single character; **Save** stays disabled until that field has something in it. Editing a built-in set doesn't overwrite the shipped version — it stores your edit as a custom entry under the same ID, so anything already pointing at that set (a keyboard mode's pinned sets, the row's own picker) keeps working, and the button in the bottom-left corner reads **Reset set** instead of **Delete set**, restoring the shipped characters. A set you created from scratch shows **Delete set** in the same spot instead, which removes it outright, drops it from the row's enabled sets, and clears it from any keyboard mode that had it pinned. A built-in set you've never edited shows no button there at all — there's nothing yet to reset.
+Save splits the characters field on whitespace, so a multi-character snippet like `https://` counts as one entry the same as a single character; **Save** stays disabled until that field has something in it. Editing a built-in set doesn't overwrite the shipped version: it stores your edit as a custom entry under the same ID, so anything already pointing at that set (a keyboard mode's pinned sets, the row's own picker) keeps working, and the button in the bottom-left corner reads **Reset set** instead of **Delete set**, restoring the shipped characters. A set you created from scratch shows **Delete set** in the same spot instead, which removes it outright, drops it from the row's enabled sets, and clears it from any keyboard mode that had it pinned. A built-in set you've never edited shows no button there at all; there's nothing yet to reset.
 
 ## Details & edge cases
 
-- **Row order only orders — it doesn't enable.** The emoji row's line in Row order is a live read-out of the [Emoji](/reference/settings/emoji/) screen's own setting, not something you can flip from here; the symbol row's line mirrors the toggle at the top of this screen the same way.
-- **Reordering is adjacent-swap, not drag.** Unlike the reorderable lists elsewhere in settings, the up/down arrows here trade the tapped row with whichever row currently sits next to it — there's no drag handle on this screen.
+- **Row order only orders: it doesn't enable.** The emoji row's line in Row order is a live read-out of the [Emoji](/reference/settings/emoji/) screen's own setting, not something you can flip from here; the symbol row's line mirrors the toggle at the top of this screen the same way.
+- **Reordering is adjacent-swap, not drag.** Unlike the reorderable lists elsewhere in settings, the up/down arrows here trade the tapped row with whichever row currently sits next to it. There's no drag handle on this screen.
 - **A hidden row keeps its slot.** Turning the emoji or symbol row back on after hiding it drops it back into the same position in the stack, not the top or bottom.
-- **You can't uncheck the last enabled symbol set.** The checkbox for the only remaining checked set silently does nothing when tapped — there's no error message, it just won't go to zero.
+- **You can't uncheck the last enabled symbol set.** The checkbox for the only remaining checked set silently does nothing when tapped: there's no error message, it just won't go to zero.
 - **Editing a built-in set is non-destructive.** The edit is stored as an override under the built-in's own ID; nothing else needs to be told about it, and Reset set removes the override cleanly.
 - **Leaving Name blank on save doesn't leave the set unnamed.** It falls back to the built-in's own name when you're editing a shipped set, or "My set" for a brand-new one.
 - **Saving a set also enables it.** If the set you just saved or created wasn't already checked in the picker, saving checks it for you so it shows up in the row right away.
-- **`symbolRowActiveSetId` isn't a row on this screen.** It's the ID of whichever set the row's picker chip currently shows, and it's runtime state — it defaults to Punctuation and isn't editable from Rows & bars directly. Picking a set from the row on the keyboard updates it, *unless* the active keyboard mode pins its own symbol sets — then the pick is session-only and doesn't overwrite this global value.
+- **`symbolRowActiveSetId` isn't a row on this screen.** It's the ID of whichever set the row's picker chip currently shows, and it's runtime state: it defaults to Punctuation and isn't editable from Rows & bars directly. Picking a set from the row on the keyboard updates it, *unless* the active keyboard mode pins its own symbol sets, in which case the pick is session-only and doesn't overwrite this global value.
 - **No edition differences.** The symbol row, row order, and symbol sets all work identically on the full and lite builds.
 
 ## Related pages

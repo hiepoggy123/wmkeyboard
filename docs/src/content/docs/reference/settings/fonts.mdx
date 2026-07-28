@@ -8,7 +8,7 @@ sidebar:
 import PhoneFrame from '@components/PhoneFrame.astro';
 import SettingsPath from '@components/SettingsPath.astro';
 
-The keyboard font screen picks the typeface for key labels, the suggestion strip, and the keyboard's own panels — separately for English, Bengali, and every other script one of your enabled languages uses.
+The keyboard font screen picks the typeface for key labels, the suggestion strip, and the keyboard's own panels, separately for English, Bengali, and every other script one of your enabled languages uses.
 
 <PhoneFrame caption="The Keyboard font screen: English font section with Google Fonts, each row previewed in its own face.">
   {/* shot: reference/settings/fonts-english-section */}
@@ -23,14 +23,14 @@ The keyboard font screen picks the typeface for key labels, the suggestion strip
 | English font | System default, or one of 20 Google Fonts, or an imported/installed file. Also governs Cyrillic and Greek keys, which have no picker of their own. | System default (`"default"`) |
 | Bengali font | Shown only while a Bengali-script language is enabled. System default, or one of 9 Google Fonts, or an imported/installed file. | System default (`"default"`) |
 | One section per other enabled script | The script's Automatic (Noto) face, or one of a short curated list (1 alternative for Armenian or Georgian, up to 9 for Thai, Chinese, Korean, or Japanese). 21 scripts get a section: Arabic, Hebrew, Armenian, Georgian, Devanagari, Gurmukhi, Gujarati, Odia, Tamil, Telugu, Kannada, Malayalam, Sinhala, Thai, Lao, Khmer, Myanmar, Ethiopic, Korean, Japanese, and Chinese. | Automatic (Noto) |
-| Installed fonts | The shared font library — fonts you imported or installed from an addon. Only the English and Bengali sections list it, each filtered to fonts that declare that section's script or declare none. | — |
+| Installed fonts | The shared font library: fonts you imported or installed from an addon. Only the English and Bengali sections list it, each filtered to fonts that declare that section's script or declare none. | — |
 
 Selecting a row applies it immediately; there's no separate download or apply step. The English section is always shown; the Bengali section and every other-script section only appear while a language using that script is enabled, so you never see a picker for a script you don't type in.
 
 A related shortcut lives on <SettingsPath path="Accessibility / Keyboard font" />: it opens this same screen. <SettingsPath path="Accessibility / Readable font" /> is a one-tap toggle that sets the English font to Atkinson Hyperlegible and isn't a separate setting.
 
 :::note
-Font face and font size are different settings. The 0.7×–1.5× scale for key labels lives on the main Appearance screen (and again, as a percentage, on the Accessibility screen) — not on this screen.
+Font face and font size are different settings. The 0.7×–1.5× scale for key labels lives on the main Appearance screen (and again, as a percentage, on the Accessibility screen), not on this screen.
 :::
 
 For the full explanation of how Google Fonts are fetched, how imports and addon fonts share one library, and why some scripts don't offer an Installed-fonts list yet, see [Keyboard fonts](/themes/fonts/).
@@ -38,7 +38,7 @@ For the full explanation of how Google Fonts are fetched, how imports and addon 
 ## Details & edge cases
 
 - The Installed-fonts library caps out at 50 fonts total and 32 MB per file. Hitting either limit shows a plain-language dialog: `"Fonts are limited to 32 MB"` for an oversized file, `"You already have 50 fonts. Remove one first."` for the count. Installing from an addon at the count cap shows different wording: `"You've reached the maximum number of installed fonts"`
-- Deleting a font from its row on this screen resets English or Bengali to the automatic default first if it was selected, so the keyboard never points at a file that's about to disappear. Uninstalling the same font from the Addons screen doesn't reset the setting — rendering just falls back to the system font.
+- Deleting a font from its row on this screen resets English or Bengali to the automatic default first if it was selected, so the keyboard never points at a file that's about to disappear. Uninstalling the same font from the Addons screen doesn't reset the setting; rendering just falls back to the system font.
 - If Google Play Services is missing or the device is offline the first time a font is needed, that row quietly renders in the system font instead of erroring, and downloads normally once the provider is reachable.
-- The Addons screen's **Use** button for a font addon deep-links here with the anchor `Installed fonts`, scrolled to the English section — see [Installing addons](/addons/installing/).
-- Emoji have their own font setting, entirely separate from this screen — see [Emoji customization](/emoji/customization/).
+- The Addons screen's **Use** button for a font addon deep-links here with the anchor `Installed fonts`, scrolled to the English section. See [Installing addons](/addons/installing/).
+- Emoji have their own font setting, entirely separate from this screen. See [Emoji customization](/emoji/customization/).

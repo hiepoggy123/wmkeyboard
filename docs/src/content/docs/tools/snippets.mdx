@@ -9,7 +9,7 @@ import PhoneFrame from '@components/PhoneFrame.astro';
 import SettingsPath from '@components/SettingsPath.astro';
 import KeyCap from '@components/KeyCap.astro';
 
-Snippets are reusable pieces of text — a mailing address, a canned reply, a sign-off — that you save once and reuse everywhere you type. Insert one with a tap from the panel, or type its trigger word and let it expand on its own as you finish typing.
+Snippets are reusable pieces of text (a mailing address, a canned reply, a sign-off) that you save once and reuse everywhere you type. Insert one with a tap from the panel, or type its trigger word and let it expand on its own as you finish typing.
 
 <PhoneFrame caption="The snippets panel: saved snippets as two-column cards, ready to insert with a tap.">
   {/* shot: tools/snippets-panel */}
@@ -17,23 +17,23 @@ Snippets are reusable pieces of text — a mailing address, a canned reply, a si
 
 ## Opening the panel
 
-Open **Snippets** from the toolbar if you've pinned it there, or from the toolbox — Snippets isn't one of the three tools pinned by default (Emoji, Clipboard, and Settings are), so the first few times you'll likely reach it through the toolbox, or by typing its [keyword](#options). On a hardware keyboard, double-tap <KeyCap>Ctrl</KeyCap> to arm the leader key, then press <KeyCap>S</KeyCap> — see [hardware shortcuts](/reference/shortcuts/) for the full letter-to-tool map.
+Open **Snippets** from the toolbar if you've pinned it there, or from the toolbox. Snippets isn't one of the three tools pinned by default (Emoji, Clipboard, and Settings are), so the first few times you'll likely reach it through the toolbox, or by typing its [keyword](#options). On a hardware keyboard, double-tap <KeyCap>Ctrl</KeyCap> to arm the leader key, then press <KeyCap>S</KeyCap> (see [hardware shortcuts](/reference/shortcuts/) for the full letter-to-tool map).
 
-Each snippet shows as a card in a two-column grid: its label in bold on top, the raw snippet text underneath. That's the raw template, not the expanded preview — a card whose text contains `{date}` shows the literal token, not today's date. Tap a card to insert it; anything you were mid-typing gets committed first, so a half-finished word can't get swallowed into the snippet. With nothing saved yet, the panel shows the same variable hint plus a shortcut straight to Snippets settings.
+Each snippet shows as a card in a two-column grid: its label in bold on top, the raw snippet text underneath. That's the raw template, not the expanded preview. A card whose text contains `{date}` shows the literal token, not today's date. Tap a card to insert it; anything you were mid-typing gets committed first, so a half-finished word can't get swallowed into the snippet. With nothing saved yet, the panel shows the same variable hint plus a shortcut straight to Snippets settings.
 
-The panel re-reads the snippet file every time you open it — settings and the keyboard share the same file, so an edit you make in Settings shows up the next time you switch to this panel, not while it's already open. Unlike [Clipboard](/tools/clipboard/), there's no search inside the panel, so keep labels short and distinct if your list grows.
+The panel re-reads the snippet file every time you open it; settings and the keyboard share the same file, so an edit you make in Settings shows up the next time you switch to this panel, not while it's already open. Unlike [Clipboard](/tools/clipboard/), there's no search inside the panel, so keep labels short and distinct if your list grows.
 
 ## Auto-expanding as you type
 
-Give a snippet a trigger word and it expands on its own: type the trigger by itself and finish it with a space, punctuation, or Enter, and what you typed is replaced with the expanded snippet instead of being committed literally. Matching is case-insensitive and exact — `omw` matches `OMW` but not `omww`; there's no partial or prefix matching.
+Give a snippet a trigger word and it expands on its own: type the trigger by itself and finish it with a space, punctuation, or Enter, and what you typed is replaced with the expanded snippet instead of being committed literally. Matching is case-insensitive and exact: `omw` matches `OMW` but not `omww`; there's no partial or prefix matching.
 
-Trigger expansion is skipped while you're mid-transliteration or mid-conversion — for phonetic composers like Bengali-style transliteration, or Pinyin/Japanese-style conversion, the composing buffer holds an input spelling rather than the literal word you meant as a trigger, so expansion would misfire.
+Trigger expansion is skipped while you're mid-transliteration or mid-conversion. For phonetic composers like Bengali-style transliteration, or Pinyin/Japanese-style conversion, the composing buffer holds an input spelling rather than the literal word you meant as a trigger, so expansion would misfire.
 
-This is a different mechanism from the **Keyword shortcut** field on the Snippets settings screen (see [Options](#options)), which is a [smart chip](/smart/chips/) that offers to *open the Snippets panel* when you type "snippet" or "snippets" — it has nothing to do with any individual snippet's own trigger word.
+This is a different mechanism from the **Keyword shortcut** field on the Snippets settings screen (see [Options](#options)), which is a [smart chip](/smart/chips/) that offers to *open the Snippets panel* when you type "snippet" or "snippets." It has nothing to do with any individual snippet's own trigger word.
 
 ## Template variables
 
-A snippet's text can include any of these tokens. They're substituted the moment the snippet is inserted, not when you save it — so `{date}` always reflects the day you actually type it:
+A snippet's text can include any of these tokens. They're substituted the moment the snippet is inserted, not when you save it, so `{date}` always reflects the day you actually type it:
 
 | Token | Expands to |
 |---|---|
@@ -53,10 +53,10 @@ A snippet's text can include any of these tokens. They're substituted the moment
 | `{selection}` | Text currently selected in the field |
 | `{app}` | Name of the app you're typing into |
 | `{package}` | That app's package name |
-| `{uuid}` | A fresh random UUID — different every time it's used |
-| `{cursor}` | Not text — marks where the cursor lands after insertion |
+| `{uuid}` | A fresh random UUID, different every time it's used |
+| `{cursor}` | Not text; marks where the cursor lands after insertion |
 
-`{date:pattern}` takes any date pattern you like, for example `` {date:EEEE 'week' w} `` or `` {date:dd/MM/yy} ``. It's checked before the plain `{date}` token, so a literal pattern can't be partly swallowed by it, and a malformed pattern quietly expands to nothing instead of breaking the rest of the snippet. Tokens the expander doesn't recognize, like `{nope}`, are left untouched, and a variable with nothing to draw on — `{app}` outside the keyboard, `{clip}` with an empty clipboard — expands to an empty string rather than leaving the raw token behind.
+`{date:pattern}` takes any date pattern you like, for example `` {date:EEEE 'week' w} `` or `` {date:dd/MM/yy} ``. It's checked before the plain `{date}` token, so a literal pattern can't be partly swallowed by it, and a malformed pattern quietly expands to nothing instead of breaking the rest of the snippet. Tokens the expander doesn't recognize, like `{nope}`, are left untouched, and a variable with nothing to draw on (`{app}` outside the keyboard, `{clip}` with an empty clipboard) expands to an empty string rather than leaving the raw token behind.
 
 ## Managing snippets
 
@@ -70,18 +70,18 @@ The settings screen opens with a reference card listing all 18 variables plus `{
 
 - **Add snippet** opens a dialog with a label, a multi-line text field (hint text calls out the most common variables), and an optional trigger word.
 - The pencil icon on a saved snippet reopens that same dialog, pre-filled, to **edit** it.
-- The trash icon **deletes** it immediately — there's no confirmation prompt, so double-check before you tap it.
+- The trash icon **deletes** it immediately: there's no confirmation prompt, so double-check before you tap it.
 - Every row also shows a live "Inserts as: …" preview whenever the expanded text would differ from what you typed, and "Auto-expands from: …" if you've set a trigger.
 
 <PhoneFrame caption="Adding a snippet: label, text with variables, and an optional trigger word.">
   {/* shot: tools/snippets-add-dialog */}
 </PhoneFrame>
 
-There's no way to reorder the list from inside settings — snippets stay in the order you created them.
+There's no way to reorder the list from inside settings. Snippets stay in the order you created them.
 
 ### Import and export
 
-**Export** writes every current snippet to a `.wmsnippets.json` file (see [file formats](/reference/file-formats/)). **Import** always adds alongside what's already there rather than replacing it, so importing the same file twice leaves you with two copies, not one. Rows are repaired rather than rejected when something's off: a snippet with no text is dropped, text over 20,000 characters is trimmed, a blank label is filled in from the snippet's own first line, and only the first 500 snippets of an oversized file are kept — with a summary of anything that changed shown once the import finishes.
+**Export** writes every current snippet to a `.wmsnippets.json` file (see [file formats](/reference/file-formats/)). **Import** always adds alongside what's already there rather than replacing it, so importing the same file twice leaves you with two copies, not one. Rows are repaired rather than rejected when something's off: a snippet with no text is dropped, text over 20,000 characters is trimmed, a blank label is filled in from the snippet's own first line, and only the first 500 snippets of an oversized file are kept, with a summary of anything that changed shown once the import finishes.
 
 ## Options
 
@@ -89,20 +89,20 @@ There's no way to reorder the list from inside settings — snippets stay in the
 
 - **Enabled** — on by default, like every tool. Turning it off removes Snippets from both the toolbar and the toolbox.
 - **Icon colour** — only shown if [colorful tool icons](/tools/overview/) is turned on globally; overrides just this tool's icon color.
-- **Keyword shortcut** — the words that make the [Smart chips](/smart/chips/) suggestion offer to open this panel; "snippet" and "snippets" out of the box, editable or clearable here. This only controls opening the panel — it's unrelated to a snippet's own trigger word (above).
+- **Keyword shortcut** — the words that make the [Smart chips](/smart/chips/) suggestion offer to open this panel; "snippet" and "snippets" out of the box, editable or clearable here. This only controls opening the panel; it's unrelated to a snippet's own trigger word (above).
 
-Beyond that, there's nothing to configure about expansion itself — no on/off switch separate from the tool, no way to change how matching works.
+Beyond that, there's nothing to configure about expansion itself: no on/off switch separate from the tool, no way to change how matching works.
 
 ## Snippet packs and backups
 
 Someone can package a set of snippets as an installable addon: a `.wmsnippets.json` file up to 4&nbsp;MB, previewable before you install it so you can see the actual snippets it contains rather than installing blind. Installing a pack adds its snippets alongside anything you already have; uninstalling it removes exactly the snippets that pack added, leaving your own snippets and any other installed pack untouched. See [installing addons](/addons/installing/) for the general install/preview/uninstall flow.
 
-That's a different mechanism from the whole-app [config backup](/privacy/backup/) (`.wmconfig.json`), which has its own, optional Snippets section you can include or leave out when backing up everything at once — themes, dictionary, clipboard, stickers, and more, alongside your settings. It's different again from the plain settings backup (`.wmsettings.json`), which deliberately leaves snippets out; they're covered by these two separate flows instead.
+That's a different mechanism from the whole-app [config backup](/privacy/backup/) (`.wmconfig.json`), which has its own, optional Snippets section you can include or leave out when backing up everything at once: themes, dictionary, clipboard, stickers, and more, alongside your settings. It's different again from the plain settings backup (`.wmsettings.json`), which deliberately leaves snippets out; they're covered by these two separate flows instead.
 
 ## Details & edge cases
 
 - Snippets aren't available before you've unlocked your device once after a restart. The snippet file lives in credential-encrypted storage, so this tool sits out any lock-screen or pre-unlock typing until then.
-- Ships the same way in both the full and lite editions — there's no edition gating on this tool.
+- Ships the same way in both the full and lite editions: there's no edition gating on this tool.
 - The 500-snippet and 20,000-character limits above are enforced only on import; adding snippets one at a time from the dialog has no equivalent cap.
-- Because the panel re-reads the snippet file only when you open it, a snippet you just added in Settings won't appear if you already had the panel open — close and reopen the panel (or switch to another panel and back) to pick it up.
-- `{uuid}` generates a new value on every single insertion, including inserting the same snippet twice in a row — it's not fixed per snippet.
+- Because the panel re-reads the snippet file only when you open it, a snippet you just added in Settings won't appear if you already had the panel open. Close and reopen the panel (or switch to another panel and back) to pick it up.
+- `{uuid}` generates a new value on every single insertion, including inserting the same snippet twice in a row; it's not fixed per snippet.

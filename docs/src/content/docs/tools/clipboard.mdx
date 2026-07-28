@@ -1,6 +1,6 @@
 ---
 title: "Clipboard manager"
-description: "History, pinning, search and rich media — with password hygiene built in."
+description: "History, pinning, search and rich media, with password hygiene built in."
 sidebar:
   order: 2
 ---
@@ -9,7 +9,7 @@ import PhoneFrame from '@components/PhoneFrame.astro';
 import SettingsPath from '@components/SettingsPath.astro';
 import KeyCap from '@components/KeyCap.astro';
 
-The clipboard tool keeps a running history of what you copy — text, images, files, and more — so a paste from ten minutes ago is still one tap away, not gone the moment you copy something new. It's one of only three tools pinned to the toolbar out of the box, alongside Emoji and Settings.
+The clipboard tool keeps a running history of what you copy (text, images, files, and more), so a paste from ten minutes ago is still one tap away, not gone the moment you copy something new. It's one of only three tools pinned to the toolbar out of the box, alongside Emoji and Settings.
 
 <PhoneFrame caption="The clipboard panel: staggered two-column cards, entity chips for a fresh code or link, and a search pill.">
   {/* shot: tools/clipboard-panel */}
@@ -17,11 +17,11 @@ The clipboard tool keeps a running history of what you copy — text, images, fi
 
 ## Opening the panel
 
-Tap **Clipboard** on the toolbar, or reach it from the toolbox if you've unpinned it — see [the toolbar](/tools/overview/) for pinning. On a hardware keyboard, use the [leader key](/reference/shortcuts/): double-tap <KeyCap>Ctrl</KeyCap>, then press <KeyCap>C</KeyCap>.
+Tap **Clipboard** on the toolbar, or reach it from the toolbox if you've unpinned it; see [the toolbar](/tools/overview/) for pinning. On a hardware keyboard, use the [leader key](/reference/shortcuts/): double-tap <KeyCap>Ctrl</KeyCap>, then press <KeyCap>C</KeyCap>.
 
-Cards lay out in a staggered two-column grid rather than a fixed grid, so a short text clip doesn't get stretched to match a tall image beside it. Pinned clips sort first by default — [flip that](#options) to put them last instead. Tap any card to insert it; copying the same content again just moves the existing card back to the top instead of adding a duplicate.
+Cards lay out in a staggered two-column grid rather than a fixed grid, so a short text clip doesn't get stretched to match a tall image beside it. Pinned clips sort first by default ([flip that](#options) to put them last instead). Tap any card to insert it; copying the same content again just moves the existing card back to the top instead of adding a duplicate.
 
-To remove a single clip, swipe its card left or right until it slides off — there's no confirmation and no undo, so a stray swipe is permanent. Press and hold a card instead for its info popup: when it was copied, its type and size, and — if [source tracking](#options) is on — which app it came from.
+To remove a single clip, swipe its card left or right until it slides off: there's no confirmation and no undo, so a stray swipe is permanent. Press and hold a card instead for its info popup: when it was copied, its type and size, and (if [source tracking](#options) is on) which app it came from.
 
 <PhoneFrame caption="Long-pressing a clip: the info popup shows when it was copied, its type, size, and source app.">
   {/* shot: tools/clipboard-info-popup */}
@@ -29,7 +29,7 @@ To remove a single clip, swipe its card left or right until it slides off — th
 
 ## What gets captured
 
-Turning [clipboard history](#options) off stops capture entirely. When it's on, a copy is skipped anyway if incognito is active and [set to pause the clipboard](/privacy/incognito/), or if the field you copied from was a password field — those never reach history no matter what else is configured.
+Turning [clipboard history](#options) off stops capture entirely. When it's on, a copy is skipped anyway if incognito is active and [set to pause the clipboard](/privacy/incognito/), or if the field you copied from was a password field: those never reach history no matter what else is configured.
 
 Five kinds of clip are stored, each shown differently in the panel:
 
@@ -45,40 +45,40 @@ Five kinds of clip are stored, each shown differently in the panel:
 
 ### Pasting rich media
 
-Tapping an image, file, or video card negotiates a MIME type with the focused field — it tries the field's accepted types in order and sends the first match via `commitContent`. If the field wants PNG but the clip is a static WebP, it converts on the fly (animated WebP is left alone, so an animation is never silently flattened into a still). If nothing matches — the field doesn't accept rich content at all, or the permission to read the file has lapsed — the item goes back onto the system clipboard instead, with a toast explaining that you'll need to paste it there.
+Tapping an image, file, or video card negotiates a MIME type with the focused field: it tries the field's accepted types in order and sends the first match via `commitContent`. If the field wants PNG but the clip is a static WebP, it converts on the fly (animated WebP is left alone, so an animation is never silently flattened into a still). If nothing matches (the field doesn't accept rich content at all, or the permission to read the file has lapsed), the item goes back onto the system clipboard instead, with a toast explaining that you'll need to paste it there.
 
 ### Expiry and the entry cap
 
-Unpinned clips fall off two ways: <SettingsPath path="Tools / Clipboard" /> sets an expiry in hours (0 turns expiry off), and separately caps how many unpinned entries history keeps at once — once that cap is hit, the oldest unpinned clip drops with each new copy. Pinning a clip exempts it from both: it never expires and never counts against the cap.
+Unpinned clips fall off two ways: <SettingsPath path="Tools / Clipboard" /> sets an expiry in hours (0 turns expiry off), and separately caps how many unpinned entries history keeps at once: once that cap is hit, the oldest unpinned clip drops with each new copy. Pinning a clip exempts it from both: it never expires and never counts against the cap.
 
 ## Finding a clip again
 
-Turn on the search bar and a search pill appears at the top of the panel once you have at least one clip. Tapping it hands your keystrokes to the search field instead of typing into your document — the same trick the emoji panel uses — and the panel shrinks to just the field and its results while you type. Matching is a case-insensitive substring search, and it isn't limited to a clip's own text: an image or video with no text of its own is still found by typing "image," "screenshot," or its file format, since those are indexed alongside the file name and any link preview's title.
+Turn on the search bar and a search pill appears at the top of the panel once you have at least one clip. Tapping it hands your keystrokes to the search field instead of typing into your document (the same trick the emoji panel uses), and the panel shrinks to just the field and its results while you type. Matching is a case-insensitive substring search, and it isn't limited to a clip's own text: an image or video with no text of its own is still found by typing "image," "screenshot," or its file format, since those are indexed alongside the file name and any link preview's title.
 
 ## Pulling codes and links out of a clip
 
-Turn on entity detection and the panel scans your recent clips for one-time codes, phone numbers, and links, offering each as its own dashed-outline chip above the history grid — so the six digits inside a verification text are one tap away instead of a copy-select-paste. Tapping a chip pastes just that fragment, leaving the full clip in place; press and hold a chip to see it highlighted inside the message it came from.
+Turn on entity detection and the panel scans your recent clips for one-time codes, phone numbers, and links, offering each as its own dashed-outline chip above the history grid, so the six digits inside a verification text are one tap away instead of a copy-select-paste. Tapping a chip pastes just that fragment, leaving the full clip in place; press and hold a chip to see it highlighted inside the message it came from.
 
 <PhoneFrame caption="Entity chips above the history grid: an OTP and a phone number pulled out of a longer message.">
   {/* shot: tools/clipboard-entity-chips */}
 </PhoneFrame>
 
-Detection is conservative on purpose: a 4-digit year is never mistaken for a code, a run of digits after a currency symbol or a `#` is never mistaken for a phone number, and Google's `G-123456` verification prefix is stripped so only the code itself pastes. The same detection also drives the ordinary paste chip on the suggestion strip — if your most recent copy is a message that *contains* a code rather than *being* one, the strip offers the code alone instead of the whole message.
+Detection is conservative on purpose: a 4-digit year is never mistaken for a code, a run of digits after a currency symbol or a `#` is never mistaken for a phone number, and Google's `G-123456` verification prefix is stripped so only the code itself pastes. The same detection also drives the ordinary paste chip on the suggestion strip: if your most recent copy is a message that *contains* a code rather than *being* one, the strip offers the code alone instead of the whole message.
 
-This entity strip is a different mechanism from [Smart chips](/smart/chips/), which reacts to what you're currently typing rather than to what you've copied — the two happen to look similar (a dashed outline) but don't share any code.
+This entity strip is a different mechanism from [Smart chips](/smart/chips/), which reacts to what you're currently typing rather than to what you've copied; the two happen to look similar (a dashed outline) but don't share any code.
 
 ## Passwords are handled deliberately
 
-The clipboard tool treats a copied password or code as sensitive in two independent ways — at copy time, and at paste time.
+The clipboard tool treats a copied password or code as sensitive in two independent ways: at copy time, and at paste time.
 
-**At copy time**, <SettingsPath path="Tools / Clipboard / Passwords & codes" /> chooses what happens to a clip Android itself marks sensitive (the flag a password manager sets when you copy a login): keep it like any other clip, hide it and forget it quickly, or never save it at all. The default hides and forgets — that choice is deliberate, since never saving trades away the everyday "I pasted a password into the wrong field" recovery for a risk a short timer already closes. Turn on recognizing sensitive clips yourself and the same handling also applies to anything that merely *looks* like a password or a bare code, for managers that predate the flag or a code you copied by hand — narrowly enough that a sentence, a link, or an email address never qualifies.
+**At copy time**, <SettingsPath path="Tools / Clipboard / Passwords & codes" /> chooses what happens to a clip Android itself marks sensitive (the flag a password manager sets when you copy a login): keep it like any other clip, hide it and forget it quickly, or never save it at all. The default hides and forgets: that choice is deliberate, since never saving trades away the everyday "I pasted a password into the wrong field" recovery for a risk a short timer already closes. Turn on recognizing sensitive clips yourself and the same handling also applies to anything that merely *looks* like a password or a bare code, for managers that predate the flag or a code you copied by hand, narrowly enough that a sentence, a link, or an email address never qualifies.
 
-A hidden clip shows as a row of dots and a character count in the panel, is never revealable there, and is left out of the strip's paste-chip, the entity strip, and the settings backup. It expires on its own timer — independent of, and not capped by, the ordinary history expiry above. Pinning a sensitive clip overrides all of that, the same as pinning anything else.
+A hidden clip shows as a row of dots and a character count in the panel, is never revealable there, and is left out of the strip's paste-chip, the entity strip, and the settings backup. It expires on its own timer (independent of, and not capped by, the ordinary history expiry above). Pinning a sensitive clip overrides all of that, the same as pinning anything else.
 
-**At paste time**, turn on forgetting after a password paste and the clip is deleted from history — and from the system clipboard too, if it still holds exactly what you pasted — the moment you paste into a password field. This fires for a tap on a card, the strip's paste chip, a pasted entity chip, or a hardware <KeyCap>Ctrl</KeyCap>+<KeyCap>V</KeyCap> paste alike, so leaving the rest of an SMS sitting on the clipboard after you've only pasted its code doesn't defeat the point.
+**At paste time**, turn on forgetting after a password paste and the clip is deleted from history (and from the system clipboard too, if it still holds exactly what you pasted) the moment you paste into a password field. This fires for a tap on a card, the strip's paste chip, a pasted entity chip, or a hardware <KeyCap>Ctrl</KeyCap>+<KeyCap>V</KeyCap> paste alike, so leaving the rest of an SMS sitting on the clipboard after you've only pasted its code doesn't defeat the point.
 
 :::note
-Locking the keyboard out of the clipboard panel entirely while the device is locked is a separate, [Appearance](/reference/settings/appearance/) setting — hiding the toolbar when locked — not part of this group.
+Locking the keyboard out of the clipboard panel entirely while the device is locked is a separate, [Appearance](/reference/settings/appearance/) setting (hiding the toolbar when locked), not part of this group.
 :::
 
 ## Options
@@ -110,13 +110,13 @@ Locking the keyboard out of the clipboard panel entirely while the device is loc
 
 ## Backups and exports
 
-The whole-app [config backup](/privacy/backup/) has its own Clipboard section, off by default when you export. It only ever includes pinned and recent *text* clips — images and files are deliberately left out, since they live on the device they were copied on and wouldn't open anywhere else. Sensitive clips are excluded from an export regardless of that toggle.
+The whole-app [config backup](/privacy/backup/) has its own Clipboard section, off by default when you export. It only ever includes pinned and recent *text* clips: images and files are deliberately left out, since they live on the device they were copied on and wouldn't open anywhere else. Sensitive clips are excluded from an export regardless of that toggle.
 
 ## Details & edge cases
 
-- The clipboard tool needs the device to have been unlocked at least once since restart — its history lives in credential-encrypted storage, so it sits out any lock-screen or pre-unlock typing until then.
+- The clipboard tool needs the device to have been unlocked at least once since restart: its history lives in credential-encrypted storage, so it sits out any lock-screen or pre-unlock typing until then.
 - Ships the same way in the full and lite editions; nothing about this tool is edition-gated.
-- Link previews make a direct, unauthenticated request to whichever site you copied a link from — not through any of the app's own network services — so turning that setting on means that site sees a request from your device the moment you open the panel with a fresh link in history.
-- A file or folder clip is only as good as the URI permission grant behind it; if that's lapsed by the time you tap it — the source app cleared its cache, for instance — pasting falls back to putting the URI back on the system clipboard with an explanatory toast rather than silently failing.
-- "Toast on copy" appears in this same screen's History group but is actually a [feedback](/typing/feedback/) setting — it's about the keyboard's own copy shortcuts (<KeyCap>A</KeyCap>/<KeyCap>C</KeyCap>/<KeyCap>V</KeyCap>/<KeyCap>X</KeyCap> and the text-editing panel's copy button), not clipboard history.
+- Link previews make a direct, unauthenticated request to whichever site you copied a link from (not through any of the app's own network services), so turning that setting on means that site sees a request from your device the moment you open the panel with a fresh link in history.
+- A file or folder clip is only as good as the URI permission grant behind it; if that's lapsed by the time you tap it (the source app cleared its cache, for instance), pasting falls back to putting the URI back on the system clipboard with an explanatory toast rather than silently failing.
+- "Toast on copy" appears in this same screen's History group but is actually a [feedback](/typing/feedback/) setting: it's about the keyboard's own copy shortcuts (<KeyCap>A</KeyCap>/<KeyCap>C</KeyCap>/<KeyCap>V</KeyCap>/<KeyCap>X</KeyCap> and the text-editing panel's copy button), not clipboard history.
 - Pausing capture while [incognito](/privacy/incognito/) is on is a separate Incognito setting, not part of this screen.

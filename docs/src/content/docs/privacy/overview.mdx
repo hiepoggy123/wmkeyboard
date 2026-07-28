@@ -10,7 +10,7 @@ import PhoneFrame from '@components/PhoneFrame.astro';
 import SettingsPath from '@components/SettingsPath.astro';
 import Flavor from '@components/Flavor.astro';
 
-Typing itself — composing, prediction, autocorrect, gesture typing, spell check, learning — never touches the network on this keyboard, on any language or layout. A specific, nameable list of optional tools does reach the network, each one documented on this page with what triggers it and how to turn it off.
+Typing itself (composing, prediction, autocorrect, gesture typing, spell check, learning) never touches the network on this keyboard, on any language or layout. A specific, nameable list of optional tools does reach the network, each one documented on this page with what triggers it and how to turn it off.
 
 <PhoneFrame caption="The Privacy screen: On-device learning, Android backup, and Your data groups.">
   {/* shot: privacy/privacy-screen-groups */}
@@ -18,12 +18,12 @@ Typing itself — composing, prediction, autocorrect, gesture typing, spell chec
 
 ## The short version
 
-Everything the keyboard needs to type, predict, autocorrect and learn from you runs locally: bundled and downloaded dictionaries, Bengali and other transliteration, gesture typing, emoji search, and on-device learning are all local computation reading and writing files under the app's own storage. None of it requires — or uses — a network connection. What that learning stores and where is covered in full on [Your data on device](/privacy/data/); this page is about what leaves the device, not what stays on it.
+Everything the keyboard needs to type, predict, autocorrect and learn from you runs locally: bundled and downloaded dictionaries, Bengali and other transliteration, gesture typing, emoji search, and on-device learning are all local computation reading and writing files under the app's own storage. None of it requires or uses a network connection. What that learning stores and where is covered in full on [Your data on device](/privacy/data/); this page is about what leaves the device, not what stays on it.
 
-No analytics, crash-reporting, or telemetry SDK is built into the app — there's no Firebase, Crashlytics, Mixpanel, Sentry, Bugsnag, or Amplitude anywhere in the source tree, and no first-party WM Keyboard server that the app phones home to for any reason. There's no update check, either — updates come from wherever you installed the app, the same as any other app. Every network call the app makes is a request you can trace to one specific, named tool.
+No analytics, crash-reporting, or telemetry SDK is built into the app: there's no Firebase, Crashlytics, Mixpanel, Sentry, Bugsnag, or Amplitude anywhere in the source tree, and no first-party WM Keyboard server that the app phones home to for any reason. There's no update check, either. Updates come from wherever you installed the app, the same as any other app. Every network call the app makes is a request you can trace to one specific, named tool.
 
 :::note[The in-app caption undersells this]
-The Privacy screen's own caption says the keyboard works offline apart from one optional weather tool. That's true as far as it goes, but incomplete — there are more network-touching tools than that one line lets on. The rest of this page is the accurate, complete version.
+The Privacy screen's own caption says the keyboard works offline apart from one optional weather tool. That's true as far as it goes, but incomplete: there are more network-touching tools than that one line lets on. The rest of this page is the accurate, complete version.
 :::
 
 ## The only things that touch the network
@@ -39,38 +39,38 @@ Every one of these is a distinct, optional tool. Most only fetch while you have 
 | Currency converter | `open.er-api.com`, falling back to `api.frankfurter.app` | No |
 | GIF & sticker search | KLIPY and/or GIPHY | Yes |
 | Web & image search | Brave Search | Yes |
-| AI writing tools | Anthropic, OpenAI, or Gemini — or a self-hosted Ollama/LM Studio server on your own network | Yes (bring your own key) |
+| AI writing tools | Anthropic, OpenAI, or Gemini; or a self-hosted Ollama/LM Studio server on your own network | Yes (bring your own key) |
 
-Every one of those is off until you open that specific tool. The AI tools go further: each provider field starts blank, so the feature is inert on a fresh install even once you open the panel — nothing sends until you supply your own key (or point it at a server you run). Self-hosted Ollama/LM Studio is also the one tool that talks plain HTTP rather than HTTPS, since it's a server on your own local network rather than the public internet — the app allows cleartext traffic app-wide to make that possible, though every other service in the table above is still contacted over HTTPS regardless.
+Every one of those is off until you open that specific tool. The AI tools go further: each provider field starts blank, so the feature is inert on a fresh install even once you open the panel: nothing sends until you supply your own key (or point it at a server you run). Self-hosted Ollama/LM Studio is also the one tool that talks plain HTTP rather than HTTPS, since it's a server on your own local network rather than the public internet. The app allows cleartext traffic app-wide to make that possible, though every other service in the table above is still contacted over HTTPS regardless.
 
 ### The exceptions: what fires without you opening a tool
 
 Three features reach the network automatically, under their default settings, without you opening anything you'd think of as a "network tool":
 
-1. **The currency smart chip.** Typing something that reads as a currency amount — "150 usd," say — on the suggestion strip fetches exchange rates automatically, with no tool open and no tap. It's gated by <SettingsPath path="Typing / Smart chips" />, where the master switch and its **Convert currencies** toggle are both **on by default**, and results are cached for hours rather than fetched per keystroke — see [Smart chips](/smart/chips/) for the exact cache window and the rest of the chip family. The calculator and unit-converter chips alongside it are fully local; only currency reaches the network. The in-app disclosure for this one is honest and worth repeating: everything is recognized on-device, and only exchange rates are fetched, only once you type an amount.
-2. **Emoji keyword pack downloads.** Turning a language on fetches its emoji-keyword pack in the background — a small download from the project's data repository on GitHub. Gated by <SettingsPath path="Emoji / Emoji panel / Emoji keywords" />'s **Download automatically**, **on by default**.
-3. **Dictionary auto-lookup.** Opening the Dictionary tool looks up the word at your cursor immediately, without a separate search tap. Gated by <SettingsPath path="Tools / Dictionary" />'s **Look up the word at the cursor**, **on by default** — but it still only fires once you open that tool, unlike the two above.
+1. **The currency smart chip.** Typing something that reads as a currency amount (say, "150 usd") on the suggestion strip fetches exchange rates automatically, with no tool open and no tap. It's gated by <SettingsPath path="Typing / Smart chips" />, where the master switch and its **Convert currencies** toggle are both **on by default**, and results are cached for hours rather than fetched per keystroke. See [Smart chips](/smart/chips/) for the exact cache window and the rest of the chip family. The calculator and unit-converter chips alongside it are fully local; only currency reaches the network. The in-app disclosure for this one is honest and worth repeating: everything is recognized on-device, and only exchange rates are fetched, only once you type an amount.
+2. **Emoji keyword pack downloads.** Turning a language on fetches its emoji-keyword pack in the background, a small download from the project's data repository on GitHub. Gated by <SettingsPath path="Emoji / Emoji panel / Emoji keywords" />'s **Download automatically**, **on by default**.
+3. **Dictionary auto-lookup.** Opening the Dictionary tool looks up the word at your cursor immediately, without a separate search tap. Gated by <SettingsPath path="Tools / Dictionary" />'s **Look up the word at the cursor**, **on by default**, but it still only fires once you open that tool, unlike the two above.
 
 Two more fetch automatically but are **off by default**, so they don't belong on that list until you turn them on: <SettingsPath path="Tools / Clipboard" />'s **Link previews**, and QR-scan link previews, each of which fetches a page's preview metadata the moment you copy or scan a matching link.
 
-[Power saving mode](/typing/power-saving/) is the one-tap way to shut off the background half of that list: turning it on drops clipboard link previews, QR-scan link previews, and dictionary auto-lookup back to off for as long as it's active — see that page for the rest of what it changes.
+[Power saving mode](/typing/power-saving/) is the one-tap way to shut off the background half of that list: turning it on drops clipboard link previews, QR-scan link previews, and dictionary auto-lookup back to off for as long as it's active. See that page for the rest of what it changes.
 
-<PhoneFrame caption="Convert currencies, on by default under Smart chips — the one smart chip that reaches the network.">
+<PhoneFrame caption="Convert currencies, on by default under Smart chips: the one smart chip that reaches the network.">
   {/* shot: privacy/smart-chips-currency-toggle */}
 </PhoneFrame>
 
-For the complete tool-by-tool breakdown — exact endpoints, what payload each one sends, and how downloads (wordlists, CJK dictionaries, speech and AI models, addons) are fetched and verified — see [Network policy](/privacy/network/).
+See [Network policy](/privacy/network/) for the complete tool-by-tool breakdown: exact endpoints, what payload each one sends, and how downloads (wordlists, CJK dictionaries, speech and AI models, addons) are fetched and verified.
 
 ## Open source: verify, don't trust
 
-WM Keyboard is MIT-licensed, and the source is public on GitHub. That's not a claim you have to take on faith from this page — anyone can read the code that makes every claim above true, including the exact list of domains each tool calls.
+WM Keyboard is MIT-licensed, and the source is public on GitHub. That's not a claim you have to take on faith from this page: anyone can read the code that makes every claim above true, including the exact list of domains each tool calls.
 
-There's no packaged release yet — see [Installation](/start/installation/) — so verifying any of this today means building the APK yourself from that same public source with Gradle, not checking a store listing. The app's About screen already carries ready-made links to share it via Play Store, F-Droid and GitHub for whenever a build does land there; F-Droid in particular requires building from the published source and rejects proprietary tracking outright, which will make it a second, independent check on the "no telemetry" claim above once that listing exists.
+There's no packaged release yet (see [Installation](/start/installation/)), so verifying any of this today means building the APK yourself from that same public source with Gradle, not checking a store listing. The app's About screen already carries ready-made links to share it via Play Store, F-Droid and GitHub for whenever a build does land there; F-Droid in particular requires building from the published source and rejects proprietary tracking outright, which will make it a second, independent check on the "no telemetry" claim above once that listing exists.
 
-The two other repositories the app talks to for downloads — word lists, CJK dictionaries and emoji-keyword packs, and the sample addon repository seeded on first launch — are public too, so what a download actually contains is inspectable before, or instead of, installing it. Full attribution for every bundled component, data pack and third-party service lives in the app itself; see [About & diagnostics](/reference/settings/about/).
+The two other repositories the app talks to for downloads (word lists, CJK dictionaries and emoji-keyword packs, and the sample addon repository seeded on first launch) are public too, so what a download actually contains is inspectable before, or instead of, installing it. Full attribution for every bundled component, data pack and third-party service lives in the app itself; see [About & diagnostics](/reference/settings/about/).
 
 :::note[One thing this page can't verify]
-Whether any particular build of the app ships with a working built-in key for Translate, KLIPY, GIPHY or Brave Search is a build-time secret, not something visible in the public source — those fields are populated from environment variables when the APK is built, including when you build it yourself. Don't assume a tool works out of the box or requires your own key without checking; either is possible depending on how a given build was produced.
+Whether any particular build of the app ships with a working built-in key for Translate, KLIPY, GIPHY or Brave Search is a build-time secret, not something visible in the public source. Those fields are populated from environment variables when the APK is built, including when you build it yourself. Don't assume a tool works out of the box or requires your own key without checking; either is possible depending on how a given build was produced.
 :::
 
 ## Options
@@ -83,14 +83,14 @@ The Privacy screen has three groups, each documented in full on its own page:
 - **Android backup** — folding the keyboard into Android's own backup system, off by default. See [Backup & restore](/privacy/backup/).
 - **Your data** — the one-tap **Clear learned words** button. See [Your data on device](/privacy/data/#clearing-whats-stored).
 
-Every per-tool network toggle mentioned above lives on that tool's own settings screen rather than on Privacy — see [Network policy](/privacy/network/) for the full list, or the [tool settings reference](/reference/settings/tools/) for a screen-by-screen field list.
+Every per-tool network toggle mentioned above lives on that tool's own settings screen rather than on Privacy. See [Network policy](/privacy/network/) for the full list, or the [tool settings reference](/reference/settings/tools/) for a screen-by-screen field list.
 
 ## Details & edge cases
 
-- **Voice dictation can leave the device without appearing on the table above.** The default voice engine is Android's own `SpeechRecognizer`, which prefers on-device recognition but transparently falls back to a network recognizer for a language it can't handle locally. That's Android mediating the request, not a call this app makes directly, and nothing about it is saved by WM Keyboard — downloading an offline Whisper model <Flavor edition="full" /> replaces the fallback with fully local recognition.
-- **Not every network request in the app goes through the same client.** First-party API calls (everything in the table above) go through one shared HTTP client; remote thumbnail and preview images — GIF/sticker search results, addon repository preview art — load through a separate image-loading library. Same rule applies either way: it only loads inside the panel you're already using, gated the same way.
-- **ML Kit's on-device models** <Flavor edition="full" /> — OCR, barcode/QR scanning, handwriting recognition, document scanning — run recognition locally once their model is present. Handwriting models are an explicit, visible download you trigger yourself; the OCR, barcode and document-scanner models can be fetched by Google Play services infrastructure the first time you use that feature, which is Google's own delivery path rather than a request this app makes.
-- **Opening Settings → Addons re-checks every repository you've added**, once per visit, and the very first time you ever open that screen it also silently adds and fetches one sample addon repository so the screen isn't empty. Removing that starter repository is permanent — it isn't re-added on a later visit.
-- **Only the two heaviest downloads confirm before using mobile data.** Offline Whisper speech models and on-device AI models ask first on a metered connection (around 150 MB and 500 MB respectively). Wordlists, CJK dictionaries, emoji keyword packs, and addon payloads don't — see [Network policy](/privacy/network/#downloads-dictionaries-models-and-addons) for the full download-by-download table, including which of these get a checksum verified.
+- **Voice dictation can leave the device without appearing on the table above.** The default voice engine is Android's own `SpeechRecognizer`, which prefers on-device recognition but transparently falls back to a network recognizer for a language it can't handle locally. That's Android mediating the request, not a call this app makes directly, and nothing about it is saved by WM Keyboard. Downloading an offline Whisper model <Flavor edition="full" /> replaces the fallback with fully local recognition.
+- **Not every network request in the app goes through the same client.** First-party API calls (everything in the table above) go through one shared HTTP client; remote thumbnail and preview images (GIF/sticker search results, addon repository preview art) load through a separate image-loading library. Same rule applies either way: it only loads inside the panel you're already using, gated the same way.
+- **ML Kit's on-device models** <Flavor edition="full" /> (OCR, barcode/QR scanning, handwriting recognition, document scanning) run recognition locally once their model is present. Handwriting models are an explicit, visible download you trigger yourself; the OCR, barcode and document-scanner models can be fetched by Google Play services infrastructure the first time you use that feature, which is Google's own delivery path rather than a request this app makes.
+- **Opening Settings → Addons re-checks every repository you've added**, once per visit, and the very first time you ever open that screen it also silently adds and fetches one sample addon repository so the screen isn't empty. Removing that starter repository is permanent; it isn't re-added on a later visit.
+- **Only the two heaviest downloads confirm before using mobile data.** Offline Whisper speech models and on-device AI models ask first on a metered connection (around 150 MB and 500 MB respectively). Wordlists, CJK dictionaries, emoji keyword packs, and addon payloads don't. See [Network policy](/privacy/network/#downloads-dictionaries-models-and-addons) for the full download-by-download table, including which of these get a checksum verified.
 
 See [Network policy](/privacy/network/) for the complete tool-by-tool table, [Your data on device](/privacy/data/) for what's stored locally, [Incognito & secure fields](/privacy/incognito/) for pausing learning and clipboard capture, and [Backup & restore](/privacy/backup/) for what leaves the device only when you choose to export or sync it.

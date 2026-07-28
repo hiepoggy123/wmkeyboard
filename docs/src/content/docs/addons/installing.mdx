@@ -8,7 +8,7 @@ sidebar:
 import SettingsPath from '@components/SettingsPath.astro';
 import PhoneFrame from '@components/PhoneFrame.astro';
 
-An addon repository is just a URL — a GitHub repo or any `https://` host — that
+An addon repository is just a URL (a GitHub repo or any `https://` host) that
 points at a small JSON index of themes, layouts, dictionaries and the rest.
 You add the repository once, browse what it offers in a searchable grid, and
 install one addon at a time.
@@ -20,7 +20,7 @@ install one addon at a time.
 ## Adding a repository
 
 Open **Add repository** and paste an address. As you type, the dialog shows
-exactly what it resolved to — `Will read: <url>` — so you can see where the
+exactly what it resolved to (`Will read: <url>`), so you can see where the
 data is actually coming from before anything is fetched:
 
 | You paste | It fetches |
@@ -41,13 +41,13 @@ address resolves.
 
 If the address doesn't resolve, or the resulting page can't be read as an
 addon repository, you get an error dialog rather than a half-added entry.
-Pasting a repository you've already added isn't an error either — it just
+Pasting a repository you've already added isn't an error either: it just
 opens the existing one, so following the same link twice is harmless.
 
 :::note[Links open, they don't install]
 A `wmkeyboard://` link from a README or a chat message can pre-fill this
 dialog or jump straight to one addon's detail page, but it never adds a
-repository or installs anything on its own — you still tap **Add**, and then
+repository or installs anything on its own; you still tap **Add**, and then
 **Install**. See [Deep links](/reference/deep-links/) for the full set.
 :::
 
@@ -66,7 +66,7 @@ which is where the fuller description and licence live.
   {/* shot: addons/detail-page-licence */}
 </PhoneFrame>
 
-If the manifest declares a licence, the detail page shows it as its own row —
+If the manifest declares a licence, the detail page shows it as its own row:
 the identifier (`MIT`, `OFL-1.1`, and so on) inline where there is one, or
 "Tap to read the licence" when there's only full text to show. Tapping opens
 the complete text in a scrolling dialog. An addon with no licence information
@@ -75,8 +75,8 @@ at all just says "Not stated."
 ## Installing an addon
 
 Tap the download arrow on a card, or **Install** on its detail page. Installing
-always does two things and stops: it puts the file on your device, and — for
-themes, layouts, icon packs, emoji fonts, key sounds and plugins — it asks
+always does two things and stops: it puts the file on your device, and (for
+themes, layouts, icon packs, emoji fonts, key sounds and plugins) it asks
 whether you want to switch to it. Fonts, dictionaries, emoji keyword packs,
 snippet packs and sticker packs have nothing to "switch to"; they're live the
 moment they land.
@@ -90,7 +90,7 @@ keyboard three times.
 </PhoneFrame>
 
 The question only appears the first time you install something with a slot to
-fill — updating an addon that wasn't already active just updates it quietly.
+fill: updating an addon that wasn't already active just updates it quietly.
 If the addon you're updating *was* the one you had active, it's automatically
 re-applied under its new id instead of asking you to re-confirm a choice you
 never revoked.
@@ -104,7 +104,7 @@ never revoked.
 | Layout | "Turn it on so you can type with it?" | Turn on |
 | Plugin | "Turn it on so it shows in the plugins panel?" | Turn on |
 
-Dismissing the prompt just says "Not now" — the addon stays installed either
+Dismissing the prompt just says "Not now": the addon stays installed either
 way, and every detail page has an outlined "Use — open …" button that takes
 you straight to the right settings screen if you change your mind later.
 
@@ -141,7 +141,7 @@ what it will download:
 | 64 MB | Stickers |
 
 **Plugins are a special case.** Installing one requires "Allow plugins" to
-already be on — otherwise the detail page tells you so before you even tap
+already be on; otherwise the detail page tells you so before you even tap
 Install, with a shortcut straight to the switch:
 
 <SettingsPath path="Tools / Plugins / Allow plugins" />
@@ -149,7 +149,7 @@ Install, with a shortcut straight to the switch:
 Even with the switch on, a plugin installed from a repository always lands
 disabled; you still turn it on yourself through the prompt above or from the
 plugins list. A plugin is also the one type where the manifest's checksum
-isn't optional — without one to verify against, the install is refused
+isn't optional: without one to verify against, the install is refused
 outright. See [Plugin permissions](/plugins/permissions/) for what a plugin
 can and can't reach once it's running.
 
@@ -163,7 +163,7 @@ The Addons screen lists every repository you've added, with the count of
 addons in each and a three-dot menu for **Refresh**, **Open homepage** (when
 the manifest declares one), and **Remove**.
 
-Removing a repository only removes it from that list — anything you already
+Removing a repository only removes it from that list. Anything you already
 installed from it keeps working; you just stop getting update checks for it.
 The app adds one sample repository automatically the first time you open the
 Addons screen, so there's something to browse before you've found one of your
@@ -179,7 +179,7 @@ keeps showing what it last had rather than emptying out.
 
 Reach the Addons screen from the home grid or by searching "Addons" in
 settings search. Adding and browsing repositories, and installing from them,
-all happen on this one screen and the ones you navigate to from it — there's
+all happen on this one screen and the ones you navigate to from it. There's
 nothing addon-specific tucked away anywhere else in settings, aside from the
 plugin subsystem switch above. See the
 [Addons settings reference](/reference/settings/addons/) for a full
@@ -190,16 +190,16 @@ for the repository cap and what backup covers.
 
 - **Repository files are plain data, never code.** Adding a repository or
   installing a theme, dictionary, sticker pack or any other type never
-  executes anything — the one exception, a plugin, still only lands as an
-  inert file until you separately turn it on. There are eleven addon types in
+  executes anything (the one exception, a plugin, still only lands as an
+  inert file until you separately turn it on). There are eleven addon types in
   total: themes, layouts, dictionaries, emoji keyword packs, snippets, sticker
   packs, icon packs, fonts, emoji fonts, key sounds and plugins.
 - **Updating replaces rather than duplicates.** When a newer version of an
   installed addon comes in, the old copy is removed only after the new one
   verifies successfully, so you never end up with two copies of the same
   theme.
-- **A failed install doesn't need cleanup.** If a download is rejected —
-  wrong checksum, over the size cap, not enough free space — the partial
+- **A failed install doesn't need cleanup.** If a download is rejected
+  (wrong checksum, over the size cap, not enough free space), the partial
   download is always deleted, whether the install succeeded or failed.
 - **The catalogue card's install button and the detail page's Install button
   do the same thing.** You never have to open an addon just to install it.

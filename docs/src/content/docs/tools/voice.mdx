@@ -1,6 +1,6 @@
 ---
 title: "Voice typing"
-description: "Dictation through your device's speech engine — strip mode and full panel."
+description: "Dictation through your device's speech engine: strip mode and full panel."
 sidebar:
   order: 3
 ---
@@ -10,7 +10,7 @@ import SettingsPath from '@components/SettingsPath.astro';
 import KeyCap from '@components/KeyCap.astro';
 import GestureDemo from '@components/GestureDemo.astro';
 
-Voice typing turns speech into text using your device's own speech recognizer — no setup, works in any language your device supports. Tap the mic, talk, and words appear as you speak.
+Voice typing turns speech into text using your device's own speech recognizer: no setup, works in any language your device supports. Tap the mic, talk, and words appear as you speak.
 
 <PhoneFrame caption="The voice panel: a pulsing mic button on the left, the handwriting-style action rail on the right.">
 {/* shot: tools/voice-panel-listening */}
@@ -21,21 +21,21 @@ Voice typing turns speech into text using your device's own speech recognizer �
 Open **Voice typing** from the toolbar (or the toolbox if you haven't pinned it). What opens depends on the **Compact bar** setting, covered below:
 
 - **Full panel** (the default) replaces the whole keyboard with a large mic button and a level-driven pulse ring, plus a four-key action rail down the right side: <KeyCap>Delete</KeyCap>, <KeyCap>Space</KeyCap>, a context-aware <KeyCap>Enter</KeyCap> (it shows a search icon in a search box instead of promising a newline it won't insert), and a key that closes the panel and returns to normal typing.
-- **Compact bar** replaces the suggestion strip with a small mic and status text, while the keys stay visible underneath — dictate a sentence, then tap a letter key to fix a misheard word without leaving the panel-free view.
+- **Compact bar** replaces the suggestion strip with a small mic and status text, while the keys stay visible underneath: dictate a sentence, then tap a letter key to fix a misheard word without leaving the panel-free view.
 
-Tap the mic to start listening; tap again to finish. In the full panel only, you can also **long-press the mic for walkie-talkie dictation**: holding it past about 600&nbsp;ms starts listening only while your finger stays down, and releasing stops it immediately. A quick tap-and-release instead toggles listening on, same as before. The compact bar's mic doesn't have this — it's a plain tap-to-toggle button with no hold gesture.
+Tap the mic to start listening; tap again to finish. In the full panel only, you can also **long-press the mic for walkie-talkie dictation**: holding it past about 600&nbsp;ms starts listening only while your finger stays down, and releasing stops it immediately. A quick tap-and-release instead toggles listening on, same as before. The compact bar's mic doesn't have this. It's a plain tap-to-toggle button with no hold gesture.
 
 <GestureDemo type="long-press" caption="Hold the mic in the full panel to dictate walkie-talkie style." />
 
-Recognized words stream into the text field live as you talk (this is the system recognizer only — see [Offline voice](/tools/whisper/) for how Whisper's panel differs). WM Keyboard also works out the spacing around what you dictate from the characters already next to the cursor, so starting mid-sentence or dictating over a selection doesn't leave a double space or a missing one.
+Recognized words stream into the text field live as you talk (this is the system recognizer only; see [Offline voice](/tools/whisper/) for how Whisper's panel differs). WM Keyboard also works out the spacing around what you dictate from the characters already next to the cursor, so starting mid-sentence or dictating over a selection doesn't leave a double space or a missing one.
 
 Every word you dictate is learned the same way a typed word is, so frequent dictated vocabulary starts showing up in suggestions and autocorrect too.
 
 ### If the mic can't open
 
 - **Password and other secure fields** never get a mic. The panel shows "Voice input is unavailable in password fields."; the compact bar shows a brief "Voice typing is unavailable in password fields" toast instead, since there's no room for inline text.
-- **No microphone permission** shows an explanation and an "Allow microphone" button. Tapping it opens a system permission prompt through a small trampoline screen — IMEs can't show permission dialogs directly — and the keyboard rechecks automatically once you're back.
-- **No speech recognizer on the device** (rare — typically no Google app installed) shows "Speech recognition is not available on this device." in the panel, or "Speech recognition unavailable" on the compact bar.
+- **No microphone permission** shows an explanation and an "Allow microphone" button. Tapping it opens a system permission prompt through a small trampoline screen (IMEs can't show permission dialogs directly), and the keyboard rechecks automatically once you're back.
+- **No speech recognizer on the device** (rare, typically no Google app installed) shows "Speech recognition is not available on this device." in the panel, or "Speech recognition unavailable" on the compact bar.
 
 ## Undoing a dictated phrase
 
@@ -43,17 +43,17 @@ Every word you dictate is learned the same way a typed word is, so frequent dict
 {/* shot: tools/voice-undo */}
 </PhoneFrame>
 
-An **Undo** control appears — bottom-left in the panel, as a small icon on the compact bar — right after a phrase commits, as long as it's still sitting immediately before your cursor. Tapping it removes exactly that dictated text in one step. It disappears again once you dictate something else, edit the text some other way, or the text it would remove is no longer where dictation left it.
+An **Undo** control appears (bottom-left in the panel, as a small icon on the compact bar) right after a phrase commits, as long as it's still sitting immediately before your cursor. Tapping it removes exactly that dictated text in one step. It disappears again once you dictate something else, edit the text some other way, or the text it would remove is no longer where dictation left it.
 
 ## Continuous mode
 
 <SettingsPath path="Tools / Voice typing / Dictation / Keep listening" />
 
-With **Keep listening** on (the default), finishing one sentence doesn't stop dictation — the next listening session starts automatically so you can keep talking sentence after sentence without re-tapping the mic. Turn it off and each session ends after one utterance; you tap the mic again for the next one.
+With **Keep listening** on (the default), finishing one sentence doesn't stop dictation: the next listening session starts automatically so you can keep talking sentence after sentence without re-tapping the mic. Turn it off and each session ends after one utterance; you tap the mic again for the next one.
 
-Continuous mode is also patient with silence: a pause that would normally time out the recognizer just restarts listening quietly instead of surfacing an error — but only for two silent retries in a row. After that it gives up and goes idle, so an abandoned open mic doesn't sit there listening forever.
+Continuous mode is also patient with silence: a pause that would normally time out the recognizer just restarts listening quietly instead of surfacing an error, but only for two silent retries in a row. After that it gives up and goes idle, so an abandoned open mic doesn't sit there listening forever.
 
-Dictation stops for good — not just pausing — the moment you type a key, swipe, or tap a suggestion. Partial results build up as one continuous chunk, so typing in the middle of an utterance would corrupt it rather than just interrupting it; the panel or compact bar stays open afterward so you can tap the mic to resume. It also stops when you close the panel, dismiss the compact bar, or switch to a different tool panel.
+Dictation stops for good (not just pausing) the moment you type a key, swipe, or tap a suggestion. Partial results build up as one continuous chunk, so typing in the middle of an utterance would corrupt it rather than just interrupting it; the panel or compact bar stays open afterward so you can tap the mic to resume. It also stops when you close the panel, dismiss the compact bar, or switch to a different tool panel.
 
 ## Spoken punctuation
 
@@ -72,15 +72,15 @@ With this on (the default), saying certain words types the punctuation mark inst
 | "colon" | `:` | "কোলন" | `:` |
 | "semicolon" | `;` | "সেমিকোলন" | `;` |
 
-Punctuation attaches straight to the word before it with no space. The trade-off is deliberate: turn this off if you actually want to say the word "period" or "comma" out loud rather than typing the mark — a sentence that genuinely uses one of these words as a word will type the symbol instead while this is on.
+Punctuation attaches straight to the word before it with no space. The trade-off is deliberate: turn this off if you actually want to say the word "period" or "comma" out loud rather than typing the mark. A sentence that genuinely uses one of these words as a word will type the symbol instead while this is on.
 
 ## Language and engine
 
-Voice typing doesn't have its own language picker — it dictates in whatever language your active keyboard layout is set to. If you have both English and at least one non-English language enabled, a small **EN** / **বাং** chip appears in the corner of the panel; tapping it switches your active layout to the other language's first enabled layout, and dictation follows along. With only one language enabled, or with several non-English languages and no English one, no chip appears.
+Voice typing doesn't have its own language picker: it dictates in whatever language your active keyboard layout is set to. If you have both English and at least one non-English language enabled, a small **EN** / **বাং** chip appears in the corner of the panel; tapping it switches your active layout to the other language's first enabled layout, and dictation follows along. With only one language enabled, or with several non-English languages and no English one, no chip appears.
 
-The system recognizer prefers running fully on-device (Android 12 and up) when your phone's model for that language is installed — it's faster, needs no network, and skips the little beep before it starts listening. If a language's on-device model can't handle recognition, WM Keyboard falls back to the network recognizer transparently.
+The system recognizer prefers running fully on-device (Android 12 and up) when your phone's model for that language is installed: it's faster, needs no network, and skips the little beep before it starts listening. If a language's on-device model can't handle recognition, WM Keyboard falls back to the network recognizer transparently.
 
-On Android 13 and up, if an on-device model for your language is available but not installed, a chip offers to download it — "Get English for offline dictation" or "Get Bengali for offline dictation" (the chip's language name is currently only ever English or Bengali, even when dictating in a different language). Tapping it starts the system's own download and shows progress until it's installed.
+On Android 13 and up, if an on-device model for your language is available but not installed, a chip offers to download it: "Get English for offline dictation" or "Get Bengali for offline dictation" (the chip's language name is currently only ever English or Bengali, even when dictating in a different language). Tapping it starts the system's own download and shows progress until it's installed.
 
 <PhoneFrame caption="Offline model download chip in the voice panel.">
 {/* shot: tools/voice-offline-model-chip */}
@@ -96,22 +96,22 @@ On Android 13 and up, if an on-device model for your language is available but n
 | Keep listening | On | Starts the next sentence automatically after each one commits. |
 | Spoken punctuation | On | Saying "comma", "question mark" or "দাঁড়ি" types the mark. |
 
-An edition with the offline engine built in also shows a **Recognition engine** choice above these — see [Offline voice (Whisper)](/tools/whisper/) for what that adds. With the system recognizer in use, the Options screen shows this note about what it sends:
+An edition with the offline engine built in also shows a **Recognition engine** choice above these (see [Offline voice (Whisper)](/tools/whisper/) for what that adds). With the system recognizer in use, the Options screen shows this note about what it sends:
 
 > Recognition uses the device's speech recognizer. On Android 12+ it runs on-device when the language model is installed; otherwise audio goes to the recognizer service while you dictate. Long-press the mic to dictate walkie-talkie style — it stops when you let go.
 
 ## Privacy: what leaves your device
 
-On-device recognition (Android 12+, once the language's model is installed) never sends audio anywhere. Without that model installed, dictating with the system recognizer sends your audio to the OS's speech recognition service while you talk — the same behavior any app using Android's standard speech APIs has. See [Network policy](/privacy/network/) for the fuller picture of what WM Keyboard can and can't send.
+On-device recognition (Android 12+, once the language's model is installed) never sends audio anywhere. Without that model installed, dictating with the system recognizer sends your audio to the OS's speech recognition service while you talk (the same behavior any app using Android's standard speech APIs has). See [Network policy](/privacy/network/) for the fuller picture of what WM Keyboard can and can't send.
 
-If you want a hard guarantee that audio never leaves the device regardless of which model is installed, [Offline voice typing with Whisper](/tools/whisper/) is a second dictation engine that transcribes entirely on-device — it's a bigger download and doesn't stream words live the way the system recognizer does, but it makes no network calls at all beyond the one-time model download.
+If you want a hard guarantee that audio never leaves the device regardless of which model is installed, [Offline voice typing with Whisper](/tools/whisper/) is a second dictation engine that transcribes entirely on-device; it's a bigger download and doesn't stream words live the way the system recognizer does, but it makes no network calls at all beyond the one-time model download.
 
 ## Details & edge cases
 
 **Errors show specific messages.** A network problem says "Network problem — check your connection and try again."; the recognizer being busy (or another app holding the mic) says "The microphone is busy — close other apps using it and try again."; a language the device can't recognize at all says "Speech recognition doesn't support this language on this device." A network hiccup mid-utterance keeps whatever was already heard instead of throwing it away.
 
-**Switching tools closes dictation.** Opening any other panel — Handwriting, Clipboard, Emoji, and so on — ends the current dictation session first.
+**Switching tools closes dictation.** Opening any other panel (Handwriting, Clipboard, Emoji, and so on) ends the current dictation session first.
 
-**The strip and the panel aren't full equivalents.** Continuous mode, spoken punctuation, and undo work the same way whichever mode you're in — those live in the dictation session itself, not the view. Three things are panel-only, though: hold-to-talk, the **EN** / **বাং** language-switch chip, and the offline-model download chip. In the compact bar, dictation still follows whatever language your active layout is set to — you just switch layouts some other way (spacebar swipe, the language picker) instead of tapping a chip in the strip, and there's no in-strip prompt to download an offline model.
+**The strip and the panel aren't full equivalents.** Continuous mode, spoken punctuation, and undo work the same way whichever mode you're in: those live in the dictation session itself, not the view. Three things are panel-only, though: hold-to-talk, the **EN** / **বাং** language-switch chip, and the offline-model download chip. In the compact bar, dictation still follows whatever language your active layout is set to; you just switch layouts some other way (spacebar swipe, the language picker) instead of tapping a chip in the strip, and there's no in-strip prompt to download an offline model.
 
-Related: [Offline voice (Whisper)](/tools/whisper/) covers the second dictation engine — model catalog, per-language routing, downloads, and the full offline privacy guarantee.
+Related: [Offline voice (Whisper)](/tools/whisper/) covers the second dictation engine, including its model catalog, per-language routing, downloads, and the full offline privacy guarantee.

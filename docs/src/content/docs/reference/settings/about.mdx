@@ -9,7 +9,7 @@ import PhoneFrame from '@components/PhoneFrame.astro';
 import SettingsPath from '@components/SettingsPath.astro';
 import Flavor from '@components/Flavor.astro';
 
-About has its own group on the Settings home screen — one tap gets you the build you're running, every licence bundled into the app, and a diagnostics screen for pulling a shareable report when something needs debugging.
+About has its own group on the Settings home screen: one tap gets you the build you're running, every licence bundled into the app, and a diagnostics screen for pulling a shareable report when something needs debugging.
 
 <PhoneFrame caption="The About screen: Share, App, Documentation, Third party, and Word lists groups.">
   {/* shot: reference/settings/about-screen */}
@@ -17,15 +17,15 @@ About has its own group on the Settings home screen — one tap gets you the bui
 
 ## Sharing the app
 
-The **Share** group at the top has three rows — **Share via Play Store**, **Share via F-Droid**, **Share via GitHub** — and each opens the Android share sheet rather than the destination itself, pre-filled with a one-line pitch and the corresponding link (`play.google.com/store/apps/details?id=com.wasimaster.wmkeyboard`, `f-droid.org/packages/com.wasimaster.wmkeyboard`, or the GitHub repository). Pick whichever app you want to send the recommendation through.
+The **Share** group at the top has three rows: **Share via Play Store**, **Share via F-Droid**, and **Share via GitHub**. Each opens the Android share sheet rather than the destination itself, pre-filled with a one-line pitch and the corresponding link (`play.google.com/store/apps/details?id=com.wasimaster.wmkeyboard`, `f-droid.org/packages/com.wasimaster.wmkeyboard`, or the GitHub repository). Pick whichever app you want to send the recommendation through.
 
 ## Checking version, licence, and source
 
 The **App** group holds four rows:
 
-- **Version** shows the flavor and build type as its subtitle — "Full build (release)" or "Lite build (debug)," for example — with the build number after "code," and the version name as the row's trailing value. This row doesn't navigate anywhere; it's read-only.
+- **Version** shows the flavor and build type as its subtitle ("Full build (release)" or "Lite build (debug)," for example), with the build number after "code," and the version name as the row's trailing value. This row doesn't navigate anywhere; it's read-only.
 - **Licence** shows "MIT — © 2026 Wasi Master" and opens the app's own MIT licence text in full underneath it, monospaced and horizontally scrollable.
-- **Source code** opens the GitHub repository directly in your browser — unlike the Share rows above, this one navigates immediately rather than opening a share sheet.
+- **Source code** opens the GitHub repository directly in your browser; unlike the Share rows above, this one navigates immediately rather than opening a share sheet.
 - **Diagnostics** opens the [diagnostics screen](#diagnosing-a-problem) covered below.
 
 Underneath the group, a caption spells out what the MIT licence means in practice: you can use, modify, and redistribute the app, provided the copyright notice and licence text travel with it.
@@ -36,7 +36,7 @@ Two more single-purpose groups round out the screen:
 
 - **Documentation** links to this documentation site (**User guide**) and to the [Privacy policy](/privacy/overview/) page, both opening directly in your browser.
 - **Third party** has one row, **Open-source licences**, which opens the [licence browser](#browsing-the-licences) below.
-- **Word lists** has one row, **Dictionaries**, explaining that the seed bigrams, loanword map, and offensive-word list are hand-curated for this project and covered by its licence, while downloadable wordlists keep their own sources' licences — listed under Open-source licences. Like Version, this row is informational only and doesn't navigate anywhere. See [Every wordlist](/languages/dictionaries/#every-wordlist) for the full, filterable list of what's downloadable per language.
+- **Word lists** has one row, **Dictionaries**, explaining that the seed bigrams, loanword map, and offensive-word list are hand-curated for this project and covered by its licence, while downloadable wordlists keep their own sources' licences, listed under Open-source licences. Like Version, this row is informational only and doesn't navigate anywhere. See [Every wordlist](/languages/dictionaries/#every-wordlist) for the full, filterable list of what's downloadable per language.
 
 ## Browsing the licences
 
@@ -46,15 +46,15 @@ Tapping **Open-source licences** opens a three-group screen: everything bundled 
   {/* shot: reference/settings/licenses-screen */}
 </PhoneFrame>
 
-**Bundled in the app** always lists AndroidX & Jetpack Compose, Kotlin/coroutines/serialization, Coil, OkHttp & Okio, ZXing, and LuaJ — all Apache-2.0 or MIT. <Flavor edition="full" /> adds Harper and its Rust dependencies (grammar checking), Google ML Kit (handwriting and scanning), LiteRT-LM (the local AI models), and LiteRT plus OpenAI Whisper and whisper_android (offline speech-to-text) — features the <Flavor edition="lite" /> build doesn't link, so their licences don't apply to it. Both flavors also list Unicode CLDR & emoji data, gemoji, OpenCC, the LSHK Jyutping table, the bundled editor colour palettes (Dracula, Nord, Solarized, Catppuccin, Tokyo Night), and Google Fonts. A full build lists 19 bundled components in total; a lite build lists 12, since it drops the seven entries gated behind grammar checking, ML Kit, the local LLM, and Whisper.
+**Bundled in the app** always lists AndroidX & Jetpack Compose, Kotlin/coroutines/serialization, Coil, OkHttp & Okio, ZXing, and LuaJ, all Apache-2.0 or MIT. <Flavor edition="full" /> adds Harper and its Rust dependencies (grammar checking), Google ML Kit (handwriting and scanning), LiteRT-LM (the local AI models), and LiteRT plus OpenAI Whisper and whisper_android (offline speech-to-text); these are features the <Flavor edition="lite" /> build doesn't link, so their licences don't apply to it. Both flavors also list Unicode CLDR & emoji data, gemoji, OpenCC, the LSHK Jyutping table, the bundled editor colour palettes (Dracula, Nord, Solarized, Catppuccin, Tokyo Night), and Google Fonts. A full build lists 19 bundled components in total; a lite build lists 12, since it drops the seven entries gated behind grammar checking, ML Kit, the local LLM, and Whisper.
 
-**Downloadable data packs** — not flavor-gated, since any build can fetch them — covers the frequency wordlists, offensive word lists, and emoji keyword dictionaries served from the WM Keyboard data repository, plus the CJK-specific conversion data: CC-CEDICT, mozc, rime-cantonese & CC-Canto, a Chinese stroke code table, and the Unicode Unihan database. A caption underneath notes these keep their upstream licences whether or not they're actually installed on your device.
+**Downloadable data packs** (not flavor-gated, since any build can fetch them) covers the frequency wordlists, offensive word lists, and emoji keyword dictionaries served from the WM Keyboard data repository, plus the CJK-specific conversion data: CC-CEDICT, mozc, rime-cantonese & CC-Canto, a Chinese stroke code table, and the Unicode Unihan database. A caption underneath notes these keep their upstream licences whether or not they're actually installed on your device.
 
-**Online services** lists what each network tool talks to and under what terms — Brave Search, KLIPY & GIPHY, Wikipedia, Google Translate, Open-Meteo, Frankfurter & ExchangeRate-API, the Free Dictionary API, Hugging Face, and the bring-your-own-key AI providers (Anthropic, OpenAI, and Google AI). None of their code or data ships inside the app; see [Network policy](/privacy/network/) for what each one actually sends and when.
+**Online services** lists what each network tool talks to and under what terms: Brave Search, KLIPY & GIPHY, Wikipedia, Google Translate, Open-Meteo, Frankfurter & ExchangeRate-API, the Free Dictionary API, Hugging Face, and the bring-your-own-key AI providers (Anthropic, OpenAI, and Google AI). None of their code or data ships inside the app; see [Network policy](/privacy/network/) for what each one actually sends and when.
 
 ## Diagnosing a problem
 
-**Diagnostics** is where you go if something's misbehaving and you want to send in what the keyboard recorded, or just look at it yourself. It never contains anything you typed — that's stated as a hard design rule in the logging code's own documentation, not just a promise in the UI copy.
+**Diagnostics** is where you go if something's misbehaving and you want to send in what the keyboard recorded, or just look at it yourself. It never contains anything you typed: that's stated as a hard design rule in the logging code's own documentation, not just a promise in the UI copy.
 
 <PhoneFrame caption="Diagnostics: report actions, the app log with its filter and level chips, and Clear app log at the bottom.">
   {/* shot: reference/settings/diagnostics-screen */}
@@ -62,26 +62,26 @@ Tapping **Open-source licences** opens a three-group screen: everything bundled 
 
 The **Report** group has three controls:
 
-- **Share diagnostics** writes the full report to a file and sends it through the share sheet — deliberately a file rather than inline text, since a report can run to tens of kilobytes and share intents that large get silently dropped by some receiving apps.
+- **Share diagnostics** writes the full report to a file and sends it through the share sheet: deliberately a file rather than inline text, since a report can run to tens of kilobytes and share intents that large get silently dropped by some receiving apps.
 - **Copy to clipboard** copies the same report as plain text instead, with a confirmation toast.
 - **Include the system log** is a toggle, off by default, that adds this process's own Android log (everything it printed, including its libraries) to the report. An info button next to it explains why it's opt-in: unlike the app log, the keyboard doesn't control what ends up in the system log, so it's worth reading before you send it anywhere.
 
 If the app has crashed since it was last cleared, a **Crashes** group appears above the app log showing the crash record and a **Clear crashes** button. It only shows up when there's something to show.
 
-The **app log** itself is a free-text filter field plus one level chip per severity — Debug, Info, Warn, Error — that keeps entries at or above the level you pick; all four are shown by default. Entries list newest first, with a timestamp and tag above each monospaced message, colour-coded by severity. A **Refresh** button re-reads the log without leaving the screen. Turning on **Include the system log** above adds another group underneath showing that raw log — the third group on the screen if no Crashes section is showing, the fourth if one is. A **Clear app log** button sits at the very bottom, on its own.
+The **app log** itself is a free-text filter field plus one level chip per severity (Debug, Info, Warn, Error) that keeps entries at or above the level you pick; all four are shown by default. Entries list newest first, with a timestamp and tag above each monospaced message, colour-coded by severity. A **Refresh** button re-reads the log without leaving the screen. Turning on **Include the system log** above adds another group underneath showing that raw log (the third group on the screen if no Crashes section is showing, the fourth if one is). A **Clear app log** button sits at the very bottom, on its own.
 
 ## Options
 
 <SettingsPath path="About / Diagnostics" />
 
-The only real switch on this page is **Include the system log**, off by default — everything else (Version, Dictionaries) is a display-only row, and the licence and diagnostics screens are read-only browsers. See [Privacy policy](/privacy/overview/) and [Network policy](/privacy/network/) for what the app does and doesn't send over the network in general; Diagnostics itself never touches the network on its own — sharing or copying the report is something you trigger and send yourself.
+The only real switch on this page is **Include the system log**, off by default: everything else (Version, Dictionaries) is a display-only row, and the licence and diagnostics screens are read-only browsers. See [Privacy policy](/privacy/overview/) and [Network policy](/privacy/network/) for what the app does and doesn't send over the network in general; Diagnostics itself never touches the network on its own, since sharing or copying the report is something you trigger and send yourself.
 
 ## Details & edge cases
 
-- **The licence-text screen's title is always "Licence," never the specific component's name** — tapping into AndroidX's Apache-2.0 text or the app's own MIT text lands on a top bar that just says "Licence" either way, so rely on the row you tapped (or the text itself) to know which one you're reading.
-- **Several bundled components share one licence asset.** All the Apache-2.0 entries — AndroidX, Kotlin, Coil, OkHttp & Okio, ZXing, OpenCC, and (on a full build) Harper and LiteRT/LiteRT-LM — open the same Apache-2.0 text rather than a per-project copy; the per-project attribution (name, what it's used for, copyright line) is what you saw on the list row before tapping in.
+- **The licence-text screen's title is always "Licence," never the specific component's name.** Tapping into AndroidX's Apache-2.0 text or the app's own MIT text lands on a top bar that just says "Licence" either way, so rely on the row you tapped (or the text itself) to know which one you're reading.
+- **Several bundled components share one licence asset.** All the Apache-2.0 entries (AndroidX, Kotlin, Coil, OkHttp & Okio, ZXing, OpenCC, and, on a full build, Harper and LiteRT/LiteRT-LM) open the same Apache-2.0 text rather than a per-project copy; the per-project attribution (name, what it's used for, copyright line) is what you saw on the list row before tapping in.
 - **Licence texts don't reflow.** They're hard-wrapped at a fixed column width and rendered monospaced, so long lines scroll sideways instead of wrapping to the screen width.
 - **The word-list attribution splits by kind, not by download status.** The three word lists that ship as source (seed bigrams, loanword map, offensive-word list) are covered by the app's own MIT licence; every wordlist you download separately keeps its own upstream licence, listed under Open-source licences regardless of whether you've actually downloaded it yet.
-- **Sharing a link isn't the same as opening one.** The three Share rows always hand off to the system share sheet with a pre-filled message; only Source code, User guide, and Privacy policy — and any row inside the licence browser without a bundled text — open a browser tab directly.
+- **Sharing a link isn't the same as opening one.** The three Share rows always hand off to the system share sheet with a pre-filled message; only Source code, User guide, and Privacy policy, and any row inside the licence browser without a bundled text, open a browser tab directly.
 
 See [Privacy at a glance](/privacy/overview/) for what leaves the device and when, [Network policy](/privacy/network/) for the tool-by-tool network breakdown referenced above, and [Every wordlist](/languages/dictionaries/#every-wordlist) for the downloadable dictionaries this page's Word lists group points at.

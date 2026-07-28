@@ -14,7 +14,7 @@ import brailleChord from '../../../../../app/src/main/assets/layouts/braille_cho
 import morse from '../../../../../app/src/main/assets/layouts/morse.wmlayout.json';
 import ipa from '../../../../../app/src/main/assets/layouts/ipa.wmlayout.json';
 
-Four entries in the language catalogue don't represent spoken languages at all: musical notation, chorded braille, Morse code, and the International Phonetic Alphabet. Each behaves exactly like a language — its own layout, its own switch-ring slot, its own settings screen — but what you're typing is notation, not prose.
+Four entries in the language catalogue don't represent spoken languages at all: musical notation, chorded braille, Morse code, and the International Phonetic Alphabet. Each behaves exactly like a language (its own layout, its own switch-ring slot, its own settings screen), but what you're typing is notation, not prose.
 
 <PhoneFrame caption="Musical notation active in a text field: note durations, rests, and clefs on the key grid.">
   {/* shot: languages/notation-music-field */}
@@ -22,17 +22,17 @@ Four entries in the language catalogue don't represent spoken languages at all: 
 
 ## Musical notation
 
-Turn on **♪ · Music notation** and the keys commit symbols from Unicode's Musical Symbols block plus the everyday BMP note characters (♩♪♫♬) — durations, rests, clefs, sharps and flats, barlines, and a fermata on the main layer:
+Turn on **♪ · Music notation** and the keys commit symbols from Unicode's Musical Symbols block plus the everyday BMP note characters (♩♪♫♬): durations, rests, clefs, sharps and flats, barlines, and a fermata on the main layer:
 
 <LayoutExplorer layout={music} />
 
-A second layer, reached with the <KeyCap>Fn</KeyCap> key, holds dynamics markings (𝆏 through 𝆘), ornaments, repeat signs, and the double-sharp/double-flat symbols — a <KeyCap>♪</KeyCap> key on that layer returns you to the main letters layer:
+A second layer, reached with the <KeyCap>Fn</KeyCap> key, holds dynamics markings (𝆏 through 𝆘), ornaments, repeat signs, and the double-sharp/double-flat symbols. A <KeyCap>♪</KeyCap> key on that layer returns you to the main letters layer:
 
 <LayoutExplorer layout={music} layer="fn" title="Music notation — the Fn layer (dynamics, ornaments, repeats)" />
 
-Most of these glyphs sit in the Supplementary Multilingual Plane, which very few device fonts carry — that's the whole reason Music notation is its own script rather than riding an existing one. WM Keyboard pins it to Google's **Noto Music** face automatically, so the symbols render correctly even on a phone whose system font would otherwise show blank boxes. That font choice is automatic and isn't user-pickable: there's no font row for Music notation under Accessibility fonts, unlike a language that rides the Latin script. A glyph the pinned font doesn't cover falls back to the system font on a per-character basis rather than going blank everywhere.
+Most of these glyphs sit in the Supplementary Multilingual Plane, which very few device fonts carry: that's the whole reason Music notation is its own script rather than riding an existing one. WM Keyboard pins it to Google's **Noto Music** face automatically, so the symbols render correctly even on a phone whose system font would otherwise show blank boxes. That font choice is automatic and isn't user-pickable: there's no font row for Music notation under Accessibility fonts, unlike a language that rides the Latin script. A glyph the pinned font doesn't cover falls back to the system font on a per-character basis rather than going blank everywhere.
 
-Music notation is uncased (there's no shift key) and doesn't compose — every key just commits its symbol directly.
+Music notation is uncased (there's no shift key) and doesn't compose; every key just commits its symbol directly.
 
 ## Chorded braille
 
@@ -40,21 +40,21 @@ Music notation is uncased (there's no shift key) and doesn't compose — every k
 
 <LayoutExplorer layout={brailleChord} />
 
-Press a dot key and it fires immediately — braille dots have no long-press timer, unlike every other key in the app: the press itself is gathered into the chord, with no wait to see whether it turns into a hold. As you hold more dots down, they accumulate into a pending cell; the cell commits the instant your last finger lifts, however many dots you pressed and in whatever order.
+Press a dot key and it fires immediately. Braille dots have no long-press timer, unlike every other key in the app: the press itself is gathered into the chord, with no wait to see whether it turns into a hold. As you hold more dots down, they accumulate into a pending cell; the cell commits the instant your last finger lifts, however many dots you pressed and in whatever order.
 
 <PhoneFrame caption="Braille active: chording dots 1 and 4 together commits the letter c.">
   {/* shot: languages/notation-braille-chord */}
 </PhoneFrame>
 
-Decoding follows uncontracted Grade-1 English braille: the standard a–z cells, a punctuation set (comma, semicolon, colon, period, exclamation and question marks, apostrophe, hyphen), dot 6 alone as a capitalize-next-letter indicator, and dots 3-4-5-6 together as a number-mode indicator that turns the following cells into digits until a non-digit cell ends it. A cell that doesn't match any of those falls back to committing the raw Unicode braille pattern itself, so no chord you type is ever silently dropped — it's also a way to enter Braille Patterns block characters that Grade-1 doesn't otherwise cover.
+Decoding follows uncontracted Grade-1 English braille: the standard a–z cells, a punctuation set (comma, semicolon, colon, period, exclamation and question marks, apostrophe, hyphen), dot 6 alone as a capitalize-next-letter indicator, and dots 3-4-5-6 together as a number-mode indicator that turns the following cells into digits until a non-digit cell ends it. A cell that doesn't match any of those falls back to committing the raw Unicode braille pattern itself, so no chord you type is ever silently dropped; it's also a way to enter Braille Patterns block characters that Grade-1 doesn't otherwise cover.
 
-Like Music notation, braille gets an automatic pinned font — **Noto Sans Symbols 2**, chosen because it covers the full Braille Patterns block — with no font picker of its own. Braille is uncased and doesn't compose.
+Like Music notation, braille gets an automatic pinned font (**Noto Sans Symbols 2**, chosen because it covers the full Braille Patterns block) with no font picker of its own. Braille is uncased and doesn't compose.
 
-If you switch fields, switch layouts, or open a panel mid-chord, the half-finished chord is dropped rather than left stranded. A dot whose pointer gets stolen out from under it by the app's glide-typing gesture handler is different: that finger is still counted as lifted, so the chord isn't dropped — it completes (and commits) exactly as if you'd lifted the finger yourself, just so the chord engine is never left waiting on a finger that already left.
+If you switch fields, switch layouts, or open a panel mid-chord, the half-finished chord is dropped rather than left stranded. A dot whose pointer gets stolen out from under it by the app's glide-typing gesture handler is different: that finger is still counted as lifted, so the chord isn't dropped: it completes (and commits) exactly as if you'd lifted the finger yourself, just so the chord engine is never left waiting on a finger that already left.
 
 ## Morse code
 
-**· − · Morse code** reduces the keyboard to two enormous keys — dot and dash — plus the usual bottom row:
+**· − · Morse code** reduces the keyboard to two enormous keys (dot and dash) plus the usual bottom row:
 
 <LayoutExplorer layout={morse} />
 
@@ -64,19 +64,19 @@ Tap dots and dashes to build up a sequence; stop for a moment and it decodes and
   {/* shot: languages/notation-morse-strip */}
 </PhoneFrame>
 
-While a sequence is pending, it takes over the suggestion strip — a centered readout of the sequence in ·/− glyphs, with the letter it currently decodes to spelled out alongside it once the sequence is unambiguous (for example `··   i`). It's the same idea as the accent hint that appears above a dead-key in progress on other layouts, just for Morse. Pressing any key other than dot, dash, backspace, or shift flushes whatever's pending first, so the timer never races your next keystroke.
+While a sequence is pending, it takes over the suggestion strip: a centered readout of the sequence in ·/− glyphs, with the letter it currently decodes to spelled out alongside it once the sequence is unambiguous (for example `··   i`). It's the same idea as the accent hint that appears above a dead-key in progress on other layouts, just for Morse. Pressing any key other than dot, dash, backspace, or shift flushes whatever's pending first, so the timer never races your next keystroke.
 
-Backspace while a sequence is pending edits the sequence itself — dropping its last signal — rather than deleting already-committed text; only once the sequence is empty does backspace fall back to a normal delete.
+Backspace while a sequence is pending edits the sequence itself (dropping its last signal) rather than deleting already-committed text; only once the sequence is empty does backspace fall back to a normal delete.
 
-Morse code doesn't have a script of its own — it rides the Latin script, so autocapitalize and your shift state still apply to the letters it decodes, even though there's no shift key on the Morse layout itself.
+Morse code doesn't have a script of its own: it rides the Latin script, so autocapitalize and your shift state still apply to the letters it decodes, even though there's no shift key on the Morse layout itself.
 
 :::note[The commit pause isn't adjustable]
-The pause between your last signal and the sequence committing is a fixed 750&nbsp;ms with no setting to change it — this mirrors Gboard's own Morse implementation, which uses the same fixed-pause model.
+The pause between your last signal and the sequence committing is a fixed 750&nbsp;ms with no setting to change it. This mirrors Gboard's own Morse implementation, which uses the same fixed-pause model.
 :::
 
 ## IPA
 
-**IPA · Phonetic** puts the International Phonetic Alphabet on a dedicated four-layer layout — noticeably more complete than a token "phonetic symbols" afterthought:
+**IPA · Phonetic** puts the International Phonetic Alphabet on a dedicated four-layer layout, noticeably more complete than a token "phonetic symbols" afterthought:
 
 <LayoutExplorer layout={ipa} />
 
@@ -85,11 +85,11 @@ The main layer holds pulmonic consonants, several with long-press alternates for
 <LayoutExplorer layout={ipa} layer="symbols" title="IPA — the vowel layer" />
 <LayoutExplorer layout={ipa} layer="symbols2" title="IPA — clicks, implosives, ejectives, and other consonants" />
 
-A fourth layer, reached from the main consonant layer or the vowel layer (not from the second consonant layer), holds superscript and combining diacritics — aspiration, nasalization, voicing, dentalization, and more — plus suprasegmentals like primary and secondary stress and vowel length marks:
+A fourth layer, reached from the main consonant layer or the vowel layer (not from the second consonant layer), holds superscript and combining diacritics (aspiration, nasalization, voicing, dentalization, and more) plus suprasegmentals like primary and secondary stress and vowel length marks:
 
 <LayoutExplorer layout={ipa} layer="fn" title="IPA — diacritics and suprasegmentals" />
 
-An <KeyCap>IPA</KeyCap> key on every non-main layer returns you to the consonant layer. IPA is uncased and composes 1:1, including its combining diacritics — there's no dead-key step.
+An <KeyCap>IPA</KeyCap> key on every non-main layer returns you to the consonant layer. IPA is uncased and composes 1:1, including its combining diacritics: there's no dead-key step.
 
 Unlike Music notation and Braille, IPA doesn't get a pinned font: it rides the Latin script's font, because Latin faces already carry the IPA Extensions block along with the spacing and combining modifier letters IPA needs. That means IPA text renders in whatever key font you've picked under Accessibility fonts, same as any Latin-script language.
 
@@ -97,24 +97,24 @@ Unlike Music notation and Braille, IPA doesn't get a pinned font: it rides the L
 
 <SettingsPath path="Languages / Add language" />
 
-None of the four are enabled on a fresh install — only English (QWERTY) and the three Bangla layouts start on by default. To add one, open **Languages**, tap **Add language**, and search for it by name: "music", "braille", "morse", or "ipa" all find their entry directly, or scroll to find them by their native-glyph names (♪, ⠃⠗⠇, · − ·, IPA). Tapping an unadded entry enables its one layout immediately and opens straight to its own language screen — the same generic screen every language gets, with a **Layouts** toggle (just the one, here), a **Numerals** choice (defaults to Auto on all four, same as any language that doesn't override it), and an **Also suggest from** picker for blending in another enabled language's suggestions.
+None of the four are enabled on a fresh install: only English (QWERTY) and the three Bangla layouts start on by default. To add one, open **Languages**, tap **Add language**, and search for it by name: "music", "braille", "morse", or "ipa" all find their entry directly, or scroll to find them by their native-glyph names (♪, ⠃⠗⠇, · − ·, IPA). Tapping an unadded entry enables its one layout immediately and opens straight to its own language screen (the same generic screen every language gets), with a **Layouts** toggle (just the one, here), a **Numerals** choice (defaults to Auto on all four, same as any language that doesn't override it), and an **Also suggest from** picker for blending in another enabled language's suggestions.
 
 <PhoneFrame caption="Add language: searching “morse” finds Morse code in the full catalogue.">
   {/* shot: languages/notation-add-language-search */}
 </PhoneFrame>
 
-Once enabled, a notation layout takes a slot in the normal switch ring exactly like any language — cycle to it with the <KeyCap>🌐</KeyCap> key or a spacebar swipe. See [Switching languages](/languages/switching/) for how the cycle itself works; nothing about it changes for a notation layout. For the language catalogue in general — search, numerals, "also suggest from," and everything else every language screen shares — see [Languages overview](/languages/overview/).
+Once enabled, a notation layout takes a slot in the normal switch ring exactly like any language: cycle to it with the <KeyCap>🌐</KeyCap> key or a spacebar swipe. See [Switching languages](/languages/switching/) for how the cycle itself works; nothing about it changes for a notation layout. For the language catalogue in general (search, numerals, "also suggest from," and everything else every language screen shares), see [Languages overview](/languages/overview/).
 
 There's no edition restriction on any of the four: all ship as ordinary bundled layout assets available in both Full and Lite.
 
 ## Details & edge cases
 
-**None of the four bundle a dictionary, a downloadable wordlist, or an emoji-keyword pack.** Their language-screen Dictionary and Emoji sections stay in the generic no-dictionary fallback state, and there's no suggestion strip beyond Morse's own live-decode readout — you're typing symbols directly, not composing words for a language model to correct or predict.
+**None of the four bundle a dictionary, a downloadable wordlist, or an emoji-keyword pack.** Their language-screen Dictionary and Emoji sections stay in the generic no-dictionary fallback state, and there's no suggestion strip beyond Morse's own live-decode readout: you're typing symbols directly, not composing words for a language model to correct or predict.
 
-**They aren't grouped together anywhere in the app.** Music, braille, Morse, and IPA are four ordinary entries in the same flat, searchable language list as every spoken language — there's no dedicated "notation" category in Settings. This page groups them because they share a "notation, not prose" character, not because the app does.
+**They aren't grouped together anywhere in the app.** Music, braille, Morse, and IPA are four ordinary entries in the same flat, searchable language list as every spoken language; there's no dedicated "notation" category in Settings. This page groups them because they share a "notation, not prose" character, not because the app does.
 
-**Font pinning is the real distinguishing feature of Music and Braille.** Both exist as their own script chiefly so the keyboard can force a specific Google font (Noto Music, Noto Sans Symbols 2) that reliably covers their Unicode blocks — most device fonts don't. IPA and Morse need no such pin because they draw from ranges the Latin font faces already cover.
+**Font pinning is the real distinguishing feature of Music and Braille.** Both exist as their own script chiefly so the keyboard can force a specific Google font (Noto Music, Noto Sans Symbols 2) that reliably covers their Unicode blocks; most device fonts don't. IPA and Morse need no such pin because they draw from ranges the Latin font faces already cover.
 
-**Braille's chord has no tap-vs-long-press ambiguity on its dot keys** — pressing fires the dot on the down-stroke, not after the usual long-press timer, which is why the digit shortcut needs an explicit long-press instead. Every other key on the braille layout (the bottom row) behaves normally.
+**Braille's chord has no tap-vs-long-press ambiguity on its dot keys**: pressing fires the dot on the down-stroke, not after the usual long-press timer, which is why the digit shortcut needs an explicit long-press instead. Every other key on the braille layout (the bottom row) behaves normally.
 
 **A half-typed braille chord or pending Morse sequence never survives a context change.** Switching fields, switching layouts, or opening any panel drops it, so you never come back to a stray dot or signal you don't remember starting.

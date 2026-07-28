@@ -8,7 +8,7 @@ sidebar:
 import { LinkCard, CardGrid } from '@astrojs/starlight/components';
 
 WM Keyboard doesn't have a formal contribution process, issue templates, or a CI
-pipeline yet — there's no bot to satisfy, only a codebase to fit into cleanly.
+pipeline yet: there's no bot to satisfy, only a codebase to fit into cleanly.
 This page covers how the repository is organized and styled, and where a first
 change is easiest to land, so a pull request needs as little back-and-forth as
 possible.
@@ -20,34 +20,34 @@ under `:core:*` (`config`, `common`, `language`, `input`, `prediction`,
 `emoji`, `theme`, `icons`, `tools`, `content`, `addons`, `voice`, `settings`,
 `feedback`, `plugins`, `intelligence`) and 3 under `:feature:*` (`tools`,
 `addons`, `ime`). A class's module is visible from its file path, not its
-package — everything still lives under `com.wasimaster.wmkeyboard.*`.
+package: everything still lives under `com.wasimaster.wmkeyboard.*`.
 
 Dependencies only point downward, and it's a real Gradle project graph, not
 just a convention:
 
-- `:core:config` sits at the very bottom — it carries build flags and API keys
+- `:core:config` sits at the very bottom: it carries build flags and API keys
   that every other library reads.
 - `:core:common` builds on `:core:config` for shared utilities every module
   needs.
 - The rest of `:core:*` is one engine or store per feature area, each
-  depending on only the lower modules it actually needs — `:core:settings`,
+  depending on only the lower modules it actually needs: `:core:settings`,
   for instance, depends on eleven other `:core:*` modules because the settings
   screens surface controls for all of them, while `:core:feedback` needs just
   `:core:settings` and `:core:common`.
 - `:feature:*` sits above `:core:settings`, since the feature modules read
-  the settings repository. `:feature:ime` — the keyboard runtime itself —
+  the settings repository. `:feature:ime` (the keyboard runtime itself)
   depends on all 16 `:core:*` modules plus `:feature:tools`.
 - `:app` sits on top of everything: the settings activity, manifest, and
   assets, wired to all 19 library modules.
 
-No module declares a dependency on anything above it in this list — there's
+No module declares a dependency on anything above it in this list: there's
 no dedicated boundary-checking task, the constraint is just the Gradle project
 graph itself. `:app/build.gradle.kts` and each module's own `build.gradle.kts`
 are the ground truth if a dependency direction ever looks surprising.
 
 One module breaks the pattern deliberately: `:tools:dictc`, the host-side
 (pure JVM, no Android) dictionary compiler, doesn't depend on `:core:prediction`
-as a project — its `build.gradle.kts` pulls five specific files
+as a project: its `build.gradle.kts` pulls five specific files
 (`Main.kt`, `Trie.kt`, `PackedTrie.kt`, `PackedTrieCodec.kt`, `DictionaryLoader.kt`)
 straight out of that module's source directory instead, so the compiler and
 the reader share one literal implementation and can never drift apart.
@@ -60,7 +60,7 @@ the reader share one literal implementation and can never drift apart.
 
 ## Matching the code style
 
-There's no autoformatter run over the codebase — `.editorconfig` at the repo
+There's no autoformatter run over the codebase: `.editorconfig` at the repo
 root notes that a mass reformat of a codebase this size would bury every real
 finding in diff noise, so it documents the style the code already follows
 rather than enforcing one. The values that matter most: 4-space indent,
@@ -73,15 +73,15 @@ Static analysis runs in two layers, both configured under `config/`:
 - **detekt** (`config/detekt/detekt.yml`), layered on detekt's own defaults.
   `maxIssues` is `0` and `excludeCorrectable` is `false`, but the rule weights
   are deliberately uneven: complexity, comment, and deprecation rules are
-  turned down to zero weight, while correctness rules — the ones that catch
-  actual bugs — stay at full weight. The input-dispatch and layout-resolution
+  turned down to zero weight, while correctness rules (the ones that catch
+  actual bugs) stay at full weight. The input-dispatch and layout-resolution
   code is genuinely branchy, so style metrics like cyclomatic complexity
   aren't a useful signal there.
 - **Android Lint** (`config/lint/lint.xml`). The app module turns on
   `checkAllWarnings` (roughly 200 checks that are off by default) and
-  `abortOnError`, and escalates specific checks — `NewApi`, `WrongThread`,
-  `Recycle`, `StaticFieldLeak`, `HandlerLeak`, `MissingPermission`, and others
-  — to `error`, each with an inline comment explaining why.
+  `abortOnError`, and escalates specific checks (`NewApi`, `WrongThread`,
+  `Recycle`, `StaticFieldLeak`, `HandlerLeak`, `MissingPermission`, and others)
+  to `error`, each with an inline comment explaining why.
 
 One task runs everything:
 
@@ -93,7 +93,7 @@ This runs Android Lint against the full flavor of the app module, detekt (with
 full type resolution) against both the full and lite flavors of the app
 module plus its unit tests, and per-module detekt across 18 of the 19 library
 modules (`:core:config` has no Kotlin sources to check, and `:tools:dictc` is
-skipped deliberately — see below). Nothing currently runs this automatically
+skipped deliberately; see below). Nothing currently runs this automatically
 on a pull request; treat it as the check to run yourself before asking for
 review, not as a gate that will catch a miss for you.
 
@@ -112,7 +112,7 @@ review, not as a gate that will catch a miss for you.
 	/>
 	<LinkCard
 		title="Themes"
-		description="Built-in themes are Kotlin, not JSON — a shareable theme needs no code change at all."
+		description="Built-in themes are Kotlin, not JSON: a shareable theme needs no code change at all."
 		href="/themes/sharing/"
 	/>
 </CardGrid>
@@ -120,14 +120,14 @@ review, not as a gate that will catch a miss for you.
 A few things worth knowing before you start on any of these:
 
 - **Dictionaries are mostly not in this repo.** `app/dictionaries-src/`
-  bundles exactly two seed lists — `en.txt` and `bn.txt`, each a plain
-  `word count` line per entry — compiled into `.wmdict` assets at build time.
+  bundles exactly two seed lists (`en.txt` and `bn.txt`, each a plain
+  `word count` line per entry) compiled into `.wmdict` assets at build time.
   The much larger catalog of downloadable word lists is fetched at runtime
   from a separate repository,
   [wasi-master/wmkeyboard-data](https://github.com/wasi-master/wmkeyboard-data),
   per `DictionaryCatalog.kt`. Contributing a new or improved word list for an
   existing language almost always means a pull request to that companion
-  repository, not this one — the [dictionary pipeline](/development/dictionaries/)
+  repository, not this one: the [dictionary pipeline](/development/dictionaries/)
   page covers the format.
 - **Emoji keyword packs follow the same split.** The 125 downloadable packs
   (per `EmojiDictCatalog.kt`) also come from `wmkeyboard-data`; what lives in
@@ -135,22 +135,22 @@ A few things worth knowing before you start on any of these:
   (`generate_gemoji.py`, `export_keyword_pack.py`, `generate_catalog.py`,
   `add_names.py`, `generate_dict_catalog.py`).
 - **Built-in themes are Kotlin, not data files.** The eight built-in themes
-  are `ThemeSpec(...)` object literals in `core/theme/.../PaletteThemes.kt` —
+  are `ThemeSpec(...)` object literals in `core/theme/.../PaletteThemes.kt`:
   contributing one means a Kotlin change to `:core:theme`. The `.wmtheme.json`
   format you may have seen is the *export* format a user gets from sharing a
   theme they built in the app, and doesn't require touching this codebase at
-  all — see [sharing themes](/themes/sharing/) and, for distributing one more
+  all. See [sharing themes](/themes/sharing/) and, for distributing one more
   widely, [addon repositories](/development/addon-repos/).
 - **Docs are this site.** Everything under `docs/src/content/docs/` is an
-  Astro/Starlight site with its own house rules — page anatomy, component
-  usage, and the "verify every claim in code" ground rule — written down in
+  Astro/Starlight site with its own house rules (page anatomy, component
+  usage, and the "verify every claim in code" ground rule) written down in
   the docs project's own `CONTENT_GUIDE.md`. Read that first if you're adding
   or editing a page.
 
 ## Opening a pull request
 
 Commits in this repo follow [Conventional Commits](https://www.conventionalcommits.org/):
-`type(scope): summary`, lowercase, present or imperative tense — for example
+`type(scope): summary`, lowercase, present or imperative tense, for example
 `fix(addons): validate repo URL scheme` or `docs(tools): rewrite the search
 page`. The common types are `feat`, `fix`, `docs`, `test`, `refactor`,
 `chore`, `style`, and `build`; scopes generally track a module or doc section
@@ -170,14 +170,14 @@ See [Testing](/development/testing/) for what that second task covers and
 where its tests live.
 
 :::note
-None of this is enforced by a bot today — there's no GitHub Actions workflow,
+None of this is enforced by a bot today: there's no GitHub Actions workflow,
 pull request template, or `CODEOWNERS` file in the repository yet. The
 checklist above is a recommendation, not a gate; treat it as what review would
 ask for anyway.
 :::
 
 The app's own About screen links back to its source at
-[github.com/wasi-master/WMKeyboard](https://github.com/wasi-master/WMKeyboard) —
+[github.com/wasi-master/WMKeyboard](https://github.com/wasi-master/WMKeyboard):
 that's the repository issues and pull requests belong on. Changes to word
 lists or emoji keyword packs belong on
 [wasi-master/wmkeyboard-data](https://github.com/wasi-master/wmkeyboard-data)
@@ -187,7 +187,7 @@ instead, per the "Picking a first contribution" section above.
 
 - **Lite-flavor detekt only runs where lite actually differs.** `staticAnalysis`
   runs a separate lite-flavor detekt pass for just `:core:voice`,
-  `:core:intelligence`, and `:feature:ime` — the only modules whose `src/lite`
+  `:core:intelligence`, and `:feature:ime`: the only modules whose `src/lite`
   source set replaces real implementations (ML Kit, LiteRT) with stubs. Every
   other module's full and lite sources are identical, so a second pass over
   them would just repeat the first.
@@ -198,11 +198,11 @@ instead, per the "Picking a first contribution" section above.
   `build.gradle.kts` gates `allWarningsAsErrors` on a `warningsAsErrors`
   Gradle project property (`./gradlew build -PwarningsAsErrors=true`), off by
   default. Android Lint's own `warningsAsErrors` flag is hardcoded to `false`
-  in `app/build.gradle.kts` and doesn't read that property — the two are
+  in `app/build.gradle.kts` and doesn't read that property: the two are
   separate switches, even though they share a name.
 - **Third-party licenses and attribution** for bundled dependencies, data-pack
   sources, and online services the app calls are listed on the in-app
-  [About & licenses screen](/reference/settings/about/) — check there before
+  [About & licenses screen](/reference/settings/about/). Check there before
   adding a new third-party dependency or data source, since it needs an entry
   too.
 - **The docs site's own GitHub links are still placeholders.** `astro.config.mjs`'s

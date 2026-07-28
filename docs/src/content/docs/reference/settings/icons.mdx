@@ -9,7 +9,7 @@ import PhoneFrame from '@components/PhoneFrame.astro';
 import SettingsPath from '@components/SettingsPath.astro';
 import KeyCap from '@components/KeyCap.astro';
 
-The Icons screen lists every glyph the keyboard draws, grouped by where it appears, with the active pack's controls above the list. This page walks the screen top to bottom — for why you'd swap icons and how to build a pack of your own, see [Icon packs](/themes/icon-packs/) instead.
+The Icons screen lists every glyph the keyboard draws, grouped by where it appears, with the active pack's controls above the list. This page walks the screen top to bottom; for why you'd swap icons and how to build a pack of your own, see [Icon packs](/themes/icon-packs/) instead.
 
 <PhoneFrame caption="The Icons screen: the active pack (with export and delete on each installed row), then the slot list.">
   {/* shot: reference/settings/icons-overview */}
@@ -23,12 +23,12 @@ Reach it from **Appearance → Style → Icons**, or by searching "Icons" in set
 
 ### Icon pack
 
-The first group lists **Built-in icons** — always the top row, selected whenever no pack is active — followed by one row per pack you've installed. Each installed row shows the pack's name, its icon count, and its author and version when the pack's manifest set them (for example "42 icon(s) · Jamie · v1.2"). Tapping any row switches to it immediately.
+The first group lists **Built-in icons** (always the top row, selected whenever no pack is active), followed by one row per pack you've installed. Each installed row shows the pack's name, its icon count, and its author and version when the pack's manifest set them (for example "42 icon(s) · Jamie · v1.2"). Tapping any row switches to it immediately.
 
 Every installed row also carries two trailing buttons the built-in row doesn't have:
 
 - **Export** opens a save dialog and writes that pack out as a `.wmicons` file, named after the pack. You'll see "Saved `<pack name>`." on success, or "Could not write that file." if the write fails.
-- **Delete** asks for confirmation first — "Delete `<pack name>`? Its `<N>` icon(s) are removed from this device." — before removing the pack's files and any per-slot override pinned to it.
+- **Delete** asks for confirmation first ("Delete `<pack name>`? Its `<N>` icon(s) are removed from this device.") before removing the pack's files and any per-slot override pinned to it.
 
 <PhoneFrame caption="Confirming deletion of an installed icon pack.">
   {/* shot: reference/settings/icons-delete-confirm */}
@@ -41,7 +41,7 @@ Two ungrouped rows sit below the pack list:
 | Row | What it does |
 |---|---|
 | Import an icon pack | Opens a file picker for a `.wmicons` file and installs it, switching to it right away |
-| Reset all icons | Turns off the active pack and clears every per-slot override in one step. Installed packs are kept — subtitle reads "Turns the pack off and drops every single-icon change. Installed packs are kept." |
+| Reset all icons | Turns off the active pack and clears every per-slot override in one step. Installed packs are kept: subtitle reads "Turns the pack off and drops every single-icon change. Installed packs are kept." |
 
 Reset all icons runs immediately with no confirmation dialog, unlike deleting a pack; afterward you see "Every icon is back to the built-in one."
 
@@ -68,14 +68,14 @@ Tapping any slot row opens its picker: a search field (placeholder "Search Mater
 
 Below the grid, **Use my own SVG…** opens a file picker restricted to SVG-ish MIME types. A file that parses and fits under 256 KB is written into the reserved **My icons** pack and the slot is pinned to it, with "Set a custom icon for `<slot>`."; one that doesn't gets "That file could not be used as an icon. It has to be an SVG under 256 KB."
 
-The dialog's confirm button reads **Use default**, not "OK" — it resets only the slot you're looking at, not the whole screen. If that slot had been pinned to an SVG you imported into "My icons," resetting it also deletes that file from the pack, so it doesn't linger in a later export of "My icons." **Cancel** closes the dialog without changing anything.
+The dialog's confirm button reads **Use default**, not "OK". It resets only the slot you're looking at, not the whole screen. If that slot had been pinned to an SVG you imported into "My icons," resetting it also deletes that file from the pack, so it doesn't linger in a later export of "My icons." **Cancel** closes the dialog without changing anything.
 
 ## Details & edge cases
 
 - **Import limits.** The device holds at most 20 icon packs at once (the reserved "My icons" pack counts toward that total), each SVG inside a pack is capped at 256 KB, and a `.wmicons` archive itself is capped at 8 MB. Importing past the pack limit reports "You already have 20 icon packs. Delete one first."; a file that isn't a recognizable icon pack reports "That file is not a WM Keyboard icon pack."; one that can't be read reports "That file could not be read."
 - **Resolution order** for any slot is: a per-slot override you picked by hand, then the active pack (if it covers that slot), then the app's built-in default. Setting one icon from the picker always wins over an installed pack, even after that pack is later updated or swapped for another.
-- **Deleting the active pack** turns off "active pack" entirely, not just removing that row — any slot that was relying on it (and wasn't separately overridden) falls back to the built-in icon.
-- **Layout key glyphs aren't here.** The per-key symbols a language layout draws into its own keys — as opposed to the app's chrome — are never part of this list; an icon pack can't touch them. See [Icon packs](/themes/icon-packs/#what-you-can-replace) for why.
+- **Deleting the active pack** turns off "active pack" entirely, not just removing that row, so any slot that was relying on it (and wasn't separately overridden) falls back to the built-in icon.
+- **Layout key glyphs aren't here.** The per-key symbols a language layout draws into its own keys (as opposed to the app's chrome) are never part of this list; an icon pack can't touch them. See [Icon packs](/themes/icon-packs/#what-you-can-replace) for why.
 - **Colour follows the theme by default.** A row's icon that sets no colour of its own picks up the current theme's colour, plus that tool's own accent colour when **Colorful tool icons** is on. See <SettingsPath path="Tools" />.
 - **No edition restriction.** Everything on this screen behaves the same on both editions of the app.
 

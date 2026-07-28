@@ -18,9 +18,9 @@ The sticker tool searches Klipy and GIPHY, sends results as real stickers where 
 
 Open the tool from the toolbar and type to search Klipy and GIPHY, or switch to **My stickers** for packs you've built yourself. Tapping a result downloads and inserts it; while it's downloading the tile shows a spinner in its place.
 
-Android has no dedicated "this is a sticker" flag — the only signal a receiving app gets is the file's MIME type, and WhatsApp in particular only recognizes its own private `image/webp.wasticker` type, not plain `image/webp`. So when the **Send stickers as** setting is set to Sticker, the keyboard offers that WhatsApp type first and falls back to a normal image if the field doesn't advertise it. A source that isn't WebP (an animated GIF result, say) can never go out with the sticker MIME — Android has no animated-WebP encoder — so it always sends as a plain image regardless of that setting.
+Android has no dedicated "this is a sticker" flag: the only signal a receiving app gets is the file's MIME type, and WhatsApp in particular only recognizes its own private `image/webp.wasticker` type, not plain `image/webp`. So when the **Send stickers as** setting is set to Sticker, the keyboard offers that WhatsApp type first and falls back to a normal image if the field doesn't advertise it. A source that isn't WebP (an animated GIF result, say) can never go out with the sticker MIME (Android has no animated-WebP encoder), so it always sends as a plain image regardless of that setting.
 
-If the field can't take images at all, the tool doesn't bother downloading first and failing after — it vibrates once and shows a standing notice instead, with results still visible underneath at 45% opacity so you can still long-press one to save it (see [Saving a sticker to your own pack](#saving-a-sticker-to-your-own-pack) below). If the field does take images but rejects this particular file even after the WebP→PNG fallback, the file lands on the system clipboard instead, with a toast telling you to paste it — the same thing the clipboard tool's own image and file commits do when a field refuses them.
+If the field can't take images at all, the tool doesn't bother downloading first and failing after: it vibrates once and shows a standing notice instead, with results still visible underneath at 45% opacity so you can still long-press one to save it (see [Saving a sticker to your own pack](#saving-a-sticker-to-your-own-pack) below). If the field does take images but rejects this particular file even after the WebP→PNG fallback, the file lands on the system clipboard instead, with a toast telling you to paste it, the same thing the clipboard tool's own image and file commits do when a field refuses them.
 
 <PhoneFrame caption="The standing notice a field that can't take images shows, with results dimmed underneath.">
   {/* shot: emoji/sticker-panel-unsupported-field */}
@@ -28,7 +28,7 @@ If the field can't take images at all, the tool doesn't bother downloading first
 
 ## Saving a sticker to your own pack
 
-Long-pressing a Klipy or GIPHY result opens a menu to save it into one of your own packs — "Save to a new pack" if you have none yet, or "Save to `<pack name>`" for each pack you've made. This is the only save path: there's no way to pull a sticker back out of a chat someone sent you, only to keep one you were about to send yourself.
+Long-pressing a Klipy or GIPHY result opens a menu to save it into one of your own packs: "Save to a new pack" if you have none yet, or "Save to `<pack name>`" for each pack you've made. This is the only save path: there's no way to pull a sticker back out of a chat someone sent you, only to keep one you were about to send yourself.
 
 Long-pressing a sticker from **My stickers** opens "Manage packs" instead, which jumps straight to the pack management screen covered below.
 
@@ -38,14 +38,14 @@ Long-pressing a sticker from **My stickers** opens "Manage packs" instead, which
 
 ## My stickers and your own packs
 
-**My stickers** is always its own tab or chip — your packs are never interleaved into the Klipy/GIPHY grid, in either source layout mode. With more than one pack, a second row of filter chips (All, then one per pack name) appears above the grid, and search there matches sticker name, emoji tags, and pack name together.
+**My stickers** is always its own tab or chip; your packs are never interleaved into the Klipy/GIPHY grid, in either source layout mode. With more than one pack, a second row of filter chips (All, then one per pack name) appears above the grid, and search there matches sticker name, emoji tags, and pack name together.
 
 Building and managing packs happens in the app, not the keyboard: <SettingsPath path="Tools / Stickers / Your stickers / Sticker packs" />.
 
 - **New pack** starts one empty; **Import a pack** reads a `.wmstickers` file.
-- Inside a pack, **Add stickers** opens the photo picker for up to 30 images in one trip. Each one is processed automatically: a still image is resized to 512×512 and re-encoded as WebP, trying progressively lower quality (90 down to 50) until it lands under 100 KB — WhatsApp's static sticker spec. An animated source (GIF or animated WebP) is stored byte-for-byte instead, since Android has no animated-WebP encoder to re-compress it with; those are capped at 2 MB rather than the 100 KB still budget. Any single source file over 12 MB is refused before processing even starts.
+- Inside a pack, **Add stickers** opens the photo picker for up to 30 images in one trip. Each one is processed automatically: a still image is resized to 512×512 and re-encoded as WebP, trying progressively lower quality (90 down to 50) until it lands under 100 KB, matching WhatsApp's static sticker spec. An animated source (GIF or animated WebP) is stored byte-for-byte instead, since Android has no animated-WebP encoder to re-compress it with; those are capped at 2 MB rather than the 100 KB still budget. Any single source file over 12 MB is refused before processing even starts.
 - Per sticker, you can rename it, add space-separated emoji tags (matched by search), reorder it within the pack, move it to a different pack, or delete it.
-- Per pack, you can rename it, **export** it as a `.wmstickers` file to share or back up, or delete it — deleting warns you to export first if you want to keep a copy.
+- Per pack, you can rename it, **export** it as a `.wmstickers` file to share or back up, or delete it; deleting warns you to export first if you want to keep a copy.
 - A pack tops out at 200 stickers; you can have up to 50 packs total.
 
 <PhoneFrame caption="A sticker pack's management screen, with reorder and export controls.">
@@ -54,10 +54,10 @@ Building and managing packs happens in the app, not the keyboard: <SettingsPath 
 
 ### Importing a `.wmstickers` file
 
-A `.wmstickers` file is a ZIP with a `pack.json` manifest and one image per sticker. Import is deliberately forgiving of hand-written or slightly malformed manifests — it repairs what it can rather than rejecting the whole file — and reports what happened:
+A `.wmstickers` file is a ZIP with a `pack.json` manifest and one image per sticker. Import is deliberately forgiving of hand-written or slightly malformed manifests (it repairs what it can rather than rejecting the whole file) and reports what happened:
 
 - Imported successfully, with a note of anything it had to fix along the way.
-- "No stickers could be read out of that pack" if the manifest named stickers but none of them survived — this is reported rather than silently importing an empty pack.
+- "No stickers could be read out of that pack" if the manifest named stickers but none of them survived; this is reported rather than silently importing an empty pack.
 - "That file is not a WMKeyboard sticker pack" if the format tag doesn't match.
 - "You already have 50 packs. Delete one first" if you're at the pack limit.
 
@@ -71,7 +71,7 @@ Sticker packs are an optional section of the app's full settings backup, but the
 
 <SettingsPath path="Tools / Stickers" />
 
-Stickers isn't pinned to the toolbar by default — it lives in the toolbox alongside GIFs until you pin it. Reach the settings below from **Tools** in the app.
+Stickers isn't pinned to the toolbar by default. It lives in the toolbox alongside GIFs until you pin it. Reach the settings below from **Tools** in the app.
 
 - **Sticker packs** — jumps to the pack management screen above. Only shown under Stickers, not under GIFs.
 - **Full-screen picker** — <SettingsPath path="Tools / Stickers / Layout" /> — default **on**. The toolbar, emoji row, and symbol row step aside and the search box moves into the row they leave behind, so the grid gets the full keyboard height. Shared with the GIF tool.
@@ -81,15 +81,15 @@ Stickers isn't pinned to the toolbar by default — it lives in the toolbox alon
 - **Multiple sources** — Tabs or Mixed, default **Tabs**. Tabs gives every configured source its own chip, including My stickers. Mixed collapses Klipy/GIPHY into one "Online" chip and keeps My stickers as a second chip.
 - **Content filter** — Off/Low/Medium/High, default **Medium**. Maps to Klipy's and GIPHY's own content rating.
 
-Both tools are among the ones the setup wizard suggests enabling, and neither needs a particular edition — the gating here is an API key, not the build.
+Both tools are among the ones the setup wizard suggests enabling, and neither needs a particular edition: the gating here is an API key, not the build.
 
 ## Details and edge cases
 
-- **The WhatsApp sticker MIME is an unofficial, undocumented contract.** `image/webp.wasticker` appears in no public spec — it's a private convention both WhatsApp and Gboard happen to implement. It can change without notice, which is why there's a fallback chain rather than a single hardcoded rule.
-- **A field that only takes images, not stickers, still gets a normal image.** The sticker-vs-image choice is best-effort on top of whatever the field actually advertises; nothing is ever silently dropped over MIME mismatch alone — the clipboard fallback only kicks in when every image MIME candidate is rejected.
-- **Save doesn't apply to your own stickers.** Long-pressing something from My stickers opens pack management, not a save menu — there's nothing to save, you already have it.
+- **The WhatsApp sticker MIME is an unofficial, undocumented contract.** `image/webp.wasticker` appears in no public spec; it's a private convention both WhatsApp and Gboard happen to implement. It can change without notice, which is why there's a fallback chain rather than a single hardcoded rule.
+- **A field that only takes images, not stickers, still gets a normal image.** The sticker-vs-image choice is best-effort on top of whatever the field actually advertises; nothing is ever silently dropped over MIME mismatch alone: the clipboard fallback only kicks in when every image MIME candidate is rejected.
+- **Save doesn't apply to your own stickers.** Long-pressing something from My stickers opens pack management, not a save menu; there's nothing to save, you already have it.
 - **A source already at spec is left alone.** If a picked image is already a 512×512 WebP under 100 KB, it's stored as-is rather than re-encoded.
-- **One process, one store — but two independent views of it.** The keyboard and the settings app run in the same app process and share the same on-disk pack store, so every mutator saves immediately rather than batching. Each side still caches its own snapshot of the packs, though, so the keyboard checks a cheap size-and-timestamp signal against the manifest and only reloads when it's actually changed, rather than re-parsing it on every keystroke.
+- **One process, one store, but two independent views of it.** The keyboard and the settings app run in the same app process and share the same on-disk pack store, so every mutator saves immediately rather than batching. Each side still caches its own snapshot of the packs, though, so the keyboard checks a cheap size-and-timestamp signal against the manifest and only reloads when it's actually changed, rather than re-parsing it on every keystroke.
 - **Packs need the device unlocked.** Sticker packs live in app-private storage that isn't available before you unlock the device after a restart, so the sticker tool isn't usable from a locked-screen field the way some other tools are.
 
 See also [GIFs](/emoji/gifs/) for the tool this one shares its settings and layout with, and [Emoji picker & search](/emoji/picker/) for the other route into expressive content on this keyboard.

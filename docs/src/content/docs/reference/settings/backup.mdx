@@ -1,6 +1,6 @@
 ---
 title: "Backup & restore"
-description: "Every switch on the Backup & restore screen — what goes in an export, and what an import merges or replaces."
+description: "Every switch on the Backup & restore screen: what goes in an export, and what an import merges or replaces."
 sidebar:
   order: 19
 ---
@@ -8,7 +8,7 @@ sidebar:
 import PhoneFrame from '@components/PhoneFrame.astro';
 import SettingsPath from '@components/SettingsPath.astro';
 
-The Backup & restore screen is where you write your keyboard to a file and read one back in. This page is the field reference for every switch, button, and message on it — for the reasoning behind the merge-vs-replace split and a walkthrough of moving to a new phone, see [Backup & restore](/privacy/backup/) instead.
+The Backup & restore screen is where you write your keyboard to a file and read one back in. This page is the field reference for every switch, button, and message on it. For the reasoning behind the merge-vs-replace split and a walkthrough of moving to a new phone, see [Backup & restore](/privacy/backup/) instead.
 
 <PhoneFrame caption="The Backup & restore screen: what to include, plus the export and import buttons.">
   {/* shot: reference/settings/backup-screen */}
@@ -38,12 +38,12 @@ The **Include in export** group is ten independent toggles, top to bottom:
 | Addon repositories | The addon sources you added, so you can reinstall from them | On |
 
 :::note[Nothing here is a saved preference]
-Unlike almost every other screen in this reference, none of these ten switches are stored settings — they're local to the screen. Reopen **Backup & restore** later and every switch is back to the defaults above, regardless of what you chose last time.
+Unlike almost every other screen in this reference, none of these ten switches are stored settings: they're local to the screen. Reopen **Backup & restore** later and every switch is back to the defaults above, regardless of what you chose last time.
 :::
 
-Sticker packs and icon packs default off because their images make the file larger, not because of any privacy concern; Dictionary and Clipboard default off because they're your personal typing history rather than configuration. Addon repositories carries only the repository addresses you've added, not the addons installed from them — an installed theme already travels inside Themes, an installed icon pack inside Icon packs.
+Sticker packs and icon packs default off because their images make the file larger, not because of any privacy concern; Dictionary and Clipboard default off because they're your personal typing history rather than configuration. Addon repositories carries only the repository addresses you've added, not the addons installed from them: an installed theme already travels inside Themes, an installed icon pack inside Icon packs.
 
-**Export backup** is disabled until at least one toggle above is on. Tapping it opens Android's save dialog with a name of the form `wmkeyboard-backup-<date>-<time>.wmconfig.json`, timestamped down to the second so repeated exports don't overwrite each other. The file goes wherever you choose — nothing is uploaded anywhere. Afterward you see one of:
+**Export backup** is disabled until at least one toggle above is on. Tapping it opens Android's save dialog with a name of the form `wmkeyboard-backup-<date>-<time>.wmconfig.json`, timestamped down to the second so repeated exports don't overwrite each other. The file goes wherever you choose; nothing is uploaded anywhere. Afterward you see one of:
 
 | Result | Message |
 |---|---|
@@ -53,7 +53,7 @@ Sticker packs and icon packs default off because their images make the file larg
 
 ### Import
 
-**Import backup** opens a document picker for any file type. It reads the file and tries to decode it before changing anything — nothing is written until you confirm a dialog:
+**Import backup** opens a document picker for any file type. It reads the file and tries to decode it before changing anything; nothing is written until you confirm a dialog:
 
 | Outcome | What happens |
 |---|---|
@@ -86,10 +86,10 @@ Opening a `.wmconfig.json` or `.wmsettings.json` file from a file manager routes
 
 ## Details & edge cases
 
-- **Two file formats, one import path.** `.wmconfig.json` is the current, full-bundle format that **Export backup** writes today. `.wmsettings.json` is an older, settings-only format that the app still accepts on import for files made by earlier versions — nothing in the current app writes one anymore.
+- **Two file formats, one import path.** `.wmconfig.json` is the current, full-bundle format that **Export backup** writes today. `.wmsettings.json` is an older, settings-only format that the app still accepts on import for files made by earlier versions: nothing in the current app writes one anymore.
 - **The Themes toggle's own in-app description undersells it.** Its info text says a theme's background image "doesn't travel to another phone — only the theme itself does." In the current app it does travel: a background image is embedded in the export and written back to local storage on import, so a restored theme keeps its image. See [Backup & restore](/privacy/backup/#exporting-a-config-file) for the accurate version.
 - **The API-keys warning applies to a manual export only.** It has no effect on Android's own backup system, which is a separate opt-in covered on the [Privacy](/reference/settings/privacy/) screen and copies saved API keys regardless of anything on this page.
-- **Addon repositories is a bookmark list, not the addons themselves.** What an installed addon leaves behind on this screen is in whichever section matches its type — a theme, icon pack, or sticker pack you installed from a repository is already covered by that section.
+- **Addon repositories is a bookmark list, not the addons themselves.** What an installed addon leaves behind on this screen is in whichever section matches its type: a theme, icon pack, or sticker pack you installed from a repository is already covered by that section.
 
 ## Related pages
 

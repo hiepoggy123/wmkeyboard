@@ -1,6 +1,6 @@
 ---
 title: "Contact-aware typing"
-description: "Your contacts' names and emails, suggested where they help — never uploaded."
+description: "Your contacts' names and emails, suggested where they help, never uploaded."
 sidebar:
   order: 6
 ---
@@ -9,7 +9,7 @@ import PhoneFrame from '@components/PhoneFrame.astro';
 import SettingsPath from '@components/SettingsPath.astro';
 import Flavor from '@components/Flavor.astro';
 
-WM Keyboard can complete names and email addresses straight out of your contacts, and app names straight out of your launcher, so `"was"` completes to Wasi and `"john"` completes to `john.doe@gmail.com`. All three sources are off by default, and everything they read stays in memory on the device — nothing is written to disk and nothing is sent anywhere.
+WM Keyboard can complete names and email addresses straight out of your contacts, and app names straight out of your launcher, so `"was"` completes to Wasi and `"john"` completes to `john.doe@gmail.com`. All three sources are off by default, and everything they read stays in memory on the device. Nothing is written to disk and nothing is sent anywhere.
 
 <PhoneFrame caption="A contact name completing in the suggestion strip, mid-word.">
   {/* shot: smart/contact-name-suggestion */}
@@ -19,27 +19,27 @@ WM Keyboard can complete names and email addresses straight out of your contacts
 
 Three independent sources feed the suggestion strip, each with its own toggle in Typing settings:
 
-- **Contact names.** Every contact's display name is split into words (first name, last name, and any middle parts) and offered as a completion, the same way a dictionary word would be. After you finish typing one name, the next part of that same contact's name is offered as the next word — type "Wasi" and "Mollik" appears next, the way a learned bigram would.
-- **Contact emails.** Type the first couple of characters of an address — from the very start, the way you'd begin typing the name before the `@` — and the full address is offered to complete. This works both in ordinary text and, with a second toggle, inside actual email input fields.
-- **App names.** The labels of apps that appear in your launcher complete the same way ("sign" → Signal), so you don't have to type an app's full name out to search or reference it. This needs no permission — it comes from the same package list Android uses to build your home screen and app drawer.
+- **Contact names.** Every contact's display name is split into words (first name, last name, and any middle parts) and offered as a completion, the same way a dictionary word would be. After you finish typing one name, the next part of that same contact's name is offered as the next word: type "Wasi" and "Mollik" appears next, the way a learned bigram would.
+- **Contact emails.** Type the first couple of characters of an address (from the very start, the way you'd begin typing the name before the `@`) and the full address is offered to complete. This works both in ordinary text and, with a second toggle, inside actual email input fields.
+- **App names.** The labels of apps that appear in your launcher complete the same way ("sign" → Signal), so you don't have to type an app's full name out to search or reference it. This needs no permission. It comes from the same package list Android uses to build your home screen and app drawer.
 
-A word that matches a known contact name or a known app name is never "corrected away" by autocorrect. Contact-email addresses aren't typed out character by character the way autocorrect operates — you complete one by tapping it from the strip — so this exemption doesn't separately cover them, and doesn't need to.
+A word that matches a known contact name or a known app name is never "corrected away" by autocorrect. Contact-email addresses aren't typed out character by character the way autocorrect operates (you complete one by tapping it from the strip), so this exemption doesn't separately cover them, and doesn't need to.
 
 ## Using it
 
 ### Contact names in the strip
 
-Turn on **Suggest contact names** and start typing a contact's first or last name — it completes like any other word, ranked above ordinary dictionary and learned words. It works in every language mode, not only English, since it's just matching against words extracted from your address book.
+Turn on **Suggest contact names** and start typing a contact's first or last name. It completes like any other word, ranked above ordinary dictionary and learned words. It works in every language mode, not only English, since it's just matching against words extracted from your address book.
 
 ### Contact email completion
 
-Turn on **Suggest contact emails** and type the start of an address anywhere in ordinary text — the strip offers matching full addresses from your contacts, ranked above everything else in the strip. A second setting, **Contact emails in email fields too**, extends this into fields the keyboard recognizes as email inputs specifically. Those fields keep no composing buffer the way an ordinary text field does — letters you type there commit straight to the field one at a time — so the everyday word-completion engine never has anything to work with, independently of <SettingsPath path="Typing / Suggestions in every field" />. This setting carves out an exception just for contact-email completions: it reads the address-in-progress straight from the field instead of from a composing buffer, so the one place you're most likely to want an email address offered is the one place ordinary suggestions can't reach. It only has an effect while **Suggest contact emails** itself is on, and its row only appears in the settings list once that parent toggle is on too.
+Turn on **Suggest contact emails** and type the start of an address anywhere in ordinary text. The strip offers matching full addresses from your contacts, ranked above everything else in the strip. A second setting, **Contact emails in email fields too**, extends this into fields the keyboard recognizes as email inputs specifically. Those fields keep no composing buffer the way an ordinary text field does (letters you type there commit straight to the field one at a time), so the everyday word-completion engine never has anything to work with, independently of <SettingsPath path="Typing / Suggestions in every field" />. This setting carves out an exception just for contact-email completions: it reads the address-in-progress straight from the field instead of from a composing buffer, so the one place you're most likely to want an email address offered is the one place ordinary suggestions can't reach. It only has an effect while **Suggest contact emails** itself is on, and its row only appears in the settings list once that parent toggle is on too.
 
-Tapping a suggested email in an email field commits the whole address with no trailing space (an address is usually the entire field) and does not add it to your personal dictionary — an address isn't treated as a word to learn.
+Tapping a suggested email in an email field commits the whole address with no trailing space (an address is usually the entire field) and does not add it to your personal dictionary, since an address isn't treated as a word to learn.
 
 ### App names in the strip
 
-Turn on **Suggest app names** and installed-app labels complete the same way contact names do, but ranked lower — ordinary words that happen to also be app names (Files, Photos, Clock) shouldn't outrank the dictionary, and you type a contact's name far more often than you reference an app by name. App names complete in the suggestion strip only; they don't extend into the system-wide spell checker below.
+Turn on **Suggest app names** and installed-app labels complete the same way contact names do, but ranked lower: ordinary words that happen to also be app names (Files, Photos, Clock) shouldn't outrank the dictionary, and you type a contact's name far more often than you reference an app by name. App names complete in the suggestion strip only; they don't extend into the system-wide spell checker below.
 
 ## Options
 
@@ -52,24 +52,24 @@ Turn on **Suggest app names** and installed-app labels complete the same way con
 | Contact emails in email fields too | On (only shown while contact emails are on) | — |
 | Suggest app names | Off | — |
 
-Turning on either of the two contact toggles requests the Contacts permission the first time, if it isn't already granted — turning a toggle back off never prompts for anything. Both toggles use the same Android permission, so granting it for one covers the other automatically. App-name suggestions need no permission at all; they're covered by the app's existing ability to list installed launcher activities.
+Turning on either of the two contact toggles requests the Contacts permission the first time, if it isn't already granted. Turning a toggle back off never prompts for anything. Both toggles use the same Android permission, so granting it for one covers the other automatically. App-name suggestions need no permission at all; they're covered by the app's existing ability to list installed launcher activities.
 
-Turning any of these three off clears its in-memory index immediately — there's no lingering suggestion from data the keyboard is no longer supposed to be reading.
+Turning any of these three off clears its in-memory index immediately. There's no lingering suggestion from data the keyboard is no longer supposed to be reading.
 
 ## Contact names in the system spell checker
 
 <Flavor edition="full" />
 
-WM Keyboard can also act as Android's system-wide spell checker — the service other apps' text fields use for the red squiggly underline, not just this keyboard. It's a separate component you select yourself in Android's own **Settings → System → Languages & input → Spell checker**, listed as "WM Keyboard (Harper)"; installing the app doesn't switch it on automatically, and it isn't available in the lite edition at all.
+WM Keyboard can also act as Android's system-wide spell checker, the service other apps' text fields use for the red squiggly underline, not just this keyboard. It's a separate component you select yourself in Android's own **Settings → System → Languages & input → Spell checker**, listed as "WM Keyboard (Harper)"; installing the app doesn't switch it on automatically, and it isn't available in the lite edition at all.
 
-When selected, it reads the same **Suggest contact names** setting described above (there's no separate toggle for it) to decide whether to load your contacts. If it's on, the spell checker treats known contact names and emails as correctly spelled — no red squiggle under a name it recognizes — and puts a matching contact name first in the correction menu when you've mistyped one, ahead of ordinary grammar suggestions. Because it runs in its own process, it works this way in any app, even while WM Keyboard isn't the active keyboard. See the [system spell checker](/smart/spell-checker/) page for the rest of what it catches.
+When selected, it reads the same **Suggest contact names** setting described above (there's no separate toggle for it) to decide whether to load your contacts. If it's on, the spell checker treats known contact names and emails as correctly spelled (no red squiggle under a name it recognizes) and puts a matching contact name first in the correction menu when you've mistyped one, ahead of ordinary grammar suggestions. Because it runs in its own process, it works this way in any app, even while WM Keyboard isn't the active keyboard. See the [system spell checker](/smart/spell-checker/) page for the rest of what it catches.
 
 ## Details & edge cases
 
-- **What's read.** A one-shot query against `ContactsContract` for contact display names, and a separate one for contact email addresses — the whole address book in a single pass each, not filtered or searched incrementally. App names come from querying installed launcher activities, the same list your home screen's app drawer is built from.
+- **What's read.** A one-shot query against `ContactsContract` for contact display names, and a separate one for contact email addresses, the whole address book in a single pass each, not filtered or searched incrementally. App names come from querying installed launcher activities, the same list your home screen's app drawer is built from.
 - **What's stored.** Nothing on disk for this feature. Contact names, contact emails, and app names are held as plain in-memory lookup tables that are rebuilt from scratch whenever the keyboard process starts with the relevant setting on, and dropped the instant you turn that setting off. If a query fails for any reason (permission revoked mid-session, provider unavailable), the source silently falls back to empty rather than crashing or retrying in a loop.
-- **What never leaves the device.** There's no network code anywhere in this path — contacts, contact emails, and app names are read, indexed, and matched entirely locally.
-- **Typing a name is still "learning."** This memory-only guarantee covers the index this feature builds. If you type a contact's name as ordinary text, that word goes through the keyboard's general on-device learning path like any other typed word — a separate, on-by-default setting, unrelated to the toggles on this page. There's also a distinct, off-by-default setting that would additionally copy a learned word into Android's own shared personal dictionary, which other apps can read; leave it off and this doesn't apply. See [Personal dictionary](/smart/personal-dictionary/) for both.
-- **Before you unlock the phone.** Right after a reboot, before you've entered your device credential the first time, all three toggles behave as off regardless of their saved state — Android's contacts and app-label providers are themselves locked at that point and can't be read no matter what the setting says. Nothing about your saved preference changes; the moment you unlock, contact and app suggestions resume on their own.
+- **What never leaves the device.** There's no network code anywhere in this path: contacts, contact emails, and app names are read, indexed, and matched entirely locally.
+- **Typing a name is still "learning."** This memory-only guarantee covers the index this feature builds. If you type a contact's name as ordinary text, that word goes through the keyboard's general on-device learning path like any other typed word (a separate, on-by-default setting, unrelated to the toggles on this page). There's also a distinct, off-by-default setting that would additionally copy a learned word into Android's own shared personal dictionary, which other apps can read; leave it off and this doesn't apply. See [Personal dictionary](/smart/personal-dictionary/) for both.
+- **Before you unlock the phone.** Right after a reboot, before you've entered your device credential the first time, all three toggles behave as off regardless of their saved state. Android's contacts and app-label providers are themselves locked at that point and can't be read no matter what the setting says. Nothing about your saved preference changes; the moment you unlock, contact and app suggestions resume on their own.
 - **Name splitting is punctuation-aware.** A contact's display name is broken on spaces, commas, and similar separators, with stray punctuation trimmed from each piece, so a name with a middle initial or a bracketed label like "(work)" still indexes its meaningful parts rather than the punctuation around them. Very short fragments (a single letter) aren't indexed, to keep initials from cluttering the strip. Matching is case-insensitive; the name is still shown with its original capitalization when suggested.
-- **Only real-looking addresses are indexed.** A contact's stored email is only used if it has an `@` with something on both sides and no embedded spaces — malformed entries in your address book are silently skipped rather than offered as junk completions.
+- **Only real-looking addresses are indexed.** A contact's stored email is only used if it has an `@` with something on both sides and no embedded spaces. Malformed entries in your address book are silently skipped rather than offered as junk completions.

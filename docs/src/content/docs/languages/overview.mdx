@@ -20,16 +20,16 @@ WM Keyboard's language catalogue holds 352 entries, from the languages you'd exp
 
 ## Adding a language
 
-Open **Languages** in the app and tap **Add language** to search the whole registry — the search box matches on endonym, English name, id, and locale tag, so "german", "Deutsch", "de", and "de-DE" all find the same entry. Tap an unadded language and it's enabled immediately, using its first layout, then opens straight to that language's own screen so you can pick a different layout or turn on suggestions from another enabled language.
+Open **Languages** in the app and tap **Add language** to search the whole registry: the search box matches on endonym, English name, id, and locale tag, so "german", "Deutsch", "de", and "de-DE" all find the same entry. Tap an unadded language and it's enabled immediately, using its first layout, then opens straight to that language's own screen so you can pick a different layout or turn on suggestions from another enabled language.
 
-Every language's name in the list is shown as `endonym · English`, for example "বাংলা · Bangla" or "Русский · Russian" — the native name first, the English name after it, so you can find a language whether or not you can already read its script.
+Every language's name in the list is shown as `endonym · English`, for example "বাংলা · Bangla" or "Русский · Russian". The native name comes first and the English name after it, so you can find a language whether or not you can already read its script.
 
 <PhoneFrame caption="Add language: search matches endonym, English name, id, and locale.">
   {/* shot: languages/add-language-search */}
 </PhoneFrame>
 
 :::tip[Typing a language in Latin letters]
-Fourteen languages — including Bengali, Hindi, Arabic, and Russian — have a separate Romanized entry in the catalogue: Banglish, Hinglish, Arabizi, Translit, and so on. These type on a plain Latin QWERTY layout and draw suggestions from a transliterated word list; they're their own selectable language, not a mode switch on the native-script one. Bengali's own phonetic typing (Avro) is different again and is covered on [Bengali](/languages/bengali/).
+Fourteen languages (including Bengali, Hindi, Arabic, and Russian) have a separate Romanized entry in the catalogue: Banglish, Hinglish, Arabizi, Translit, and so on. These type on a plain Latin QWERTY layout and draw suggestions from a transliterated word list; they're their own selectable language, not a mode switch on the native-script one. Bengali's own phonetic typing (Avro) is different again and is covered on [Bengali](/languages/bengali/).
 :::
 
 ## Each language has its own screen
@@ -39,53 +39,53 @@ Tap any enabled language to reach its screen, with up to four sections depending
 - **Layouts** — a toggle per layout the language ships (for example Bengali offers Avro, Probhat, and Jatiya); at least one layout has to stay enabled somewhere across your whole set, so the last one can't be switched off from here.
 - **Numerals** — which digits the number row and keypad show while this language is active: Auto (the language's own default), plain `0-9`, or Arabic-Indic, Persian, Bengali, or Devanagari digits. This is set per language, so Arabic can show `٠-٩` while English next to it stays on `0-9`.
 - **Also suggest from** — appears once you have more than one language enabled; toggle other enabled languages on to blend their words into suggestions while you type this one. Words pulled in this way are never autocorrected away.
-- **Dictionary**, **Emoji**, and — for Chinese, Japanese, and Cantonese — a conversion-dictionary group, covering downloadable word lists, emoji keyword packs, and (for those three languages) a larger conversion dictionary plus script and input-scheme options. All three are covered in full on [Downloadable dictionaries](/languages/dictionaries/); Chinese/Japanese input specifically is covered on [Chinese, Japanese & Korean](/languages/cjk/).
+- **Dictionary**, **Emoji**, and (for Chinese, Japanese, and Cantonese) a conversion-dictionary group, covering downloadable word lists, emoji keyword packs, and (for those three languages) a larger conversion dictionary plus script and input-scheme options. All three are covered in full on [Downloadable dictionaries](/languages/dictionaries/); Chinese/Japanese input specifically is covered on [Chinese, Japanese & Korean](/languages/cjk/).
 
 <PhoneFrame caption="A language's own screen: layout toggles, numeral system, and other enabled languages to suggest from.">
   {/* shot: languages/language-detail-screen */}
 </PhoneFrame>
 
-A **Remove** button sits at the bottom once you have more than one language enabled — removing a language turns off every layout that belongs to it.
+A **Remove** button sits at the bottom once you have more than one language enabled; removing a language turns off every layout that belongs to it.
 
 ## Switching between enabled languages
 
-Once more than one layout is enabled, cycle between them with the <KeyCap>🌐</KeyCap> key, a spacebar swipe, or by holding the spacebar and dragging to the one you want — full detail, including the hold-drag picker and how the cycle order is set, lives on [Switching languages](/languages/switching/). The order layouts cycle through is its own setting — **Switch order** on the Languages screen — and reorders every enabled *layout*, not just language, so AZERTY and QWERTY (say) keep separate slots in the cycle even though they're both "English."
+Once more than one layout is enabled, cycle between them with the <KeyCap>🌐</KeyCap> key, a spacebar swipe, or by holding the spacebar and dragging to the one you want. Full detail, including the hold-drag picker and how the cycle order is set, lives on [Switching languages](/languages/switching/). The order layouts cycle through is its own setting (**Switch order** on the Languages screen) and reorders every enabled *layout*, not just language, so AZERTY and QWERTY (say) keep separate slots in the cycle even though they're both "English."
 
 ## Where languages show up outside the keyboard
 
 Two settings on the Languages screen connect your language choices to the rest of Android, both off the language list itself rather than any per-language screen.
 
-**Remember language per app**, under Per-app language, is off by default. Turn it on and the keyboard remembers which layout you last explicitly switched to in each app — reopening that app's text field restores it, while apps you haven't picked a language in follow your last-used layout globally. A field that requires Latin input (a password box) or that advertises its own language to the keyboard still overrides the memory either way.
+**Remember language per app**, under Per-app language, is off by default. Turn it on and the keyboard remembers which layout you last explicitly switched to in each app: reopening that app's text field restores it, while apps you haven't picked a language in follow your last-used layout globally. A field that requires Latin input (a password box) or that advertises its own language to the keyboard still overrides the memory either way.
 
-**List languages in Android's switcher**, under System language switcher, is on by default. It registers every enabled layout as an Android input-method subtype, so the system's "Choose input method" sheet lists each one and can switch directly to it — turning this off keeps switching entirely inside the keyboard and exposes no subtypes to Android at all. With it on, a second toggle appears — **Show app name first**, off by default — which puts "WM Keyboard" ahead of the language in the switcher's label instead of after it.
+**List languages in Android's switcher**, under System language switcher, is on by default. It registers every enabled layout as an Android input-method subtype, so the system's "Choose input method" sheet lists each one and can switch directly to it. Turning this off keeps switching entirely inside the keyboard and exposes no subtypes to Android at all. With it on, a second toggle appears: **Show app name first**, off by default, which puts "WM Keyboard" ahead of the language in the switcher's label instead of after it.
 
 <PhoneFrame caption="Further down the Languages screen: per-app language memory and the Android system switcher toggle.">
   {/* shot: languages/list-per-app-and-switcher */}
 </PhoneFrame>
 
 :::note[Complex scripts]
-If any enabled language uses a script that forms conjunct clusters — Bengali, Devanagari, Tamil, Gurmukhi, and several others — a **Complex scripts** group appears with a **Conjunct-aware backspace** toggle (off by default), so one backspace removes a whole cluster like ক্ষ or क्ष instead of one code point at a time.
+If any enabled language uses a script that forms conjunct clusters (Bengali, Devanagari, Tamil, Gurmukhi, and several others), a **Complex scripts** group appears with a **Conjunct-aware backspace** toggle (off by default), so one backspace removes a whole cluster like ক্ষ or क्ष instead of one code point at a time.
 :::
 
 ## What ships
 
-WM Keyboard ships 393 layouts in total: 18 built into the app (QWERTY, AZERTY, Dvorak, Colemak, Workman, Halmak, Avro, Probhat, Jatiya, plus dedicated layouts for French, German, Spanish, Korean, Russian, Arabic, Greek, Hebrew, and Hindi) and 375 more bundled as individual layout files, one per language or variant that isn't among those 18. Only four are enabled out of the box — QWERTY, Avro, Probhat, and Jatiya, i.e. English plus all three Bangla layouts — every other language sits in the catalogue until you add it, loaded on demand so a language you haven't picked yet costs nothing.
+WM Keyboard ships 393 layouts in total: 18 built into the app (QWERTY, AZERTY, Dvorak, Colemak, Workman, Halmak, Avro, Probhat, Jatiya, plus dedicated layouts for French, German, Spanish, Korean, Russian, Arabic, Greek, Hebrew, and Hindi) and 375 more bundled as individual layout files, one per language or variant that isn't among those 18. Only four are enabled out of the box: QWERTY, Avro, Probhat, and Jatiya (i.e. English plus all three Bangla layouts). Every other language sits in the catalogue until you add it, loaded on demand so a language you haven't picked yet costs nothing.
 
 ## The long tail
 
 Past the languages most keyboards cover, the catalogue reaches into territory most don't:
 
 - **Indic InScript** layouts for Marathi, Nepali, Sanskrit, Tamil (Tamil99), Sinhala (Wijesekara), Telugu, Kannada, Malayalam, Gujarati, Punjabi, Odia, Konkani, Maithili, Bodo, Dogri, and Bhojpuri.
-- **Minority Cyrillic** alphabets — Tatar, Bashkir, Chuvash, Chechen, Ossetian, Yakut, Udmurt, Komi, Kalmyk, Tuvan, Buryat, Erzya, Mari, Adyghe, Kabardian, Abkhaz, Avar, Lezgian, and more.
+- **Minority Cyrillic** alphabets: Tatar, Bashkir, Chuvash, Chechen, Ossetian, Yakut, Udmurt, Komi, Kalmyk, Tuvan, Buryat, Erzya, Mari, Adyghe, Kabardian, Abkhaz, Avar, Lezgian, and more.
 - **Ethiopic** script for Amharic, Tigrinya, and Tigre; **Syriac**, **Polytonic Greek**, and classical **Sanskrit** and **Latin** for liturgical and historical typing; **Thaana** (Dhivehi), **Tifinagh** (Tamazight, Tachelhit), and **N'Ko**.
 - **Syllabaries**: Cherokee has its own script, and Inuktitut types in Canadian Aboriginal Syllabics.
-- **Constructed languages** — twelve of them: the auxiliary-language family Esperanto, Interlingua, Ido, Interlingue, Novial, Lingua Franca Nova, Kotava, and Volapük, alongside Lojban, Klingon, Tolkien's Quenya, and Toki Pona.
+- **Constructed languages** (twelve of them): the auxiliary-language family Esperanto, Interlingua, Ido, Interlingue, Novial, Lingua Franca Nova, Kotava, and Volapük, alongside Lojban, Klingon, Tolkien's Quenya, and Toki Pona.
 
 <PhoneFrame caption={`The Cherokee syllabary (${cherokee.layout?.name ?? cherokee.name}) rendered from its real layout file.`}>
   <LayoutExplorer layout={cherokee} />
 </PhoneFrame>
 
-The registry also carries a handful of entries that aren't spoken languages at all but behave like one in every setting on this page: IPA, musical notation, chorded Braille, and Morse code, plus a 22-layout family of Unicode "fancy text" styles. These get their own pages — [Music, braille & Morse](/languages/notation/) and [Fancy text](/languages/fancy-text/) — because typing on them works differently enough to need separate walkthroughs.
+The registry also carries a handful of entries that aren't spoken languages at all but behave like one in every setting on this page: IPA, musical notation, chorded Braille, and Morse code, plus a 22-layout family of Unicode "fancy text" styles. These get their own pages: [Music, braille & Morse](/languages/notation/) and [Fancy text](/languages/fancy-text/), because typing on them works differently enough to need separate walkthroughs.
 
 ## Options
 
@@ -100,11 +100,11 @@ Everything on this page is reachable from the app's **Languages** screen, and th
 ## Details & edge cases
 
 - **A language you haven't added yet isn't silently active.** Only enabled layouts are ever offered on the <KeyCap>🌐</KeyCap> cycle or spacebar swipe; everything else just sits in the catalogue, unloaded, until you search for and tap it.
-- **Dictionaries aren't tied to whether a language is "complete."** Only English and Bengali bundle a built-in word list; nearly every other language in the catalogue starts with zero suggestions beyond what you type, until you download or import one — see [Downloadable dictionaries](/languages/dictionaries/) for exactly which languages have which.
-- **"Also suggest from" only adds words — it never demotes the language you're actually typing.** Suggestions from a secondary language are blended in, not swapped to, and they're exempt from autocorrect so a word you meant to borrow doesn't get "corrected" back.
-- **Numeral system is a display and typing choice, not a script change.** Switching a language's numerals to Devanagari digits doesn't touch its dictionary, its layout, or which script its letters use — only which glyphs `0`-`9` show as and, depending on the field, which glyphs get committed.
+- **Dictionaries aren't tied to whether a language is "complete."** Only English and Bengali bundle a built-in word list; nearly every other language in the catalogue starts with zero suggestions beyond what you type, until you download or import one; see [Downloadable dictionaries](/languages/dictionaries/) for exactly which languages have which.
+- **"Also suggest from" only adds words; it never demotes the language you're actually typing.** Suggestions from a secondary language are blended in, not swapped to, and they're exempt from autocorrect so a word you meant to borrow doesn't get "corrected" back.
+- **Numeral system is a display and typing choice, not a script change.** Switching a language's numerals to Devanagari digits doesn't touch its dictionary, its layout, or which script its letters use: only which glyphs `0`-`9` show as and, depending on the field, which glyphs get committed.
 - **Romanized languages double the catalogue's reach without doubling its content.** Banglish, Hinglish, Arabizi, and the other eleven Romanized entries are dictionary-only variants: same underlying language, plain Latin QWERTY layout, transliterated suggestions.
-- **Per-app language memory and the system switcher are independent of each other.** You can have Android list every layout as a subtype while per-app memory stays off, or the reverse — turning one off doesn't touch the other.
+- **Per-app language memory and the system switcher are independent of each other.** You can have Android list every layout as a subtype while per-app memory stays off, or the reverse. Turning one off doesn't touch the other.
 
 ## Every language
 
