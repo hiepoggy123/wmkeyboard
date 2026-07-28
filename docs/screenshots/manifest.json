@@ -3063,5 +3063,123 @@
     "status": "todo",
     "notes": "No dedicated on-screen UI changes for this feature \u2014 the shot just needs to show the text field with a moved cursor position; caption/context carries the explanation. Consider whether this shot is worth capturing at all vs. relying on the settings-screen shot alone; flagging for the capture-phase owner's judgement.",
     "kind": "still"
+  },
+  {
+    "id": "tools/calculator-panel",
+    "page": "docs/src/content/docs/tools/utilities.mdx",
+    "file": "src/assets/screens/tools/calculator-panel.webp",
+    "caption": "The Calculator panel: live expression and result, the scientific function row, and the custom digit keypad.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
+      "Open the toolbar/toolbox and tap Calculator (or type its keyword 'calc' and tap the smart chip's gear icon).",
+      "Type an expression like '12*(4+1)' so the live result and the Insert chip both show; leave the scientific row and the deg/rad chip visible in frame."
+    ],
+    "status": "todo",
+    "notes": "Calculator is not pinned by default (default pinned row is Emoji/Clipboard/Settings) \u2014 reach it from the toolbox, or Settings > Tools > Calculator to pin it first. This shot doubles as the page's hero image, placed right after the lead paragraph.",
+    "kind": "still"
+  },
+  {
+    "id": "tools/unit-converter-panel",
+    "page": "docs/src/content/docs/tools/utilities.mdx",
+    "file": "src/assets/screens/tools/unit-converter-panel.webp",
+    "caption": "The Unit converter panel: category chips, From/To unit rows, the swap icon, and the shared digit keypad.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
+      "Open the toolbar/toolbox and tap Unit converter.",
+      "Pick a recognizable category/pair (e.g. Length, feet to meters) and type a nonzero value so the converted result and Insert chip are visible."
+    ],
+    "status": "todo",
+    "notes": "Reopens on whichever category/unit pair was used last (unitConvertLast setting), so a fresh install starts on category index 0 with its default From/To pair.",
+    "kind": "still"
+  },
+  {
+    "id": "tools/currency-converter-panel",
+    "page": "docs/src/content/docs/tools/utilities.mdx",
+    "file": "src/assets/screens/tools/currency-converter-panel.webp",
+    "caption": "The Currency converter panel: a From/To currency pair, live converted amount, and the refresh icon.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
+      "Ensure the device has network access so exchange rates load (open.er-api.com, falling back to frankfurter.app).",
+      "Open the toolbar/toolbox and tap Currency converter; type an amount so the converted result and Insert chip are visible."
+    ],
+    "status": "todo",
+    "notes": "Default pair is USD to BDT. This is the one tool on the page that needs a live network fetch \u2014 capture after rates have loaded (CurrencyUi.Ready), not mid-spinner (CurrencyUi.Loading).",
+    "kind": "still"
+  },
+  {
+    "id": "tools/symbols-panel",
+    "page": "docs/src/content/docs/tools/utilities.mdx",
+    "file": "src/assets/screens/tools/symbols-panel.webp",
+    "caption": "The Symbols panel: category chips over an adaptive grid, with a Recents chip once you've used a few.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
+      "Open the toolbar/toolbox and tap Special symbols.",
+      "Tap a couple of symbols first so a Recents chip appears at the front of the category row, then land on the Math or Greek category for the grid shot."
+    ],
+    "status": "todo",
+    "notes": "Nine categories total: Fractions, Math, Greek, Arrows, Currency, Superscript, Punctuation, Shapes & stars, Misc.",
+    "kind": "still"
+  },
+  {
+    "id": "tools/qr-generator-panel",
+    "page": "docs/src/content/docs/tools/utilities.mdx",
+    "file": "src/assets/screens/tools/qr-generator-panel.webp",
+    "caption": "The QR generator panel: editable content line, live QR preview, and Send as image.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text --es text 'https://wmkeyboard.app'",
+      "Open the toolbar/toolbox and tap QR code generator \u2014 it seeds its editable buffer from the field text on open.",
+      "Leave a short URL or short text in the buffer so the QR renders cleanly, with the Send as image chip visible."
+    ],
+    "status": "todo",
+    "notes": "Unlike the other five tools on this page, the key rows stay visible underneath this panel \u2014 keystrokes reroute into the panel's own buffer instead of replacing the keys.",
+    "kind": "still"
+  },
+  {
+    "id": "tools/password-generator-panel",
+    "page": "docs/src/content/docs/tools/utilities.mdx",
+    "file": "src/assets/screens/tools/password-generator-panel.webp",
+    "caption": "The Password generator panel: generated result, entropy estimate, and the Password/Passphrase tabs.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
+      "Open the toolbar/toolbox and tap Password generator.",
+      "Capture the default Password tab (Length 16, Uppercase/Digits/Symbols on) with the generated string, entropy estimate, Copy/Insert chips, and regenerate icon all visible."
+    ],
+    "status": "todo",
+    "notes": "A second crop of the Passphrase tab (toggle in the tool's own Options) could be a useful companion shot but isn't required.",
+    "kind": "still"
+  },
+  {
+    "id": "tools/typing-test-panel",
+    "page": "docs/src/content/docs/tools/utilities.mdx",
+    "file": "src/assets/screens/tools/typing-test-panel.webp",
+    "caption": "A typing test in progress: the prompt with per-character correctness coloring, above the live key rows.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
+      "Open the toolbar/toolbox and tap Typing speed test, start a run (default: Timed, 30s), and type a few words so correct/incorrect/pending characters are all visible in one frame."
+    ],
+    "status": "todo",
+    "notes": "The only tool on this page whose panel does not replace the key rows \u2014 the prompt is typed on the real keys while the panel scores it from above.",
+    "kind": "still"
+  },
+  {
+    "id": "tools/typing-test-results",
+    "page": "docs/src/content/docs/tools/utilities.mdx",
+    "file": "src/assets/screens/tools/typing-test-results.webp",
+    "caption": "Typing test results: WPM, accuracy, consistency, and the Insert score chip.",
+    "host": "harness-field",
+    "setup": [
+      "Continue directly from the tools/typing-test-panel session \u2014 let the timer run out (or finish the word/quote target) to reach the results screen.",
+      "Capture with the WPM/accuracy/consistency figures and the Insert score chip all visible."
+    ],
+    "status": "todo",
+    "notes": "Insert score commits text in the form '83 WPM \u00b7 96% accuracy (30s)'. A personal-best banner is a nice-to-have if this isn't the first run at that config, but not required.",
+    "kind": "still"
   }
 ]
