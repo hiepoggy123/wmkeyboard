@@ -1,0 +1,75 @@
+import java.util.Properties
+
+plugins {
+    alias(libs.plugins.android.library)
+}
+
+// Build-wide flags and API keys for library modules. The app module keeps its
+// own copies of these fields for the app-package screens; both read the same
+// local.properties / environment values, so they cannot drift.
+val localProperties = Properties().apply {
+    val file = rootProject.file("local.properties")
+    if (file.exists()) file.inputStream().use { load(it) }
+}
+
+fun apiKey(propertyName: String, envName: String): String =
+    localProperties.getProperty(propertyName)?.trim()
+        ?: System.getenv(envName)?.trim()
+        ?: ""
+
+
+android {
+    namespace = "com.wasimaster.wmkeyboard.config"
+    compileSdk {
+        version = release(36) {
+            minorApiLevel = 1
+        }
+    }
+    defaultConfig {
+        minSdk = 24
+        buildConfigField("int", "VERSION_CODE", "1")
+        buildConfigField("String", "VERSION_NAME", "\"1.0\"")
+        buildConfigField("String", "KLIPY_API_KEY", "\"${apiKey("wmkb.klipyApiKey", "WMKB_KLIPY_API_KEY")}\"")
+        buildConfigField("String", "GIPHY_API_KEY", "\"${apiKey("wmkb.giphyApiKey", "WMKB_GIPHY_API_KEY")}\"")
+        buildConfigField("String", "BRAVE_API_KEY", "\"${apiKey("wmkb.braveApiKey", "WMKB_BRAVE_API_KEY")}\"")
+        buildConfigField("String", "TRANSLATE_API_KEY", "\"${apiKey("wmkb.translateApiKey", "WMKB_TRANSLATE_API_KEY")}\"")
+    }
+
+    flavorDimensions += "capabilities"
+    productFlavors {
+        create("full") {
+            dimension = "capabilities"
+            buildConfigField("Boolean", "ENABLE_ML_KIT_HANDWRITING", "true")
+            buildConfigField("Boolean", "ENABLE_ML_KIT_SCANNERS", "true")
+            buildConfigField("Boolean", "ENABLE_GRAMMAR", "true")
+            buildConfigField("Boolean", "ENABLE_LOCAL_LLM", "true")
+            buildConfigField("Boolean", "ENABLE_WHISPER", "true")
+        }
+        create("lite") {
+            dimension = "capabilities"
+            buildConfigField("Boolean", "ENABLE_ML_KIT_HANDWRITING", "false")
+            buildConfigField("Boolean", "ENABLE_ML_KIT_SCANNERS", "false")
+            buildConfigField("Boolean", "ENABLE_GRAMMAR", "false")
+            buildConfigField("Boolean", "ENABLE_LOCAL_LLM", "false")
+            buildConfigField("Boolean", "ENABLE_WHISPER", "false")
+        }
+    }
+    buildFeatures { buildConfig = true }
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_11
+        targetCompatibility = JavaVersion.VERSION_11
+    }
+    lint { lintConfig = rootProject.file("config/lint/lint.xml") }
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
+        extraWarnings.set(true)
+        freeCompilerArgs.addAll("-Xreport-all-warnings")
+        allWarningsAsErrors.set(providers.gradleProperty("warningsAsErrors").map { it.toBoolean() }.orElse(false))
+    }
+}
+
+dependencies {
+}

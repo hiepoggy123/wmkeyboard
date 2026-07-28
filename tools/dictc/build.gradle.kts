@@ -10,7 +10,7 @@ plugins {
 sourceSets {
     main {
         kotlin {
-            srcDir(rootProject.file("app/src/main/java/com/wasimaster/wmkeyboard/core/prediction"))
+            srcDir(rootProject.file("core/prediction/src/main/java/com/wasimaster/wmkeyboard/core/prediction"))
             include(
                 "Main.kt",
                 "Trie.kt",

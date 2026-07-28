@@ -1,0 +1,320 @@
+package com.wasimaster.wmkeyboard.core.transliteration
+
+/**
+ * Rule-based Avro-style phonetic transliteration from romanized Bengali
+ * ("banglish") to Bengali script.
+ *
+ * The engine is a greedy longest-match transliterator over a rule table,
+ * with three pieces of context sensitivity:
+ *
+ *  1. Vowels render as independent letters at a word boundary or after
+ *     another vowel, and as vowel signs (kar) after a consonant.
+ *  2. Consecutive consonants are joined into conjuncts with a hasant.
+ *     The inherent vowel "o" produces no glyph but breaks the cluster,
+ *     so "kolokata" stays কলকাতা rather than forming a false conjunct
+ *     (whereas "kolkata", with no vowel between l and k, does conjunct).
+ *  3. "o" is inherent (silent) between consonants, অ at a word start and
+ *     ো at a word end — matching how Avro users expect "valo" → ভালো
+ *     while "kori" → করি. After a conjunct, a final "o" stays silent
+ *     ("dhorrmo" → ধর্ম, "shopno" → স্বপ্ন), since ো-final words like
+ *     ভালো always end in a plain consonant.
+ *  4. "rr" spells reph: it renders as a single র that conjuncts with the
+ *     following consonant ("dhorrmo" → ধর্ম), except in "rri" (ঋ) or when
+ *     no consonant follows.
+ *  5. An "a" right after a rendered vowel glides with য় ("kiamot" →
+ *     কিয়ামত, "Oasi"/"wasi" → ওয়াসি). Only after the silent
+ *     inherent vowel does the independent আ survive ("kuroan" → কুরআন),
+ *     and capital "A" is always explicit আ.
+ *  6. A backquote breaks the cluster it lands in the middle of, and writes
+ *     nothing itself: "kos" conjuncts to ক্স, "k`s" stays কস. It is also how
+ *     khanda-ta is spelled — "hoThat`" → হঠাৎ — since a ত with the join taken
+ *     off it is exactly what ৎ is.
+ *  7. A word-final hasant collapses the ত before it into ৎ, so the same word
+ *     comes out of the explicit-hasant spelling too ("hoThat,," → হঠাৎ). Only
+ *     ত, and only word-finally: anywhere else a hasant is a live join still
+ *     waiting for its next consonant.
+ *  8. "Z" is য-ফলা spelled outright — it writes ্য wherever it lands, for the
+ *     positions where the "y" rule below would have gone to য় instead.
+ *
+ * Dictionary-level corrections (e.g. "asi" → আছি rather than আসি) are the
+ * suggestion engine's job, not this transliterator's.
+ */
+object AvroPhonetic {
+
+    private const val HASANT = '্'
+    private const val TA = 'ত'
+    private const val KHANDA_TA = 'ৎ'
+    private const val TA_HASANT = "$TA$HASANT"
+
+    /** Breaks a cluster without writing anything: "k`s" → কস, not ক্স. */
+    private const val BREAKER = '`'
+
+    private enum class Kind { CONSONANT, VOWEL, OTHER }
+
+    /**
+     * @param full independent form (word start or after a vowel)
+     * @param kar vowel-sign form used after a consonant; null means the rule
+     *        is not a vowel
+     */
+    private data class Rule(
+        val match: String,
+        val full: String,
+        val kar: String? = null,
+        val kind: Kind = if (kar != null) Kind.VOWEL else Kind.CONSONANT,
+    )
+
+    private val rules: List<Rule> = buildList {
+        // Vowels — longest patterns first within same prefix handled by sort below.
+        add(Rule("OI", "ঐ", "ৈ"))
+        add(Rule("OU", "ঔ", "ৌ"))
+        add(Rule("rri", "ঋ", "ৃ"))
+        add(Rule("a", "আ", "া"))
+        add(Rule("A", "আ", "া"))
+        add(Rule("i", "ই", "ি"))
+        add(Rule("I", "ঈ", "ী"))
+        add(Rule("u", "উ", "ু"))
+        add(Rule("U", "ঊ", "ূ"))
+        add(Rule("e", "এ", "ে"))
+        add(Rule("E", "এ", "ে"))
+        add(Rule("O", "ও", "ো"))
+        // "o" handled specially in transliterate().
+
+        // Common fixed conjuncts spelled by digraph in Avro (longest match wins).
+        add(Rule("kkh", "ক্ষ")) // লক্ষ, ক্ষমা — "kkh" is the conventional key
+
+        // Aspirated / two-letter consonants first (longest match wins).
+        add(Rule("kh", "খ"))
+        add(Rule("gh", "ঘ"))
+        add(Rule("Ng", "ঙ"))
+        add(Rule("ch", "ছ"))
+        add(Rule("jh", "ঝ"))
+        add(Rule("NG", "ঞ"))
+        add(Rule("Th", "ঠ"))
+        add(Rule("Dh", "ঢ"))
+        add(Rule("th", "থ"))
+        add(Rule("dh", "ধ"))
+        add(Rule("ph", "ফ"))
+        add(Rule("bh", "ভ"))
+        add(Rule("sh", "শ"))
+        add(Rule("Sh", "ষ"))
+        add(Rule("Rh", "ঢ়"))
+        add(Rule("ng", "ং"))
+
+        // Single consonants.
+        add(Rule("k", "ক"))
+        add(Rule("g", "গ"))
+        add(Rule("c", "চ"))
+        add(Rule("j", "জ"))
+        add(Rule("T", "ট"))
+        add(Rule("D", "ড"))
+        add(Rule("N", "ণ"))
+        add(Rule("t", "ত"))
+        add(Rule("d", "দ"))
+        add(Rule("n", "ন"))
+        add(Rule("p", "প"))
+        add(Rule("f", "ফ"))
+        add(Rule("b", "ব"))
+        add(Rule("v", "ভ"))
+        add(Rule("m", "ম"))
+        add(Rule("z", "য"))
+        add(Rule("r", "র"))
+        add(Rule("l", "ল"))
+        add(Rule("S", "শ"))
+        add(Rule("s", "স"))
+        add(Rule("h", "হ"))
+        add(Rule("R", "ড়"))
+        // "y"/"Y" are context-sensitive (jofola vs য়), handled in transliterate().
+        add(Rule("w", "ও", "ো"))
+        add(Rule("x", "ক্স"))
+
+        // Signs and digits.
+        add(Rule(":", "ঃ", null, Kind.OTHER))
+        add(Rule("^", "ঁ", null, Kind.OTHER))
+        add(Rule(",,", HASANT.toString(), null, Kind.OTHER))
+        add(Rule("..", ".", null, Kind.OTHER))
+        add(Rule(".", "।", null, Kind.OTHER))
+        add(Rule("$", "৳", null, Kind.OTHER))
+        "0123456789".forEachIndexed { index, digit ->
+            add(Rule(digit.toString(), ('০' + index).toString(), null, Kind.OTHER))
+        }
+    }.sortedByDescending { it.match.length }
+
+    /**
+     * Rules bucketed by their first character. A rule can only match at
+     * position `i` when its first char equals `input[i]`, so a per-char scan
+     * need only test its own bucket — ~1-3 rules — instead of the whole ~90.
+     * [rules] is already length-descending, and [groupBy] preserves order, so
+     * each bucket stays length-descending: the first prefix match is still the
+     * greedy longest match, identical to scanning the full list.
+     */
+    private val rulesByFirstChar: Map<Char, List<Rule>> = rules.groupBy { it.match[0] }
+
+    /** Longest rule whose match is a prefix of [input] at [at], or null. */
+    private fun ruleAt(input: String, at: Int): Rule? {
+        if (at >= input.length) return null
+        val bucket = rulesByFirstChar[input[at]] ?: return null
+        return bucket.firstOrNull { input.startsWith(it.match, at) }
+    }
+
+    /** Transliterates one romanized word (or free text) into Bengali script. */
+    fun transliterate(input: String): String {
+        val out = StringBuilder()
+        var prev = Kind.OTHER
+        // Whether the last vowel rendered a visible glyph (kar or independent
+        // letter). An "a" right after such a vowel glides with য়; only the
+        // silent inherent "o" leaves আ independent ("kuroan" → কুরআন).
+        var prevVowelGlyph = false
+        // Set by a backquote, cleared by whatever it precedes: the one join
+        // that does not happen. Only the join — a kar after the break still
+        // attaches, since a vowel was never what the breaker was aimed at.
+        var breakJoin = false
+        var i = 0
+        while (i < input.length) {
+            if (input[i] == BREAKER) {
+                // A ত whose join has just been taken away is ৎ, which is what
+                // makes "hoThat`" the spelling for হঠাৎ. Both the plain ত and
+                // the explicit-hasant "t,," spelling collapse the same way.
+                when {
+                    out.endsWith(TA_HASANT) -> {
+                        out.setLength(out.length - 2)
+                        out.append(KHANDA_TA)
+                        prev = Kind.OTHER
+                    }
+                    out.lastOrNull() == TA && prev == Kind.CONSONANT -> {
+                        out.setLength(out.length - 1)
+                        out.append(KHANDA_TA)
+                        // ৎ carries its own hasant, so nothing conjuncts onto
+                        // it and no kar can sit on it either.
+                        prev = Kind.OTHER
+                    }
+                    else -> breakJoin = true
+                }
+                prevVowelGlyph = false
+                i++
+                continue
+            }
+            // Inherent vowel: silent between consonants, অ at word start, ো at word end.
+            if (input[i] == 'o' && !input.startsWith("oo", i)) {
+                val atWordEnd = i == input.length - 1 || !input[i + 1].isLetter()
+                val afterConjunct = out.length >= 2 && out[out.length - 2] == HASANT
+                when {
+                    prev == Kind.CONSONANT && atWordEnd && !afterConjunct -> out.append('ো')
+                    prev == Kind.CONSONANT -> Unit // inherent vowel, no glyph
+                    else -> out.append('অ')
+                }
+                prevVowelGlyph = prev != Kind.CONSONANT || (atWordEnd && !afterConjunct)
+                prev = Kind.VOWEL
+                i++
+                continue
+            }
+            if (input.startsWith("oo", i)) {
+                out.append(if (prev == Kind.CONSONANT) "ু" else "উ")
+                prev = Kind.VOWEL
+                prevVowelGlyph = true
+                i += 2
+                continue
+            }
+
+            // "a" right after a rendered vowel glides with য় — "kiamot" → কিয়ামত,
+            // "piano" → পিয়ানো, "dea" → দেয়া — matching pronunciation.
+            // After an inherent (silent) vowel the independent আ survives
+            // ("kuroan" → কুরআন), and a capital "A" always stays explicit আ.
+            if (input[i] == 'a' && prev == Kind.VOWEL && prevVowelGlyph) {
+                out.append("য়া") // U+09DF (precomposed) + U+09BE
+                prev = Kind.VOWEL
+                prevVowelGlyph = true
+                i++
+                continue
+            }
+
+            // "y": jofola (্য) after a consonant — "shyam" → শ্যাম — and
+            // য় elsewhere (word start, after a vowel) — "meye" → মেয়ে.
+            // "Y" is always য় and never joins the running cluster, so য়
+            // itself stays reachable right after a consonant ("kY" → কয়).
+            // "Z" is the mirror of "Y": always jofola, including the positions
+            // where the "y" rule would have gone to য় instead.
+            if (input[i] == 'y' || input[i] == 'Y' || input[i] == 'Z') {
+                if (input[i] == 'Z' || (input[i] == 'y' && prev == Kind.CONSONANT && !breakJoin)) {
+                    out.append(HASANT).append('য')
+                } else {
+                    out.append('য়')
+                }
+                prev = Kind.CONSONANT
+                prevVowelGlyph = false
+                breakJoin = false
+                i++
+                continue
+            }
+
+            // "rr" is reph: a single র that conjuncts with the following
+            // consonant ("borrno" → বর্ন), not a doubled র্র. "rri" (ঋ) has
+            // already priority, and with no consonant following, "rr" falls
+            // through to the plain r-rule.
+            if (input.startsWith("rr", i) && !input.startsWith("rri", i)) {
+                val next = ruleAt(input, i + 2)
+                val joinsConsonant = next?.kind == Kind.CONSONANT ||
+                    (i + 2 < input.length && input[i + 2] == 'y')
+                if (joinsConsonant) {
+                    if (prev == Kind.CONSONANT && !breakJoin) out.append(HASANT)
+                    out.append('র')
+                    prev = Kind.CONSONANT
+                    prevVowelGlyph = false
+                    breakJoin = false
+                    i += 2
+                    continue
+                }
+            }
+
+            val rule = ruleAt(input, i)
+            if (rule == null) {
+                out.append(input[i])
+                prev = Kind.OTHER
+                prevVowelGlyph = false
+                breakJoin = false
+                i++
+                continue
+            }
+            when (rule.kind) {
+                Kind.VOWEL -> {
+                    out.append(if (prev == Kind.CONSONANT) rule.kar else rule.full)
+                    prevVowelGlyph = true
+                }
+                Kind.CONSONANT -> {
+                    if (prev == Kind.CONSONANT && !breakJoin) out.append(HASANT)
+                    out.append(rule.full)
+                    prevVowelGlyph = false
+                }
+                Kind.OTHER -> {
+                    out.append(rule.full)
+                    prevVowelGlyph = false
+                }
+            }
+            prev = rule.kind
+            breakJoin = false
+            i += rule.match.length
+        }
+        return collapseFinalKhandaTa(out)
+    }
+
+    /**
+     * Turns every word-final ত্ into ৎ, which is the whole of what khanda-ta
+     * is. Word-final because that is the only place the sequence can be
+     * meant: a hasant anywhere else is a join that its next consonant has not
+     * arrived for yet, and mid-word "ত্" is one keystroke away from ত্র or
+     * ত্ব. Done over the finished string rather than at the point the hasant
+     * is written, since "is this the end of the word" is only knowable once
+     * the next character is (or is not) there.
+     */
+    private fun collapseFinalKhandaTa(out: StringBuilder): String {
+        var at = out.indexOf(TA_HASANT)
+        while (at >= 0) {
+            val after = at + 2
+            if (after >= out.length || !out[after].isLetter()) {
+                out.setCharAt(at, KHANDA_TA)
+                out.deleteCharAt(at + 1)
+            }
+            at = out.indexOf(TA_HASANT, at + 1)
+        }
+        return out.toString()
+    }
+}

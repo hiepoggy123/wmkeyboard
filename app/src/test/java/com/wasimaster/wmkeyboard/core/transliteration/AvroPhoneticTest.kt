@@ -136,6 +136,45 @@ class AvroPhoneticTest {
         assertEquals("কয়া", t("kYa"))
     }
 
+    @Test fun backquoteBreaksTheCluster() {
+        // Without it two consonants conjunct; with it they stand apart.
+        assertEquals("ক্স", t("ks"))
+        assertEquals("কস", t("k`s"))
+        assertEquals("বন্ধু", t("bondhu"))
+        assertEquals("বনধু", t("bon`dhu"))
+        // Only the join is broken: a kar after the break still attaches, and
+        // so does jofola's fallback to য়.
+        assertEquals("কি", t("k`i"))
+        assertEquals("কয়া", t("k`ya"))
+    }
+
+    @Test fun khandaTa() {
+        // A ত with its join taken off is exactly ৎ, so the backquote spells it.
+        assertEquals("হঠাৎ", t("hoThat`"))
+        // ...and so does the explicit hasant, collapsed at the word end.
+        assertEquals("হঠাৎ", t("hoThat,,"))
+        // Word-final, not merely string-final.
+        assertEquals("হঠাৎ আমি", t("hoThat,, ami"))
+        assertEquals("হঠাৎ।", t("hoThat,,."))
+        // A hasant with a consonant after it is a live join, not khanda-ta.
+        assertEquals("সত্য", t("sotyo"))
+        assertEquals("ত্ব", t("t,,b"))
+        // Only ত collapses.
+        assertEquals("ক্", t("k,,"))
+    }
+
+    @Test fun jofolaViaCapitalZ() {
+        // "Z" is jofola outright, wherever it lands...
+        assertEquals("্য", t("Z"))
+        assertEquals("প্যা", t("poZa"))
+        // ...including where "y" would have produced the same thing.
+        assertEquals("সত্য", t("sotZo"))
+        assertEquals("সত্য", t("sotyo"))
+        // The difference is after a vowel, where "y" falls back to য়.
+        assertEquals("আয়", t("ay"))
+        assertEquals("আ্য", t("aZ"))
+    }
+
     @Test fun mixedTextPassesThrough() {
         assertEquals("ওকে!", t("OkE!"))
     }

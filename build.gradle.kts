@@ -1,6 +1,7 @@
 // Top-level build file where you can add configuration options common to all sub-projects/modules.
 plugins {
     alias(libs.plugins.android.application) apply false
+    alias(libs.plugins.android.library) apply false
     alias(libs.plugins.kotlin.compose) apply false
     alias(libs.plugins.kotlin.serialization) apply false
     // Applied per-module rather than through `subprojects {}` so each project
@@ -29,4 +30,18 @@ tasks.register("staticAnalysis") {
         ":app:detektLiteDebug",
         ":app:detektFullDebugUnitTest",
     )
+    // Per-module detekt (registered by the wmkeyboard.detekt convention
+    // plugin): each module analyses its own sources against its own compile
+    // classpath. :core:config is absent — it has no Kotlin sources. Lite
+    // passes only where lite compiles different code (flavored modules);
+    // everywhere else the two variants' sources are identical.
+    val detektModules = listOf(
+        ":core:common", ":core:language", ":core:input", ":core:prediction",
+        ":core:emoji", ":core:theme", ":core:icons", ":core:tools",
+        ":core:content", ":core:addons", ":core:voice", ":core:settings",
+        ":core:feedback", ":core:plugins", ":core:intelligence",
+        ":feature:tools", ":feature:addons", ":feature:ime",
+    )
+    dependsOn(detektModules.map { "$it:detektFullDebug" })
+    dependsOn(listOf(":core:voice", ":core:intelligence", ":feature:ime").map { "$it:detektLiteDebug" })
 }

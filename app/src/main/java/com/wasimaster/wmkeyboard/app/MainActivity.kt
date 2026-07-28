@@ -294,11 +294,11 @@ class MainActivity : ComponentActivity() {
          * (tool long-press, "needs an API key" panels) to jump straight
          * to that tool's settings page.
          */
-        const val EXTRA_OPEN_TOOL = "open_tool"
+        const val EXTRA_OPEN_TOOL = MainActivityContract.EXTRA_OPEN_TOOL
         /**
          * Intent extra with a specific settings route string (e.g., "themes").
          */
-        const val EXTRA_OPEN_ROUTE = "open_route"
+        const val EXTRA_OPEN_ROUTE = MainActivityContract.EXTRA_OPEN_ROUTE
     }
 
     private lateinit var repository: SettingsRepository
@@ -8401,6 +8401,7 @@ private const val AUTO_INCOGNITO_INFO =
         "incognito switches on for it and the incognito badge appears next to the " +
         "toolbar; leaving the field restores normal typing. Apps that never send the " +
         "flag can't be detected, so this can't cover private modes that don't use it."
+
 
 @Composable
 private fun PrivacySettings(repository: SettingsRepository, settings: KeyboardSettings) {

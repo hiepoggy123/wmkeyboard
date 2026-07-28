@@ -1104,7 +1104,8 @@ internal fun AddonDetailScreen(
         }
     }
 
-    val tooOld = entry.minAppVersion != null && entry.minAppVersion > BuildConfig.VERSION_CODE
+    val minAppVersion = entry.minAppVersion
+    val tooOld = minAppVersion != null && minAppVersion > BuildConfig.VERSION_CODE
     if (tooOld) {
         CaptionText("This addon needs a newer version of WM Keyboard.")
     }

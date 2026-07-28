@@ -1,0 +1,156 @@
+package com.wasimaster.wmkeyboard.core.settings
+
+import com.wasimaster.wmkeyboard.config.BuildConfig
+
+// Extracted from SettingsRepository.kt so the low-level modules (icons, tools,
+// media) can reference these types without depending on the settings module —
+// same package, different Gradle module (:core:common).
+
+/**
+ * How media is offered to the target app through commitContent.
+ *
+ * There is no "sticker" flag in the platform API — the only signal is the
+ * MIME type, and the receiving app decides. [STICKER] means "prefer a
+ * sticker MIME where the field advertises one"; apps that don't get a
+ * normal image instead. See [MediaMime].
+ */
+enum class MediaSendMode { IMAGE, STICKER }
+
+
+/**
+ * A tool that can live on the top toolbar. Tools not in
+ * [KeyboardSettings.toolbarTools] wait in the toolbox panel; the user drags
+ * them between the two while the toolbox is open (Gboard style). Tools not
+ * in [KeyboardSettings.enabledTools] are hidden everywhere.
+ */
+enum class ToolbarTool {
+    EMOJI, CLIPBOARD, SNIPPETS, TEXT_EDIT, ONE_HANDED, SPLIT, FLOATING, SETTINGS,
+    FLASHLIGHT, COMPASS, LEVEL, UNDO, REDO, MOON_PHASE, WEATHER, CALENDAR,
+    INCOGNITO, THEMES, AUTOCORRECT, SOUND_HAPTICS, NUMPAD, HANDWRITING, CAMERA,
+    DICTIONARY, TRANSLATE, GIF, STICKER, WEB_SEARCH, IMAGE_SEARCH,
+    OCR, QR_SCAN, DOC_SCAN, VOICE, GRAMMAR,
+    WIKIPEDIA, SYMBOLS, CALCULATOR, UNIT_CONVERT, CURRENCY, QR_GEN, PASSWORD_GEN, AI,
+    MODES, TYPING_TEST, MEDIA_CONTROL, PLUGINS, POWER_SAVING,
+    // One-tap cursor moves. The text-edit panel already offers these, but on
+    // the toolbar they cost a single tap instead of opening a panel first.
+    CURSOR_LEFT, CURSOR_RIGHT, CURSOR_UP, CURSOR_DOWN,
+    CURSOR_HOME, CURSOR_END, PAGE_UP, PAGE_DOWN,
+    // Move by whole words (Ctrl+Arrow), and select the word or line at the cursor.
+    CURSOR_WORD_LEFT, CURSOR_WORD_RIGHT, SELECT_WORD, SELECT_LINE,
+    // Dismiss the keyboard in one tap. Grouped with the cursor moves in the
+    // toolbox (it belongs beside the caret controls, not a panel it opens).
+    HIDE_KEYBOARD,
+}
+
+/** The cursor tools, in the order they read on the toolbar. */
+val CursorTools: List<ToolbarTool> = listOf(
+    ToolbarTool.CURSOR_LEFT, ToolbarTool.CURSOR_RIGHT,
+    ToolbarTool.CURSOR_WORD_LEFT, ToolbarTool.CURSOR_WORD_RIGHT,
+    ToolbarTool.CURSOR_UP, ToolbarTool.CURSOR_DOWN,
+    ToolbarTool.CURSOR_HOME, ToolbarTool.CURSOR_END,
+    ToolbarTool.PAGE_UP, ToolbarTool.PAGE_DOWN,
+    ToolbarTool.SELECT_WORD, ToolbarTool.SELECT_LINE,
+)
+
+/**
+ * Tools that still work during direct boot — before the user has ever unlocked
+ * the device, when the keyboard has no credential-encrypted storage, no
+ * personal data, and (usually) no network.
+ *
+ * The rule is what a tool *reads*, not what it looks like: anything backed by a
+ * file under `filesDir` (clipboard, snippets, stickers, camera shots, the
+ * downloaded speech and LLM models, ML Kit's models), anything that needs a
+ * credential the mirror deliberately does not carry (translate, the searches,
+ * AI), anything that queries a content provider behind the lock (calendar), and
+ * anything that has to start an activity (the settings app, the document
+ * scanner) is out. What is left is arithmetic, sensors, and the keyboard's own
+ * controls — which is roughly what anyone wants from a lock screen anyway.
+ */
+fun isDirectBootSafeTool(tool: ToolbarTool): Boolean = when (tool) {
+    ToolbarTool.EMOJI, ToolbarTool.TEXT_EDIT, ToolbarTool.NUMPAD, ToolbarTool.SYMBOLS,
+    ToolbarTool.ONE_HANDED, ToolbarTool.SPLIT, ToolbarTool.FLOATING, ToolbarTool.HIDE_KEYBOARD,
+    ToolbarTool.THEMES, ToolbarTool.AUTOCORRECT, ToolbarTool.SOUND_HAPTICS, ToolbarTool.INCOGNITO,
+    ToolbarTool.MODES, ToolbarTool.UNDO, ToolbarTool.REDO, ToolbarTool.POWER_SAVING,
+    ToolbarTool.CALCULATOR, ToolbarTool.UNIT_CONVERT, ToolbarTool.PASSWORD_GEN, ToolbarTool.QR_GEN,
+    ToolbarTool.FLASHLIGHT, ToolbarTool.COMPASS, ToolbarTool.LEVEL, ToolbarTool.MOON_PHASE,
+    -> true
+    // The cursor moves only touch the input connection.
+    else -> tool in CursorTools
+}
+
+fun isSupportedTool(tool: ToolbarTool): Boolean = when {
+    !BuildConfig.ENABLE_ML_KIT_HANDWRITING && tool == ToolbarTool.HANDWRITING -> false
+    !BuildConfig.ENABLE_ML_KIT_SCANNERS && tool in setOf(
+        ToolbarTool.OCR, ToolbarTool.QR_SCAN, ToolbarTool.DOC_SCAN
+    ) -> false
+    !BuildConfig.ENABLE_GRAMMAR && tool == ToolbarTool.GRAMMAR -> false
+    else -> true
+}
+
+
+/**
+ * Toolbox order until the user rearranges it: what most people reach for
+ * most often comes first (expressive media, then everyday text helpers,
+ * then keyboard tweaks, then the specialty and novelty tools). A tool
+ * missing from the ranked list still shows — appended at the end — so
+ * forgetting to rank a new tool is cosmetic, never a disappearance.
+ */
+private val RankedToolOrder: List<ToolbarTool> = listOf(
+    ToolbarTool.EMOJI, ToolbarTool.GIF, ToolbarTool.STICKER, ToolbarTool.CLIPBOARD,
+    ToolbarTool.VOICE, ToolbarTool.TRANSLATE, ToolbarTool.SNIPPETS, ToolbarTool.TEXT_EDIT,
+    ToolbarTool.UNDO, ToolbarTool.REDO,
+    ToolbarTool.SETTINGS, ToolbarTool.THEMES,
+    ToolbarTool.WEB_SEARCH, ToolbarTool.IMAGE_SEARCH, ToolbarTool.DICTIONARY, ToolbarTool.CALCULATOR,
+    ToolbarTool.MEDIA_CONTROL,
+    ToolbarTool.AI, ToolbarTool.GRAMMAR, ToolbarTool.PLUGINS, ToolbarTool.TYPING_TEST,
+    ToolbarTool.NUMPAD, ToolbarTool.ONE_HANDED,
+    ToolbarTool.SPLIT, ToolbarTool.FLOATING, ToolbarTool.INCOGNITO, ToolbarTool.AUTOCORRECT,
+    ToolbarTool.SOUND_HAPTICS, ToolbarTool.POWER_SAVING,
+    ToolbarTool.MODES, ToolbarTool.OCR, ToolbarTool.QR_SCAN,
+    ToolbarTool.QR_GEN, ToolbarTool.DOC_SCAN, ToolbarTool.CAMERA, ToolbarTool.HANDWRITING,
+    ToolbarTool.SYMBOLS, ToolbarTool.UNIT_CONVERT, ToolbarTool.CURRENCY, ToolbarTool.PASSWORD_GEN,
+    ToolbarTool.WIKIPEDIA, ToolbarTool.CALENDAR, ToolbarTool.WEATHER, ToolbarTool.FLASHLIGHT,
+    ToolbarTool.COMPASS, ToolbarTool.LEVEL, ToolbarTool.MOON_PHASE,
+    // The one-tap cursor moves last: useful, but they would otherwise push
+    // every other tool a full row down in the toolbox.
+    ToolbarTool.CURSOR_LEFT, ToolbarTool.CURSOR_RIGHT,
+    ToolbarTool.CURSOR_WORD_LEFT, ToolbarTool.CURSOR_WORD_RIGHT,
+    ToolbarTool.CURSOR_UP, ToolbarTool.CURSOR_DOWN,
+    ToolbarTool.CURSOR_HOME, ToolbarTool.CURSOR_END, ToolbarTool.PAGE_UP, ToolbarTool.PAGE_DOWN,
+    ToolbarTool.SELECT_WORD, ToolbarTool.SELECT_LINE,
+    ToolbarTool.HIDE_KEYBOARD,
+)
+
+val DefaultToolOrder: List<ToolbarTool> =
+    RankedToolOrder + (ToolbarTool.entries - RankedToolOrder.toSet())
+
+/**
+ * The tools pinned to the toolbar out of the box, and what "Reset pinned
+ * tools" restores — global or, when a mode owns the tool order, for that mode.
+ */
+val DefaultToolbarTools: List<ToolbarTool> =
+    listOf(ToolbarTool.EMOJI, ToolbarTool.CLIPBOARD, ToolbarTool.SETTINGS)
+
+/**
+ * The onboarding wizard's starting selection: the everyday tools most people
+ * actually use, leaving the specialty ones (sensors, scanners, generators)
+ * off until asked for. Only a default — the wizard page and the Tools
+ * settings both toggle from here.
+ */
+val RecommendedTools: Set<ToolbarTool> = setOf(
+    ToolbarTool.EMOJI, ToolbarTool.GIF, ToolbarTool.STICKER, ToolbarTool.CLIPBOARD,
+    ToolbarTool.VOICE, ToolbarTool.TRANSLATE, ToolbarTool.SNIPPETS, ToolbarTool.TEXT_EDIT,
+    ToolbarTool.UNDO, ToolbarTool.REDO, ToolbarTool.SETTINGS, ToolbarTool.THEMES,
+    ToolbarTool.WEB_SEARCH, ToolbarTool.DICTIONARY, ToolbarTool.CALCULATOR, ToolbarTool.ONE_HANDED,
+    ToolbarTool.MEDIA_CONTROL,
+)
+
+
+/**
+ * Colour-vision correction applied to the whole resolved keyboard palette.
+ * The three dichromacies daltonize (redistribute the hues that eye cannot
+ * separate); [GRAYSCALE] strips colour entirely, which both helps monochromacy
+ * and makes any luminance-contrast failure in a theme immediately visible.
+ */
+enum class ColorVisionFilter { NONE, DEUTERANOPIA, PROTANOPIA, TRITANOPIA, GRAYSCALE }
+

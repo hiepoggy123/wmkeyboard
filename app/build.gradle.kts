@@ -166,12 +166,8 @@ android {
         // paths were removed from the DSL.
     }
 
-    sourceSets {
-        // Lite builds exclude native libraries (Harper grammar, ~20 MB per ABI).
-        getByName("lite") {
-            jniLibs.directories.clear()
-        }
-    }
+    // The Harper native libraries live in :core:intelligence under src/full/jniLibs,
+    // so lite builds exclude them by construction — no source-set surgery needed here.
 }
 
 // Compiles dictionaries-src/*.txt into assets/dictionaries/*.wmdict via the
@@ -256,6 +252,18 @@ kotlin {
 // The plain `detekt` task is source-only and much weaker; it stays available
 // for a fast pass but is not what `staticAnalysis` runs.
 // ---------------------------------------------------------------------------
+// Library-module *test* sources, analysed by this module's unit-test detekt
+// task below. Main sources are NOT swept from here — each module's own
+// wmkeyboard.detekt plugin analyses them against that module's classpath.
+// (Analysing module sources with the app's classpath makes detekt see those
+// classes as both source and binary, which fabricates UnreachableCode
+// findings.) Test sources are safe to sweep: they are never packaged into a
+// jar on this classpath.
+val moduleTestSrc = listOf(
+    "../core/language", "../core/tools", "../core/emoji",
+    "../core/intelligence", "../feature/tools", "../feature/ime",
+).map { "$it/src/test/java" } + listOf("../core/intelligence/src/testFull/java")
+
 detekt {
     toolVersion = libs.versions.detekt.get()
     config.setFrom(rootProject.file("config/detekt/detekt.yml"))
@@ -361,8 +369,8 @@ registerTypeResolvedDetekt(
 
 registerTypeResolvedDetekt(
     taskName = "detektFullDebugUnitTest",
-    description = "Runs detekt with type resolution over the unit tests.",
-    sourceDirs = listOf("src/test/java", "src/testFull/java"),
+    description = "Runs detekt with type resolution over the unit tests, including the library modules'.",
+    sourceDirs = listOf("src/test/java", "src/testFull/java") + moduleTestSrc,
     compileTaskName = "compileFullDebugUnitTestKotlin",
     extraClasspath = listOf("tmp/kotlin-classes/fullDebug"),
 )
@@ -391,6 +399,30 @@ dependencies {
     // recomposition bugs, and none of them are visible to the type checker.
     lintChecks(libs.compose.lint.checks)
 
+    // Feature modules. Their build files declare project dependencies with
+    // `api`, so :feature:ime alone would reach every :core:* transitively —
+    // the explicit list is for the unit tests in src/test, which compile
+    // against classes from every layer.
+    implementation(project(":core:config"))
+    implementation(project(":core:common"))
+    implementation(project(":core:language"))
+    implementation(project(":core:input"))
+    implementation(project(":core:prediction"))
+    implementation(project(":core:emoji"))
+    implementation(project(":core:theme"))
+    implementation(project(":core:icons"))
+    implementation(project(":core:tools"))
+    implementation(project(":core:content"))
+    implementation(project(":core:addons"))
+    implementation(project(":core:voice"))
+    implementation(project(":core:settings"))
+    implementation(project(":core:feedback"))
+    implementation(project(":core:plugins"))
+    implementation(project(":core:intelligence"))
+    implementation(project(":feature:tools"))
+    implementation(project(":feature:addons"))
+    implementation(project(":feature:ime"))
+
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
     implementation(libs.androidx.activity.compose)
@@ -399,51 +431,23 @@ dependencies {
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
-    implementation(libs.androidx.compose.ui.text.google.fonts)
     implementation(libs.androidx.compose.material.icons)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.lifecycle.runtime.compose)
-    implementation(libs.androidx.savedstate)
-    implementation(libs.androidx.datastore.preferences)
-    implementation(libs.androidx.emoji2)
-    implementation(libs.androidx.autofill)
     implementation(libs.androidx.navigation.compose)
-    implementation(libs.androidx.camera.core)
-    implementation(libs.androidx.camera.camera2)
-    implementation(libs.androidx.camera.lifecycle)
-    implementation(libs.androidx.camera.view)
+    // The language-settings screens edit DataStore Preferences directly.
+    implementation(libs.androidx.datastore.preferences)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kotlinx.coroutines.android)
-
-    // ML Kit features (full flavor only)
-    "fullImplementation"(libs.mlkit.digital.ink)
-    "fullImplementation"(libs.mlkit.text.recognition)
-    "fullImplementation"(libs.mlkit.barcode.scanning)
-    "fullImplementation"(libs.mlkit.document.scanner)
-
-    // On-device LLM runtime (full flavor only)
-    "fullImplementation"(libs.litertlm.android)
-
-    // On-device Whisper speech-to-text runtime (full flavor only). The classic
-    // LiteRT/TF-Lite Interpreter API (org.tensorflow.lite.*) — .tflite Whisper
-    // graphs run the full decode internally via named signatures.
-    "fullImplementation"(libs.litert)
-
     implementation(libs.coil.compose)
-    implementation(libs.coil.gif)
-    implementation(libs.coil.network.okhttp)
-    implementation(libs.zxing.core)
-
-    // The plugin sandbox. Both flavors: it is a small pure-JVM interpreter with
-    // no native code and no transitive dependencies, so there is nothing for
-    // "lite" to save by leaving it out.
-    implementation(libs.luaj.jse)
 
     debugImplementation(libs.androidx.compose.ui.tooling)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
+    // The plugin tests drive the Lua sandbox through luaj types directly.
+    testImplementation(libs.luaj.jse)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))

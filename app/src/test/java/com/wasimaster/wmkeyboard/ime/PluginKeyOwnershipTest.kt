@@ -30,11 +30,11 @@ class PluginKeyOwnershipTest {
     }
 
     private val serviceSource: String by lazy {
-        source("src/main/java/com/wasimaster/wmkeyboard/ime/WMKeyboardService.kt")
+        source("../feature/ime/src/main/java/com/wasimaster/wmkeyboard/ime/WMKeyboardService.kt")
     }
 
     private val screenSource: String by lazy {
-        source("src/main/java/com/wasimaster/wmkeyboard/ime/ui/KeyboardScreen.kt")
+        source("../feature/ime/src/main/java/com/wasimaster/wmkeyboard/ime/ui/KeyboardScreen.kt")
     }
 
     /**

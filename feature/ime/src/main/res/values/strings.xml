@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      OS subtype label when "app name first" is on. The framework substitutes
+      %s with the subtype's locale display name, giving e.g. "WM Keyboard · English".
+      Lives in :feature:ime because only WMKeyboardService reads it.
+    -->
+    <string name="subtype_app_label">WM Keyboard · %s</string>
+</resources>
