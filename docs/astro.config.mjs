@@ -2,8 +2,12 @@
 import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
 import { unified } from '@astrojs/markdown-remark';
+import sitemap from '@astrojs/sitemap';
 import starlightImageZoom from 'starlight-image-zoom';
 import starlightLinksValidator from 'starlight-links-validator';
+import starlightThemeBlack from 'starlight-theme-black';
+
+import { SITE_DESCRIPTION, SITE_TITLE, SITE_URL } from './src/site.mjs';
 
 // Link validation is opt-in (`npm run check`) so half-written pages never
 // block the dev loop. CI should run `npm run check`.
@@ -12,9 +16,23 @@ if (process.env.CHECK_LINKS) {
 	plugins.push(starlightLinksValidator({ errorOnRelativeLinks: true }));
 }
 
+// starlight-theme-black appends its stylesheets after `customCss`, so it owns
+// the `--sl-color-*` palette and the fonts (Geist). Keep it last so it also
+// wins over the other plugins' styles.
+plugins.push(
+	starlightThemeBlack({
+		navLinks: [
+			{ label: 'Get started', link: '/start/installation/' },
+			{ label: 'Reference', link: '/reference/settings/' },
+			{ label: 'Development', link: '/development/building/' },
+		],
+		// Drops the "Copy page" / "open in an AI chat" control from page titles.
+		docs: { showMarkdownActions: false },
+	})
+);
+
 export default defineConfig({
-	// TODO: set the final URL before deploying (needed for correct og: tags & sitemap).
-	site: 'https://wmkeyboard.pages.dev',
+	site: SITE_URL,
 	markdown: {
 		// starlight-image-zoom doesn't support Astro 7's Sätteri processor yet:
 		// https://github.com/HiDeoo/starlight-image-zoom/issues/63
@@ -27,12 +45,11 @@ export default defineConfig({
 	},
 	integrations: [
 		starlight({
-			title: 'WM Keyboard',
-			description:
-				'A modern, privacy-first Android keyboard — offline intelligence, 350+ languages, themes, tools and an addon ecosystem.',
+			title: SITE_TITLE,
+			description: SITE_DESCRIPTION,
 			logo: {
 				src: './src/assets/logo-mark.png',
-				alt: 'WM Keyboard',
+				alt: SITE_TITLE,
 			},
 			favicon: '/favicon.png',
 			social: [
@@ -43,13 +60,18 @@ export default defineConfig({
 				baseUrl: 'https://github.com/wasi-master/wmkeyboard/edit/main/docs/',
 			},
 			lastUpdated: true,
-			customCss: [
-				'@fontsource-variable/inter',
-				'@fontsource-variable/jetbrains-mono',
-				'./src/styles/custom.css',
-			],
+			// starlight-theme-black loads Geist and points --sl-font at it, so
+			// the Inter/JetBrains imports that used to live here would only ship
+			// bytes nothing renders with.
+			customCss: ['./src/styles/custom.css'],
 			components: {
-				// Room to grow: swap in overrides here (e.g. Hero, Footer) when needed.
+				// Head and PageTitle wrap starlight-theme-black's own override
+				// rather than replacing it — the theme skips (and warns about)
+				// any component we've already claimed here. Sidebar genuinely
+				// replaces the theme's, which can't nest or collapse.
+				Head: './src/components/Head.astro',
+				PageTitle: './src/components/PageTitle.astro',
+				Sidebar: './src/components/Sidebar.astro',
 			},
 			plugins,
 			sidebar: [
@@ -111,6 +133,18 @@ export default defineConfig({
 					items: [{ autogenerate: { directory: 'development', collapsed: true } }],
 				},
 			],
+		}),
+		sitemap({
+			// The 404 page has nothing to index.
+			filter: (page) => !page.endsWith('/404/'),
+			changefreq: 'weekly',
+			priority: 0.7,
+			serialize(item) {
+				// The landing page is the entry point; everything else inherits
+				// the defaults above.
+				if (item.url === `${SITE_URL}/`) item.priority = 1.0;
+				return item;
+			},
 		}),
 	],
 });

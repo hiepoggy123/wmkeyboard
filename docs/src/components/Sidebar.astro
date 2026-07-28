@@ -1,0 +1,69 @@
+---
+/**
+ * Same shape as starlight-theme-black's Sidebar override, but pointing at our
+ * own SidebarSublist (collapsible groups, nesting guides, real badges) and with
+ * the scroll position restored across navigations — see the script below.
+ */
+import SidebarPersister from '@astrojs/starlight/components/SidebarPersister.astro';
+
+import SidebarSublist from './SidebarSublist.astro';
+
+const { sidebar } = Astro.locals.starlightRoute;
+---
+
+<SidebarPersister>
+	<SidebarSublist sublist={sidebar} />
+</SidebarPersister>
+
+{/*
+  Starlight already persists sidebar scroll, but it reads and writes
+  `#starlight__sidebar` (`.sidebar-pane`). starlight-theme-black sets that
+  element to `overflow: hidden` and moves scrolling down to `.sidebar-content`,
+  so Starlight only ever saves `scrollTop: 0` and restoring is a no-op — the
+  sidebar jumps back to the top on every navigation. This does the same job
+  against the element that actually scrolls.
+
+  `is:inline` and the placement right after the list matter: it runs before
+  paint, so the sidebar is already in position rather than visibly jumping.
+*/}
+<script is:inline>
+	(() => {
+		const KEY = 'wm-sidebar-scroll';
+		const scroller = document.querySelector('.sidebar-content');
+		// Below this width the sidebar is a collapsed mobile menu, and Starlight
+		// skips restoring for the same reason.
+		if (!scroller || !matchMedia('(min-width: 50em)').matches) return;
+
+		const stored = Number(sessionStorage.getItem(KEY));
+		if (stored > 0) {
+			scroller.scrollTop = stored;
+		}
+
+		// Nothing stored (first visit, or a link opened in a new tab): make sure
+		// the page you're on is actually visible instead of leaving the reader at
+		// the top of a long sidebar.
+		const current = scroller.querySelector('[aria-current="page"]');
+		if (current) {
+			const item = current.getBoundingClientRect();
+			const view = scroller.getBoundingClientRect();
+			if (item.top < view.top || item.bottom > view.bottom) {
+				current.scrollIntoView({ block: 'center' });
+			}
+		}
+
+		const save = () => {
+			try {
+				sessionStorage.setItem(KEY, String(scroller.scrollTop));
+			} catch {}
+		};
+
+		// `visibilitychange` covers same-tab navigation and tab switches without
+		// the back/forward-cache problems `beforeunload` causes; `pagehide` is the
+		// Safari fallback, which doesn't reliably fire the former on navigation.
+		addEventListener('visibilitychange', () => {
+			if (document.visibilityState === 'hidden') save();
+		});
+		addEventListener('pagehide', save);
+		scroller.addEventListener('click', save);
+	})();
+</script>

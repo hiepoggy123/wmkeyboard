@@ -54,22 +54,42 @@ import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
 <CardGrid>
 	<LinkCard
 		title="Install & set up"
-		description="Get the APK, enable the keyboard, and take the two-minute tour."
+		description="Get the APK, enable the keyboard, and pick your languages."
 		href="/start/installation/"
+	/>
+	<LinkCard
+		title="A two-minute tour"
+		description="The strip, the toolbar and the panels, in the order you'll meet them."
+		href="/start/tour/"
+	/>
+	<LinkCard
+		title="Languages & layouts"
+		description="Add languages, switch between them, and edit or build your own layout."
+		href="/languages/overview/"
+	/>
+	<LinkCard
+		title="The tool belt"
+		description="Clipboard, translate, voice, OCR, handwriting and the rest of the panels."
+		href="/tools/overview/"
+	/>
+	<LinkCard
+		title="Suggestions & autocorrect"
+		description="Tune prediction, autocorrect confidence, smart chips and your personal dictionary."
+		href="/smart/suggestions/"
+	/>
+	<LinkCard
+		title="Themes & appearance"
+		description="Material You themes, the theme editor, fonts, icon packs and backgrounds."
+		href="/themes/overview/"
+	/>
+	<LinkCard
+		title="Privacy at a glance"
+		description="What stays on device, what the network is used for, and how to turn it off."
+		href="/privacy/overview/"
 	/>
 	<LinkCard
 		title="Every setting, explained"
 		description="The reference section documents every screen, toggle and slider."
 		href="/reference/settings/"
-	/>
-	<LinkCard
-		title="Build an addon repository"
-		description="Publish themes, layouts, dictionaries and more from any static host."
-		href="/addons/overview/"
-	/>
-	<LinkCard
-		title="Write a Lua plugin"
-		description="A panel, a few buttons, and your own logic — no Android toolchain needed."
-		href="/plugins/getting-started/"
 	/>
 </CardGrid>

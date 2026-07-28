@@ -1,0 +1,68 @@
+---
+/**
+ * Starlight's `<Head>` with the SEO tags handed over to astro-seo.
+ *
+ * Starlight already emits `<title>`, the description and the sitemap link, so
+ * those stay exactly as they were. Its Open Graph set is thin though — there's
+ * no `og:image` at all, and nothing past `twitter:card` for Twitter — which is
+ * what makes shared links look empty. So we strip its `og:*`/`twitter:*` tags
+ * and let astro-seo emit a complete set in their place.
+ *
+ * The canonical link goes the same way: astro-seo always emits one, so we drop
+ * Starlight's and feed astro-seo the href Starlight computed (it's the one that
+ * respects `build.format` and `trailingSlash`) rather than ending up with two.
+ *
+ * starlight-theme-black overrides `Head` too, but steps aside once we claim it.
+ * All its override does is preload Geist, so we do that here instead.
+ */
+import { Font } from 'astro:assets';
+import { SEO } from 'astro-seo';
+import { OG_IMAGE, OG_IMAGE_ALT, SITE_DESCRIPTION, SITE_URL } from '../site.mjs';
+
+const { entry, head, lang, siteTitle } = Astro.locals.starlightRoute;
+
+type HeadTag = (typeof head)[number];
+
+/** Tags astro-seo emits below, dropped here so nothing is declared twice. */
+const isOwnedBySeo = (tag: HeadTag) => {
+	if (tag.tag === 'link') return tag.attrs?.rel === 'canonical';
+	if (tag.tag === 'meta') {
+		return /^(og|twitter):/.test(String(tag.attrs?.property ?? tag.attrs?.name ?? ''));
+	}
+	return false;
+};
+
+const starlightCanonical = head.find(
+	(tag) => tag.tag === 'link' && tag.attrs?.rel === 'canonical'
+)?.attrs?.href;
+
+const site = Astro.site ?? new URL(SITE_URL);
+const canonical = String(starlightCanonical ?? new URL(Astro.url.pathname, site).href);
+const imageUrl = new URL(OG_IMAGE, site).href;
+const description = entry.data.description ?? SITE_DESCRIPTION;
+const title = entry.data.title;
+---
+
+{head.filter((tag) => !isOwnedBySeo(tag)).map(({ tag: Tag, attrs, content }) => (
+	<Tag {...attrs} set:html={content} />
+))}
+
+<Font cssVariable="--font-geist" preload />
+<Font cssVariable="--font-geist-mono" preload />
+
+<SEO
+	canonical={canonical}
+	robotsExtras="max-image-preview:large, max-snippet:-1"
+	openGraph={{
+		basic: { title, type: 'article', image: imageUrl, url: canonical },
+		optional: { description, siteName: siteTitle, locale: lang },
+		image: { alt: OG_IMAGE_ALT, type: 'image/png', width: 1200, height: 630 },
+	}}
+	twitter={{
+		card: 'summary_large_image',
+		title: `${title} | ${siteTitle}`,
+		description,
+		image: imageUrl,
+		imageAlt: OG_IMAGE_ALT,
+	}}
+/>

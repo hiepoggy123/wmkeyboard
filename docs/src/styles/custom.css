@@ -2,44 +2,95 @@
    Brand: launcher gradient #4C8DF6 → #8B5CF6 on deep navy (#191C42). */
 
 :root {
-	--sl-font: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
-	--sl-font-mono: 'JetBrains Mono Variable', ui-monospace, monospace;
-
 	/* Brand stops, usable anywhere. */
 	--wm-blue: #4c8df6;
 	--wm-violet: #8b5cf6;
 	--wm-gradient: linear-gradient(135deg, var(--wm-blue), var(--wm-violet));
 }
 
-/* Dark theme (default). Navy-tinted grays, brand accent. */
-:root {
+/* The `--sl-color-*` palette and the fonts come from starlight-theme-black
+   (configured in astro.config.mjs). Its stylesheets are appended after this file,
+   so a plain `:root` block here would simply lose. The doubled `:root:root`
+   selector below outweighs the theme's `:root` no matter which sheet lands first. */
+
+/* starlight-theme-black maps `--sl-color-accent` onto `--border`, a near-black
+   grey. That silently kills every accent in our own components: the gear in the
+   settings-path chip, the gesture trails, the highlighted language names and the
+   selected swatch outlines all render as dark-on-dark. Point the accent back at
+   the brand blue so those read again. */
+:root:root {
 	--sl-color-accent-low: #232a63;
 	--sl-color-accent: #6c74f6;
 	--sl-color-accent-high: #c8d3ff;
-	--sl-color-white: #ffffff;
-	--sl-color-gray-1: #edeefb;
-	--sl-color-gray-2: #c2c4d7;
-	--sl-color-gray-3: #8b8fae;
-	--sl-color-gray-4: #575b7c;
-	--sl-color-gray-5: #383c58;
-	--sl-color-gray-6: #24263e;
-	--sl-color-black: #17182b;
+
+	/* The theme's own content column is 40rem, tighter than Starlight's 45rem. */
+	--sl-content-width: 54rem;
 }
 
-/* Light theme. */
-:root[data-theme='light'] {
+:root[data-theme='light']:root {
 	--sl-color-accent-low: #dfe4ff;
 	--sl-color-accent: #5058dd;
 	--sl-color-accent-high: #29307f;
-	--sl-color-white: #17182b;
-	--sl-color-gray-1: #24263e;
-	--sl-color-gray-2: #383c58;
-	--sl-color-gray-3: #575b7c;
-	--sl-color-gray-4: #8b8fae;
-	--sl-color-gray-5: #c2c4d7;
-	--sl-color-gray-6: #edeefb;
-	--sl-color-gray-7: #f6f7fd;
-	--sl-color-black: #ffffff;
+}
+
+/* The theme hard-codes the same 40rem on the pane itself, so the variable alone
+   isn't enough to widen the column. `data-has-sidebar`/`data-has-toc` live on
+   <html>, i.e. on `:root` itself — so this has to be `:root:root[…]` and not
+   `:root [… ]`, which would look for a descendant and never match. Scoped like
+   the theme's own rule so splash pages keep their full-bleed layout. */
+:root:root[data-has-sidebar][data-has-toc] .main-pane {
+	max-width: var(--sl-content-width);
+}
+
+/* ---------- Sidebar scrollbar ---------- */
+
+/* The theme hides the sidebar scrollbar outright (`scrollbar-width: none`), which
+   leaves no hint that a long section scrolls at all. Give it a slim brand-tinted
+   one that only colours in on hover.
+
+   The theme also sizes the scrolling element to 14rem inside an 18.75rem pane,
+   which left the scrollbar floating 76px shy of the pane's divider line, adrift
+   in empty space. Filling the pane puts it flush against that divider — and
+   stops the longer labels wrapping a word early. */
+/* Starlight reserves a scrollbar gutter on the pane because normally the pane is
+   what scrolls. Under this theme it never can (`overflow: hidden`), so that
+   gutter is just 15px of dead space holding the scrollbar off the divider. */
+:root:root .sidebar-pane {
+	scrollbar-gutter: auto;
+}
+
+:root:root .sidebar-content {
+	width: 100%;
+	padding-inline-end: 0.3rem;
+	scrollbar-width: thin;
+	scrollbar-color: var(--sl-color-gray-5) transparent;
+	scrollbar-gutter: stable;
+}
+
+.sidebar-content::-webkit-scrollbar {
+	width: 8px;
+}
+
+.sidebar-content::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+.sidebar-content::-webkit-scrollbar-thumb {
+	border: 2px solid transparent;
+	border-radius: 999px;
+	/* Padding the thumb via a transparent border needs background-clip, otherwise
+	   the border area paints too and the thumb looks full-width. */
+	background-clip: content-box;
+	background-color: var(--sl-color-gray-5);
+	transition: background-color 0.15s ease;
+}
+
+.sidebar-content:hover::-webkit-scrollbar-thumb {
+	background-color: var(--sl-color-gray-4);
+}
+
+.sidebar-content::-webkit-scrollbar-thumb:hover {
+	background-color: var(--sl-color-accent);
 }
 
 /* ---------- Hero ---------- */
@@ -119,11 +170,6 @@
 	border-end-start-radius: 0;
 }
 
-/* Slightly tighter, calmer sidebar text. */
-.sidebar-content summary .group-label > span {
-	font-weight: 650;
-	letter-spacing: 0.01em;
-}
 
 /* Tables: rounded container, sticky-friendly. */
 .sl-markdown-content table {
