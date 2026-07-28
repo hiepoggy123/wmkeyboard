@@ -1,21 +1,65 @@
 ---
 title: "GIFs"
-description: "GIF search and sending, with graceful fallbacks when apps don't accept them."
+description: "Search GIFs from Klipy and GIPHY and send them, with a copy-to-clipboard fallback when an app won't take them directly."
 sidebar:
   order: 3
 ---
 
-:::caution[Draft page]
-Scaffolding only — real content pending. The outline below is the checklist for what this page must cover.
-:::
+import PhoneFrame from '@components/PhoneFrame.astro';
+import SettingsPath from '@components/SettingsPath.astro';
 
-## Planned coverage
+The GIF tool searches Klipy and GIPHY from a panel inside the keyboard and sends the result straight into the field you're typing in — no switching apps, no copy-paste. It needs a free API key from at least one provider before it can search anything.
 
-- Searching and sending GIFs; provider and API key note
-- How sending works (rich content vs link fallback)
-- Network use is explicit — this tool is online, and off until used
+<PhoneFrame caption="The GIF panel, showing trending results on open.">
+  {/* shot: emoji/gif-panel-trending */}
+</PhoneFrame>
 
-{/* TODO(sonnet): replace this stub. Turn the outline into real sections,
-   add screenshots with <PhoneFrame>, mark settings with <SettingsPath>,
-   keys with <KeyCap>, and edition limits with <Flavor>.
-   Conventions live in docs/CONTENT_GUIDE.md. */}
+## Searching for a GIF
+
+Open the GIF tool and it fetches trending GIFs immediately, before you type anything. Start typing in the search box and results update live, 450ms after you stop — there's no Enter to press. That's different from the [web and image search tools](/tools/search/), which wait for you to submit the query; GIF and sticker lookups are cheap enough on Klipy and GIPHY to search as you type.
+
+Results appear as a 3-column grid of animated previews. A header line reads "via Klipy · GIPHY" (or whichever providers are actually active) so you know where a result came from.
+
+If neither provider has a key configured, the panel shows a "needs an API key" notice with a shortcut into settings instead of a grid.
+
+## Sending a GIF
+
+Tap a result and it downloads and lands in the field in one step — there's no separate "insert" confirmation. What happens next depends on what the field will accept:
+
+1. **The field doesn't take images at all.** Plain text boxes can't receive a GIF through Android's `commitContent` mechanism. The panel shows a standing notice — "This field doesn't accept GIFs — try a chat or notes app" — and tapping a result does nothing (a short vibration, no download). This is a pre-send check, not a failed attempt.
+2. **The field takes images.** The full-size file downloads and commits using a MIME type the field advertises it can accept. With <SettingsPath path="Tools / GIFs / Send GIFs as" /> set to Sticker, a WebP result first offers WhatsApp's private sticker MIME (`image/webp.wasticker`) before falling back to plain `image/webp` — Android has no official "this is a sticker" flag, so this is a best-effort convention rather than a documented API. That PNG fallback only ever applies to a WebP-format download in the first place: if the field won't take `image/webp` but does accept PNG, it re-encodes to a still PNG rather than failing outright (a still WebP only — an animated one is skipped, since a PNG can't hold the animation). A plain `image/gif` download — what most GIF-panel results actually are — has no such fallback; if the field doesn't accept `image/gif`, it goes straight to the clipboard fallback below.
+3. **Nothing matches.** If the field won't take any form the tool can produce, the file goes to the system clipboard instead, with a toast: "This app doesn't accept images here — image copied, paste it instead." Paste it in manually from there.
+
+Animated GIFs can never actually become stickers — Android has no animated-WebP encoder, so a GIF-format result keeps sending as a plain image no matter what `Send GIFs as` is set to. Only sources that already provide WebP can take the Sticker path.
+
+<PhoneFrame caption="A field that can't accept images — the panel dims and shows the standing notice.">
+  {/* shot: emoji/gif-no-rich-media */}
+</PhoneFrame>
+
+Unlike the [sticker tool](/emoji/stickers/), long-pressing a GIF result does nothing — there's no "save this" affordance on the GIF panel, only on stickers.
+
+## Options
+
+<SettingsPath path="Tools / GIFs" />
+
+| Setting | Default | What it does |
+|---|---|---|
+| Klipy API key | Empty | Paste a free key from `partner.klipy.com`. Klipy replaced Tenor as the primary provider after Google retired Tenor's third-party API in mid-2026. |
+| GIPHY API key | Empty | Paste a free key from `developers.giphy.com`, as a second source. |
+| Full-screen picker | On | The toolbar, emoji row and symbol row step aside so the GIF grid gets the full keyboard height, with search moved up next to a back button. Shared with the sticker tool. |
+| Send GIFs as | Image | Whether a tap tries to land the result as a sticker-style MIME first or always as a plain image. See the sticker-limitation note above. |
+| Multiple sources | Tabs | **Tabs**: one chip per configured provider, switch between them. **Mixed**: a single grid interleaving results from every provider evenly — the GIF panel shows no chip row at all here, since (unlike the sticker panel) it has no "My stickers" tab to distinguish the online results from. |
+| Content filter | Medium | Four levels — Off, Low, Medium, High — mapped to each provider's own content rating (High maps to G-rated results, Off to R). Shared with the sticker tool. |
+
+You only need one working key — Klipy or GIPHY — for the tool to function; configuring both just adds a second source to search. The "Send stickers as" setting on this same screen belongs to the sticker tool; see [Stickers](/emoji/stickers/) for that.
+
+## Details & edge cases
+
+- **Not pinned to the toolbar by default.** The onboarding wizard turns the GIF tool on by default, but the out-of-the-box pinned toolbar only holds Emoji, Clipboard and Settings. GIF sits in the [toolbox](/tools/overview/) until you drag it onto the bar or open it from there.
+- **Trending, not random.** An empty search box always shows each provider's trending feed, not a blank grid — useful as a starting point before you type a query.
+- **24 results per fetch, not adjustable.** Both providers return a fixed page of results per search or trending call.
+- **No size cap on downloads.** Unlike stickers, which cap the source file size, a GIF download has no maximum — a very large or very long GIF still downloads in full before sending.
+- **Recently sent files are cached, not stored permanently.** Downloaded files are kept in a local cache so re-picking the same GIF skips re-downloading it. The cache keeps only the 30 most recently touched files and deletes the rest, so it isn't a place to go looking for something you sent a while ago.
+- **Network use is opt-in and tool-scoped.** Klipy and GIPHY are only contacted while the GIF panel is open — trending on open, live search as you type, and the download on tap. Nothing happens in the background. See [Network policy](/privacy/network/) for the full breakdown of what each online tool sends.
+
+For custom sticker packs, long-press-to-save, and the Local tab, see [Stickers](/emoji/stickers/). For the toolbar and toolbox in general, see [The toolbar](/tools/overview/).

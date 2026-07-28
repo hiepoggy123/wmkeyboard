@@ -1,23 +1,114 @@
 ---
 title: "Emoji picker & search"
-description: "Semantic emoji search in your language, shortcodes, skin tones and favourites."
+description: "Semantic emoji search in your language, skin tones and dual-tone pairs, and favourites and recents in the emoji panel."
 sidebar:
   order: 1
 ---
 
-:::caution[Draft page]
-Scaffolding only — real content pending. The outline below is the checklist for what this page must cover.
+import PhoneFrame from '@components/PhoneFrame.astro';
+import SettingsPath from '@components/SettingsPath.astro';
+import KeyCap from '@components/KeyCap.astro';
+
+The emoji panel is a full browsing surface, not just a grid: search understands synonyms and typos in English and Bengali, every toned emoji remembers the variant you last picked for it, and your favourites and recents ride at the front of their own tab.
+
+<PhoneFrame caption="The emoji panel open over a text field, with the search icon, tab strip, and category grid.">
+  {/* shot: emoji/panel-overview */}
+</PhoneFrame>
+
+## Opening the panel
+
+<SettingsPath path="Emoji / Access / Emoji button in toolbar" />
+
+The most direct route is the emoji button in the toolbar (on by default) — tap it and the panel opens over the keys. If you've turned on a [dedicated emoji row](/emoji/customization/#the-dedicated-emoji-row), its own launcher icon opens the same full panel.
+
+Two more toggles replace a bottom-row key outright with an emoji key, so opening the panel takes one less tap:
+
+<SettingsPath path="Layout & size / Bottom-row keys / Emoji key instead of 🌐" />
+
+**Emoji key instead of 🌐** is on by default: the <KeyCap>🌐</KeyCap> key opens the emoji panel instead of switching language. Language switching doesn't disappear — it moves to a spacebar swipe (set to Language by default; see [Gestures](/typing/gestures/)) — so you get it back for free.
+
+**Comma key opens emoji**, under the same group, is off by default. Turn it on and the bottom-row comma key becomes an emoji key too, with comma itself demoted to a long-press alternate. Its own info text warns that turning this on also removes the emoji tool from the toolbar, since the key is meant to replace it — drag the tool back into the toolbar if you want both.
+
+:::note
+Typing `:cat:` is a different feature entirely — it searches or auto-commits an emoji from inside the suggestion strip while you type, without opening this panel at all. See [Inline emoji search and shortcodes](/emoji/customization/#inline-emoji-search-and-shortcodes).
 :::
 
-## Planned coverage
+## Searching for an emoji
 
-- Opening: globe long-press, toolbar, :shortcode: triggers
-- Search that understands 'happy', 'party', 'বিড়াল' — synonyms, prefixes, typos
-- Skin tones and dual-tone variants; per-emoji memory
-- Favourites and recents; the emoji row option
-- Coverage: Emoji 16.0 catalog — 1,913 base emoji (2,031 with variants)
+Tap the magnifying-glass tab at the start of the tab strip to switch the panel into search mode. It isn't a text field you type into directly — tapping it turns the letter keys underneath into a query editor: what you type appends to the search pill instead of going to your document, and a small backspace icon next to the pill deletes from your actual text field without leaving search. Tap the search icon again (or switch to any category tab) to leave search and go back to browsing.
 
-{/* TODO(sonnet): replace this stub. Turn the outline into real sections,
-   add screenshots with <PhoneFrame>, mark settings with <SettingsPath>,
-   keys with <KeyCap>, and edition limits with <Flavor>.
-   Conventions live in docs/CONTENT_GUIDE.md. */}
+<PhoneFrame caption="Typing 'cat' and 'বিড়াল' in the panel's search field, both surfacing the same cat emoji.">
+  {/* shot: emoji/panel-search */}
+</PhoneFrame>
+
+Search understands more than an exact keyword match, layered in this order — matches on more than one query word add up:
+
+1. **An exact shortcode** — `tada` finds only 🎉, unambiguously, ahead of anything else.
+2. **A shortcode prefix** — `thumb` starts narrowing toward `:thumbsup:` and its neighbors.
+3. **An exact keyword** — `cat` matches every emoji tagged with the word "cat".
+4. **A synonym** — a small hand-curated list expands common searches: `party` also surfaces 🍾 via "celebration", `happy` also reaches emoji tagged "joy" or "cheerful", and Bengali concepts expand the same way (খুশি → হাসি, আনন্দ).
+5. **A keyword prefix** — `cele` starts matching "celebration" before you finish typing it.
+6. **A one-typo fuzzy match** — `hapy` still finds 😀, for query words of four letters or more.
+
+English and Bengali keywords are merged into the same index, so a query never needs to specify a language — বিড়াল and "cat" surface the same set of cat emoji, and this holds for every cat-family emoji in the catalog, not just the smiley ones. Typing a language you haven't installed a keyword pack for still works for anything with English or Bengali tags; downloading a pack for another language is covered in [Emoji search in your language](/emoji/customization/#emoji-search-in-your-language).
+
+## Picking a skin tone
+
+<SettingsPath path="Emoji / Skin tone / Default skin tone" />
+
+Long-press any emoji in the panel grid — search results included — to open its variant popup. If <SettingsPath path="Emoji / Emoji panel / Emoji descriptions" /> is on (the default), the popup opens with the emoji's name at the top, so near-identical faces are easy to tell apart.
+
+<PhoneFrame caption="Long-pressing a toned emoji opens six variants: the neutral base plus five Fitzpatrick tones.">
+  {/* shot: emoji/variant-popup */}
+</PhoneFrame>
+
+Most toned emoji offer a single row of six choices — the neutral base plus five Fitzpatrick skin tones — tap any one to insert it. A small number of two-person emoji, like 🤝 and 👫, instead open a dual-tone picker with two independent swatch rows, one per person, so each side of a handshake or hug can carry its own tone.
+
+<PhoneFrame caption="The dual-tone picker for 🤝, with independent skin tones for each hand.">
+  {/* shot: emoji/dual-tone-picker */}
+</PhoneFrame>
+
+Whichever variant you tap becomes that emoji's new default in the panel grid — the picker remembers your last choice per emoji and shows it from then on, both in the grid and in your recents. Two settings shape how that same memory reaches other parts of the keyboard:
+
+<SettingsPath path="Emoji / Skin tone / Override with last used" />
+
+**Default skin tone** sets the tone used in the suggestion strip and in search results — it doesn't touch the panel grid, which always follows your per-emoji memory instead. **Override with last used** (off by default) lets that per-emoji memory win in the strip and search too, instead of falling back to the default tone there.
+
+Emoji with gender or role variants — a runner shown as 🏃‍♀️ or 🏃‍♂️, a doctor as 👨‍⚕️ or 👩‍⚕️ — collapse into the same long-press popup rather than cluttering the grid with every combination as its own cell; pick the member you want at the top of the popup, then its tone below.
+
+## Favourites, recents, and most used
+
+<SettingsPath path="Emoji / Emoji panel / History tab" />
+
+The first tab in the panel (once you have at least one recent or favourited emoji) shows your history. **History tab** chooses what fills it: **Recent** orders by when you last used an emoji, **Most used** ranks by frequency — favourited emoji are pinned to the front either way.
+
+<PhoneFrame caption="The history tab with favourites pinned first, and the long-press options for a starred emoji.">
+  {/* shot: emoji/history-tab */}
+</PhoneFrame>
+
+Long-press any emoji to star it as a favourite from the same popup used for skin tones — the star toggle sits right above the variant grid. Once you have two or more favourites, a **Reorder favourites** row appears in that popup too, opening a drag-to-reorder list so you can put your most-used ones first.
+
+<PhoneFrame caption="Dragging a favourite into a new position in the reorder list.">
+  {/* shot: emoji/favourites-reorder */}
+</PhoneFrame>
+
+Long-pressing a cell on the history tab specifically also offers **Remove from recents**, for pulling a one-off emoji back out without waiting for it to age off the list. For clearing the whole list at once:
+
+<SettingsPath path="Emoji / Emoji panel / Clear recents button" />
+
+Off by default — turn it on to add a "Clear recents" button to the Recent tab. It only appears on the Recent view, not Most used, since a frequency ranking isn't something a single tap should wipe.
+
+## Details & edge cases
+
+- **Inserting doesn't close the panel by default.** <SettingsPath path="Emoji / Emoji panel / Return to keyboard after inserting" /> is off, so you can tap several emoji in a row — including several results from the same search — without the panel folding away after each one. Turn it on to jump straight back to the keys after a single insert. The same setting also governs the clipboard panel.
+- **Full-screen panel is the default, not an opt-in.** <SettingsPath path="Emoji / Access / Full-screen emoji panel" /> is on out of the box: the toolbar, emoji row, and symbol row all step aside, and the category tabs move into the row they leave behind next to a back button. Turn it off to keep the toolbar within reach while picking emoji.
+- **Search and the panel grid both respect "Hide emoji this phone can't display."** An emoji neither your chosen font nor the phone's system font can draw is filtered out everywhere — panel, search, and suggestions alike. See [Fixing emoji that won't display](/emoji/customization/#fixing-emoji-that-wont-display).
+- **Kaomoji and emoticons are a separate, unsearched system.** If you've turned on their two extra tabs, they sit after the last Unicode category — but the panel's search field never indexes them, since it only searches the Unicode emoji catalog. See [Kaomoji & text art](/emoji/kaomoji/).
+- **The panel has its own compact bottom row** — a key back to letters, a spacebar, and a hold-to-repeat backspace — so you can type a word, drop in an emoji, and keep typing without leaving the panel.
+- **Both editions.** Search, skin tones, and favourites aren't gated to one edition — the same emoji panel ships in both.
+
+### Coverage
+
+The bundled catalog covers **1,914 base emoji** across ten categories (activities, animals, flags, food, nature, objects, people, smileys, symbols, travel). Of those, 330 carry Fitzpatrick skin-tone variants (five uniform tones each), and 19 of that 330 also support independently-toned pairs like 🤝 — together that's 2,030 additional toned sequences on top of the base count.
+
+For the settings that shape all of this — which font draws the emoji, keyword packs for other languages, word-typing predictions, and the emoji row — see [Emoji customization](/emoji/customization/).
