@@ -11,7 +11,7 @@ import SettingsPath from '@components/SettingsPath.astro';
 The keyboard doesn't have to draw its key labels in the system font. Pick from dozens of curated Google Fonts per script, import your own `.ttf`/`.otf` file, or install one from an addon repository, and do it separately for Latin keys, Bengali keys, and each other script your enabled languages use.
 
 <PhoneFrame caption="The Keyboard font screen: curated Google Fonts, each row previewed in its own face.">
-  {/* shot: themes/font-picker-english */}
+  ![The Keyboard font screen: curated Google Fonts, each row previewed in its own face.](@assets/screens/themes/font-picker-english.webp)
 </PhoneFrame>
 
 ## Choosing a Google Font
@@ -55,7 +55,7 @@ A font can declare which languages it covers. That claim is what keeps a Latin-o
 That filter only curates which fonts a picker *offers*; it isn't what keeps keys from going blank. Rendering falls back per glyph to the system font automatically, regardless of any coverage claim, so an exotic display face never leaves a key empty even if you select it somewhere its coverage claim didn't anticipate.
 
 <PhoneFrame caption="A script-specific picker (Devanagari): the automatic Noto face and a short curated list, since script sections don't offer installed or addon fonts yet.">
-  {/* shot: themes/font-picker-script */}
+  ![A script-specific picker (Devanagari): the automatic Noto face, a short curated list, and any installed fonts that declare coverage for the script.](@assets/screens/themes/font-picker-script.webp)
 </PhoneFrame>
 
 ## Emoji fonts are separate

@@ -4592,7 +4592,7 @@
       "Tap 'Keyboard font' to open the fonts screen (route is not itself deep-link allowlisted)",
       "Scroll to the English font section so several curated Google Fonts rows are visible with their live previews"
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "English section is always present regardless of enabled languages. Let a couple of Google Font rows finish downloading/rendering (system font provider caches after first fetch) before capturing so previews aren't showing placeholder glyphs.",
     "kind": "still"
   },
@@ -4608,7 +4608,7 @@
       "Tap 'Keyboard font', scroll to the 'Devanagari font' section",
       "Capture with the 'Automatic (Noto)' default row visible plus a few curated alternatives below it"
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "Devanagari has 7 curated alternatives (Noto Serif Devanagari, Hind, Mukta, Baloo 2, Tiro Devanagari Hindi, Rozha One, Kalam) so the list has enough visual variety. No import button appears in this section by design (import is English/Bengali only) \u2014 don't crop it out expecting one.",
     "kind": "still"
   },
@@ -4665,7 +4665,7 @@
     "setup": [
       "am start -a android.intent.action.VIEW -d wmkeyboard://settings/themes"
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "Capture with at least one custom theme saved so the 'Your themes' section is visible above 'Built-in'; 2-column grid, ThemeScreens.kt.",
     "kind": "still"
   },
@@ -4679,7 +4679,7 @@
       "am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
       "In settings, set Appearance > Keyboard themes > Mode to Amoled and theme to Default (system), ensure device is in dark mode, then focus the field to show the keyboard"
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "Only visible when effective mode is dark (Mode=Amoled alone does nothing in light mode) and the active theme is Default (system) \u2014 built-in/custom themes ignore Mode.",
     "kind": "still"
   },
@@ -4693,7 +4693,7 @@
       "am start -a android.intent.action.VIEW -d wmkeyboard://settings/themes",
       "Toggle Auto theme on and select Sunrise & sunset as the trigger; needs a saved location in the weather tool for the informative copy to show, otherwise it shows the 'No location saved yet' fallback text"
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "ThemeScreens.kt Auto (light + dark) section; capture with a location already saved so the sunrise/sunset copy shows rather than the fallback message.",
     "kind": "still"
   },
@@ -4707,7 +4707,7 @@
       "am start -a android.intent.action.VIEW -d wmkeyboard://settings/themes",
       "Screenshot the top of the Keyboard themes screen showing the Create theme / Import row above the gallery."
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "ThemeScreens.kt:510-530 \u2014 the Import button sits next to Create theme, right above the Default card and gallery.",
     "kind": "still"
   },
