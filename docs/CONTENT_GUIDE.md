@@ -95,6 +95,13 @@ Starlight built-ins (`@astrojs/starlight/components`) to lean on:
   `cwebp -q 88 name.png -o name.webp` (target < 150 KB each).
 - Always wrap in `<PhoneFrame>`; always write meaningful alt text.
 - Zoom on click is automatic (starlight-image-zoom) — don't hand-roll lightboxes.
+- **Motion**: where behaviour only reads in motion (glide trails, hold-drags,
+  live previews), use a looping **animated WebP** captured via
+  `adb shell screenrecord` + ffmpeg (`-c:v libwebp_anim -loop 0`, ≤ 6 s,
+  ≤ 1 MB, 15 fps) — it drops into `<PhoneFrame>` like any image. GIFs are
+  banned (4× the bytes). Keep a still alongside every animation for
+  reduced-motion readers. Conceptual gesture *explanations* should be CSS/SVG
+  animations instead of recordings. Full pipeline in `SONNET_PROMPT.md`.
 
 ## Interactive elements — the taste rules
 

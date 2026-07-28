@@ -3,7 +3,7 @@
 You are filling in the WM Keyboard documentation site. The scaffold is complete:
 109 pages under `docs/src/content/docs/`, each stub carrying a `Planned
 coverage` outline that was audited against the codebase. Your job is to turn
-every stub into a finished page, then capture every screenshot on an emulator.
+every stub into a finished page, then capture every screenshot on the owner's physical device over adb.
 
 **Read `docs/CONTENT_GUIDE.md` first.** It is the contract: page anatomy,
 component usage, voice, screenshot conventions, and a dated list of
@@ -18,14 +18,14 @@ considered done. Token cost is not a constraint; wrong claims are.
 
 1. **Never invent behaviour.** Outline bullets are hypotheses. Before writing a
    page, read the implementing code (`core/`, `feature/`, `app/`) or exercise
-   the feature on the emulator. Every settings path, default value, limit and
+   the feature on the device. Every settings path, default value, limit and
    count must be verified. The guide's calibration note lists verified counts
    with a date — re-verify any number you reuse.
 2. **A page is done when**: draft banner and `TODO(sonnet)` comment removed,
    every outline topic covered or consciously dropped, at least one
    `<PhoneFrame>` where UI is visible, `npm run check` green.
 3. **Commit after each section** with `git add docs && git commit -- docs`
-   (plus the harness path when you create it). The repo owner works in the same
+   (plus `app/src/debug/` if you have to fix the harness). The repo owner works in the same
    tree concurrently — never `git add -A`, never commit paths outside your
    scope: `docs/`, and `app/src/debug/` for the harness only.
 4. MDX gotchas that have already broken this site once: quote YAML frontmatter
@@ -39,33 +39,30 @@ considered done. Token cost is not a constraint; wrong claims are.
 
 Run phases in order; each is one or more ultracode workflows.
 
-### Phase 0 — the screenshot harness (build this first)
+### Phase 0 — the screenshot harness (already built — just verify)
 
-Create a debug-only activity that hosts the keyboard for screenshots:
-`app/src/debug/java/com/wasimaster/wmkeyboard/app/DocsShotActivity.kt`, plus an
-`app/src/debug/AndroidManifest.xml` entry (`exported="true"` so adb can start
-it). It never ships — debug source set only. Spec:
+The harness exists:
+`app/src/debug/java/com/wasimaster/wmkeyboard/app/DocsShotActivity.kt`
+(debug source set only, never ships; manifest entry in
+`app/src/debug/AndroidManifest.xml`). Start it with:
 
-- **Modes** via intent extras (`adb shell am start -n
-  com.wasimaster.wmkeyboard.debug/com.wasimaster.wmkeyboard.app.DocsShotActivity
-  --es mode field …`):
-  - `field` (default): one text field, top-third of the screen, hint and
-    prefill from `--es hint` / `--es text`, input type from `--es kind`
-    (`text|email|uri|password|number|phone|search|multiline`), IME action from
-    `--es action` (`send|search|go|done|next`). This is how you demo field
-    adaptation, suggestion states, and ordinary typing.
-  - `chat`: a fake conversation — two or three neutral bubbles ("Alex", no
-    avatars, lorem-adjacent but human text) above an input bar. Implement
-    `onCommitContent` and render committed images/stickers/GIFs as a new
-    bubble: this is the only way to screenshot sticker/GIF sending honestly.
-  - `blank`: empty surface, for floating/split keyboard and panel shots.
-- **Look**: Material 3 surface colours from the app theme, `--es theme
-  light|dark` (default dark to match the docs), `--es bg white` override for
-  the rare shot that needs pure white. No branding, no clock in the layout
-  (status bar is handled by demo mode).
-- Keep it under ~200 lines; Compose; no new dependencies.
+```bash
+adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity \
+    --es mode field --es kind email --es theme dark
+```
 
-Verify it builds (`./gradlew assembleFullDebug`) and commit it separately.
+- Modes: `field` (default — `--es kind
+  text|email|uri|password|number|phone|search|multiline`, `--es action
+  send|search|go|done|next`, `--es hint …`, `--es text …` prefill),
+  `chat` (neutral conversation bubbles + an input bar that accepts
+  `commitContent`, so committed stickers/GIFs/images appear as a bubble —
+  use it for every sticker/GIF/image-sending shot), and `blank` (silent
+  surface with an invisible focus target, for floating/split/panel shots).
+- `--es theme light|dark` (default dark), `--es bg white` for pure white.
+
+Your Phase 0 is a smoke test: `./gradlew assembleFullDebug`, install on the
+device, start each mode once, confirm the keyboard appears and a sticker
+commit renders in chat mode. Fix anything broken before writing content.
 
 ### Phase 1 — write the guide sections
 
@@ -115,10 +112,16 @@ entry has setup steps an agent can execute. Fix gaps before capture.
 
 ### Phase 5 — capture and insert
 
-Emulator up (see recipes), then iterate the manifest: set up → capture →
-convert → move into `src/assets/screens/` → replace the placeholder comment
-with the image line inside `<PhoneFrame>` → mark `captured`. Finish with
-`npm run check` and a final visual pass of ~10 pages in the browser.
+Capture happens on the **owner's physical device over USB** — there is no
+emulator. Coordinate with the owner before this phase: they plug the device
+in, and they pre-download any large on-device models (Whisper, local LLM,
+handwriting) you need pictured — never start multi-hundred-MB downloads on
+their device without asking.
+
+Then iterate the manifest: set up → capture → convert → move into
+`src/assets/screens/` → replace the placeholder comment inside `<PhoneFrame>`
+→ mark `captured`. Finish with `npm run check` and a final visual pass of ~10
+pages in the browser.
 
 ## Screenshot protocol
 
@@ -136,7 +139,7 @@ Phase 1 and consumed in Phase 5:
     "caption": "A short spacebar swipe switches language.",
     "host": "harness-field",
     "setup": [
-      "am start -n com.wasimaster.wmkeyboard.debug/com.wasimaster.wmkeyboard.app.DocsShotActivity --es mode field --es kind text",
+      "am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
       "input tap 540 700",
       "input swipe 300 2200 700 2200 150"
     ],
@@ -148,6 +151,7 @@ Phase 1 and consumed in Phase 5:
 
 `host` ∈ `harness-field | harness-chat | harness-blank | settings` (settings
 screens are shot in the settings app itself — no harness needed).
+`kind` ∈ `still` (default) `| anim` — see “Animated captures” below.
 
 ### Placeholder pattern (build stays green while writing)
 
@@ -161,11 +165,18 @@ Empty PhoneFrame renders a designed "screenshot pending" placeholder. In
 Phase 5, replace the comment with
 `![alt text](@assets/screens/typing/spacebar-swipe.webp)`.
 
-### Emulator + capture recipes
+### Device + capture recipes
+
+The capture target is the owner's own phone over USB (`adb devices` must show
+exactly one device; stop and ask if it shows zero or several). Same device for
+every shot — resolution consistency comes free. Keep it awake during capture:
+`adb shell svc power stayon usb`, and undo with `adb shell svc power stayon
+false` when finished. Demo mode below hides their notifications and clock, and
+the harness is the only app you photograph — never capture their personal
+apps or home screen.
 
 ```bash
-# Device: Pixel-class AVD, portrait, API 34+; boot with -no-snapshot for determinism.
-./gradlew assembleFullDebug && adb install -r app/build/outputs/apk/full/debug/app-full-debug.apk
+./gradlew assembleFullDebug && adb install -r app/build/outputs/apk/full/debug/app-full-arm64-v8a-debug.apk
 
 # Clean status bar (12:00, full battery, wifi, no notifications):
 adb shell settings put global sysui_demo_allowed 1
@@ -201,9 +212,9 @@ adb shell cmd notification allow_listener <pkg>/<listener>  # media controls
 ```
 
 Media-controls album art needs something actually playing — start the
-emulator's stock media player with a local file, or mark blocked. Whisper /
-local-LLM / handwriting model shots may download models over the emulator's
-network first; capture the *manager UI with a downloaded model* where
+device's own music app (ask the owner to press play), or mark blocked. Whisper /
+local-LLM / handwriting model shots: ask the owner which models are already
+on the device; capture the *manager UI with a downloaded model* where
 practical, the download-in-progress state otherwise.
 
 Settings-app screenshots: navigate with deep links where allowlisted
@@ -211,10 +222,47 @@ Settings-app screenshots: navigate with deep links where allowlisted
 or by tap sequences; the six allowlisted routes are typing, appearance,
 themes, languages, tools, search.
 
+### Animated captures
+
+Some pages genuinely need motion: glide-typing trails, the mid-swipe candidate
+preview, spacebar hold-drag through the language picker, the Morse strip,
+handwriting ink, theme editor colour changes. For those, manifest entries carry
+`"kind": "anim"` and the pipeline is screen *recording*, not screencap:
+
+```bash
+adb shell settings put system show_touches 1        # visible finger dot
+adb shell screenrecord --time-limit 8 --bit-rate 8M /sdcard/rec.mp4 &
+# ...run the scripted input swipe/motionevent sequence while it records...
+wait; adb pull /sdcard/rec.mp4 && adb shell rm /sdcard/rec.mp4
+adb shell settings put system show_touches 0
+
+# Trim to the interesting 3-6 s, downscale, loop as animated WebP:
+ffmpeg -i rec.mp4 -ss 1.0 -t 4.5 -vf "fps=15,scale=540:-1"        -c:v libwebp_anim -loop 0 -q:v 70 -an out.webp
+```
+
+Rules of thumb:
+
+- **Animated WebP, not GIF** — a quarter of the size at better quality, and it
+  drops into the existing `![…](@assets/…)` / `<PhoneFrame>` flow like any
+  image. Target ≤ 6 s, ≤ 1 MB, 15 fps, `-loop 0`. Use a `<video>` element only
+  if a clip truly needs scrubbing (nothing currently does; `<PhoneFrame>`
+  styles `<video>` too if it comes to that).
+- **Recordings are for real behaviour** (trails, previews, ink). For
+  *conceptual* gesture explanations, prefer the Phase 3 CSS/SVG animations —
+  crisp, tiny, theme-aware, no device needed. Don't record what a diagram
+  explains better.
+- Most animations are automatable: `screenrecord` runs in the background while
+  `input swipe` / `input motionevent` sequences drive the gesture. Reserve
+  `status: "blocked"` for genuinely multi-finger or timing-critical cases, and
+  list them for the owner at the end — with `show_touches` on, a human-driven
+  recording session takes minutes.
+- Keep one still per page even where an animation exists — stills are the
+  fallback for reduced-motion readers and social embeds.
+
 ### Consistency rules
 
 Dark theme default; light only when demonstrating light-specific behaviour.
-Same AVD for every shot. Portrait unless the page is about landscape/fold.
+Same device for every shot. Portrait unless the page is about landscape/fold.
 English UI unless the page is about another language — then that language on
 the keys is the point.
 
