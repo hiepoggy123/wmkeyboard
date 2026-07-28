@@ -16,25 +16,28 @@ considered done. Token cost is not a constraint; wrong claims are.
 
 ## Ground rules (non-negotiable)
 
-1. **Never invent behaviour.** Outline bullets are hypotheses. Before writing a
+**Never invent behaviour.** Outline bullets are hypotheses. Before writing a
    page, read the implementing code (`core/`, `feature/`, `app/`) or exercise
-   the feature on the device. Every settings path, default value, limit and
-   count must be verified. The guide's calibration note lists verified counts
-   with a date — re-verify any number you reuse.
-2. **A page is done when**: draft banner and `TODO(sonnet)` comment removed,
+   the feature on the device (keep this reserved for hard cases). Every settings path, default value, limit and
+   count must be verified if possible. The guide's calibration note lists verified counts
+   with a date.
+
+**A page is done when**: draft banner and `TODO(sonnet)` comment removed,
    every outline topic covered or consciously dropped, at least one
    `<PhoneFrame>` where UI is visible, `npm run check` green.
-3. **Commit after each section** with `git add docs && git commit -- docs`
+
+**Commit after each section** with `git add docs && git commit -- docs`
    (plus `app/src/debug/` if you have to fix the harness). The repo owner works in the same
    tree concurrently — never `git add -A`, never commit paths outside your
    scope: `docs/`, and `app/src/debug/` for the harness only.
-4. MDX gotchas that have already broken this site once: quote YAML frontmatter
+
+MDX gotchas that have already broken this site once: quote YAML frontmatter
    values (colons!), backtick anything with `{braces}` or `<angle-brackets>`,
    no `<https://…>` autolinks, `{/* */}` not `<!-- -->`.
-5. Do not restyle finished pages: the five `plugins/` pages, the
+
+Do not restyle finished pages: the five `plugins/` pages, the
    `development/addon-repos/` section and `development/architecture.md` are
    real content — only add screenshots/cross-links where obviously missing.
-
 ## Phase plan
 
 Run phases in order; each is one or more ultracode workflows.
@@ -45,12 +48,8 @@ The harness exists:
 `app/src/debug/java/com/wasimaster/wmkeyboard/app/DocsShotActivity.kt`
 (debug source set only, never ships; manifest entry in
 `app/src/debug/AndroidManifest.xml`). Start it with:
-
-```bash
 adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity \
     --es mode field --es kind email --es theme dark
-```
-
 - Modes: `field` (default — `--es kind
   text|email|uri|password|number|phone|search|multiline`, `--es action
   send|search|go|done|next`, `--es hint …`, `--es text …` prefill),
@@ -69,10 +68,9 @@ commit renders in chat mode. Fix anything broken before writing content.
 One workflow per sidebar section, in this order (trust-building first, then
 feature depth):
 
-1. `start/` 2. `typing/` 3. `privacy/` 4. `languages/` 5. `smart/`
+`start/` 2. `typing/` 3. `privacy/` 4. `languages/` 5. `smart/`
 6. `emoji/` 7. `tools/` (biggest — split into 2–3 workflows) 8. `themes/`
 9. `addons/` 10. `accessibility/`
-
 Per-section workflow shape: parallel research agents read the implementing
 code and the relevant settings screens → one writer per page (guide's page
 anatomy) → adversarial fact-checkers who try to REFUTE each claim against the
@@ -92,18 +90,27 @@ reference image files that don't exist yet, the build fails on missing assets.
 - `reference/file-formats.mdx`, `deep-links.mdx`, `troubleshooting.mdx`,
   `glossary.mdx`: consolidate from the now-finished guide pages.
 
-### Phase 3 — interactive elements (stretch, but high value)
+### Phase 3 — interactive elements (mostly built — use them)
 
-In priority order, as dependency-free Astro components (vanilla `<script>`):
+Three of the four already exist, demoed live on
+`/development/component-gallery/` (source: `src/components/`):
 
-1. **Layout explorer** — render any `.wmlayout.json` from
-   `app/src/main/assets/layouts/` as an HTML keyboard; hover/tap shows
-   long-press popups. Build once, reuse on every language page.
-2. **Gesture demos** — looping CSS/SVG finger-path animations on a PhoneFrame.
-3. **Filterable tables** — the 352-language matrix and 333-wordlist list.
-4. **Theme preview** — swatch grid recolouring an HTML keyboard mockup.
+- **`<LayoutExplorer layout={json} />`** — renders any `.wmlayout.json`
+  imported straight from `app/src/main/assets/layouts/` (five `../` up from a
+  section page). Hover/tap dotted keys for long-press popups; shift-layer
+  toggle appears automatically. Use it on every language/layout page instead
+  of screenshotting static layouts.
+- **`<GestureDemo type="…" />`** — looping conceptual animations:
+  `space-swipe | space-hold | long-press | glide`. Honours reduced motion.
+  Extend with new types in the same file if a page needs one (keep the
+  keyframe style consistent).
+- **`<ThemePreview />`** — swatch grid recolouring a mock keyboard; pass a
+  `themes` array for page-specific palettes.
 
-Skip any of these rather than shipping something janky.
+Still to build, dependency-free (vanilla `<script>`):
+
+**Filterable tables** — the 352-language matrix and 333-wordlist list.
+Skip it rather than shipping something janky.
 
 ### Phase 4 — screenshot manifest sweep
 
@@ -129,8 +136,6 @@ pages in the browser.
 
 `docs/screenshots/manifest.json` — the single source of truth, created in
 Phase 1 and consumed in Phase 5:
-
-```json
 [
   {
     "id": "typing/spacebar-swipe",
@@ -147,20 +152,14 @@ Phase 1 and consumed in Phase 5:
     "notes": "capture mid-swipe if possible; else the post-switch state"
   }
 ]
-```
-
 `host` ∈ `harness-field | harness-chat | harness-blank | settings` (settings
 screens are shot in the settings app itself — no harness needed).
 `kind` ∈ `still` (default) `| anim` — see “Animated captures” below.
 
 ### Placeholder pattern (build stays green while writing)
-
-```mdx
 <PhoneFrame caption="A short spacebar swipe switches language.">
   {/* shot: typing/spacebar-swipe */}
 </PhoneFrame>
-```
-
 Empty PhoneFrame renders a designed "screenshot pending" placeholder. In
 Phase 5, replace the comment with
 `![alt text](@assets/screens/typing/spacebar-swipe.webp)`.
@@ -174,10 +173,7 @@ every shot — resolution consistency comes free. Keep it awake during capture:
 false` when finished. Demo mode below hides their notifications and clock, and
 the harness is the only app you photograph — never capture their personal
 apps or home screen.
-
-```bash
 ./gradlew assembleFullDebug && adb install -r app/build/outputs/apk/full/debug/app-full-arm64-v8a-debug.apk
-
 # Clean status bar (12:00, full battery, wifi, no notifications):
 adb shell settings put global sysui_demo_allowed 1
 adb shell am broadcast -a com.android.systemui.demo -e command enter
@@ -185,16 +181,12 @@ adb shell am broadcast -a com.android.systemui.demo -e command clock -e hhmm 120
 adb shell am broadcast -a com.android.systemui.demo -e command battery -e level 100 -e plugged false
 adb shell am broadcast -a com.android.systemui.demo -e command network -e wifi -e level 4 -e fully true
 adb shell am broadcast -a com.android.systemui.demo -e command notifications -e visible false
-
 # Enable + select the IME (verify the exact id with `adb shell ime list -a`):
 adb shell ime enable  <package>/<service>
 adb shell ime set     <package>/<service>
-
 # Capture → convert (target < 150 KB):
 adb exec-out screencap -p > shot.png
 cwebp -q 88 shot.png -o docs/src/assets/screens/<section>/<name>.webp
-```
-
 Interaction during setup: `input tap X Y`, `input swipe X1 Y1 X2 Y2 MS`,
 `input text 'hello'`, and raw `input motionevent DOWN/MOVE/UP` sequences for
 held gestures (spacebar hold-drag, key long-press popups). Gestures that need a
@@ -203,14 +195,10 @@ if a shot truly can't be automated, set `status: "blocked"` with a note and a
 manual instruction, and tell the user at the end which shots need a human hand.
 
 Permission-dependent tools, grant via adb before the shot:
-
-```bash
 adb shell pm grant <pkg> android.permission.READ_CALENDAR   # calendar tool
 adb shell pm grant <pkg> android.permission.CAMERA          # camera/scanner
 adb shell pm grant <pkg> android.permission.RECORD_AUDIO    # voice
 adb shell cmd notification allow_listener <pkg>/<listener>  # media controls
-```
-
 Media-controls album art needs something actually playing — start the
 device's own music app (ask the owner to press play), or mark blocked. Whisper /
 local-LLM / handwriting model shots: ask the owner which models are already
@@ -228,18 +216,13 @@ Some pages genuinely need motion: glide-typing trails, the mid-swipe candidate
 preview, spacebar hold-drag through the language picker, the Morse strip,
 handwriting ink, theme editor colour changes. For those, manifest entries carry
 `"kind": "anim"` and the pipeline is screen *recording*, not screencap:
-
-```bash
 adb shell settings put system show_touches 1        # visible finger dot
 adb shell screenrecord --time-limit 8 --bit-rate 8M /sdcard/rec.mp4 &
 # ...run the scripted input swipe/motionevent sequence while it records...
 wait; adb pull /sdcard/rec.mp4 && adb shell rm /sdcard/rec.mp4
 adb shell settings put system show_touches 0
-
 # Trim to the interesting 3-6 s, downscale, loop as animated WebP:
 ffmpeg -i rec.mp4 -ss 1.0 -t 4.5 -vf "fps=15,scale=540:-1"        -c:v libwebp_anim -loop 0 -q:v 70 -an out.webp
-```
-
 Rules of thumb:
 
 - **Animated WebP, not GIF** — a quarter of the size at better quality, and it
@@ -253,7 +236,7 @@ Rules of thumb:
   explains better.
 - Most animations are automatable: `screenrecord` runs in the background while
   `input swipe` / `input motionevent` sequences drive the gesture. Reserve
-  `status: "blocked"` for genuinely multi-finger or timing-critical cases, and
+  `status: "blocked"` for harder multi-finger or timing-critical cases not doable via adb, and
   list them for the owner at the end — with `show_touches` on, a human-driven
   recording session takes minutes.
 - Keep one still per page even where an animation exists — stills are the

@@ -1,0 +1,293 @@
+---
+/**
+ * Looping, stylised gesture animation on an abstract keyboard.
+ *
+ *   <GestureDemo type="space-swipe" caption="Swipe the spacebar to switch language." />
+ *
+ * Types: space-swipe | space-hold | long-press | glide
+ * Conceptual demos only — real behaviour is shown with screen recordings.
+ * Honours prefers-reduced-motion (freezes to a static end-state with the
+ * gesture path drawn).
+ */
+interface Props {
+	type: 'space-swipe' | 'space-hold' | 'long-press' | 'glide';
+	caption?: string;
+}
+const { type, caption } = Astro.props;
+const ROWS = [10, 9, 7];
+---
+
+<figure class="wm-gesture-demo" data-type={type}>
+	<div class="gd-stage" aria-hidden="true">
+		<div class="gd-board">
+			{type === 'glide' && (
+				<div class="gd-strip"><span class="gd-word">hello</span></div>
+			)}
+			{ROWS.map((n, ri) => (
+				<div class="gd-row">
+					{ri === 2 && <span class="gd-key gd-wide"></span>}
+					{Array.from({ length: n }).map(() => (
+						<span class="gd-key"></span>
+					))}
+					{ri === 2 && <span class="gd-key gd-wide"></span>}
+				</div>
+			))}
+			<div class="gd-row">
+				<span class="gd-key gd-wide"></span>
+				<span class="gd-key"></span>
+				<span class="gd-key gd-space">
+					{type === 'space-swipe' && (
+						<>
+							<span class="gd-lang gd-lang-a">English</span>
+							<span class="gd-lang gd-lang-b">বাংলা</span>
+						</>
+					)}
+				</span>
+				<span class="gd-key"></span>
+				<span class="gd-key gd-wide"></span>
+			</div>
+		</div>
+
+		{type === 'long-press' && (
+			<div class="gd-popup">
+				<span>è</span><span class="gd-hl">é</span><span>ê</span><span>ë</span>
+			</div>
+		)}
+		{type === 'space-hold' && (
+			<div class="gd-picker">
+				<span>English</span>
+				<span class="gd-pick-active">বাংলা</span>
+				<span>Español</span>
+			</div>
+		)}
+		{type === 'glide' && (
+			<svg class="gd-trail" viewBox="0 0 100 62" preserveAspectRatio="none">
+				<path
+					class="gd-trail-path"
+					d="M 22 30 C 30 18, 32 16, 36 17 S 50 34, 58 33 S 70 20, 78 22"
+					fill="none"
+				/>
+			</svg>
+		)}
+
+		<div class="gd-finger"></div>
+	</div>
+	{caption && <figcaption>{caption}</figcaption>}
+</figure>
+
+<style>
+	.wm-gesture-demo {
+		margin: 1.5rem auto;
+		max-width: 24rem;
+	}
+	.gd-stage {
+		position: relative;
+		border-radius: 0.9rem;
+		overflow: hidden;
+	}
+	.gd-board {
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+		padding: 10px;
+		background: var(--sl-color-gray-6);
+		border: 1px solid var(--sl-color-gray-5);
+		border-radius: 0.9rem;
+	}
+	.gd-row {
+		display: flex;
+		gap: 5px;
+	}
+	.gd-key {
+		flex: 1 1 0;
+		height: 1.9rem;
+		border-radius: 0.4rem;
+		background: var(--sl-color-black);
+		border: 1px solid var(--sl-color-gray-5);
+	}
+	.gd-wide { flex-grow: 1.6; }
+	.gd-space {
+		flex-grow: 4.5;
+		position: relative;
+		overflow: hidden;
+	}
+	.gd-strip {
+		display: flex;
+		justify-content: center;
+		padding: 0.2rem 0 0.4rem;
+	}
+	.gd-word {
+		color: var(--sl-color-accent);
+		font-size: 0.8rem;
+		font-weight: 650;
+		opacity: 0;
+		animation: gd-word-in 3.2s infinite;
+	}
+
+	/* ------- finger dot ------- */
+	.gd-finger {
+		position: absolute;
+		width: 22px;
+		height: 22px;
+		margin: -11px 0 0 -11px;
+		border-radius: 50%;
+		background: radial-gradient(circle at 35% 35%, rgba(255, 255, 255, 0.95), rgba(180, 190, 255, 0.55));
+		box-shadow: 0 0 14px rgba(108, 116, 246, 0.65);
+		pointer-events: none;
+	}
+
+	/* ------- space-swipe ------- */
+	[data-type='space-swipe'] .gd-finger {
+		top: 87%;
+		animation: gd-swipe-x 3.2s ease-in-out infinite;
+	}
+	@keyframes gd-swipe-x {
+		0%, 15% { left: 34%; opacity: 0; }
+		25% { opacity: 1; }
+		60%, 70% { left: 66%; opacity: 1; }
+		80%, 100% { left: 66%; opacity: 0; }
+	}
+	.gd-lang {
+		position: absolute;
+		inset: 0;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		font-size: 0.72rem;
+		color: var(--sl-color-gray-2);
+	}
+	.gd-lang-a { animation: gd-lang-a 3.2s infinite; }
+	.gd-lang-b { animation: gd-lang-b 3.2s infinite; color: var(--sl-color-accent); }
+	@keyframes gd-lang-a { 0%, 55% { opacity: 1; } 65%, 100% { opacity: 0; } }
+	@keyframes gd-lang-b { 0%, 55% { opacity: 0; } 65%, 95% { opacity: 1; } 100% { opacity: 0; } }
+
+	/* ------- space-hold ------- */
+	[data-type='space-hold'] .gd-finger {
+		left: 50%;
+		animation: gd-hold-y 3.6s ease-in-out infinite;
+	}
+	@keyframes gd-hold-y {
+		0%, 10% { top: 87%; opacity: 0; transform: scale(1); }
+		18% { opacity: 1; transform: scale(1); }
+		26% { transform: scale(1.35); top: 87%; }
+		40% { transform: scale(1); }
+		55%, 70% { top: 52%; opacity: 1; }
+		85%, 100% { top: 52%; opacity: 0; }
+	}
+	.gd-picker {
+		position: absolute;
+		left: 50%;
+		top: 30%;
+		transform: translateX(-50%);
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+		padding: 0.3rem;
+		border: 1px solid var(--sl-color-accent);
+		border-radius: 0.6rem;
+		background: var(--sl-color-black);
+		box-shadow: 0 8px 26px rgba(0, 0, 0, 0.4);
+		font-size: 0.7rem;
+		color: var(--sl-color-gray-2);
+		opacity: 0;
+		animation: gd-picker-in 3.6s infinite;
+	}
+	.gd-picker span { padding: 0.2rem 0.9rem; border-radius: 0.35rem; }
+	.gd-pick-active {
+		background: var(--sl-color-accent-low);
+		color: var(--sl-color-white);
+	}
+	@keyframes gd-picker-in {
+		0%, 22% { opacity: 0; transform: translateX(-50%) translateY(6px); }
+		32%, 80% { opacity: 1; transform: translateX(-50%) translateY(0); }
+		92%, 100% { opacity: 0; }
+	}
+
+	/* ------- long-press ------- */
+	[data-type='long-press'] .gd-finger {
+		left: 31%;
+		top: 22%;
+		animation: gd-press 3s ease-in-out infinite;
+	}
+	@keyframes gd-press {
+		0%, 12% { opacity: 0; transform: scale(1); }
+		20% { opacity: 1; }
+		30% { transform: scale(1.35); }
+		45%, 80% { transform: scale(1); opacity: 1; }
+		90%, 100% { opacity: 0; }
+	}
+	.gd-popup {
+		position: absolute;
+		left: 31%;
+		top: 6%;
+		transform: translateX(-50%);
+		display: flex;
+		gap: 0.5em;
+		padding: 0.3em 0.7em;
+		border: 1px solid var(--sl-color-accent);
+		border-radius: 0.5em;
+		background: var(--sl-color-black);
+		color: var(--sl-color-white);
+		font-size: 0.85rem;
+		box-shadow: 0 8px 26px rgba(0, 0, 0, 0.4);
+		opacity: 0;
+		animation: gd-popup-in 3s infinite;
+	}
+	.gd-hl { color: var(--sl-color-accent); font-weight: 700; }
+	@keyframes gd-popup-in {
+		0%, 32% { opacity: 0; transform: translateX(-50%) translateY(5px); }
+		42%, 82% { opacity: 1; transform: translateX(-50%) translateY(0); }
+		92%, 100% { opacity: 0; }
+	}
+
+	/* ------- glide ------- */
+	.gd-trail {
+		position: absolute;
+		inset: 0;
+		width: 100%;
+		height: 100%;
+	}
+	.gd-trail-path {
+		stroke: var(--sl-color-accent);
+		stroke-width: 2.2;
+		stroke-linecap: round;
+		stroke-dasharray: 120;
+		stroke-dashoffset: 120;
+		opacity: 0.85;
+		animation: gd-draw 3.2s ease-in-out infinite;
+		filter: drop-shadow(0 0 4px rgba(108, 116, 246, 0.7));
+	}
+	@keyframes gd-draw {
+		0%, 10% { stroke-dashoffset: 120; opacity: 0.85; }
+		55% { stroke-dashoffset: 0; opacity: 0.85; }
+		75% { opacity: 0.85; }
+		95%, 100% { stroke-dashoffset: 0; opacity: 0; }
+	}
+	/* The glide demo reads through its drawn trail alone — a dot can't track
+	   the percent-stretched SVG path, so it stays hidden for this type. */
+	[data-type='glide'] .gd-finger {
+		display: none;
+	}
+	@keyframes gd-word-in {
+		0%, 45% { opacity: 0; }
+		58%, 90% { opacity: 1; }
+		100% { opacity: 0; }
+	}
+
+	figcaption {
+		margin-top: 0.5rem;
+		text-align: center;
+		color: var(--sl-color-gray-3);
+		font-size: var(--sl-text-sm);
+	}
+
+	/* ------- reduced motion: freeze to the end state ------- */
+	@media (prefers-reduced-motion: reduce) {
+		.gd-finger { animation: none !important; opacity: 0 !important; }
+		.gd-popup, .gd-picker { animation: none; opacity: 1; }
+		.gd-word { animation: none; opacity: 1; }
+		.gd-lang-a { animation: none; opacity: 0; }
+		.gd-lang-b { animation: none; opacity: 1; }
+		.gd-trail-path { animation: none; stroke-dashoffset: 0; }
+	}
+</style>

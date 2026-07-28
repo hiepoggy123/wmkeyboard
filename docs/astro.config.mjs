@@ -20,6 +20,11 @@ export default defineConfig({
 		// https://github.com/HiDeoo/starlight-image-zoom/issues/63
 		processor: unified(),
 	},
+	vite: {
+		// Let pages import keyboard layout JSON straight from the app's assets
+		// (app/src/main/assets/layouts/) so the docs never carry stale copies.
+		server: { fs: { allow: ['..'] } },
+	},
 	integrations: [
 		starlight({
 			title: 'WM Keyboard',

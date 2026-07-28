@@ -1,0 +1,71 @@
+---
+title: "Docs component gallery"
+description: "Live demos of every custom component available to documentation authors."
+sidebar:
+  label: "Component gallery"
+  order: 6
+---
+
+import KeyCap from '@components/KeyCap.astro';
+import SettingsPath from '@components/SettingsPath.astro';
+import Flavor from '@components/Flavor.astro';
+import Since from '@components/Since.astro';
+import PhoneFrame from '@components/PhoneFrame.astro';
+import LayoutExplorer from '@components/LayoutExplorer.astro';
+import ThemePreview from '@components/ThemePreview.astro';
+import GestureDemo from '@components/GestureDemo.astro';
+import qwertyAfar from '../../../../../app/src/main/assets/layouts/aa.wmlayout.json';
+import bengali from '../../../../../app/src/main/assets/layouts/bpy_bengali.wmlayout.json';
+
+Every custom component the docs can use, rendered live. Import from
+`@components/*`; conventions live in
+[CONTENT_GUIDE.md](https://github.com/wasi-master/wmkeyboard/blob/main/docs/CONTENT_GUIDE.md).
+
+## Inline
+
+Keys: press <KeyCap>Shift</KeyCap> then <KeyCap>?123</KeyCap>, or hold
+<KeyCap>Space</KeyCap>. Editions: <Flavor edition="full" />
+<Flavor edition="lite" /> <Flavor edition="both" />. Versions: <Since v="1.4" />.
+
+Settings location chip:
+
+<SettingsPath path="Typing / Gestures / Spacebar swipes" />
+
+## PhoneFrame
+
+Empty renders the screenshot-pending placeholder; with an image (or a
+`<video>`) it renders a device frame:
+
+<PhoneFrame caption="An empty PhoneFrame — the placeholder stubs use." />
+
+## LayoutExplorer
+
+Renders any `.wmlayout.json` straight from `app/src/main/assets/layouts/` —
+import the file, pass it in. Hover/tap dotted keys for long-press characters;
+layouts with a shift layer get a toggle:
+
+<LayoutExplorer layout={qwertyAfar} />
+
+<LayoutExplorer layout={bengali} title="Bishnupriya Manipuri (shift layer demo)" />
+
+## ThemePreview
+
+Illustrative swatch grid recolouring a mock keyboard. Default presets shown;
+pass a `themes` array for page-specific palettes:
+
+<ThemePreview caption="Presets are illustrative, not the app's real theme list." />
+
+## GestureDemo
+
+Stylised, looping gesture explainers (use screen recordings for *real*
+behaviour; these are for concepts). Four types:
+
+<GestureDemo type="space-swipe" caption="space-swipe — short spacebar swipe switches language" />
+
+<GestureDemo type="space-hold" caption="space-hold — hold, then drag through the language picker" />
+
+<GestureDemo type="long-press" caption="long-press — accent popup on a held key" />
+
+<GestureDemo type="glide" caption="glide — trace a word without lifting" />
+
+All four freeze to a static end-state under `prefers-reduced-motion`.

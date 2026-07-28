@@ -14,20 +14,20 @@ Z"), never vague ("we care about your privacy").
 ## Ground rules
 
 1. **Never invent behaviour.** Every claim must be verified against the code
-   (`../app`, `../core`, `../feature`) or on a device. Stub outlines are
-   *checklists written from memory* — treat each bullet as a hypothesis to
-   verify, not a fact to restate. If a bullet turns out wrong, fix the page,
-   not the truth.
+   (`../app`, `../core`, `../feature`) or on a device (reserved for hard cases).
+   Stub outlines are *checklists written from memory* — treat each bullet as a
+   hypothesis to verify from code, not a fact to restate. If a bullet turns out
+   wrong, fix the page, not the truth.
 2. **One page = one job.** If a section outgrows its page, split it and
    cross-link rather than nesting H4s.
 3. **Kill the draft banner** (`:::caution[Draft page]` block) and the
    `TODO(sonnet)` comment when a page is done. A page with the banner is
    unfinished by definition.
 4. **Keep frontmatter `description`** — it feeds search, SEO and `<LinkCard>`s.
-   Rewrite it if the page's focus shifts.
+   Rewrite it if the page's focus shifts or you find that it is factually incorrect.
 5. **Link generously.** Guide pages link to their Reference → Settings screen
    and vice versa. Use absolute paths with trailing slash: `/typing/gestures/`.
-6. **British-neutral, second person, present tense.** "Long-press the key" not
+6. **American-neutral, second person, present tense.** "Long-press the key" not
    "The key can be long-pressed by the user."
 
 ## Page anatomy (target shape)
@@ -73,6 +73,11 @@ All in `src/components/`, importable via the `@components/*` alias
 | `<Flavor edition="full" />` | Feature gated to an edition; place next to the H1 lead or section heading | also `lite`, `both` |
 | `<Since v="1.4" />` | Version a feature landed (start using once versions are documented) | |
 | `<PhoneFrame caption="…">` | Every screenshot. Empty `<PhoneFrame />` renders a "screenshot pending" placeholder — acceptable in drafts, not in finished pages | |
+| `<LayoutExplorer layout={json} />` | Interactive keyboard rendered from a real `.wmlayout.json` (import it from `app/src/main/assets/layouts/`, five `../` up). Prefer over static layout screenshots | see gallery |
+| `<GestureDemo type="…" />` | Conceptual gesture loop: `space-swipe`, `space-hold`, `long-press`, `glide`. Reduced-motion safe | see gallery |
+| `<ThemePreview />` | Swatch grid recolouring a mock keyboard; optional `themes` array | see gallery |
+
+Live demos of everything: `/development/component-gallery/`.
 
 Starlight built-ins (`@astrojs/starlight/components`) to lean on:
 

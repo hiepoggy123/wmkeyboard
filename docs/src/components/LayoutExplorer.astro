@@ -1,0 +1,222 @@
+---
+/**
+ * Interactive keyboard-layout renderer, fed by the app's own layout files.
+ *
+ *   import bpy from '../../../../../app/src/main/assets/layouts/bpy_bengali.wmlayout.json';
+ *   <LayoutExplorer layout={bpy} />
+ *
+ * Accepts the export envelope ({ format, version, layout }) or a bare layout
+ * object. Renders the `letters` layer (other layers via the `layer` prop).
+ * Hover or focus a key to see its long-press alternates; the ⇧ chip toggles
+ * the shift layer when any key defines a shiftLabel.
+ */
+interface LayoutKey {
+	label: string;
+	shiftLabel?: string;
+	longPress?: string[];
+	action?: { type: string };
+	width?: number;
+	role?: string;
+	output?: string;
+}
+interface Props {
+	layout: Record<string, any>;
+	layer?: string;
+	title?: string;
+}
+const { layout: raw, layer = 'letters', title } = Astro.props;
+const spec = raw.layout ?? raw;
+const rows: LayoutKey[][] = spec.layers?.[layer]?.rows ?? [];
+const displayTitle = title ?? spec.name ?? spec.id;
+const hasShift = rows.some((r) => r.some((k) => k.shiftLabel));
+
+const ACTION_LABELS: Record<string, string> = {
+	shift: '⇧',
+	delete: '⌫',
+	symbols: '?123',
+	language_switch: '🌐',
+	space: '',
+	enter: '⏎',
+};
+function keyLabel(k: LayoutKey): string {
+	if (k.action && k.action.type in ACTION_LABELS) return ACTION_LABELS[k.action.type] || k.label;
+	return k.label;
+}
+---
+
+<figure class="wm-layout-explorer" data-shift="off">
+	<figcaption>
+		<span class="lx-title">{displayTitle}</span>
+		{hasShift && (
+			<button class="lx-shift-toggle" type="button" aria-pressed="false">
+				⇧ shift layer
+			</button>
+		)}
+	</figcaption>
+	<div class="lx-board" role="img" aria-label={`The ${displayTitle} keyboard layout`}>
+		{rows.map((row) => (
+			<div class="lx-row">
+				{row.map((k) => {
+					const label = keyLabel(k);
+					const isAction = !!k.action;
+					const alts = k.longPress ?? [];
+					return (
+						<button
+							type="button"
+							class:list={['lx-key', { 'lx-action': isAction, 'lx-space': k.action?.type === 'space' }]}
+							style={`--w:${k.width ?? 1}`}
+							tabindex={alts.length || k.shiftLabel ? 0 : -1}
+						>
+							<span class="lx-label">{label || ' '}</span>
+							{k.shiftLabel && <span class="lx-shifted">{k.shiftLabel}</span>}
+							{alts.length > 0 && <span class="lx-dot" aria-hidden="true"></span>}
+							{alts.length > 0 && (
+								<span class="lx-popup" role="tooltip">
+									{alts.map((a) => (
+										<span class="lx-alt">{a}</span>
+									))}
+								</span>
+							)}
+						</button>
+					);
+				})}
+			</div>
+		))}
+	</div>
+	<p class="lx-hint">Hover or tap a key with a dot to see its long-press characters.</p>
+</figure>
+
+<style>
+	.wm-layout-explorer {
+		margin: 1.5rem 0;
+	}
+	figcaption {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.75rem;
+		margin-bottom: 0.5rem;
+	}
+	.lx-title {
+		font-weight: 650;
+		color: var(--sl-color-white);
+	}
+	.lx-shift-toggle {
+		border: 1px solid var(--sl-color-gray-4);
+		border-radius: 999px;
+		background: var(--sl-color-gray-6);
+		color: var(--sl-color-gray-2);
+		font-size: var(--sl-text-xs);
+		padding: 0.2em 0.8em;
+		cursor: pointer;
+	}
+	.lx-shift-toggle[aria-pressed='true'] {
+		background: var(--sl-color-accent-low);
+		border-color: var(--sl-color-accent);
+		color: var(--sl-color-white);
+	}
+	.lx-board {
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+		padding: 10px;
+		border: 1px solid var(--sl-color-gray-5);
+		border-radius: 0.9rem;
+		background: var(--sl-color-gray-6);
+	}
+	.lx-row {
+		display: flex;
+		gap: 6px;
+	}
+	.lx-key {
+		position: relative;
+		flex: var(--w) 1 0;
+		min-width: 0;
+		padding: 0.55em 0;
+		border: 1px solid var(--sl-color-gray-5);
+		border-bottom-width: 2px;
+		border-radius: 0.45em;
+		background: var(--sl-color-black);
+		color: var(--sl-color-white);
+		font-family: var(--sl-font);
+		font-size: clamp(0.7rem, 1.8vw, 0.95rem);
+		line-height: 1.2;
+		text-align: center;
+		cursor: default;
+	}
+	.lx-key:hover,
+	.lx-key:focus-visible {
+		border-color: var(--sl-color-accent);
+		outline: none;
+	}
+	.lx-action {
+		background: var(--sl-color-gray-6);
+		color: var(--sl-color-gray-2);
+	}
+	.lx-space {
+		background: var(--sl-color-gray-5);
+	}
+	/* shift layer swap */
+	.lx-shifted {
+		display: none;
+	}
+	[data-shift='on'] .lx-key:has(.lx-shifted) .lx-label {
+		display: none;
+	}
+	[data-shift='on'] .lx-shifted {
+		display: inline;
+	}
+	.lx-dot {
+		position: absolute;
+		top: 3px;
+		right: 5px;
+		width: 4px;
+		height: 4px;
+		border-radius: 50%;
+		background: var(--sl-color-accent);
+	}
+	.lx-popup {
+		position: absolute;
+		bottom: calc(100% + 6px);
+		left: 50%;
+		transform: translateX(-50%) scale(0.9);
+		display: flex;
+		gap: 0.35em;
+		padding: 0.35em 0.6em;
+		border: 1px solid var(--sl-color-accent);
+		border-radius: 0.5em;
+		background: var(--sl-color-black);
+		box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+		opacity: 0;
+		pointer-events: none;
+		transition: opacity 100ms ease, transform 100ms ease;
+		z-index: 5;
+		white-space: nowrap;
+	}
+	.lx-key:hover .lx-popup,
+	.lx-key:focus-visible .lx-popup,
+	.lx-key:focus .lx-popup {
+		opacity: 1;
+		transform: translateX(-50%) scale(1);
+	}
+	.lx-alt {
+		color: var(--sl-color-white);
+	}
+	.lx-hint {
+		margin-top: 0.4rem;
+		color: var(--sl-color-gray-3);
+		font-size: var(--sl-text-xs);
+	}
+</style>
+
+<script>
+	function wire(root: Element) {
+		const toggle = root.querySelector<HTMLButtonElement>('.lx-shift-toggle');
+		toggle?.addEventListener('click', () => {
+			const on = root.getAttribute('data-shift') === 'on';
+			root.setAttribute('data-shift', on ? 'off' : 'on');
+			toggle.setAttribute('aria-pressed', String(!on));
+		});
+	}
+	document.querySelectorAll('.wm-layout-explorer').forEach(wire);
+</script>
