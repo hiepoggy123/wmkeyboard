@@ -1070,6 +1070,13 @@ data class KeyboardSettings(
      * browsing in other browsers, and password-manager notes fields.
      */
     val autoIncognito: Boolean = true,
+    /**
+     * Whether Android's own backup is allowed to carry this app's data off the
+     * device — to Google's servers, or to a new phone during a device-to-device
+     * transfer. Off by default, and honoured by the app's backup agent rather
+     * than by the manifest; see [CloudBackup].
+     */
+    val cloudBackup: Boolean = false,
     /** Text scanner results start with every word selected (deselect to trim). */
     val ocrAutoSelectWords: Boolean = true,
     /** Vibrate when the QR scanner spots a code. */
@@ -2876,6 +2883,7 @@ class SettingsRepository(private val context: Context) {
             incognitoPausesClipboard = p[INCOGNITO_PAUSES_CLIPBOARD] ?: defaults.incognitoPausesClipboard,
             incognitoPausesLearning = p[INCOGNITO_PAUSES_LEARNING] ?: defaults.incognitoPausesLearning,
             autoIncognito = p[AUTO_INCOGNITO] ?: defaults.autoIncognito,
+            cloudBackup = p[CloudBackup.KEY] ?: defaults.cloudBackup,
             ocrAutoSelectWords = p[OCR_AUTO_SELECT_WORDS] ?: defaults.ocrAutoSelectWords,
             qrScanHaptics = p[QR_SCAN_HAPTICS] ?: defaults.qrScanHaptics,
             qrScanAutoInsert = p[QR_SCAN_AUTO_INSERT] ?: defaults.qrScanAutoInsert,
@@ -3255,6 +3263,8 @@ class SettingsRepository(private val context: Context) {
     suspend fun setAutoIncognito(value: Boolean) =
         editPrefs { it[AUTO_INCOGNITO] = value }
 
+    suspend fun setCloudBackup(value: Boolean) =
+        editPrefs { it[CloudBackup.KEY] = value }
 
     suspend fun setOcrAutoSelectWords(value: Boolean) =
         editPrefs { it[OCR_AUTO_SELECT_WORDS] = value }

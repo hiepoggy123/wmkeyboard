@@ -8402,6 +8402,17 @@ private const val AUTO_INCOGNITO_INFO =
         "toolbar; leaving the field restores normal typing. Apps that never send the " +
         "flag can't be detected, so this can't cover private modes that don't use it."
 
+private const val BACKUP_INFO =
+    "Off by default, so nothing this keyboard stores is copied anywhere — not to Google " +
+        "Drive, not to a new phone. Turn it on and Android's backup treats the keyboard " +
+        "like any other app: settings, themes, layouts, snippets, learned words, sticker " +
+        "and icon packs and plugins come back on a new device or after a reinstall. " +
+        "Anything the keyboard can fetch again by itself is left out to stay inside " +
+        "Android's size limit — voice and AI models, downloaded dictionaries, emoji " +
+        "keyword packs. Note that this does include saved API keys, and that a cloud " +
+        "backup is only made on devices that can encrypt it with your screen lock. " +
+        "Settings → Backup & restore is the alternative that never involves Google at " +
+        "all: the same data, in a file you move yourself."
 
 @Composable
 private fun PrivacySettings(repository: SettingsRepository, settings: KeyboardSettings) {
@@ -8460,6 +8471,16 @@ private fun PrivacySettings(repository: SettingsRepository, settings: KeyboardSe
                 settings.autoIncognito,
                 info = AUTO_INCOGNITO_INFO,
             ) { scope.launch { repository.setAutoIncognito(it) } }
+        }
+    }
+    SettingsGroup("Android backup") {
+        item {
+            ToggleSetting(
+                "Back up with Android",
+                "Include the keyboard in Android's own backup and phone-to-phone transfer",
+                settings.cloudBackup,
+                info = BACKUP_INFO,
+            ) { scope.launch { repository.setCloudBackup(it) } }
         }
     }
     SettingsGroup("Your data") {

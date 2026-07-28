@@ -77,8 +77,14 @@
     <!-- Cleartext HTTP is only for the AI tool's self-hosted providers
          (Ollama / LM Studio on a LAN address); every bundled cloud client
          is HTTPS. -->
+    <!-- Backup is allowed here but does not happen unless the user turns it on
+         under Settings → Privacy: WMBackupAgent writes nothing while that
+         switch is off, and fullBackupOnly keeps the agent on the Auto Backup
+         path so the rules files below still do the filtering. -->
     <application
         android:allowBackup="true"
+        android:backupAgent="com.wasimaster.wmkeyboard.app.WMBackupAgent"
+        android:fullBackupOnly="true"
         android:usesCleartextTraffic="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"

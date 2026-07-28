@@ -379,6 +379,7 @@ private val SettingRows: List<SettingsSearchEntry> = listOfNotNull(
     entry("Expand dictionary shortcuts", "Type a shortcut, get its full phrase as a suggestion", "Privacy", "privacy"),
     entry("Incognito mode", "Pause learning and clipboard capture", "Privacy", "privacy"),
     entry("Follow private browsing", "Turn incognito on by itself in private tabs and fields", "Privacy", "privacy"),
+    entry("Back up with Android", "Include the keyboard in Android's own backup and phone-to-phone transfer", "Privacy", "privacy"),
     entry("Symbol row", "A row of special characters and snippets above the keys", "Rows & bars", "rows"),
     entry("Drags edit the active mode", "Hold-and-drag on the keyboard saves into the mode that is on", "Keyboard modes", "modes"),
     entry("Name", "Shown in the Modes tool", "Edit mode", "modes"),
