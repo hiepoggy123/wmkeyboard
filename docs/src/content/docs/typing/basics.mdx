@@ -23,7 +23,7 @@ While a key is held, its character floats in a bubble above your finger (the **k
 Hold past the **long-press delay** (300&nbsp;ms by default) and, if the key has any, its alternates pop up: `Q`–`P` lead with digits 1–0, `A`–`L` and `Z`–`M` lead with a symbol (`@`, `#`, `$`, `&`…), and a handful of letters also carry accented forms after that first alternate: `e`, `u`, `i`, `o` after their digit (`e` → è é ê ë, `u` → ù ú û ü, and so on), and `a`, `s`, `z`, `c`, `n` after their symbol. The first alternate doubles as a small corner hint on the key itself (the **Long-press hints** toggle, on by default), so you can see what a hold will lead with before you commit to it.
 
 <PhoneFrame caption="Holding a letter opens its accent and symbol alternates.">
-  {/* shot: typing/long-press-popup */}
+  ![Holding a letter opens its accent and symbol alternates.](@assets/screens/typing/long-press-popup.webp)
 </PhoneFrame>
 
 A few more long-press behaviors live under the same **Long-press shortcuts** settings group:
@@ -41,7 +41,7 @@ A few more long-press behaviors live under the same **Long-press shortcuts** set
 <KeyCap>Shift</KeyCap> cycles through three states. From off, one tap arms a one-shot **Shift** that capitalizes only the next letter and then reverts on its own. A second tap that lands within the **caps-lock double-tap** window (350&nbsp;ms by default, adjustable 150–600&nbsp;ms) locks **Caps Lock** instead. From either Shift or Caps Lock, a single tap that *isn't* a fast double-tap turns it back off. You don't need to double-tap again to get out of caps lock; one plain tap exits it.
 
 <PhoneFrame caption="Shift off, one-shot Shift, and Caps Lock: the three states the key cycles through.">
-  {/* shot: typing/shift-states */}
+  ![Shift off, one-shot Shift, and Caps Lock — the three states the key cycles through.](@assets/screens/typing/shift-states.webp)
 </PhoneFrame>
 
 Auto-capitalization arms Shift for you at the start of a sentence, but only when three things line up: **Auto-capitalize** is on (the default), the field is a plain text field rather than a structured keypad, and the active language's script actually has letter case. Bengali, for instance, doesn't, so auto-capitalize never fires while typing it. It re-checks after every sentence-ending mark (`.`, `!`, `?`, `।`) as well as when you move the cursor or switch fields, and it never touches Caps Lock: an all-caps statement you locked in stays locked in regardless of what auto-capitalize would otherwise do.
@@ -71,7 +71,7 @@ This is a different mechanism from <KeyCap>Ctrl</KeyCap>+letter on a physical ke
 The key's icon and behavior follow whatever the focused field asks for: Search, Send, Go, Next, Previous, or Done, each with its own icon, or a plain newline when the field doesn't specify. When an app supplies its own label instead of a standard action ("Reply", "Post"), the key draws that text directly rather than an icon.
 
 <PhoneFrame caption="Enter drawing a field's own action icon.">
-  {/* shot: typing/enter-action-icons */}
+  ![Enter drawing a field's own action icon.](@assets/screens/typing/enter-action-icons.webp)
 </PhoneFrame>
 
 **Shift + Enter types a newline** (off by default) lets you press <KeyCap>Shift</KeyCap> then <KeyCap>Enter</KeyCap> (or hold Shift on a physical keyboard) to force a line break in a field that would otherwise send or search on Enter. The key itself changes to the newline symbol while Shift is armed, so it never promises a Send it isn't about to do. Only a Shift you pressed yourself counts here: the one-shot Shift auto-capitalize arms at the start of a message is ignored, so the first line of a chat message still sends normally, and Caps Lock is ignored too.

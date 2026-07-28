@@ -1881,7 +1881,7 @@
       "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
       "Focus the field, then press and hold a letter key (e.g. 'e', whose alternates are 3 \u00e8 \u00e9 \u00ea \u00eb) until the popup opens \u2014 default long-press delay is 300ms \u2014 and capture while still holding."
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "Pick a letter whose popup shows both a digit and accents (e/u/i/o) so the shot demonstrates both alternate kinds at once.",
     "kind": "still"
   },
@@ -1895,7 +1895,7 @@
       "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
       "Capture the Shift key in three states \u2014 untouched (off), after one tap (one-shot Shift), after a second tap within 350ms of the first (Caps Lock) \u2014 and composite into one frame or a 3-up."
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "Caps-lock double-tap window is shiftCapsLockMs, default 350ms; a second tap slower than that just toggles back to off instead of locking.",
     "kind": "still"
   },
@@ -1923,7 +1923,7 @@
     "setup": [
       "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text --es action search"
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "DocsShotActivity's --es action only covers send|search|go|done|next (5 of 7 EnterAction states). PREVIOUS and CUSTOM (an app-supplied label drawn as text, e.g. 'Reply') aren't reachable through the harness; if a CUSTOM/PREVIOUS shot is wanted, it needs a real third-party app field instead.",
     "kind": "still"
   },
