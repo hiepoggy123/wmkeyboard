@@ -18,6 +18,9 @@
  * gestureTrailColor, popup colors/radius, chipBackground, suggestionText,
  * landscape background image.
  */
+import '@fontsource/roboto/400.css';
+import '@fontsource/roboto/500.css';
+
 interface Gradient {
 	colors: number[];
 	type?: 'LINEAR' | 'RADIAL' | 'SWEEP';
@@ -97,9 +100,12 @@ function toVars(s: Spec): { vars: string; anim: string; dur: number; chipBg: str
 		shape === 'CUT'
 			? 'polygon(12% 0,88% 0,100% 22%,100% 78%,88% 100%,12% 100%,0 78%,0 22%)'
 			: 'none';
+	const sweep = s.boardGradient?.type === 'SWEEP';
 	const v: Record<string, string> = {
 		'--tp-fill-color': fillColor,
 		'--tp-fill-img': fillImg,
+		'--tp-fill-blur': sweep ? '26px' : '0px',
+		'--tp-fill-inset': sweep ? '-30%' : '0%',
 		'--tp-bgimg': s.backgroundImageBase64
 			? `url(data:${imageMime(s.backgroundImageBase64)};base64,${s.backgroundImageBase64})`
 			: 'none',
@@ -149,6 +155,7 @@ const { specs = DEFAULTS, caption } = Astro.props;
 const model = specs.map((s) => ({ name: s.name, ...toVars(s) }));
 const first = model[0];
 
+const ROW0: string[] = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'];
 const ROW1: [string, string?][] = [['q'], ['w'], ['e', 'è'], ['r'], ['t'], ['y'], ['u', 'ù'], ['i', 'ì'], ['o', 'ò'], ['p']];
 const ROW2: [string, string?][] = [['a', '@'], ['s', '#'], ['d', '$'], ['f'], ['g', '&'], ['h'], ['j'], ['k', '('], ['l', ')']];
 const ROW3: [string, string?][] = [['z', '*'], ['x', '"'], ['c', "'"], ['v'], ['b', ';'], ['n', '!'], ['m', '?']];
@@ -193,6 +200,11 @@ const ROW3: [string, string?][] = [['z', '*'], ['x', '"'], ['c', "'"], ['v'], ['
 				<span class="tp-tool">
 					<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
 				</span>
+			</div>
+			<div class="tp-row">
+				{ROW0.map((c) => (
+					<span class="tp-key">{c}</span>
+				))}
 			</div>
 			<div class="tp-row">
 				{ROW1.map(([c, hint]) => (
@@ -283,10 +295,11 @@ const ROW3: [string, string?][] = [['z', '*'], ['x', '"'], ['c', "'"], ['v'], ['
 	}
 	.tp-fill {
 		position: absolute;
-		inset: 0;
+		inset: var(--tp-fill-inset, 0%);
 		background-color: var(--tp-fill-color);
 		background-image: var(--tp-fill-img);
 		background-size: 100% 100%;
+		filter: blur(var(--tp-fill-blur, 0px));
 		transition: background-color 250ms ease;
 	}
 	/* Live theme animations. FLOW drifts the gradient; HUE_CYCLE rotates hue. */
@@ -302,8 +315,8 @@ const ROW3: [string, string?][] = [['z', '*'], ['x', '"'], ['c', "'"], ['v'], ['
 		to { background-position: 100% 100%; }
 	}
 	@keyframes tp-hue {
-		from { filter: hue-rotate(0deg); }
-		to { filter: hue-rotate(360deg); }
+		from { filter: blur(var(--tp-fill-blur, 0px)) hue-rotate(0deg); }
+		to { filter: blur(var(--tp-fill-blur, 0px)) hue-rotate(360deg); }
 	}
 	.tp-ui {
 		position: relative;
@@ -345,24 +358,29 @@ const ROW3: [string, string?][] = [['z', '*'], ['x', '"'], ['c', "'"], ['v'], ['
 	}
 	.tp-key {
 		position: relative;
+		display: flex;
+		align-items: center;
+		justify-content: center;
 		flex: 1 1 0;
 		min-width: 0;
-		padding: 0.95em 0;
+		height: 2.7rem;
 		border-radius: var(--tp-radius);
 		clip-path: var(--tp-clip);
 		background-color: var(--tp-key);
 		background-image: var(--tp-key-img);
 		border: var(--tp-bw) solid var(--tp-bc);
 		color: var(--tp-keytext);
-		font-size: 0.82rem;
+		font-family: 'Roboto', var(--sl-font);
+		font-weight: 400;
+		font-size: 1.05rem;
 		line-height: 1;
 		text-align: center;
 	}
 	.tp-hint {
 		position: absolute;
 		top: 4px;
-		right: 6px;
-		font-size: 0.52rem;
+		right: 7px;
+		font-size: 0.58rem;
 		font-style: normal;
 		opacity: 0.55;
 	}
@@ -371,15 +389,14 @@ const ROW3: [string, string?][] = [['z', '*'], ['x', '"'], ['c', "'"], ['v'], ['
 		color: var(--tp-modtext);
 	}
 	.tp-wide { flex-grow: 1.55; }
-	.tp-small { font-size: 0.64rem; padding-top: 1.1em; padding-bottom: 1.1em; }
+	.tp-small { font-size: 0.72rem; font-weight: 500; }
+	/* The app's spacebar is a full pill regardless of the theme's key shape. */
 	.tp-spacebar {
 		flex-grow: 4.2;
-		display: flex;
-		align-items: center;
-		justify-content: center;
+		border-radius: 999px;
 	}
 	.tp-space-label {
-		font-size: 0.62rem;
+		font-size: 0.72rem;
 		letter-spacing: 0.04em;
 		opacity: 0.55;
 	}

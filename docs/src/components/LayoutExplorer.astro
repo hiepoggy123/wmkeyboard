@@ -10,6 +10,8 @@
  * Hover or focus a key to see its long-press alternates; the ⇧ chip toggles
  * the shift layer when any key defines a shiftLabel.
  */
+import '@fontsource/roboto/400.css';
+
 interface LayoutKey {
 	label: string;
 	shiftLabel?: string;
@@ -133,13 +135,13 @@ function keyLabel(k: LayoutKey): string {
 		flex: var(--w) 1 0;
 		min-width: 0;
 		margin: 0;
-		padding: 0.6em 0;
+		padding: 0.75em 0;
 		border: 1px solid transparent;
 		border-radius: 0.6em;
 		background: var(--sl-color-gray-5);
 		color: var(--sl-color-white);
-		font-family: var(--sl-font);
-		font-size: clamp(0.7rem, 1.8vw, 0.95rem);
+		font-family: 'Roboto', var(--sl-font);
+		font-size: clamp(0.85rem, 2vw, 1.05rem);
 		line-height: 1.2;
 		text-align: center;
 		cursor: default;
