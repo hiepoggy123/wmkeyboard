@@ -4622,7 +4622,7 @@
       "am start -a android.intent.action.VIEW -d wmkeyboard://settings/appearance (icons is not itself deep-link allowlisted)",
       "Tap the 'Icons' row"
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "Show the Icon pack section (Built-in icons selected) plus the top of the grouped slot list (Tools/Keys/Toolbar/Emoji tabs headers visible).",
     "kind": "still"
   },
@@ -4637,7 +4637,7 @@
       "Tap 'Icons'",
       "Tap the Shift row in the Keys group to open its picker dialog"
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "Dialog should show the built-in Material Symbols grid plus the 'Use my own SVG\u2026' row at the bottom.",
     "kind": "still"
   },

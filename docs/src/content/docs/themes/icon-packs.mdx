@@ -12,7 +12,7 @@ import KeyCap from '@components/KeyCap.astro';
 Every glyph the keyboard draws around your keys (toolbar tools, the <KeyCap>Shift</KeyCap> and <KeyCap>Enter</KeyCap> keys, the emoji tab strip) is a named icon slot you can replace. Change one icon at a time, or install a pack that redraws the whole set.
 
 <PhoneFrame caption="The Icons screen: the active pack, and every replaceable slot grouped by where it appears.">
-  {/* shot: themes/icons-screen-overview */}
+  ![The Icons screen: the active pack, and every replaceable slot grouped by where it appears.](@assets/screens/themes/icons-screen-overview.webp)
 </PhoneFrame>
 
 ## What you can replace
@@ -41,7 +41,7 @@ Under the hood these are ordinary SVGs read by a small built-in parser rather th
 Tap any slot in the list to open its picker: choose from the built-in Material Symbols set, or tap **Use my own SVG…** to import a file of your own (under 256 KB).
 
 <PhoneFrame caption="Picking a replacement for the Shift icon: built-in alternatives, or an SVG of your own.">
-  {/* shot: themes/icons-slot-picker */}
+  ![Picking a replacement for the Shift icon: built-in alternatives, or an SVG of your own.](@assets/screens/themes/icons-slot-picker.webp)
 </PhoneFrame>
 
 A single icon you import this way doesn't just live in that one slot: it's written into a reserved pack called **My icons**, and that slot is pinned to pull from it. Pick custom SVGs for a few more slots and they land in the same pack, so "My icons" quietly becomes a real, exportable pack as you go. See [Making your own pack](#making-your-own-pack) below.
