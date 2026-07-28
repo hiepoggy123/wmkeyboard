@@ -1751,5 +1751,124 @@
     "status": "todo",
     "notes": "osLanguageSwitcher defaults to true, so 'List languages in Android's switcher' is on and the 'Show app name first' sub-toggle (default off) should be visible beneath it.",
     "kind": "still"
+  },
+  {
+    "id": "privacy/backup-restore-screen",
+    "page": "docs/src/content/docs/privacy/backup.mdx",
+    "file": "src/assets/screens/privacy/backup-restore-screen.webp",
+    "caption": "Backup & restore: pick what to include, then export or import a file.",
+    "host": "settings",
+    "setup": [
+      "Not deep-link allowlisted (only typing, appearance, themes, languages, tools, search are) \u2014 navigate by tap: open the app, tap 'Backup & restore' in the Data group on the home screen.",
+      "Capture with the default export-toggle state (Settings/Themes/Snippets/Custom word lists/Addon repositories on; Dictionary/Clipboard/Sticker packs/Icon packs off) so the screenshot matches the documented defaults."
+    ],
+    "status": "todo",
+    "notes": "Screen is BackupSettings composable, MainActivity.kt:4589. Show the 'Include in export' toggle group; scroll position should include at least the top few rows (Settings, Include API keys hidden since Settings default is on but API keys default off, Themes) so the visible defaults are checkable against the docs table.",
+    "kind": "still"
+  },
+  {
+    "id": "privacy/backup-import-confirm",
+    "page": "docs/src/content/docs/privacy/backup.mdx",
+    "file": "src/assets/screens/privacy/backup-import-confirm.webp",
+    "caption": "The import confirmation, listing what a backup file contains before anything is applied.",
+    "host": "settings",
+    "setup": [
+      "From the Backup & restore screen, tap 'Import backup' and pick a previously-exported .wmconfig.json file (or one with a couple of sections, e.g. a small file with Themes + Snippets, so the dialog's bulleted section list is short enough to read in the screenshot).",
+      "Capture the resulting 'Import backup?' AlertDialog (MainActivity.kt:4823-4841 / FileImport.kt:390-407) before tapping Import or Cancel."
+    ],
+    "status": "todo",
+    "notes": "Use a test file that does NOT include secrets, so the screenshot shows the plain merge/replace sentence without the extra API-key warning paragraph \u2014 keeps the caption's claim clean. A separate capture with a secrets-containing file could be added later if the reviewer wants that state shown too, but it's not required by this page.",
+    "kind": "still"
+  },
+  {
+    "id": "privacy/on-device-learning-toggles",
+    "page": "docs/src/content/docs/privacy/data.mdx",
+    "file": "src/assets/screens/privacy/on-device-learning-toggles.webp",
+    "caption": "The Privacy screen: on-device learning toggles above, the Clear learned words button below.",
+    "host": "settings",
+    "setup": [
+      "am start -n com.wasimaster.wmkeyboard/.app.MainActivity",
+      "Tap Privacy from the settings home list (it's under the Data group, alongside Backup & restore)",
+      "Capture at the top of the screen: On-device learning group (Learn from typing, Add words to the system dictionary, Expand dictionary shortcuts, Incognito mode, Follow private browsing)"
+    ],
+    "status": "todo",
+    "notes": "The privacy route is NOT in the deep-link allowlist (only typing/appearance/themes/languages/tools/search are) -- reach it by tapping through the settings home screen's Data group rather than a wmkeyboard://settings/privacy deep link.",
+    "kind": "still"
+  },
+  {
+    "id": "privacy/clear-learned-words-button",
+    "page": "docs/src/content/docs/privacy/data.mdx",
+    "file": "src/assets/screens/privacy/clear-learned-words-button.webp",
+    "caption": "Clear learned words, under Privacy \u2192 Your data.",
+    "host": "settings",
+    "setup": [
+      "am start -n com.wasimaster.wmkeyboard/.app.MainActivity",
+      "Tap Privacy from the settings home list (Data group)",
+      "Scroll to the bottom, past the Android backup group, to the Your data group"
+    ],
+    "status": "todo",
+    "notes": "Shows the Your data group's single Clear learned words button. There is no confirmation dialog on tap (verified in MainActivity.kt) -- do not tap it during capture unless intentionally showing the post-clear state.",
+    "kind": "still"
+  },
+  {
+    "id": "privacy/incognito-toolbar-badge",
+    "page": "docs/src/content/docs/privacy/incognito.mdx",
+    "file": "src/assets/screens/privacy/incognito-toolbar-badge.webp",
+    "caption": "The incognito badge next to the toolbar, and the toolbox tool that turns it on.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
+      "Focus the field so the keyboard shows",
+      "Open the toolbox (grid button on the toolbar) and tap the Incognito tool to turn it on \u2014 it is not pinned to the toolbar by default (DefaultToolbarTools = EMOJI, CLIPBOARD, SETTINGS; ToolbarTool.kt:131-132), so find it in the toolbox grid",
+      "Close the toolbox; the incognito badge (IconSlots.CHROME_INCOGNITO, KeyboardScreen.kt:3656-3665) now shows next to the toolbar and the Incognito tool cell reads as active"
+    ],
+    "status": "todo",
+    "notes": "Confirms onIncognitoToggle() (WMKeyboardService.kt:6277-6297) and the badge render condition state.incognitoOn.",
+    "kind": "still"
+  },
+  {
+    "id": "privacy/secure-field-no-suggestions",
+    "page": "docs/src/content/docs/privacy/incognito.mdx",
+    "file": "src/assets/screens/privacy/secure-field-no-suggestions.webp",
+    "caption": "A password field: no suggestion strip, no smart chips.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind password",
+      "Focus the field so the keyboard shows; the suggestion strip should be entirely absent"
+    ],
+    "status": "todo",
+    "notes": "isSecureField()/suppressesSuggestions() force this for password variations regardless of the 'Suggestions in every field' override \u2014 WMKeyboardService.kt:10494-10529.",
+    "kind": "still"
+  },
+  {
+    "id": "privacy/clipboard-sensitive-masked",
+    "page": "docs/src/content/docs/privacy/incognito.mdx",
+    "file": "src/assets/screens/privacy/clipboard-sensitive-masked.webp",
+    "caption": "A sensitive clip, masked in the clipboard panel.",
+    "host": "harness-field",
+    "setup": [
+      "Before capture, copy a token that trips ClipSensitivity.looksSensitive() from any app \u2014 e.g. a mixed-case/digit/symbol string 8-128 chars long such as 'aB3!kZ9xQ7z', or a bare 4-8 char alphanumeric code with a digit such as 'G4K7QP' (must be the whole clip, no surrounding text)",
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
+      "Focus the field, open the toolbar/toolbox, tap the Clipboard tool to open the panel",
+      "The sensitive clip renders masked behind a lock icon with a hidden character count instead of its text (ClipSensitiveBody, KeyboardScreen.kt:9707-9735)"
+    ],
+    "status": "todo",
+    "notes": "Works with default settings (sensitiveHandling=SHORT_LIVED, detectSensitive=true) \u2014 no settings changes needed, just a qualifying copy beforehand.",
+    "kind": "still"
+  },
+  {
+    "id": "privacy/clipboard-settings-passwords",
+    "page": "docs/src/content/docs/privacy/incognito.mdx",
+    "file": "src/assets/screens/privacy/clipboard-settings-passwords.webp",
+    "caption": "Passwords & codes: sensitive-clip handling and the paste-time purge, both on by default.",
+    "host": "settings",
+    "setup": [
+      "am start -a android.intent.action.VIEW -d \"wmkeyboard://settings/tools\"",
+      "Tap the Clipboard row to open its settings screen",
+      "Scroll to the 'Passwords & codes' group near the bottom: Sensitive clips, Recognise them yourself, Forget sensitive clips after, and Forget after pasting a password (MainActivity.kt:6264-6312)"
+    ],
+    "status": "todo",
+    "notes": "'tools' is on the wmkeyboard:// deep-link allowlist (SettingsShortcuts.kt:38); the Clipboard sub-screen itself is reached by tap from there, not by its own deep link.",
+    "kind": "still"
   }
 ]
