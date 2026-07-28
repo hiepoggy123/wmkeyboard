@@ -1937,7 +1937,7 @@
       "First enable it manually: Settings \u2192 tap the Layout & size tile from the home grid (route 'layout' is not deep-link allowlisted) \u2192 turn on 'Number row' (off by default).",
       "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text"
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "Optionally switch the active language to Bengali or Arabic first (per-language Numerals setting) to show native digits instead of 0-9 in the same shot.",
     "kind": "still"
   },
@@ -2310,7 +2310,7 @@
       "Home \u2192 Keyboard group \u2192 Layout & size (no deep link: 'layout' is not on the wmkeyboard://settings/<route> allowlist, which is only typing, appearance, themes, languages, tools, search \u2014 verified in app/src/main/java/com/wasimaster/wmkeyboard/app/SettingsShortcuts.kt)",
       "Scroll to the 'Size & position' group and frame Key height, Key spacing, Keyboard width sliders"
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "LayoutSettings() composable at MainActivity.kt:3429; this group starts at line 3501.",
     "kind": "still"
   },
@@ -2339,7 +2339,7 @@
       "Focus the field, then in WM Keyboard settings turn on Layout & size \u2192 One-handed, split & floating \u2192 One-handed mode \u2192 Right (default side), or tap the One-handed toolbar tile if pinned",
       "Capture with some typed text visible so the docked shape and rail are both legible"
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "Rail is OneHandedRail composable, KeyboardScreen.kt:1144-1174 \u2014 arrow-flip icon on top, Fullscreen exit icon below, fixed at ONE_HANDED_RAIL_WEIGHT=0.16f of the row width.",
     "kind": "still"
   },
@@ -2354,7 +2354,7 @@
       "In WM Keyboard settings turn on Layout & size \u2192 One-handed, split & floating \u2192 Split keyboard, then focus the blank target to bring the keyboard up",
       "A landscape or tablet-width capture shows the split most clearly, though it renders at any width"
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "Split gap default 12%, range 5-40%; spacebar is divided between the two halves too.",
     "kind": "still"
   },
@@ -2369,7 +2369,7 @@
       "In WM Keyboard settings turn on Layout & size \u2192 One-handed, split & floating \u2192 Floating keyboard, then focus the blank target",
       "Frame the handle bar closely: Fullscreen dock icon (left), drag pill (middle third), two-diagonal-line resize grip (right)"
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "FloatingHandleBar composable, KeyboardScreen.kt:1049 on. Still fallback for the size-position-floating-resize anim below (reduced-motion pair).",
     "kind": "still"
   },

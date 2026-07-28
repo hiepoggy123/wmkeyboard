@@ -12,7 +12,7 @@ import KeyCap from '@components/KeyCap.astro';
 Every height, width and gap on WM Keyboard is a slider, not a fixed number: you can shrink it toward one thumb, split it down the middle for a wide screen, or detach it into a floating panel entirely. Sizing you set for portrait carries over everywhere by default, but landscape and unfolded screens can each override it, right down to scaling the whole keyboard at once.
 
 <PhoneFrame caption="The Size & position group: key height, key spacing, width and position sliders.">
-  {/* shot: typing/size-position-settings-overview */}
+  ![The Size & position group: key height, key spacing, width and position sliders.](@assets/screens/typing/size-position-settings-overview.webp)
 </PhoneFrame>
 
 ## Sizing the keys
@@ -72,7 +72,7 @@ Each orientation gets its own three controls:
 - **Side** — which edge it docks to, Left or Right, default **Right** in both orientations.
 
 <PhoneFrame caption="One-handed mode docked to the right edge, with the flip and exit rail.">
-  {/* shot: typing/size-position-one-handed */}
+  ![One-handed mode docked to the right edge, with the flip and exit rail.](@assets/screens/typing/size-position-one-handed.webp)
 </PhoneFrame>
 
 On the keyboard itself, a narrow rail fills the space one-handed mode leaves behind, with two buttons: an arrow that flips the keyboard to the other edge (live, and remembered as that orientation's new default side) and a fullscreen icon that exits one-handed mode entirely. If you've pinned the **One-handed** tool to your toolbar, tapping it toggles one-handed on using that orientation's preferred side, or off if it's already on. It has no default letter binding on a physical keyboard, but the leader key still reaches it (bind it a letter in **Tool shortcuts list**, or press <KeyCap>T</KeyCap> for the toolbox if you've pinned it there); see [Hardware keyboards](/typing/hardware-keyboard/).
@@ -84,7 +84,7 @@ On the keyboard itself, a narrow rail fills the space one-handed mode leaves beh
 **Split keyboard** divides every row down the middle with a gap between the halves, so your thumbs travel less on a wide screen: most useful on tablets, foldables, and phones turned to landscape. It's off by default; turn it on and a **Split gap** slider appears, 5% to 40% of the keyboard's width, default **12%**. A bigger gap pushes the halves further toward the edges but narrows each key. The spacebar splits between the two halves along with everything else, and (like one-handed mode) the setting is global rather than tied to a particular screen shape.
 
 <PhoneFrame caption="Split keyboard: each row divided into left and right halves with a center gap.">
-  {/* shot: typing/size-position-split */}
+  ![Split keyboard: each row divided into left and right halves with a center gap.](@assets/screens/typing/size-position-split.webp)
 </PhoneFrame>
 
 ## Floating the keyboard
@@ -100,7 +100,7 @@ The panel's handle bar carries three controls, left to right:
 - **Resize grip** — drawn as two short diagonal lines rather than a diagonal-arrows icon, deliberately, so it doesn't read as another fullscreen button. Dragging it resizes width and height together: width tracks your finger directly, height tracks it inverted, because the grip sits on the panel's *top* bar: drag up to grow the panel, down to shrink it.
 
 <PhoneFrame caption="The floating panel's handle bar: dock button, drag pill, and resize grip.">
-  {/* shot: typing/size-position-floating */}
+  ![The floating panel's handle bar: dock button, drag pill, and resize grip.](@assets/screens/typing/size-position-floating.webp)
 </PhoneFrame>
 
 Floating mode replaces the normal layout logic rather than combining with it. While it's on:
