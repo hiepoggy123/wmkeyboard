@@ -3251,5 +3251,152 @@
     "status": "todo",
     "notes": "Backed by core/common/.../debug/DebugLog.kt (CAPACITY=500 ring buffer, CRASH_CAPACITY=10) and app/.../DebugLogScreen.kt. Route is composable(\"debug_log\") off MainActivity.kt's about screen, not itself deep-link allowlisted. Also relevant to reference/settings/about.mdx (different page, different agent) \u2014 this entry is independent, capture once and it can serve either page if convenient, but each page's manifest is authoritative for its own placeholder id.",
     "kind": "still"
+  },
+  {
+    "id": "reference/settings-deep-link-destination",
+    "page": "docs/src/content/docs/reference/deep-links.mdx",
+    "file": "src/assets/screens/reference/settings-deep-link-destination.webp",
+    "caption": "A settings screen reached from a launcher shortcut \u2014 this one opened straight to Themes.",
+    "host": "settings",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.MainActivity -a android.intent.action.VIEW -d \"wmkeyboard://settings/themes\""
+    ],
+    "status": "todo",
+    "notes": "Settings deep links are not BROWSABLE, so this must be an explicit intent naming MainActivity directly (works even without an intent-filter match, since the component is named). Shows the Themes settings screen as the destination.",
+    "kind": "still"
+  },
+  {
+    "id": "reference/addon-link-prefilled-repo",
+    "page": "docs/src/content/docs/reference/deep-links.mdx",
+    "file": "src/assets/screens/reference/addon-link-prefilled-repo.webp",
+    "caption": "Following a wmkeyboard://repo?url=\u2026 link pre-fills the add-repository dialog \u2014 nothing is fetched until you tap Add.",
+    "host": "settings",
+    "setup": [
+      "adb shell am start -a android.intent.action.VIEW -d \"wmkeyboard://repo?url=github.com/wmkeyboard/sample-repo\"",
+      "This host is BROWSABLE (declared in the manifest for addons|repo|addon), so a plain implicit VIEW intent works; substitute a real/reachable sample repo URL so AddonRepoCodec.resolveManifestUrl succeeds and the dialog actually opens pre-filled rather than falling back to the plain Addons screen."
+    ],
+    "status": "todo",
+    "notes": "Capture the Addons screen with the add-repository dialog open and the URL field already populated from the link, before tapping Add.",
+    "kind": "still"
+  },
+  {
+    "id": "reference/file-import-dialog",
+    "page": "docs/src/content/docs/reference/deep-links.mdx",
+    "file": "src/assets/screens/reference/file-import-dialog.webp",
+    "caption": "The one-time confirm dialog shown before any file import goes through.",
+    "host": "settings",
+    "setup": [
+      "Push a sample export (e.g. a small *.wmtheme.json) to the device's Downloads folder via adb push.",
+      "Open a file manager app, navigate to Downloads, and tap the file \u2014 this launches ImportFileActivity's confirm dialog (a separate activity, not reachable via a settings deep link).",
+      "Capture the dialog before tapping Import."
+    ],
+    "status": "todo",
+    "notes": "Any recognized extension works for a generic 'here's the dialog' shot; a theme import (title 'Import <name>?') is a reasonable representative choice since its wording is short.",
+    "kind": "still"
+  },
+  {
+    "id": "reference/plugin-import-gate",
+    "page": "docs/src/content/docs/reference/deep-links.mdx",
+    "file": "src/assets/screens/reference/plugin-import-gate.webp",
+    "caption": "Opening a plugin file while the Plugins subsystem is off \u2014 nothing installs or runs.",
+    "host": "settings",
+    "setup": [
+      "Ensure Tools > Plugins > Allow plugins is OFF (the default \u2014 no action needed on a fresh install).",
+      "Push a sample .wmplugin file to Downloads via adb push, open it from a file manager the same way as the file-import-dialog entry.",
+      "Capture the 'Plugins are turned off' dialog."
+    ],
+    "status": "todo",
+    "notes": "Distinct from the generic file-import-dialog shot: this specific dialog never shows the plugin's name, only the 'turn plugins on in Settings > Tools > Plugins first' message. Requires the subsystem toggle to be off, which is the default state.",
+    "kind": "still"
+  },
+  {
+    "id": "reference/import-file-confirm-dialog",
+    "page": "docs/src/content/docs/reference/file-formats.mdx",
+    "file": "src/assets/screens/reference/import-file-confirm-dialog.webp",
+    "caption": "Opening a WM Keyboard file from a file manager: one confirm dialog, then the import.",
+    "host": "settings",
+    "setup": [
+      "Push a sample file (e.g. a valid .wmtheme.json exported from the app) to the device, e.g. /sdcard/Download/sample.wmtheme.json",
+      "adb shell am start -a android.intent.action.VIEW -d file:///sdcard/Download/sample.wmtheme.json -t application/json -n com.wasimaster.wmkeyboard/.app.ImportFileActivity",
+      "If the VIEW intent doesn't route correctly from adb (content:// URIs from a real file manager work more reliably than file:// from adb), instead open a file manager app on-device, navigate to the pushed file, and tap it \u2014 WM Keyboard's file association (AndroidManifest.xml intent-filter, pathPattern match on the compound extension) opens ImportFileActivity directly."
+    ],
+    "status": "todo",
+    "notes": "This is ImportFileActivity's ImportFileDialog composable (app/src/main/java/com/wasimaster/wmkeyboard/app/FileImport.kt), a single AlertDialog over whatever was on screen \u2014 not a NavHost settings screen and not a DocsShotActivity harness mode, so host is approximated as 'settings' for lack of a better bucket; treat the setup steps as authoritative. Title/body come from WMFileTypes.identify()'s result (e.g. 'Import theme \"<name>\"?' for a theme). Using a .wmlayout.json with a deliberate minor error would additionally show the 'Changed on the way in' repairs list, which is a more interesting shot if the capture agent wants to show that branch instead.",
+    "kind": "still"
+  },
+  {
+    "id": "reference/shortcuts-cheat-sheet",
+    "page": "docs/src/content/docs/reference/shortcuts.mdx",
+    "file": "src/assets/screens/reference/shortcuts-cheat-sheet.webp",
+    "caption": "The cheat sheet after pressing the shortcut key twice, then ?, showing every bound letter.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
+      "Focus the field to bring up the keyboard",
+      "Send a physical double-tap of Ctrl (or the two hardware KEYCODE_CTRL_LEFT down/up event pairs within 400ms) to arm the tool picker",
+      "Send a KEYCODE_SLASH (or shifted '/') key event to expand the picker into the full cheat sheet",
+      "Capture while the cheat-sheet overlay is showing"
+    ],
+    "status": "todo",
+    "notes": "Requires a physical/emulated hardware keyboard sending real KeyEvents (adb `input keyevent` against KEYCODE_CTRL_LEFT twice within the 400ms double-tap window, then KEYCODE_SLASH) since this is driven by WMKeyboardService.onKeyDown/onKeyUp, not touch. If DocsShotActivity/adb input cannot easily fake the double-tap timing, a fallback is to trigger it from a Bluetooth/USB test keyboard on the device.",
+    "kind": "still"
+  },
+  {
+    "id": "reference/troubleshooting-empty-dictionary-state",
+    "page": "docs/src/content/docs/reference/troubleshooting.mdx",
+    "file": "src/assets/screens/reference/troubleshooting-empty-dictionary-state.webp",
+    "caption": "A language with no built-in or downloaded dictionary yet \u2014 suggestions come only from what you've typed.",
+    "host": "settings",
+    "setup": [
+      "am start -a android.intent.action.VIEW -d wmkeyboard://settings/languages",
+      "Tap a language that has neither a built-in dictionary nor a downloaded one yet (e.g. French or German \u2014 see languages/dictionaries.mdx for which ship built-in) to open its language detail screen",
+      "Scroll to the Dictionary section and capture the 'nothing available yet, download one or import your own' state"
+    ],
+    "status": "todo",
+    "notes": "Reuses the same UI as languages/dictionaries.mdx's own dictionary-download-row shot but should show the empty/no-dictionary state specifically, since that's the troubleshooting angle (not the tier picker or an in-progress download).",
+    "kind": "still"
+  },
+  {
+    "id": "reference/troubleshooting-panel-captures-input",
+    "page": "docs/src/content/docs/reference/troubleshooting.mdx",
+    "file": "src/assets/screens/reference/troubleshooting-panel-captures-input.webp",
+    "caption": "An open tool panel capturing input \u2014 the toolbox button has become a back arrow.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
+      "Open WM Keyboard on the field, open the toolbox, and open a genuine input-capturing panel tool (e.g. Search or Snippets \u2014 not a sensor/generator tool like Calculator, which replaces the key rows instead per tools/overview.mdx)",
+      "Screenshot with the panel open, confirming the toolbox button area now shows a back arrow instead of the grid icon"
+    ],
+    "status": "todo",
+    "notes": "Purpose is to show the visual cue (back arrow) that a panel has captured the keyboard, referenced from tools/overview.mdx#panels-and-captured-keys. Pick whichever panel tool is easiest to reach and has an uncluttered look.",
+    "kind": "still"
+  },
+  {
+    "id": "reference/troubleshooting-diagnostics-screen",
+    "page": "docs/src/content/docs/reference/troubleshooting.mdx",
+    "file": "src/assets/screens/reference/troubleshooting-diagnostics-screen.webp",
+    "caption": "The Diagnostics screen: report actions at the top, the filterable app log below.",
+    "host": "settings",
+    "setup": [
+      "Diagnostics is NOT in the wmkeyboard://settings/ deep-link allowlist (only typing, appearance, themes, languages, tools, search) \u2014 navigate by hand instead: open the app, go to About, tap Diagnostics",
+      "Capture with the Report group (Share diagnostics / Copy to clipboard / Include the system log) visible plus at least a few App log entries below; the Crashes section only appears if a crash exists so it's fine if it's absent"
+    ],
+    "status": "todo",
+    "notes": "Route is debug_log (SettingsScreen(\"Diagnostics\", ...) in MainActivity.kt:728-732), reached only via About, confirmed not on the deep-link allowlist in reference/deep-links.mdx.",
+    "kind": "still"
+  },
+  {
+    "id": "reference/gestures-typing-screen",
+    "page": "docs/src/content/docs/reference/gestures.mdx",
+    "file": "src/assets/screens/reference/gestures-typing-screen.webp",
+    "caption": "The Gestures group on the Typing settings screen \u2014 home to most of the spacebar and backspace gestures below.",
+    "host": "settings",
+    "setup": [
+      "am start -a android.intent.action.VIEW -d wmkeyboard://settings/typing",
+      "Scroll to the Gestures group (Quick swipe on spacebar, Hold + swipe on spacebar, 2-D cursor touchpad, Swipe down to hide, Gesture typing)"
+    ],
+    "status": "todo",
+    "notes": "Reconstructed manually \u2014 the writer agent's structured-output call dropped due to a connection error after the file edit itself succeeded.",
+    "kind": "still"
   }
 ]

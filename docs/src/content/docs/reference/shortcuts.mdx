@@ -5,17 +5,119 @@ sidebar:
   order: 2
 ---
 
-:::caution[Draft page]
-Scaffolding only — real content pending. The outline below is the checklist for what this page must cover.
-:::
+import PhoneFrame from '@components/PhoneFrame.astro';
+import SettingsPath from '@components/SettingsPath.astro';
+import KeyCap from '@components/KeyCap.astro';
+import Flavor from '@components/Flavor.astro';
 
-## Planned coverage
+This is the flattened, all-in-one-table version of what a physical keyboard can do in WM Keyboard: the leader key that opens tools, every default letter binding, and the keys that drive an open panel. For the walkthrough with explanations of each setting, see [Hardware keyboards](/typing/hardware-keyboard/).
 
-- Leader key: double-tap Ctrl, then each letter mapping
-- Editing shortcuts honoured by the IME
-- Focus-ring navigation keys in panels
+<PhoneFrame caption="The cheat sheet after pressing the shortcut key twice, then ?, showing every bound letter.">
+  {/* shot: reference/shortcuts-cheat-sheet */}
+</PhoneFrame>
 
-{/* TODO(sonnet): replace this stub. Turn the outline into real sections,
-   add screenshots with <PhoneFrame>, mark settings with <SettingsPath>,
-   keys with <KeyCap>, and edition limits with <Flavor>.
-   Conventions live in docs/CONTENT_GUIDE.md. */}
+## Opening the tool picker
+
+Double-tap <KeyCap>Ctrl</KeyCap> — the default shortcut key — and an overlay appears listing the letters on offer. Press a letter to open that tool, <KeyCap>T</KeyCap> for the full toolbox, or <KeyCap>?</KeyCap> to expand the overlay into the complete legend shown above. The picker waits about three seconds for a letter before it disarms itself; that timeout isn't adjustable from settings.
+
+You can pick a different double-tapped modifier (<KeyCap>Ctrl</KeyCap>, <KeyCap>Alt</KeyCap> or <KeyCap>Shift</KeyCap>) or capture an arbitrary chord instead, from <SettingsPath path="Typing / Physical keyboard / Tool shortcuts list" />. A captured chord that the focused app is likely to want still works, but the capture dialog warns that it's "usually the app's own shortcut" — it's a nudge, not a block:
+
+<KeyCap>Ctrl</KeyCap>+<KeyCap>A</KeyCap>, <KeyCap>Ctrl</KeyCap>+<KeyCap>C</KeyCap>, <KeyCap>Ctrl</KeyCap>+<KeyCap>V</KeyCap>, <KeyCap>Ctrl</KeyCap>+<KeyCap>X</KeyCap>, <KeyCap>Ctrl</KeyCap>+<KeyCap>Z</KeyCap>, <KeyCap>Ctrl</KeyCap>+<KeyCap>Y</KeyCap>, <KeyCap>Ctrl</KeyCap>+<KeyCap>S</KeyCap>, <KeyCap>Ctrl</KeyCap>+<KeyCap>F</KeyCap>, <KeyCap>Ctrl</KeyCap>+<KeyCap>Space</KeyCap>, <KeyCap>Ctrl</KeyCap>+<KeyCap>Tab</KeyCap>, and <KeyCap>Alt</KeyCap>+<KeyCap>Tab</KeyCap>.
+
+A chord with no modifier at all is flagged the same way, since it would swallow ordinary typing instead of arming the picker.
+
+## Every tool's letter
+
+The default letter is the tool's own initial, wherever that letter was still free. Change any binding from <SettingsPath path="Typing / Physical keyboard / Tool shortcuts list" /> — tap a tool's row to capture a new letter, or **Reset to defaults** to put every letter and the shortcut key back the way they started.
+
+| Key | Tool | Key | Tool |
+| --- | --- | --- | --- |
+| <KeyCap>A</KeyCap> | AI writing tools | <KeyCap>O</KeyCap> | Settings shortcut |
+| <KeyCap>B</KeyCap> | Power saving | <KeyCap>P</KeyCap> | Password generator |
+| <KeyCap>C</KeyCap> | Clipboard | <KeyCap>Q</KeyCap> | QR code generator |
+| <KeyCap>D</KeyCap> | Dictionary | <KeyCap>R</KeyCap> | Translate |
+| <KeyCap>E</KeyCap> | Emoji | <KeyCap>S</KeyCap> | Snippets |
+| <KeyCap>G</KeyCap> | GIFs | <KeyCap>U</KeyCap> | Unit converter |
+| <KeyCap>H</KeyCap> | Hide keyboard | <KeyCap>V</KeyCap> | Voice typing |
+| <KeyCap>I</KeyCap> | Image search | <KeyCap>W</KeyCap> | Web search |
+| <KeyCap>K</KeyCap> | Stickers | <KeyCap>X</KeyCap> | Text editing |
+| <KeyCap>L</KeyCap> | Calculator | <KeyCap>Y</KeyCap> | Special symbols |
+| <KeyCap>M</KeyCap> | Media controls | <KeyCap>Z</KeyCap> | Undo |
+| <KeyCap>N</KeyCap> | Numpad | | |
+
+<KeyCap>T</KeyCap> and <KeyCap>?</KeyCap> are reserved and can never be bound to a tool. <KeyCap>F</KeyCap> and <KeyCap>J</KeyCap> have no default binding — their tool is still one press away through the toolbox until you assign them a letter yourself.
+
+Every other tool — flashlight, compass, bubble level, redo, moon phase, weather, calendar, incognito, themes, autocorrect, sound & haptics, handwriting, camera, text scan (OCR), QR & barcode scanner, document scanner, grammar check, Wikipedia, currency converter, keyboard modes, typing speed test, plugins, one-handed mode, split and floating keyboard, every cursor-move tool, and select word/line — ships with no default letter at all: 37 tools in total. Any of them reach the picker only through <KeyCap>T</KeyCap> for the toolbox, unless you assign a free letter to them yourself. Handwriting, the three scanners and grammar checking also only appear in the list at all <Flavor edition="full" />.
+
+## Picking a suggestion from the keyboard
+
+<SettingsPath path="Typing / Physical keyboard / Number keys pick suggestions" />
+
+| Mode | Keys | Default |
+| --- | --- | --- |
+| Off | — | |
+| After the shortcut key | Double-tap the shortcut key, then <KeyCap>1</KeyCap>–<KeyCap>9</KeyCap> | Yes |
+| Alt + number | <KeyCap>Alt</KeyCap>+<KeyCap>1</KeyCap>–<KeyCap>Alt</KeyCap>+<KeyCap>9</KeyCap> | |
+
+There's no slot for suggestion "10" — only the first nine entries in the strip are reachable by number. **Alt + number** is opt-in rather than the default because browsers, editors and chat apps often claim modifier+digit for tab or workspace switching.
+
+## Driving an open panel
+
+<SettingsPath path="Typing / Physical keyboard / Arrow keys move a highlight" />
+
+Once a tool is open, the arrow keys move a highlighted ring over its search box, category chips or results; <KeyCap>Enter</KeyCap> activates whatever's highlighted; <KeyCap>Tab</KeyCap> (<KeyCap>Shift</KeyCap>+<KeyCap>Tab</KeyCap> to go backward) cycles between the panel's sections once the ring exists. <KeyCap>Esc</KeyCap> closes the panel — see [Options](#options) below.
+
+Not every panel offers the same sections, and some offer none at all:
+
+| Panel | Sections |
+| --- | --- |
+| Emoji, GIFs, Stickers, Clipboard | Search, chips, results |
+| Special symbols | Chips, results |
+| Dictionary, Web search, Image search, Wikipedia | Search, results |
+| Toolbox, Snippets, Themes, Modes, suggestion candidates | Results only |
+| Everything else (sensors, cameras, ink input, button grids, plugin panels, and any tool the field's own keys already drive) | None — hardware navigation doesn't reach these |
+
+Plugin panels have no fixed set of sections to cycle, so hardware navigation inside one is a known gap for now.
+
+<KeyCap>Tab</KeyCap> only belongs to the keyboard once the ring is already up — before that, it's still normal field navigation (or terminal completion), so an armed picker never steals it. The same goes for <KeyCap>Enter</KeyCap>: with no ring on screen it keeps its ordinary meaning, running the panel's search or the field's own editor action, instead of being swallowed.
+
+## What always reaches the app
+
+WM Keyboard deliberately does not reimplement editing shortcuts on a physical keyboard. Any <KeyCap>Ctrl</KeyCap> or <KeyCap>Meta</KeyCap> combination — copy, paste, undo, save, whatever the app binds it to — is passed straight through, whether or not **Process hardware keys** is on. <KeyCap>AltGr</KeyCap> is the one combination that looks like a shortcut but isn't: it arrives as Ctrl+Alt held together, so it falls through to the normal character path instead (a German keyboard's AltGr+Q still types "@").
+
+The only physical-key behavior WM Keyboard adds on top of that is on this page: the leader and its picker, <KeyCap>Esc</KeyCap> closing an open panel, the focus ring, and the suggestion hotkeys. All four work regardless of the **Process hardware keys** toggle, since none of them touch typed text — that toggle only governs typing itself. See [Hardware keyboards](/typing/hardware-keyboard/#typing-on-a-physical-keyboard) for what typing on a physical keyboard does and doesn't intercept.
+
+## Options
+
+<SettingsPath path="Typing / Physical keyboard" />
+
+| Setting | Default |
+| --- | --- |
+| Process hardware keys | On |
+| Tool shortcuts | On |
+| Shortcut key | Double-tap Ctrl |
+| Arrow keys move a highlight | On |
+| Esc closes the tool | On |
+| Number keys pick suggestions | After the shortcut key |
+| Show the keyboard for shortcuts | On |
+
+A related pair of settings lives in the same **Typing** screen's <SettingsPath path="Typing / Volume keys" /> group rather than here, since they're volume-key shortcuts and not part of the leader/picker mechanism:
+
+| Setting | Default |
+| --- | --- |
+| Volume cursor control | Off |
+| Release while audio plays | On |
+
+With **Volume cursor control** on, volume down and up move the text cursor one character left or right while the keyboard is open — the volume keys behave normally everywhere else, and as soon as the keyboard closes. **Release while audio plays** (shown only while the setting above is on) gives the volume keys back to actual volume control whenever something is playing, so replying to a message never costs you the ability to turn the sound down.
+
+## Details and edge cases
+
+- **Reserved chords still work as a shortcut key, with a warning.** Capturing one of the eleven reserved combinations above just gets you a caution in the capture dialog — it isn't blocked.
+- **The double-tap fires on the second tap's release, not its press**, and any other key pressed in between resets it — Ctrl-tap, Ctrl+C, Ctrl-tap never arms the picker. A held, auto-repeating modifier doesn't count as a tap either.
+- **Process hardware keys only governs typed characters.** Turning it off stops physical keys from running through autocorrect and suggestions, but the leader, tool shortcuts, panel navigation and Esc keep working regardless.
+- **A letter can only ever open one tool.** Capturing a letter that's already bound offers to reassign it — the other tool loses that letter the moment you confirm, so two tools can never share one.
+- **A tool you've turned off in Tools keeps its letter, but the letter does nothing.** The row in the shortcuts list still shows the binding, labeled "Turned off in Tools," and pressing it from the picker just vibrates instead of opening anything — the same letter also drops off the cheat sheet while the tool stays disabled.
+- **No edition split for the mechanism itself.** The leader, the default 23-letter table and panel navigation work identically on full and lite builds — only the five tools gated to <Flavor edition="full" /> (handwriting, the three scanners, and grammar checking) are absent from the picker on lite, the same as everywhere else in the app.
+- **Presence detection is automatic.** WM Keyboard notices a physical keyboard attaching and detaching through the system's own configuration; nothing here needs to be told which mode it's in.
+
+For the full explanation of every setting on this page, plus what typing itself does and doesn't do on a physical keyboard, see [Hardware keyboards](/typing/hardware-keyboard/). For the toolbar setting that hides the key grid whenever a keyboard is attached, see [Appearance settings](/reference/settings/appearance/).
