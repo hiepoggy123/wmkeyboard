@@ -5,24 +5,80 @@ sidebar:
   order: 5
 ---
 
-:::caution[Draft page]
-Scaffolding only — real content pending. The outline below is the checklist for what this page must cover.
+import PhoneFrame from '@components/PhoneFrame.astro';
+import SettingsPath from '@components/SettingsPath.astro';
+
+Most languages ship with no word list at all — suggestions come only from what you type. A downloadable dictionary adds instant completions in your chosen size, and protects its own words from autocorrect, entirely offline once it's on the device.
+
+<PhoneFrame caption="A language's Dictionary section: the built-in note, a size tier, and the Download button.">
+  {/* shot: languages/dictionary-download-row */}
+</PhoneFrame>
+
+## What a dictionary changes
+
+Only English and Bengali ship a built-in dictionary inside the app itself. Every other language starts empty, learning words only from what you type (and from any list you import yourself — see [Options](#options) below). The Dictionary section on a language's own screen always explains which case you're in:
+
+- **Built-in, and a bigger download is available** — a note that downloading trades a small on-device list for a larger, more complete one.
+- **Built-in only** — no downloadable list exists for that language yet.
+- **Nothing built in, but a download is available** — download one for suggestions and autocorrect, or import your own list.
+- **Nothing available at all** — the keyboard learns your words as you type, and you can still import a list.
+
+A downloaded dictionary does two things at once: it adds its words as completions while you type, and it stops autocorrect from "fixing" any word that's in it. For English and Bengali, downloading replaces the built-in list outright — the bigger file becomes the one the keyboard actually uses. For every other language, there's no built-in list to replace, so the download's words are combined with anything you've imported yourself — a word in either list gets completions and autocorrect protection, and downloading one doesn't clear the other. That's why French, German, or Spanish (none of which ship anything built in) can still get real completions once you fetch a list.
+
+## Choosing a size
+
+Before you download, pick how many of the most frequent words to keep:
+
+| Tier | Words kept |
+|---|---|
+| Small | 50,000 |
+| Medium (default) | 150,000 |
+| Large | 300,000 |
+
+The source lists are sorted by frequency and downloaded over a streaming connection, so picking a smaller tier doesn't just trim the result — it stops the transfer early. Thai's full list is 4 million words and 41 MB compressed, but downloading Large only pulls the first 300,000 of them, a fraction of the total transfer. The size picker itself disappears for languages whose entire list is already smaller than the Small tier — there's nothing to trim.
+
+The size you pick isn't a saved setting; it resets to Medium every time you open the screen, and only the finished download remembers what you chose (shown afterward as an exact word count and file size). If you want a different tier later, delete the dictionary and download it again — there's no separate "update" action or size switch.
+
+:::note[Portuguese has two lists, not two dictionaries]
+Portuguese is the one language with two downloadable entries — European and Brazilian — but they share a single download slot. Fetching the Brazilian list after the European one replaces it; only one variant can be active for Portuguese at a time, and the row for the other one goes back to showing "Download."
 :::
 
-## Planned coverage
+## Downloading, updating, and deleting
 
-- What a dictionary adds (suggestions, autocorrect quality)
-- Size tiers and picking one; storage used (333 wordlists — Portuguese ships European and Brazilian variants)
-- Download, update and delete flows; auto-download on language enable
-- Emoji keyword packs (125 languages) ride the same pipeline
-- Offline guarantee: downloads come from the data repo, then everything is local
+Tap **Download** on a wordlist row to start it. Progress shows as an indeterminate bar rather than a percentage, because a capped download stops before reaching the file's full size, so there's no meaningful total to count up to. Tap the close icon while it's running to cancel — the partial file is discarded and the row goes back to "Download."
 
-{/* TODO(sonnet): replace this stub. Turn the outline into real sections,
-   add screenshots with <PhoneFrame>, mark settings with <SettingsPath>,
-   keys with <KeyCap>, and edition limits with <Flavor>.
-   Conventions live in docs/CONTENT_GUIDE.md.
-   The table below is real content — keep it (regenerate the data with
-   docs/scripts/extract_data.py when the catalog changes). */}
+Once a dictionary is downloaded, the row's only action is delete. Deleting removes the file for that language: English and Bengali fall back to their built-in list, every other language falls back to learned words and any imported custom list.
+
+<PhoneFrame caption="A dictionary mid-download, with the indeterminate progress bar and cancel action.">
+  {/* shot: languages/dictionary-download-progress */}
+</PhoneFrame>
+
+You don't need to restart the keyboard for a download to take effect — it goes live the next time you focus a text field after the download finishes.
+
+A download can fail for a few distinct reasons, each with its own message: no network connection, not enough free storage ("free up some space first"), a malformed or empty response, or an unexpected server error. A failed row shows **Retry** in place of Download.
+
+## Emoji keyword packs
+
+Emoji search ships with English and Bengali keywords built in. A separate, much smaller catalog of 125 language keyword packs lets emoji search and suggestions work in other languages too — the pipeline is the same shape (stream, unpack, use locally) but the packs are small enough that there's no size tier, and unlike word dictionaries, they can download automatically as soon as you enable a language. That toggle and the rest of the keyword-pack details live on [Emoji customization](/emoji/customization/); this page covers word dictionaries only.
+
+## Options
+
+<SettingsPath path="Languages / (a language) / Dictionary" />
+
+There's no global dictionary settings screen — each language's own screen has its own Dictionary section, reached from **Languages** in the app. A few related settings live elsewhere:
+
+- **Emoji keywords auto-download** — <SettingsPath path="Emoji / Emoji keywords / Download automatically" /> — default **on**. Governs the emoji keyword packs above, not word dictionaries.
+- **Custom dictionaries** (import your own word list) — <SettingsPath path="Typing / Custom dictionaries" />. The same screen is also one tap from a language's own Dictionary section, above.
+- **Personal dictionary** (words the keyboard has learned from your typing) — <SettingsPath path="Typing / Personal dictionary" />. This is a different, unrelated store from anything on this page.
+
+## Details & edge cases
+
+- **Downloaded and imported word lists are combined, not exclusive.** A downloaded wordlist and anything you've imported yourself live in separate on-disk stores, and — for every language, including English and Bengali — the keyboard reads from both at once: a word in either one gets completions and autocorrect protection. Downloading a list doesn't clear an import, and importing doesn't clear a download.
+- **Custom and personal dictionaries are different things.** A custom dictionary is a word list you import yourself; the personal dictionary is what the keyboard has learned from your own typing. Neither is the downloadable-wordlist catalog this page covers — see [Options](#options) above for where each one lives.
+- **The size shown in the wordlist table below is a download cap, not a storage promise.** It's the compressed size of the full remote file, used only as an upper bound while the progress bar is indeterminate. What actually lands on your device depends on the tier you pick and is reported as an exact figure once the download finishes.
+- **Romanized languages are their own catalog entries, not a toggle.** Fourteen languages — including Bengali, Hindi, Arabic, and Russian in Latin transliteration — have their own separate dictionary entry and their own selectable language (Banglish, Hinglish, Arabizi, and so on), distinct from the native-script version.
+- **Downloads come from one place.** Every wordlist and every emoji keyword pack downloads from the same public data repository over a plain HTTPS connection; nothing else is contacted. Once a file is written to disk, using it needs no further network access — see [Network policy](/privacy/network/) for the full picture of what this keyboard sends and when.
+- **Downloadable wordlists keep their own licenses.** The bundled seed data (bigrams, the loanword map, the offensive-word filter) is hand-curated for this project, but each downloadable wordlist carries whatever license its own upstream source uses.
 
 ## Every wordlist
 
@@ -49,3 +105,6 @@ the Small/Medium/Large tiers keep the most frequent 50k/150k/300k words.
 	placeholder="Filter 333 wordlists…"
 	caption="Generated from the app's dictionary catalog; sizes are the gzipped downloads."
 />
+{/* keep it */}
+
+See also [Languages overview](/languages/overview/) for enabling a language in the first place, and [Emoji customization](/emoji/customization/) for the keyword-pack side of this same pipeline.

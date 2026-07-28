@@ -5,18 +5,87 @@ sidebar:
   order: 7
 ---
 
-:::caution[Draft page]
-Scaffolding only — real content pending. The outline below is the checklist for what this page must cover.
+import KeyCap from '@components/KeyCap.astro';
+import SettingsPath from '@components/SettingsPath.astro';
+import PhoneFrame from '@components/PhoneFrame.astro';
+import LayoutExplorer from '@components/LayoutExplorer.astro';
+import fancyBold from '../../../../../app/src/main/assets/layouts/fancy_bold.wmlayout.json';
+import fancyDoubleStruck from '../../../../../app/src/main/assets/layouts/fancy_double_struck.wmlayout.json';
+import fancySuperscript from '../../../../../app/src/main/assets/layouts/fancy_superscript.wmlayout.json';
+
+Fancy Text isn't a language — it's 22 Unicode "font" styles, each installed as its own switchable layout. Turn one on and every letter key already shows the styled glyph, so what you type is already 𝓯𝓪𝓷𝓬𝔂: there's no separate conversion step afterward.
+
+<PhoneFrame caption="The Bold style active in a text field: typing hello commits 𝐡𝐞𝐥𝐥𝐨 directly.">
+  {/* shot: languages/fancy-text-bold-field */}
+</PhoneFrame>
+
+## Trying a style
+
+Every fancy layout is a plain QWERTY grid with a styled glyph swapped in as each key's label — hover or tap a key below, and toggle the shift layer to see the capital form:
+
+<LayoutExplorer layout={fancyBold} />
+
+The other 21 styles work the same way. Here's the full set, with the name each one shows in Settings:
+
+| Style | Style | Style |
+|---|---|---|
+| Bold | Sans-serif | Circled |
+| Italic | Sans Bold | Circled (Filled) |
+| Bold Italic | Sans Italic | Squared |
+| Script | Sans Bold Italic | Squared (Filled) |
+| Bold Script | Monospace | Small Caps |
+| Fraktur | Fullwidth | Superscript |
+| Bold Fraktur | Double-struck | Strikethrough, Underline |
+
+Every fancy layout has three letter rows (the 26 letters, both cases where a case exists) plus a bottom row for <KeyCap>?123</KeyCap>, comma, <KeyCap>🌐</KeyCap>, space, period, and <KeyCap>Enter</KeyCap>. Comma, period, and space always commit as plain ASCII — only the letters get the styled substitution. None of the 22 layouts define long-press popups, so there's no way to reach digits or accented fancy letters from the key grid itself; digits and symbols come from the shared <KeyCap>?123</KeyCap> panel, in plain ASCII.
+
+## Turning styles on
+
+<SettingsPath path="Languages / Add language" />
+
+Fancy Text lives in the same language catalogue as everything else — see [Languages overview](/languages/overview/) for how that catalogue works in general. Search for "fancy" (or scroll to "𝓕𝓪𝓷𝓬𝔂 · Fancy Text") and tap the row. That auto-enables **Bold**, the first style in the list, and opens the language's detail screen.
+
+<PhoneFrame caption="The Fancy Text language screen: 22 style toggles under Layouts.">
+  {/* shot: languages/fancy-text-layout-toggles */}
+</PhoneFrame>
+
+From there, the **Layouts** group lists all 22 styles as individual toggles — turn on however many you want. None are enabled by default beyond the one you just added; enabling Fancy Text at all is entirely opt-in. The one constraint is global, not specific to Fancy Text: at least one layout has to stay enabled across your whole keyboard, so the last one can't be switched off from here.
+
+Because Fancy Text ships no bundled dictionary, no downloadable wordlist, and no emoji-keyword pack, the same screen's Dictionary and Emoji sections stay in their fallback state — autocorrect and emoji search both sit this language out. See [Details & edge cases](#details--edge-cases) below.
+
+## Switching between styles
+
+Once more than one style is enabled, the <KeyCap>🌐</KeyCap> key and spacebar swipe cycle through every enabled *layout* — across every enabled language, not just your fancy styles — as one flat list. See [Switching languages](/languages/switching/) for the spacebar-swipe, hold-drag picker, and globe-key mechanics in full; nothing about Fancy Text changes how they work. Picking a style explicitly (a swipe, a picker tap, or a globe-key cycle) always wins over whatever a text field itself asked for — including the ASCII-only case covered below.
+
+## How it works
+
+There's no conversion step and no composer — the substitution *is* the layout. Each key's `label` (and, where a capital form exists, its `shiftLabel`) is simply the styled glyph itself, using the exact same shift mechanism every other layout uses. Two different Unicode techniques produce the styling, depending on the layout:
+
+- **Precomposed characters**, mostly from the Mathematical Alphanumeric Symbols block, for Bold, Italic, Script, Fraktur, Double-struck, Sans, and Monospace (and their combinations). These sit outside the Basic Multilingual Plane, so they need a font with supplementary-plane coverage to render — see the gaps below.
+- **Combining marks stacked on plain ASCII letters**, for Strikethrough (a stroke mark after each letter) and Underline (a low-line mark after each letter). These stay inside the BMP, so they render reliably almost everywhere, at the cost of being two codepoints per letter instead of one.
+
+Circled, Squared, Fullwidth, Small Caps, and Superscript draw from a few other existing Unicode blocks (Enclosed Alphanumerics, Fullwidth Forms, and the IPA/superscript ranges). No font ships with the app for any of this — rendering depends entirely on whatever font the app or system you're typing into already has installed, which is where the gaps below come from.
+
+Not every style has full alphabet coverage. Double-struck and (non-bold) Fraktur hit a handful of codepoints the Mathematical Alphanumeric block deliberately leaves empty, so those specific letters fall back to older, BMP-only symbols instead — hover the keys below to compare against the complete Bold layout above:
+
+<LayoutExplorer layout={fancyDoubleStruck} title="Double-struck — note the missing block for C, H, N, P, Q, R, Z" />
+
+Superscript goes further: Unicode has no capital superscript letters at all, and no superscript "q" in any case, so shift does nothing on this layout and the "q" key falls back to a plain lowercase q:
+
+<LayoutExplorer layout={fancySuperscript} title="Superscript — shift is a no-op; q has no superscript form" />
+
+## Details & edge cases
+
+**Case coverage varies by style.** Superscript and Small Caps have no shift layer at all — `shiftLabel` equals `label` on every key, because Unicode simply doesn't define capital forms for them. Squared and Circled (Filled) are single-case too, since Unicode only assigned capital-shaped symbols for those blocks. Circled (non-filled), Fullwidth, Double-struck, and every Fraktur/Script variant do have real upper/lower distinction.
+
+**A handful of letters fall back to an older block.** Beyond Double-struck's gaps shown above, non-bold Fraktur is missing astral forms for C, H, I, R, and Z (it falls back to the same Letterlike Symbols block); non-bold Script is missing several letters on both cases. Bold Fraktur and Bold Script have no such gaps — their Unicode blocks are complete.
+
+:::caution
+Fancy Text is exempt from the keyboard's normal ASCII-only safeguard. Fields that request ASCII-only input — a common flag on username boxes, coupon codes, and some search fields — normally force WM Keyboard back onto a plain layout automatically, because the app storing that field can't hold non-Latin text. That check compares script IDs, and Fancy Text is technically registered as the Latin script (its keys are Latin letters, just styled), so it passes the check and stays active. If a fancy style is your current layout when you tap into one of those fields, it keeps typing styled glyphs — which the field may silently reject or mangle. Switch to a plain layout first if you're not sure a field will accept anything but ASCII.
 :::
 
-## Planned coverage
+**No suggestions, no autocorrect, no swipe typing.** Fancy Text ships no bundled dictionary and has no downloadable wordlist, so the language screen's Dictionary section shows the generic no-dictionary fallback rather than an install option. The same applies to emoji keyword search — there's no emoji-keyword pack for it, so searching emoji while a fancy style is active falls back to English keywords. Glide/swipe typing is unavailable on any non-English layout, fancy styles included.
 
-- The 22 Unicode font styles; WYSIWYG key labels
-- Where fancy text breaks (search, screen readers, some apps) — honest caveats
-- How it works: astral characters, no fonts installed
-- Enabling and switching quickly
+**Search and screen readers** are governed by whatever app or service receives the text, not by WM Keyboard — styled Unicode letters aren't the same codepoints as their plain equivalents, so a search box or screen reader that only matches literal ASCII text won't recognize 𝕥𝕙𝕚𝕤 as "this." That's general behavior of the receiving app, not something this keyboard controls either way.
 
-{/* TODO(sonnet): replace this stub. Turn the outline into real sections,
-   add screenshots with <PhoneFrame>, mark settings with <SettingsPath>,
-   keys with <KeyCap>, and edition limits with <Flavor>.
-   Conventions live in docs/CONTENT_GUIDE.md. */}
+**Every style is also just a layout**, so you can open any of them in the visual layout editor to remap a key or add your own long-press entries — see [Custom layouts & the layout editor](/languages/custom-layouts/).
