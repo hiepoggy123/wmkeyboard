@@ -1,0 +1,123 @@
+[
+  {
+    "id": "addons/repo-catalogue-grid",
+    "page": "docs/src/content/docs/addons/installing.mdx",
+    "file": "src/assets/screens/addons/repo-catalogue-grid.webp",
+    "caption": "A repository's catalogue: search, type filters, and a two-column grid of addon cards.",
+    "host": "settings",
+    "setup": [
+      "am start -a android.intent.action.VIEW -d \"wmkeyboard://addons\"  (addon-specific deep link handled by AddonDeepLink.kt, separate from the wmkeyboard://settings/<route> allowlist)",
+      "Tap the seeded sample repository row (added automatically on first Addons-screen visit) to open its catalogue",
+      "Optionally select a type filter chip so the grid shows a visually varied set of cards with previews"
+    ],
+    "status": "todo",
+    "notes": "Shows AddonRepoScreen (AddonScreens.kt:572+): search field, horizontally-scrolling type chips, 2-column AddonCard grid. Use the app's seeded repo (AddonStore.SEED_URL) so cards have real previews/metadata.",
+    "kind": "still"
+  },
+  {
+    "id": "addons/add-repository-dialog",
+    "page": "docs/src/content/docs/addons/installing.mdx",
+    "file": "src/assets/screens/addons/add-repository-dialog.webp",
+    "caption": "Pasting a repository address. The preview line under the field shows exactly what will be fetched.",
+    "host": "settings",
+    "setup": [
+      "am start -a android.intent.action.VIEW -d \"wmkeyboard://addons\"",
+      "Tap 'Add repository'",
+      "Type a github.com/user/repo style URL into the field so the 'Will read: <resolved url>' preview line is visible under it"
+    ],
+    "status": "todo",
+    "notes": "AddRepositoryDialog (AddonScreens.kt:521-568). Capture with a valid-looking URL so the preview shows the resolved raw.githubusercontent.com address, not the error state.",
+    "kind": "still"
+  },
+  {
+    "id": "addons/detail-page-licence",
+    "page": "docs/src/content/docs/addons/installing.mdx",
+    "file": "src/assets/screens/addons/detail-page-licence.webp",
+    "caption": "An addon's detail page, with its licence and repository details.",
+    "host": "settings",
+    "setup": [
+      "am start -a android.intent.action.VIEW -d \"wmkeyboard://addons\"",
+      "Open the seeded sample repository's catalogue",
+      "Tap a card for an addon that declares a licence (the sample manifest's icon packs/fonts/theme typically carry one) to open AddonDetailScreen",
+      "Scroll so the 'Details' group (Repository / Size / Language / Licence rows) is visible"
+    ],
+    "status": "todo",
+    "notes": "AddonDetailScreen 'Details' SettingsGroup, LicenseRow at AddonScreens.kt:1468-1528. Pick an entry where entry.hasLicense is true so the Licence row actually appears.",
+    "kind": "still"
+  },
+  {
+    "id": "addons/apply-prompt",
+    "page": "docs/src/content/docs/addons/installing.mdx",
+    "file": "src/assets/screens/addons/apply-prompt.webp",
+    "caption": "The prompt after a first install, offering to switch to what you just installed.",
+    "host": "settings",
+    "setup": [
+      "am start -a android.intent.action.VIEW -d \"wmkeyboard://addons\"",
+      "Open the seeded sample repository's catalogue",
+      "Tap Install on a Theme (or IconPack/EmojiFont/Sound/Layout/Plugin) card that is not yet installed",
+      "Wait for the download to finish; the 'Installed {name}' AlertDialog with the switch-to-it question appears automatically"
+    ],
+    "status": "todo",
+    "notes": "AddonApplyPrompt composable (AddonScreens.kt:405-432). Only fires on a genuinely first-time install (no prior record for that key) — use an addon you haven't installed on the capture device yet. A Theme install gives the 'Use it as your keyboard theme now?' / 'Switch to it' wording used in the page's table.",
+    "kind": "still"
+  },
+  {
+    "id": "addons/update-chip-catalogue",
+    "page": "docs/src/content/docs/addons/managing.mdx",
+    "file": "src/assets/screens/addons/update-chip-catalogue.webp",
+    "caption": "A repository's catalogue, with an Update chip on a card that has a newer version available.",
+    "host": "settings",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.MainActivity",
+      "In-app: tap Settings, then tap Addons (not deep-link allowlisted — addons is not in the typing/appearance/themes/languages/tools/search set, so navigate by tap)",
+      "Tap the seeded sample repository (or any added repository) to open its catalogue grid",
+      "Requires fixture state: an addon in that repository's manifest must already be installed locally with sha.version older than the manifest's current entry.version, so its card renders the amber 'Update' AssistChip instead of the check-mark or download icon"
+    ],
+    "status": "todo",
+    "notes": "AddonScreens.kt StatusBadge() renders an AssistChip labeled 'Update' in the card's corner (top-right, ~32dp) only for AddonStatus.UpdateAvailable; NotInstalled/Installed/Downloading states look different. Capturing this needs a manifest with two versions of the same addon id, or a locally-edited installed.json record with an older version string, before opening the screen.",
+    "kind": "still"
+  },
+  {
+    "id": "addons/detail-page-actions",
+    "page": "docs/src/content/docs/addons/managing.mdx",
+    "file": "src/assets/screens/addons/detail-page-actions.webp",
+    "caption": "An addon's detail page: Update, Uninstall, and a button to jump to where it's used.",
+    "host": "settings",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.MainActivity",
+      "In-app: Settings > Addons > (a repository) > tap an addon that is already installed and has an update available",
+      "Screenshot the detail page's action row: 'Update' button, red-tinted 'Uninstall' button, and (below) the 'Use — open <type>' outlined button"
+    ],
+    "status": "todo",
+    "notes": "Same fixture requirement as the catalogue shot — an installed addon whose local version is older than the manifest's version, so both Update and Use buttons are visible together (AddonScreens.kt ~1390-1418).",
+    "kind": "still"
+  },
+  {
+    "id": "addons/addons-home",
+    "page": "docs/src/content/docs/addons/overview.mdx",
+    "file": "src/assets/screens/addons/addons-home.webp",
+    "caption": "The Addons screen: repositories you've added, plus everything you've installed from them.",
+    "host": "settings",
+    "setup": [
+      "Settings home > Features > Addons (route \"addons\" is not on the wmkeyboard:// deep-link allowlist, so navigate by tapping: Settings home, Features group, Addons tile)",
+      "Add at least one repository (the seeded sample repo qualifies) and install a couple of addons beforehand so both the Repositories and Installed sections have content"
+    ],
+    "status": "todo",
+    "notes": "Screen shows an Add repository / Refresh button row, a Repositories list, and (if anything installed) an Installed list below it. Capture with the seeded sample repository present plus 1-2 installed items so both groups render.",
+    "kind": "still"
+  },
+  {
+    "id": "addons/plugin-trust-preview",
+    "page": "docs/src/content/docs/addons/overview.mdx",
+    "file": "src/assets/screens/addons/plugin-trust-preview.webp",
+    "caption": "A plugin's detail page shows what it can do before you install it — this is the one addon type that isn't pure data.",
+    "host": "settings",
+    "setup": [
+      "From the Addons screen, open a repository that lists a plugin, then open that plugin's detail page",
+      "The \"What this plugin can do\" card sits above the Install button, listing its declared permissions (or \"Nothing outside its own panel\" if it declares none) plus a caption about the sandbox"
+    ],
+    "status": "todo",
+    "notes": "This is the PluginPreview composable in AddonScreens.kt. Use a plugin from the sample repository (wasi-master/wmkeyboard-addon-repository) that declares at least one permission (e.g. local storage) so the list isn't empty/less illustrative.",
+    "kind": "still"
+  }
+]
