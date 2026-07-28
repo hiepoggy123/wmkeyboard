@@ -5,19 +5,86 @@ sidebar:
   order: 6
 ---
 
-:::caution[Draft page]
-Scaffolding only — real content pending. The outline below is the checklist for what this page must cover.
-:::
+import PhoneFrame from '@components/PhoneFrame.astro';
+import SettingsPath from '@components/SettingsPath.astro';
 
-## Planned coverage
+Quick answers to the questions people ask before they've read anything else. Each one links to a fuller page if you want the details.
 
-- Is anything sent to the cloud? (per-tool network table link)
-- Why does Android warn when enabling a keyboard?
-- Battery / RAM footprint
-- Where are my learned words stored, and how do I wipe them?
-- How do I report a bug or request a feature?
+## Is anything sent to the cloud?
 
-{/* TODO(sonnet): replace this stub. Turn the outline into real sections,
-   add screenshots with <PhoneFrame>, mark settings with <SettingsPath>,
-   keys with <KeyCap>, and edition limits with <Flavor>.
-   Conventions live in docs/CONTENT_GUIDE.md. */}
+No, not by default, and not for typing itself. WM Keyboard's prediction, autocorrect, gesture typing, and dictionaries all run entirely on your device — there's no analytics SDK and no telemetry anywhere in the app.
+
+What does need the internet is a handful of optional toolbar tools that are inherently online services — weather (Open‑Meteo), the dictionary look‑up, translate, currency conversion, Wikipedia, GIF/sticker search (KLIPY, GIPHY), and web/image search (Brave, Google) — plus any AI tool you set up with your own API key. Almost all of these only make a request when you actually open and use the tool. The one opt‑in exception is link previews: turn that on and copying a URL anywhere on the device (or scanning a QR code) fetches its page title in the background, without opening a WM Keyboard tool at all — it's off by default, and Power saving can drop it along with the other background network fetches. See [Network policy](/privacy/network/) for the full tool‑by‑tool breakdown of what gets sent where.
+
+<PhoneFrame caption="The Privacy screen's on-device summary, with the data-clearing controls below it.">
+  {/* shot: start/faq-privacy-summary */}
+</PhoneFrame>
+
+<SettingsPath path="Data / Privacy" />
+
+This is also where learning, incognito, and Android's own backup are controlled — see [Where are my learned words stored?](#where-are-my-learned-words-stored-and-how-do-i-wipe-them) below, and [Your data on device](/privacy/data/) for the complete inventory of what's stored and where.
+
+## Why does Android warn me when I enable the keyboard?
+
+Because that warning is standard Android behavior for *any* third‑party keyboard, not something WM Keyboard adds or can turn off. Every input method — Gboard, SwiftKey, this one — technically has to see everything you type in order to work, so the system shows a generic "this input method may be able to collect the text you type" notice the first time you turn on a keyboard that didn't come with the phone. WM Keyboard has no custom copy in that dialog; it's entirely Android's own Settings app.
+
+Tapping "Enable keyboard" during setup just opens Android's input method settings directly, where that warning lives — see [Enable the keyboard](/start/setup/) for the full setup flow. What actually happens with your typing once the keyboard *is* enabled is the previous question's answer: your typing itself never leaves the device, and the rest is limited to the optional online tools (and the opt-in link-preview fetch) already covered above.
+
+## Does it use much battery or memory?
+
+Ordinarily very little, and there's a dedicated mode if you want it to use even less.
+
+There's no background service — the keyboard only runs while you're actively typing, as a normal Android input method process the system can pause or reclaim like any other app. The two heaviest things it can hold in memory, an offline Whisper voice model and a local LLM, get released automatically the moment Android signals memory pressure, and reload the next time you actually use them. Word lists use compact, mostly on-disk data structures rather than big in-memory maps, so even large downloaded dictionaries barely touch the Java heap.
+
+If you're on a storage- or RAM-constrained device, two things help further:
+
+- **Lite edition** drops the ML Kit, Harper, and LiteRT native libraries behind handwriting, OCR/document scanning, grammar checking, offline Whisper, and the local LLM — see [Full vs Lite](/start/editions/) for the full comparison.
+- **Power saving** is a dedicated mode that trims the costliest per-keystroke work — vibration, key sounds, animations, the glide trail, emoji prediction, smart chips, background network look-ups, screenshot watching, and the on-device voice/handwriting models — either by hand or automatically.
+
+<SettingsPath path="Tools / Power saving" />
+
+By default, power saving switches on automatically whenever Android's own battery saver is on (not at a fixed battery percentage — the idea is that the keyboard changing feel should always be an answer to something you did), and it's ignored while the charger is plugged in. Gesture typing and the key‑press popup are left on by default even in power saving, but for different reasons: the popup is genuinely cheap to draw, while gesture typing is actually the most CPU-expensive thing the keyboard does — it stays on anyway because turning it off would be the most noticeable change for the people who installed the keyboard for it. Every one of these is its own switch, so you can keep what matters to you and drop the rest.
+
+## Where are my learned words stored, and how do I wipe them?
+
+In a plain JSON file in the app's private storage (`user_lexicon.json`, alongside similar files for CJK picks, emoji usage, and language‑mix confidence) — never anywhere else. Before the phone's first unlock there's no file to write to at all: anything typed during that window is held in memory for the session only and thrown away once the device unlocks, never queued up to save later.
+
+There are two different places to manage it, depending on whether you want to edit individual words or wipe everything:
+
+<PhoneFrame caption="Personal dictionary: every learned word, with per-word delete and an Add word button.">
+  {/* shot: start/faq-personal-dictionary */}
+</PhoneFrame>
+
+<SettingsPath path="Typing / Personal dictionary" />
+
+Lists every word the keyboard has learned, with a per‑word delete and a button to add your own. Words you add here show as "Added by you"; words picked up from typing show how many times they've been seen. Changes here take effect immediately, even if the keyboard is already open.
+
+<SettingsPath path="Data / Privacy / Your data / Clear learned words" />
+
+The bulk wipe: one button that deletes the learned‑words file along with the emoji‑usage and CJK‑history files in a single pass. It doesn't touch language‑mix confidence, so that one signal survives a clear. If the keyboard's process is still running with words already loaded in memory, the change won't be visible there until the process is next torn down and rebuilt (switching apps a few times, or the system reclaiming it) — closing and reopening the app you're typing in is usually enough.
+
+Learning itself can be turned off entirely, or paused temporarily, from the same Privacy screen:
+
+- **Learn from typing** — on by default. The master switch; turning it off doesn't erase anything already learned, it just stops adding to it.
+- **Incognito mode** — off by default. Pauses learning and clipboard capture until you turn it back off; existing learned words are left alone either way.
+- **Follow private browsing** — on by default. Turns incognito on by itself in apps and fields that mark themselves private (Chrome's incognito tabs, most password managers), for as long as that field has focus.
+
+See [Your data on device](/privacy/data/) and [Incognito mode](/privacy/incognito/) for the complete inventory and behavior of each.
+
+## How do I report a bug or request a feature?
+
+There's no in‑app feedback form — the flow is to export a diagnostic report from the app, then open an issue on the GitHub repository linked from the About screen.
+
+<SettingsPath path="About / Diagnostics" />
+
+This screen shows what the keyboard itself has recorded since it last started, plus any crash it didn't survive — the same page states plainly that nothing you actually type is ever recorded here. **Share diagnostics** hands the report to Android's share sheet as a file (so it isn't silently truncated by an app that only accepts short text), and **Copy to clipboard** gives you the same report as plain text instead. An **Include the system log** toggle, off by default, can add the process's full Android log for a hard-to-reproduce bug — worth a quick read before you send it anywhere, since it's produced by every library in the app, not just code the keyboard controls.
+
+**About → Source code** opens the project's GitHub repository, where you can open an issue or start a discussion the same way you would for any open-source project.
+
+## Details & edge cases
+
+- The Android "collect the text you type" warning and the request for `BIND_INPUT_METHOD` are unrelated to any specific permission WM Keyboard asks for — they come from registering as an input method at all, which every keyboard app must do.
+- "No telemetry" means no analytics or crash-reporting SDK is built into the app — it doesn't mean no network code exists; the optional tools above are real HTTP clients, and the opt-in link-preview fetch is a real background request too, just one gated by its own switch rather than by opening a tool.
+- Power saving's automatic trigger deliberately ignores Android's per-percentage battery broadcast (which fires on every single point drop) in favor of coarser signals — battery‑low, battery‑okay, charger in/out, and system saver toggled — so it isn't reacting more often than it needs to.
+- Clearing learned words does not touch your typing *settings* — autocorrect, suggestions, and every other toggle stay exactly as you left them. It only removes the words and history the keyboard has picked up from use.
+- Words the keyboard learns automatically from your typing can also optionally mirror into Android's own system‑wide personal dictionary, shared with other apps and keyboards — that's a separate, off‑by‑default toggle (**Add words to the system dictionary**) on the Privacy screen, since it writes outside the app. Words you add by hand from Personal dictionary's own Add word button stay local to WM Keyboard; only words picked up from typing are mirrored.

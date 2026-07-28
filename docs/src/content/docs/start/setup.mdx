@@ -5,19 +5,88 @@ sidebar:
   order: 2
 ---
 
-:::caution[Draft page]
-Scaffolding only — real content pending. The outline below is the checklist for what this page must cover.
-:::
+import PhoneFrame from '@components/PhoneFrame.astro';
+import SettingsPath from '@components/SettingsPath.astro';
+import KeyCap from '@components/KeyCap.astro';
+import { Steps } from '@astrojs/starlight/components';
 
-## Planned coverage
+Installing WM Keyboard doesn't make it your keyboard — Android keeps every installed input method switched off until you enable it and pick it as the active one. The app's Home screen has a card that walks you through both steps and tells you the moment you're done.
 
-- The setup card in the app: enable → select → done
-- What the Android 'enable IME' warning actually means here (offline-first)
-- Onboarding wizard walkthrough, step by step
-- Switching keyboards later (system switcher, notification tile)
-- First-run defaults worth knowing about
+<PhoneFrame caption="The setup card before WM Keyboard is enabled — 'Enable keyboard' opens system settings, 'Switch keyboard' opens the picker.">
+  {/* shot: start/setup-card-not-enabled */}
+</PhoneFrame>
 
-{/* TODO(sonnet): replace this stub. Turn the outline into real sections,
-   add screenshots with <PhoneFrame>, mark settings with <SettingsPath>,
-   keys with <KeyCap>, and edition limits with <Flavor>.
-   Conventions live in docs/CONTENT_GUIDE.md. */}
+## Using the setup card
+
+The card sits at the top of the app's Home screen, always — it isn't a first-run-only banner, so you can come back to it any time. It checks Android's own input-method state about once a second (there's no callback for "the user switched keyboards" while your app is in the background of a system dialog, so it polls while visible) and shows one of three states:
+
+1. **Not enabled** — "Enable WM Keyboard in system settings, then select it as your input method." Two buttons: **Enable keyboard** opens Android's input-method settings list; **Switch keyboard** opens the system's keyboard picker directly.
+2. **Enabled, not selected** — "WM Keyboard is enabled. Use the button below to switch to it." Only **Switch keyboard** shows now.
+3. **Enabled and selected** — a checkmark icon, tinted with the app's accent color (not necessarily green — it follows your theme), and "WM Keyboard is your active keyboard." Nothing left to do.
+
+Tapping **Enable keyboard** takes you to the system screen where you flip WM Keyboard's toggle on; tapping **Switch keyboard** opens Android's "Change keyboard" sheet, which lists every enabled input method on the device so you can tap WM Keyboard to make it active. You can also reach both screens through Android's own Settings app if you'd rather not use the card at all.
+
+## What the system permission warning means here
+
+When you enable any third-party keyboard, Android shows its own warning about keyboards being able to see everything you type — this is stock OS text, not something WM Keyboard writes or can customize, and its exact wording varies by Android version. It exists because *some* keyboards phone data home; it's worth knowing what WM Keyboard actually does.
+
+Core typing — the spelling dictionaries, Bengali transliteration, emoji search, prediction and everything else you type with — runs entirely on-device and works with no network connection at all. A handful of optional toolbox features reach the network, and only when you explicitly open them: weather, the word-definition dictionary lookup, translate, GIF/sticker search, and web/image search each call out to their respective service, and several require you to supply your own API key before they'll work at all. None of that happens in the background or while you're just typing. See [Privacy at a glance](/privacy/overview/) for the full breakdown.
+
+## Running the setup wizard
+
+The first time you open the app, it drops you into a short setup wizard instead of the Home screen. Every choice you make writes straight to settings, so backing up, skipping ahead, or tapping **Skip** in the top corner never loses anything — and everything here can be changed again later.
+
+<Steps>
+
+1. **Welcome** — the setup card from above, embedded in the wizard's first page. Enabling and selecting WM Keyboard here advances the wizard automatically, so you don't need to tap Next after coming back from system settings.
+
+2. **Your languages** — your currently enabled languages, each with its layouts individually switchable, plus a search box to add more. Adding a language during setup enables its first layout only; add its other layouts later from Settings.
+
+3. **Look & feel** — theme mode (Auto/Light/Dark/AMOLED), a Material You colors toggle, a keyboard theme picker, an emoji-row mode choice, and a symbol row toggle.
+
+4. **Emoji font** *(only if your phone's emoji font can't draw everything)* — a toggle to hide emoji your device would otherwise show as blank boxes, with a pointer to importing a full emoji font later.
+
+5. **Typing feedback** — haptics, key sounds, and the key popup bubble.
+
+6. **Spacebar & keys** — a single choice for both spacebar-swipe directions (short and long), a toggle to replace the <KeyCap>🌐</KeyCap> key with an emoji key, and a number row toggle.
+
+7. **Your tools** — every toolbar tool, each with its own switch, plus quick "Recommended" and "Everything" buttons.
+
+8. **Tool setup** *(only if Calendar, Weather, or Compass is enabled)* — first-run choices for whichever of those you kept: alternate calendars, a saved place and temperature unit, or a qibla toggle.
+
+</Steps>
+
+<PhoneFrame caption="The Spacebar & keys page — one choice sets both swipe directions at once.">
+  {/* shot: start/wizard-gestures-page */}
+</PhoneFrame>
+
+## Switching keyboards later
+
+Once WM Keyboard is set up, there are a few ways to change which keyboard is active, or which of WM Keyboard's own languages is:
+
+- **The Home screen's Switch keyboard button** is always there, not just during setup — tap it any time to reopen the system picker.
+- **Android's own switcher notification** — the OS shows a "select input method" notification automatically whenever two or more keyboards are enabled on the device; tapping it opens the same system picker.
+- **The <KeyCap>🌐</KeyCap> key and spacebar swipes** cycle between WM Keyboard's *own* enabled languages — they don't open the system keyboard picker, so they can't switch you to a different keyboard app.
+
+If WM Keyboard's languages should show up individually in Android's own switcher sheet (rather than as one generic "WM Keyboard" entry), turn on the option below — it's on by default.
+
+## Options
+
+<SettingsPath path="Typing / Languages / System language switcher" />
+
+- **List languages in Android's switcher** (on by default) — registers each of your enabled layouts as an Android input-method subtype, so the system's "Choose input method" sheet lists them individually and can jump straight to one. Turn it off to keep switching entirely inside the keyboard and expose no subtypes to the system.
+- **Show app name first** (off by default, only shown while the option above is on) — prefixes each subtype's label with "WM Keyboard ·" instead of just the language name.
+
+<SettingsPath path="Data / Privacy" />
+
+- **Learn from typing** (on by default) — personalizes suggestions from what you type, entirely on-device.
+
+See [Privacy at a glance](/privacy/overview/) and the [Privacy settings reference](/reference/settings/privacy/) for the rest of that screen.
+
+## Details & edge cases
+
+- The wizard's own gesture choice labels one option "Cursor + language (recommended)" (quick swipe moves the cursor, hold-then-swipe switches language) — but a fresh install actually ships with the *other* combination, "Language + cursor" (quick swipe switches language, hold-then-swipe moves the cursor), until you complete the wizard or change it yourself under `Typing / Gestures`.
+- Whether the wizard appears is separate from whether the keyboard is enabled: it's driven purely by a "have you finished onboarding" flag, not by checking Android's input-method state. If you enable and select WM Keyboard entirely from system Settings without ever opening the app, the wizard still appears on first launch — its Welcome page will just already show the "done" state and let you move straight past it.
+- Every tool is enabled by default before you ever see the wizard. The Tools page narrows that down to a smaller recommended set the first time you visit it — but only if you reach that page; skipping the wizard earlier leaves every tool switched on.
+- On a Lite build, the Tools page doesn't offer handwriting, OCR, QR/barcode scanning, document scanning, or grammar checking as options at all, since those features aren't built into that edition. See [Full vs Lite](/start/editions/).
+- Installing over an existing WM Keyboard install (same signing key) keeps the wizard from running again — `onboardingDone` is a regular setting, so it carries over like any other. A clean reinstall or a new phone without a settings backup will show it again. See [Installation](/start/installation/) for what does and doesn't carry over.
