@@ -1,22 +1,137 @@
 ---
 title: "Theme editor"
-description: "Build your own theme: every colour, corner and font size under your control."
+description: "Every color, key shape, gradient, corner and animation knob for a single custom theme."
 sidebar:
   order: 2
 ---
 
-:::caution[Draft page]
-Scaffolding only — real content pending. The outline below is the checklist for what this page must cover.
+import PhoneFrame from '@components/PhoneFrame.astro';
+import SettingsPath from '@components/SettingsPath.astro';
+
+The theme editor is where a single custom theme gets built: every color, the key shape, optional gradients, corner-radius overrides, and a live-animated background if you want one. Every field here applies and saves the instant you touch it — there's no separate save step.
+
+<PhoneFrame caption="The theme editor, with the live preview pinned above the color and shape controls.">
+  {/* shot: themes/editor-live-preview */}
+</PhoneFrame>
+
+## Creating a theme
+
+<SettingsPath path="Appearance / Keyboard themes" />
+
+**Create theme** on the gallery screen makes a brand-new custom theme — named "My theme", seeded from a blue swatch, generated as a dark theme — and immediately makes it the active keyboard theme before opening the editor on it.
+
+Built-in themes can't be edited in place. Their card shows a pencil instead, which copies the built-in into a new custom theme named "*(theme) copy*", makes the copy active, and opens the editor on the copy — the original built-in is untouched. The **Default (system)** card has no pencil at all: it isn't a stored theme, it's generated live from your device's Material You color scheme, so there's nothing to open in this editor. See [Theming overview](/themes/overview/) for the gallery itself and how Default, Material You, and the built-in set fit together.
+
+Importing a `.wmtheme.json` file — from the gallery's Import button or by opening the file itself — adds it to Your themes and switches the keyboard to it immediately, without opening this editor. See [Sharing themes](/themes/sharing/) for both ways to import.
+
+## Starting from a color
+
+At the top of the editor, a **Dark theme** switch and a row of swatches let you regenerate every color at once from a single seed:
+
+<PhoneFrame caption="Start from a color: the Dark theme switch and seed swatch row.">
+  {/* shot: themes/editor-seed-swatches */}
+</PhoneFrame>
+
+Tapping a swatch, or flipping Dark theme, recomputes the board, key, accent, and popup colors from that seed and shade. It deliberately preserves everything that isn't seed-derived, so a reseed doesn't erase work you've already done elsewhere in the editor: your background image and its opacity/blur, both gradients, the key shape, the key border color and width, the gesture-trail color, all three corner-radius overrides, and the animation type and speed all carry over untouched. Anything you hand-picked that *is* seed-derived — like a manually recolored key-text or popup color — gets overwritten by the reseed, since there's no way to tell "kept the default" apart from "picked to match."
+
+## Options
+
+<SettingsPath path="Appearance / Keyboard themes / (edit a theme)" />
+
+The rest of the editor is grouped into sections, each opening a standard color picker (with an alpha slider on fields that support translucency) when you tap a row.
+
+### Board
+
+- **Background** — the board's base color. Supports alpha, which matters once a background image is set: see [Image backgrounds](/themes/backgrounds/) for the image picker, crop, opacity, and blur controls that live in this same section.
+- **Gradient background** — see [Gradients](#gradients) below.
+
+### Keys
+
+- **Key shape** — a segmented picker: Rounded, Pill, Cut, or Squircle. Rounded and Cut both follow the corner-radius value (global or per-theme override, see [Corners](#corners)); Cut clamps its radius between 2 and 14dp regardless of the slider. Pill is always a full stadium shape, independent of the radius. Squircle draws a hand-computed superellipse curve — the same shape family as an iOS app icon — that's also independent of the radius slider.
+- **Letter keys** — the color, plus an optional **Key gradient**, a subtle sheen painted over letter keys only (see [Gradients](#gradients)).
+- **Key text**, **Modifier keys**, **Modifier key text** (falls back to Key text when left on Auto), **Enter key**, **Enter key icon**.
+- **Pressed key** — the color a key flashes while held; Auto derives it from Letter keys.
+- **Key border** — off (Auto, no visible border) until you pick a color. Once a border color is set, a **Border width** slider (0–3dp) appears; it starts at 0dp, so turning on a border color alone doesn't show one until you also raise the width.
+
+### Accent & popups
+
+- **Accent** — the shift-on tint, active-tool color, and buttons across the panels.
+- **Gesture trail** — the color of the swipe-typing trail; Auto falls back to Accent. Supports alpha.
+- **Popup background** and **Popup text** — the bubble that appears above a key on press; both support Auto fallbacks (deriving from the board/key colors and Key text respectively). Popup background supports alpha.
+
+### Toolbar
+
+- **Tool icons** — the toolbar's icon color, Auto by default.
+- **Tool circles** and **Active tool circle** — the background behind a toolbar icon, at rest and while pressed/active. Both support alpha.
+
+### Panels & suggestions
+
+- **Cards & search bar** — the `chipBackground` field; covers suggestion chips and the search-bar surface across the tool panels. Auto falls back to Modifier keys. Supports alpha.
+- **Suggestion text** — the color of suggestion-strip text; Auto falls back to Key text.
+
+Any row left on Auto shows an "Auto" label under its name instead of a fixed value. Once you've overridden it, that row's color picker gains an **Auto** button (next to Apply) that clears the override and puts it back on Auto.
+
+### Gradients
+
+Both **Board** and **Keys** can carry an optional gradient instead of (technically, painted over) their solid color, toggled on with a switch next to each. Turning one on seeds it with a sensible default — the board gradient starts as a 135° linear blend from Background to Accent, the key gradient as a subtle 90° white sheen — which you can then reshape:
+
+<PhoneFrame caption="A board gradient turned on: type, angle, and color-stop controls.">
+  {/* shot: themes/editor-gradient */}
+</PhoneFrame>
+
+- **Type** — Linear, Radial, or Sweep.
+- **Angle** — 0–360°, shown for Linear and Sweep only (Radial ignores it).
+- **Color stops** — 2 to 4, each with its own color and alpha, with **Add color** / **Remove color** buttons to grow or shrink the list.
+
+### Corners
+
+Off by default, so keys everywhere follow the global sliders under Appearance → Keys. Turning on **Theme-specific corner radii** seeds three independent sliders for this theme alone:
+
+<PhoneFrame caption="Theme-specific corner radii, with the Key, Popup, and Tool circle sliders.">
+  {/* shot: themes/editor-corners-animation */}
+</PhoneFrame>
+
+- **Key corner radius** — 0–28dp, seeded from the global Key corner radius slider (default 8dp) when you turn the switch on.
+- **Popup corner radius** — 0–24dp, seeded to 12dp (there's no matching global popup-radius slider to inherit from).
+- **Tool circle radius** — 0–20dp ("off," i.e. square, at 0), seeded from the global Tool circle radius slider (default 20dp).
+
+### Animation
+
+Adds continuous motion to the board while the keyboard is on screen:
+
+- **None** (default), **Flow**, or **Hue cycle**, as a segmented picker.
+- Flow drifts the board gradient along its own axis (or orbits its center, for a radial gradient). Hue cycle slowly rotates the hue of the board gradient, or the solid board color if no gradient is set.
+- A **Speed** slider (0.25×–3×, default 1×) appears once animation is on.
+
+Only three built-in themes ship with animation turned on — Sunset drift and Cyberpunk use Flow, Aurora uses Hue cycle. Every other built-in, and every fresh custom theme, starts on None.
+
+## Live preview while you edit
+
+A miniature keyboard preview is pinned at the top of the editor and redraws on every change you make — colors, shape, gradients, corners, all of it, immediately, without leaving the screen.
+
+:::note
+The preview's gradient rendering is intentionally static. If you turn on Flow or Hue cycle animation, you won't see it move in this preview — only on the real keyboard, once you switch to it or open a text field to test.
 :::
 
-## Planned coverage
+## Duplicating and deleting
 
-- Creating a theme; starting from an existing one
-- The ThemeSpec knobs: colours, key shapes, typography, strip styling
-- Live preview while editing
-- Saving, duplicating, deleting
+There's no Save or Apply button anywhere in this screen — every field write goes straight to storage, so closing the editor (or the app) never loses anything or asks you to confirm.
 
-{/* TODO(sonnet): replace this stub. Turn the outline into real sections,
-   add screenshots with <PhoneFrame>, mark settings with <SettingsPath>,
-   keys with <KeyCap>, and edition limits with <Flavor>.
-   Conventions live in docs/CONTENT_GUIDE.md. */}
+**Duplicating** an existing custom theme isn't available from inside the editor itself; the copy-then-edit flow described in [Creating a theme](#creating-a-theme) only applies to built-ins, from the gallery.
+
+**Deleting** a custom theme is a gallery action too — tap the trash icon on its card. A confirmation dialog asks "Delete theme?" with a note that it will be removed permanently, and deleting also removes the theme's background image file(s) (portrait and landscape) from storage so they don't linger as orphaned files:
+
+<PhoneFrame caption="Deleting a custom theme asks for confirmation before removing it.">
+  {/* shot: themes/editor-delete-confirm */}
+</PhoneFrame>
+
+Delete (and export) aren't offered for built-in themes or the Default theme — only for themes in Your Themes.
+
+## Details and edge cases
+
+- **Editing an existing custom theme doesn't switch to it.** Tapping the pencil on a theme already in Your Themes opens the editor without changing your active keyboard theme. Only Create, Duplicate (from a built-in), and Import set the edited theme as active — as a side effect of those specific actions, not of editing generally.
+- **Typography isn't part of a theme.** The key-label typeface, key-label font size, and hint font size all live outside `ThemeSpec` entirely — see [Keyboard fonts](/themes/fonts/) for the font picker, and Appearance → Keys for the two font-size sliders, which apply keyboard-wide rather than per theme.
+- **Two "Auto" swatches don't perfectly match the real keyboard.** Pressed key and Active tool circle, when left on Auto, are approximated slightly differently in the editor's preview swatch than in the formula the real keyboard uses at render time. The difference is subtle and only shows up if you're comparing pixel-for-pixel; every other Auto fallback (popup background, tool circles at rest, and so on) matches exactly.
+- **A theme's background image lives in this same editor**, under Board, but the picker, crop dialog, and opacity/blur sliders are covered in full on [Image backgrounds](/themes/backgrounds/) rather than here.
+- **Corner-radius overrides here are theme-specific**; the sliders they inherit from and the global key-shape basics are covered in [Theming overview](/themes/overview/).
+- **Exporting, importing, and installing a theme from a repository** are covered in [Sharing themes](/themes/sharing/), including what happens to a theme's colors and images when it travels as a file.

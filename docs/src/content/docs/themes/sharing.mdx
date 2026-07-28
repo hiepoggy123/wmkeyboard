@@ -1,21 +1,67 @@
 ---
 title: "Sharing themes"
-description: "Export a theme as a file, import someone else's, or publish via an addon repo."
+description: "Export a theme as a file, import someone else's, or publish it in an addon repository."
 sidebar:
   order: 6
 ---
 
-:::caution[Draft page]
-Scaffolding only — real content pending. The outline below is the checklist for what this page must cover.
+import PhoneFrame from '@components/PhoneFrame.astro';
+import SettingsPath from '@components/SettingsPath.astro';
+
+Every theme — yours or a built-in — can be exported to a single self-contained file, and any `.wmtheme.json` file can be imported back in, whether it came from a friend, a download, or your own backup. The same file format is also what an addon repository serves, so publishing a theme takes no extra packaging step.
+
+<PhoneFrame caption="The theme gallery, with export and import actions above the cards.">
+  {/* shot: themes/gallery-export-import */}
+</PhoneFrame>
+
+## Exporting a theme
+
+<SettingsPath path="Appearance / Keyboard themes" />
+
+Every card in the gallery has an export icon — a small upload glyph — except the **Default (system)** card, which has no export option because it isn't a stored theme: it's generated live from your device's Material You color scheme, so there's nothing fixed to export. Custom themes and every built-in theme can be exported.
+
+Tapping export opens the system "Save as" file picker so you choose the destination and filename yourself; the suggested name is the theme's own name plus the `.wmtheme.json` extension, so exporting a theme called "Midnight" suggests `Midnight.wmtheme.json`. The picker uses the plain `application/json` MIME type rather than a custom one, deliberately, so file managers and chat apps don't hide the file from you the way they might hide an unrecognized vendor type.
+
+The exported file is the theme's full set of colors, gradients, and radii, written as plain JSON with no wrapper or format tag around it — a theme file identifies itself by its `.wmtheme.json` extension rather than a marker inside the file, unlike layout or settings exports. If the theme has a background image, the image is read off disk and embedded in the file as base64 rather than left as a reference to a path on your device, so the export is fully self-contained — opening it on another phone doesn't require re-picking the photo. A theme with no background image just has empty image fields. There's no size limit on a local export, so a theme with a large background photo can produce a correspondingly large file.
+
+## Importing a theme
+
+There are three ways a theme gets imported, and they don't all behave the same way — two apply the theme immediately, one doesn't.
+
+### From the Import button
+
+<SettingsPath path="Appearance / Keyboard themes" />
+
+The **Import** button next to Export opens a file picker scoped to JSON-ish files. It's intentionally permissive about the exact MIME type, since file providers report a `.json` file as `text/plain` or `application/octet-stream` about as often as they get it right. Pick a `.wmtheme.json` file and it's added to Your themes under a freshly generated ID — the ID stored inside the file itself is discarded, so importing the same file twice creates two separate custom themes rather than updating one in place. Any embedded background image is written back out to local storage as part of the import.
+
+Importing this way both adds the theme **and switches the keyboard to it immediately** — there's no separate confirmation step for "use it now."
+
+### By opening the file elsewhere
+
+Tapping a `.wmtheme.json` file in a file manager, or choosing "open with" on one from a chat app, hands it to a small confirmation dialog rather than dropping you into the settings app. It asks "Import *theme name*?" with the note that the theme is added to your themes and applied to the keyboard, then a single **Import** button. Confirming has the same immediate-apply effect as the in-app Import button: added to Your themes and switched on right away.
+
+:::caution
+This file association is matched by filename, since a theme file carries no internal tag to identify it — a `.wmtheme.json` extension is the only signal. If you rename the file and drop that suffix (keeping just `.json`), Android stops offering WM Keyboard as a handler for it. The in-app Import button above isn't affected, since it doesn't check the filename.
 :::
 
-## Planned coverage
+<PhoneFrame caption="Opening a theme file from a file manager shows a one-tap import confirmation.">
+  {/* shot: themes/file-import-confirm */}
+</PhoneFrame>
 
-- Export to file; what the file contains
-- Import flows (file, addon repository)
-- Publishing your theme in a repo (link to Development → Addon repositories)
+### From an addon repository
 
-{/* TODO(sonnet): replace this stub. Turn the outline into real sections,
-   add screenshots with <PhoneFrame>, mark settings with <SettingsPath>,
-   keys with <KeyCap>, and edition limits with <Flavor>.
-   Conventions live in docs/CONTENT_GUIDE.md. */}
+See [Addon repositories](/development/addon-repos/) for how repositories work generally. Installing a theme from one behaves differently from the two file-based flows above: it's added to Your themes but **not** switched on automatically. Browsing a repository shouldn't repaint your keyboard behind your back, so after the install finishes you get a separate, dismissable prompt — "Installed *theme name*", asking "Use it as your keyboard theme now?" with a **Switch to it** button and a **Not now** dismiss option. Declining leaves the theme sitting in Your themes, installed but not worn, until you tap it yourself.
+
+A theme listing in a repository also isn't previewable in the addon browser the way a dictionary or sticker pack is — a theme is judged by seeing the keyboard wearing it, which a static preview panel can't honestly show. And unlike a plugin, a theme's checksum in the repository manifest is optional rather than enforced, since a theme isn't executable code; a theme with no checksum still installs the same as one that has it, with no extra warning either way.
+
+## Publishing a theme
+
+Publishing requires no extra packaging: the exact `.wmtheme.json` file the Export button produces is what a repository serves. Export the theme, drop the file into your repository's `themes/` folder, and reference it from the repository manifest. See [Addon repository format](/development/addon-repos/repo-format/) for the manifest shape and a worked theme entry.
+
+## Details and edge cases
+
+- **No limit on custom themes.** Unlike sticker packs or plugins, there's no cap on how many themes you can import or create.
+- **Re-importing a file always creates a new theme.** Because the ID inside the file is discarded on import, editing a file externally and re-importing it adds another entry rather than replacing the original — delete the old one yourself if you don't want both.
+- **Deleting the active theme falls back to Default.** If you delete a custom theme that's currently applied, the keyboard falls back to the Default (system) theme. Deleting a theme from the gallery also removes its background image file(s) from storage.
+- **Import and export work the same in both editions** — there's no feature gap between the full and lite builds for exporting, importing, or installing themes from a repository.
+- **A background image travels with every export**, portrait and landscape both, so restoring a theme on a new device doesn't require re-picking either photo. See [Image backgrounds](/themes/backgrounds/) for how those images are set in the first place.

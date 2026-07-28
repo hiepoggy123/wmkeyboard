@@ -1,22 +1,68 @@
 ---
 title: "Image backgrounds"
-description: "Put a photo behind your keys — with blur, dimming and per-orientation images."
+description: "Put a photo behind your keys — with crop, opacity, blur and a separate landscape image."
 sidebar:
   order: 3
 ---
 
-:::caution[Draft page]
-Scaffolding only — real content pending. The outline below is the checklist for what this page must cover.
+import PhoneFrame from '@components/PhoneFrame.astro';
+import SettingsPath from '@components/SettingsPath.astro';
+
+Any keyboard theme can carry a photo behind its keys instead of a flat color or gradient. You crop it to the keyboard's shape, dial in opacity and blur so keys stay readable, and optionally swap in a different image for landscape.
+
+<PhoneFrame caption="A theme with a background image showing through the keys.">
+  {/* shot: themes/background-image-live */}
+</PhoneFrame>
+
+## Setting an image
+
+<SettingsPath path="Appearance / Keyboard themes / (edit a theme) / Board" />
+
+Open a theme for editing and scroll to the **Board** section. **Background image** opens the system photo picker (image files only) — the picture you choose is copied into the app's own storage, it isn't read from the original file again later.
+
+Picking an image automatically clears the alpha on the board's own color, so the photo shows through at full strength right away rather than being hidden under an opaque background. The editor calls this out directly under the sliders: raise the board color's opacity afterward if you want to tint or dim the photo — see [Editing a theme](/themes/editor/) for that color control.
+
+### Cropping to fit
+
+Once an image is set, a **Crop image** row appears. The crop dialog lets you pinch to zoom and drag to reposition, and it's always scaled to cover the frame so there's never a gap at the edges. Three aspect-ratio presets are available:
+
+- **Keyboard** (2.4:1) — matches the keyboard's own proportions, and is selected by default
+- **Wide** (1.7:1)
+- **Square** (1:1)
+
+Confirming the crop saves a new file and discards the original. Cropping is optional — an uncropped image still renders correctly, scaled to cover the board — but cropping is how you control exactly what part of the photo lines up with the keys.
+
+<PhoneFrame caption="Cropping a background image to the keyboard's 2.4:1 aspect ratio.">
+  {/* shot: themes/background-crop-dialog */}
+</PhoneFrame>
+
+## Keeping keys readable
+
+A photo behind your keys can easily fight with legibility, so two sliders sit right below the image row:
+
+- **Image opacity** — fades the image itself, from fully transparent to fully opaque (the default).
+- **Image blur** — softens the image from sharp (the default) up to a heavy blur.
+
+There's no separate "dim" control. Instead, the board's own background color is drawn as a layer on top of the image, so raising that color's opacity acts as a tint or dim scrim over the photo — the same **Background** color row you'd use for a solid-color theme. Combining a soft blur with a translucent board color is usually enough to keep key labels legible over a busy photo.
+
+:::note
+Turning on **High contrast keys** in accessibility settings strips background images (and gradients and animation) from every theme while it's active, since a photo behind the keys works against the contrast that setting is trying to guarantee.
 :::
 
-## Planned coverage
+## Separate landscape image
 
-- Choosing an image; crop for keyboard aspect
-- Blur/dim controls to keep keys readable
-- Separate landscape background
-- Auto light/dark theme derived from the image
+Below the portrait image controls, **Landscape background image** lets you pick a second photo (with its own crop dialog) used only when the device is in landscape orientation. If you don't set one, the portrait image is used in landscape too — there's no picture that only shows in portrait while landscape falls back to something else.
 
-{/* TODO(sonnet): replace this stub. Turn the outline into real sections,
-   add screenshots with <PhoneFrame>, mark settings with <SettingsPath>,
-   keys with <KeyCap>, and edition limits with <Flavor>.
-   Conventions live in docs/CONTENT_GUIDE.md. */}
+Opacity and blur are shared between both images rather than set per orientation, so whichever photo is showing uses the same two slider values.
+
+<PhoneFrame caption="A theme with distinct portrait and landscape background images.">
+  {/* shot: themes/background-landscape */}
+</PhoneFrame>
+
+## Details and edge cases
+
+- **No image by default.** A freshly created theme, every built-in gallery theme, and the Default (system) theme all start with no background image — the board is a flat color or gradient until you add one.
+- **Switching themes crossfades the rest of the theme, but not the image.** Colors and gradients blend smoothly between themes; the background image itself switches over abruptly partway through the transition rather than cross-dissolving, since blending two unrelated photos frame-by-frame wouldn't look right anyway.
+- **The gallery preview card only shows the portrait image.** The small theme thumbnail in the theme list never shows the landscape variant, even if one is set.
+- **Background images travel with exports.** Both a single-theme export and a full settings backup embed the image data directly in the file, so restoring the export or importing the theme on another device brings the photo with it — you don't need to re-pick the image after importing. See [Sharing themes](/themes/sharing/) for what else a theme export contains.
+- **This page is about a single theme's own image.** Switching between two different themes automatically by time of day or by system light/dark mode — where each half of the pair might have its own background image — is covered in [Themes overview](/themes/overview/).
