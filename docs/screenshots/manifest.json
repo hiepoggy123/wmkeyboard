@@ -1910,7 +1910,7 @@
       "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text --es text \"Sample text to select\"",
       "Select some text in the field, then press and hold the C key until the copy fires."
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "All six hold-letter shortcuts (A/C/X/V/Z/Y) are off by default and independent \u2014 this shot needs at least Hold C to copy turned on first.",
     "kind": "still"
   },
@@ -1950,7 +1950,7 @@
     "setup": [
       "am start -a android.intent.action.VIEW -d wmkeyboard://settings/typing (deep-link allowlist doesn't include a direct keypress route; navigate: Home -> Key press tile, or search \"Key press\" in settings search)"
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "Top of the Key press screen, showing the Haptic feedback group's master toggle and style chips scrolled into view.",
     "kind": "still"
   },
@@ -1964,7 +1964,7 @@
       "Navigate to Key press settings",
       "Tap the Custom haptic style chip so the Haptic strength and Haptic intensity sliders appear below it"
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "Needs Custom selected as the active haptic style before the screenshot.",
     "kind": "still"
   },
@@ -1978,7 +1978,7 @@
       "Navigate to Key press settings, scroll to Key press sound",
       "Turn Key sound on so the style chips and volume slider are visible (not disabled/greyed)"
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "Show the six style chips (Click/Standard/Pop/Thock/Chime/Custom) and the Sound volume slider together.",
     "kind": "still"
   },

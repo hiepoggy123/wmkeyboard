@@ -12,7 +12,7 @@ import KeyCap from '@components/KeyCap.astro';
 Every key press can confirm itself two ways (a short vibration and a click sound), and both are tunable independently, down to which specific events buzz. Haptics are on by default; the sound is off.
 
 <PhoneFrame caption="The Key press screen: haptic style chips above the key press sound group.">
-  {/* shot: typing/keypress-settings-overview */}
+  ![The Key press screen: haptic style chips above the key press sound group.](@assets/screens/typing/keypress-settings-overview.webp)
 </PhoneFrame>
 
 ## Haptic feedback
@@ -37,7 +37,7 @@ Key and Tap are the recommended styles: they hand the buzz to the same platform 
 Custom exposes two sliders: **Haptic strength** (5–60&nbsp;ms, vibration length) and **Haptic intensity** (1–255, how hard the motor is driven). Sharp exposes intensity too, to control the punch of its click primitive, but not strength; the primitive's length is fixed by the hardware. The system-wide touch-feedback vibration setting still scales the final strength on top of whatever you set here.
 
 <PhoneFrame caption="Haptic style chips, with the strength and intensity sliders shown for Custom.">
-  {/* shot: typing/haptic-style-custom-sliders */}
+  ![Haptic style chips, with the strength and intensity sliders shown for Custom.](@assets/screens/typing/haptic-style-custom-sliders.webp)
 </PhoneFrame>
 
 Two more toggles cover the edges of a long press: **Long-press haptics** (on by default) buzzes the moment a long press registers (the alternate-character popup opening, or a long-press action firing), so your finger knows it can let go. **Long-press release haptics** (off by default) adds a second buzz when you lift your finger afterward; it's off because a third vibration in one gesture (press, long-press, release) reads as excessive to a lot of people.
@@ -71,7 +71,7 @@ Four more toggles, visible only while Key press haptics is on, let you keep the 
 Click and Standard come from the device's own system sound pack, so they vary phone to phone the same way the stock keyboard's clicks do. Pop, Thock and Chime are synthesized in-app and sound the same on every device.
 
 <PhoneFrame caption="Sound style chips with the volume slider below.">
-  {/* shot: typing/keysound-style-chips */}
+  ![Sound style chips with the volume slider below.](@assets/screens/typing/keysound-style-chips.webp)
 </PhoneFrame>
 
 **Sound volume** (5%–100%) is relative to the system media volume, not an absolute level.
