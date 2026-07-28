@@ -2957,5 +2957,66 @@
     "status": "todo",
     "notes": "Optionally capture the location-edit dialog open (tap the Location row) rather than just the summary row, to show the search field.",
     "kind": "still"
+  },
+  {
+    "id": "languages/avro-lenient-spelling",
+    "page": "docs/src/content/docs/languages/bengali.mdx",
+    "file": "src/assets/screens/languages/avro-lenient-spelling.webp",
+    "caption": "Avro phonetic typing: \"ami valo asi\" commits as \u0986\u09ae\u09bf \u09ad\u09be\u09b2\u09cb \u0986\u099b\u09bf.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
+      "Switch the active keyboard layout to Avro phonetic (\u09ac\u09be\u0982\u09b2\u09be \u00b7 Bangla) if it isn't already active \u2014 spacebar swipe/hold-drag picker or the \ud83c\udf10 key.",
+      "Type \"ami valo asi\" and tap space so it commits, leaving \u0986\u09ae\u09bf \u09ad\u09be\u09b2\u09cb \u0986\u099b\u09bf in the field.",
+      "Screenshot the field with the committed text (composing preview cleared)."
+    ],
+    "status": "todo",
+    "notes": "Avro is enabled by default on a fresh install but may not be the currently *active* layout \u2014 switch to it explicitly first.",
+    "kind": "still"
+  },
+  {
+    "id": "languages/probhat-key-grid",
+    "page": "docs/src/content/docs/languages/bengali.mdx",
+    "file": "src/assets/screens/languages/probhat-key-grid.webp",
+    "caption": "\u09aa\u09cd\u09b0\u09ad\u09be\u09a4 (Probhat) active: Bengali letters typed directly, no phonetic conversion.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
+      "Switch the active layout to \u09aa\u09cd\u09b0\u09ad\u09be\u09a4 (Probhat) \u2014 spacebar hold-drag picker or \ud83c\udf10 key cycle (it's enabled by default alongside Avro/Jatiya/QWERTY).",
+      "Screenshot the idle keyboard's base (unshifted) letter grid \u2014 no need to type anything."
+    ],
+    "status": "todo",
+    "notes": "Base layer is enough for the page; do not confuse with Jatiya, which is a different grid.",
+    "kind": "still"
+  },
+  {
+    "id": "languages/bengali-language-screen",
+    "page": "docs/src/content/docs/languages/bengali.mdx",
+    "file": "src/assets/screens/languages/bengali-language-screen.webp",
+    "caption": "Bengali's language screen: layout toggles, numeral system, and dictionary/emoji status.",
+    "host": "settings",
+    "setup": [
+      "am start -a android.intent.action.VIEW -d wmkeyboard://settings/languages",
+      "Tap the \"\u09ac\u09be\u0982\u09b2\u09be \u00b7 Bangla\" row under Your languages to open its detail screen.",
+      "Screenshot showing the Layouts group (Avro/Probhat/Jatiya toggles), scrolled to also include Numerals if possible."
+    ],
+    "status": "todo",
+    "notes": "\"language/bn\" is not on the deep-link allowlist (only typing, appearance, themes, languages, tools, search are) \u2014 must tap through manually from the Languages screen.",
+    "kind": "still"
+  },
+  {
+    "id": "languages/conjunct-backspace-toggle",
+    "page": "docs/src/content/docs/languages/bengali.mdx",
+    "file": "src/assets/screens/languages/conjunct-backspace-toggle.webp",
+    "caption": "Conjunct-aware backspace, under Languages \u2192 Complex scripts. Off by default.",
+    "host": "settings",
+    "setup": [
+      "am start -a android.intent.action.VIEW -d wmkeyboard://settings/languages",
+      "Scroll to the bottom of the Languages screen to the \"Complex scripts\" group.",
+      "Screenshot the \"Conjunct-aware backspace\" toggle in its default (off) state."
+    ],
+    "status": "todo",
+    "notes": "This group only renders when a conjunct-forming (INDIC_CLUSTER) script is enabled; Bengali's default-enabled layouts satisfy that.",
+    "kind": "still"
   }
 ]
