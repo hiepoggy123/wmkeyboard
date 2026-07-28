@@ -5,17 +5,59 @@ sidebar:
   order: 10
 ---
 
-:::caution[Draft page]
-Scaffolding only — real content pending. The outline below is the checklist for what this page must cover.
-:::
+import PhoneFrame from '@components/PhoneFrame.astro';
+import SettingsPath from '@components/SettingsPath.astro';
+import KeyCap from '@components/KeyCap.astro';
 
-## Planned coverage
+Media controls turns the keyboard into a transport for whatever is playing elsewhere on your phone: album art, track title, a seek bar, and play/pause/skip — the same session your lock screen and quick-settings tile already show. It saves you from switching apps just to pause a song.
 
-- Controls: play/pause, skip, seek; album art display
-- The one-time notification-access grant and why it is needed
-- Which players it works with (anything with a media session)
+<PhoneFrame caption="Media controls showing album art, track info, a seek bar, and the play/pause/skip transport.">
+  {/* shot: tools/media-now-playing */}
+</PhoneFrame>
 
-{/* TODO(sonnet): replace this stub. Turn the outline into real sections,
-   add screenshots with <PhoneFrame>, mark settings with <SettingsPath>,
-   keys with <KeyCap>, and edition limits with <Flavor>.
-   Conventions live in docs/CONTENT_GUIDE.md. */}
+## Opening the panel
+
+Open **Media controls** from the [toolbar, or the toolbox](/tools/overview/) if you haven't pinned it — it isn't pinned to the toolbar out of the box, so the first time you'll likely reach it through the toolbox. On a hardware keyboard, use the [leader key](/reference/shortcuts/): double-tap <KeyCap>Ctrl</KeyCap>, then press <KeyCap>M</KeyCap>. Unlike many other tools, it has no suggestion-strip keyword shortcut — there's no word you can type to have the keyboard offer to open it.
+
+The panel shows one of three things:
+
+- **Now playing** — album art (or a music-note placeholder if the app didn't publish any), title, artist, and album, with a seek bar and Previous / Play-Pause / Next buttons.
+- **"Nothing playing right now"** — shown when no app currently holds an active media session. Start audio or video in any app and its controls appear here automatically.
+- **A one-time access prompt** — shown until you grant notification access; see below.
+
+### The transport
+
+- **Play/Pause** toggles playback; **Previous** and **Next** skip a track. Previous and Next are dimmed and unresponsive if the current app's session doesn't advertise that action — some players don't expose a "next track" action for the current content, for instance during a live stream or a single long file.
+- The **seek bar** only appears once the session reports a track duration; dragging it and releasing jumps playback to that point. It's disabled the same way the skip buttons are, whenever the session doesn't support seeking.
+- Controls act on whichever app currently owns the active media session — usually the one you left playing, or the one actively playing if more than one app is publishing a session at once. There's no in-panel app switcher; open the source app directly if you need to switch what's playing.
+
+## Options
+
+<SettingsPath path="Tools / Media controls" />
+
+There's nothing to tune beyond the tool's own visibility:
+
+- **Enabled** — on by default, along with every other tool. Turning it off removes Media controls from both the toolbar and the toolbox.
+- **Icon colour** — only shown if [colorful tool icons](/reference/settings/tools/) are turned on globally (on by default); lets you override this tool's icon color, purple by default.
+
+The transport itself has no settings screen of its own — there's nothing to configure beyond showing or hiding the tool.
+
+## Granting notification access
+
+The Android APIs that hand over another app's media session (`MediaSessionManager`) are gated behind notification-listener access — the same permission class notification-reading apps use, even though WM Keyboard never reads a single notification. See [privacy at a glance](/privacy/overview/) for how this fits the keyboard's broader per-tool, opt-in approach to anything that touches data outside the keyboard itself. The panel explains the grant up front:
+
+> To show and control what's playing, WM Keyboard needs notification access. It reads no notifications — only the media session.
+
+<PhoneFrame caption="The access prompt shown before notification-listener access is granted.">
+  {/* shot: tools/media-access-prompt */}
+</PhoneFrame>
+
+Tapping **Grant access** opens your device's Notification access screen directly to WM Keyboard's row (on older Android versions, it opens the full list instead and you find WM Keyboard yourself). Look for **"WM Keyboard media controls"** — that's the label the system will list. Since an IME cannot show its own permission dialog, this detour through system Settings is required; it's a one-time step, but you can revoke it at any time from the same Settings screen. The keyboard re-checks the grant every time it comes back to the foreground, so if you grant it in Settings and return to the keyboard, the panel picks it up without needing to be reopened.
+
+## Details & edge cases
+
+- **Works with anything that publishes an Android media session** — music players, YouTube, podcast apps, and similar — not literally every app that makes sound. An app has to implement the platform's Media Session API for its controls to show up here; one that plays audio without publishing a session won't appear.
+- The **empty listener service** that unlocks this (`MediaNotificationListener`) exists purely to satisfy the platform's access check. It has no code path that reads notification content — it exists, and does nothing else.
+- The transport is **touch-only**: it doesn't participate in hardware-keyboard focus-ring navigation the way search results or a list panel does, so <KeyCap>Tab</KeyCap>/arrow-key cycling skips over it.
+- Media controls has **no direct-boot support** — it isn't available on the lock screen before you've unlocked your device once after a restart, since the notification-listener grant and session data aren't available that early.
+- This tool ships in both the full and lite editions; there's no edition gating to worry about here.

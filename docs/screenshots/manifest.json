@@ -58,7 +58,7 @@
       "Wait for the download to finish; the 'Installed {name}' AlertDialog with the switch-to-it question appears automatically"
     ],
     "status": "todo",
-    "notes": "AddonApplyPrompt composable (AddonScreens.kt:405-432). Only fires on a genuinely first-time install (no prior record for that key) — use an addon you haven't installed on the capture device yet. A Theme install gives the 'Use it as your keyboard theme now?' / 'Switch to it' wording used in the page's table.",
+    "notes": "AddonApplyPrompt composable (AddonScreens.kt:405-432). Only fires on a genuinely first-time install (no prior record for that key) \u2014 use an addon you haven't installed on the capture device yet. A Theme install gives the 'Use it as your keyboard theme now?' / 'Switch to it' wording used in the page's table.",
     "kind": "still"
   },
   {
@@ -69,7 +69,7 @@
     "host": "settings",
     "setup": [
       "adb shell am start -n com.wasimaster.wmkeyboard/.app.MainActivity",
-      "In-app: tap Settings, then tap Addons (not deep-link allowlisted — addons is not in the typing/appearance/themes/languages/tools/search set, so navigate by tap)",
+      "In-app: tap Settings, then tap Addons (not deep-link allowlisted \u2014 addons is not in the typing/appearance/themes/languages/tools/search set, so navigate by tap)",
       "Tap the seeded sample repository (or any added repository) to open its catalogue grid",
       "Requires fixture state: an addon in that repository's manifest must already be installed locally with sha.version older than the manifest's current entry.version, so its card renders the amber 'Update' AssistChip instead of the check-mark or download icon"
     ],
@@ -86,10 +86,10 @@
     "setup": [
       "adb shell am start -n com.wasimaster.wmkeyboard/.app.MainActivity",
       "In-app: Settings > Addons > (a repository) > tap an addon that is already installed and has an update available",
-      "Screenshot the detail page's action row: 'Update' button, red-tinted 'Uninstall' button, and (below) the 'Use — open <type>' outlined button"
+      "Screenshot the detail page's action row: 'Update' button, red-tinted 'Uninstall' button, and (below) the 'Use \u2014 open <type>' outlined button"
     ],
     "status": "todo",
-    "notes": "Same fixture requirement as the catalogue shot — an installed addon whose local version is older than the manifest's version, so both Update and Use buttons are visible together (AddonScreens.kt ~1390-1418).",
+    "notes": "Same fixture requirement as the catalogue shot \u2014 an installed addon whose local version is older than the manifest's version, so both Update and Use buttons are visible together (AddonScreens.kt ~1390-1418).",
     "kind": "still"
   },
   {
@@ -110,7 +110,7 @@
     "id": "addons/plugin-trust-preview",
     "page": "docs/src/content/docs/addons/overview.mdx",
     "file": "src/assets/screens/addons/plugin-trust-preview.webp",
-    "caption": "A plugin's detail page shows what it can do before you install it — this is the one addon type that isn't pure data.",
+    "caption": "A plugin's detail page shows what it can do before you install it \u2014 this is the one addon type that isn't pure data.",
     "host": "settings",
     "setup": [
       "From the Addons screen, open a repository that lists a plugin, then open that plugin's detail page",
@@ -141,7 +141,7 @@
     "caption": "TalkBack support set to Gestures, with the four modes shown in the picker.",
     "host": "settings",
     "setup": [
-      "Navigate to settings root → Accessibility.",
+      "Navigate to settings root \u2192 Accessibility.",
       "Tap the \"TalkBack support\" choice setting to open its picker, showing Off / Labels / Explore / Gestures."
     ],
     "status": "todo",
@@ -155,9 +155,9 @@
     "caption": "The extra row that appears when TalkBack support is set to Gestures, before the service is granted.",
     "host": "settings",
     "setup": [
-      "Navigate to settings root → Accessibility.",
+      "Navigate to settings root \u2192 Accessibility.",
       "Set \"TalkBack support\" to \"Gestures\" to reveal the \"Keyboard gestures service required\" row (only shows in this mode).",
-      "Do NOT actually grant the accessibility service for this shot — capture the ungranted state."
+      "Do NOT actually grant the accessibility service for this shot \u2014 capture the ungranted state."
     ],
     "status": "todo",
     "notes": "NavRow only rendered when settings.screenReaderMode == PASSTHROUGH, AccessibilityScreens.kt:172-192.",
@@ -170,7 +170,7 @@
     "caption": "High contrast keys turned on: a flat board with maximum-contrast labels.",
     "host": "harness-field",
     "setup": [
-      "Turn on Accessibility → High contrast keys.",
+      "Turn on Accessibility \u2192 High contrast keys.",
       "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
       "Focus the field so the keyboard shows, then capture."
     ],
@@ -186,7 +186,7 @@
     "host": "harness-field",
     "setup": [
       "Pick a theme with visibly distinct hues (not the flat default) so the correction is visible in the shot.",
-      "Turn on Accessibility → Colour vision → Deutan.",
+      "Turn on Accessibility \u2192 Colour vision \u2192 Deutan.",
       "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
       "Focus the field so the keyboard shows, then capture."
     ],
@@ -201,11 +201,1555 @@
     "caption": "The Touch group: ignore repeated presses and long-press delay.",
     "host": "settings",
     "setup": [
-      "Navigate to settings root → Accessibility.",
+      "Navigate to settings root \u2192 Accessibility.",
       "Scroll to the Touch group at the bottom of the screen (sliders + the Key size & spacing / Haptics & sound links)."
     ],
     "status": "todo",
     "notes": "Group at AccessibilityScreens.kt:213-260.",
+    "kind": "still"
+  },
+  {
+    "id": "tools/ai-panel-idle",
+    "page": "docs/src/content/docs/tools/ai.mdx",
+    "file": "src/assets/screens/tools/ai-panel-idle.webp",
+    "caption": "The AI panel's action chips, ready to run against the text in the field.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind multiline --es text 'Reviewing the Q3 roadmap doc before I send it to the team.'",
+      "Configure at least one working AI provider first (otherwise the panel shows the need-setup state instead \u2014 see ai-need-setup).",
+      "Tap into the field, open AI from the toolbar/toolbox, screenshot the action-chip row (Rewrite/Improve/Fix grammar/Summarize/Translate/Explain/Continue/Custom) before tapping any chip."
+    ],
+    "status": "todo",
+    "notes": "Needs a configured provider (real key or downloaded local model) so the chips render enabled/colored rather than the empty state.",
+    "kind": "still"
+  },
+  {
+    "id": "tools/ai-need-setup",
+    "page": "docs/src/content/docs/tools/ai.mdx",
+    "file": "src/assets/screens/tools/ai-need-setup.webp",
+    "caption": "The empty state shown before any provider or local model is set up.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
+      "Fresh install / default settings (aiProvider defaults to Claude but aiAnthropicKey defaults to blank, so AiClient.isConfigured() is false). Open AI from the toolbar or toolbox."
+    ],
+    "status": "todo",
+    "notes": "This is the true out-of-the-box default state \u2014 no provider configured yet.",
+    "kind": "still"
+  },
+  {
+    "id": "tools/ai-result-ready",
+    "page": "docs/src/content/docs/tools/ai.mdx",
+    "file": "src/assets/screens/tools/ai-result-ready.webp",
+    "caption": "A streamed result with Replace, Insert, and the strip-markdown checkbox.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind multiline --es text 'quick draft text to rewrite'",
+      "Configure a real working provider (cloud key or downloaded local model), tap the field, open AI, tap Rewrite, wait for the response to finish streaming, then screenshot with Replace/Insert and the strip-markdown checkbox visible."
+    ],
+    "status": "todo",
+    "notes": "Needs a live provider response to populate real result text, so this can't be captured offline against a stub setup.",
+    "kind": "still"
+  },
+  {
+    "id": "tools/ai-settings-providers",
+    "page": "docs/src/content/docs/tools/ai.mdx",
+    "file": "src/assets/screens/tools/ai-settings-providers.webp",
+    "caption": "The provider row and a cloud provider's API key and model fields.",
+    "host": "settings",
+    "setup": [
+      "adb shell am start -a android.intent.action.VIEW -d wmkeyboard://settings/tools",
+      "Tap 'AI writing tools'. Leave Claude selected (or pick another cloud/self-hosted chip) so the provider chip row and its key/model fields are visible."
+    ],
+    "status": "todo",
+    "notes": "AI's own screen isn't in the deep-link allowlist beyond the Tools list root, so this needs one tap into 'AI writing tools' after the deep link.",
+    "kind": "still"
+  },
+  {
+    "id": "tools/ai-settings-local-catalog",
+    "page": "docs/src/content/docs/tools/ai.mdx",
+    "file": "src/assets/screens/tools/ai-settings-local-catalog.webp",
+    "caption": "The on-device model catalog, with tier badges and a size/RAM subtitle per model.",
+    "host": "settings",
+    "setup": [
+      "adb shell am start -a android.intent.action.VIEW -d wmkeyboard://settings/tools",
+      "Tap 'AI writing tools', then tap the 'On-device' provider chip to show the model catalog, Hugging Face token field, and CPU/GPU compute chips."
+    ],
+    "status": "todo",
+    "notes": "Full edition only \u2014 the On-device chip doesn't render at all in a Lite build (BuildConfig.ENABLE_LOCAL_LLM gates it out of the provider row), so this must be captured on a Full build.",
+    "kind": "still"
+  },
+  {
+    "id": "tools/calendar-month-grid",
+    "page": "docs/src/content/docs/tools/calendar.mdx",
+    "file": "src/assets/screens/tools/calendar-month-grid.webp",
+    "caption": "The Calendar panel: month grid with Bengali day numbers, today's events listed below.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell pm grant com.wasimaster.wmkeyboard android.permission.READ_CALENDAR",
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
+      "Focus the field to raise the keyboard, open the toolbox (or tap the pinned Calendar icon if pinned), tap Calendar to open the panel",
+      "Leave today selected so the grid, Friday tint, and today's border/pill are all visible in one frame"
+    ],
+    "status": "todo",
+    "notes": "Default settings already show Bengali as First calendar and Hijri as Second, so no settings changes needed before shooting. Grant READ_CALENDAR ahead of time via adb so the panel shows the event list state (even if empty/'No events') rather than the Allow prompt \u2014 or leave ungranted if the intent is to show the Allow prompt instead; decide which state this shot is for.",
+    "kind": "still"
+  },
+  {
+    "id": "tools/calendar-day-events",
+    "page": "docs/src/content/docs/tools/calendar.mdx",
+    "file": "src/assets/screens/tools/calendar-day-events.webp",
+    "caption": "A day with events: colored stripe per calendar, time, and location.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell pm grant com.wasimaster.wmkeyboard android.permission.READ_CALENDAR",
+      "Seed at least 2-3 test events on the device's default calendar for the target day (varying all-day vs timed, one with a location) \u2014 no in-app seeding tool exists, use the device's own Calendar app or a content-provider insert script ahead of time",
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
+      "Open the Calendar panel from the toolbar/toolbox and select the seeded day"
+    ],
+    "status": "todo",
+    "notes": "Needs real seeded calendar data \u2014 the panel has no demo/mock event mode. Coordinate seed data with whoever captures this.",
+    "kind": "still"
+  },
+  {
+    "id": "tools/calendar-options",
+    "page": "docs/src/content/docs/tools/calendar.mdx",
+    "file": "src/assets/screens/tools/calendar-options.webp",
+    "caption": "Calendar options: First and second calendar pickers, and the Hijri day adjustment slider.",
+    "host": "settings",
+    "setup": [
+      "am start -a android.intent.action.VIEW -d wmkeyboard://settings/tools",
+      "Tap the Calendar row in the tool list (tool/{toolName} sub-screens are not in the deep-link allowlist, so this last hop is a manual tap)"
+    ],
+    "status": "todo",
+    "notes": "Default settings (First=Bengali, Second=Hijri) already satisfy showsHijri, so the Hijri day adjustment slider is visible with no changes needed.",
+    "kind": "still"
+  },
+  {
+    "id": "tools/camera-viewfinder",
+    "page": "docs/src/content/docs/tools/camera.mdx",
+    "file": "src/assets/screens/tools/camera-viewfinder.webp",
+    "caption": "The live viewfinder: flash and self-timer chips on the left, shutter in the middle, front/back switch on the right.",
+    "host": "harness-chat",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode chat",
+      "Focus the message field, open the toolbar or toolbox and tap Camera (grant camera permission first if prompted)",
+      "Frame a shot with the back camera, flash off, timer off, before tapping the shutter"
+    ],
+    "status": "todo",
+    "notes": "Capture with a device that has both front and back cameras so the switch chip is visible; avoid pinch-zoom (>1.05x) so the zoom pill stays hidden, for a clean baseline shot.",
+    "kind": "still"
+  },
+  {
+    "id": "tools/camera-confirm",
+    "page": "docs/src/content/docs/tools/camera.mdx",
+    "file": "src/assets/screens/tools/camera-confirm.webp",
+    "caption": "The confirm step: the captured photo shown exactly where the viewfinder had it, with Retake and Send underneath.",
+    "host": "harness-chat",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode chat",
+      "Open the Camera tool and tap the shutter to capture a photo",
+      "Screenshot the confirm screen (Retake / Send buttons) before tapping either"
+    ],
+    "status": "todo",
+    "notes": "Same DocsShotActivity session as camera-viewfinder; just continue past the shutter tap instead of restarting.",
+    "kind": "still"
+  },
+  {
+    "id": "tools/camera-permission-gate",
+    "page": "docs/src/content/docs/tools/camera.mdx",
+    "file": "src/assets/screens/tools/camera-permission-gate.webp",
+    "caption": "The permission gate shown before camera access is granted, with the Allow camera pill.",
+    "host": "harness-blank",
+    "setup": [
+      "adb shell pm revoke com.wasimaster.wmkeyboard android.permission.CAMERA",
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode blank",
+      "Open the Camera tool from the toolbar or toolbox; screenshot the 'needs permission' message and Allow camera pill without tapping it"
+    ],
+    "status": "todo",
+    "notes": "Must run pm revoke first \u2014 a normal debug install after granting the permission once won't show this state again without explicitly revoking it.",
+    "kind": "still"
+  },
+  {
+    "id": "tools/camera-options",
+    "page": "docs/src/content/docs/tools/camera.mdx",
+    "file": "src/assets/screens/tools/camera-options.webp",
+    "caption": "Camera's Options screen: selfie camera, mirroring, gallery saving, shutter sound and haptics.",
+    "host": "settings",
+    "setup": [
+      "adb shell am start -a android.intent.action.VIEW -d wmkeyboard://settings/tools",
+      "Tap Camera in the Tools list to open its Options screen",
+      "Scroll so both the Options and Feedback groups are visible in frame"
+    ],
+    "status": "todo",
+    "notes": "tool/CAMERA itself is not in the deep-link allowlist (only typing, appearance, themes, languages, tools, search are) \u2014 deep-link to tools then tap Camera manually.",
+    "kind": "still"
+  },
+  {
+    "id": "tools/clipboard-panel",
+    "page": "docs/src/content/docs/tools/clipboard.mdx",
+    "file": "src/assets/screens/tools/clipboard-panel.webp",
+    "caption": "The clipboard panel: staggered two-column cards, entity chips for a fresh code or link, and a search pill.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
+      "Before opening the keyboard, copy 3-4 varied clips into the system clipboard in sequence so history is populated: a short text snippet, a longer paragraph, an image (e.g. share a photo to clipboard or copy one in a gallery app), and a link (so a link-preview or raw-URL card shows).",
+      "In WM Keyboard settings, turn on Tools > Clipboard > Detect codes, numbers & links, and copy one more clip that is an SMS-shaped message containing a 6-digit code and a phone number, so the entity strip has something to show.",
+      "Focus the text field and tap the Clipboard icon on the toolbar to open the panel."
+    ],
+    "status": "todo",
+    "notes": "Needs a populated, varied history (text/image/link/entity-bearing clip) to look representative \u2014 a fresh install's panel is empty. Capture with the search bar off (default) so the full grid + entity strip show together.",
+    "kind": "still"
+  },
+  {
+    "id": "tools/clipboard-info-popup",
+    "page": "docs/src/content/docs/tools/clipboard.mdx",
+    "file": "src/assets/screens/tools/clipboard-info-popup.webp",
+    "caption": "Long-pressing a clip: the info popup shows when it was copied, its type, size, and source app.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
+      "In WM Keyboard settings, turn on Tools > Clipboard > Show source app (grant Usage Access when prompted) so the popup's From row has something to show.",
+      "Copy a text clip, open the Clipboard panel from the toolbar, then press and hold that clip's card until the info popup appears."
+    ],
+    "status": "todo",
+    "notes": "Turning on 'Show source app' first makes the popup's optional From row appear in the shot; without it the popup is one row shorter (Copied/Type/Size only).",
+    "kind": "still"
+  },
+  {
+    "id": "tools/clipboard-rich-media",
+    "page": "docs/src/content/docs/tools/clipboard.mdx",
+    "file": "src/assets/screens/tools/clipboard-rich-media.webp",
+    "caption": "A file, video, and folder clip side by side \u2014 each keeps only a reference to the source, not the bytes.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
+      "From a file manager app, copy a document/PDF file, a short video file, and a folder in sequence onto the system clipboard.",
+      "Open the Clipboard panel from the toolbar and scroll until a file card, a video card (with its extracted frame), and a folder card are all visible together, then crop/frame the shot around those three cards."
+    ],
+    "status": "todo",
+    "notes": "May need to scroll the staggered grid to get all three kinds in one frame since they interleave with other history; consider a taller crop or capturing with minimal other history so these three are near the top.",
+    "kind": "still"
+  },
+  {
+    "id": "tools/clipboard-entity-chips",
+    "page": "docs/src/content/docs/tools/clipboard.mdx",
+    "file": "src/assets/screens/tools/clipboard-entity-chips.webp",
+    "caption": "Entity chips above the history grid: an OTP and a phone number pulled out of a longer message.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
+      "Ensure Tools > Clipboard > Detect codes, numbers & links is on (default).",
+      "Copy an SMS-shaped text clip containing both a 6-digit verification code and a phone number, e.g. 'Your code is 482913. Call us at 555-201-4488 if you did not request this.'",
+      "Open the Clipboard panel from the toolbar; the dashed-outline chip strip should appear above the history grid with an OTP chip and a phone chip."
+    ],
+    "status": "todo",
+    "notes": "Keep the sample message realistic but obviously synthetic (no real phone number/PII). The chip strip is hidden while the search bar is active, so make sure search is not open for this shot.",
+    "kind": "still"
+  },
+  {
+    "id": "tools/clipboard-settings",
+    "page": "docs/src/content/docs/tools/clipboard.mdx",
+    "file": "src/assets/screens/tools/clipboard-settings.webp",
+    "caption": "Clipboard settings: the History group and, below it, Passwords & codes.",
+    "host": "settings",
+    "setup": [
+      "adb shell am start -a android.intent.action.VIEW -d wmkeyboard://settings/tools",
+      "Tap the Clipboard row in the tool list to open its settings screen (tool/CLIPBOARD isn't itself deep-link allowlisted, only the tools list is).",
+      "Scroll to frame the History group's toggles/sliders and the start of the Passwords & codes group in one shot."
+    ],
+    "status": "todo",
+    "notes": "Screen is long (roughly a dozen rows across two groups); may need two stacked shots or a scroll-captured composite if a single viewport crop can't fit both group headers legibly.",
+    "kind": "still"
+  },
+  {
+    "id": "tools/handwriting-panel-writing",
+    "page": "docs/src/content/docs/tools/handwriting.mdx",
+    "file": "src/assets/screens/tools/handwriting-panel-writing.webp",
+    "caption": "The handwriting panel: a writing canvas with a delete, space, enter, and close key down the right side.",
+    "host": "harness-blank",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode blank --es theme dark",
+      "Tap the blank field to summon WM Keyboard, then open the Handwriting tool from the toolbar (or the toolbox if it isn't pinned).",
+      "Draw a short word on the canvas so the ink, the dimmed-while-recognizing state or a settled stroke, and the bottom-left \"Undo last stroke\" icon are all visible.",
+      "Optional: enable 2+ languages that each have an ML Kit model first, so the language chip also shows in the top-left corner."
+    ],
+    "status": "todo",
+    "notes": "Panel is reached via the toolbar, not a settings deep link. HandwritingPanel.kt: canvas + 64dp action rail (Delete/Space/Enter/Back), undo icon only shows once hw.strokes is non-empty and status == READY, language chip only shows when 2+ distinct ML Kit tags are enabled.",
+    "kind": "still"
+  },
+  {
+    "id": "tools/handwriting-model-manager",
+    "page": "docs/src/content/docs/tools/handwriting.mdx",
+    "file": "src/assets/screens/tools/handwriting-model-manager.webp",
+    "caption": "Recognition models: one row per enabled language, each with its own download status.",
+    "host": "settings",
+    "setup": [
+      "adb shell am start -a android.intent.action.VIEW -d wmkeyboard://settings/tools",
+      "tool/HANDWRITING is NOT in the deep-link allowlist (SettingsShortcuts.Routes only has typing/appearance/themes/languages/tools/search) \u2014 tap \"Handwriting\" in the Tools list from the screen the link above opens.",
+      "Scroll to the \"Recognition models\" section. Ideally have one language downloaded, one not-downloaded and one downloading/failed to show multiple row states; otherwise capture whatever real state is present."
+    ],
+    "status": "todo",
+    "notes": "MainActivity.kt ~6828-6834 (SectionHeader + caption) and HandwritingModelManager composable. Caption text used verbatim on the page: \"about 20 MB\" one-time download, then offline.",
+    "kind": "still"
+  },
+  {
+    "id": "tools/text-edit-panel",
+    "page": "docs/src/content/docs/tools/text-editing.mdx",
+    "file": "src/assets/screens/tools/text-edit-panel.webp",
+    "caption": "The text-editing panel: a d-pad for moving the cursor, Select/Select all/Copy/Paste on the right, and Home/End/Backspace along the bottom.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind multiline --es text 'The quick brown fox jumps over the lazy dog.\\nA second line of sample text to edit.\\nAnd a third line so cursor and selection moves are visible.'",
+      "Open the toolbar/toolbox and tap the Text editing tool.",
+      "Optional: tap Select, then Right a couple of times, to also show the active Select state and a highlighted selection in the field behind the panel."
+    ],
+    "status": "todo",
+    "notes": "Text editing is not pinned to the toolbar by default (default pinned row is Emoji/Clipboard/Settings) \u2014 open it from the toolbox overflow, or pin it first via Settings > Tools.",
+    "kind": "still"
+  },
+  {
+    "id": "tools/numpad-panel",
+    "page": "docs/src/content/docs/tools/text-editing.mdx",
+    "file": "src/assets/screens/tools/numpad-panel.webp",
+    "caption": "The numpad panel: a phone-style or calculator-style 4\u00d74 grid, with Backspace repeating on hold.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
+      "Open the toolbar/toolbox and tap the Numpad tool.",
+      "Capture the default calculator-style layout (7 8 9 on top). Phone-style layout is opt-in under Settings > Tools > Numpad > Options."
+    ],
+    "status": "todo",
+    "notes": "Numpad is a manually-opened panel usable over any field, distinct from the automatic numeric layout that appears in genuinely numeric fields (field-adaptation, documented on typing/field-adaptation.mdx) \u2014 do not use kind=number for this shot, a plain text field better shows it's a manual override.",
+    "kind": "still"
+  },
+  {
+    "id": "tools/translate-panel",
+    "page": "docs/src/content/docs/tools/translate.mdx",
+    "file": "src/assets/screens/tools/translate-panel.webp",
+    "caption": "The Translate panel mid-translation, target-language chip and the Insert/Replace actions below it.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
+      "Open the keyboard, open the toolbox, tap Translate",
+      "Type a short sentence into the panel's search bar and wait for the live translation to appear (or press Enter to force it)",
+      "Optionally tap the target-language chip once first so a non-English target is visible in the shot"
+    ],
+    "status": "todo",
+    "notes": "Panel is self-contained (types into its own search bar, never reads the field) so the underlying field content is irrelevant \u2014 any short field text is fine. Capture after translated text is showing so both action buttons (Replace text / Insert) are in their enabled (non-dimmed) state.",
+    "kind": "still"
+  },
+  {
+    "id": "tools/voice-panel-listening",
+    "page": "docs/src/content/docs/tools/voice.mdx",
+    "file": "src/assets/screens/tools/voice-panel-listening.webp",
+    "caption": "The voice panel: a pulsing mic button on the left, the handwriting-style action rail on the right.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
+      "Open the keyboard, tap the toolbar Voice typing tool (or toolbox if unpinned) to open the full panel",
+      "Tap the mic and speak briefly so status is LISTENING (pulse ring visible) when capturing"
+    ],
+    "status": "todo",
+    "notes": "Compact-bar mode must be off (default) to get the full panel. Capture mid-listening so the pulse ring around the mic and a bit of partial/status text under it are visible. Rail shows Delete/Space/Enter(or search icon for a search field)/Back-to-keyboard.",
+    "kind": "still"
+  },
+  {
+    "id": "tools/voice-undo",
+    "page": "docs/src/content/docs/tools/voice.mdx",
+    "file": "src/assets/screens/tools/voice-undo.webp",
+    "caption": "The Undo control, shown after a phrase commits.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
+      "Open Voice typing panel, dictate one short phrase and let it commit (with Keep listening off, or capture right after a commit before the next session starts)",
+      "Undo row appears bottom-left of the panel once the phrase has committed and status is idle"
+    ],
+    "status": "todo",
+    "notes": "Undo icon+label is only visible when voice.canUndo is true and status is not LISTENING/FINISHING/TRANSCRIBING \u2014 commit a phrase, then screenshot before dictating again.",
+    "kind": "still"
+  },
+  {
+    "id": "tools/voice-offline-model-chip",
+    "page": "docs/src/content/docs/tools/voice.mdx",
+    "file": "src/assets/screens/tools/voice-offline-model-chip.webp",
+    "caption": "Offline model download chip in the voice panel.",
+    "host": "harness-field",
+    "setup": [
+      "Requires a device on API 33+ (Android 13) where the active language's on-device speech model is not yet installed",
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
+      "Open Voice typing panel with English (or Bengali) as the active layout; the 'Get English for offline dictation' chip should appear under the status text automatically when VoiceModelState is DOWNLOADABLE"
+    ],
+    "status": "todo",
+    "notes": "Device/emulator dependent \u2014 chip only renders when SpeechRecognizer.checkRecognitionSupport reports DOWNLOADABLE for that language, which needs API 33+ and Google app support. May need a physical device rather than emulator; document as best-effort if unobtainable, and drop to a text-only fallback description if capture proves infeasible.",
+    "kind": "still"
+  },
+  {
+    "id": "tools/whisper-engine-choice",
+    "page": "docs/src/content/docs/tools/whisper.mdx",
+    "file": "src/assets/screens/tools/whisper-engine-choice.webp",
+    "caption": "Recognition engine choice on the Voice typing screen.",
+    "host": "settings",
+    "setup": [
+      "am start -a android.intent.action.VIEW -d wmkeyboard://settings/tools",
+      "Tap Voice typing to open the tool screen (Engine group with the Recognition engine chooser is at the top, full edition only)"
+    ],
+    "status": "todo",
+    "notes": "Full edition build required \u2014 the Engine section does not render on lite. Capture with System recognizer selected so both options are visible in the chooser.",
+    "kind": "still"
+  },
+  {
+    "id": "tools/whisper-catalog",
+    "page": "docs/src/content/docs/tools/whisper.mdx",
+    "file": "src/assets/screens/tools/whisper-catalog.webp",
+    "caption": "Model catalog with size and language filters, grouped by tier.",
+    "host": "settings",
+    "setup": [
+      "am start -a android.intent.action.VIEW -d wmkeyboard://settings/tools",
+      "Tap Voice typing, set Recognition engine to Offline Whisper, then open the model browse/catalog section (WhisperBrowseSection)"
+    ],
+    "status": "todo",
+    "notes": "Enable at least one non-English language first so a single-language model or two shows up in the visible catalog, not just the 8 multilingual entries.",
+    "kind": "still"
+  },
+  {
+    "id": "tools/whisper-routing",
+    "page": "docs/src/content/docs/tools/whisper.mdx",
+    "file": "src/assets/screens/tools/whisper-routing.webp",
+    "caption": "Model-per-language routing list, with a coverage warning on one row.",
+    "host": "settings",
+    "setup": [
+      "am start -a android.intent.action.VIEW -d wmkeyboard://settings/tools",
+      "Tap Voice typing, set Recognition engine to Offline Whisper, download one model that only covers one enabled language, and enable a second language with no covering model downloaded",
+      "Scroll to the 'Model per language' group (WhisperRoutingCard) so the uncovered-language row shows in error color"
+    ],
+    "status": "todo",
+    "notes": "Needs at least two enabled languages, only one covered by a downloaded model, to show both a normal 'chosen automatically' row and the error-colored 'cannot transcribe this language' row in the same shot.",
+    "kind": "still"
+  },
+  {
+    "id": "tools/whisper-download-progress",
+    "page": "docs/src/content/docs/tools/whisper.mdx",
+    "file": "src/assets/screens/tools/whisper-download-progress.webp",
+    "caption": "A model mid-download, with progress and the storage summary below the list.",
+    "host": "settings",
+    "setup": [
+      "am start -a android.intent.action.VIEW -d wmkeyboard://settings/tools",
+      "Tap Voice typing, set Recognition engine to Offline Whisper, open the catalog, and tap download on a model (e.g. Small multilingual)",
+      "Capture while the progress bar is mid-fill (progress updates throttle to every 250ms, so a mid-size model gives a comfortable capture window)"
+    ],
+    "status": "todo",
+    "notes": "Motion is just a progress bar filling, not core to the behavior being shown, so a single still mid-download is sufficient \u2014 no anim needed.",
+    "kind": "still"
+  },
+  {
+    "id": "tools/media-now-playing",
+    "page": "docs/src/content/docs/tools/media.mdx",
+    "file": "src/assets/screens/tools/media-now-playing.webp",
+    "caption": "Media controls showing album art, track info, a seek bar, and the play/pause/skip transport.",
+    "host": "harness-blank",
+    "setup": [
+      "Grant WM Keyboard notification-listener access in system Settings first (Settings > Apps > Special app access > Notification access, or via the in-panel Grant access flow) so a real session can be mirrored.",
+      "am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode blank --es theme dark",
+      "Start audio playback in any media app with a session (e.g. YouTube Music, a podcast app) with album art available.",
+      "Focus the DocsShotActivity field to raise the keyboard, then open Media controls from the toolbox (or leader key: double-tap Ctrl, then M)."
+    ],
+    "status": "todo",
+    "notes": "Needs a real active MediaSession with album art, a title/artist/album, and a nonzero duration so the seek bar renders. Pick a track with distinct art so the placeholder vs real-art states are visually obvious in other shots if needed.",
+    "kind": "still"
+  },
+  {
+    "id": "tools/media-access-prompt",
+    "page": "docs/src/content/docs/tools/media.mdx",
+    "file": "src/assets/screens/tools/media-access-prompt.webp",
+    "caption": "The access prompt shown before notification-listener access is granted.",
+    "host": "harness-blank",
+    "setup": [
+      "Ensure WM Keyboard notification-listener access is NOT granted (revoke it in Settings > Apps > Special app access > Notification access if previously granted).",
+      "am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode blank --es theme dark",
+      "Focus the field, open Media controls from the toolbox; the panel shows the notification-bell icon, explanatory text, and a 'Grant access' button since access hasn't been granted yet."
+    ],
+    "status": "todo",
+    "notes": "Must be captured with the grant revoked \u2014 re-revoke after capturing tools/media-now-playing if using the same device/session.",
+    "kind": "still"
+  },
+  {
+    "id": "tools/toolbar-and-toolbox",
+    "page": "docs/src/content/docs/tools/overview.mdx",
+    "file": "src/assets/screens/tools/toolbar-and-toolbox.webp",
+    "caption": "The toolbar's default row (Emoji, Clipboard, Settings) with the toolbox grid open below it.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
+      "Tap the toolbox (grid) button on the toolbar to expand it before capturing"
+    ],
+    "status": "todo",
+    "notes": "Capture with default pinned tools (Emoji, Clipboard, Settings) and the toolbox panel expanded beneath the toolbar so both pinned and unpinned tools are visible in one shot.",
+    "kind": "still"
+  },
+  {
+    "id": "tools/ocr-viewfinder",
+    "page": "docs/src/content/docs/tools/scanner.mdx",
+    "file": "src/assets/screens/tools/ocr-viewfinder.webp",
+    "caption": "Text scan (OCR): a full-bleed camera view with recognized words ready to tap.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
+      "Open the keyboard, tap the toolbox, open Text scan (OCR), point at any printed text so the viewfinder is live"
+    ],
+    "status": "todo",
+    "notes": "Panel is full-bleed and covers the toolbar row too \u2014 frame the whole keyboard area, not just the key rows. Torch icon should be visible if the test device has a flash.",
+    "kind": "still"
+  },
+  {
+    "id": "tools/ocr-result-chips",
+    "page": "docs/src/content/docs/tools/scanner.mdx",
+    "file": "src/assets/screens/tools/ocr-result-chips.webp",
+    "caption": "OCR result: recognized words as chips, grouped by line, ready to copy or insert.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
+      "Open Text scan (OCR), capture a printed English paragraph, wait for recognition to finish and show the chip result screen"
+    ],
+    "status": "todo",
+    "notes": "Default state (Start with everything selected = on) has all chips pre-selected; capture that default look unless a deselected-state shot is separately wanted.",
+    "kind": "still"
+  },
+  {
+    "id": "tools/qr-scan-live",
+    "page": "docs/src/content/docs/tools/scanner.mdx",
+    "file": "src/assets/screens/tools/qr-scan-live.webp",
+    "caption": "QR & barcode scanner: live camera view with pinch-to-zoom, freezing on the first code it decodes.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
+      "Open QR & barcode scanner, point at a QR code (a URL-encoded one shows the Open button too) until it freezes on the result card"
+    ],
+    "status": "todo",
+    "notes": "Prefer a URL-encoded QR code so the Open button and any link-preview card are visible if Load link details is enabled for the shot.",
+    "kind": "still"
+  },
+  {
+    "id": "tools/doc-scan-capture",
+    "page": "docs/src/content/docs/tools/scanner.mdx",
+    "file": "src/assets/screens/tools/doc-scan-capture.webp",
+    "caption": "Document scanner: Google's scan UI for capturing and cropping a page.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
+      "Open Document scanner from the toolbox; this launches Google's own GmsDocumentScanning full-screen activity outside the keyboard \u2014 capture that screen directly, not the keyboard panel"
+    ],
+    "status": "todo",
+    "notes": "This is Google's own scanner UI (not WM Keyboard chrome), so it may need Play services present and a physical/emulated camera feed with a document in frame. Confirm host classification is still appropriate since the UI is a separate system activity, not the DocsShotActivity field itself.",
+    "kind": "still"
+  },
+  {
+    "id": "tools/web-search-results",
+    "page": "docs/src/content/docs/tools/search.mdx",
+    "file": "src/assets/screens/tools/web-search-results.webp",
+    "caption": "Web search results \u2014 tap a row to insert its link, or tap the open icon to launch it in your browser.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
+      "Focus the field, open the toolbox (WM Keyboard isn't pinned by default), tap Web search, type a short query into the panel's own header search bar, and press the keyboard's search/enter action to load results (it does not search live as you type).",
+      "Needs a usable Brave API key configured (user key or a build-baked BuildConfig.BRAVE_API_KEY) or results will not load \u2014 see the search-needs-key entry for the no-key state instead."
+    ],
+    "status": "todo",
+    "notes": "Capture with at least 2-3 results visible so both the insert-by-tap row and the separate open-in-browser icon (top right of each row) are visible.",
+    "kind": "still"
+  },
+  {
+    "id": "tools/image-search-grid",
+    "page": "docs/src/content/docs/tools/search.mdx",
+    "file": "src/assets/screens/tools/image-search-grid.webp",
+    "caption": "Image search \u2014 tap a thumbnail to insert the image itself; long-press to insert its link instead.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
+      "Open the toolbox, tap Image search, type a query into the header search bar, press the search/enter action.",
+      "Needs the same Brave key requirement as web search."
+    ],
+    "status": "todo",
+    "notes": "3-column grid; capture with enough thumbnails to fill at least two rows.",
+    "kind": "still"
+  },
+  {
+    "id": "tools/search-needs-key",
+    "page": "docs/src/content/docs/tools/search.mdx",
+    "file": "src/assets/screens/tools/search-needs-key.webp",
+    "caption": "The web search panel before a Brave API key is configured.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
+      "Requires a build with no baked-in Brave key (BuildConfig.BRAVE_API_KEY blank) and no user key pasted into Tools / Web search settings.",
+      "Open the toolbox, tap Web search \u2014 the panel should show the \"Web search needs an API key \u2014 Brave Search. Add one in the tool's settings.\" notice with an Open settings button."
+    ],
+    "status": "todo",
+    "notes": "Verify the debug/docs build variant actually ships without a baked Brave key before capturing, otherwise this state won't reproduce.",
+    "kind": "still"
+  },
+  {
+    "id": "tools/wikipedia-article",
+    "page": "docs/src/content/docs/tools/search.mdx",
+    "file": "src/assets/screens/tools/wikipedia-article.webp",
+    "caption": "An open Wikipedia article, with its Summary, Links and Full article tabs.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
+      "Open the toolbox, tap Wikipedia, type a well-known topic into the header search bar, press search/enter, tap a result to open its article.",
+      "Capture on the Summary tab (default) with the Insert summary / Insert link / Insert title chip row and the three tab chips (Summary, Links, Full article) all visible in the header."
+    ],
+    "status": "todo",
+    "notes": "No API key needed \u2014 this tool works with no configuration at all.",
+    "kind": "still"
+  },
+  {
+    "id": "tools/dictionary-entry",
+    "page": "docs/src/content/docs/tools/search.mdx",
+    "file": "src/assets/screens/tools/dictionary-entry.webp",
+    "caption": "A dictionary entry \u2014 serif headword, pronunciation audio, numbered definitions and synonym chips.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text --es text 'The quick brown fox'",
+      "Place the cursor inside an English word (e.g. \"quick\"), open the toolbox, tap Dictionary \u2014 with auto-lookup on (the default) it should look up that word immediately.",
+      "Pick a word whose entry has a pronunciation-audio icon and at least one synonym/antonym chip row for the fullest capture."
+    ],
+    "status": "todo",
+    "notes": "No API key needed. The headword renders in the Lora serif font \u2014 verify it actually downloaded before capturing, or the shot will show the system-serif fallback instead.",
+    "kind": "still"
+  },
+  {
+    "id": "tools/snippets-panel",
+    "page": "docs/src/content/docs/tools/snippets.mdx",
+    "file": "src/assets/screens/tools/snippets-panel.webp",
+    "caption": "The snippets panel: saved snippets as two-column cards, ready to insert with a tap.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text --es hint 'Message'",
+      "Before shooting, add 3-4 sample snippets from Settings -> Tools -> Snippets so the grid isn't empty (short labels, 1-2 line text; include one whose text is long enough to ellipsize at 2 lines).",
+      "Focus the field to bring up the keyboard.",
+      "Snippets is not pinned to the toolbar by default (only Emoji, Clipboard, Settings are) -- open the toolbox and tap Snippets, or type the keyword 'snippets' and tap the resulting smart-chip suggestion."
+    ],
+    "status": "todo",
+    "notes": "Panel is a LazyVerticalGrid, columns=2, 8dp spacing. Each card shows snippet.label (bold, 1 line, ellipsized) and snippet.text (2 lines, ellipsized) -- the RAW template text, not the expanded preview, so a snippet containing {date} should show the literal token in the shot, not today's date. Header row above the grid reads 'Variables: {date} {time} {datetime} {clip}' with a gear icon.",
+    "kind": "still"
+  },
+  {
+    "id": "tools/snippets-settings",
+    "page": "docs/src/content/docs/tools/snippets.mdx",
+    "file": "src/assets/screens/tools/snippets-settings.webp",
+    "caption": "Snippets settings: the variable reference card, saved snippets with live insert previews, and Add / Import / Export.",
+    "host": "settings",
+    "setup": [
+      "am start -a android.intent.action.VIEW -d wmkeyboard://settings/tools",
+      "tool/SNIPPETS is not itself deep-link allowlisted -- from the Tools list, tap the 'Snippets' row (subtitle 'Insert saved text snippets').",
+      "Have at least 2-3 snippets pre-created, including one with a trigger word set, so the list below the variable reference card isn't empty and shows both the 'Inserts as: ...' and 'Auto-expands from: ...' preview lines."
+    ],
+    "status": "todo",
+    "notes": "Screen order top to bottom: CaptionText subtitle, Enabled toggle, (icon colour row if colourful tool icons on), Keyword shortcut text field, then SnippetSettings() content: intro paragraph, template-variable reference Card (18 rows + {date:...} row), Add/Import/Export button row, then the snippet list with pencil/trash icons per row. Consider cropping/scrolling to frame the variable card + list; full screen may be tall.",
+    "kind": "still"
+  },
+  {
+    "id": "tools/snippets-add-dialog",
+    "page": "docs/src/content/docs/tools/snippets.mdx",
+    "file": "src/assets/screens/tools/snippets-add-dialog.webp",
+    "caption": "Adding a snippet: label, text with variables, and an optional trigger word.",
+    "host": "settings",
+    "setup": [
+      "From the Snippets settings screen (see tools/snippets-settings setup), tap the 'Add snippet' button.",
+      "Optionally fill in sample values (e.g. label 'On my way', text 'On my way, be there by {time}!', trigger 'omw') before capturing so the dialog isn't empty."
+    ],
+    "status": "todo",
+    "notes": "AlertDialog with Label (single-line), Text (multiline, hint 'Text -- supports {date} {time} {clip} {app} {cursor} ...'), Trigger word (single-line, optional) plus helper text below it. Save button is disabled unless label and text are both non-blank.",
+    "kind": "still"
+  },
+  {
+    "id": "emoji/settings-overview",
+    "page": "docs/src/content/docs/emoji/customization.mdx",
+    "file": "src/assets/screens/emoji/settings-overview.webp",
+    "caption": "The Emoji settings screen, with the live font preview row.",
+    "host": "settings",
+    "setup": [
+      "Open WM Keyboard settings home screen",
+      "Tap Emoji under Features",
+      "Scroll to the Emoji style group so the emoji font preview row is visible"
+    ],
+    "status": "todo",
+    "notes": "\"emoji\" is not in the wmkeyboard://settings deep-link allowlist (only typing, appearance, themes, languages, tools, search are) \u2014 reach it by tapping through the settings home screen instead. Capture with default settings (Emoji font = System) so the preview row shows the device's own emoji pack.",
+    "kind": "still"
+  },
+  {
+    "id": "emoji/keyword-packs",
+    "page": "docs/src/content/docs/emoji/customization.mdx",
+    "file": "src/assets/screens/emoji/keyword-packs.webp",
+    "caption": "The Emoji keywords screen, with per-language download and delete controls.",
+    "host": "settings",
+    "setup": [
+      "Open WM Keyboard settings home screen",
+      "Tap Emoji under Features",
+      "Tap \"Emoji keywords\""
+    ],
+    "status": "todo",
+    "notes": "Ideally capture with one language already downloaded (shows a Delete button) and one not yet downloaded (shows a Download button) visible in the same frame to illustrate both states.",
+    "kind": "still"
+  },
+  {
+    "id": "emoji/word-suggestions",
+    "page": "docs/src/content/docs/emoji/customization.mdx",
+    "file": "src/assets/screens/emoji/word-suggestions.webp",
+    "caption": "Emoji suggestions appended to the strip after typing a whole word.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
+      "Switch to WM Keyboard as the active input method",
+      "Type \"birthday\" and pause before hitting space so the suggestion strip shows the trailing emoji"
+    ],
+    "status": "todo",
+    "notes": "Requires Emoji suggestions on (default true) and English enabled (default). Expect roughly \ud83c\udf82\ud83c\udf89\ud83e\udd73\ud83c\udf81 appended after the word per EmojiSuggester's TRIGGERS map.",
+    "kind": "still"
+  },
+  {
+    "id": "emoji/inline-colon-search",
+    "page": "docs/src/content/docs/emoji/customization.mdx",
+    "file": "src/assets/screens/emoji/inline-colon-search.webp",
+    "caption": "Typing a colon turns the suggestion strip into emoji search results.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
+      "Type \":cat\" and pause so the strip shows emoji search results in place of word suggestions"
+    ],
+    "status": "todo",
+    "notes": "Requires Inline emoji search on (default true, lives under Typing settings, not Emoji settings).",
+    "kind": "still"
+  },
+  {
+    "id": "emoji/emoji-row-own",
+    "page": "docs/src/content/docs/emoji/customization.mdx",
+    "file": "src/assets/screens/emoji/emoji-row-own.webp",
+    "caption": "The emoji row in Own row mode, above the key rows.",
+    "host": "harness-field",
+    "setup": [
+      "In WM Keyboard settings, go to Emoji, set \"Emoji row\" to \"Own row\"",
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
+      "Switch to WM Keyboard and let it render with the emoji row visible above the key rows"
+    ],
+    "status": "todo",
+    "notes": "Default emoji row mode is Button, not Own row \u2014 must switch it first. Revert to Button afterward if the test device is reused for other shots.",
+    "kind": "still"
+  },
+  {
+    "id": "emoji/gif-panel-trending",
+    "page": "docs/src/content/docs/emoji/gifs.mdx",
+    "file": "src/assets/screens/emoji/gif-panel-trending.webp",
+    "caption": "The GIF panel, showing trending results on open.",
+    "host": "harness-chat",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode chat",
+      "Focus the message input to raise the keyboard.",
+      "Open the toolbar (or toolbox) and tap the GIF tool \u2014 trending results load automatically with no query typed.",
+      "Ensure a Klipy or GIPHY API key is configured first (Settings > Tools > GIFs) or the panel shows the NeedKey notice instead of a grid."
+    ],
+    "status": "todo",
+    "notes": "3-column animated grid; header shows 'via Klipy \u00b7 GIPHY' attribution line above the grid depending on which keys are configured.",
+    "kind": "still"
+  },
+  {
+    "id": "emoji/gif-no-rich-media",
+    "page": "docs/src/content/docs/emoji/gifs.mdx",
+    "file": "src/assets/screens/emoji/gif-no-rich-media.webp",
+    "caption": "A field that can't accept images \u2014 the panel dims and shows the standing notice.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
+      "Focus the plain text field (kind=text does not advertise image/* content MIME types).",
+      "Open the GIF tool from the toolbar/toolbox so results still populate.",
+      "Capture with the grid visible at ~45% opacity and the 'This field doesn't accept GIFs \u2014 try a chat or notes app' notice showing above it."
+    ],
+    "status": "todo",
+    "notes": "Notice only appears when the search box is not active/expanded (state.mediaSearchActive == false) \u2014 make sure the search field is collapsed before capturing.",
+    "kind": "still"
+  },
+  {
+    "id": "emoji/kaomoji-tab",
+    "page": "docs/src/content/docs/emoji/kaomoji.mdx",
+    "file": "src/assets/screens/emoji/kaomoji-tab.webp",
+    "caption": "The emoji panel's Kaomoji tab, grouped by mood.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text theme=dark",
+      "In-app: no deep link exists for the Emoji settings screen (SettingsShortcuts.Routes only allows typing, appearance, themes, languages, tools, search) \u2014 from Settings home tap Emoji, then in the 'Emoji panel' group turn on 'Kaomoji and Emoticons'",
+      "Return to the DocsShotActivity field, tap the emoji toolbar button to open the emoji panel",
+      "Swipe/scroll the tab strip to the end and tap the '^_^' tab (KAOMOJI_TAB)",
+      "Scroll to the top so the Happy group header is visible"
+    ],
+    "status": "todo",
+    "notes": "kaomojiTabs defaults to false (EmojiSettings.kaomojiTabs, SettingsRepository.kt:1541) so it must be enabled first. The tab strip label is a literal glyph '^_^', not an icon.",
+    "kind": "still"
+  },
+  {
+    "id": "emoji/kaomoji-mood-groups",
+    "page": "docs/src/content/docs/emoji/kaomoji.mdx",
+    "file": "src/assets/screens/emoji/kaomoji-mood-groups.webp",
+    "caption": "Scrolling past the Table flip and Confused groups.",
+    "host": "harness-field",
+    "setup": [
+      "Same setup as emoji/kaomoji-tab (enable Kaomoji and Emoticons in Settings > Emoji > Emoji panel, open the emoji panel, tap the ^_^ tab)",
+      "Scroll the grid down until the 'Table flip' and 'Confused' section headers are both visible on screen"
+    ],
+    "status": "todo",
+    "notes": "Demonstrates the full-width mood-group headers (11sp, 70%-alpha onSurfaceVariant) inside the LazyVerticalGrid. Table flip is the smallest group (8 entries) so it scrolls past quickly.",
+    "kind": "still"
+  },
+  {
+    "id": "emoji/panel-overview",
+    "page": "docs/src/content/docs/emoji/picker.mdx",
+    "file": "src/assets/screens/emoji/panel-overview.webp",
+    "caption": "The emoji panel open over a text field, with the search icon, tab strip, and category grid.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
+      "Focus the field to raise the keyboard",
+      "Tap the Emoji toolbar button (toolbar right side) to open the panel on a mid-catalog category tab, e.g. Smileys"
+    ],
+    "status": "todo",
+    "notes": "Full-screen emoji panel (emojiFullBleed) defaults to on, so the panel will show the reclaimed tab-strip-plus-back-button layout, not the toolbar-visible layout, unless that setting is turned off first for a more toolbar-illustrative shot.",
+    "kind": "still"
+  },
+  {
+    "id": "emoji/panel-search",
+    "page": "docs/src/content/docs/emoji/picker.mdx",
+    "file": "src/assets/screens/emoji/panel-search.webp",
+    "caption": "Typing 'cat' and '\u09ac\u09bf\u09a1\u09bc\u09be\u09b2' in the panel's search field, both surfacing the same cat emoji.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
+      "Open the emoji panel, tap the search (magnifying glass) tab",
+      "Type 'cat' on the letter keys (they feed the search pill while search is active) and capture the result grid; optionally take a second pass with a Bengali-layout active typing \u09ac\u09bf\u09a1\u09bc\u09be\u09b2 for the side-by-side claim"
+    ],
+    "status": "todo",
+    "notes": "May need two source captures (English query, Bengali query) composited into one caption if the doc wants both shown at once; a single English-query still is an acceptable fallback.",
+    "kind": "still"
+  },
+  {
+    "id": "emoji/variant-popup",
+    "page": "docs/src/content/docs/emoji/picker.mdx",
+    "file": "src/assets/screens/emoji/variant-popup.webp",
+    "caption": "Long-pressing a toned emoji opens six variants: the neutral base plus five Fitzpatrick tones.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
+      "Open the emoji panel, scroll to a single-tone emoji such as \ud83d\udc4d (thumbs up) in the People or Smileys category",
+      "Long-press the cell to open EmojiVariantPopup and capture while the popup is showing"
+    ],
+    "status": "todo",
+    "notes": "Turn on 'Emoji descriptions' first so the popup's name header is visible in the shot, matching the caption text in the page.",
+    "kind": "still"
+  },
+  {
+    "id": "emoji/dual-tone-picker",
+    "page": "docs/src/content/docs/emoji/picker.mdx",
+    "file": "src/assets/screens/emoji/dual-tone-picker.webp",
+    "caption": "The dual-tone picker for \ud83e\udd1d, with independent skin tones for each hand.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
+      "Open the emoji panel, find \ud83e\udd1d (handshake) in the People category",
+      "Long-press to open DualTonePicker and capture with at least one tone picked on each side so both swatch rows show a selection ring"
+    ],
+    "status": "todo",
+    "notes": "Picking a tone on one side auto-seeds the other side (not every combo is RGI-valid) -- capture after both rings are visibly set to show the two independent rows clearly.",
+    "kind": "still"
+  },
+  {
+    "id": "emoji/history-tab",
+    "page": "docs/src/content/docs/emoji/picker.mdx",
+    "file": "src/assets/screens/emoji/history-tab.webp",
+    "caption": "The history tab with favourites pinned first, and the long-press options for a starred emoji.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
+      "Use the keyboard to insert a handful of different emoji first so the history tab is populated, and favourite at least one via its long-press popup",
+      "Reopen the emoji panel (history tab is the first tab) and long-press a favourited cell so the popup's Favourited/Reorder/Remove rows are visible in the same shot"
+    ],
+    "status": "todo",
+    "notes": "The history tab only appears once there is at least one recent or favourited emoji -- a completely fresh install/profile will not show it.",
+    "kind": "still"
+  },
+  {
+    "id": "emoji/favourites-reorder",
+    "page": "docs/src/content/docs/emoji/picker.mdx",
+    "file": "src/assets/screens/emoji/favourites-reorder.webp",
+    "caption": "Dragging a favourite into a new position in the reorder list.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
+      "Favourite at least two emoji via their long-press popups",
+      "Long-press a favourited cell, tap 'Reorder favourites', and capture mid-drag (or immediately post-drop) in FavouritesReorderPopup"
+    ],
+    "status": "todo",
+    "notes": "Reorder row only appears in the long-press popup once 2+ favourites exist. A mid-drag capture is nice-to-have but a static list with the drag handles visible is an acceptable still.",
+    "kind": "still"
+  },
+  {
+    "id": "emoji/sticker-panel-search",
+    "page": "docs/src/content/docs/emoji/stickers.mdx",
+    "file": "src/assets/screens/emoji/sticker-panel-search.webp",
+    "caption": "Sticker search results, with the My stickers tab for your own packs.",
+    "host": "harness-chat",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode chat --es theme dark",
+      "Open the keyboard, open the Stickers tool (toolbox if not pinned), and either search a term or leave the default trending grid showing",
+      "Ensure at least one custom pack exists beforehand if the My stickers chip should be visible in the shot"
+    ],
+    "status": "todo",
+    "notes": "Needs a Klipy or GIPHY API key configured on the capture device/build, or the panel will show the NeedKey notice instead of results.",
+    "kind": "still"
+  },
+  {
+    "id": "emoji/sticker-panel-unsupported-field",
+    "page": "docs/src/content/docs/emoji/stickers.mdx",
+    "file": "src/assets/screens/emoji/sticker-panel-unsupported-field.webp",
+    "caption": "The standing notice a field that can't take images shows, with results dimmed underneath.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text --es theme dark",
+      "Open the keyboard, open the Stickers tool with an active search so results are populated",
+      "Confirm the 'This field doesn't accept stickers \u2014 try a chat or notes app' notice shows above the dimmed grid"
+    ],
+    "status": "todo",
+    "notes": "Plain text field's EditorInfo advertises no image content MIME types, so acceptsRichMedia is false \u2014 this is the default DocsShotActivity field kind, no extra flag needed beyond kind=text.",
+    "kind": "still"
+  },
+  {
+    "id": "emoji/sticker-long-press-save",
+    "page": "docs/src/content/docs/emoji/stickers.mdx",
+    "file": "src/assets/screens/emoji/sticker-long-press-save.webp",
+    "caption": "Long-press menu over a Klipy result, offering to save it to a pack.",
+    "host": "harness-chat",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode chat --es theme dark",
+      "Open the Stickers tool, search or browse trending so a Klipy/GIPHY result tile is visible",
+      "Long-press that tile to open the StickerActionSheet scrim/menu and capture with it open"
+    ],
+    "status": "todo",
+    "notes": "Capture once with zero existing packs (menu shows only 'Save to a new pack') and optionally a second variant with 1-2 packs to show the 'Save to <pack name>' rows \u2014 page only needs one still, pick whichever reads clearer.",
+    "kind": "still"
+  },
+  {
+    "id": "emoji/sticker-pack-manage",
+    "page": "docs/src/content/docs/emoji/stickers.mdx",
+    "file": "src/assets/screens/emoji/sticker-pack-manage.webp",
+    "caption": "A sticker pack's management screen, with reorder and export controls.",
+    "host": "settings",
+    "setup": [
+      "am start -a android.intent.action.VIEW -d wmkeyboard://settings/tools",
+      "Tap Stickers, then 'Sticker packs' under Your stickers, then open an existing pack (create one with a few stickers first if none exist) to land on the sticker_pack/{packId} screen"
+    ],
+    "status": "todo",
+    "notes": "Deep link only reaches the Tools list (route 'tools' is the allowlisted one) \u2014 Sticker packs and the per-pack screen need the two follow-up taps noted above; seed the pack with 3-5 stickers beforehand so reorder/export controls have something to act on.",
+    "kind": "still"
+  },
+  {
+    "id": "start/editions-toolbox-full",
+    "page": "docs/src/content/docs/start/editions.mdx",
+    "file": "src/assets/screens/start/editions-toolbox-full.webp",
+    "caption": "The Tools panel on a Full build: Handwriting, Text scan, QR & barcode, Document scanner and Grammar check all appear.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
+      "Requires a Full-flavor install (app-full-*-release.apk or -debug.apk)",
+      "Focus the field to raise the keyboard, tap the toolbar's toolbox icon to open the Tools panel",
+      "Screenshot the panel with the tool grid visible, including Handwriting/Text scan (OCR)/QR & barcode scanner/Document scanner/Grammar check"
+    ],
+    "status": "todo",
+    "notes": "Which tools show is compile-time (BuildConfig flags), not a runtime setting, so this shot and editions-toolbox-lite need two separate app installs, not two states of one install.",
+    "kind": "still"
+  },
+  {
+    "id": "start/editions-toolbox-lite",
+    "page": "docs/src/content/docs/start/editions.mdx",
+    "file": "src/assets/screens/start/editions-toolbox-lite.webp",
+    "caption": "The same panel on a Lite build \u2014 those five tiles are gone, not grayed out.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
+      "Requires a Lite-flavor install (app-lite-*-release.apk or -debug.apk) instead of Full",
+      "Focus the field, tap the toolbar's toolbox icon to open the Tools panel",
+      "Screenshot the same panel \u2014 same tool grid minus the five Full-only tiles"
+    ],
+    "status": "todo",
+    "notes": "Pair with editions-toolbox-full for the before/after; frame the two crops identically (same panel scroll position) so the diff reads clearly side by side in the page.",
+    "kind": "still"
+  },
+  {
+    "id": "start/editions-about-version",
+    "page": "docs/src/content/docs/start/editions.mdx",
+    "file": "src/assets/screens/start/editions-about-version.webp",
+    "caption": "Settings \u2192 About \u2192 Version names the flavor, build type, and version code.",
+    "host": "settings",
+    "setup": [
+      "\"about\" is not in the deep-link allowlist (only typing/appearance/themes/languages/tools/search are), so open it by navigation rather than a wmkeyboard:// URI",
+      "Open the WM Keyboard settings app, tap \"About\" in the About section on the settings home screen",
+      "Screenshot the Version row under the App group \u2014 reads \"Full build (release) \u00b7 code \u2026\" or \"Lite build (release) \u00b7 code \u2026\""
+    ],
+    "status": "todo",
+    "notes": "Capturing on a Full-flavor build is the more informative choice (shows \"Full build\" explicitly); a Lite capture would be an equally valid substitute if that's the build already installed for other shots in this batch.",
+    "kind": "still"
+  },
+  {
+    "id": "start/faq-privacy-summary",
+    "page": "docs/src/content/docs/start/faq.mdx",
+    "file": "src/assets/screens/start/faq-privacy-summary.webp",
+    "caption": "The Privacy screen's on-device summary, with the data-clearing controls below it.",
+    "host": "settings",
+    "setup": [
+      "Launch the app normally (am start -n com.wasimaster.wmkeyboard/.app.MainActivity) \u2014 the \"privacy\" route is NOT in the wmkeyboard://settings/ deep-link allowlist (SettingsShortcuts.kt Routes = typing, appearance, themes, languages, tools, search only), so this cannot be reached by deep link.",
+      "On the home screen, tap 'Privacy' under the 'Data' group.",
+      "Scroll to the bottom to frame the 'Your data' group (Clear learned words button) together with the closing caption text."
+    ],
+    "status": "todo",
+    "notes": "The in-app caption at the bottom of this screen (MainActivity.kt ~8498-8503) currently only mentions the weather tool as the network exception; it's stale relative to the real tool list (dictionary, translate, GIF/sticker, search, AI). Known in-app content bug, not something for docs to fix, but don't let a future screenshot caption imply the in-app text is exhaustive.",
+    "kind": "still"
+  },
+  {
+    "id": "start/faq-personal-dictionary",
+    "page": "docs/src/content/docs/start/faq.mdx",
+    "file": "src/assets/screens/start/faq-personal-dictionary.webp",
+    "caption": "Personal dictionary: every learned word, with per-word delete and an Add word button.",
+    "host": "settings",
+    "setup": [
+      "am start -a android.intent.action.VIEW -d wmkeyboard://settings/typing  (deep-links into the Typing screen; \"typing\" is in the allowlist)",
+      "Tap 'Personal dictionary' to open the dictionary list (route \"dictionary\", not itself deep-linkable).",
+      "Before capturing, type a few sentences in the field harness (mode=field) or use the 'Add word' button a couple of times so the list isn't empty."
+    ],
+    "status": "todo",
+    "notes": "Words seen fewer than 200 times show as 'Seen N\u00d7'; words added via the dialog show as 'Added by you' (boost 200). Capture with at least one of each for a representative shot.",
+    "kind": "still"
+  },
+  {
+    "id": "start/first-launch",
+    "page": "docs/src/content/docs/start/installation.mdx",
+    "file": "src/assets/screens/start/first-launch.webp",
+    "caption": "First launch after install, before the setup wizard starts.",
+    "host": "harness-blank",
+    "setup": [
+      "Install a debug APK (assembleFullDebug) on a clean profile / after clearing app data so onboardingDone is false",
+      "Launch the app cold and capture the very first frame before the onboarding wizard's WelcomePage finishes composing, or capture WelcomePage itself if the pre-wizard frame is too transient to be a meaningful shot"
+    ],
+    "status": "todo",
+    "notes": "This is mostly a placeholder for 'what a fresh install looks like on open' \u2014 if the true first frame is not a distinct visual from the onboarding WelcomePage (MainActivity.kt / Onboarding.kt), it's fine to just capture WelcomePage and adjust the caption to say so; don't invent a distinct pre-wizard screen if one doesn't exist.",
+    "kind": "still"
+  },
+  {
+    "id": "start/migrating-suggestion-center",
+    "page": "docs/src/content/docs/start/migrating.mdx",
+    "file": "src/assets/screens/start/migrating-suggestion-center.webp",
+    "caption": "Suggestions default to the top pick in the center slot, the same layout Gboard uses.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
+      "Type a word that yields multiple candidates (e.g. \"hte\") so three suggestions appear with the top pick centered",
+      "Capture before tapping any suggestion"
+    ],
+    "status": "todo",
+    "notes": "Confirms suggestionPrimaryCenter=true default (SettingsRepository.kt:1820), explicitly commented '(Gboard style)' in source.",
+    "kind": "still"
+  },
+  {
+    "id": "start/migrating-tools-recommended",
+    "page": "docs/src/content/docs/start/migrating.mdx",
+    "file": "src/assets/screens/start/migrating-tools-recommended.webp",
+    "caption": "Settings \u2192 Tools: every tool starts on. Recommended switches to the curated 17-tool set the setup wizard offers.",
+    "host": "settings",
+    "setup": [
+      "am start -a android.intent.action.VIEW -d wmkeyboard://settings/tools",
+      "Capture with the Recommended / Everything action row visible above the tool list"
+    ],
+    "status": "todo",
+    "notes": "Route 'tools' is in SettingsShortcuts.Routes allowlist. Shows enabledTools default = ToolbarTool.entries (~60 tools) and the RecommendedTools 17-tool curated set (ToolbarTool.kt:140-146).",
+    "kind": "still"
+  },
+  {
+    "id": "start/migrating-personal-dictionary",
+    "page": "docs/src/content/docs/start/migrating.mdx",
+    "file": "src/assets/screens/start/migrating-personal-dictionary.webp",
+    "caption": "The personal dictionary screen \u2014 words you add show 'Added by you'; words picked up from typing show a use count. There's no bulk-import button here.",
+    "host": "settings",
+    "setup": [
+      "Route 'dictionary' is NOT in the SettingsShortcuts deep-link allowlist (only typing/appearance/themes/languages/tools/search are) \u2014 launch the app and tap Typing \u2192 Personal dictionary manually",
+      "Add one word via the Add word button, and let another word accumulate a few uses from typing first, so both 'Added by you' and 'Seen N\u00d7' labels are visible"
+    ],
+    "status": "todo",
+    "notes": "count >= 200 shows 'Added by you' (MainActivity.kt:4438, UserLexicon.addWord boost=200); otherwise 'Seen N\u00d7'. Demonstrates there is no bulk-import UI on this screen, backing the page's 'no one-click import' claim.",
+    "kind": "still"
+  },
+  {
+    "id": "start/setup-card-not-enabled",
+    "page": "docs/src/content/docs/start/setup.mdx",
+    "file": "src/assets/screens/start/setup-card-not-enabled.webp",
+    "caption": "The setup card before WM Keyboard is enabled \u2014 'Enable keyboard' opens system settings, 'Switch keyboard' opens the picker.",
+    "host": "settings",
+    "setup": [
+      "Use a device/emulator where WM Keyboard is installed but not yet enabled as an input method (fresh install, or `adb shell ime disable com.wasimaster.wmkeyboard/.ime.WMKeyboardService` if it was enabled before)",
+      "am start -n com.wasimaster.wmkeyboard/.app.MainActivity",
+      "Capture the Home screen's top card in its 'Not enabled' state (title 'Setup', both 'Enable keyboard' and 'Switch keyboard' buttons visible)"
+    ],
+    "status": "todo",
+    "notes": "This is the MainActivity Home screen, not the IME field harness \u2014 DocsShotActivity does not apply. Card polls IME state every ~1s so it will flip states live if you enable the keyboard mid-session; capture before enabling. A second still of the 'Enabled and selected' checkmark state would also be useful but is not required for this page.",
+    "kind": "still"
+  },
+  {
+    "id": "start/wizard-gestures-page",
+    "page": "docs/src/content/docs/start/setup.mdx",
+    "file": "src/assets/screens/start/wizard-gestures-page.webp",
+    "caption": "The Spacebar & keys page \u2014 one choice sets both swipe directions at once.",
+    "host": "settings",
+    "setup": [
+      "Force the onboarding wizard to show: clear app data (`adb shell pm clear com.wasimaster.wmkeyboard`) or otherwise reset the `onboardingDone` DataStore flag to false",
+      "am start -n com.wasimaster.wmkeyboard/.app.MainActivity",
+      "Tap through the wizard (Welcome \u2192 Your languages \u2192 Look & feel \u2192 [Emoji font, if shown] \u2192 Typing feedback) to reach the 'Spacebar & keys' page \u2014 not deep-link addressable, the onboarding route isn't in the settings URI allowlist",
+      "Capture with the 'Cursor + language (recommended)' or default-selected radio option visible, plus the emoji-key and number-row toggles below it"
+    ],
+    "status": "todo",
+    "notes": "Onboarding page order is fixed but two pages are conditional (Emoji font only if the device's emoji font can't render the full catalog; Tool setup only if Calendar/Weather/Compass is enabled) \u2014 tap count to reach Gestures may vary by device/config. Clearing app data also resets enabled languages/tools back to factory defaults, which is fine for this shot.",
+    "kind": "still"
+  },
+  {
+    "id": "tour/anatomy-default",
+    "page": "docs/src/content/docs/start/tour.mdx",
+    "file": "src/assets/screens/start/anatomy-default.webp",
+    "caption": "Fresh install: the top bar shows pinned tools, not an empty suggestion strip, until you type something.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text"
+    ],
+    "status": "todo",
+    "notes": "Default state, no text typed yet, so TOPBAR resolves to toolbar (not suggestions). Symbol row and dedicated emoji row are both off by default in this shot; showToolbar=true because suggestionsFirst=false and there is nothing to suggest.",
+    "kind": "still"
+  },
+  {
+    "id": "tour/toolbar-pinned",
+    "page": "docs/src/content/docs/start/tour.mdx",
+    "file": "src/assets/screens/start/toolbar-pinned.webp",
+    "caption": "The toolbar: back-to-keyboard chevron, the Toolbox launcher, then your pinned tools.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
+      "type a few characters so the back chevron is not needed, or crop to show the toolbar at rest with default pinned tools (Emoji, Clipboard, Settings) plus the Toolbox + button"
+    ],
+    "status": "todo",
+    "notes": "Default toolbarTools = [EMOJI, CLIPBOARD, SETTINGS]. No panel open so the back chevron should NOT show; capture the resting toolbar state.",
+    "kind": "still"
+  },
+  {
+    "id": "tour/toolbox-grid",
+    "page": "docs/src/content/docs/start/tour.mdx",
+    "file": "src/assets/screens/start/toolbox-grid.webp",
+    "caption": "The Toolbox grid \u2014 every enabled tool, four to a row, drag to pin or reorder.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
+      "tap the toolbar's Toolbox (+) button to open PanelMode.TOOLBOX"
+    ],
+    "status": "todo",
+    "notes": "toolboxColumns=4. Capture with the first-run drag hint banner visible if easy (toolboxHintDismissed default false) since it's part of the real first-open experience.",
+    "kind": "still"
+  },
+  {
+    "id": "tour/long-press-alternates",
+    "page": "docs/src/content/docs/start/tour.mdx",
+    "file": "src/assets/screens/start/long-press-alternates.webp",
+    "caption": "Long-pressing a key with alternates pops up the accented and symbol variants.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
+      "long-press a letter key with known alternates (e.g. 'e' or 'a') and hold until the alternates popup renders, then capture"
+    ],
+    "status": "todo",
+    "notes": "longPressDelayMs default 300ms; longPressHints default true so the corner hint mark should also be visible on nearby keys in the same shot.",
+    "kind": "still"
+  },
+  {
+    "id": "tour/settings-entry",
+    "page": "docs/src/content/docs/start/tour.mdx",
+    "file": "src/assets/screens/start/settings-entry.webp",
+    "caption": "The Settings tool opens the full settings app to its home screen.",
+    "host": "settings",
+    "setup": [
+      "am start -a android.intent.action.VIEW -d wmkeyboard://settings/typing",
+      "or navigate to the Settings app home screen directly and screenshot HomeScreen (the six clusters: Typing, Keyboard, Features, Accessibility, Data, About)"
+    ],
+    "status": "todo",
+    "notes": "wmkeyboard://settings/ allowlist only covers typing, appearance, themes, languages, tools, search \u2014 not a bare home route, so for the literal home screen a plain app-open + navigate is more reliable than a deep link. Emphasize the six SettingsGroup clusters from MainActivity.kt HomeScreen.",
+    "kind": "still"
+  },
+  {
+    "id": "languages/cjk-pinyin-candidate-strip",
+    "page": "docs/src/content/docs/languages/cjk.mdx",
+    "file": "src/assets/screens/languages/cjk-pinyin-candidate-strip.webp",
+    "caption": "Chinese Pinyin: the candidate strip replaces the usual word-suggestion row while you're composing a reading.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
+      "Enable Chinese (Pinyin layout) in Languages, switch to it, type a multi-syllable reading like 'nihao' so the candidate strip is populated with several ranked candidates"
+    ],
+    "status": "todo",
+    "notes": "Pinyin dictionary pack must be downloaded first (Languages > Chinese > Chinese options) or the strip will be empty.",
+    "kind": "still"
+  },
+  {
+    "id": "languages/cjk-cangjie-keys",
+    "page": "docs/src/content/docs/languages/cjk.mdx",
+    "file": "src/assets/screens/languages/cjk-cangjie-keys.webp",
+    "caption": "Cangjie: radical keys build a shape code; the strip fills in once the code is complete.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
+      "Switch to the Chinese Cangjie layout and type 2-3 radical keys so the composing region shows radical glyphs and the strip shows candidates"
+    ],
+    "status": "todo",
+    "notes": "Cangjie dictionary pack must be downloaded first.",
+    "kind": "still"
+  },
+  {
+    "id": "languages/cjk-japanese-flick",
+    "page": "docs/src/content/docs/languages/cjk.mdx",
+    "file": "src/assets/screens/languages/cjk-japanese-flick.webp",
+    "caption": "Japanese Flick: kana glyphs sit on the keys themselves, with directional flicks for the rest of the row.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
+      "Enable Japanese, switch to the Flick layout, show the idle keyboard (12-key pad with kana glyphs on keys)"
+    ],
+    "status": "todo",
+    "notes": "Static keyboard shot is fine; the flick gesture itself is better shown as a kind:anim companion if a future pass wants motion.",
+    "kind": "still"
+  },
+  {
+    "id": "languages/cjk-candidate-grid-expanded",
+    "page": "docs/src/content/docs/languages/cjk.mdx",
+    "file": "src/assets/screens/languages/cjk-candidate-grid-expanded.webp",
+    "caption": "The expanded candidate grid: every ranked candidate, wrapped to fit, covering the key rows while it's open.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
+      "Type a Pinyin or Jyutping reading with many candidates, then tap the chevron at the end of the candidate strip to open the expanded FlowRow grid"
+    ],
+    "status": "todo",
+    "notes": "Needs the relevant conversion dictionary downloaded so the grid has enough candidates to show wrapping.",
+    "kind": "still"
+  },
+  {
+    "id": "languages/key-layouts-gallery",
+    "page": "docs/src/content/docs/languages/custom-layouts.mdx",
+    "file": "src/assets/screens/languages/key-layouts-gallery.webp",
+    "caption": "The Key layouts screen: your own layouts, the shipped set, and an import row.",
+    "host": "settings",
+    "setup": [
+      "am start -a android.intent.action.VIEW -d wmkeyboard://settings/languages",
+      "Tap into a language and enable at least one custom-eligible layout, or navigate Settings > Key layouts directly if a deep link for 'keymaps' is not allowlisted"
+    ],
+    "status": "todo",
+    "notes": "Route is 'keymaps' (title 'Key layouts'); not confirmed on the deep-link allowlist (only typing/appearance/themes/languages/tools/search are). Fall back to a tap-sequence from Settings home if wmkeyboard://settings/keymaps 404s. Shows two groups: 'Your layouts' (only appears once at least one custom/edited layout is enabled) and 'Built in'.",
+    "kind": "still"
+  },
+  {
+    "id": "languages/layout-editor-grid",
+    "page": "docs/src/content/docs/languages/custom-layouts.mdx",
+    "file": "src/assets/screens/languages/layout-editor-grid.webp",
+    "caption": "The visual layout editor, showing the Letters layer with a key selected.",
+    "host": "settings",
+    "setup": [
+      "From Key layouts, tap the edit icon on any enabled layout (e.g. the built-in QWERTY row) to reach keymap_edit/{layoutId}",
+      "Tap one letter key to show the RowActionBar/RowHeightRow selected state"
+    ],
+    "status": "todo",
+    "notes": "Show the layer tabs (LayerChips) across the top and the 'Saved automatically' caption near the undo/redo icons.",
+    "kind": "still"
+  },
+  {
+    "id": "languages/key-edit-sheet",
+    "page": "docs/src/content/docs/languages/custom-layouts.mdx",
+    "file": "src/assets/screens/languages/key-edit-sheet.webp",
+    "caption": "The key edit sheet \u2014 label, output, action, width, and long-press alternates.",
+    "host": "settings",
+    "setup": [
+      "From the layout editor grid, tap a text key (e.g. a letter) to open the KeyEditSheet bottom sheet",
+      "Scroll to show Long-press alternates and the AlternatePreview chips if possible"
+    ],
+    "status": "todo",
+    "notes": "Pick a key with a few long-press alternates already set (e.g. a vowel from a shipped layout) so the alternate preview chips are visible.",
+    "kind": "still"
+  },
+  {
+    "id": "languages/layout-json-editor",
+    "page": "docs/src/content/docs/languages/custom-layouts.mdx",
+    "file": "src/assets/screens/languages/layout-json-editor.webp",
+    "caption": "The raw JSON editor, with syntax highlighting and an Apply button.",
+    "host": "settings",
+    "setup": [
+      "From the layout editor grid, tap 'Edit as JSON' near the bottom of the settings list to reach keymap_json/{layoutId}"
+    ],
+    "status": "todo",
+    "notes": "Capture with the default (unedited) JSON so syntax highlighting colors are visible without needing to type anything.",
+    "kind": "still"
+  },
+  {
+    "id": "languages/dictionary-download-row",
+    "page": "docs/src/content/docs/languages/dictionaries.mdx",
+    "file": "src/assets/screens/languages/dictionary-download-row.webp",
+    "caption": "A language's Dictionary section: the built-in note, a size tier, and the Download button.",
+    "host": "settings",
+    "setup": [
+      "am start -a android.intent.action.VIEW -d wmkeyboard://settings/languages",
+      "Tap a language that has no bundled dictionary but does have a downloadable wordlist (e.g. French) to open its language screen, then screenshot the Dictionary section showing the size-tier dropdown and Download button before tapping it."
+    ],
+    "status": "todo",
+    "notes": "wmkeyboard://settings/languages is on the deep-link allowlist per MainActivity.kt, but the per-language screen itself is reached by an in-app tap, not a deeper deep link \u2014 navigate manually from there. Pick a language whose full wordlist is bigger than the Small tier (50k words) so the size picker is actually visible.",
+    "kind": "still"
+  },
+  {
+    "id": "languages/dictionary-download-progress",
+    "page": "docs/src/content/docs/languages/dictionaries.mdx",
+    "file": "src/assets/screens/languages/dictionary-download-progress.webp",
+    "caption": "A dictionary mid-download, with the indeterminate progress bar and cancel action.",
+    "host": "settings",
+    "setup": [
+      "am start -a android.intent.action.VIEW -d wmkeyboard://settings/languages",
+      "Open the same language's Dictionary section, tap Download, and screenshot while the row shows the indeterminate LinearProgressIndicator and the close (cancel) icon, before it finishes."
+    ],
+    "status": "todo",
+    "notes": "Timing-sensitive \u2014 needs the screenshot taken during the Downloading state, which for a small-to-medium list may only last a couple seconds. A larger language (e.g. Thai or Arabic with Large tier) gives more time to capture it.",
+    "kind": "still"
+  },
+  {
+    "id": "languages/fancy-text-bold-field",
+    "page": "docs/src/content/docs/languages/fancy-text.mdx",
+    "file": "src/assets/screens/languages/fancy-text-bold-field.webp",
+    "caption": "The Bold style active in a text field: typing hello commits \ud835\udc21\ud835\udc1e\ud835\udc25\ud835\udc25\ud835\udc28 directly.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
+      "Enable Fancy Text and its Bold layout (Settings > Languages > Add language > search fancy > tap the row, which auto-enables Bold) or switch to it with the globe key if already enabled",
+      "Type a short word, e.g. hello, so the composed \ud835\udc21\ud835\udc1e\ud835\udc25\ud835\udc25\ud835\udc28 is visible and legible in the field"
+    ],
+    "status": "todo",
+    "notes": "Keep the typed word short and common so the styled glyphs stay readable at field size; avoid characters from the 'hole' letters (C,H,I,N,P,Q,R,T,Z) since Bold itself has no holes anyway.",
+    "kind": "still"
+  },
+  {
+    "id": "languages/fancy-text-layout-toggles",
+    "page": "docs/src/content/docs/languages/fancy-text.mdx",
+    "file": "src/assets/screens/languages/fancy-text-layout-toggles.webp",
+    "caption": "The Fancy Text language screen: 22 style toggles under Layouts.",
+    "host": "settings",
+    "setup": [
+      "am start -a android.intent.action.VIEW -d wmkeyboard://settings/languages",
+      "Tap \"Add language\", search \"fancy\", tap the \ud835\udcd5\ud835\udcea\ud835\udcf7\ud835\udcec\ud835\udd02 \u00b7 Fancy Text row (this auto-enables Bold and opens this detail screen)",
+      "Optionally toggle on a couple more styles (e.g. Small Caps, Double-struck) so the Layouts list shows a mix of on/off states, then scroll so the Layouts group is in frame"
+    ],
+    "status": "todo",
+    "notes": "Screen title renders in the fancy font itself (the language's own displayName). The Layouts group has 22 rows total, so a partial scroll position that shows several toggled + several untoggled reads best.",
+    "kind": "still"
+  },
+  {
+    "id": "languages/notation-music-field",
+    "page": "docs/src/content/docs/languages/notation.mdx",
+    "file": "src/assets/screens/languages/notation-music-field.webp",
+    "caption": "Musical notation active in a text field: note durations, rests, and clefs on the key grid.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
+      "Enable Music notation via Settings > Languages > Add language > search 'music', switch to it with the globe key, tap the field, capture."
+    ],
+    "status": "todo",
+    "notes": "Show the main letters layer of music.wmlayout.json (durations/rests/clefs row) in dark theme default.",
+    "kind": "still"
+  },
+  {
+    "id": "languages/notation-braille-chord",
+    "page": "docs/src/content/docs/languages/notation.mdx",
+    "file": "src/assets/screens/languages/notation-braille-chord.webp",
+    "caption": "Braille active: chording dots 1 and 4 together commits the letter c.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
+      "Enable Braille via Settings > Languages > Add language > search 'braille', switch to it, tap the field.",
+      "Capture mid-chord if possible (two fingers held on dot1/dot4); if a live mid-press screenshot isn't practical, capture the idle six-key grid instead and adjust the caption."
+    ],
+    "status": "todo",
+    "notes": "Chord press-state may be hard to freeze for a still capture \u2014 a short screen recording cropped to a frame is an acceptable fallback for the capture agent.",
+    "kind": "still"
+  },
+  {
+    "id": "languages/notation-morse-strip",
+    "page": "docs/src/content/docs/languages/notation.mdx",
+    "file": "src/assets/screens/languages/notation-morse-strip.webp",
+    "caption": "Typing morse: the strip shows the sequence so far and, live, the letter it currently spells.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
+      "Enable Morse code via Settings > Languages > Add language > search 'morse', switch to it, tap the field.",
+      "Tap the dot key twice (short of the 750ms commit pause) so the suggestion strip shows the live '\u00b7\u00b7   i' readout, then capture before it commits."
+    ],
+    "status": "todo",
+    "notes": "Timing-sensitive: capture must land inside the 750ms window after the last tap. A short screen recording trimmed to a frame is a safer fallback than a live single-shot screenshot.",
+    "kind": "still"
+  },
+  {
+    "id": "languages/notation-add-language-search",
+    "page": "docs/src/content/docs/languages/notation.mdx",
+    "file": "src/assets/screens/languages/notation-add-language-search.webp",
+    "caption": "Add language: searching \"morse\" finds Morse code in the full catalogue.",
+    "host": "settings",
+    "setup": [
+      "am start -a android.intent.action.VIEW -d wmkeyboard://settings/languages",
+      "Tap 'Add language', type 'morse' into the search box, capture the filtered result row."
+    ],
+    "status": "todo",
+    "notes": "Deep link lands on the Languages list screen; 'Add language' itself needs a manual tap since add_language isn't in the deep-link allowlist.",
+    "kind": "still"
+  },
+  {
+    "id": "languages/list-overview",
+    "page": "docs/src/content/docs/languages/overview.mdx",
+    "file": "src/assets/screens/languages/list-overview.webp",
+    "caption": "The Languages screen: your enabled languages, plus Add language to search the full catalogue.",
+    "host": "settings",
+    "setup": [
+      "adb shell am start -a android.intent.action.VIEW -d wmkeyboard://settings/languages"
+    ],
+    "status": "todo",
+    "notes": "Top of the Languages screen: 'Your languages' group (English/QWERTY + the three Bangla layouts enabled by default) ending in the 'Add language' row. No scrolling needed.",
+    "kind": "still"
+  },
+  {
+    "id": "languages/add-language-search",
+    "page": "docs/src/content/docs/languages/overview.mdx",
+    "file": "src/assets/screens/languages/add-language-search.webp",
+    "caption": "Add language: search matches endonym, English name, id, and locale.",
+    "host": "settings",
+    "setup": [
+      "adb shell am start -a android.intent.action.VIEW -d wmkeyboard://settings/languages",
+      "Tap 'Add language' at the bottom of the Your languages group"
+    ],
+    "status": "todo",
+    "notes": "Show a handful of matched rows with the search box populated (e.g. type 'ban' to surface Bangla/Bengali-adjacent entries), including at least one row marked 'Added' to show the state distinction.",
+    "kind": "still"
+  },
+  {
+    "id": "languages/language-detail-screen",
+    "page": "docs/src/content/docs/languages/overview.mdx",
+    "file": "src/assets/screens/languages/language-detail-screen.webp",
+    "caption": "A language's own screen: layout toggles, numeral system, and other enabled languages to suggest from.",
+    "host": "settings",
+    "setup": [
+      "adb shell am start -a android.intent.action.VIEW -d wmkeyboard://settings/languages",
+      "Tap a language with more than one layout, e.g. Bengali (Avro/Probhat/Jatiya), with at least one other language already enabled so 'Also suggest from' is visible"
+    ],
+    "status": "todo",
+    "notes": "Frame the top of the screen: Layouts group, Numerals group, and the start of Also suggest from. Do not scroll to Dictionary/Emoji \u2014 those are captured separately for dictionaries.mdx.",
+    "kind": "still"
+  },
+  {
+    "id": "languages/list-per-app-and-switcher",
+    "page": "docs/src/content/docs/languages/overview.mdx",
+    "file": "src/assets/screens/languages/list-per-app-and-switcher.webp",
+    "caption": "Further down the Languages screen: per-app language memory and the Android system switcher toggle.",
+    "host": "settings",
+    "setup": [
+      "adb shell am start -a android.intent.action.VIEW -d wmkeyboard://settings/languages",
+      "Scroll past 'Your languages' and 'Your layouts' to the 'Per-app language' and 'System language switcher' groups"
+    ],
+    "status": "todo",
+    "notes": "Toggle 'List languages in Android's switcher' on beforehand so the 'Show app name first' sub-toggle is also visible in frame.",
+    "kind": "still"
+  },
+  {
+    "id": "languages/spacebar-resting-label",
+    "page": "docs/src/content/docs/languages/switching.mdx",
+    "file": "src/assets/screens/languages/spacebar-resting-label.webp",
+    "caption": "The resting spacebar shows the current language's name, with switch-direction arrows on either side.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
+      "Set WM Keyboard as the active IME and focus the field with default settings (4 layouts enabled, spacebarLanguageArrows on, spaceShortSwipe = Language).",
+      "Capture the resting keyboard without touching the spacebar."
+    ],
+    "status": "todo",
+    "notes": "Arrows only draw when a swipe slot is set to Language and more than one layout is enabled \u2014 both true by default, so this should show them.",
+    "kind": "still"
+  },
+  {
+    "id": "languages/spacebar-language-preview",
+    "page": "docs/src/content/docs/languages/switching.mdx",
+    "file": "src/assets/screens/languages/spacebar-language-preview.webp",
+    "caption": "Mid-swipe: the language preview shows every enabled layout, current selection highlighted.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
+      "Touch down on the spacebar and drag horizontally past the swipe threshold without lifting.",
+      "Capture while the preview popup is visible above the spacebar, before releasing."
+    ],
+    "status": "todo",
+    "notes": "Default enabled set is 4 layouts (QWERTY/Avro/Probhat/Jatiya) so the preview shows all 4 chips, no sliding window needed. Current selection is bold, accent-tinted and pill-highlighted; others at ~45% opacity.",
+    "kind": "still"
+  },
+  {
+    "id": "languages/hold-drag-picker-list",
+    "page": "docs/src/content/docs/languages/switching.mdx",
+    "file": "src/assets/screens/languages/hold-drag-picker-list.webp",
+    "caption": "More than four languages enabled: holding the spacebar opens a scrollable list instead of the inline preview.",
+    "host": "harness-field",
+    "setup": [
+      "Settings deep link: am start -a android.intent.action.VIEW -d wmkeyboard://settings/languages",
+      "Tap Add language and enable a 5th layout so enabledLayoutIds.size > 4 (the list threshold).",
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
+      "Press and hold the spacebar past ~250ms, drag down through a couple of rows, and capture with the list popup open and a row highlighted."
+    ],
+    "status": "todo",
+    "notes": "With the shipped default of exactly 4 enabled layouts and quick swipe on Language, holding shows the inline preview (see spacebar-language-preview) instead \u2014 this list only appears past 4 layouts, or if the quick-swipe slot is reassigned off Language. Needs the settings deep-link step first to add a 5th language.",
+    "kind": "still"
+  },
+  {
+    "id": "languages/globe-key-toggle",
+    "page": "docs/src/content/docs/languages/switching.mdx",
+    "file": "src/assets/screens/languages/globe-key-toggle.webp",
+    "caption": "Layout & size \u2192 Bottom-row keys: turning off Emoji key instead of \ud83c\udf10 restores the language-switch key.",
+    "host": "settings",
+    "setup": [
+      "am start -a android.intent.action.VIEW -d wmkeyboard://settings/layout",
+      "Scroll to the Bottom-row keys group at the bottom of the screen."
+    ],
+    "status": "todo",
+    "notes": "globeAsEmoji defaults to true, so on a fresh install this toggle is ON and the bottom row shows an emoji key rather than \ud83c\udf10 \u2014 capture the group with the toggle visible (either state is fine, but on-state matches the default and is the more useful shot).",
+    "kind": "still"
+  },
+  {
+    "id": "languages/languages-screen-order",
+    "page": "docs/src/content/docs/languages/switching.mdx",
+    "file": "src/assets/screens/languages/languages-screen-order.webp",
+    "caption": "The Languages screen: Your languages, Add language, and Switch order.",
+    "host": "settings",
+    "setup": [
+      "am start -a android.intent.action.VIEW -d wmkeyboard://settings/languages"
+    ],
+    "status": "todo",
+    "notes": "Switch order only appears once more than one layout is enabled (true by default with 4). Capture the top of the screen showing Your languages, Add language, and the Switch order group.",
+    "kind": "still"
+  },
+  {
+    "id": "languages/system-switcher-toggle",
+    "page": "docs/src/content/docs/languages/switching.mdx",
+    "file": "src/assets/screens/languages/system-switcher-toggle.webp",
+    "caption": "Languages \u2192 System language switcher: register every enabled layout as an Android input-method subtype.",
+    "host": "settings",
+    "setup": [
+      "am start -a android.intent.action.VIEW -d wmkeyboard://settings/languages",
+      "Scroll to the System language switcher group near the bottom of the screen."
+    ],
+    "status": "todo",
+    "notes": "osLanguageSwitcher defaults to true, so 'List languages in Android's switcher' is on and the 'Show app name first' sub-toggle (default off) should be visible beneath it.",
     "kind": "still"
   }
 ]

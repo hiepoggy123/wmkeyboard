@@ -1,21 +1,62 @@
 ---
 title: "Translate"
-description: "Translate what you're writing, or what was sent to you, without leaving the keyboard."
+description: "Type in one language, read the translation live, and drop it into the field without switching apps."
 sidebar:
   order: 8
 ---
 
-:::caution[Draft page]
-Scaffolding only — real content pending. The outline below is the checklist for what this page must cover.
+import PhoneFrame from '@components/PhoneFrame.astro';
+import SettingsPath from '@components/SettingsPath.astro';
+import KeyCap from '@components/KeyCap.astro';
+
+Translate opens a small typing window right above the keys: type a sentence, watch the translation appear as you go, then send it to your field with a tap. It doesn't read what's already in the field — it translates whatever you type into the panel itself, so it works the same in a chat app, a note, or a search bar.
+
+<PhoneFrame caption="The Translate panel mid-translation, target-language chip and the Insert/Replace actions below it.">
+{/* shot: tools/translate-panel */}
+</PhoneFrame>
+
+## Using it
+
+Open **Translate** from the toolbar, or from the toolbox if you haven't pinned it — it isn't pinned by default. On a hardware keyboard, use the [leader key](/reference/shortcuts/): double-tap <KeyCap>Ctrl</KeyCap>, then press <KeyCap>R</KeyCap>.
+
+The panel has its own search bar at the top; what you type there — not the text already in your field — is what gets translated. This is the same key-rerouting trick the GIF, sticker, and Wikipedia panels use: while the panel is focused, your keystrokes go to its search bar instead of the app behind the keyboard, so opening Translate over a chat you're mid-way through never touches what you already wrote. The panel always starts empty; it doesn't pre-fill from anything.
+
+- **Source language** is always auto-detected — there's no source picker. The header reads "Auto-detect →" until the first result comes back, then switches to the language it detected (for example "Bengali →").
+- **Target language** is the chip next to it. Tap it to open a dropdown of all 33 supported languages and pick one.
+- The translation updates automatically about 400 milliseconds after you stop typing. Pressing return translates immediately, and changing the target language re-translates what's already in the box right away.
+- Once a translation is showing, two actions light up below it:
+  - **Insert** types the translation into your field at the cursor, leaving whatever was already there in place.
+  - **Replace text** swaps out the field's *entire* contents for the translation — use this when the field only holds the sentence you were translating and you want a clean swap rather than an insertion.
+
+Long input is capped: anything past 2,500 characters is silently cut off before it's sent, with no on-screen warning that it happened.
+
+:::note
+The Translate panel doesn't support hardware-keyboard focus-ring navigation — <KeyCap>Tab</KeyCap>/arrow-key cycling won't reach the target-language chip or the two action buttons the way it does in the GIF or search panels. Typing into the search bar itself still works from a hardware keyboard.
 :::
 
-## Planned coverage
+## Options
 
-- Translate panel: source/target, swap, insert result
-- Provider and API key configuration
-- This tool is online — exactly what is sent and when
+<SettingsPath path="Tools / Translate" />
 
-{/* TODO(sonnet): replace this stub. Turn the outline into real sections,
-   add screenshots with <PhoneFrame>, mark settings with <SettingsPath>,
-   keys with <KeyCap>, and edition limits with <Flavor>.
-   Conventions live in docs/CONTENT_GUIDE.md. */}
+- **Enabled** — on by default, like every tool. Turning it off removes Translate from both the toolbar and the toolbox.
+- **Icon colour** — only shown if [colorful tool icons](/tools/overview/) are turned on globally; overrides Translate's icon color.
+- **Translate into** — the target language, from the same 33-language list as the panel's picker. Defaults to **English**. Changing it here also changes what the panel opens to next time.
+- **Cloud Translation API key (optional)** — blank by default. Paste a Google Cloud Translation API key here to use the official API instead of the free endpoint (see below). The field saves as you type, with no separate save button, and shows one of: "Using your key" (once you've typed one), "Blank — using the key built into this app" (if this build ships one), or "Without a key, translation uses Google's free public endpoint" (otherwise).
+
+This screen also shows the caption WM Keyboard displays right on the settings page:
+
+> Text you translate is sent to Google either way — only while the translate panel is open. The free endpoint is unofficial and rate-limited; a Cloud Translation key makes it official and reliable.
+
+If you back up your settings with **Include API keys** turned on, a Translate key you've pasted in travels with the backup along with your GIF, search, and AI keys.
+
+## Details & edge cases
+
+- **Two providers behind one switch.** With no key, WM Keyboard calls Google's free public translation endpoint — the same unofficial one browser translate extensions use, fine for personal typing volumes but with no uptime guarantee and its own rate limits. With a key, it calls the official Cloud Translation v2 API instead, which is billed to your Google Cloud project but reliable. Either way, the text you type into the panel is sent to Google — never anything else in the field.
+- **Sent, precisely:** the text currently in the panel's search box (truncated to 2,500 characters), the target language code, and — for the official API only — your key. The free endpoint receives the text as part of the request URL; the official API sends it in a POST body.
+- **When it's sent:** automatically ~400ms after you stop typing, immediately on return or retry, and immediately again if you change the target language — only while the panel is open. Closing the panel cancels any translation in flight.
+- **Power Saving mode's "Background network" toggle doesn't touch this.** That toggle only stops fetches that happen without you asking — link previews, QR auto-scan, dictionary look-ups. Tools you open yourself, translate included, keep working even with it on.
+- **Not available before your phone is unlocked once after a restart.** Translate needs the network and isn't on the short list of tools that work on a locked device, so it won't appear if you're typing on the lock screen before first unlock.
+- **Works the same in both editions** — Translate isn't gated to Full; there's nothing Lite is missing here.
+- If a request fails outright — no connection, a bad key, a timeout — the panel shows the raw error message rather than a simplified one, so an offline failure might read as a technical exception string instead of "No internet connection."
+
+Looking for something different named "translate"? The [AI tool](/tools/ai/) has its own Translate action that uses an LLM for more natural phrasing instead of a literal translation, and [offline voice dictation](/tools/whisper/) has a separate "Translate to English" toggle that translates what you *say*, not what you type. Both are configured on their own settings screens, independent of this one. For the full picture of what leaves your device and when, see [network policy](/privacy/network/).

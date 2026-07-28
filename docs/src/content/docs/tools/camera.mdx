@@ -5,17 +5,102 @@ sidebar:
   order: 7
 ---
 
-:::caution[Draft page]
-Scaffolding only — real content pending. The outline below is the checklist for what this page must cover.
+import PhoneFrame from '@components/PhoneFrame.astro';
+import SettingsPath from '@components/SettingsPath.astro';
+import Flavor from '@components/Flavor.astro';
+
+The Camera tool swaps the key rows for a live viewfinder, so you can snap a photo and send it into whatever you're typing in without ever leaving the keyboard. <Flavor edition="both" /> — it's built on plain CameraX, not ML Kit, so it ships in both editions.
+
+<PhoneFrame caption="The live viewfinder: flash and self-timer chips on the left, shutter in the middle, front/back switch on the right.">
+  {/* shot: tools/camera-viewfinder */}
+</PhoneFrame>
+
+## Taking a photo
+
+Open **Camera** from the [toolbar, or the toolbox](/tools/overview/) if you haven't pinned it — Camera isn't one of the tools pinned to the toolbar out of the box (only Emoji, Clipboard, and Settings are), so the first time you'll likely reach it through the toolbox or by typing its trigger keyword — see [smart suggestion chips](/smart/chips/).
+
+The viewfinder fills the width of the panel and behaves like any camera app:
+
+- **Tap anywhere to focus.** A tap starts focus-and-metering at that point.
+- **Pinch to zoom.** A zoom pill ("1.2x" style) appears top-center once you're past 1.05x, and the pinch is clamped to whatever range the current lens supports.
+- **Flash** — a chip on the bottom-left, shown only if the active lens reports a flash unit. Tapping it cycles Off → Auto → On.
+- **Self-timer** — the next chip over, cycling Off → 3s → 10s → Off. Once it's running, a large countdown digit appears at the center of the frame, with a feedback tick each second, before the shutter fires automatically.
+- **Front/back switch** — bottom-right, and only shown if the device actually has both a front and a back camera. Which one the tool opens on first is controlled by [Start with the selfie camera](#options) below.
+- **Shutter** — the button in the middle. Tapping it (or letting the self-timer run out) takes the photo.
+
+### What you see is what you get
+
+There's no manual crop step, no drag handles, and no filters — despite what the term "crop" might suggest elsewhere. The viewfinder is actually taller than the visible panel (it spills upward to fill the panel's width at the sensor's aspect ratio), so at the moment you tap the shutter, WM Keyboard slices the raw capture down to exactly the region that was on screen. What framed in the viewfinder is what ends up in the photo — nothing more, nothing manually trimmed.
+
+The capture itself is deliberately modest: photos are capped at 1600×1600 rather than the sensor's full resolution, because a photo headed straight into a chat message doesn't need 12+ megapixels, and a smaller capture processes faster. Each shot is written to the app's private storage as a JPEG before the confirm step appears.
+
+## Confirm, retake, or send
+
+<PhoneFrame caption="The confirm step: the captured photo shown exactly where the viewfinder had it, with Retake and Send underneath.">
+  {/* shot: tools/camera-confirm */}
+</PhoneFrame>
+
+After the shutter fires, the frozen photo is drawn at the exact spot and size the live preview had it, so the confirm screen is visually indistinguishable from the moment you took the shot — only a **Retake** and **Send** button pair appears underneath.
+
+- **Retake** discards the file and goes straight back to a live viewfinder.
+- **Send** hands the photo off (see [Where the photo goes](#where-the-photo-goes) below) and closes the panel back to your keys.
+
+If you took the photo with the front camera and [Mirror selfies](#options) is on, the saved file is flipped horizontally to match what you saw while framing — camera sensors record selfies un-mirrored by default, text-side correct but visually flipped from the live preview. Shutter sound and haptic feedback on the controls, timer ticks, and shutter are each their own setting; see [Options](#options).
+
+## Where the photo goes
+
+Tapping **Send** inserts the photo the same way clipboard images, GIFs, and stickers do: through Android's `commitContent` API, matched against whatever image types the field you're typing into says it accepts. If the field doesn't advertise support for any compatible image type, the photo is copied to the system clipboard instead, with a toast:
+
+> This app doesn't accept images here — image copied, paste it instead
+
+Either way, the send closes the panel and hands you back the keys.
+
+By default that's the *only* copy that persists anywhere — the private file used to hand the image off is scratch storage, not a saved photo. On each panel open, anything beyond the four most recent capture files gets deleted automatically, which only matters if the app was killed mid-confirm. If you want a permanent copy, turn on **Save to gallery** (off by default) — every capture is then also written to `Pictures/WM Keyboard` in your device's shared gallery. See [your data on device](/privacy/data/) for how WM Keyboard's on-device storage is organized more generally, and [network policy](/privacy/network/): the camera tool never touches the network in any of this — capture, crop, save, and send are all local.
+
+## Granting camera access
+
+<PhoneFrame caption="The permission gate shown before camera access is granted, with the Allow camera pill.">
+  {/* shot: tools/camera-permission-gate */}
+</PhoneFrame>
+
+The first time you open Camera, you'll likely see a short message instead of a live feed:
+
+> The camera tool needs permission to use the camera. Photos are only taken when you tap the shutter.
+
+Tapping **Allow camera** starts a tiny, invisible activity that exists for one reason: an IME service cannot show Android's runtime permission dialog itself, so this activity pops up just long enough to show the system's camera-permission prompt, then closes itself the moment you answer it. The keyboard re-checks the permission automatically as soon as it regains focus, so you don't need to reopen the panel — answering the system dialog is enough.
+
+This same trampoline is shared by the [OCR and QR scanner tools](/tools/scanner/) — granting camera access from any one of the three covers all three, since they all request the same `android.permission.CAMERA`.
+
+:::note[If you've permanently denied the permission]
+Android stops showing its own prompt once you've denied camera access twice ("Don't ask again"). If that's happened, tapping **Allow camera** again won't bring up a dialog at all — you'll need to grant Camera permission for WM Keyboard from your device's app settings directly, outside the keyboard.
 :::
 
-## Planned coverage
+On a device with no camera at all, the panel shows "This device has no camera." instead of the viewfinder — WM Keyboard installs and runs fine either way; nothing about the app requires a camera to be present.
 
-- Capture and confirm flow; crop before insert
-- Where photos go (inserted vs saved)
-- Permission trampoline: why a tiny activity pops up once
+## Options
 
-{/* TODO(sonnet): replace this stub. Turn the outline into real sections,
-   add screenshots with <PhoneFrame>, mark settings with <SettingsPath>,
-   keys with <KeyCap>, and edition limits with <Flavor>.
-   Conventions live in docs/CONTENT_GUIDE.md. */}
+<SettingsPath path="Tools / Camera" />
+
+<PhoneFrame caption="Camera's Options screen: selfie camera, mirroring, gallery saving, shutter sound and haptics.">
+  {/* shot: tools/camera-options */}
+</PhoneFrame>
+
+Like every tool on the [full tool list](/reference/settings/tools/), this screen opens with an **Enabled** toggle (on by default, along with every other tool) and, only if [colorful tool icons](/tools/overview/) are turned on globally, an icon color override — pink by default. Below that is a **Keyword shortcut** field pre-filled with "camera": type that word on its own while typing and the suggestion strip offers to open the tool, dropping the word (see [smart suggestion chips](/smart/chips/)); clear the field and the tool stops offering itself this way.
+
+The tool's own settings, split into two groups:
+
+**Options**
+- **Start with the selfie camera** — off by default. Opens the panel on the front camera instead of the back one.
+- **Mirror selfies** — on by default. See [Confirm, retake, or send](#confirm-retake-or-send) above for what this does and why it exists.
+- **Save to gallery** — off by default. Also copies every capture into `Pictures/WM Keyboard`, in addition to sending it.
+
+**Feedback**
+- **Shutter sound** — on by default. Plays the camera click when a photo is taken.
+- **Haptics** — on by default. Vibrates on the shutter, the controls, and the timer countdown. This only gates feedback inside the panel itself — the final vibration when you tap Send is the keyboard's regular key-press haptic, controlled separately under [Typing → Feedback](/typing/feedback/).
+
+## Details & edge cases
+
+- **No manual crop, no filters, no multi-shot.** One photo per open of the panel; retaking replaces rather than appends.
+- **Not pinned or recommended by default.** Camera ships enabled, but it isn't in the toolbar's default pinned set and isn't part of the onboarding wizard's "Recommended" starter selection either — if you went through setup and picked "Recommended" rather than "Everything" on the tools page, you'll need to turn Camera on yourself under Settings → Tools.
+- **No direct-boot support.** Camera doesn't work on the lock screen before you've unlocked your device once after a restart, since it depends on the app's private storage, which isn't available that early.
+- **Both editions, no gating.** Unlike the OCR, QR, document-scan, and handwriting tools — which are full-edition-only because they depend on Google ML Kit — Camera has no edition restriction anywhere in its code path.

@@ -1,6 +1,6 @@
 ---
 title: "Scanner (OCR, QR, documents)"
-description: "Point the camera at text, codes or paper — get text in your field."
+description: "Point the camera at text, codes, or paper and get the result in your field."
 sidebar:
   order: 6
   badge:
@@ -8,18 +8,77 @@ sidebar:
     variant: note
 ---
 
-:::caution[Draft page]
-Scaffolding only — real content pending. The outline below is the checklist for what this page must cover.
-:::
+import PhoneFrame from '@components/PhoneFrame.astro';
+import SettingsPath from '@components/SettingsPath.astro';
+import Flavor from '@components/Flavor.astro';
 
-## Planned coverage
+Three camera-driven tools live under one Scanners group: **Text scan (OCR)** reads printed words into your field, **QR & barcode scanner** decodes a code and inserts (or opens) its value, and **Document scanner** captures a paper document as a cropped, cleaned-up image. <Flavor edition="full" /> — all three run on Google ML Kit and only ship in the full build.
 
-- OCR capture: full-bleed viewfinder, language support
-- QR/barcode scanning; acting on results (links, Wi-Fi, …)
-- Document scan flow
-- Full edition only; camera permission model
+<PhoneFrame caption="Text scan (OCR): a full-bleed camera view with recognized words ready to tap.">
+  {/* shot: tools/ocr-viewfinder */}
+</PhoneFrame>
 
-{/* TODO(sonnet): replace this stub. Turn the outline into real sections,
-   add screenshots with <PhoneFrame>, mark settings with <SettingsPath>,
-   keys with <KeyCap>, and edition limits with <Flavor>.
-   Conventions live in docs/CONTENT_GUIDE.md. */}
+## Scanning text (OCR)
+
+Open **Text scan (OCR)** from the toolbar or toolbox to replace the keyboard with a full-bleed camera view — it covers the toolbar row too, not just the key area. Point it at printed text and it recognizes words on-device; a torch toggle appears if your device has a flash. Recognition reads Latin-script text (English and similar scripts) — ML Kit's on-device text recognizer doesn't support Bengali yet.
+
+After a capture, the recognized words appear as tappable chips grouped by line:
+
+<PhoneFrame caption="OCR result: recognized words as chips, grouped by line, ready to copy or insert.">
+  {/* shot: tools/ocr-result-chips */}
+</PhoneFrame>
+
+- With **Start with everything selected** on (the default), every word starts selected and tapping a chip deselects it — trim the capture down to what you need. Turn it off and chips start empty, so you tap to pick words one at a time instead.
+- **Copy** and **Insert** act on whatever's currently selected.
+- **Scan again** discards the capture and returns to the viewfinder; a select-all/deselect-all toggle flips every chip at once.
+
+If your device has no camera, the panel shows a message instead of a blank viewfinder.
+
+## Scanning QR codes and barcodes
+
+**QR & barcode scanner** is also full-bleed and decodes continuously as you point the camera — no shutter tap needed. It reads QR codes plus the common barcode formats: Aztec, Codabar, Code 39/93/128, Data Matrix, EAN-8/13, ITF, PDF417, and UPC-A/E, labeled by format in the result.
+
+<PhoneFrame caption="QR & barcode scanner: live camera view with pinch-to-zoom, freezing on the first code it decodes.">
+  {/* shot: tools/qr-scan-live */}
+</PhoneFrame>
+
+The first code it decodes freezes into a result card with **Copy**, **Insert**, and **Rescan**. If the decoded value is a plain URL (`https://…`, `http://…`, or `www.…`), an **Open** button appears too — anything else is text only, so a scanned value like a Wi-Fi network payload just inserts as raw text rather than being parsed into a connect action. Pinch to zoom while scanning; a small percentage pill shows above roughly 1.05x zoom.
+
+## Options
+
+<SettingsPath path="Tools / QR & barcode scanner / Options" />
+
+- **Insert automatically** — off by default. When on, the scanned code's text types into your field the instant it's spotted, with no confirm tap.
+- **Vibrate on detection** — on by default. A short buzz when a code is spotted.
+- **Load link details** — off by default. When a scanned value is a web link, fetches the page's title and description to show above the result (needs a network connection). [Power Saving mode](/typing/power-saving/) force-disables this when its background-network toggle is on.
+
+Decoding for both OCR and the QR/barcode scanner runs entirely on-device with ML Kit — nothing is uploaded, and both work offline (link previews are the one exception, since fetching a page's title needs the network). See [network policy](/privacy/network/) for what else does and doesn't touch the network.
+
+<SettingsPath path="Tools / Text scan (OCR) / Options" />
+
+- **Start with everything selected** — on by default, described above.
+
+## Scanning a document
+
+**Document scanner** hands the whole flow to Google's own scanner UI — edge detection, cropping, and cleanup happen there, outside the keyboard, since an IME can't host that kind of full-screen flow itself. Gallery import is allowed alongside the camera, and pages come back as JPEGs.
+
+<PhoneFrame caption="Document scanner: Google's scan UI for capturing and cropping a page.">
+  {/* shot: tools/doc-scan-capture */}
+</PhoneFrame>
+
+Once you're back in your app, each captured page is inserted exactly like a Camera-tool photo — sent to the field one page at a time. If Google Play services or the scanner module isn't available on your device, you get a toast saying so instead of a crash.
+
+<SettingsPath path="Tools / Document scanner / Options" />
+
+- **Save to gallery** — off by default. Also keeps scanned pages in the **WM Keyboard** album under Pictures.
+
+## Details & edge cases
+
+- **Camera permission** works differently across the three tools. OCR and QR/barcode check for camera permission themselves and, if it's not granted, show an **Allow camera** prompt that opens a brief system dialog and returns you to the panel. The document scanner doesn't go through that prompt at all — Google's scanner activity manages its own camera permission internally.
+- None of the three scanners work before you've unlocked your device once after a restart (no direct-boot support) — unlike some other tools that do work at the lock screen.
+- Typing `ocr`, `scan`, or `docscan` as a standalone word can surface a smart-suggestion chip that jumps straight into the matching tool.
+- Open any of the three from Settings → **Tools** → **Scanners**, or by typing its keyword as described above.
+
+## Why full only
+
+OCR and QR/barcode scanning depend on ML Kit's text-recognition and barcode-scanning libraries; document scanning depends on Google Play services' document scanner module. All three are compiled into the full build and left out of lite entirely — not just hidden behind a toggle — so the Scanners group doesn't appear in the lite toolbox or toolbar at all. See [Full vs Lite](/start/editions/) if you're deciding between builds.
