@@ -4472,7 +4472,7 @@
       "Switch active keyboard theme to one with a background image set (create/edit one first under Appearance > Keyboard themes if none exists) before focusing the field",
       "theme=dark (default) recommended so the photo reads clearly against the board scrim"
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "Needs a theme pre-configured with backgroundImage set, board color alpha raised partway as a scrim, and a moderate blur so the shot demonstrates the opacity/blur/tint combination rather than a raw unedited photo.",
     "kind": "still"
   },
@@ -4486,7 +4486,7 @@
       "am start -a android.intent.action.VIEW -d wmkeyboard://settings/themes",
       "Tap edit (pencil) on any theme to open the editor, scroll to Board, pick or use an existing Background image, then tap 'Crop image' to open the CropImageDialog with the Keyboard (2.4:1) preset selected"
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "This is a dialog overlay, not the field harness \u2014 capture it directly from the app's own theme editor screen rather than DocsShotActivity.",
     "kind": "still"
   },
@@ -4501,7 +4501,7 @@
       "Configure a theme with both Background image and Landscape background image set to visibly different photos, activate it, then rotate the device/emulator to landscape before capturing",
       "Capture a matching portrait shot of the same theme too if space allows, to show the contrast"
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "Requires rotating the harness activity to landscape; confirm DocsShotActivity doesn't lock orientation before relying on this.",
     "kind": "still"
   },
