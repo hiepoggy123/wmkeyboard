@@ -321,7 +321,7 @@
       "am start -a android.intent.action.VIEW -d wmkeyboard://settings/tools",
       "Tap the Calendar row in the tool list (tool/{toolName} sub-screens are not in the deep-link allowlist, so this last hop is a manual tap)"
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "Default settings (First=Bengali, Second=Hijri) already satisfy showsHijri, so the Hijri day adjustment slider is visible with no changes needed.",
     "kind": "still"
   },
@@ -381,7 +381,7 @@
       "Tap Camera in the Tools list to open its Options screen",
       "Scroll so both the Options and Feedback groups are visible in frame"
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "tool/CAMERA itself is not in the deep-link allowlist (only typing, appearance, themes, languages, tools, search are) \u2014 deep-link to tools then tap Camera manually.",
     "kind": "still"
   },
@@ -458,7 +458,7 @@
       "Tap the Clipboard row in the tool list to open its settings screen (tool/CLIPBOARD isn't itself deep-link allowlisted, only the tools list is).",
       "Scroll to frame the History group's toggles/sliders and the start of the Passwords & codes group in one shot."
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "Screen is long (roughly a dozen rows across two groups); may need two stacked shots or a scroll-captured composite if a single viewport crop can't fit both group headers legibly.",
     "kind": "still"
   },
@@ -845,7 +845,7 @@
       "tool/SNIPPETS is not itself deep-link allowlisted -- from the Tools list, tap the 'Snippets' row (subtitle 'Insert saved text snippets').",
       "Have at least 2-3 snippets pre-created, including one with a trigger word set, so the list below the variable reference card isn't empty and shows both the 'Inserts as: ...' and 'Auto-expands from: ...' preview lines."
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "Screen order top to bottom: CaptionText subtitle, Enabled toggle, (icon colour row if colourful tool icons on), Keyword shortcut text field, then SnippetSettings() content: intro paragraph, template-variable reference Card (18 rows + {date:...} row), Add/Import/Export button row, then the snippet list with pencil/trash icons per row. Consider cropping/scrolling to frame the variable card + list; full screen may be tall.",
     "kind": "still"
   },
@@ -859,7 +859,7 @@
       "From the Snippets settings screen (see tools/snippets-settings setup), tap the 'Add snippet' button.",
       "Optionally fill in sample values (e.g. label 'On my way', text 'On my way, be there by {time}!', trigger 'omw') before capturing so the dialog isn't empty."
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "AlertDialog with Label (single-line), Text (multiline, hint 'Text -- supports {date} {time} {clip} {app} {cursor} ...'), Trigger word (single-line, optional) plus helper text below it. Save button is disabled unless label and text are both non-blank.",
     "kind": "still"
   },
@@ -1265,7 +1265,7 @@
       "am start -a android.intent.action.VIEW -d wmkeyboard://settings/tools",
       "Capture with the Recommended / Everything action row visible above the tool list"
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "Route 'tools' is in SettingsShortcuts.Routes allowlist. Shows enabledTools default = ToolbarTool.entries (~60 tools) and the RecommendedTools 17-tool curated set (ToolbarTool.kt:140-146).",
     "kind": "still"
   },
@@ -1867,7 +1867,7 @@
       "Tap the Clipboard row to open its settings screen",
       "Scroll to the 'Passwords & codes' group near the bottom: Sensitive clips, Recognise them yourself, Forget sensitive clips after, and Forget after pasting a password (MainActivity.kt:6264-6312)"
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "'tools' is on the wmkeyboard:// deep-link allowlist (SettingsShortcuts.kt:38); the Clipboard sub-screen itself is reached by tap from there, not by its own deep link.",
     "kind": "still"
   },
@@ -2442,7 +2442,7 @@
       "am start -a android.intent.action.VIEW -d wmkeyboard://settings/typing",
       "Scroll to the 'Automatic corrections' group so the Autocorrect toggle and the Autocorrect confidence slider (with its current \u00d74.0 label) are both visible, along with Undo autocorrect with backspace / Skip all-caps words / Block offensive words below it"
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "Only shows the slider and dependent toggles while the master Autocorrect toggle is on (default state), which is the state to capture.",
     "kind": "still"
   },
@@ -2664,7 +2664,7 @@
       "Navigate to the Grammar check tool's settings screen (Tools list -> Grammar check) since tool subpages aren't individually deep-link allowlisted",
       "Capture with English dialect, Re-check delay, and the System-wide group (Use Harper everywhere, Underline only) all visible \u2014 full flavor build required for the System-wide group to render"
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "Same screen is also referenced by smart/spell-checker.mdx's own settings shot (smart/spell-checker-options) which crops to just the System-wide group \u2014 this one should show the whole screen including the Options group above it.",
     "kind": "still"
   },
@@ -2766,7 +2766,7 @@
       "Tap Grammar check in the Tools list to open its detail screen",
       "Scroll to the System-wide group near the bottom"
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "System-wide group only renders when BuildConfig.ENABLE_GRAMMAR is true (full flavor) -- capture on a full build. The 'Underline only, no fix popup' row only renders on API 31+, so capture on an Android 12+ image to show both rows together.",
     "kind": "still"
   },
@@ -2868,7 +2868,7 @@
       "am start -a android.intent.action.VIEW -d wmkeyboard://settings/tools",
       "Scroll down to the 'Utilities' group (near the bottom of the Tools list)."
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "This is a Settings-app screenshot, not the live keyboard toolbox \u2014 the toolbox grid itself has no 'Utilities' label (verified: the string only appears in app/.../MainActivity.kt, never in feature/ime/).",
     "kind": "still"
   },
@@ -3191,7 +3191,7 @@
     "setup": [
       "adb shell am start -a android.intent.action.VIEW -d wmkeyboard://settings/tools"
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "Top-level Tools settings screen (ToolsSettings composable, MainActivity.kt ~line 5873) listing every ToolbarTool with its Enabled switch; enabledTools defaults to every tool. 'tools' is in the SettingsShortcuts deep-link allowlist, so the single adb command lands directly on this screen.",
     "kind": "still"
   },
@@ -4343,7 +4343,7 @@
       "am start -a android.intent.action.VIEW -d wmkeyboard://settings/tools",
       "scroll to show the Colorful tool icons toggle plus the start of the Panels group"
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "Top of the Tools list screen (ToolsSettings composable). Capture with default settings (all 60 tools enabled, colorful icons on) so the tune-icon and switch pattern is visible on a few rows.",
     "kind": "still"
   },
@@ -4358,7 +4358,7 @@
       "tap a tool row that has a keyword shortcut and options past the shared rows \u2014 e.g. Calculator or Wikipedia \u2014 to land on tool/{toolName}",
       "capture the top of that screen: Enabled switch, Icon colour row, Keyword shortcut field"
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "No deep-link route exists for an individual tool/{toolName} screen (not in the allowlist) \u2014 requires a tap sequence from the Tools list. Pick a tool with both a keyword (present in SmartSuggest.defaultKeywords) and a tune icon so all three shared rows plus a hint of tool-specific settings are visible.",
     "kind": "still"
   },
