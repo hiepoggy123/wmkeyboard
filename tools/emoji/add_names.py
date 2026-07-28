@@ -67,7 +67,10 @@ def main() -> int:
     missing = 0
     total = 0
     for line in args.catalog.read_text(encoding="utf-8").splitlines():
-        if not line or line.startswith("#"):
+        # "# " opens a comment, a bare "#" does not: the keycap hash emoji
+        # (#️⃣) is a data row starting with one, and this
+        # loop rewrites the file — skipping it here deleted it outright.
+        if not line or line.startswith("# "):
             continue
         parts = line.split("\t")
         if len(parts) < 4:

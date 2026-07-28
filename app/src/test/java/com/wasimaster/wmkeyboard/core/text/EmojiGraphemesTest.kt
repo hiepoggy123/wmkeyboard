@@ -1,6 +1,8 @@
 package com.wasimaster.wmkeyboard.core.text
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class EmojiGraphemesTest {
@@ -68,6 +70,30 @@ class EmojiGraphemesTest {
         assertEquals(0, forward(""))
         // A surrogate pair is one character, not two halves.
         assertEquals(2, forward("😀a"))
+    }
+
+    @Test
+    fun `emoji-only recognises what the strip should draw in the emoji font`() {
+        assertTrue(EmojiGraphemes.isEmojiOnly("😂"))
+        assertTrue(EmojiGraphemes.isEmojiOnly("❤️"))
+        assertTrue(EmojiGraphemes.isEmojiOnly("👍🏽"))
+        assertTrue(EmojiGraphemes.isEmojiOnly("👨‍👩‍👧"))
+        assertTrue(EmojiGraphemes.isEmojiOnly("🇧🇩"))
+        assertTrue(EmojiGraphemes.isEmojiOnly("🏴󠁧󠁢󠁥󠁮󠁧󠁿"))
+        // Keycaps are the emoji with ASCII inside them.
+        assertTrue(EmojiGraphemes.isEmojiOnly("1️⃣"))
+        assertTrue(EmojiGraphemes.isEmojiOnly("#️⃣"))
+        assertTrue(EmojiGraphemes.isEmojiOnly("▪️"))
+    }
+
+    @Test
+    fun `emoji-only rejects words`() {
+        assertFalse(EmojiGraphemes.isEmojiOnly("hello"))
+        assertFalse(EmojiGraphemes.isEmojiOnly(""))
+        assertFalse(EmojiGraphemes.isEmojiOnly(" "))
+        assertFalse(EmojiGraphemes.isEmojiOnly("ভালো"))
+        assertFalse(EmojiGraphemes.isEmojiOnly("nice 😀"))
+        assertFalse(EmojiGraphemes.isEmojiOnly(":tada"))
     }
 
     @Test

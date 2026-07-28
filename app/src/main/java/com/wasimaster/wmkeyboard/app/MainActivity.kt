@@ -256,8 +256,13 @@ import com.wasimaster.wmkeyboard.core.settings.SpacebarDisplay
 import com.wasimaster.wmkeyboard.core.settings.ThemeMode
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
 import kotlin.math.roundToInt
-import com.wasimaster.wmkeyboard.core.emoji.EmojiFontShaping
 import kotlinx.coroutines.CoroutineScope
+import com.wasimaster.wmkeyboard.core.emoji.EmojiDictCatalog
+import com.wasimaster.wmkeyboard.core.emoji.EmojiDictDownloadManager
+import com.wasimaster.wmkeyboard.core.emoji.EmojiDictStore
+import com.wasimaster.wmkeyboard.core.emoji.EmojiFontShaping
+import com.wasimaster.wmkeyboard.core.emoji.EmojiKeywordPack
+import com.wasimaster.wmkeyboard.core.emoji.EmojiKeywordPacks
 import com.wasimaster.wmkeyboard.core.prediction.CustomDictionaries
 import com.wasimaster.wmkeyboard.core.prediction.DictionaryLoader
 import com.wasimaster.wmkeyboard.core.prediction.UserLexicon
@@ -405,6 +410,16 @@ private fun SettingsNavHost(
     onPendingHandled: () -> Unit = {},
 ) {
     val navController = rememberNavController()
+    // A pack downloaded from these screens has to reach the running keyboard,
+    // which holds its merged emoji catalogue in memory. Bumping the counter it
+    // watches is that message. Collected here rather than on the screen that
+    // started the download, because navigating away mid-download must not lose
+    // the notification.
+    LaunchedEffect(Unit) {
+        EmojiDictDownloadManager.completions.collect {
+            repository.bumpEmojiKeywordPackVersion()
+        }
+    }
     // Where an incoming intent wants to go: a wmkeyboard:// link, or the
     // keyboard's own "open settings" (tool long-press, a panel's link). Cleared
     // once handled, so returning to this screen doesn't navigate again.
@@ -495,6 +510,11 @@ private fun SettingsNavHost(
         composable("customdictionaries") {
             SettingsScreen("Custom dictionaries", { navController.popBackStack() }) {
                 CustomDictionarySettings(repository, settings)
+            }
+        }
+        composable("emojikeywords") {
+            SettingsScreen("Emoji keywords", { navController.popBackStack() }) {
+                EmojiKeywordSettings(repository, settings)
             }
         }
         composable("blacklist") {
@@ -637,7 +657,7 @@ private fun SettingsNavHost(
         }
         composable("emoji") {
             SettingsScreen("Emoji", { navController.popBackStack() }) {
-                EmojiSettings(repository, settings)
+                EmojiSettings(repository, settings) { navController.navigate(it) }
             }
         }
         composable("tools") {
@@ -3960,7 +3980,11 @@ private fun LanguageSettings(
 // ---- emoji ----
 
 @Composable
-private fun EmojiSettings(repository: SettingsRepository, settings: KeyboardSettings) {
+private fun EmojiSettings(
+    repository: SettingsRepository,
+    settings: KeyboardSettings,
+    onNavigate: (String) -> Unit,
+) {
     val scope = rememberCoroutineScope()
     SettingsGroup("Access") {
         item {
@@ -4096,6 +4120,12 @@ private fun EmojiSettings(repository: SettingsRepository, settings: KeyboardSett
                     "crossbones\") above the favourite and variant controls, so you can " +
                     "tell near-identical emojis apart.",
             ) { scope.launch { repository.setEmojiLongPressName(it) } }
+        }
+        item {
+            NavRow(
+                "Emoji keywords",
+                "Download or import keywords to search emoji in another language",
+            ) { onNavigate("emojikeywords") }
         }
     }
     SettingsGroup("Emoji row") {
@@ -5092,6 +5122,263 @@ private fun CustomDictionarySettings(repository: SettingsRepository, settings: K
                     singleLine = true,
                     label = { Text("https://…") },
                     placeholder = { Text("Link to a plain-text word list") },
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = url.isNotBlank(),
+                    onClick = {
+                        urlDialogFor = null
+                        importFromUrl(urlLanguage, url)
+                    },
+                ) { Text("Download") }
+            },
+            dismissButton = { TextButton(onClick = { urlDialogFor = null }) { Text("Cancel") } },
+        )
+    }
+}
+
+// ---- emoji keyword packs ----
+
+/** One imported emoji pack: the file plus how many emoji it names. */
+private data class EmojiPackEntry(val file: java.io.File, val emoji: Int)
+
+/**
+ * Per-language emoji keyword packs: the downloadable dictionaries from the
+ * data repo, and the user's own imports.
+ *
+ * Deliberately the same shape as [CustomDictionarySettings] — per-language
+ * groups, a download row, import from a file or a URL, delete a row — because
+ * it solves the same problem: the app can only bundle so many languages, and
+ * everything past that has to arrive from somewhere else.
+ */
+@Composable
+private fun EmojiKeywordSettings(repository: SettingsRepository, settings: KeyboardSettings) {
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    var packs by remember { mutableStateOf<Map<String, List<EmojiPackEntry>>>(emptyMap()) }
+    var pending by remember { mutableStateOf<String?>(null) }
+    var busy by remember { mutableStateOf(false) }
+    var message by remember { mutableStateOf<String?>(null) }
+    var urlDialogFor by remember { mutableStateOf<String?>(null) }
+
+    // Enabled languages are the ones worth *offering* an import for, but a pack
+    // can arrive for a language that isn't enabled — an addon repository
+    // installs by langId, and languages get turned off again. Those groups
+    // still have to appear or the pack would be uninstallable from here.
+    val languageIds = remember(settings.enabledLanguages, packs.keys) {
+        (settings.enabledLanguages.map { it.id } + packs.keys).distinct()
+    }
+
+    // Counting emoji means parsing every pack, so it never runs on the main
+    // thread — the screen draws empty for a moment and fills in.
+    suspend fun refresh() {
+        packs = withContext(Dispatchers.IO) {
+            // Enabled languages are the ones worth offering a download for,
+            // but a pack can outlive the language being on — an addon repo
+            // installs by langId, and languages get turned off again. Those
+            // groups still have to appear or the pack is unreachable.
+            val ids = (
+                settings.enabledLanguages.map { it.id } +
+                    EmojiKeywordPacks.languages(context.filesDir) +
+                    EmojiDictStore.downloadedLanguageIds(context.filesDir)
+                ).distinct()
+            ids.associateWith { id ->
+                EmojiKeywordPacks.packs(context.filesDir, id).map { file ->
+                    val count = runCatching {
+                        file.inputStream().use { EmojiKeywordPack.load(it).size }
+                    }.getOrDefault(0)
+                    EmojiPackEntry(file, count)
+                }
+            }
+        }
+    }
+
+    LaunchedEffect(Unit) { refresh() }
+
+    suspend fun finish(langId: String, result: Int) {
+        busy = false
+        message = when {
+            result == -2 -> "Only http:// and https:// links are supported."
+            result == -1 -> "That file is too large to import."
+            result == 0 -> "No emoji found in that file — is it a keyword pack?"
+            else -> "Added keywords for $result emoji to ${languageLabel(langId)}."
+        }
+        if (result > 0) {
+            refresh()
+            repository.bumpEmojiKeywordPackVersion()
+        }
+    }
+
+    fun importFromUrl(langId: String, url: String) {
+        busy = true
+        scope.launch {
+            val result = withContext(Dispatchers.IO) {
+                runCatching {
+                    val uri = android.net.Uri.parse(url.trim())
+                    if (uri.scheme != "http" && uri.scheme != "https") {
+                        return@runCatching -2
+                    }
+                    val name = uri.lastPathSegment?.substringAfterLast('/')?.ifBlank { null }
+                        ?: "emoji"
+                    val temp = java.io.File.createTempFile("emoji_url_", ".tmp", context.cacheDir)
+                    try {
+                        ToolHttp.download(url.trim(), temp, maxBytes = EmojiKeywordPack.MAX_BYTES)
+                        temp.inputStream().use {
+                            EmojiKeywordPacks.import(context.filesDir, langId, name, it)
+                        }
+                    } finally {
+                        temp.delete()
+                    }
+                }.getOrElse { -1 }
+            }
+            finish(langId, result)
+        }
+    }
+
+    val importPack = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        val language = pending
+        pending = null
+        if (uri == null || language == null) return@rememberLauncherForActivityResult
+        busy = true
+        scope.launch {
+            val result = withContext(Dispatchers.IO) {
+                runCatching {
+                    val name = context.contentResolver
+                        .query(uri, null, null, null, null)?.use { cursor ->
+                            val index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                            if (index >= 0 && cursor.moveToFirst()) cursor.getString(index) else null
+                        } ?: "emoji"
+                    val size = context.contentResolver
+                        .query(uri, null, null, null, null)?.use { cursor ->
+                            val index = cursor.getColumnIndex(OpenableColumns.SIZE)
+                            if (index >= 0 && cursor.moveToFirst()) cursor.getLong(index) else -1L
+                        } ?: -1L
+                    if (size > EmojiKeywordPack.MAX_BYTES) return@runCatching -1
+                    val stream = context.contentResolver.openInputStream(uri)
+                        ?: return@runCatching 0
+                    stream.use {
+                        EmojiKeywordPacks.import(context.filesDir, language, name, it)
+                    }
+                }.getOrDefault(0)
+            }
+            finish(language, result)
+        }
+    }
+
+    Text(
+        "Emoji search ships with English and Bengali keywords. A pack adds " +
+            "another language, so টাকা, dinero or お金 all find 💰 — and its " +
+            "words show up as emoji suggestions while you type.\n\n" +
+            "Packs stack on top of the bundled keywords rather than replacing " +
+            "them, and a language may have several.",
+        style = MaterialTheme.typography.bodyMedium,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+    )
+
+    SettingsGroup("Downloads") {
+        item {
+            ToggleSetting(
+                "Download automatically",
+                "Fetch keywords for the languages you type",
+                settings.emoji.autoDownloadKeywords,
+                info = "When you turn a language on, its emoji keywords are fetched in " +
+                    "the background — around 100 KB, once. Off means the Download " +
+                    "buttons below are the only way to get them.",
+            ) { scope.launch { repository.setEmojiAutoDownloadKeywords(it) } }
+        }
+    }
+
+    for (languageId in languageIds) {
+        val entries = packs[languageId].orEmpty()
+        val dict = EmojiDictCatalog.forLanguage(languageId)
+        SettingsGroup(languageLabel(languageId)) {
+            if (dict != null) {
+                item { EmojiDictRow(dict) }
+            }
+            for (entry in entries) {
+                item {
+                    ListItem(
+                        headlineContent = { Text(entry.file.nameWithoutExtension) },
+                        supportingContent = { Text("${entry.emoji} emoji") },
+                        trailingContent = {
+                            IconButton(
+                                enabled = !busy,
+                                onClick = {
+                                    scope.launch {
+                                        withContext(Dispatchers.IO) {
+                                            EmojiKeywordPacks.remove(entry.file)
+                                        }
+                                        refresh()
+                                        repository.bumpEmojiKeywordPackVersion()
+                                    }
+                                },
+                            ) {
+                                Icon(
+                                    Icons.Outlined.Delete,
+                                    contentDescription =
+                                        "Remove ${entry.file.nameWithoutExtension}",
+                                )
+                            }
+                        },
+                        colors = transparentListColors(),
+                    )
+                }
+            }
+            item {
+                Row(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                    OutlinedButton(
+                        enabled = !busy,
+                        onClick = {
+                            pending = languageId
+                            importPack.launch(arrayOf("*/*"))
+                        },
+                    ) { Text(if (entries.isEmpty()) "Import pack" else "Import another") }
+                    Spacer(Modifier.width(8.dp))
+                    OutlinedButton(
+                        enabled = !busy,
+                        onClick = { urlDialogFor = languageId },
+                    ) { Text("From URL") }
+                }
+            }
+        }
+    }
+
+    Text(
+        "Import format: a tab-separated file, one emoji per line, then its " +
+            "comma-separated keywords, and optionally another tab and a display " +
+            "name. Lines starting with \"# \" are ignored. The JSON emoji " +
+            "dictionaries from the wmkeyboard-data repository import as they are.",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+    )
+    Spacer(Modifier.height(16.dp))
+
+    val messageText = message
+    if (messageText != null) {
+        AlertDialog(
+            onDismissRequest = { message = null },
+            text = { Text(messageText) },
+            confirmButton = { TextButton(onClick = { message = null }) { Text("OK") } },
+        )
+    }
+
+    val urlLanguage = urlDialogFor
+    if (urlLanguage != null) {
+        var url by remember { mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = { urlDialogFor = null },
+            title = { Text("Load emoji pack from URL") },
+            text = {
+                OutlinedTextField(
+                    value = url,
+                    onValueChange = { url = it },
+                    singleLine = true,
+                    label = { Text("https://…") },
+                    placeholder = { Text("Link to an emoji keyword TSV") },
                 )
             },
             confirmButton = {

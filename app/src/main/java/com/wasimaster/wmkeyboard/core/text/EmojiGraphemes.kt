@@ -38,9 +38,27 @@ object EmojiGraphemes {
      */
     private fun isEmojiBase(cp: Int) = cp >= 0x1F000 ||
         cp in 0x2100..0x21FF || cp in 0x2300..0x23FF || cp in 0x2460..0x27BF ||
-        cp in 0x2900..0x297F || cp in 0x2B00..0x2BFF || cp in 0x3030..0x303D ||
-        cp in 0x3200..0x32FF || cp == 0x00A9 || cp == 0x00AE ||
-        cp == 0x203C || cp == 0x2049
+        cp in 0x25A0..0x25FF || cp in 0x2900..0x297F || cp in 0x2B00..0x2BFF ||
+        cp in 0x3030..0x303D || cp in 0x3200..0x32FF || cp == 0x00A9 ||
+        cp == 0x00AE || cp == 0x203C || cp == 0x2049
+
+    /**
+     * True when [text] is one or more emoji and nothing else — the question
+     * the suggestion strip asks before drawing a chip in the emoji font
+     * instead of the text font (see the inline `:tada:` search, and the
+     * learned bigrams that predict an emoji as the next "word").
+     *
+     * Keycaps are the awkward case: 1️⃣ and #️⃣ genuinely contain ASCII, so
+     * they are recognised by their U+20E3 rather than by their base.
+     */
+    fun isEmojiOnly(text: CharSequence): Boolean {
+        if (text.isBlank()) return false
+        val cps = codePoints(text)
+        if (cps.any { it == KEYCAP }) return cps.size <= 3
+        return cps.all {
+            isEmojiBase(it) || isTone(it) || isSelector(it) || isTag(it) || it == ZWJ
+        }
+    }
 
     /**
      * UTF-16 units to delete so the whole emoji before the cursor goes in

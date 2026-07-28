@@ -153,7 +153,8 @@ def load_old_catalog(path: Path | None) -> dict[str, tuple[list[str], list[str]]
         return {}
     out = {}
     for line in path.read_text(encoding="utf-8").splitlines():
-        if not line or line.startswith("#"):
+        # Only "# " opens a comment; the keycap hash row starts with a bare one.
+        if not line or line.startswith("# "):
             continue
         parts = line.split("\t")
         if len(parts) < 3:

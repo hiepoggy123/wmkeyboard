@@ -61,10 +61,16 @@ import com.wasimaster.wmkeyboard.core.clipboard.ClipboardStore
 import com.wasimaster.wmkeyboard.core.settings.SensitiveClipHandling
 import com.wasimaster.wmkeyboard.core.emoji.EmojiCatalog
 import com.wasimaster.wmkeyboard.core.emoji.EmojiEntry
+import com.wasimaster.wmkeyboard.core.emoji.EmojiDictDownloadManager
+import com.wasimaster.wmkeyboard.core.emoji.EmojiDictStore
+import com.wasimaster.wmkeyboard.core.emoji.EmojiKeywordPack
+import com.wasimaster.wmkeyboard.core.emoji.EmojiKeywordPacks
+import com.wasimaster.wmkeyboard.core.emoji.EmojiFontShaping
 import com.wasimaster.wmkeyboard.core.emoji.EmojiRenderCheck
 import com.wasimaster.wmkeyboard.core.emoji.EmojiSearch
-import com.wasimaster.wmkeyboard.core.emoji.EmojiFontShaping
+import com.wasimaster.wmkeyboard.core.emoji.EmojiShortcodes
 import com.wasimaster.wmkeyboard.core.emoji.EmojiSuggester
+import com.wasimaster.wmkeyboard.core.emoji.EmojiTriggers
 import com.wasimaster.wmkeyboard.core.emoji.EmojiUsage
 import com.wasimaster.wmkeyboard.core.emoji.EmojiVariantIndex
 import com.wasimaster.wmkeyboard.core.feedback.HapticPlayer
@@ -283,6 +289,8 @@ open class WMKeyboardService : InputMethodService() {
     private var suggestionEngine: SuggestionEngine? = null
     private var emojiSearch: EmojiSearch? = null
     private var emojiSuggester: EmojiSuggester? = null
+    private var emojiShortcodes: EmojiShortcodes = EmojiShortcodes.EMPTY
+    private var emojiTriggers: EmojiTriggers = EmojiTriggers.EMPTY
     private var emojiEntries: List<EmojiEntry> = emptyList()
     private lateinit var userLexicon: UserLexicon
     private lateinit var languageMixConfidence: LanguageMixConfidence
@@ -1018,9 +1026,21 @@ open class WMKeyboardService : InputMethodService() {
 
         powerSaver.start()
 
+        // A downloaded emoji dictionary is inert until the merged catalogue is
+        // rebuilt. Bumping the counter rather than reloading directly is what
+        // makes a download started in the settings app reach this process too:
+        // both watch the same setting, and only the one that downloaded emits
+        // here.
+        serviceScope.launch {
+            EmojiDictDownloadManager.completions.collect {
+                if (userUnlocked) settingsRepository.bumpEmojiKeywordPackVersion()
+            }
+        }
+
         serviceScope.launch {
             var lexiconVersion = -1
             var customDictVersion = -1
+            var emojiPackVersion = -1
             var contactsEnabled: Boolean? = null
             var contactEmailsEnabled: Boolean? = null
             var appNamesEnabled: Boolean? = null
@@ -1196,6 +1216,15 @@ open class WMKeyboardService : InputMethodService() {
                     }
                 }
                 customDictVersion = settings.customDictVersion
+                // Same trick for imported emoji keyword packs: the settings app
+                // bumps a counter, and the merged catalog is rebuilt here.
+                if (emojiPackVersion != -1 &&
+                    settings.emoji.keywordPackVersion != emojiPackVersion
+                ) {
+                    reloadEmojiCatalog()
+                }
+                emojiPackVersion = settings.emoji.keywordPackVersion
+                refreshEmojiDictDownloads(settings)
                 suggestionEngine?.primaryLanguageId = activeLang.id
                 suggestionEngine?.customDictionary =
                     customDictionaries[activeLang.id] ?: PackedTrie.EMPTY
@@ -1336,8 +1365,13 @@ open class WMKeyboardService : InputMethodService() {
                 // bundled copy.
                 val english = openLanguageDictionary("en")
                 val bengali = openLanguageDictionary("bn")
-                val catalog = assets.open("emoji/catalog.tsv").use { EmojiCatalog.load(it) }
-                Triple(english, bengali, catalog)
+                val bundled = assets.open("emoji/catalog.tsv").use { EmojiCatalog.load(it) }
+                // Imported language packs name the same emoji in a language the
+                // bundled catalog has no keywords for, so they are folded in
+                // here — before anything indexes the catalog. Locked-boot skips
+                // them: they live in credential-encrypted storage.
+                val packs = if (userUnlocked) emojiPacks() else emptyList()
+                Triple(english, bengali, EmojiKeywordPack.merge(bundled, packs))
             }
             val (english, bengali, catalog) = loaded
             // Flat entry lists for the consumers that build their own indexes
@@ -1350,6 +1384,12 @@ open class WMKeyboardService : InputMethodService() {
                 val v = runCatching {
                     assets.open("emoji/variants.tsv").use { EmojiVariantIndex.load(it) }
                 }.getOrDefault(EmojiVariantIndex.empty())
+                emojiShortcodes = runCatching {
+                    assets.open("emoji/shortcodes.tsv").use { EmojiShortcodes.load(it) }
+                }.getOrDefault(EmojiShortcodes.EMPTY)
+                emojiTriggers = runCatching {
+                    assets.open("emoji/triggers.tsv").use { EmojiTriggers.load(it) }
+                }.getOrDefault(EmojiTriggers.EMPTY)
                 val seeds = runCatching {
                     assets.open("dictionaries/en_bigrams.txt").use { SeedBigrams.load(it) }
                 }.getOrDefault(SeedBigrams.EMPTY)
@@ -1413,8 +1453,8 @@ open class WMKeyboardService : InputMethodService() {
                 englishAsSecondary = "en" in secondaryIds && !lang.isEnglish
             }
             emojiEntries = catalog
-            emojiSearch = EmojiSearch(catalog)
-            emojiSuggester = EmojiSuggester(catalog)
+            emojiSearch = EmojiSearch(catalog, emojiShortcodes)
+            emojiSuggester = EmojiSuggester(catalog, emojiTriggers)
             _uiState.update {
                 it.copy(
                     emojiRecents = emojiUsage.recents(),
@@ -1429,6 +1469,60 @@ open class WMKeyboardService : InputMethodService() {
             // is loaded, populate the set if the feature is already on.
             recomputeHiddenEmoji(_uiState.value.settings)
         }
+    }
+
+    /**
+     * Rebuilds the emoji catalog and everything indexed off it, after a
+     * keyword pack was imported, downloaded or removed.
+     *
+     * Kept separate from [loadDictionaries] because it is a different order of
+     * cost: this is one TSV parse plus the packs, where a dictionary reload
+     * re-opens memory-mapped word lists and rebuilds the tries behind them.
+     */
+    /**
+     * Every emoji keyword pack on the device: the downloaded dictionaries
+     * first, the user's own imports after.
+     *
+     * Order matters for the display name — the last pack naming an emoji wins
+     * — and an import is a deliberate act where a download is automatic, so
+     * the import is the one that gets to override.
+     */
+    private fun emojiPacks(): List<EmojiKeywordPack> =
+        EmojiDictStore.loadAll(filesDir) +
+            EmojiKeywordPacks.languages(filesDir).flatMap { EmojiKeywordPacks.load(filesDir, it) }
+
+    /**
+     * Fetches the emoji dictionary for any enabled language that hasn't got
+     * one, so emoji search answers in the language being typed rather than
+     * only in English.
+     *
+     * Runs off the enabled-language set rather than a one-shot at startup:
+     * that covers both "the user just added Tamil" and "this install predates
+     * the feature". The manager itself skips what is already on disk and
+     * remembers failures, so calling this on every settings emission is free
+     * after the first pass.
+     */
+    private fun refreshEmojiDictDownloads(settings: KeyboardSettings) {
+        if (!userUnlocked || !settings.emoji.autoDownloadKeywords) return
+        EmojiDictDownloadManager.ensure(filesDir, settings.enabledLanguages.map { it.id })
+    }
+
+    private suspend fun reloadEmojiCatalog() {
+        if (!userUnlocked) return
+        // IO, not Default: this reads an asset and walks the packs folder, and
+        // the merge afterwards is a map over two thousand entries — nothing
+        // that wants a CPU-bound thread taken away from the composer.
+        val catalog = withContext(Dispatchers.IO) {
+            runCatching {
+                val bundled = assets.open("emoji/catalog.tsv").use { EmojiCatalog.load(it) }
+                EmojiKeywordPack.merge(bundled, emojiPacks())
+            }.getOrNull()
+        } ?: return
+        emojiEntries = catalog
+        emojiSearch = EmojiSearch(catalog, emojiShortcodes)
+        emojiSuggester = EmojiSuggester(catalog, emojiTriggers)
+        _uiState.update { it.copy(emojiCatalog = catalog) }
+        recomputeHiddenEmoji(_uiState.value.settings)
     }
 
     /**
@@ -2716,6 +2810,31 @@ open class WMKeyboardService : InputMethodService() {
             refreshSuggestions()
             consumeShift()
             return
+        }
+
+        // ...and the closing ":" finishes it the way GitHub, Discord and Slack
+        // do: ":tada:" becomes 🎉 outright. Exact shortcodes only — a partial
+        // or unknown name stays the literal text the user typed, so the colon
+        // never eats something it couldn't name.
+        if (state.settings.inlineEmojiSearch && text == ":" && composing.startsWith(":")) {
+            val emoji = emojiShortcodes.exact(composing.substring(1))
+            if (emoji != null) {
+                composing = StringBuilder()
+                ic.commitText(applyEmojiTone(emoji), 1)
+                learnEmoji(emoji)
+                emojiUsage.record(emoji)
+                emojiHistoryStale = true
+                _uiState.update {
+                    it.copy(
+                        composingPreview = "",
+                        suggestions = emptyList(),
+                        emojiSuggestions = emptyList(),
+                        inlineEmoji = false,
+                    )
+                }
+                consumeShift()
+                return
+            }
         }
 
         if (isWordChar && composingMode) {
@@ -4492,7 +4611,9 @@ open class WMKeyboardService : InputMethodService() {
             val results = withContext(Dispatchers.Default) {
                 contactEmails.complete(token, EMAIL_FIELD_SUGGESTION_LIMIT)
             }
-            _uiState.update { it.copy(suggestions = results, emojiSuggestions = emptyList()) }
+            _uiState.update {
+                it.copy(suggestions = results, emojiSuggestions = emptyList(), inlineEmoji = false)
+            }
         }
     }
 
@@ -4527,6 +4648,7 @@ open class WMKeyboardService : InputMethodService() {
                         suggestions = results,
                         emojiSuggestions = emptyList(),
                         punctuationSuggestions = emptyList(),
+                        inlineEmoji = true,
                     )
                 }
             }
@@ -4555,6 +4677,7 @@ open class WMKeyboardService : InputMethodService() {
                     expandedCandidates = expanded,
                     emojiSuggestions = emptyList(),
                     punctuationSuggestions = emptyList(),
+                    inlineEmoji = false,
                 )
             }
             return
@@ -4663,6 +4786,7 @@ open class WMKeyboardService : InputMethodService() {
                     emojiSuggestions = shownEmojis,
                     punctuationSuggestions = punct,
                     nextLetterBias = bias,
+                    inlineEmoji = false,
                 )
             }
         }

@@ -114,6 +114,66 @@ class AddonPreviewReaderTest {
         assertEquals(listOf("alpha", "beta"), (content as AddonPreviewContent.Dictionary).words)
     }
 
+    // ---- emoji keyword packs ---------------------------------------------
+
+    @Test
+    fun `reads the emoji out of a keyword pack`() {
+        val payload = file(
+            "hi.tsv",
+            "# emoji\tkeywords\tname\n" +
+                "🎂\tकेक,जन्मदिन\tजन्मदिन का केक\n" +
+                "💰\tपैसा,रुपया\n",
+        )
+        val content = AddonPreviewReader.read(entry(AddonType.EmojiKeywords), payload)
+        val pack = content as AddonPreviewContent.EmojiKeywords
+        assertEquals(2, pack.total)
+        assertTrue(!pack.truncated)
+        assertEquals("🎂", pack.samples[0].emoji)
+        assertEquals("केक,जन्मदिन", pack.samples[0].keywords)
+        assertEquals("💰", pack.samples[1].emoji)
+    }
+
+    @Test
+    fun `reads a gzipped keyword pack`() {
+        val payload = temp.newFile("hi.tsv.gz")
+        GZIPOutputStream(payload.outputStream()).use {
+            it.write("🎂\tकेक\n".toByteArray())
+        }
+        val content = AddonPreviewReader.read(
+            entry(AddonType.EmojiKeywords, "emoji/hi.tsv.gz"),
+            payload,
+        )
+        assertEquals(1, (content as AddonPreviewContent.EmojiKeywords).total)
+    }
+
+    /** A bare "#" heads the keycap emoji, so it must survive the comment rule. */
+    @Test
+    fun `the keycap hash row is data, not a comment`() {
+        val payload = file("x.tsv", "# emoji\tkeywords\n#️⃣\thash,keycap\n")
+        val pack = AddonPreviewReader.read(
+            entry(AddonType.EmojiKeywords),
+            payload,
+        ) as AddonPreviewContent.EmojiKeywords
+        assertEquals(1, pack.total)
+        assertEquals("#️⃣", pack.samples[0].emoji)
+    }
+
+    @Test
+    fun `a keyword pack with no usable rows is unreadable`() {
+        assertTrue(
+            AddonPreviewReader.read(
+                entry(AddonType.EmojiKeywords),
+                file("junk.tsv", "%PDF-1.4\nnot a pack at all\n"),
+            ) is AddonPreviewContent.Unreadable,
+        )
+        assertTrue(
+            AddonPreviewReader.read(
+                entry(AddonType.EmojiKeywords),
+                file("empty.tsv", "# only a comment\n\n"),
+            ) is AddonPreviewContent.Unreadable,
+        )
+    }
+
     @Test
     fun `a word list of nothing but comments is unreadable`() {
         val payload = file("words.txt", "# nothing here\n\n# still nothing\n")

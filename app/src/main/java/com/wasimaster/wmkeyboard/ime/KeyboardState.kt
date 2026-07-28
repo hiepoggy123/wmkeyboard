@@ -766,6 +766,13 @@ data class KeyboardUiState(
     /** Emoji candidates for the suggestion strip (word being typed). */
     val emojiSuggestions: List<String> = emptyList(),
     /**
+     * [suggestions] holds inline emoji-search results (a ":tada" buffer), not
+     * words. The strip draws them as a scrolling emoji row in the emoji font
+     * rather than three text chips — a shortcode search that found a dozen
+     * matches has nothing to say in three word-shaped slots.
+     */
+    val inlineEmoji: Boolean = false,
+    /**
      * Common punctuation marks offered as quick-insert chips in the tail of
      * the suggestion strip, beside the word candidates. Non-empty only while
      * word candidates are up and no emoji prediction has claimed the tail;

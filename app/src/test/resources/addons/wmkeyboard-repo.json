@@ -68,6 +68,22 @@
       "license": "CC0-1.0"
     },
     {
+      "id": "hi-emoji-keywords",
+      "type": "emoji_keywords",
+      "name": "Hindi Emoji Keywords",
+      "version": "1.0.0",
+      "author": "Unicode CLDR",
+      "description": "Hindi names and search keywords for every emoji the keyboard carries, so emoji search works in Hindi.",
+      "tags": [
+        "hindi",
+        "emoji",
+        "search"
+      ],
+      "path": "emoji/hi.tsv",
+      "langId": "hi",
+      "license": "Unicode-3.0"
+    },
+    {
       "id": "en-slang",
       "type": "dictionary",
       "name": "Internet Slang & Urban Dictionary",

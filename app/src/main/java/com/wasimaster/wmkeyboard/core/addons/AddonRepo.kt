@@ -70,7 +70,11 @@ data class AddonEntry(
     val previews: List<String> = emptyList(),
     /** App `versionCode` floor. Older builds show the addon but can't install it. */
     val minAppVersion: Int? = null,
-    /** Required for [AddonType.Dictionary]; a grouping hint for layouts. */
+    /**
+     * Required for [AddonType.Dictionary] and [AddonType.EmojiKeywords] —
+     * both install into a per-language folder, so an entry that doesn't name
+     * its language has nowhere to go. A grouping hint for layouts.
+     */
     val langId: String? = null,
     /**
      * Languages this addon is for, when one id isn't enough.
@@ -121,6 +125,7 @@ enum class AddonType {
     @SerialName("theme") Theme,
     @SerialName("layout") Layout,
     @SerialName("dictionary") Dictionary,
+    @SerialName("emoji_keywords") EmojiKeywords,
     @SerialName("snippets") Snippets,
     @SerialName("stickers") Stickers,
     @SerialName("icon_pack") IconPack,
@@ -137,6 +142,7 @@ enum class AddonType {
             Theme -> "Themes"
             Layout -> "Layouts"
             Dictionary -> "Dictionaries"
+            EmojiKeywords -> "Emoji keywords"
             Snippets -> "Snippets"
             Stickers -> "Sticker packs"
             IconPack -> "Icon packs"
@@ -158,6 +164,7 @@ enum class AddonType {
             Theme -> "Theme"
             Layout -> "Layout"
             Dictionary -> "Dictionary"
+            EmojiKeywords -> "Emoji keyword pack"
             Snippets -> "Snippet pack"
             Stickers -> "Sticker pack"
             IconPack -> "Icon pack"
@@ -177,6 +184,9 @@ enum class AddonType {
         get() = when (this) {
             Theme, Layout, Snippets -> 4L * 1024 * 1024
             Dictionary -> 32L * 1024 * 1024
+            // A keyword pack is one row per emoji: a few thousand short
+            // lines, even for a language that names every one of them.
+            EmojiKeywords -> 8L * 1024 * 1024
             IconPack -> 8L * 1024 * 1024
             Stickers -> 64L * 1024 * 1024
             // A colour emoji font carries thousands of bitmap or COLR glyphs,
@@ -203,7 +213,7 @@ enum class AddonType {
      */
     val previewable: Boolean
         get() = when (this) {
-            Snippets, Dictionary, Sound, Stickers, Plugin -> true
+            Snippets, Dictionary, EmojiKeywords, Sound, Stickers, Plugin -> true
             else -> false
         }
 

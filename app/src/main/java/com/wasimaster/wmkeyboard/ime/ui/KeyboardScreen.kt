@@ -226,6 +226,7 @@ import com.wasimaster.wmkeyboard.core.clipboard.matchesQuery
 import com.wasimaster.wmkeyboard.core.emoji.EmojiNames
 import com.wasimaster.wmkeyboard.core.emoji.EmojiVariantIndex
 import com.wasimaster.wmkeyboard.core.emoji.TextArt
+import com.wasimaster.wmkeyboard.core.text.EmojiGraphemes
 import com.wasimaster.wmkeyboard.core.gesture.GesturePoint
 import com.wasimaster.wmkeyboard.core.theme.brush
 import com.wasimaster.wmkeyboard.core.ui.toolAccentColor
@@ -1359,6 +1360,10 @@ private fun TopBar(
     val stripContentVisible = !showToolbar && suggestionsShowing
     var shownSuggestions by remember { mutableStateOf(state.suggestions) }
     var shownEmojiSuggestions by remember { mutableStateOf(state.emojiSuggestions) }
+    // Held alongside the candidates: the fade-out must keep drawing the row it
+    // faded in, or a cleared ":tada" buffer would flip the emoji back to text
+    // chips for the length of the fade.
+    var shownInlineEmoji by remember { mutableStateOf(state.inlineEmoji) }
     // Punctuation chips are held alongside the words so they fade out with them
     // rather than blanking. The service only fills them when word candidates
     // are present, so they follow the same non-empty gate.
@@ -1368,6 +1373,7 @@ private fun TopBar(
             shownSuggestions = state.suggestions
             shownEmojiSuggestions = state.emojiSuggestions
             shownPunctuation = state.punctuationSuggestions
+            shownInlineEmoji = state.inlineEmoji
         }
     }
     // Fade in when the strip shows its candidates, out when it stops. Keyed on
@@ -1782,7 +1788,16 @@ private fun TopBar(
             // genuinely ambiguous — the composer offers a dozen candidates and
             // picking among them *is* the typing. Splitting here rather than
             // widening the shared row keeps the Latin strip exactly as it was.
-            if (state.composer.isConversion) {
+            if (shownInlineEmoji) {
+                // A ":tada" buffer: emoji, in the emoji font, as many as fit
+                // the scroll rather than the three slots words get.
+                InlineEmojiChips(
+                    emojis = shownSuggestions,
+                    enabled = suggestionsShowing,
+                    alpha = { stripContentAlpha.value },
+                    onEmoji = onSuggestion,
+                )
+            } else if (state.composer.isConversion) {
                 CandidateStrip(
                     candidates = shownSuggestions,
                     enabled = suggestionsShowing,
@@ -1852,6 +1867,55 @@ private fun TopBar(
 }
 
 /**
+ * The inline emoji-search row: what a ":tada" composing buffer puts in the
+ * strip.
+ *
+ * Unlike [LatinSuggestionChips] this scrolls and sizes its cells to the emoji,
+ * because a shortcode search is a search — ":sm" has a dozen answers worth
+ * scanning, and three word-shaped slots would hide nine of them. Drawn through
+ * [LocalEmojiFontFamily]/[LocalEmojiShaper] like every other emoji surface, so
+ * a chosen emoji font applies here too.
+ */
+@Composable
+private fun RowScope.InlineEmojiChips(
+    emojis: List<String>,
+    enabled: Boolean,
+    alpha: () -> Float,
+    onEmoji: (String) -> Unit,
+) {
+    LazyRow(
+        modifier = Modifier
+            .weight(1f)
+            .fillMaxHeight()
+            .graphicsLayer { this.alpha = alpha() },
+        horizontalArrangement = Arrangement.Start,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        // Keyed by position, not by the emoji: a duplicate key is a hard crash
+        // in LazyRow, and the results come from a generated catalog no runtime
+        // check guarantees is duplicate-free.
+        itemsIndexed(emojis, key = { index, emoji -> "$index $emoji" }) { _, emoji ->
+            Box(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .clickable(enabled = enabled) { onEmoji(emoji) }
+                    .padding(horizontal = 8.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    // Drawn as this font spells it; the tap still commits the
+                    // standard form (see [EmojiFontShaping]).
+                    text = LocalEmojiShaper.current.shape(emoji),
+                    fontSize = 22.sp,
+                    fontFamily = emojiFamilyFor(emoji),
+                    maxLines = 1,
+                )
+            }
+        }
+    }
+}
+
+/**
  * The Latin suggestion strip: the top three candidates splitting the bar evenly
  * (Gboard style), so each gets the largest possible tap target.
  *
@@ -1902,12 +1966,22 @@ private fun RowScope.LatinSuggestionChips(
                     .clickable(enabled = enabled) { onSuggestion(suggestion) },
                 contentAlignment = Alignment.Center,
             ) {
+                // A chip is sometimes an emoji rather than a word — a learned
+                // bigram can predict one ("you" → ❤️). Those have to be drawn
+                // in the chosen emoji font, and in the spelling that font
+                // wants, or they fall back to the system emoji.
+                val isEmoji = remember(suggestion) { EmojiGraphemes.isEmojiOnly(suggestion) }
                 Text(
                     // Follows the live shift state, so pressing shift re-cases
                     // the strip (matching the committed word).
-                    text = displayCaseForShift(suggestion, shiftState),
+                    text = if (isEmoji) {
+                        LocalEmojiShaper.current.shape(suggestion)
+                    } else {
+                        displayCaseForShift(suggestion, shiftState)
+                    },
                     modifier = Modifier.padding(horizontal = 6.dp),
                     color = MaterialTheme.colorScheme.onSurface,
+                    fontFamily = if (isEmoji) emojiFamilyFor(suggestion) else null,
                     fontWeight = if (index == primaryIndex) FontWeight.SemiBold else FontWeight.Normal,
                     textAlign = TextAlign.Center,
                     maxLines = 1,

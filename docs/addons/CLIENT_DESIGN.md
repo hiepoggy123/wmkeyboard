@@ -104,6 +104,7 @@ were built as part of this work — the rows are marked.
 | `theme` | `ThemeCodec.decode` → `copy(id = "custom_" + now)` → `ThemeSpec.withExtractedImages(themeImagesDir(ctx))` → `SettingsRepository.upsertCustomTheme` |
 | `layout` | `LayoutFile.decode` → `LayoutCodec.migrateLayout` → `LayoutSpec.repair` → fresh id → `SettingsRepository.upsertCustomLayout` |
 | `dictionary` | `CustomDictionaries.import(filesDir, langId, name, stream)` — validates ≥1 word, 32 MiB cap. Guard: `langId` must exist in `LanguageRegistry` (else surface a clear "unsupported language" error). |
+| `emoji_keywords` | `EmojiKeywordPacks.import(filesDir, langId, name, stream)` — per-language TSV of emoji keywords, validated to ≥1 emoji, 8 MiB cap, gzip tolerated. Same `langId`-must-exist-in-`LanguageRegistry` guard as `dictionary`. Merged into the bundled catalogue by `EmojiKeywordPack.merge` at load, so the pack feeds emoji search, the inline `:name:` search, emoji prediction and the long-press description in one step. |
 | `snippets` | **new** `SnippetFile.decode` (the `.wmsnippets.json` codec was specified but never written) → for each entry `SnippetStore.add(label, text, trigger)`, ids reassigned. The same codec gives the app snippet export/import, so anything a repo can ship the app can also produce. |
 | `stickers` | `StickerPackFile.import(input, store)` — extracts `*.wmstickers` ZIP archive, validates `wmkeyboard-stickers` envelope in `pack.json`, normalizes images to app-private sticker storage, and registers pack in `StickerPackStore`. |
 | `icon_pack` | `IconPackFile.import(input, store)` — extracts `*.wmicons`, validates the `wmkeyboard-icons` envelope in `pack.json`, keeps every entry naming a slot `IconSlots` knows (parsing each SVG to prove it renders), and registers the pack in `IconPackStore`. |
@@ -112,14 +113,14 @@ were built as part of this work — the rows are marked.
 | `sound` | **new subsystem.** Key sounds were five synthesised waveforms behind a `KeySoundStyle` enum with no import path at all. Adds a `CUSTOM` style, `SoundStore` (`filesDir/keysounds/`, `sounds.json`, 30-sound cap) and `SoundFile.import(stream, store, name)` validating the MPEG frame header; `KeySoundPlayer` loads the chosen file into its `SoundPool` instead of a synthesised buffer. |
 
 Record the result in `installed_addons`. Uninstall reverses the local action
-(`deleteCustomTheme` / `deleteCustomLayout` / delete the dict file / remove snippets / delete sticker pack / etc.).
+(`deleteCustomTheme` / `deleteCustomLayout` / delete the dict or keyword-pack file / remove snippets / delete sticker pack / etc.).
 
 Installing puts the payload on the device and stops there. Nothing is selected, switched to or
 turned on: browsing a repository and tapping the download arrow on three themes must not leave
 the user wearing the third one. `AddonApply` asks instead — the types with one obvious slot
 (`theme`, `icon_pack`, `emoji_font`, `sound`, `layout`, `plugin`) raise a one-question dialog the
 moment the install lands, and the rest have nothing to ask about, being either live already
-(`dictionary`, `snippets`, `stickers`) or bound for a picker with several slots (`font`).
+(`dictionary`, `emoji_keywords`, `snippets`, `stickers`) or bound for a picker with several slots (`font`).
 
 Updating is the exception: an addon that *was* the active theme, sound or layout is re-selected
 under its new local id without asking, because every importer mints a fresh id and the user never

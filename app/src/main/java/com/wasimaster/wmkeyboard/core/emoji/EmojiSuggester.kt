@@ -4,14 +4,23 @@ package com.wasimaster.wmkeyboard.core.emoji
  * Word → emoji prediction for the suggestion strip: typing "birthday"
  * offers 🎂🎉🥳🎁, "coffee" offers ☕, "bangladesh" offers 🇧🇩.
  *
- * Two layers, high precision on purpose (this rides along with word
+ * Three layers, high precision on purpose (this rides along with word
  * suggestions, so a wrong emoji is worse than no emoji):
- *  1. a small curated trigger map for words whose best emojis aren't the
- *     literal keyword matches (and their common Bengali counterparts);
- *  2. exact keyword hits from the catalog (with a trailing plural 's'
+ *  1. a small curated trigger map, which is where the ordering judgements and
+ *     the Bengali triggers live — gemoji has neither;
+ *  2. [EmojiTriggers], GitHub's own word→emoji data, which covers far more
+ *     English than a hand-written table can ("hooray", "espresso", "workout");
+ *  3. exact keyword hits from the catalog (with a trailing plural 's'
  *     stripped) — no prefix or fuzzy matching.
+ *
+ * The layers stack rather than replace: gemoji has nothing for "sorry",
+ * "work" or "sleep", and the curated map has nothing for the other thousand
+ * words gemoji names.
  */
-class EmojiSuggester(entries: List<EmojiEntry>) {
+class EmojiSuggester(
+    entries: List<EmojiEntry>,
+    private val triggers: EmojiTriggers = EmojiTriggers.EMPTY,
+) {
 
     private val byKeyword = HashMap<String, MutableList<String>>()
 
@@ -30,18 +39,28 @@ class EmojiSuggester(entries: List<EmojiEntry>) {
         val cleaned = word.trim().lowercase()
         if (cleaned.length < 2) return emptyList()
         val results = LinkedHashSet<String>()
-        TRIGGERS[cleaned]?.let { results.addAll(it) }
-        byKeyword[cleaned]?.let { results.addAll(it) }
+        addLayers(cleaned, results)
         if (results.size < limit && cleaned.length >= 4 && cleaned.endsWith("s")) {
-            val singular = cleaned.dropLast(1)
-            TRIGGERS[singular]?.let { results.addAll(it) }
-            byKeyword[singular]?.let { results.addAll(it) }
+            addLayers(cleaned.dropLast(1), results)
         }
         return results.take(limit).toList()
     }
 
+    /** The three layers for one word, in the order they should be offered. */
+    private fun addLayers(word: String, into: MutableSet<String>) {
+        TRIGGERS[word]?.let { into.addAll(it) }
+        into.addAll(triggers.of(word))
+        byKeyword[word]?.let { into.addAll(it) }
+    }
+
     companion object {
-        /** Curated word → emoji triggers; listed emojis always come first. */
+        /**
+         * Curated word → emoji triggers; listed emojis always come first.
+         *
+         * Deliberately kept alongside [EmojiTriggers] rather than folded into
+         * it: this is where the Bengali triggers live, and where an ordering
+         * is chosen by hand ("birthday" leading with 🎂 rather than 🥳).
+         */
         private val TRIGGERS: Map<String, List<String>> = mapOf(
             "birthday" to listOf("🎂", "🎉", "🥳", "🎁"),
             "coffee" to listOf("☕", "😊"),

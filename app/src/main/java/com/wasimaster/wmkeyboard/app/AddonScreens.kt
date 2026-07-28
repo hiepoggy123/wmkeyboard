@@ -47,6 +47,7 @@ import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.Save
 import androidx.compose.material.icons.outlined.TextFields
+import androidx.compose.material.icons.outlined.Translate
 import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
@@ -170,6 +171,7 @@ private val AddonType.icon
         AddonType.Theme -> Icons.Outlined.Palette
         AddonType.Layout -> Icons.Outlined.Keyboard
         AddonType.Dictionary -> Icons.AutoMirrored.Outlined.MenuBook
+        AddonType.EmojiKeywords -> Icons.Outlined.Translate
         AddonType.Snippets -> Icons.Outlined.Description
         AddonType.Stickers -> Icons.Outlined.EmojiEmotions
         AddonType.IconPack -> Icons.Outlined.Category
@@ -192,6 +194,7 @@ private val AddonType.seed: Color
         AddonType.Theme -> Color(0xFF7E57C2)
         AddonType.Layout -> Color(0xFF3B82F6)
         AddonType.Dictionary -> Color(0xFF14B8A6)
+        AddonType.EmojiKeywords -> Color(0xFF0EA5E9)
         AddonType.Snippets -> Color(0xFFF59E0B)
         AddonType.Stickers -> Color(0xFFEC4899)
         AddonType.IconPack -> Color(0xFF22A559)
@@ -894,6 +897,7 @@ private val AddonType.settingsRoute: String
         // someone there to enable one would show them an empty section.
         AddonType.Layout -> "languages"
         AddonType.Dictionary -> "customdictionaries"
+        AddonType.EmojiKeywords -> "emojikeywords"
         AddonType.Snippets -> "tool/SNIPPETS"
         AddonType.Stickers -> "sticker_packs"
         AddonType.IconPack -> "icons"
@@ -922,6 +926,7 @@ private val AddonType.settingsAnchor: String?
         // the way down it, under the languages themselves.
         AddonType.Layout -> "Your layouts"
         AddonType.Dictionary -> null
+        AddonType.EmojiKeywords -> null
         AddonType.Snippets -> null
         AddonType.Stickers -> "Your packs"
         AddonType.IconPack -> "Icon pack"
@@ -951,6 +956,7 @@ private val AddonType.useLabel: String
         AddonType.Theme -> "Themes"
         AddonType.Layout -> "Languages"
         AddonType.Dictionary -> "Custom dictionaries"
+        AddonType.EmojiKeywords -> "Emoji keywords"
         AddonType.Snippets -> "Snippets"
         AddonType.Stickers -> "Sticker packs"
         AddonType.IconPack -> "Icons"
@@ -1632,6 +1638,30 @@ private fun AddonPreviewSection(manifestUrl: String, entry: AddonEntry) {
         }
 
         is AddonPreviewContent.Dictionary -> DictionaryPreview(shown)
+
+        is AddonPreviewContent.EmojiKeywords -> SettingsGroup("Preview") {
+            item {
+                CaptionText(
+                    buildString {
+                        append(if (shown.truncated) "Over " else "")
+                        append("${shown.total} emoji named")
+                    },
+                )
+            }
+            for (sample in shown.samples) {
+                item {
+                    ListItem(
+                        leadingContent = {
+                            Text(sample.emoji, style = MaterialTheme.typography.titleLarge)
+                        },
+                        headlineContent = {
+                            Text(sample.keywords, style = MaterialTheme.typography.bodySmall)
+                        },
+                        colors = transparentListColors(),
+                    )
+                }
+            }
+        }
 
         is AddonPreviewContent.Sound -> SettingsGroup("Preview") {
             item {

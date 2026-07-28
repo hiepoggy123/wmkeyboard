@@ -36,7 +36,9 @@ object EmojiCatalog {
         val entries = ArrayList<EmojiEntry>()
         stream.bufferedReader().useLines { lines ->
             for (line in lines) {
-                if (line.isBlank() || line.startsWith("#")) continue
+                // "# " opens a comment, a bare "#" does not: the keycap hash
+                // emoji (#️⃣) is a data row that starts with one.
+                if (line.isBlank() || line.startsWith("# ")) continue
                 val parts = line.split('\t')
                 if (parts.size < 3) continue
                 val keywords = buildList {

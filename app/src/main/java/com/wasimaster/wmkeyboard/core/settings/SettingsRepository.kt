@@ -1677,6 +1677,23 @@ data class EmojiSettings(
      * and most users never reach for them.
      */
     val kaomojiTabs: Boolean = false,
+    /**
+     * Bumped whenever an emoji keyword pack is imported, downloaded or
+     * removed. Not a preference — the IME watches it to know its merged
+     * catalog is stale, the same trick [KeyboardSettings.customDictVersion]
+     * plays for word lists.
+     */
+    val keywordPackVersion: Int = 0,
+    /**
+     * Fetch the emoji dictionary for a language when it is enabled, and for
+     * any enabled language still missing one.
+     *
+     * On by default: without keywords in their own language, emoji search only
+     * answers English, and the packs are 148 B to 112 KB compressed — smaller
+     * than one photo. Off leaves every download to the buttons under
+     * Settings › Emoji › Emoji keywords.
+     */
+    val autoDownloadKeywords: Boolean = true,
 )
 
 /** Bounds for [EmojiSettings.barCount]; the settings slider shares them. */
@@ -2350,6 +2367,9 @@ class SettingsRepository(private val context: Context) {
         private val EMOJI_BAR_SCROLLABLE = booleanPreferencesKey("emoji_bar_scrollable")
         private val EMOJI_BAR_COUNT = intPreferencesKey("emoji_bar_count")
         private val EMOJI_KAOMOJI_TABS = booleanPreferencesKey("emoji_kaomoji_tabs")
+        private val EMOJI_KEYWORD_PACK_VERSION = intPreferencesKey("emoji_keyword_pack_version")
+        private val EMOJI_AUTO_DOWNLOAD_KEYWORDS =
+            booleanPreferencesKey("emoji_auto_download_keywords")
         // Stored as the DISABLED set so tools added in future versions
         // default to enabled even for users who already toggled some off.
         private val DISABLED_TOOLS = stringPreferencesKey("disabled_tools")
@@ -2910,6 +2930,10 @@ class SettingsRepository(private val context: Context) {
                 barCount = p[EMOJI_BAR_COUNT]?.coerceIn(EmojiBarCountRange)
                     ?: defaults.emoji.barCount,
                 kaomojiTabs = p[EMOJI_KAOMOJI_TABS] ?: defaults.emoji.kaomojiTabs,
+                keywordPackVersion = p[EMOJI_KEYWORD_PACK_VERSION]
+                    ?: defaults.emoji.keywordPackVersion,
+                autoDownloadKeywords = p[EMOJI_AUTO_DOWNLOAD_KEYWORDS]
+                    ?: defaults.emoji.autoDownloadKeywords,
             ),
             enabledTools = ToolbarTool.entries - decodeDisabledTools(p[DISABLED_TOOLS]),
             toolboxOrder = decodeToolOrder(p[TOOLBOX_ORDER]),
@@ -4288,6 +4312,14 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun bumpCustomDictVersion() =
         editPrefs { it[CUSTOM_DICT_VERSION] = (it[CUSTOM_DICT_VERSION] ?: 0) + 1 }
+
+    suspend fun setEmojiAutoDownloadKeywords(value: Boolean) =
+        editPrefs { it[EMOJI_AUTO_DOWNLOAD_KEYWORDS] = value }
+
+    suspend fun bumpEmojiKeywordPackVersion() =
+        editPrefs {
+            it[EMOJI_KEYWORD_PACK_VERSION] = (it[EMOJI_KEYWORD_PACK_VERSION] ?: 0) + 1
+        }
 
     suspend fun setEmojiFont(value: EmojiFontChoice) =
         editPrefs { it[EMOJI_FONT] = value.name }

@@ -38,6 +38,9 @@ import androidx.compose.ui.unit.dp
 import com.wasimaster.wmkeyboard.core.dictionaries.DictionaryCatalog
 import com.wasimaster.wmkeyboard.core.dictionaries.DictionaryEntry
 import com.wasimaster.wmkeyboard.core.dictionaries.WordlistDownloadManager
+import com.wasimaster.wmkeyboard.core.emoji.EmojiDictCatalog
+import com.wasimaster.wmkeyboard.core.emoji.EmojiDictDownloadManager
+import com.wasimaster.wmkeyboard.core.emoji.EmojiDictEntry
 import com.wasimaster.wmkeyboard.core.input.composer.CjkDictCatalog
 import com.wasimaster.wmkeyboard.core.input.composer.CjkDictDownloadManager
 import com.wasimaster.wmkeyboard.core.input.composer.CjkDictPack
@@ -254,6 +257,34 @@ internal fun LanguageDetailScreen(
         }
     }
 
+    val emojiDict = EmojiDictCatalog.forLanguage(langId)
+    SettingsGroup("Emoji") {
+        item {
+            CaptionText(
+                if (emojiDict != null) {
+                    "Emoji keywords let you search emoji in ${lang.englishName} — " +
+                        "typing its word for \"cake\" finds 🎂." +
+                        if (settings.emoji.autoDownloadKeywords) {
+                            " Downloaded automatically while the language is on."
+                        } else {
+                            " Automatic downloads are off, so this one is yours to start."
+                        }
+                } else {
+                    "No emoji keywords are available for ${lang.englishName} yet, so " +
+                        "emoji search answers in English. You can import your own list."
+                },
+            )
+        }
+        if (emojiDict != null) {
+            item { EmojiDictRow(emojiDict) }
+        }
+        item {
+            NavRow("Emoji keywords", "Downloads for every language, and your own imports") {
+                onNavigate("emojikeywords")
+            }
+        }
+    }
+
     // Chinese/Japanese get a downloadable large conversion dictionary; Chinese
     // also gets fuzzy + Double Pinyin, all in one "… options" group.
     if (CjkDictCatalog.forLang(langId).isNotEmpty()) {
@@ -283,6 +314,91 @@ internal fun LanguageDetailScreen(
                 ) { Text("Remove ${lang.englishName}") }
             }
         }
+    }
+}
+
+/**
+ * Download/delete row for one language's emoji dictionary.
+ *
+ * Simpler than [WordlistRow] because the payload is: no size tier (the whole
+ * file is ~100 KB), and a determinate progress bar, since nothing stops the
+ * transfer early. Shared with the Emoji keywords screen, so a language shows
+ * the same state wherever it is looked at.
+ */
+@Composable
+internal fun EmojiDictRow(entry: EmojiDictEntry) {
+    val filesDir = LocalContext.current.filesDir
+    val states by EmojiDictDownloadManager.states.collectAsState()
+    LaunchedEffect(entry.languageId) { EmojiDictDownloadManager.refresh(filesDir) }
+    val status = states[entry.languageId]
+        ?: EmojiDictDownloadManager.DownloadStatus.NotDownloaded
+
+    ListItem(
+        colors = transparentListColors(),
+        headlineContent = { Text("Emoji keywords") },
+        supportingContent = {
+            Text(
+                when (status) {
+                    is EmojiDictDownloadManager.DownloadStatus.Downloaded ->
+                        "%,d emoji · %s".format(status.emojiCount, formatBytes(status.sizeBytes))
+                    EmojiDictDownloadManager.DownloadStatus.Queued -> "Waiting…"
+                    is EmojiDictDownloadManager.DownloadStatus.Downloading -> "Downloading…"
+                    is EmojiDictDownloadManager.DownloadStatus.Failed -> status.message
+                    EmojiDictDownloadManager.DownloadStatus.NotDownloaded ->
+                        "%,d emoji · %s download".format(
+                            entry.emojiCount,
+                            formatBytes(entry.approxGzBytes),
+                        )
+                },
+                color = if (status is EmojiDictDownloadManager.DownloadStatus.Failed) {
+                    MaterialTheme.colorScheme.error
+                } else {
+                    androidx.compose.ui.graphics.Color.Unspecified
+                },
+            )
+        },
+        trailingContent = {
+            when (status) {
+                is EmojiDictDownloadManager.DownloadStatus.Downloaded ->
+                    IconButton(
+                        onClick = { EmojiDictDownloadManager.delete(filesDir, entry.languageId) },
+                    ) {
+                        Icon(Icons.Outlined.Delete, contentDescription = "Delete emoji keywords")
+                    }
+                EmojiDictDownloadManager.DownloadStatus.Queued,
+                is EmojiDictDownloadManager.DownloadStatus.Downloading,
+                ->
+                    IconButton(
+                        onClick = { EmojiDictDownloadManager.cancel(entry.languageId) },
+                    ) {
+                        Icon(Icons.Outlined.Close, contentDescription = "Cancel download")
+                    }
+                EmojiDictDownloadManager.DownloadStatus.NotDownloaded,
+                is EmojiDictDownloadManager.DownloadStatus.Failed,
+                -> TextButton(onClick = { EmojiDictDownloadManager.start(filesDir, entry) }) {
+                    Text(
+                        if (status is EmojiDictDownloadManager.DownloadStatus.Failed) "Retry"
+                        else "Download",
+                    )
+                }
+            }
+        },
+        modifier = Modifier.padding(horizontal = 4.dp),
+    )
+    val downloading = status as? EmojiDictDownloadManager.DownloadStatus.Downloading
+    if (downloading != null) {
+        LinearProgressIndicator(
+            progress = {
+                if (downloading.totalBytes > 0) {
+                    (downloading.bytes.toFloat() / downloading.totalBytes).coerceIn(0f, 1f)
+                } else {
+                    0f
+                }
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 4.dp),
+        )
     }
 }
 

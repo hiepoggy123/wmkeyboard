@@ -45,6 +45,24 @@ sealed interface AddonPreviewContent {
         val partial: Boolean get() = words.size < total
     }
 
+    /**
+     * A sample of an emoji keyword pack: which emoji it names, and what it
+     * calls them.
+     *
+     * A handful of rows is the whole question here — one look at 🎂 next to
+     * its keywords tells you whether the pack is the language it claims and
+     * whether the keywords are words anyone would type. Unlike a word list,
+     * nobody wants to read all four thousand rows.
+     */
+    data class EmojiKeywords(
+        val samples: List<Sample>,
+        val total: Int,
+        /** True when [total] is a floor rather than the real count. */
+        val truncated: Boolean,
+    ) : AddonPreviewContent {
+        data class Sample(val emoji: String, val keywords: String)
+    }
+
     /** A playable copy of the key sound. */
     data class Sound(val file: File) : AddonPreviewContent
 
@@ -95,6 +113,9 @@ object AddonPreviewReader {
     /** Stop counting lines here; a 300k-word list doesn't need an exact figure. */
     private const val MAX_COUNTED_LINES = 200_000
 
+    /** Enough rows of a keyword pack to judge it; nobody scrolls a fourth. */
+    private const val MAX_KEYWORD_SAMPLES = 24
+
     private const val MAX_STICKER_IMAGES = 24
 
     /** Per-image ceiling while unpacking, so a hostile archive can't fill the cache. */
@@ -103,6 +124,7 @@ object AddonPreviewReader {
     fun read(entry: AddonEntry, payload: File): AddonPreviewContent = when (entry.type) {
         AddonType.Snippets -> readSnippets(payload)
         AddonType.Dictionary -> readDictionary(entry, payload)
+        AddonType.EmojiKeywords -> readEmojiKeywords(entry, payload)
         AddonType.Sound -> AddonPreviewContent.Sound(payload)
         AddonType.Stickers -> readStickers(payload)
         AddonType.Plugin -> readPlugin(payload)
@@ -124,6 +146,46 @@ object AddonPreviewReader {
             is PluginManifestResult.Rejected -> AddonPreviewContent.Unreadable(read.reason)
             else -> AddonPreviewContent.Unreadable("That file isn't a WM Keyboard plugin")
         }
+    }
+
+    /**
+     * Reads the head of a keyword pack.
+     *
+     * Streamed and stopped early like [readDictionary]: the count is capped at
+     * [MAX_COUNTED_LINES] so a pack naming every emoji in every script is
+     * still one bounded pass, and only [MAX_KEYWORD_SAMPLES] rows are kept.
+     */
+    private fun readEmojiKeywords(entry: AddonEntry, payload: File): AddonPreviewContent {
+        val samples = ArrayList<AddonPreviewContent.EmojiKeywords.Sample>()
+        var counted = 0
+        val ok = runCatching {
+            openMaybeGzipped(entry, payload).bufferedReader().use { reader ->
+                for (line in reader.lineSequence()) {
+                    // "# " opens a comment; the keycap hash emoji (#️⃣) starts
+                    // a data row with a bare "#".
+                    if (line.isBlank() || line.startsWith("# ")) continue
+                    val parts = line.split('\t')
+                    val emoji = parts[0].trim()
+                    val keywords = parts.getOrNull(1)?.trim().orEmpty()
+                    if (emoji.isEmpty() || keywords.isEmpty()) continue
+                    counted++
+                    if (samples.size < MAX_KEYWORD_SAMPLES) {
+                        samples.add(
+                            AddonPreviewContent.EmojiKeywords.Sample(emoji, keywords),
+                        )
+                    }
+                    if (counted >= MAX_COUNTED_LINES) break
+                }
+            }
+        }.isSuccess
+        if (!ok || samples.isEmpty()) {
+            return AddonPreviewContent.Unreadable("That file isn't an emoji keyword pack")
+        }
+        return AddonPreviewContent.EmojiKeywords(
+            samples = samples,
+            total = counted,
+            truncated = counted >= MAX_COUNTED_LINES,
+        )
     }
 
     private fun readSnippets(payload: File): AddonPreviewContent {

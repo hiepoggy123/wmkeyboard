@@ -1557,6 +1557,7 @@
 ®️	symbols	r,registered	r,নথিভুক্ত,নিবন্ধিত,রেজিস্টার,রেজিস্টার করা হয়েছে		registered
 ™️	symbols	mark,tm,trade,trademark,trade mark	tm,চিহ্ন,ট্রেড মার্ক,ট্রেডমার্ক		trade mark
 🫟	symbols	drip,holi,ink,liquid,mess,paint,spill,splatter,stain	চলকে পড়া,ছপাত,ছলাৎ,দাগ,রং,হোলি		splatter
+#️⃣	symbols	keycap,#	কিক্যাপ,#		keycap: #
 *️⃣	symbols	keycap,*	কিক্যাপ,*		keycap: *
 0️⃣	symbols	0,keycap,zero	0,কিক্যাপ,শূন্য		keycap: 0
 1️⃣	symbols	1,keycap,one	1,এক,কিক্যাপ		keycap: 1

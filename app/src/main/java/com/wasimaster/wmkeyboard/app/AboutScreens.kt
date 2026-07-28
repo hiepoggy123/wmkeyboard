@@ -204,6 +204,15 @@ private val bundledAttributions: List<Attribution> = buildList {
     )
     add(
         Attribution(
+            "gemoji",
+            "Emoji shortcodes (the :tada: names GitHub, Discord and Slack use)",
+            "Copyright GitHub, Inc.",
+            "MIT", "mit.txt",
+            "https://github.com/github/gemoji",
+        ),
+    )
+    add(
+        Attribution(
             "CC-CEDICT",
             "Chinese Pinyin conversion dictionary (downloadable pack)",
             "Copyright MDBG and CC-CEDICT contributors",

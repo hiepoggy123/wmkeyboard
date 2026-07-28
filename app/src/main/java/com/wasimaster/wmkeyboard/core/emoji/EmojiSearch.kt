@@ -4,6 +4,9 @@ package com.wasimaster.wmkeyboard.core.emoji
  * Semantic emoji search over the catalog.
  *
  * Beyond literal keyword matching this understands:
+ *  - `:tada:`-style shortcodes, the GitHub/Discord/Slack names (see
+ *    [EmojiShortcodes]) — an exact one is unambiguous, so it outranks
+ *    everything the keyword layers can find;
  *  - synonyms and related concepts ("party" also surfaces 🍾 via
  *    "celebration"; "fire" surfaces 💥 and ☄️);
  *  - prefix matching while the user is still typing;
@@ -11,15 +14,22 @@ package com.wasimaster.wmkeyboard.core.emoji
  *  - multilingual queries — Bengali keywords live in the same index, so
  *    বিড়াল finds the cat emojis and হাসি the smiles.
  *
- * Scoring: exact keyword > synonym-expanded > prefix > fuzzy; matches on
- * multiple query tokens accumulate.
+ * Scoring: exact shortcode > shortcode prefix > exact keyword >
+ * synonym-expanded > keyword prefix > fuzzy; matches on multiple query tokens
+ * accumulate.
  */
-class EmojiSearch(private val entries: List<EmojiEntry>) {
+class EmojiSearch(
+    private val entries: List<EmojiEntry>,
+    private val shortcodes: EmojiShortcodes = EmojiShortcodes.EMPTY,
+) {
 
     private val tokenIndex = HashMap<String, MutableSet<Int>>()
+    /** Catalog position of each emoji, for scoring a shortcode hit. */
+    private val indexByEmoji = HashMap<String, Int>()
 
     init {
         entries.forEachIndexed { index, entry ->
+            indexByEmoji.putIfAbsent(entry.emoji, index)
             for (keyword in entry.keywords) {
                 // Index both the full keyword ("heart on fire") and its tokens.
                 tokenIndex.getOrPut(keyword) { mutableSetOf() }.add(index)
@@ -33,10 +43,25 @@ class EmojiSearch(private val entries: List<EmojiEntry>) {
     }
 
     fun search(query: String, limit: Int = 40): List<EmojiEntry> {
-        val tokens = query.trim().lowercase().split(Regex("\\s+")).filter { it.isNotEmpty() }
+        val code = EmojiShortcodes.normalize(query)
+        // Shortcodes are snake_case; the keyword index is words. Spelling the
+        // underscores as spaces lets the long tail of gemoji names that *are*
+        // the Unicode name ("face_with_monocle") hit the catalog directly,
+        // leaving the shortcode table to carry only the ones that differ.
+        val tokens = code.replace('_', ' ').split(Regex("\\s+")).filter { it.isNotEmpty() }
         if (tokens.isEmpty()) return emptyList()
 
         val scores = HashMap<Int, Int>()
+        // An exact `:joy:` means one emoji and nothing else; a partial one
+        // still beats the keyword layers, in the order the table offers it.
+        shortcodes.exact(code)?.let { emoji ->
+            indexByEmoji[emoji]?.let { scores.merge(it, 1_000, Int::plus) }
+        }
+        if (code.length >= 2) {
+            shortcodes.prefix(code, limit).forEachIndexed { rank, emoji ->
+                indexByEmoji[emoji]?.let { scores.merge(it, 500 - rank, Int::plus) }
+            }
+        }
         for (token in tokens) {
             score(token, weight = 100, scores)
             for (synonym in SYNONYMS[token].orEmpty()) {

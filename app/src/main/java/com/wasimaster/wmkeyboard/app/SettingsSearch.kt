@@ -451,6 +451,8 @@ private val SectionRows: List<SettingsSearchEntry> = listOf(
     entry("Installed fonts", "Fonts added from Addons or imported from a file", "Appearance › Fonts", "fonts"),
     entry("Personal dictionary", "Words the keyboard has learned", "Typing", "dictionary"),
     entry("Custom dictionaries", "Import your own word lists, per language", "Typing", "customdictionaries"),
+    entry("Emoji keywords", "Download or import keyword packs so emoji search works in your language", "Emoji", "emojikeywords"),
+    entry("Download automatically", "Fetch emoji keywords for the languages you type", "Emoji › Emoji keywords", "emojikeywords"),
     entry("Suggestion blacklist", "Words to never suggest or autocorrect to", "Typing", "blacklist"),
     entry("Tool shortcuts list", "Which letter opens which tool from a physical keyboard", "Typing", "hwshortcuts"),
     entry("Open-source licences", "Libraries and data bundled in this build", "About", "licenses"),

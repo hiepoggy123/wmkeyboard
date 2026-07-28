@@ -43,10 +43,11 @@ object AddonApply {
         AddonType.Layout -> "Turn it on so you can type with it?"
         AddonType.Plugin -> "Turn it on so it shows in the plugins panel?"
         // A text font goes in one of several pickers and guessing wrong is
-        // worse than letting the user choose; a dictionary, a snippet pack and
-        // a sticker pack are live the moment they are installed.
-        AddonType.Font, AddonType.Dictionary, AddonType.Snippets,
-        AddonType.Stickers, AddonType.Unknown,
+        // worse than letting the user choose; a dictionary, a keyword pack, a
+        // snippet pack and a sticker pack are live the moment they are
+        // installed.
+        AddonType.Font, AddonType.Dictionary, AddonType.EmojiKeywords,
+        AddonType.Snippets, AddonType.Stickers, AddonType.Unknown,
         -> null
     }
 
@@ -54,8 +55,8 @@ object AddonApply {
     fun confirmLabel(type: AddonType): String = when (type) {
         AddonType.Layout, AddonType.Plugin -> "Turn on"
         AddonType.Theme, AddonType.IconPack, AddonType.EmojiFont, AddonType.Sound,
-        AddonType.Font, AddonType.Dictionary, AddonType.Snippets,
-        AddonType.Stickers, AddonType.Unknown,
+        AddonType.Font, AddonType.Dictionary, AddonType.EmojiKeywords,
+        AddonType.Snippets, AddonType.Stickers, AddonType.Unknown,
         -> "Switch to it"
     }
 
@@ -85,7 +86,8 @@ object AddonApply {
             // Plugin returned above without reading settings, and the rest were
             // filtered out by the question() guard: they have no slot to be in.
             AddonType.Plugin, AddonType.Font, AddonType.Dictionary,
-            AddonType.Snippets, AddonType.Stickers, AddonType.Unknown,
+            AddonType.EmojiKeywords, AddonType.Snippets, AddonType.Stickers,
+            AddonType.Unknown,
             -> false
         }
     }
@@ -113,8 +115,8 @@ object AddonApply {
             AddonType.Plugin -> PluginStore.get(app).setEnabled(ref, true)
             // Nothing to point anywhere: a text font waits in the picker, and a
             // dictionary, snippet pack or sticker pack is already in use.
-            AddonType.Font, AddonType.Dictionary, AddonType.Snippets,
-            AddonType.Stickers, AddonType.Unknown,
+            AddonType.Font, AddonType.Dictionary, AddonType.EmojiKeywords,
+            AddonType.Snippets, AddonType.Stickers, AddonType.Unknown,
             -> Unit
         }
     }

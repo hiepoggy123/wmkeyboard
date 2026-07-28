@@ -90,6 +90,7 @@
             "theme",
             "layout",
             "dictionary",
+            "emoji_keywords",
             "snippets",
             "stickers",
             "icon_pack",
@@ -148,7 +149,7 @@
         },
         "langId": {
           "type": "string",
-          "description": "Language id from the app's LanguageRegistry. REQUIRED for type=dictionary; optional grouping hint for type=layout. Must be an already-registered id."
+          "description": "Language id from the app's LanguageRegistry. REQUIRED for type=dictionary and type=emoji_keywords; optional grouping hint for type=layout. Must be an already-registered id."
         },
         "langIds": {
           "type": "array",
@@ -175,7 +176,10 @@
           "if": {
             "properties": {
               "type": {
-                "const": "dictionary"
+                "enum": [
+                  "dictionary",
+                  "emoji_keywords"
+                ]
               }
             }
           },

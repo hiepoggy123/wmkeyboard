@@ -91,7 +91,7 @@ Unknown fields are ignored, so future versions can add fields without breaking o
 | Field | Req | Notes |
 |---|---|---|
 | `id` | ✔ | Unique within the repo. |
-| `type` | ✔ | `theme` \| `layout` \| `dictionary` \| `snippets` \| `stickers` \| `icon_pack` \| `font` \| `emoji_font` \| `sound`. |
+| `type` | ✔ | `theme` \| `layout` \| `dictionary` \| `emoji_keywords` \| `snippets` \| `stickers` \| `icon_pack` \| `font` \| `emoji_font` \| `sound` \| `plugin`. |
 | `name` | ✔ | Display name. |
 | `version` | ✔ | **Semver** string. Bump it to offer an update. |
 | `path` | ✔ | Payload location — relative to the manifest, or an absolute `https` URL (§4). |
@@ -100,7 +100,7 @@ Unknown fields are ignored, so future versions can add fields without breaking o
 | `sizeBytes` | | Payload size, for the UI and a pre-download guard. Optional; the client caps every download regardless. |
 | `previews` | | Screenshot images (relative or absolute). |
 | `minAppVersion` | | App `versionCode` floor; older apps hide/disable the addon. |
-| `langId` | *dict* | **Required for `dictionary`**, optional hint for `layout`. Must be a registered language id (§5). |
+| `langId` | *dict* | **Required for `dictionary` and `emoji_keywords`** — both install into a per-language folder — and an optional hint for `layout`. Must be a registered language id (§5). |
 | `langIds` | | Languages this addon covers, when one id isn't enough. See [Language coverage](#language-coverage). |
 | `license` | | Licence identifier — SPDX where one fits (`MIT`, `OFL-1.1`, `CC0-1.0`, `CC-BY-4.0`), otherwise any short name. Shown on the addon's page. |
 | `licenseText` | | Full licence text, inline. |
@@ -173,6 +173,7 @@ Relative paths resolve against that manifest URL's directory. **`https` only** �
 | `theme` | `*.wmtheme.json` | One `ThemeSpec` object (the app's theme export). **The only payload with no `format`/`version` envelope** — it is the bare object, so a theme file is identified by its extension rather than a magic tag. Background images travel base64-embedded inside the JSON, so the file is self-contained. Colors are decimal ARGB longs (`0xAARRGGBB`). |
 | `layout` | `*.wmlayout.json` | Envelope `{ "format":"wmkeyboard-layout", "version":1, "layout": { …LayoutSpec… } }` — the app's layout export. |
 | `dictionary` | `<langId>.txt` | Plain UTF-8, one entry per line: `word<space>frequency` (frequency optional, default 1). `#` starts a comment. May be gzipped (`.txt.gz`) for transport. |
+| `emoji_keywords` | `<langId>.tsv` | Plain UTF-8, tab-separated, one row per emoji: `emoji<TAB>keyword,keyword,…<TAB>name`. The name column is optional and becomes the emoji's long-press description. `# ` (hash **and space**) starts a comment — a bare `#` does not, because `#️⃣` is an emoji. May be gzipped (`.tsv.gz`) for transport. Packs stack on the bundled English and Bengali keywords rather than replacing them, so search finds an emoji under every language installed for it. `tools/emoji/export_keyword_pack.py` converts CLDR annotations into this format. |
 | `snippets` | `*.wmsnippets.json` | `{ "format":"wmkeyboard-snippets", "version":1, "snippets":[ { "id":1, "label":"…", "text":"…", "trigger":"…"? }, … ] }`. Ids are reassigned on import. |
 | `stickers` | `*.wmstickers` | ZIP archive containing a `pack.json` envelope (`"format":"wmkeyboard-stickers"`, `"version":1`, `pack` metadata with its `stickers[]`) and the image files under `stickers/`. See [Sticker packs](#sticker-packs). |
 | `icon_pack` | `*.wmicons` | ZIP archive containing a `pack.json` envelope (`"format":"wmkeyboard-icons"`, `"version":1`, `pack` metadata) and one SVG per replaced icon under `icons/`, named for its slot. See [Icon packs](#icon-packs). |

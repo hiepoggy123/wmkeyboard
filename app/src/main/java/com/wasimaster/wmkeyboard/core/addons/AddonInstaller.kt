@@ -15,6 +15,7 @@ import com.wasimaster.wmkeyboard.core.layout.LayoutFile
 import com.wasimaster.wmkeyboard.core.plugins.PluginFile
 import com.wasimaster.wmkeyboard.core.plugins.PluginImportResult
 import com.wasimaster.wmkeyboard.core.plugins.PluginStore
+import com.wasimaster.wmkeyboard.core.emoji.EmojiKeywordPacks
 import com.wasimaster.wmkeyboard.core.prediction.CustomDictionaries
 import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
@@ -59,11 +60,22 @@ object AddonInstaller {
         data class Rejected(val message: String) : Outcome
     }
 
-    suspend fun install(context: Context, entry: AddonEntry, payload: File): Outcome =
+    suspend fun install(context: Context, entry: AddonEntry, payload: File): Outcome {
+        val outcome = installPayload(context, entry, payload)
+        if (outcome is Outcome.Installed) notifyContentChanged(context, entry.type)
+        return outcome
+    }
+
+    private suspend fun installPayload(
+        context: Context,
+        entry: AddonEntry,
+        payload: File,
+    ): Outcome =
         when (entry.type) {
             AddonType.Theme -> installTheme(context, payload)
             AddonType.Layout -> installLayout(context, payload)
             AddonType.Dictionary -> installDictionary(context, entry, payload)
+            AddonType.EmojiKeywords -> installEmojiKeywords(context, entry, payload)
             AddonType.Snippets -> installSnippets(context, payload)
             AddonType.Stickers -> installStickers(context, payload)
             AddonType.IconPack -> installIconPack(context, payload)
@@ -86,7 +98,7 @@ object AddonInstaller {
             // built-in when the deleted one was in use.
             AddonType.Theme -> SettingsRepository(context).deleteCustomTheme(record.localRef)
             AddonType.Layout -> SettingsRepository(context).deleteCustomLayout(record.localRef)
-            AddonType.Dictionary -> File(record.localRef).delete()
+            AddonType.Dictionary, AddonType.EmojiKeywords -> File(record.localRef).delete()
             AddonType.Snippets -> removeSnippets(context, record.localRef)
             AddonType.Stickers -> StickerPackStore.get(context).deletePack(record.localRef)
             AddonType.IconPack -> uninstallIconPack(context, record.localRef)
@@ -96,6 +108,29 @@ object AddonInstaller {
             // Deletes the plugin's whole directory: script, stored data and log.
             AddonType.Plugin -> PluginStore.get(context).delete(record.localRef)
             AddonType.Unknown -> Unit
+        }
+        notifyContentChanged(context, record.type)
+    }
+
+    /**
+     * Nudges the running keyboard for the types whose content it holds in
+     * memory rather than re-reading per use. Without it an imported dictionary
+     * or emoji keyword pack sits on disk doing nothing until the IME next
+     * restarts — installed, by every visible sign, and inert.
+     */
+    private suspend fun notifyContentChanged(context: Context, type: AddonType) {
+        when (type) {
+            AddonType.Dictionary -> SettingsRepository(context).bumpCustomDictVersion()
+            AddonType.EmojiKeywords ->
+                SettingsRepository(context).bumpEmojiKeywordPackVersion()
+            // The rest are read from disk when they are used, or are already
+            // live the moment the importer returns. Listed rather than
+            // defaulted so a new type has to decide.
+            AddonType.Theme, AddonType.Layout, AddonType.Snippets,
+            AddonType.Stickers, AddonType.IconPack, AddonType.Font,
+            AddonType.EmojiFont, AddonType.Sound, AddonType.Plugin,
+            AddonType.Unknown,
+            -> Unit
         }
     }
 
@@ -189,6 +224,41 @@ object AddonInstaller {
         val created = CustomDictionaries.lists(context.filesDir, langId)
             .maxByOrNull { it.lastModified() }
             ?: return Outcome.Rejected("The dictionary couldn't be saved")
+        return Outcome.Installed(created.absolutePath)
+    }
+
+    // ---- emoji keyword packs --------------------------------------------
+
+    /**
+     * Installs an emoji keyword pack: the keywords one language uses for the
+     * emoji the app already carries, so search and prediction work in it.
+     *
+     * Deliberately the same shape as [installDictionary] — same per-language
+     * folder layout, same "did anything parse?" gate, same gzip tolerance —
+     * because it is the same kind of payload arriving by the same route.
+     */
+    private fun installEmojiKeywords(context: Context, entry: AddonEntry, payload: File): Outcome {
+        val langId = entry.langId?.takeIf { it.isNotBlank() }
+            ?: return Outcome.Rejected("This pack doesn't say which language it's for")
+        if (LanguageRegistry.all.none { it.id == langId }) {
+            return Outcome.Rejected("This app version doesn't support the language “$langId”")
+        }
+
+        val name = entry.name.ifBlank { entry.id }
+        val emoji = openPayload(entry, payload).use { stream ->
+            EmojiKeywordPacks.import(context.filesDir, langId, name, stream)
+        }
+        if (emoji == EmojiKeywordPacks.TOO_LARGE) {
+            return Outcome.Rejected("That keyword pack is too large to import")
+        }
+        if (emoji == 0) {
+            return Outcome.Rejected("No emoji keywords could be read out of that file")
+        }
+        // import() names the file itself to avoid collisions, so the newest
+        // file in the language's folder is the one it just wrote.
+        val created = EmojiKeywordPacks.packs(context.filesDir, langId)
+            .maxByOrNull { it.lastModified() }
+            ?: return Outcome.Rejected("The keyword pack couldn't be saved")
         return Outcome.Installed(created.absolutePath)
     }
 

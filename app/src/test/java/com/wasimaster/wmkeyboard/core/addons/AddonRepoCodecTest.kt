@@ -116,6 +116,9 @@ class AddonRepoCodecTest {
                 // Content is the choice: the words, the images, the sound itself.
                 AddonType.Snippets,
                 AddonType.Dictionary,
+                // A keyword pack is judged the same way: a few emoji beside
+                // the words this language calls them by is the whole question.
+                AddonType.EmojiKeywords,
                 AddonType.Sound,
                 AddonType.Stickers,
                 // A plugin previews for a different reason -- not "is this any
