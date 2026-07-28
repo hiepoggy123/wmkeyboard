@@ -1,22 +1,132 @@
 ---
 title: "Key press"
-description: "Key sounds, haptics, popups and timing."
+description: "Every row on the Key press screen (control type, range, and default) for haptics, sound, popup, timing, and long-press shortcuts."
 sidebar:
   order: 3
 ---
 
-:::caution[Draft page]
-Scaffolding only — real content pending. The outline below is the checklist for what this page must cover.
-:::
+import PhoneFrame from '@components/PhoneFrame.astro';
+import SettingsPath from '@components/SettingsPath.astro';
+import KeyCap from '@components/KeyCap.astro';
 
-## Planned coverage
+The Key press screen collects everything about the physical act of pressing a key: vibration, sound, the preview bubble, timing, and long-press shortcuts, in the order it appears on screen. This page is the field reference; for the reasoning behind each option, read [Sound & vibration](/typing/feedback/) and [Typing basics](/typing/basics/) instead.
 
-- Key press sound: styles, volume, imported files, addon sound packs
-- Haptics: strength, intensity, do-not-disturb behaviour
-- Key preview popup; long-press timing; caps-lock double-tap window
-- Hold-A/C/X/V/Z/Y editing shortcuts
+<PhoneFrame caption="The top of the Key press screen: the Haptic feedback group with its style chips.">
+  {/* shot: reference/settings/keypress-overview */}
+</PhoneFrame>
 
-{/* TODO(sonnet): replace this stub. Turn the outline into real sections,
-   add screenshots with <PhoneFrame>, mark settings with <SettingsPath>,
-   keys with <KeyCap>, and edition limits with <Flavor>.
-   Conventions live in docs/CONTENT_GUIDE.md. */}
+## Options
+
+<SettingsPath path="Key press" />
+
+The screen has five groups, top to bottom: Haptic feedback, Key press sound, Key popup, Timing, and Long-press shortcuts.
+
+### Haptic feedback
+
+<SettingsPath path="Key press / Haptic feedback" />
+
+| Setting | Control | Options / range | Default |
+|---|---|---|---|
+| Key press haptics | Toggle | — | On |
+| Haptic style | Choice (chips) | Key / Tap / Click / Heavy / Sharp / Custom | Key |
+| Haptic strength *(Custom only)* | Slider | 5–60 ms | 15 ms |
+| Haptic intensity *(Custom, Sharp)* | Slider | 1–255, shown as a percentage | 255 (100%) |
+| Long-press haptics | Toggle | — | On |
+| Long-press release haptics | Toggle | — | Off |
+| Vibrate on space *(shown only while Key press haptics is on)* | Toggle | — | On |
+| Vibrate on delete swipe *(same)* | Toggle | — | On |
+| Vibrate on key repeat *(same)* | Toggle | — | On |
+| Mute haptics in Do Not Disturb *(same)* | Toggle | — | Off |
+
+**Key press haptics** is the master switch; turning it off hides the four "Vibrate on…" rows entirely rather than just disabling them. **Haptic style** picks how the buzz is produced. Key and Tap hand it to the platform's own haptic call (what stock keyboards use, so it follows the vendor's tuning and the system haptic-intensity setting), Click and Heavy use a hardware-tuned effect (Android 10+), Sharp plays a hardware click primitive whose strength follows the intensity slider (Android 11+), and Custom drives the vibration motor directly from the strength and intensity sliders. When a style isn't available on a device it falls back to a hardware Click, then Custom.
+
+<PhoneFrame caption="Haptic style set to Custom, showing the strength and intensity sliders.">
+  {/* shot: reference/settings/keypress-haptic-custom-sliders */}
+</PhoneFrame>
+
+### Key press sound
+
+<SettingsPath path="Key press / Key press sound" />
+
+| Setting | Control | Options / range | Default |
+|---|---|---|---|
+| Key sound | Toggle | — | Off |
+| Sound style | Choice (chips) | Click / Standard / Pop / Thock / Chime / Custom | Click |
+| Installed sound library *(Custom only)* | List + import | up to 30 installed sounds | — |
+| Sound volume | Slider | 5%–100% | 50% |
+
+Click and Standard come from the device's own system sound pack; Pop, Thock and Chime are synthesized in‑app and sound identical on every device. Choosing Custom reveals your installed sound library and an **Import sound file (.mp3)** button, and the label undersells it, since it also accepts `.ogg` and `.wav` files. The library holds up to 30 sounds between imports and installed sound addons; installing a [Sound addon](/addons/overview/) highlights this **Sound style** row and offers to switch to it right after install, the same "Use it now?" flow other addon types use (see [Installing addons](/addons/installing/)).
+
+### Key popup
+
+<SettingsPath path="Key press / Key popup" />
+
+| Setting | Control | Options / range | Default |
+|---|---|---|---|
+| Key popup | Toggle | — | On |
+| Popup on number pads *(shown only while Key popup is on)* | Toggle | — | Off |
+| Minimum popup duration *(same)* | Slider | 0–300 ms | 150 ms |
+| Maximum popup duration *(same)* | Slider | 400–2000 ms | 750 ms |
+| Popup on key | Toggle | — | On |
+| Popup font size | Slider | ×0.70–×1.60 | ×1.00 |
+| Popup height | Slider | 32–160 dp | 110 dp |
+
+**Minimum popup duration** keeps the bubble visible for at least that long after release, so a fast tap doesn't flash it for a single frame. **Maximum popup duration** is a different kind of control: a safety cap, not a comfort setting, that force-hides a bubble stranded on screen if the release event is ever dropped under UI lag. It's measured from the press, not the release, and there's normally no reason to lower it. **Popup on key** switches between the bubble growing up from the pressed key itself (the stock-keyboard look) and a compact bubble floating above your fingertip with a gap.
+
+<PhoneFrame caption="Key popup and Timing groups, mid-screen.">
+  {/* shot: reference/settings/keypress-popup-timing */}
+</PhoneFrame>
+
+### Timing
+
+<SettingsPath path="Key press / Timing" />
+
+| Setting | Control | Options / range | Default |
+|---|---|---|---|
+| Long-press delay | Slider | 150–700 ms | 300 ms |
+| Key repeat interval | Slider | 20–200 ms | 50 ms |
+| Caps-lock double-tap | Slider | 150–600 ms | 350 ms |
+
+**Long-press delay** is how long a key must be held before its alternates popup (accents, digits, symbols) appears. **Key repeat interval** governs how fast <KeyCap>⌫</KeyCap> and <KeyCap>Space</KeyCap> auto-repeat while held. **Caps-lock double-tap** is the window for two <KeyCap>Shift</KeyCap> taps to lock caps, and it only matters going into caps lock; a single tap while Shift or Caps Lock is already on always turns it off, regardless of timing.
+
+### Long-press shortcuts
+
+<SettingsPath path="Key press / Long-press shortcuts" />
+
+| Setting | Control | Options / range | Default |
+|---|---|---|---|
+| Long-press hints | Toggle | — | On |
+| All accents on long-press | Toggle | — | Off |
+| Hold ?123 for numpad | Toggle | — | Off |
+| Currency keys | Free-text field, space-separated | — | ৳ € £ ¥ ₹ ₿ |
+| Ctrl shortcuts as raw key events | Toggle | — | Off |
+| Hold A to select all | Toggle | — | Off |
+| Hold C to copy | Toggle | — | Off |
+| Hold X to cut | Toggle | — | Off |
+| Hold V to paste | Toggle | — | Off |
+| Hold Z to undo | Toggle | — | Off |
+| Hold Y to redo | Toggle | — | Off |
+
+**Long-press hints** shows a small corner label on each key previewing its first long-press character; a key running a hold-letter shortcut below shows no hint. **All accents on long-press** adds the complete accent set to every Latin letter's popup, on top of whatever the layout already lists (letters only). **Hold ?123 for numpad** makes a long press on the symbols key open a full numeric keypad panel over the current field, in addition to its normal tap-to-switch behavior. **Currency keys** is stored empty by default; the field displays and edits the built-in set (৳ € £ ¥ ₹ ₿) until you type your own space-separated list, and clearing it back to blank restores the built-in set. **Ctrl shortcuts as raw key events** only matters for a Ctrl key on a custom layout: off routes A/C/V/X through Android's clipboard actions (works in web pages and Compose apps too), on sends the raw key event instead, which a terminal app needs since it treats Ctrl+C as interrupt rather than copy.
+
+The six **Hold [letter] to…** toggles are all off by default, and each fully replaces that letter's accent popup while on: turning on "Hold C to copy" removes `'çć` from C's long-press popup entirely, it doesn't add the shortcut alongside them. Copy and cut both fall back to select-all first when nothing is selected, so one hold copies or cuts the whole field.
+
+<PhoneFrame caption="Long-press shortcuts: the currency keys field and the Hold-letter toggles.">
+  {/* shot: reference/settings/keypress-long-press-shortcuts */}
+</PhoneFrame>
+
+## Details & edge cases
+
+- **The four per-event haptic toggles fold away, not just gray out.** With Key press haptics off, Vibrate on space/delete swipe/key repeat/DND disappear from the screen entirely rather than showing disabled.
+- **Long-press delay is duplicated in two places.** This Timing slider (150–700 ms) and a second copy under Accessibility → Touch, framed for hand tremor with a wider 150–800 ms range, both move the same underlying setting. See [Accessibility settings](/reference/settings/accessibility/).
+- **A few rows on this screen aren't reachable from in-app settings search.** Haptic style, Key sound, Sound style, Sound volume, Maximum popup duration, and Hold ?123 for numpad are all real, rendered rows here; they're just missing from the search index.
+- **The "Sound & haptics" toolbar tool isn't a separate settings surface.** Its panel reuses the same Key press sound group plus a nav row into this full screen, so every change either surface makes writes to the same settings. See [Sound & vibration](/typing/feedback/#a-toolbar-shortcut).
+- **Currency keys shows the built-in default even though the stored value is empty.** The field only starts writing your own list once you edit it; clearing it back to blank returns you to the same default rather than an empty popup.
+- **No edition differences.** Haptics, key sounds, popups, timing and long-press shortcuts all work identically on the full and lite builds.
+
+## Related pages
+
+- [Sound & vibration](/typing/feedback/): the why behind the Haptic feedback and Key press sound groups, plus the ringer/DND distinction and the toolbar shortcut.
+- [Typing basics](/typing/basics/): the why behind the Key popup, Timing, and Long-press shortcuts groups, plus multi-touch and key repeat behavior.
+- [Accessibility settings](/reference/settings/accessibility/): the second copy of Long-press delay, and Ignore repeated presses, which interacts with this screen's key-repeat timing.
+- [Installing addons](/addons/installing/) and [Addons overview](/addons/overview/): how a Sound addon lands in the Key press sound library.

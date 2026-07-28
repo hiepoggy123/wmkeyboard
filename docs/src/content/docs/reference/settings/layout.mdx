@@ -1,22 +1,147 @@
 ---
 title: "Layout & size"
-description: "Physical geometry: heights, paddings, number row, and screen-variant sizing."
+description: "Every row on the Layout & size screen, covering the number row, key and row sizing, per-screen overrides, one-handed, split & floating, and the bottom-row emoji keys."
 sidebar:
   order: 10
 ---
 
-:::caution[Draft page]
-Scaffolding only — real content pending. The outline below is the checklist for what this page must cover.
-:::
+import PhoneFrame from '@components/PhoneFrame.astro';
+import SettingsPath from '@components/SettingsPath.astro';
+import KeyCap from '@components/KeyCap.astro';
 
-## Planned coverage
+The Layout & size screen collects every physical dimension WM Keyboard's keys can take, including a digit row, key and row heights, per-screen-shape overrides, and one-handed, split, or floating modes, grouped exactly as they appear on screen. This page is the field reference; the linked guides below cover the reasoning and walk through each group in more depth.
 
-- Number row; numeral system (native digits)
-- Key & row heights, side/bottom padding, width & alignment
-- Per-screen sizing: portrait / landscape / folded / unfolded
-- One-handed, split, floating; bottom-row keys
+<PhoneFrame caption="The Layout & size screen, opening on the Number row and Numerals groups.">
+  {/* shot: reference/settings/layout-overview */}
+</PhoneFrame>
 
-{/* TODO(sonnet): replace this stub. Turn the outline into real sections,
-   add screenshots with <PhoneFrame>, mark settings with <SettingsPath>,
-   keys with <KeyCap>, and edition limits with <Flavor>.
-   Conventions live in docs/CONTENT_GUIDE.md. */}
+You can reach this screen from the home screen's **Layout & size** tile, from Accessibility → Touch → **Key size & spacing**, or from the **Split**, **Floating**, and **One-handed** toolbar tools' own Options panels, each of which has an **All layout & size settings** row.
+
+## Options
+
+<SettingsPath path="Layout & size" />
+
+### Number row
+
+<SettingsPath path="Layout & size / Number row" />
+
+| Setting | Control | Range | Default |
+|---|---|---|---|
+| Number row | Toggle | — | Off |
+| Number row height | Slider | 32–100 dp | 42 dp |
+| Symbols on shift | Toggle | — | Off |
+| Number row in symbols | Toggle | — | On |
+
+**Number row** adds a dedicated 1–0 row above the letters, so digits don't need a long-press. Turning it on drops the top row's digit long-press alternate, since it's redundant once the row exists. The three sub-settings only appear once Number row is on: **Number row height** sizes the digit row independently of the letter keys; **Symbols on shift** swaps the row to `= \ < > [ ] { } | ~` while <KeyCap>Shift</KeyCap> is held instead of showing digits; **Number row in symbols** keeps the digit row visible on the ?123 layer too, and turning it off shrinks the keyboard by a row there.
+
+See [Number row and numerals](/typing/basics/#number-row-and-numerals) for the full walkthrough.
+
+### Numerals
+
+<SettingsPath path="Layout & size / Numerals" />
+
+| Setting | Control | Options | Default |
+|---|---|---|---|
+| Type native digits in | Choice | Text fields / Everywhere / Display only | Text fields |
+
+**Type native digits in** controls where a language's native digit glyphs actually get committed, not which glyphs it uses. That per-language picker (Auto, or a forced script like Arabic-Indic or Bengali) lives on each language's own screen under [Languages](/languages/overview/). **Text fields** (the default) keeps plain 0–9 in number, phone, date, and time fields so they stay machine-readable, and types native digits everywhere else; **Everywhere** commits native digits in those fields too; **Display only** shows the native glyphs on the keys but always inserts 0–9.
+
+### Size & position
+
+<SettingsPath path="Layout & size / Size & position" />
+
+| Setting | Control | Range | Default |
+|---|---|---|---|
+| Key height | Slider | 32–100 dp | 48 dp |
+| Bottom row height | Slider | 0–96 dp | 0 dp ("Follow keys") |
+| Side padding | Slider | 0–30% | 0% |
+| Key spacing | Slider | 0–200% | 100% |
+| Bottom padding | Slider | 0–40 dp | 32 dp (Android 15+) / 8 dp (older) |
+| Keyboard width | Slider | 50–100% | 100% |
+| Keyboard position *(shown only below 100% width)* | Choice: Left / Center / Right | — | Center |
+
+These sliders set the everyday shape of the keyboard: how tall the keys and the space/enter row are, how much air sits around each key and along the edges, and whether the keyboard docks narrower than the full screen width. For the full breakdown of each one, including how they interact with one-handed mode and split, see [Size, position & one-handed use](/typing/size-position/).
+
+### Per-screen sizing
+
+<SettingsPath path="Layout & size / Per-screen sizing" />
+
+The Size & position values above are your portrait sizes, and the in-app caption calls them your "portrait (folded)" sizes. Three more screen shapes can each override any of them, or scale the whole keyboard at once: **Landscape**, **Portrait, unfolded**, and **Landscape, unfolded**. A shape counts as "unfolded" by a live check on the screen's smallest dimension (≥ 600 dp), not a fold-sensor read, so a tablet that never folds still counts. Each row shows "Following portrait" until you set an override, then expands into its own editor when tapped:
+
+| Field | Range | Falls back to |
+|---|---|---|
+| Keyboard scale | 50–150% | 100% |
+| Key height | 32–100 dp | this screen's base Key height (48 dp) |
+| Number row height *(only if Number row is on)* | 32–100 dp | base Number row height (42 dp) |
+| Bottom padding | 0–40 dp | base Bottom padding |
+| Keyboard width | 50–100% | base Keyboard width (100%) |
+| Font size | 0.7×–1.5× | global Key label font size (1.0×) |
+| Keyboard position *(only if resolved width < 100%)* | Left / Center / Right | base Keyboard position |
+
+A **Follow portrait again** row appears at the bottom of the editor once any field is set, clearing the whole override back to "Following portrait" in one tap.
+
+<PhoneFrame caption="A Per-screen sizing row expanded, with Keyboard scale and the other override sliders.">
+  {/* shot: reference/settings/layout-per-screen-editor */}
+</PhoneFrame>
+
+**Keyboard scale** has no portrait equivalent. It's a whole-keyboard multiplier that only exists on these three override shapes, handy on a foldable whose roomy inner display often wants a smaller keyboard than the cover screen. **Font size** here is the same field as **Key label font size** under [Appearance settings](/reference/settings/appearance/); it isn't owned by this screen, but you can still give it a different value per screen shape from here.
+
+### One-handed, split & floating
+
+<SettingsPath path="Layout & size / One-handed, split & floating" />
+
+| Setting | Control | Range | Default |
+|---|---|---|---|
+| One-handed mode | Choice: Off / Left / Right | — | Off |
+| Portrait · width | Slider | 40–85% | 78% |
+| Portrait · height | Slider | 60–100% | 100% |
+| Portrait · side | Choice: Left / Right | — | Right |
+| Landscape · width | Slider | 40–85% | 55% |
+| Landscape · height | Slider | 60–100% | 100% |
+| Landscape · side | Choice: Left / Right | — | Right |
+| Split keyboard | Toggle | — | Off |
+| Split gap *(shown only when Split keyboard is on)* | Slider | 5–40% | 12% |
+| Floating keyboard | Toggle | — | Off |
+| Floating keyboard width *(shown only when Floating keyboard is on)* | Slider | 240–500 dp | 320 dp |
+
+One-handed mode tunes separately per orientation, and the rail's arrow inside the keyboard flips the side and remembers it here for whichever orientation you're in. Split divides every row into left and right halves with a gap between them; floating detaches the keyboard into a movable, resizable panel and replaces the width, position, and bottom-padding logic above while it's active, though split still works alongside it.
+
+<PhoneFrame caption="One-handed mode set to Right, with the Portrait width, height, and side sliders below it.">
+  {/* shot: reference/settings/layout-one-handed-split-floating */}
+</PhoneFrame>
+
+Full detail on all three (plus the floating panel's drag pill and resize grip) is on [Size, position & one-handed use](/typing/size-position/).
+
+### Bottom-row keys
+
+<SettingsPath path="Layout & size / Bottom-row keys" />
+
+| Setting | Control | Default |
+|---|---|---|
+| Comma key opens emoji | Toggle | Off |
+| Emoji key instead of 🌐 | Toggle | On |
+
+**Emoji key instead of 🌐** is on by default: the bottom-row <KeyCap>🌐</KeyCap> key opens the emoji panel instead of switching language, and language switching moves to a spacebar swipe instead (Language, by default). **Comma key opens emoji** replaces the comma key the same way, with comma demoted to a long-press alternate. Turning it on also removes the emoji tool from the toolbar, since the key is meant to replace it.
+
+<PhoneFrame caption="The Bottom-row keys group: Comma key opens emoji and Emoji key instead of the globe key.">
+  {/* shot: reference/settings/layout-bottom-row-keys */}
+</PhoneFrame>
+
+See [Switching languages](/languages/switching/#using-the-globe-key) and [Opening the emoji panel](/emoji/picker/) for what each toggle changes in daily use.
+
+## Details & edge cases
+
+- **"Symbols on shift" isn't in Settings search.** Every other row on this screen is indexed there; this one toggle, while fully functional, currently has no search entry.
+- **Per-screen sizing has no "folded" shape.** Portrait itself is the base/folded size; "unfolded" is decided live by screen width, not a fold sensor, so it can flip mid-session on a foldable device.
+- **"Type native digits in" is not the digit-glyph picker.** Which glyphs a language's digits use (Latin, Arabic-Indic, Bengali, Devanagari, and so on) is set per language under [Languages](/languages/overview/); this screen only controls where the resulting glyphs get committed.
+- **Bottom row height's 0 value reads as "Follow keys," not "0 dp."** It's the default, and it means the space/enter row matches the letter-key height exactly.
+- **Bottom padding's default depends on your Android version.** It's 32 dp on Android 15 and up, where the IME window can draw behind the gesture bar, and 8 dp on older versions.
+- **No edition differences.** Every control on this screen behaves the same on the full and lite builds.
+
+## Related pages
+
+- [Size, position & one-handed use](/typing/size-position/) — the full guide to Size & position, per-screen sizing, one-handed mode, split, and floating, with screenshots of each in action.
+- [Key basics](/typing/basics/#number-row-and-numerals) — the Number row and Numerals groups, explained alongside the rest of everyday typing.
+- [Switching languages](/languages/switching/#using-the-globe-key) and [Opening the emoji panel](/emoji/picker/) — what the two Bottom-row keys toggles change.
+- [Appearance settings](/reference/settings/appearance/) — **Key label font size**, the same field this screen's per-screen **Font size** override adjusts.
+- [Accessibility](/reference/settings/accessibility/) — the **Key size & spacing** shortcut that also opens this screen, plus its own touch and vision accommodations.

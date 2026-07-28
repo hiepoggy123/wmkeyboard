@@ -1,21 +1,215 @@
 ---
 title: "Keyboard themes"
-description: "The theme list and the full theme editor."
+description: "Every row on the theme list and the theme editor — mode, auto light/dark, and every color, shape, and animation control."
 sidebar:
   order: 7
 ---
 
-:::caution[Draft page]
-Scaffolding only — real content pending. The outline below is the checklist for what this page must cover.
-:::
+import PhoneFrame from '@components/PhoneFrame.astro';
+import SettingsPath from '@components/SettingsPath.astro';
+import KeyCap from '@components/KeyCap.astro';
 
-## Planned coverage
+Two screens live behind **Keyboard themes**: a gallery for picking, creating, and managing themes, and an editor for building one from scratch. This page is the field reference for both. For the reasoning and the bigger picture, read [Theming overview](/themes/overview/) and [Theme editor](/themes/editor/) instead.
 
-- Theme list: apply, duplicate, delete, import/export
-- Auto light/dark: by system, by clock, by sunrise/sunset
-- Theme editor: board/keys/accent/toolbar/panels/corners/animation, background image + crop, gradients, colour picker
+<PhoneFrame caption="The theme gallery: Mode, Auto (light + dark), and the Themes grid.">
+{/* shot: reference/settings/themes-gallery-overview */}
+</PhoneFrame>
 
-{/* TODO(sonnet): replace this stub. Turn the outline into real sections,
-   add screenshots with <PhoneFrame>, mark settings with <SettingsPath>,
-   keys with <KeyCap>, and edition limits with <Flavor>.
-   Conventions live in docs/CONTENT_GUIDE.md. */}
+## Theme list
+
+<SettingsPath path="Appearance / Keyboard themes" />
+
+Reach it from **Appearance → Style → Keyboard themes**, or by searching "themes" in settings search. The whole screen is one scroll, in three groups.
+
+### Mode
+
+| Setting | Control | Options | Default |
+|---|---|---|---|
+| Mode | Segmented row | System / Light / Dark / Amoled | System |
+| Material You colors | Toggle | — | On |
+
+Both apply to the settings app itself and to the **Default (system)** theme only. Every built-in and custom theme carries its own fixed palette regardless of either setting. Amoled always renders dark and forces the Default theme's board to pure black, unlike System, which waits on the phone's own light/dark setting.
+
+### Auto (light + dark)
+
+| Setting | Control | Options | Default |
+|---|---|---|---|
+| Auto theme | Toggle | — | Off |
+| Light theme *(shown only while Auto theme is on)* | Picker row | Default, any built-in, or any custom theme | Default (system) |
+| Dark theme *(same)* | Picker row | Default, any built-in, or any custom theme | Default (system) |
+| Trigger *(same)* | Segmented row | System light/dark / Time of day / Sunrise & sunset | System light/dark |
+| Light theme from *(Time of day only)* | Time picker | — | 7:00 AM |
+| Dark theme from *(Time of day only)* | Time picker | — | 7:00 PM |
+
+Choosing **Sunrise & sunset** shows explanatory text instead of a control: it reads the location already saved in the weather tool and computes locally, with no network call, falling back to System light/dark if no location is saved. While Auto theme is on, the Themes grid below still shows which card is selected, but tapping one only previews it; a note above the grid says so.
+
+<PhoneFrame caption="Auto theme on, with Time of day chosen and both clock rows visible.">
+{/* shot: reference/settings/themes-auto-schedule */}
+</PhoneFrame>
+
+### Themes
+
+| Control | What it does |
+|---|---|
+| Create theme | Makes a new custom theme named "My theme", seeded from the first swatch in the theme editor's color row, generated as a dark theme, sets it active, and opens the editor on it right away |
+| Import | Opens a file picker for a theme file, adds it to Your themes under a fresh id, and switches to it immediately (the editor doesn't open) |
+| Card tap | Applies that theme to the keyboard immediately |
+| Card pencil (custom theme) | Opens that theme in the editor |
+| Card pencil (built-in theme) | Copies the built-in into a new custom theme named "*(name) copy*", makes the copy active, and opens the editor on the copy (the original is untouched) |
+| Card export | Saves a `.wmtheme.json` file named after the theme, with any background image embedded as base64 |
+| Card delete *(custom themes only)* | Confirms first, then removes the theme and its background image files (portrait and landscape) from disk |
+
+The grid runs two cards per row: **Default (system)** first (no edit, export, or delete, since it's generated live rather than stored), then **Your themes** (only shown once you have at least one), then **Built-in** with its own note, "Tap to use. The pencil makes an editable copy." Built-in cards never show a delete button.
+
+<PhoneFrame caption="Deleting a custom theme asks for confirmation before removing it.">
+{/* shot: reference/settings/themes-delete-confirm */}
+</PhoneFrame>
+
+There are 26 built-in themes: 18 original WM Keyboard designs plus 8 ports of well-known editor color schemes (Dracula, Nord, Solarized Dark, Solarized Light, Catppuccin Mocha, Catppuccin Latte, Tokyo Night, Cyberpunk). See [Theming overview](/themes/overview/#choosing-a-theme) for the full list and what each one showcases.
+
+## Theme editor
+
+<SettingsPath path="Appearance / Keyboard themes / (edit a theme)" />
+
+Every field here writes and applies the instant you touch it, so there's no save step. A live keyboard preview is pinned at the top and redraws on every change (the gradient animation itself is static in this preview; see it move only on the real keyboard).
+
+<PhoneFrame caption="The theme editor, live preview pinned above the color and shape controls.">
+{/* shot: reference/settings/themes-editor-overview */}
+</PhoneFrame>
+
+### Theme name and start-from-a-color
+
+| Setting | Control |
+|---|---|
+| Theme name | Text field |
+| Dark theme | Toggle (regenerates the palette as a dark or light set) |
+| Seed swatch row | 15 tappable colors |
+
+Tapping a swatch, or flipping **Dark theme**, reseeds every seed-derived color at once (board, keys, accent, popups) while leaving hand-edited fields, gradients, the background image, key shape, border, and animation untouched.
+
+### Board
+
+<SettingsPath path="Appearance / Keyboard themes / (edit a theme) / Board" />
+
+| Setting | Control | Default |
+|---|---|---|
+| Background | Color, alpha | `#17181C` |
+| Gradient background | [Gradient](#gradients), off by default | Off |
+| Background image | Photo picker | None |
+| Crop image *(image set)* | Opens the [crop dialog](#cropping-an-image) | — |
+| Image opacity *(image set)* | Slider, 0–100% | 100% |
+| Image blur *(image set)* | Slider, 0–25 | 0 (off) |
+| Landscape background image | Photo picker, always shown | None |
+| Crop landscape image *(landscape image set)* | Opens the crop dialog | — |
+
+Picking a background image zeroes the board color's alpha automatically, so the photo shows at full strength; raise the board color's opacity back up to tint or dim it. The landscape image row is independent: it's shown even with no portrait image set, falls back to the portrait image (or the plain background color) when empty, and lets a portrait photo and a wide crop each fit their own orientation instead of one being stretched into the other. Full walkthrough: [Image backgrounds](/themes/backgrounds/).
+
+### Keys
+
+| Setting | Control | Default |
+|---|---|---|
+| Key shape | Segmented row: Rounded / Pill / Cut / Squircle | Rounded |
+| Letter keys | Color, alpha | `#303338` |
+| Key gradient | [Gradient](#gradients), off by default | Off |
+| Key text | Color | `#E9E9EE` |
+| Modifier keys | Color, alpha | `#222428` |
+| Modifier key text | Color, alpha off, Auto → Key text | Auto |
+| Enter key | Color | `#4C8DF6` |
+| Enter key icon | Color | `#0B1220` |
+| Pressed key | Color, Auto → blended from Letter keys and Accent | Auto |
+| Key border | Color, Auto → no border | Auto |
+| Border width *(border color set)* | Slider, 0–3dp | 0dp |
+
+Rounded and Cut both follow the corner-radius value (global or per-theme, see [Corners](#corners)), but Cut clamps its own radius to 2–14dp regardless of the slider. Pill is always a full stadium shape and Squircle always draws a fixed superellipse curve; neither reads the radius at all. Setting a key border color alone shows no visible border until you also raise **Border width** above 0.
+
+### Accent & popups
+
+| Setting | Control | Default |
+|---|---|---|
+| Accent | Color | `#8AB4F8` |
+| Gesture trail | Color, alpha, Auto → Accent | Auto |
+| Popup background | Color, alpha, Auto → computed scrim | Auto |
+| Popup text | Color, Auto → Key text | Auto |
+
+Accent drives the shift-on tint, active-tool highlight, and buttons across the panels.
+
+### Toolbar
+
+| Setting | Control | Default |
+|---|---|---|
+| Tool icons | Color, Auto → Key text at partial opacity over the board | Auto |
+| Tool circles | Color, alpha, Auto → computed | Auto |
+| Active tool circle | Color, alpha, Auto → same formula as Pressed key | Auto |
+
+### Panels & suggestions
+
+| Setting | Control | Default |
+|---|---|---|
+| Cards & search bar | Color, alpha, Auto → Modifier keys | Auto |
+| Suggestion text | Color, Auto → Key text | Auto |
+
+"Cards & search bar" covers suggestion chips and the search bar surface across the tool panels.
+
+Any row still on Auto shows an "Auto" label instead of a swatch; once you override it, its color picker gains an **Auto** button next to Apply that clears the override again. See [Theme editor](/themes/editor/#options) for the exact fallback formula behind every Auto field.
+
+### Corners
+
+<SettingsPath path="Appearance / Keyboard themes / (edit a theme) / Corners" />
+
+| Setting | Control | Range | Default when enabled |
+|---|---|---|---|
+| Theme-specific corner radii | Toggle | — | Off |
+| Key corner radius *(on)* | Slider | 0–28dp | seeded from <SettingsPath path="Appearance / Keys / Key corner radius" /> (8dp) |
+| Popup corner radius *(on)* | Slider | 0–24dp | 12dp |
+| Tool circle radius *(on)* | Slider | 0–20dp, "off" at 0 | seeded from Appearance → Toolbar → Tool circle radius (20dp) |
+
+Off by default, so a theme follows the two global sliders under Appearance. Turning the switch on seeds all three radii at once, but only Key corner radius and Tool circle radius actually inherit a global value; Popup corner radius has no matching global slider, so it always seeds to 12dp regardless of anything else.
+
+### Animation
+
+| Setting | Control | Options | Default |
+|---|---|---|---|
+| Animation | Segmented row | None / Flow / Hue cycle | None |
+| Speed *(not None)* | Slider | 0.25×–3× | 1× |
+
+Flow drifts the board gradient along its own axis (or orbits the center, for a radial gradient); Hue cycle slowly rotates the hue of the board gradient, or the solid board color if no gradient is set. Animation only runs while the keyboard is on screen. Three built-ins ship with it on: Sunset drift and Cyberpunk use Flow, Aurora uses Hue cycle, and every other built-in and every fresh custom theme starts on None.
+
+### Gradients
+
+The **Gradient background** (Board) and **Key gradient** (Keys) rows share one editor. Turning the switch on seeds a default (the board gradient starts as a 135° linear blend from Background to Accent, the key gradient as a subtle 90° white sheen), with a live gradient strip above the controls:
+
+| Setting | Control | Range |
+|---|---|---|
+| Type | Segmented row: Linear / Radial / Sweep | — |
+| Angle *(Linear, Sweep only)* | Slider | 0–360° |
+| Color stops | 2 to 4 color rows, alpha supported on each | **Add color** / **Remove color** |
+
+### Cropping an image
+
+<PhoneFrame caption="Cropping a background image: pinch to zoom, drag to reposition, three aspect presets.">
+{/* shot: reference/settings/themes-editor-crop */}
+</PhoneFrame>
+
+Pinch to zoom and drag to pan; the image is always scaled to fill the frame, so there's never a gap at the edges. Three aspect presets: **Keyboard** (2.4:1, the default), **Wide** (1.7:1), and **Square** (1:1). Confirming writes a new JPEG and deletes the source file. The crop isn't reversible from inside the editor, so re-picking the original photo starts a fresh crop.
+
+### The color picker
+
+Tapping any color row opens the same dialog: a hex field (label "Hex (AARRGGBB)", 6 or 8 hex characters; a 6-character value is treated as fully opaque), 21 preset swatches (the 15 seed colors plus 6 grayscale steps from white to black), then Hue, Saturation, and Brightness sliders, plus an Opacity slider on fields that support alpha. **Apply** confirms; **Cancel** discards; an **Auto** button appears only on fields that have a fallback and are currently overridden, and clears the override back to Auto.
+
+## Details & edge cases
+
+- **Editing an existing custom theme doesn't switch to it.** Opening the pencil on a theme already in Your themes just opens the editor. Only Create, the built-in pencil (duplicate), and Import set the opened theme as active, as a side effect of those specific actions.
+- **"Landscape background image" is reached only through a specific theme's editor**, not from the gallery screen itself, even though its settings-search entry is filed under the gallery's breadcrumb, since the editor needs a real theme open, which search alone can't supply.
+- **Mode, Material You colors, and the Auto trigger picker have no settings-search entry.** They're real rows on the gallery screen; searching for "Mode" or "Trigger" won't surface them directly, so search "themes" or "auto theme" instead.
+- **Corner radii aren't fully symmetric with the global sliders.** Turning on Theme-specific corner radii seeds Key corner radius and Tool circle radius from their matching Appearance sliders, but Popup corner radius has no global counterpart and always starts at 12dp.
+- **Deleting or exporting is only offered for Your themes.** The Default card and every built-in card skip both buttons; a built-in's pencil makes an editable copy instead of opening it directly.
+- **No edition split.** Every control on both screens (colors, gradients, images, corners, animation) behaves the same on the full and lite editions.
+
+## Related pages
+
+- [Theming overview](/themes/overview/) — why you'd pick each mode, the full built-in theme list, and how Auto's three triggers behave.
+- [Theme editor](/themes/editor/) — the guided walkthrough of building a theme, with the exact fallback formula behind every Auto color.
+- [Image backgrounds](/themes/backgrounds/) — the background-image picker, crop, opacity, and blur controls in full.
+- [Sharing themes](/themes/sharing/) — exporting, importing, and installing a theme from an addon repository.
+- [Appearance](/reference/settings/appearance/) — the Style group Keyboard themes opens from, alongside Keyboard font and Icons.
+- [Keyboard font](/reference/settings/fonts/) and [Icons](/reference/settings/icons/) — the two other Style rows; typography and icon glyphs are outside `ThemeSpec` entirely.
