@@ -331,26 +331,24 @@ object KeyboardFonts {
             ?.let { FontStore.get(context).existingFileFor(it) }
 
     /**
-     * The [android.graphics.Typeface] to test emoji glyph coverage against for
-     * the "hide unrenderable emoji" feature. Only a [EmojiFontChoice.CUSTOM]
-     * font resolves to a concrete typeface here; [EmojiFontChoice.SYSTEM] and
-     * [EmojiFontChoice.NOTO] return null so the caller tests against the system
-     * emoji font — Noto is fetched asynchronously and can't be loaded as a
-     * blocking typeface, and it exists precisely to fill the system font's gaps.
+     * The font file emojis are drawn from, whose tables say which emoji it can
+     * actually draw and how they have to be spelled — see
+     * [com.wasimaster.wmkeyboard.core.emoji.EmojiFontCoverage].
+     *
+     * Only a chosen file resolves here. [EmojiFontChoice.SYSTEM] and
+     * [EmojiFontChoice.NOTO] return null, meaning "the system emoji font": Noto
+     * is fetched asynchronously and has no file to read, and it exists
+     * precisely to fill the system font's gaps.
      */
-    fun emojiTypeface(
+    fun emojiFontFile(
         context: Context,
         choice: EmojiFontChoice,
         installedId: String = "",
-    ): android.graphics.Typeface? {
-        val file = when (choice) {
-            EmojiFontChoice.SYSTEM, EmojiFontChoice.NOTO -> null
-            EmojiFontChoice.CUSTOM -> customEmojiFontFile(context).takeIf { it.exists() }
-            EmojiFontChoice.INSTALLED -> installedEmojiFile(context, installedId)
-        } ?: return null
-        return runCatching { android.graphics.Typeface.createFromFile(file) }.getOrNull()
-            ?.takeIf { it != android.graphics.Typeface.DEFAULT }
-    }
+    ): File? = when (choice) {
+        EmojiFontChoice.SYSTEM, EmojiFontChoice.NOTO -> null
+        EmojiFontChoice.CUSTOM -> customEmojiFontFile(context)
+        EmojiFontChoice.INSTALLED -> installedEmojiFile(context, installedId)
+    }?.takeIf { it.exists() }
 
     /** Family for any Google Fonts name (also used directly by tool panels). */
     fun googleFamily(name: String): FontFamily = cache.getOrPut("google:$name") {

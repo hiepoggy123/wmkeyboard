@@ -194,9 +194,10 @@ private val SettingRows: List<SettingsSearchEntry> = listOfNotNull(
     entry("Default skin tone", "Skin tone for toned emoji in suggestions and search", "Emoji", "emoji"),
     entry("Override with last used", "Prefer the tone last picked over the default", "Emoji", "emoji"),
     entry("Return to keyboard after inserting", "Close the panel after one emoji or clipboard paste", "Emoji", "emoji"),
+    // One title in every configuration now: an emoji the chosen font lacks is
+    // drawn in the phone's own font rather than hidden, so the toggle is always
+    // about the phone.
     entry("Hide emoji this phone can't display", "Skip emoji that show as a blank box", "Emoji", "emoji"),
-    // The same toggle, under the name it takes once an emoji font is chosen.
-    entry("Hide emoji this font can't display", "Skip emoji that show as a blank box", "Emoji", "emoji"),
     entry("Include API keys", "Translate, GIF, search and AI keys", "Backup & restore", "backup"),
     entry("Emoji button in toolbar", "Keep the emoji button visible next to suggestions", tool = ToolbarTool.EMOJI),
     entry("All emoji settings", "Suggestions, history tab, emoji row, skin tones & favourites", tool = ToolbarTool.EMOJI),

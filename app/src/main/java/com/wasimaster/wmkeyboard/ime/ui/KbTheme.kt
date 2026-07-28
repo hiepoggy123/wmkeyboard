@@ -145,6 +145,22 @@ val LocalEmojiFontFamily = staticCompositionLocalOf<FontFamily?> { null }
  */
 val LocalEmojiShaper = staticCompositionLocalOf { EmojiFontShaping.Identity }
 
+/**
+ * The family to draw [emoji] with: the chosen emoji font, or null — the system
+ * font — for the ones that font cannot draw.
+ *
+ * Letting a font it half-covers draw an emoji is worse than not using it at
+ * all: Android keeps the run in the chosen font and, finding no ligature to
+ * collapse it with, draws 😶‍🌫️ as a face followed by a separate cloud. One
+ * emoji in the system font's style is the better of the two.
+ *
+ * Pair with `LocalEmojiShaper.current.shape(emoji)` for the text itself; the
+ * shaper computes both answers together and caches them.
+ */
+@Composable
+fun emojiFamilyFor(emoji: String): FontFamily? =
+    if (LocalEmojiShaper.current.drawsWithSystemFont(emoji)) null else LocalEmojiFontFamily.current
+
 /** Every Material text style re-based onto [family]; null keeps the defaults. */
 private fun typographyWith(family: FontFamily?): Typography {
     val base = Typography()
@@ -584,12 +600,13 @@ fun KeyboardThemeProvider(settings: KeyboardSettings, content: @Composable () ->
             settings.emojiFontInstalled.installedId,
         )
     }
-    // Built from the Typeface rather than the FontFamily because the probe is
-    // Paint.hasGlyph. Identity for the system font, so the default keyboard
-    // pays nothing for this.
+    // Built from the font file, not the FontFamily: the decision is made by
+    // reading the font's own cmap and GSUB tables. Identity for the system
+    // font, so the default keyboard pays nothing for this, and the tables of a
+    // chosen font are only read when an emoji is first drawn.
     val emojiShaper = remember(settings.emojiFont, settings.emojiFontInstalled.installedId) {
-        EmojiFontShaping.forTypeface(
-            KeyboardFonts.emojiTypeface(
+        EmojiFontShaping.forFontFile(
+            KeyboardFonts.emojiFontFile(
                 context,
                 settings.emojiFont,
                 settings.emojiFontInstalled.installedId,

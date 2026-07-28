@@ -1,158 +1,231 @@
 package com.wasimaster.wmkeyboard.core.emoji
 
-import android.graphics.Paint
-import android.graphics.Typeface
+import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 
 /**
- * Spells an emoji the way the *chosen font* wants to see it.
+ * How to draw one emoji in the chosen font: the spelling that font understands,
+ * or the instruction to leave this one to the system font.
+ */
+data class EmojiSpelling(val text: String, val systemFont: Boolean)
+
+/**
+ * Spells an emoji the way the *chosen font* wants to see it, and says when that
+ * font cannot draw it at all.
  *
  * The catalog stores fully-qualified sequences, which is what the standard says
- * to send: `❤️‍🔥` is `2764 FE0F 200D 1F525`, with U+FE0F asking for the
- * emoji-coloured form of a character that would otherwise be plain text. The
- * system emoji font handles that through a cmap format-14 variation-selector
- * subtable, and every ZWJ ligature in it is built around the qualified form.
+ * to send: `❤️` is `2764 FE0F`, with U+FE0F asking for the emoji-coloured form
+ * of a character that would otherwise be plain text. That is what gets
+ * committed to the field. It is frequently the wrong thing to *draw*.
  *
- * Third-party emoji fonts frequently are not. A converted set often ships its
- * GSUB ligatures keyed on the *unqualified* sequence (`2764 200D 1F525`) and no
- * format-14 subtable at all — so handed the qualified string the font matches
- * no ligature, draws a bare heart, and then has nothing to draw for the U+FE0F
- * itself. The result is `❤ ▯ 🔥`: three glyphs where one was meant, which is
- * how a perfectly good emoji font ends up looking broken.
+ * Android picks a font per character before shaping anything, and a variation
+ * selector dominates that choice (minikin `FontCollection::calcCoverageScore`):
+ * a font that declares the sequence in a `cmap` format-14 subtable scores 3, a
+ * font that merely has the base character scores 1 — even when it is the
+ * requested font and comes first in the collection. Converted colour emoji
+ * fonts essentially never ship a format-14 subtable, so `❤️` is handed to the
+ * *system* emoji font while the chosen font sits there holding a perfectly good
+ * heart. Dropping the U+FE0F hands it back: with no selector the requested
+ * font is first in the collection and wins outright.
  *
- * So the sequence is a rendering detail, not the text. [EmojiShaper.shape]
- * returns the spelling this font can actually draw; what gets committed to the
- * field is always the catalog's own, standard form.
+ * Which spelling to use is therefore a question about the font's own tables,
+ * answered by [EmojiFontCoverage] — not by `Paint.hasGlyph`, which consults the
+ * system fallback chain and so answers "yes" for almost anything.
  *
- * Probing is lazy and cached: the first time an emoji is drawn in a given font
- * it costs a few [Paint.hasGlyph] calls, and nothing after that. With the
- * system font ([forSystemFont]) it costs nothing at all — that font wants the
- * qualified form, which is what we already have.
+ * When no spelling draws as a single glyph, [EmojiSpelling.systemFont] asks the
+ * caller to draw that one emoji in the system font. That is better than what
+ * happens otherwise: a ZWJ sequence the font half-covers renders as its
+ * unjoined parts — 😶‍🌫️ as a face and a separate cloud — because Android keeps
+ * the run in the requested font and finds no ligature to collapse it with.
  */
-class EmojiShaper internal constructor(private val canDraw: ((String) -> Boolean)?) {
+class EmojiShaper internal constructor(source: (() -> EmojiFontCoverage?)?) {
 
-    private val cache = ConcurrentHashMap<String, String>()
+    private val cache = ConcurrentHashMap<String, EmojiSpelling>()
 
     /**
-     * [emoji] respelled for this font, or unchanged when it is already right —
-     * which is the answer for the system font, for a font that handles the
-     * qualified form, and for anything with no variation selector in it.
+     * Parsed on first use rather than when the theme is built: reading the
+     * tables is cheap but not free, and a keyboard that never opens the emoji
+     * panel should not pay for it.
      */
-    fun shape(emoji: String): String {
-        val probe = canDraw ?: return emoji
-        // One code point can't be mis-spelled: there is no selector to move and
-        // no ligature to miss.
-        if (emoji.length < 2) return emoji
-        return cache.getOrPut(emoji) { pick(probe, emoji) }
+    private val coverage: EmojiFontCoverage? by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
+        source?.invoke()
     }
 
-    private fun pick(probe: (String) -> Boolean, emoji: String): String {
-        // The authored form first. When the font is fine with it — the usual
-        // case, including every font with a format-14 subtable — nothing else
-        // is even tried.
-        if (probe(emoji)) return emoji
-        for (candidate in EmojiFontShaping.candidates(emoji)) {
-            if (candidate != emoji && probe(candidate)) return candidate
+    private val identity = source == null
+
+    /** [emoji] respelled for this font, or unchanged when it is already right. */
+    fun shape(emoji: String): String = spelling(emoji).text
+
+    /** True when this one emoji should be drawn in the system emoji font. */
+    fun drawsWithSystemFont(emoji: String): Boolean = spelling(emoji).systemFont
+
+    /** Both answers at once, computed once per emoji and cached. */
+    fun spelling(emoji: String): EmojiSpelling {
+        if (identity || emoji.isEmpty()) return EmojiSpelling(emoji, systemFont = false)
+        return cache.getOrPut(emoji) {
+            val tables = coverage ?: return@getOrPut EmojiSpelling(emoji, systemFont = false)
+            pick(tables, emoji)
         }
-        // Nothing draws as one glyph. Keep the standard spelling: the emoji is
-        // missing from this font either way, and `hideUnrenderable` is the
-        // setting that deals with that.
-        return emoji
+    }
+
+    private fun pick(tables: EmojiFontCoverage, emoji: String): EmojiSpelling {
+        val authored = EmojiFontShaping.codePoints(emoji)
+        val stripped = EmojiFontShaping.stripSelectors(authored, tables)
+        if (EmojiFontShaping.draws(tables, stripped)) {
+            return EmojiSpelling(EmojiFontShaping.toText(stripped), systemFont = false)
+        }
+        // The authored spelling is only worth trying when the font would
+        // actually be given the run — which the *leading* selector decides, and
+        // stripping has already dealt with. A later selector rides along inside
+        // the run, so a font whose ligatures are keyed on the qualified
+        // sequence (most of them) still gets its chance here.
+        if (!EmojiFontShaping.leadsWithUndeclaredSelector(authored, tables) &&
+            EmojiFontShaping.draws(tables, authored)
+        ) {
+            return EmojiSpelling(emoji, systemFont = false)
+        }
+        return EmojiSpelling(emoji, systemFont = true)
     }
 }
 
 object EmojiFontShaping {
 
-    private const val VS16 = '️'
-    private const val ZWJ = '‍'
-
-    /** U+20E3 COMBINING ENCLOSING KEYCAP — the box around `1️⃣`. */
-    private const val KEYCAP = 0x20E3
+    private const val VS15 = 0xFE0E
+    private const val VS16 = 0xFE0F
 
     /** The identity shaper: every emoji is drawn exactly as the catalog spells it. */
     val Identity = EmojiShaper(null)
-
-    /**
-     * A shaper for [typeface], or [Identity] when it is null.
-     *
-     * Null means the system emoji font, which is the one font guaranteed to
-     * want the standard spelling — so the whole mechanism switches off for the
-     * default configuration rather than probing a font that never needs it.
-     */
-    fun forTypeface(typeface: Typeface?): EmojiShaper {
-        if (typeface == null) return Identity
-        val paint = Paint().apply { this.typeface = typeface }
-        return EmojiShaper { paint.hasGlyph(it) }
-    }
 
     /** Explicit form of "no shaping needed", for readability at call sites. */
     fun forSystemFont(): EmojiShaper = Identity
 
     /**
-     * Alternative spellings of [emoji], in the order worth trying.
+     * A shaper for the font in [file], or [Identity] when it is null.
      *
-     * Two directions, because fonts get it wrong both ways: drop every U+FE0F
-     * (for a font whose ligatures were built unqualified, or that has no
-     * format-14 subtable to absorb the selector), and add one after each
-     * text-default base (for a font that keyed its ligatures on the qualified
-     * form when the source sequence omitted it).
-     *
-     * Internal rather than private so it can be tested without a device —
-     * everything here is pure string work; only the probe needs Android.
+     * Null means the system emoji font — the one font guaranteed to want the
+     * standard spelling, and the one we cannot read the tables of — so the
+     * whole mechanism switches off for the default configuration.
      */
-    internal fun candidates(emoji: String): List<String> = buildList {
-        val stripped = emoji.filter { it != VS16 }
-        if (stripped.isNotEmpty()) add(stripped)
-        val qualified = qualify(stripped)
-        if (qualified != stripped) add(qualified)
+    fun forFontFile(file: File?): EmojiShaper {
+        if (file == null || !file.exists()) return Identity
+        return EmojiShaper { coverageFor(file) }
     }
 
     /**
-     * U+FE0F after every base that defaults to text presentation.
+     * Reads [file]'s tables into the shared cache ahead of time.
      *
-     * Only those: adding one to a character that is already emoji-presentation
-     * by default (👍, 🔥 — everything from U+1F000 up) is legal but pointless,
-     * and doubles the number of spellings to probe. The text-default set is
-     * essentially the BMP symbols, which is what [needsSelector] tests.
+     * Reading them is a handful of milliseconds, which is a handful of
+     * milliseconds too many on the frame that draws the first emoji — so the
+     * IME calls this off the main thread whenever the chosen font changes, and
+     * the shaper the theme builds finds the answer already waiting.
      */
-    private fun qualify(text: String): String = buildString {
+    fun warm(file: File?) {
+        if (file != null && file.exists()) coverageFor(file)
+    }
+
+    /**
+     * One font is in use at a time and a theme rebuild makes a fresh shaper, so
+     * the cache exists to stop the same file being read again and again. It is
+     * keyed on the file's identity *and* its stamp: replacing an installed font
+     * keeps the path and has to invalidate.
+     */
+    private val coverageCache = HashMap<String, EmojiFontCoverage?>()
+
+    private fun coverageFor(file: File): EmojiFontCoverage? {
+        val key = "${file.path}:${file.lastModified()}:${file.length()}"
+        synchronized(coverageCache) {
+            if (coverageCache.containsKey(key)) return coverageCache[key]
+        }
+        // Deliberately outside the lock: two threads racing to read the same
+        // font waste a few milliseconds, holding a lock across file IO on the
+        // main thread would cost rather more.
+        val read = EmojiFontCoverage.read(file)
+        synchronized(coverageCache) {
+            if (coverageCache.size >= MAX_CACHED_FONTS) coverageCache.clear()
+            coverageCache[key] = read
+        }
+        return read
+    }
+
+    private const val MAX_CACHED_FONTS = 4
+
+    /** A shaper over already-read [coverage]; null gives [Identity]. */
+    fun forCoverage(coverage: EmojiFontCoverage?): EmojiShaper {
+        if (coverage == null) return Identity
+        return EmojiShaper { coverage }
+    }
+
+    /**
+     * [codePoints] with every variation selector the font does not declare
+     * removed, and the declared ones kept.
+     *
+     * Keeping a declared selector matters as much as dropping an undeclared
+     * one: a font with a format-14 subtable has said which sequences it draws,
+     * and stripping would ask it for the wrong one.
+     */
+    internal fun stripSelectors(codePoints: IntArray, tables: EmojiFontCoverage): IntArray {
+        val out = IntArray(codePoints.size)
+        var n = 0
+        for (i in codePoints.indices) {
+            val cp = codePoints[i]
+            if (isSelector(cp) && i > 0 && !tables.hasVariationSequence(codePoints[i - 1], cp)) {
+                continue
+            }
+            out[n++] = cp
+        }
+        return if (n == codePoints.size) codePoints else out.copyOf(n)
+    }
+
+    /**
+     * True when the font can draw [codePoints] as one glyph.
+     *
+     * A font with no ligatures at all gets the benefit of the doubt: it may be
+     * assembling sequences with contextual substitutions, which are not read,
+     * and refusing to draw its whole catalog would be the worse mistake.
+     */
+    internal fun draws(tables: EmojiFontCoverage, codePoints: IntArray): Boolean {
+        if (codePoints.isEmpty()) return false
+        // A base plus a selector the font itself declares: the format-14
+        // subtable maps that pair straight to a glyph, so neither the
+        // selector's own cmap entry nor a ligature comes into it. Without this
+        // a font that declares its sequences but does not also map U+FE0F on
+        // its own would fail every one of them.
+        if (codePoints.size == 2 && isSelector(codePoints[1]) &&
+            tables.hasVariationSequence(codePoints[0], codePoints[1])
+        ) {
+            return true
+        }
+        for (cp in codePoints) if (!tables.covers(cp)) return false
+        if (codePoints.size == 1) return true
+        return !tables.hasLigatures || tables.ligates(codePoints)
+    }
+
+    /**
+     * True when the sequence opens with `base + selector` that the font has not
+     * declared — the shape that loses the run to the system emoji font, and so
+     * the one spelling never worth handing to this font.
+     */
+    internal fun leadsWithUndeclaredSelector(
+        codePoints: IntArray,
+        tables: EmojiFontCoverage,
+    ): Boolean = codePoints.size >= 2 && isSelector(codePoints[1]) &&
+        !tables.hasVariationSequence(codePoints[0], codePoints[1])
+
+    private fun isSelector(cp: Int) = cp == VS15 || cp == VS16
+
+    internal fun codePoints(text: String): IntArray {
+        val out = IntArray(text.length)
+        var n = 0
         var i = 0
         while (i < text.length) {
             val cp = text.codePointAt(i)
-            val width = Character.charCount(cp)
-            appendRange(text, i, i + width)
-            i += width
-            if (!needsSelector(cp)) continue
-            // Not before a skin tone or another selector: the selector belongs
-            // directly after its own base, and a tone already forces emoji
-            // presentation on its own.
-            val next = if (i < text.length) text.codePointAt(i) else -1
-            val followed = next == VS16.code || next in 0x1F3FB..0x1F3FF
-            if (!followed) append(VS16)
+            out[n++] = cp
+            i += Character.charCount(cp)
         }
+        return out.copyOf(n)
     }
 
-    /**
-     * True for the code points that render as plain text unless asked not to —
-     * the legacy symbol blocks that predate emoji, plus the keycap bases.
-     *
-     * The exclusions matter more than the inclusions. A combining mark or a
-     * format control is not a base, and putting a selector after one moves it
-     * out of position: `1 FE0F 20E3` is a keycap, `1 20E3 FE0F` is a digit with
-     * two marks stuck on it. Regional indicators are excluded for the same
-     * reason — a selector between the two halves of 🇧🇩 is two letters.
-     */
-    private fun needsSelector(cp: Int): Boolean {
-        if (cp == ZWJ.code || cp == VS16.code || cp == KEYCAP) return false
-        // General Punctuation's format controls through the invisible operators.
-        if (cp in 0x200B..0x206F) return false
-        // The halves of a flag.
-        if (cp in 0x1F1E6..0x1F1FF) return false
-        return cp == '#'.code || cp == '*'.code || cp in '0'.code..'9'.code ||
-            cp in 0x00A9..0x00AE ||
-            cp in 0x2000..0x2BFF ||
-            cp in 0x3030..0x303D ||
-            cp in 0x3297..0x3299 ||
-            cp in 0x1F170..0x1F251
+    internal fun toText(codePoints: IntArray): String = buildString(codePoints.size + 2) {
+        for (cp in codePoints) appendCodePoint(cp)
     }
 }

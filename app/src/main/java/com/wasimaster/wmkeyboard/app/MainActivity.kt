@@ -136,6 +136,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -255,6 +256,7 @@ import com.wasimaster.wmkeyboard.core.settings.SpacebarDisplay
 import com.wasimaster.wmkeyboard.core.settings.ThemeMode
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
 import kotlin.math.roundToInt
+import com.wasimaster.wmkeyboard.core.emoji.EmojiFontShaping
 import kotlinx.coroutines.CoroutineScope
 import com.wasimaster.wmkeyboard.core.prediction.CustomDictionaries
 import com.wasimaster.wmkeyboard.core.prediction.DictionaryLoader
@@ -4192,14 +4194,35 @@ private fun EmojiSettings(repository: SettingsRepository, settings: KeyboardSett
                     settings.emojiFontInstalled.installedId,
                 )
             }
+            // Shaped exactly as the keyboard shapes them, so the preview shows
+            // what the panel will show — ❤️ in particular is the one that
+            // silently comes from the system font in a font without a
+            // variation-selector table (see EmojiFontShaping).
+            // Read off the main thread, so the row draws unshaped for a frame
+            // rather than stalling the screen on a megabyte of font tables.
+            val previewShaper by produceState(
+                EmojiFontShaping.Identity,
+                settings.emojiFont,
+                settings.emojiFontInstalled.installedId,
+                fontRefresh,
+            ) {
+                val file = KeyboardFonts.emojiFontFile(
+                    context,
+                    settings.emojiFont,
+                    settings.emojiFontInstalled.installedId,
+                )
+                withContext(Dispatchers.Default) { EmojiFontShaping.warm(file) }
+                value = EmojiFontShaping.forFontFile(file)
+            }
             // One Text per emoji: emoji fonts often have no space glyph, so drawing
             // them as a single spaced string makes the glyphs overlap.
             Row(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
                 for (emoji in listOf("😀", "😂", "🥰", "😎", "🤔", "👍", "❤️", "🎉")) {
+                    val spelling = previewShaper.spelling(emoji)
                     Text(
-                        emoji,
+                        spelling.text,
                         fontSize = 24.sp,
-                        fontFamily = previewFamily,
+                        fontFamily = if (spelling.systemFont) null else previewFamily,
                         maxLines = 1,
                         modifier = Modifier.padding(end = 6.dp),
                     )
@@ -4238,34 +4261,29 @@ private fun EmojiSettings(repository: SettingsRepository, settings: KeyboardSett
             }
         }
         item {
-            // On System the missing glyphs are the phone's; on any other choice
-            // they belong to the font that was picked above, and blaming the
-            // phone for a font the user just installed sends them looking in
-            // the wrong place.
+            // The phone is always the one to blame here: an emoji the chosen
+            // font is missing is drawn in the phone's own emoji font instead,
+            // so the only emoji that stay blank are the ones neither has.
             val ownFont = settings.emojiFont != EmojiFontChoice.SYSTEM
             ToggleSetting(
-                if (ownFont) {
-                    "Hide emoji this font can't display"
-                } else {
-                    "Hide emoji this phone can't display"
-                },
+                "Hide emoji this phone can't display",
                 "Skip emoji that show as a blank box in the panel, search and suggestions",
                 settings.emoji.hideUnrenderable,
-                info = if (ownFont) {
-                    "An emoji font only covers the emoji it was built with, and the " +
-                        "newest ones are usually missing from anything but the latest " +
-                        "release — they then render as an empty \"tofu\" box. This hides " +
-                        "any emoji the emoji font chosen above can't draw. To see more of " +
-                        "them, update the font or switch to \"Google\" (Noto Color Emoji)."
-                } else {
-                    "Older phones (and some brands) ship an emoji font that predates the " +
-                        "newest emoji, which then render as an empty \"tofu\" box. This hides " +
-                        "any emoji your phone's emoji font can't draw. To see them all " +
-                        "instead, set the emoji font above to \"Google\" (Noto Color Emoji), " +
-                        "or install a complete emoji font (such as Twemoji or OpenMoji) from " +
-                        "Addons — WM Keyboard ships no emoji font of its own, it uses the " +
-                        "one you choose here."
-                },
+                info = "Older phones (and some brands) ship an emoji font that predates the " +
+                    "newest emoji, which then render as an empty \"tofu\" box. This hides " +
+                    "any emoji your phone's emoji font can't draw. To see them all instead, " +
+                    "set the emoji font above to \"Google\" (Noto Color Emoji), or install a " +
+                    "complete emoji font (such as Twemoji or OpenMoji) from Addons — WM " +
+                    "Keyboard ships no emoji font of its own, it uses the one you choose " +
+                    "here." + if (ownFont) {
+                        "\n\nThe font chosen above only covers the emoji it was built " +
+                            "with, and the newest ones are usually missing from anything " +
+                            "but the latest release. Those are not hidden: each one is " +
+                            "drawn in the phone's own emoji font instead, so it still " +
+                            "appears — in a different style."
+                    } else {
+                        ""
+                    },
             ) { scope.launch { repository.setHideUnrenderableEmoji(it) } }
         }
     }

@@ -63,6 +63,7 @@ import com.wasimaster.wmkeyboard.core.emoji.EmojiCatalog
 import com.wasimaster.wmkeyboard.core.emoji.EmojiEntry
 import com.wasimaster.wmkeyboard.core.emoji.EmojiRenderCheck
 import com.wasimaster.wmkeyboard.core.emoji.EmojiSearch
+import com.wasimaster.wmkeyboard.core.emoji.EmojiFontShaping
 import com.wasimaster.wmkeyboard.core.emoji.EmojiSuggester
 import com.wasimaster.wmkeyboard.core.emoji.EmojiUsage
 import com.wasimaster.wmkeyboard.core.emoji.EmojiVariantIndex
@@ -8590,26 +8591,35 @@ open class WMKeyboardService : InputMethodService() {
     }
 
     /**
-     * Recomputes [KeyboardUiState.hiddenEmoji] — the emoji the active font
-     * can't draw — for the current font and toggle. A no-op that just clears
-     * the set when the feature is off or the catalog hasn't loaded yet.
+     * Recomputes [KeyboardUiState.hiddenEmoji] — the emoji nothing on the
+     * device can draw — for the current font and toggle, and reads the chosen
+     * font's coverage tables while it is off the main thread anyway.
+     *
+     * The warm-up is not conditional on the toggle: every emoji drawn goes
+     * through [EmojiFontShaping], so the tables are needed either way, and the
+     * only question is whether the frame that draws the first emoji pays for
+     * them.
      */
     private fun recomputeHiddenEmoji(settings: KeyboardSettings) {
         val catalog = emojiEntries
+        val fontFile = KeyboardFonts.emojiFontFile(
+            this,
+            settings.emojiFont,
+            settings.emojiFontInstalled.installedId,
+        )
         if (!settings.emoji.hideUnrenderable || catalog.isEmpty()) {
             if (_uiState.value.hiddenEmoji.isNotEmpty()) {
                 _uiState.update { it.copy(hiddenEmoji = emptySet()) }
+            }
+            serviceScope.launch {
+                withContext(Dispatchers.Default) { EmojiFontShaping.warm(fontFile) }
             }
             return
         }
         serviceScope.launch {
             val hidden = withContext(Dispatchers.Default) {
-                val typeface = KeyboardFonts.emojiTypeface(
-                    this@WMKeyboardService,
-                    settings.emojiFont,
-                    settings.emojiFontInstalled.installedId,
-                )
-                EmojiRenderCheck.unrenderable(catalog.map { it.emoji }, typeface)
+                EmojiFontShaping.warm(fontFile)
+                EmojiRenderCheck.unrenderable(catalog.map { it.emoji }, fontFile)
             }
             _uiState.update { it.copy(hiddenEmoji = hidden) }
         }

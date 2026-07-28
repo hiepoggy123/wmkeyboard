@@ -1652,10 +1652,11 @@ data class EmojiSettings(
      */
     val closeAfterInsert: Boolean = false,
     /**
-     * Hide emoji the device's emoji font can't draw (they render as a blank
-     * "tofu" box) from the panel, search and suggestions. Detected per-glyph
-     * against the active emoji font; importing a complete emoji font under
-     * Emoji → Emoji font makes everything renderable again.
+     * Hide emoji nothing on the device can draw (they render as a blank "tofu"
+     * box) from the panel, search and suggestions. An emoji only the *chosen*
+     * emoji font lacks is not hidden — it is drawn in the phone's own emoji
+     * font instead — so this is about the phone's coverage, and importing a
+     * complete emoji font under Emoji → Emoji font is the way to widen it.
      */
     val hideUnrenderable: Boolean = false,
     /**

@@ -1815,7 +1815,7 @@ private fun TopBar(
                     Text(
                         text = LocalEmojiShaper.current.shape(emoji),
                         fontSize = 22.sp,
-                        fontFamily = LocalEmojiFontFamily.current,
+                        fontFamily = emojiFamilyFor(emoji),
                     )
                 }
             }
@@ -2302,7 +2302,7 @@ private fun EmojiBarCell(
             .clickable { onEmoji(emoji) }
             .padding(vertical = 6.dp),
         fontSize = fontSize,
-        fontFamily = LocalEmojiFontFamily.current,
+        fontFamily = emojiFamilyFor(emoji),
         textAlign = TextAlign.Center,
         maxLines = 1,
     )
@@ -8362,7 +8362,7 @@ private fun EmojiCell(
                 }
                 .padding(6.dp),
             fontSize = 26.sp,
-            fontFamily = LocalEmojiFontFamily.current,
+            fontFamily = emojiFamilyFor(display),
         )
         if (showVariants) {
             EmojiVariantPopup(
@@ -8441,7 +8441,7 @@ private fun EmojiVariantPopup(
                         Text(
                             text = LocalEmojiShaper.current.shape(display),
                             fontSize = 20.sp,
-                            fontFamily = LocalEmojiFontFamily.current,
+                            fontFamily = emojiFamilyFor(display),
                         )
                         Box(modifier = Modifier.width(10.dp))
                         // Long names wrap rather than stretch the popup: the
@@ -8554,7 +8554,7 @@ private fun EmojiVariantPopup(
                                             .clickable { onPick(variant) }
                                             .padding(horizontal = 9.dp, vertical = 9.dp),
                                         fontSize = 26.sp,
-                                        fontFamily = LocalEmojiFontFamily.current,
+                                        fontFamily = emojiFamilyFor(variant),
                                     )
                                 }
                             }
@@ -8653,7 +8653,7 @@ private fun FavouritesReorderPopup(
                                 Text(
                                     text = LocalEmojiShaper.current.shape(emoji),
                                     fontSize = 24.sp,
-                                    fontFamily = LocalEmojiFontFamily.current,
+                                    fontFamily = emojiFamilyFor(emoji),
                                     modifier = Modifier.weight(1f),
                                 )
                                 Icon(
@@ -8755,7 +8755,7 @@ private fun DualTonePicker(
                             .clickable { member = candidate }
                             .padding(horizontal = 6.dp, vertical = 4.dp),
                         fontSize = 22.sp,
-                        fontFamily = LocalEmojiFontFamily.current,
+                        fontFamily = emojiFamilyFor(candidate),
                     )
                 }
             }
@@ -8766,7 +8766,7 @@ private fun DualTonePicker(
                 .clickable { onPick(preview) }
                 .padding(6.dp),
             fontSize = 34.sp,
-            fontFamily = LocalEmojiFontFamily.current,
+            fontFamily = emojiFamilyFor(preview),
         )
         for (slot in 0..1) {
             Row(
