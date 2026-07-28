@@ -233,7 +233,7 @@
       "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
       "Fresh install / default settings (aiProvider defaults to Claude but aiAnthropicKey defaults to blank, so AiClient.isConfigured() is false). Open AI from the toolbar or toolbox."
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "This is the true out-of-the-box default state \u2014 no provider configured yet.",
     "kind": "still"
   },
@@ -261,7 +261,7 @@
       "adb shell am start -a android.intent.action.VIEW -d wmkeyboard://settings/tools",
       "Tap 'AI writing tools'. Leave Claude selected (or pick another cloud/self-hosted chip) so the provider chip row and its key/model fields are visible."
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "AI's own screen isn't in the deep-link allowlist beyond the Tools list root, so this needs one tap into 'AI writing tools' after the deep link.",
     "kind": "still"
   },
@@ -275,7 +275,7 @@
       "adb shell am start -a android.intent.action.VIEW -d wmkeyboard://settings/tools",
       "Tap 'AI writing tools', then tap the 'On-device' provider chip to show the model catalog, Hugging Face token field, and CPU/GPU compute chips."
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "Full edition only \u2014 the On-device chip doesn't render at all in a Lite build (BuildConfig.ENABLE_LOCAL_LLM gates it out of the provider row), so this must be captured on a Full build.",
     "kind": "still"
   },
@@ -594,7 +594,7 @@
       "am start -a android.intent.action.VIEW -d wmkeyboard://settings/tools",
       "Tap Voice typing to open the tool screen (Engine group with the Recognition engine chooser is at the top, full edition only)"
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "Full edition build required \u2014 the Engine section does not render on lite. Capture with System recognizer selected so both options are visible in the chooser.",
     "kind": "still"
   },
@@ -608,7 +608,7 @@
       "am start -a android.intent.action.VIEW -d wmkeyboard://settings/tools",
       "Tap Voice typing, set Recognition engine to Offline Whisper, then open the model browse/catalog section (WhisperBrowseSection)"
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "Enable at least one non-English language first so a single-language model or two shows up in the visible catalog, not just the 8 multilingual entries.",
     "kind": "still"
   },
@@ -623,7 +623,7 @@
       "Tap Voice typing, set Recognition engine to Offline Whisper, download one model that only covers one enabled language, and enable a second language with no covering model downloaded",
       "Scroll to the 'Model per language' group (WhisperRoutingCard) so the uncovered-language row shows in error color"
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "Needs at least two enabled languages, only one covered by a downloaded model, to show both a normal 'chosen automatically' row and the error-colored 'cannot transcribe this language' row in the same shot.",
     "kind": "still"
   },
@@ -638,7 +638,7 @@
       "Tap Voice typing, set Recognition engine to Offline Whisper, open the catalog, and tap download on a model (e.g. Small multilingual)",
       "Capture while the progress bar is mid-fill (progress updates throttle to every 250ms, so a mid-size model gives a comfortable capture window)"
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "Motion is just a progress bar filling, not core to the behavior being shown, so a single still mid-download is sufficient \u2014 no anim needed.",
     "kind": "still"
   },
@@ -3206,7 +3206,7 @@
       "Tap the 'AI' row to open Tools / AI writing tools",
       "Tap the Ollama or LM Studio provider chip to reveal the server-address field and the 'Traffic to a self-hosted server is plain HTTP, and the app allows cleartext traffic app-wide to support it. Keep the server on a network you trust.' note"
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "The per-tool AI screen (route 'tool/AI') is not in the deep-link allowlist (only typing/appearance/themes/languages/tools/search are), so this needs a tap after landing on Tools \u2014 no direct wmkeyboard:// URI. This id is distinct from tools/ai.mdx's own registered shots (ai-panel-idle, ai-need-setup, ai-result-ready, ai-settings-providers, ai-settings-local-catalog) \u2014 none of those already cover the Ollama/LM Studio plain-HTTP note specifically, so this is not a duplicate, but double-check at capture time in case that page's manifest grew one since.",
     "kind": "still"
   },

@@ -15,7 +15,7 @@ import Flavor from '@components/Flavor.astro';
 Offline Whisper is a second dictation engine that runs entirely on your phone. Instead of streaming audio to a speech-recognition service, it records what you say and transcribes it locally with an OpenAI Whisper model, so nothing ever leaves the device.
 
 <PhoneFrame caption="Recognition engine choice on the Voice typing screen.">
-{/* shot: tools/whisper-engine-choice */}
+![Recognition engine choice on the Voice typing screen.](@assets/screens/tools/whisper-engine-choice.webp)
 </PhoneFrame>
 
 ## Why offline dictation
@@ -37,7 +37,7 @@ Bigger models trade download size and speed for accuracy:
 The catalog has 27 downloadable models: 8 multilingual graphs (5 that auto-detect the spoken language, and 3 grouped models you can pin to one language) plus 19 single-language models covering 13 languages (English, German, Spanish, French, Hindi, Italian, Japanese, Portuguese, Russian, Tamil, Telugu, Urdu, and Chinese, several with more than one size). A single-language model only appears in the catalog once you've enabled that language on the Languages screen.
 
 <PhoneFrame caption="Model catalog with size and language filters, grouped by tier.">
-{/* shot: tools/whisper-catalog */}
+![Model catalog with size and language filters, grouped by tier.](@assets/screens/tools/whisper-catalog.webp)
 </PhoneFrame>
 
 Two larger community conversions (`whisper-large-v3` and `whisper-turbo`) are deliberately left out: they need a 128-bin mel spectrogram, while WM Keyboard's audio pipeline and bundled filterbanks are 80-bin only, so those graphs would decode garbage on this app.
@@ -55,7 +55,7 @@ Rather than one global model for every language, WM Keyboard resolves a model pe
 That last step is deliberate: it produces wrong words rather than a dead microphone. When a language's assigned model can't cover it, the row is flagged in the error color with a note to download one that does.
 
 <PhoneFrame caption="Model-per-language routing list, with a coverage warning on one row.">
-{/* shot: tools/whisper-routing */}
+![Model-per-language routing list, with a coverage warning on one row.](@assets/screens/tools/whisper-routing.webp)
 </PhoneFrame>
 
 ## Downloading and managing models
@@ -65,7 +65,7 @@ Tap a model in the catalog to download it. Each model downloads as two files (th
 Only one model downloads at a time. Before it starts, WM Keyboard checks that you have enough free space (the remaining bytes plus a safety margin); if you don't, the download stops with a message telling you roughly how much space to free up. On a metered connection, any model at or above roughly 150 MB asks you to confirm before using mobile data.
 
 <PhoneFrame caption="A model mid-download, with progress and the storage summary below the list.">
-{/* shot: tools/whisper-download-progress */}
+![A model mid-download, with progress and the storage summary below the list.](@assets/screens/tools/whisper-download-progress.webp)
 </PhoneFrame>
 
 Downloaded models live in the app's private storage, not shared storage: the screen shows total space used and lets you delete a model to reclaim it. Deleting a model also clears any per-language pin that pointed at it, and clears your global fallback if that was the deleted model. If an app update ever drops a model from the catalog, leftover files show up as reclaimable space with a one-tap "Free up" button.
