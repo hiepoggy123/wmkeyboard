@@ -2386,5 +2386,476 @@
     "status": "todo",
     "notes": "Motion-only behavior; typing/size-position-floating is the required still/reduced-motion sibling for this same feature.",
     "kind": "anim"
+  },
+  {
+    "id": "smart/autocorrect-confidence-fix",
+    "page": "docs/src/content/docs/smart/autocorrect.mdx",
+    "file": "src/assets/screens/smart/autocorrect-confidence-fix.webp",
+    "caption": "A mistyped word corrected inline as the next word begins.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text --es theme dark",
+      "Focus the field, open WM Keyboard, type an unambiguous typo of a common word (e.g. 'wprld ') so autocorrect fires and the corrected word plus the next word-in-progress are both visible",
+      "Capture right after the space commits the correction"
+    ],
+    "status": "todo",
+    "notes": "Want the corrected word visible in the field, ideally with the suggestion strip showing normal completions for the next word (not the correction itself, which is already committed).",
+    "kind": "still"
+  },
+  {
+    "id": "smart/autocorrect-skip-allcaps",
+    "page": "docs/src/content/docs/smart/autocorrect.mdx",
+    "file": "src/assets/screens/smart/autocorrect-skip-allcaps.webp",
+    "caption": "ALL-CAPS words pass through untouched next to a corrected lowercase one.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text --es theme dark",
+      "Type an ALL-CAPS acronym (e.g. 'ASAP ') followed by a lowercase typo that does get corrected (e.g. 'wprld '), so both the untouched capital word and the corrected word are visible together",
+      "Capture after both words have committed"
+    ],
+    "status": "todo",
+    "notes": "Illustrates the ALL-CAPS skip rule by contrast with a normal correction in the same field.",
+    "kind": "still"
+  },
+  {
+    "id": "smart/autocorrect-backspace-undo",
+    "page": "docs/src/content/docs/smart/autocorrect.mdx",
+    "file": "src/assets/screens/smart/autocorrect-backspace-undo.webp",
+    "caption": "Backspace right after a correction restores what you originally typed.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text --es theme dark",
+      "Type a word that autocorrects (e.g. 'wprld ') so it commits as 'world ', then immediately press backspace once without moving the cursor or typing anything else",
+      "Capture right after the backspace, with the field showing the original typed word restored (e.g. 'wprld ')"
+    ],
+    "status": "todo",
+    "notes": "This is a discrete before/after state, not motion \u2014 a single still after the backspace is sufficient, no animation needed.",
+    "kind": "still"
+  },
+  {
+    "id": "smart/autocorrect-options",
+    "page": "docs/src/content/docs/smart/autocorrect.mdx",
+    "file": "src/assets/screens/smart/autocorrect-options.webp",
+    "caption": "The Automatic corrections group in Typing settings, including the confidence slider.",
+    "host": "settings",
+    "setup": [
+      "am start -a android.intent.action.VIEW -d wmkeyboard://settings/typing",
+      "Scroll to the 'Automatic corrections' group so the Autocorrect toggle and the Autocorrect confidence slider (with its current \u00d74.0 label) are both visible, along with Undo autocorrect with backspace / Skip all-caps words / Block offensive words below it"
+    ],
+    "status": "todo",
+    "notes": "Only shows the slider and dependent toggles while the master Autocorrect toggle is on (default state), which is the state to capture.",
+    "kind": "still"
+  },
+  {
+    "id": "smart/autofill-chips-strip",
+    "page": "docs/src/content/docs/smart/autofill.mdx",
+    "file": "src/assets/screens/smart/autofill-chips-strip.webp",
+    "caption": "Saved-login chips from a password manager, filling the suggestion strip on a login field.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind password",
+      "Set a password manager (e.g. Google Password Manager or a test manager with saved entries for this package) as the system autofill service before capture, otherwise no chips will appear",
+      "Focus the field so the IME requests inline suggestions and the manager returns at least 2-3 chips"
+    ],
+    "status": "todo",
+    "notes": "Needs a real autofill service active with saved credentials for the docs harness's package/domain, or the chip row will be empty. Chips are drawn by the manager itself, so exact visual varies by which manager is used for the shot -- pick one with a clean, generic chip style (avoid a branded one if possible).",
+    "kind": "still"
+  },
+  {
+    "id": "smart/autofill-dismiss",
+    "page": "docs/src/content/docs/smart/autofill.mdx",
+    "file": "src/assets/screens/smart/autofill-dismiss.webp",
+    "caption": "Dismissing the chip row to type normally instead.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind password",
+      "Same autofill-service setup as smart/autofill-chips-strip",
+      "Focus the field to bring up chips, then frame the shot on the dismiss (X) button at the end of the chip row before tapping it"
+    ],
+    "status": "todo",
+    "notes": "Should show the chip row with the dismiss X button visible/highlighted, not the post-dismiss state (that's just the ordinary strip, not worth a separate shot).",
+    "kind": "still"
+  },
+  {
+    "id": "smart/blacklist-editor",
+    "page": "docs/src/content/docs/smart/blacklist.mdx",
+    "file": "src/assets/screens/smart/blacklist-editor.webp",
+    "caption": "The suggestion blacklist editor, reached from Typing settings.",
+    "host": "settings",
+    "setup": [
+      "am start -a android.intent.action.VIEW -d wmkeyboard://settings/typing",
+      "Tap 'Suggestion blacklist' under the Suggestions group to open the editor screen",
+      "Add a couple of sample words first (e.g. via the Add word dialog) so the list isn't empty in the shot"
+    ],
+    "status": "todo",
+    "notes": "Shows the sorted word list with trailing delete icons per row. Route 'blacklist' is not itself deep-link allowlisted, only 'typing' is, so navigate via the Typing screen and tap through.",
+    "kind": "still"
+  },
+  {
+    "id": "smart/blacklist-add-dialog",
+    "page": "docs/src/content/docs/smart/blacklist.mdx",
+    "file": "src/assets/screens/smart/blacklist-add-dialog.webp",
+    "caption": "Adding a word to the blacklist from the Add word dialog.",
+    "host": "settings",
+    "setup": [
+      "am start -a android.intent.action.VIEW -d wmkeyboard://settings/typing",
+      "Tap 'Suggestion blacklist' to open the editor, then tap 'Add word'",
+      "Type a sample word into the 'Word' field before capturing so the Add button is enabled"
+    ],
+    "status": "todo",
+    "notes": "AlertDialog with single OutlinedTextField labeled 'Word', Add/Cancel buttons; Add is disabled while blank so type something first.",
+    "kind": "still"
+  },
+  {
+    "id": "smart/calc-chip",
+    "page": "docs/src/content/docs/smart/chips.mdx",
+    "file": "src/assets/screens/smart/calc-chip.webp",
+    "caption": "Typing 12*8 puts a calc chip on the suggestion strip.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
+      "Switch to WM Keyboard, focus the field, type 12*8, screenshot the strip before tapping the chip."
+    ],
+    "status": "todo",
+    "notes": "Confirm Settings > Typing > Smart chips and Calculate as you type are both on (both default true). Chip fills the whole strip width.",
+    "kind": "still"
+  },
+  {
+    "id": "smart/currency-chip",
+    "page": "docs/src/content/docs/smart/chips.mdx",
+    "file": "src/assets/screens/smart/currency-chip.webp",
+    "caption": "A currency chip: amount and source on the left, the converted amount on the right, gear button to open the full converter.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
+      "Type 150 usd. If rates haven't loaded yet the chip shows a brief spinner \u2014 wait a moment for it to resolve before shooting.",
+      "Default currency pair is USD to BDT so the result should read as an amount in Taka."
+    ],
+    "status": "todo",
+    "notes": "Needs network access once for open.er-api.com (or frankfurter.app fallback) to fetch rates the first time.",
+    "kind": "still"
+  },
+  {
+    "id": "smart/keyword-chip",
+    "page": "docs/src/content/docs/smart/chips.mdx",
+    "file": "src/assets/screens/smart/keyword-chip.webp",
+    "caption": "Typing wiki offers a narrow chip to open Wikipedia, leaving room for word candidates.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
+      "Type wiki (do not add a trailing space) and screenshot the strip \u2014 expect a narrow 'Open Wikipedia' chip beside word candidates, not filling the whole strip."
+    ],
+    "status": "todo",
+    "notes": "Tool keywords toggle (Typing > Smart chips > Tool keywords) must be on; default true.",
+    "kind": "still"
+  },
+  {
+    "id": "smart/clipboard-entity-strip",
+    "page": "docs/src/content/docs/smart/chips.mdx",
+    "file": "src/assets/screens/smart/clipboard-entity-strip.webp",
+    "caption": "The Clipboard panel: dashed entity chips above the history, pulled out of several different clips.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
+      "Beforehand, copy 2-3 separate pieces of text into clipboard history containing distinct entity types, e.g. 'Your verification code is 483920', 'call me at 555-123-4567', and 'see https://example.com/docs' (as separate copy actions so they land as separate clips).",
+      "Open the Clipboard tool from the toolbar or toolbox and screenshot the dashed-outline chip strip above the clip grid."
+    ],
+    "status": "todo",
+    "notes": "Detect codes, numbers & links (Tools > Clipboard) must be on; default true. Up to 12 chips shown, sorted OTP, then PHONE, then URL.",
+    "kind": "still"
+  },
+  {
+    "id": "smart/otp-fresh-copy-chip",
+    "page": "docs/src/content/docs/smart/chips.mdx",
+    "file": "src/assets/screens/smart/otp-fresh-copy-chip.webp",
+    "caption": "Copying a verification text offers just the code, not the whole message, right on the suggestion strip.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
+      "Copy a message like 'Your verification code is 483920' from outside the harness (e.g. Messages or Notes) so it becomes the most recent clip.",
+      "Switch to WM Keyboard and focus the field with no text typed yet; the idle suggestion strip should show a dashed CODE chip instead of the ordinary full-clip paste chip."
+    ],
+    "status": "todo",
+    "notes": "Requires both Suggest recent copy and Detect codes, numbers & links on (Tools > Clipboard); both default true. This fast path is OTP-only \u2014 a phone number or URL copy shows the ordinary full-clip chip instead.",
+    "kind": "still"
+  },
+  {
+    "id": "smart/options",
+    "page": "docs/src/content/docs/smart/chips.mdx",
+    "file": "src/assets/screens/smart/options.webp",
+    "caption": "Smart chips settings under Typing: master switch and the four per-family toggles.",
+    "host": "settings",
+    "setup": [
+      "am start -a android.intent.action.VIEW -d wmkeyboard://settings/typing",
+      "Scroll to the Smart chips group and screenshot the master switch plus the four per-family toggles."
+    ],
+    "status": "todo",
+    "notes": "Typing is deep-link allowlisted per MainActivity.kt/SettingsSearch.kt. All five toggles default true.",
+    "kind": "still"
+  },
+  {
+    "id": "smart/contact-name-suggestion",
+    "page": "docs/src/content/docs/smart/contacts.mdx",
+    "file": "src/assets/screens/smart/contact-name-suggestion.webp",
+    "caption": "A contact name completing in the suggestion strip, mid-word.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
+      "Enable Typing / Suggest contact names first (grants READ_CONTACTS) and ensure at least one seeded contact with a first+last name is present on the test device/emulator",
+      "Type the first few letters of a seeded contact's first name (e.g. 'Was' for 'Wasi') so the completion appears mid-word in the suggestion strip",
+      "Capture before committing the word so the strip shows the live completion"
+    ],
+    "status": "todo",
+    "notes": "Needs a test-device contact seeded ahead of capture (e.g. via adb shell content insert into raw_contacts/data, or the emulator's Contacts app) since this can't be captured against an empty address book. Capture agent should pick a name that clearly demonstrates completion (a distinctive first name, not a common dictionary word) so the shot isn't ambiguous with an ordinary dictionary suggestion.",
+    "kind": "still"
+  },
+  {
+    "id": "smart/grammar-panel-open",
+    "page": "docs/src/content/docs/smart/grammar.mdx",
+    "file": "src/assets/screens/smart/grammar-panel-open.webp",
+    "caption": "The Grammar panel open above the key rows, with a spelling issue and its fix chips.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text --es text 'This dont work good and it are broken.'",
+      "Switch to WM Keyboard (full flavor build \u2014 ENABLE_GRAMMAR must be true), focus the field, open the toolbox and tap Grammar check",
+      "Wait for the immediate check to finish (checking spinner clears) before capturing"
+    ],
+    "status": "todo",
+    "notes": "Panel renders as a 146dp strip above the key rows, not full-bleed \u2014 capture with the key rows visible underneath. Needs a full-flavor build; lite has no Grammar tool at all.",
+    "kind": "still"
+  },
+  {
+    "id": "smart/grammar-toolbox-entry",
+    "page": "docs/src/content/docs/smart/grammar.mdx",
+    "file": "src/assets/screens/smart/grammar-toolbox-entry.webp",
+    "caption": "Grammar check in the toolbox, with the dialect chip and a live issue count.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
+      "Open the toolbox grid (not the panel itself) and capture with the Grammar check tile visible",
+      "Full flavor build required"
+    ],
+    "status": "todo",
+    "notes": "Shows the entry point in the toolbox grid, distinct from the panel-open shot. If default toolbox order is used, Grammar check appears after AI, not near the top \u2014 may need to scroll the toolbox grid into view.",
+    "kind": "still"
+  },
+  {
+    "id": "smart/grammar-fix-chips",
+    "page": "docs/src/content/docs/smart/grammar.mdx",
+    "file": "src/assets/screens/smart/grammar-fix-chips.webp",
+    "caption": "A card mid-fix: struck-through original text, fix chips, and Harper's explanation.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text --es text 'Their going to the store, but there not sure when.'",
+      "Open Grammar check, wait for lints, zoom/crop to a single issue card showing struck-through text, arrow, and multiple fix chips"
+    ],
+    "status": "todo",
+    "notes": "Close-up crop of one GrammarLintCard; pick a lint with 2+ distinct suggestions so multiple fix chips are visible.",
+    "kind": "still"
+  },
+  {
+    "id": "smart/grammar-settings",
+    "page": "docs/src/content/docs/smart/grammar.mdx",
+    "file": "src/assets/screens/smart/grammar-settings.webp",
+    "caption": "The Grammar check settings screen: dialect, re-check delay, and the system-wide group.",
+    "host": "settings",
+    "setup": [
+      "am start -a android.intent.action.VIEW -d wmkeyboard://settings/tools",
+      "Navigate to the Grammar check tool's settings screen (Tools list -> Grammar check) since tool subpages aren't individually deep-link allowlisted",
+      "Capture with English dialect, Re-check delay, and the System-wide group (Use Harper everywhere, Underline only) all visible \u2014 full flavor build required for the System-wide group to render"
+    ],
+    "status": "todo",
+    "notes": "Same screen is also referenced by smart/spell-checker.mdx's own settings shot (smart/spell-checker-options) which crops to just the System-wide group \u2014 this one should show the whole screen including the Options group above it.",
+    "kind": "still"
+  },
+  {
+    "id": "smart/personal-dictionary-list",
+    "page": "docs/src/content/docs/smart/personal-dictionary.mdx",
+    "file": "src/assets/screens/smart/personal-dictionary-list.webp",
+    "caption": "The Personal dictionary screen: learned and manually-added words, most-used first.",
+    "host": "settings",
+    "setup": [
+      "am start -a android.intent.action.VIEW -d wmkeyboard://settings/typing",
+      "Scroll to the Suggestions group and tap 'Personal dictionary'"
+    ],
+    "status": "todo",
+    "notes": "Route 'dictionary' is not in the deep-link allowlist (only typing/appearance/themes/languages/tools/search are), so the deep link lands on Typing and needs one tap into Personal dictionary. Pre-seed a few words before shooting so both an 'Added by you' row (weight >= 200) and a 'Seen N\u00d7' row are visible in the same frame -- either type a word 200+ times via automation, or manually add one (Add word) and let a couple others accumulate a lower count from normal typing.",
+    "kind": "still"
+  },
+  {
+    "id": "smart/personal-dictionary-add",
+    "page": "docs/src/content/docs/smart/personal-dictionary.mdx",
+    "file": "src/assets/screens/smart/personal-dictionary-add.webp",
+    "caption": "Adding a word by hand from the Add word dialog.",
+    "host": "settings",
+    "setup": [
+      "am start -a android.intent.action.VIEW -d wmkeyboard://settings/typing",
+      "Scroll to the Suggestions group, tap 'Personal dictionary', tap 'Add word'",
+      "Type a sample word (e.g. a made-up nickname) into the dialog field before capturing"
+    ],
+    "status": "todo",
+    "notes": "Capture with the dialog open and the text field non-empty so the enabled 'Add' button is visible.",
+    "kind": "still"
+  },
+  {
+    "id": "smart/personal-dictionary-clear",
+    "page": "docs/src/content/docs/smart/personal-dictionary.mdx",
+    "file": "src/assets/screens/smart/personal-dictionary-clear.webp",
+    "caption": "The 'Your data' group on the Privacy screen, with the one-tap clear button.",
+    "host": "settings",
+    "setup": [
+      "Privacy is not deep-link allowlisted -- open Settings home and tap 'Privacy'",
+      "Scroll to the bottom 'Your data' group so the 'Clear learned words' button is in frame"
+    ],
+    "status": "todo",
+    "notes": "Do not actually tap Clear learned words during capture unless the shot specifically needs the confirmation state -- there is no confirmation dialog, it deletes immediately.",
+    "kind": "still"
+  },
+  {
+    "id": "smart/personal-dictionary-backup-toggle",
+    "page": "docs/src/content/docs/smart/personal-dictionary.mdx",
+    "file": "src/assets/screens/smart/personal-dictionary-backup-toggle.webp",
+    "caption": "The Dictionary section of a manual export, off by default.",
+    "host": "settings",
+    "setup": [
+      "Backup & restore is not deep-link allowlisted -- open Settings home and tap 'Backup & restore'",
+      "Scroll to the 'Include in export' group so the 'Dictionary' toggle (off) is in frame"
+    ],
+    "status": "todo",
+    "notes": "Shoot with the toggle in its default off state to match the caption; no need to actually export.",
+    "kind": "still"
+  },
+  {
+    "id": "smart/spell-checker-underline",
+    "page": "docs/src/content/docs/smart/spell-checker.mdx",
+    "file": "src/assets/screens/smart/spell-checker-underline.webp",
+    "caption": "A misspelled word underlined by the system spell checker in another app, with a contact-name correction offered first.",
+    "host": "harness-field",
+    "setup": [
+      "First select WM Keyboard (Harper) as the system spell checker via Android's own Spell checker picker (see the spell-checker-picker shot's setup)",
+      "Grant the Contacts permission and turn on Suggest contact names under Typing settings so a real contact is available to demonstrate the correction-menu priority",
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text",
+      "Type a misspelled word (ideally close to the test contact's name) into the field and wait for the underline to appear, then trigger the correction menu"
+    ],
+    "status": "todo",
+    "notes": "The underline is drawn by Android's own text-service framework on any focused EditText, independent of which on-screen keyboard is active -- DocsShotActivity's own field works fine as the target even though the feature is conceptually 'any app'. Full-flavor build only (needs libharper_jni.so).",
+    "kind": "still"
+  },
+  {
+    "id": "smart/spell-checker-picker",
+    "page": "docs/src/content/docs/smart/spell-checker.mdx",
+    "file": "src/assets/screens/smart/spell-checker-picker.webp",
+    "caption": "Android's own Spell checker picker, with WM Keyboard (Harper) listed as an option.",
+    "host": "settings",
+    "setup": [
+      "am start -n com.android.settings/.Settings\\$SpellCheckersSettingsActivity",
+      "If that component doesn't resolve on this OS image, fall back to: am start -a android.settings.INPUT_METHOD_SETTINGS, then open Spell checker from there (mirrors the app's own fallback in MainActivity.kt's openSpellCheckerSettings())"
+    ],
+    "status": "todo",
+    "notes": "This is Android's own system Settings screen, not WM Keyboard's app settings. Entry shows as 'WM Keyboard (Harper)' with one 'English' subtype (spell_checker_name / spell_checker_subtype_english strings in app/src/full/res/values/strings.xml). Only present on full-flavor installs.",
+    "kind": "still"
+  },
+  {
+    "id": "smart/spell-checker-options",
+    "page": "docs/src/content/docs/smart/spell-checker.mdx",
+    "file": "src/assets/screens/smart/spell-checker-options.webp",
+    "caption": "The System-wide group on the Grammar check screen: Use Harper everywhere, and Underline only for Android 12 and up.",
+    "host": "settings",
+    "setup": [
+      "am start -a android.intent.action.VIEW -d wmkeyboard://settings/tools",
+      "Tap Grammar check in the Tools list to open its detail screen",
+      "Scroll to the System-wide group near the bottom"
+    ],
+    "status": "todo",
+    "notes": "System-wide group only renders when BuildConfig.ENABLE_GRAMMAR is true (full flavor) -- capture on a full build. The 'Underline only, no fix popup' row only renders on API 31+, so capture on an Android 12+ image to show both rows together.",
+    "kind": "still"
+  },
+  {
+    "id": "smart/suggestion-strip-anatomy",
+    "page": "docs/src/content/docs/smart/suggestions.mdx",
+    "file": "src/assets/screens/smart/suggestion-strip-anatomy.webp",
+    "caption": "Word candidates in the suggestion strip, mid-word.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text --es theme dark",
+      "Focus the field and type a partial word with several real completions (e.g. \"cons\") without pressing space, so three word candidates fill the strip."
+    ],
+    "status": "todo",
+    "notes": "Used twice on the page (lead + anatomy section reuse the same shot id). Default settings are fine -- suggestions on, center-primary on.",
+    "kind": "still"
+  },
+  {
+    "id": "smart/suggestion-strip-emoji-tail",
+    "page": "docs/src/content/docs/smart/suggestions.mdx",
+    "file": "src/assets/screens/smart/suggestion-strip-emoji-tail.webp",
+    "caption": "Word candidates followed by predicted emoji.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text --es theme dark",
+      "Type the whole word \"birthday\" (do not press space) -- emoji prediction is on by default and should append \ud83c\udf82\ud83c\udf89\ud83e\udd73\ud83c\udf81 after the word candidates."
+    ],
+    "status": "todo",
+    "notes": "Confirms the emoji tail rides after word chips, capped at 4 (shownEmojiSuggestions.take(4)).",
+    "kind": "still"
+  },
+  {
+    "id": "smart/suggestion-strip-ambiguous-correction",
+    "page": "docs/src/content/docs/smart/suggestions.mdx",
+    "file": "src/assets/screens/smart/suggestion-strip-ambiguous-correction.webp",
+    "caption": "A genuinely ambiguous typo offered as two tappable candidates instead of being auto-corrected.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text --es theme dark",
+      "Type \"helo\" (do not press space) -- this typo is evenly split between \"hello\" and \"help\" per SuggestionEngine's edit-distance scoring, so autocorrect won't fire but both should appear as strip candidates."
+    ],
+    "status": "todo",
+    "notes": "Verify at capture time that both words actually appear as top candidates on the shipped dictionary -- if the scoring has since shifted, substitute another word documented as ambiguous in autocorrect.mdx (\"tesr\" -> \"test\"/\"tear\") instead of changing the claim without re-checking source.",
+    "kind": "still"
+  },
+  {
+    "id": "smart/punctuation-chips",
+    "page": "docs/src/content/docs/smart/suggestions.mdx",
+    "file": "src/assets/screens/smart/punctuation-chips.webp",
+    "caption": "Punctuation chips riding after the word candidates.",
+    "host": "harness-field",
+    "setup": [
+      "am start -a android.intent.action.VIEW -d wmkeyboard://settings/typing",
+      "Scroll to the Suggestions group and turn on \"Punctuation suggestions\" (off by default).",
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text --es theme dark",
+      "Type an ordinary word with no strong emoji association, e.g. \"hello\" (do not press space), so word candidates show with the punctuation tail (. , ? ! ') instead of an emoji tail."
+    ],
+    "status": "todo",
+    "notes": "Punctuation only shows when word candidates exist and no emoji prediction claimed the tail -- pick a word unlikely to trigger an emoji suggestion.",
+    "kind": "still"
+  },
+  {
+    "id": "smart/suggestion-strip-shift-recase",
+    "page": "docs/src/content/docs/smart/suggestions.mdx",
+    "file": "src/assets/screens/smart/suggestion-strip-shift-recase.webp",
+    "caption": "Suggestion chips re-cased to Title Case while Shift is held.",
+    "host": "harness-field",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text --es theme dark",
+      "Type a lowercase word with candidates, e.g. \"world\" (do not press space).",
+      "Press and hold the Shift key without releasing, and capture the strip while held -- chips should show Title Case.",
+      "For the caps-lock (UPPERCASE) state, double-tap Shift to lock it instead of holding, then capture again if a second variant is wanted."
+    ],
+    "status": "todo",
+    "notes": "This is a live, hold-contingent state (reverts the instant Shift is released), so capture must happen while physically holding the key -- coordinate with whatever capture harness can hold a keypress. A single still of the Title Case state is sufficient; not registering an anim sibling since the feature is a stable held-state, not continuous motion.",
+    "kind": "still"
+  },
+  {
+    "id": "smart/suggestions-settings-group",
+    "page": "docs/src/content/docs/smart/suggestions.mdx",
+    "file": "src/assets/screens/smart/suggestions-settings-group.webp",
+    "caption": "The Suggestions group on the Typing settings screen.",
+    "host": "settings",
+    "setup": [
+      "am start -a android.intent.action.VIEW -d wmkeyboard://settings/typing",
+      "Scroll to the \"Suggestions\" settings group (Suggestions, Punctuation suggestions, Suggestions in every field, Suggestions bar always visible, Best suggestion in the middle, Suggest contact names, ...)."
+    ],
+    "status": "todo",
+    "notes": "Crop/scroll to the Suggestions group specifically, not the whole Typing screen.",
+    "kind": "still"
   }
 ]

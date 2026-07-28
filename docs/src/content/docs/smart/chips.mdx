@@ -5,19 +5,101 @@ sidebar:
   order: 5
 ---
 
-:::caution[Draft page]
-Scaffolding only — real content pending. The outline below is the checklist for what this page must cover.
-:::
+import PhoneFrame from '@components/PhoneFrame.astro';
+import SettingsPath from '@components/SettingsPath.astro';
 
-## Planned coverage
+Smart chips watch the text right before your cursor and, the moment it looks like something a tool can answer, put that answer on the suggestion strip instead of word candidates. Tap the chip to type the answer, or its gear button to open the full tool with the same numbers already loaded.
 
-- Calc chips: type 12*8, get 96 as a tappable chip
-- Currency and unit conversion chips
-- Clipboard entity chips: OTP codes, phone numbers, URLs pulled from a fresh copy
-- False-positive guards (dates, G- prefixes) — why chips stay quiet
-- Turning each chip family on or off
+<PhoneFrame caption="Typing 12*8 puts a calc chip on the suggestion strip.">
+  {/* shot: smart/calc-chip */}
+</PhoneFrame>
 
-{/* TODO(sonnet): replace this stub. Turn the outline into real sections,
-   add screenshots with <PhoneFrame>, mark settings with <SettingsPath>,
-   keys with <KeyCap>, and edition limits with <Flavor>.
-   Conventions live in docs/CONTENT_GUIDE.md. */}
+## Doing the math
+
+Type an expression like `12*8` and the strip offers `96` as a tappable chip — `+ - * / × ÷ − ^ % ( )`, `√`, `π`, and `e` are all recognized, along with implicit multiplication (`2π`, `3(4+1)`). Tapping the chip replaces what you typed with the result; typing `=` yourself appends the answer instead and leaves your sum in place, so `12*4=` becomes `12*4=48`.
+
+A few things deliberately don't trigger a chip: a bare number on its own isn't a sum, and a trailing `%` reads as "percent" rather than an instruction to divide by 100. Named functions and word-operators like `sin`, `sqrt`, `log`, or `mod` never show up as an inline chip either — the trigger only looks for digits, operators, and the two symbols `π`/`e`, so anything with letters beyond that only works by opening the Calculator tool itself.
+
+The chip's gear icon opens **Calculator** with your expression prefilled. Result precision (decimal places) is shared with the unit converter, and there's a separate degrees/radians switch for trig — set below in [Options](#options).
+
+## Converting currencies and units
+
+Type an amount next to a currency — `150 usd`, `150$`, `$150`, or `150 dollars` — and the strip converts it into your other currency, using symbols, spelled-out words, or 3-letter codes. If what you typed is already in your target currency, the chip flips and converts the other way instead, so either side of your currency pair gets an answer. The result shows a currency's name rather than its code (`Taka`, not `BDT`). If exchange rates haven't loaded yet, the chip shows a brief spinner while they fetch.
+
+Units work the same way — type `1 ft` (or `1ft`) and the chip offers the same length in meters — across 14 categories: length, mass, temperature, area, volume, speed, time, data, energy, power, pressure, angle, frequency, and fuel economy. Short, easy-to-confuse abbreviations (`c`, `f`, `in`, `s`, and a couple dozen others) only count when glued directly to the number — `30c` triggers, `30 c` doesn't — so ordinary sentences don't turn into unwanted chips. The unit it converts into is whichever one you paired it with last time you used the converter, falling back to a sensible default (feet to meters, kilograms to pounds, and so on) the first time.
+
+<PhoneFrame caption="A currency chip: amount and source on the left, the converted amount on the right, gear button to open the full converter.">
+  {/* shot: smart/currency-chip */}
+</PhoneFrame>
+
+Both chip types share the same wide look — `[icon] query → result [gear]` — and take the full width of the strip, since a recognized calculation or conversion is a better use of that space than word candidates.
+
+## Keyword chips open a tool
+
+Type a tool's keyword on its own — `wiki`, `calc`, and so on — and a narrower chip offers to open that tool, dropping the word you typed. This one stays narrow instead of filling the strip, because the word you're typing might genuinely just be that word, and word candidates keep the rest of the row.
+
+<PhoneFrame caption="Typing wiki offers a narrow chip to open Wikipedia, leaving room for word candidates.">
+  {/* shot: smart/keyword-chip */}
+</PhoneFrame>
+
+Each tool's own settings list (and let you change or clear) the words that open it.
+
+## Pulling fragments out of your clipboard
+
+Open the [Clipboard](/tools/clipboard/) tool and, above the grid of copied items, a row of dashed-outline chips surfaces one-time codes, phone numbers, and links found buried inside your clipboard history — not just your latest copy. It scans your recent clips, sorts codes before phone numbers before links, and shows up to a dozen chips at once. Long-press a chip to see the fragment highlighted inside the clip it came from; tap it to paste just that fragment, leaving the full clip in history untouched.
+
+<PhoneFrame caption="The Clipboard panel: dashed entity chips above the history, pulled out of several different clips.">
+  {/* shot: smart/clipboard-entity-strip */}
+</PhoneFrame>
+
+There's one fast path that doesn't need opening the panel at all: if the thing you just copied contains a one-time code, the idle suggestion strip offers a dashed **CODE** chip for just the code instead of the usual "paste your last copy" chip — handy for pulling the six digits out of a verification text without pasting the whole message. This fast path is OTP-only; a freshly copied phone number or link still shows as the ordinary full-clip paste chip until you open the Clipboard panel for the fragment version.
+
+<PhoneFrame caption="Copying a verification text offers just the code, not the whole message, right on the suggestion strip.">
+  {/* shot: smart/otp-fresh-copy-chip */}
+</PhoneFrame>
+
+Both surfaces are covered by the same setting — see [Options](#options) — and neither one scans a clip you've marked sensitive, or an image or file clip.
+
+## Why a chip stays quiet
+
+Each detector has guards against the shapes of text that look like a trigger but usually aren't:
+
+- **Dates** (`12/04`, `2024-07`) never read as arithmetic — a lone `-` or `/` between two plain numbers needs a second operator to count as a sum, and both need an explicit `=` to force an answer.
+- **Order numbers and prices** don't turn into phone numbers — a leading `#`, `$`, `£`, or `€` rules a run of digits out.
+- **Years** don't turn into codes — a bare 4-digit value between 1900 and 2099 is rejected even next to a code-sounding word.
+- Google's `G-123456` SMS prefix is stripped before the code check, since it's branding, not part of the code.
+- A code needs a nearby keyword (`otp`, `verification`, `code`, `pin`, `2fa`, and similar) within 40 characters — and a deny-list (`zip`, `postal`, `hex`, `swift`, `ifsc`, and others) stops things like "zip code 90210" from qualifying anyway.
+- **`try`** in lowercase reads as the English verb, not Turkish lira — type `TRY` in capitals to convert it.
+- Short unit abbreviations (`c`, `f`, `in`, `s`, `k`, and others) only count glued to the number, so "meet me in 5" or "about 30 c out" stay quiet.
+- Unpunctuated digit runs longer than 11 digits aren't treated as phone numbers unless they start with `+`.
+
+## Options
+
+<SettingsPath path="Typing / Smart chips" />
+
+- **Smart chips** — the master switch, default **on**. Turning it off drops all four chip families below at once.
+- **Calculate as you type** — default **on**.
+- **Convert currencies** — default **on**.
+- **Convert units** — default **on**.
+- **Tool keywords** — default **on**.
+
+The same three toggles (calculate/currencies/units) reappear inside each tool's own Options screen — <SettingsPath path="Tools / Calculator / Options" />, <SettingsPath path="Tools / Unit converter / Options" />, <SettingsPath path="Tools / Currency converter / Options" /> — as "Calculate as you type" / "Convert as you type". They're the same setting, not a separate copy, just surfaced in both places for convenience.
+
+A few related settings live under each tool instead:
+
+- **Degrees** (Calculator, default **on**) and **Result precision** (0–12 decimal places, default **8**) — precision also shapes the unit converter's output.
+- **Decimal places** for currency (0–6, default **2**) and **Refresh rates every** (1–48 hours, default **6**) — under <SettingsPath path="Tools / Currency converter / Options" />.
+- **Detect codes, numbers & links** (default **on**) — under <SettingsPath path="Tools / Clipboard" /> — turns off both the Clipboard panel's entity strip and the fresh-copy code chip together. **Suggest recent copy** (also default **on**, same screen) has to be on too for the fresh-copy code chip to appear at all, since it's a variant of that chip.
+
+<PhoneFrame caption="Smart chips settings under Typing: master switch and the four per-family toggles.">
+  {/* shot: smart/options */}
+</PhoneFrame>
+
+## Details & edge cases
+
+- A chip won't reconsider text it just inserted — after you tap one, the strip mutes until you edit the field again, so converting 150 USD to Taka doesn't immediately offer to convert the Taka amount right back.
+- Smart chips step aside for secure fields, fields that ask for no suggestions, any open panel, and CJK-style conversion composing — a chip would otherwise steal the space a pinyin reading needs for its own candidates.
+- They're independent of word prediction: turning off suggestions elsewhere doesn't turn off calc, currency, unit, or keyword chips.
+- [Power saving mode](/typing/power-saving/) drops the whole calc/currency/unit/keyword chip family by default (its own toggle lives under Power saving), but leaves clipboard entity detection alone — codes, numbers, and links keep getting pulled out of your clips even while chips elsewhere are dimmed.
+- Exchange rates come from open.er-api.com (about 160 currencies, updated daily) with frankfurter.app (European Central Bank, about 30 currencies) as a fallback — both free, no account or key. See [network policy](/privacy/network/) for what else touches the network.
+- The currency and unit pair a chip converts into isn't set from a Settings screen — it's remembered from whichever pair you last used inside the [Currency converter](/tools/utilities/) or [Unit converter](/tools/utilities/) panel itself.

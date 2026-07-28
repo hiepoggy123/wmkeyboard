@@ -1,22 +1,55 @@
 ---
 title: "Password manager & autofill chips"
-description: "Your password manager's suggestions, shown right in the suggestion strip."
+description: "Your password manager's saved logins, shown as tappable chips right in the suggestion strip."
 sidebar:
   order: 9
 ---
 
-:::caution[Draft page]
-Scaffolding only — real content pending. The outline below is the checklist for what this page must cover.
-:::
+import PhoneFrame from '@components/PhoneFrame.astro';
+import SettingsPath from '@components/SettingsPath.astro';
 
-## Planned coverage
+When you tap into a login field, your password manager can offer its saved entries as chips inside the suggestion strip instead of popping up its own dropdown over the keyboard. Tap a chip and the field fills — the keyboard itself never sees the username or password that went into it.
 
-- Inline autofill: credential chips from your password manager (Android 11+)
-- Which managers work (any autofill service that supports inline suggestions)
-- Tapping a chip fills the field — the keyboard never sees the secret
-- Turning it off; interaction with incognito and secure fields
+<PhoneFrame caption="Saved-login chips from a password manager, filling the suggestion strip on a login field.">
+  {/* shot: smart/autofill-chips-strip */}
+</PhoneFrame>
 
-{/* TODO(sonnet): replace this stub. Turn the outline into real sections,
-   add screenshots with <PhoneFrame>, mark settings with <SettingsPath>,
-   keys with <KeyCap>, and edition limits with <Flavor>.
-   Conventions live in docs/CONTENT_GUIDE.md. */}
+## Using it
+
+Focus a login field with a password manager set as your system autofill service, and its saved entries — if it has any for that app or site — appear as chips across the suggestion strip. The chips take over the strip completely while they're up; word suggestions don't share the row with them. Tap one to fill the field the same way you would from the manager's own dropdown.
+
+There's a dismiss button (✕) at the end of the row if you'd rather ignore the chips and type or search normally — tapping it clears the chips until the next autofill response comes in, which in practice usually means the next field you focus. The strip can show up to six chips at once, sized to match the strip's height, and scrolls horizontally if your manager offers more than fit on screen.
+
+<PhoneFrame caption="Dismissing the chip row to type normally instead.">
+  {/* shot: smart/autofill-dismiss */}
+</PhoneFrame>
+
+Chips are also cleared automatically the moment you leave the field — so a login suggestion for one app never lingers into the next field you tap, in this app or another one.
+
+## Which password managers work
+
+There's no allowlist of specific apps. Inline autofill chips use Android's standard inline-suggestions API, so any password manager that supports it and is set as your device's autofill service can offer chips this way — Google's built-in password manager, Bitwarden, 1Password, Dashlane, and others that implement the same platform API. The keyboard requests a chip size and count from whatever service is active; it doesn't know or care which one it's talking to.
+
+The feature needs Android 11 (API 30) or newer. On older versions, the setting doesn't appear and the suggestion strip behaves exactly as it always has — your password manager's own autofill dropdown still works, it just isn't drawn inline.
+
+## Options
+
+<SettingsPath path="Typing / Password manager suggestions" />
+
+**Password manager suggestions** is on by default, and only shows up in the Typing screen on Android 11 and newer. Turning it off stops the keyboard from requesting or displaying inline chips at all — your password manager's normal autofill dropdown still applies, it just draws over the keyboard the way it did before this feature existed, instead of inside the strip.
+
+The setting has no effect until a password manager is actually set as your system autofill service; without one, there's nothing to request chips from either way.
+
+## Details & edge cases
+
+- **The keyboard never sees the chip's contents.** The chips are drawn by the password manager itself, not by the keyboard. The keyboard only tells the manager how much space is available — a size and a chip count — and gets back an opaque view it displays as-is. Whatever username or password is behind a chip stays inside the manager's own process the whole time.
+- **No color or theme is applied to the chips.** The request the keyboard sends deliberately skips style customization, so the manager's own chip appearance is always used rather than an approximation of the keyboard's theme. This is intentional: a wrong guess at colors could make credential text unreadable.
+- **Chips need the strip to be resting on suggestions, not the toolbar.** The bar above the keys defaults to the toolbar (tool icons) until something has a suggestion to show, and an arriving chip doesn't switch it over by itself — a password field in particular never has ordinary word suggestions to make that switch happen. If chips aren't showing up, turn on **Suggestions bar always visible** (Typing) so the strip is the resting view instead of the toolbar.
+- **Turned off automatically in incognito.** Chips don't appear while [incognito mode](/privacy/incognito/) is on, whether you switched it on manually or it engaged automatically because the field itself asked for no personalized learning — the same private-browsing signal that triggers auto-incognito everywhere else.
+- **Password fields are the point, not an exception.** Unlike incognito, secure/password fields aren't specially blocked from autofill — they're exactly where you'd expect a password manager to have something to offer. (Password fields do suppress the ordinary word-suggestion strip, which is a separate, unrelated behavior — see [incognito & secure fields](/privacy/incognito/).)
+- **Independent of the general suggestions toggle.** Turning off the main **Suggestions** toggle (word predictions above the keyboard) doesn't affect autofill chips — the two are checked separately, so you can have one without the other.
+- **Requires both conditions.** Chips need Android 11+ *and* a password manager currently set as the system autofill service; either missing means the strip just behaves as if the feature weren't there.
+
+Available identically on both editions of the keyboard.
+
+For everything else that shows up in the suggestion strip, see [Suggestions & prediction](/smart/suggestions/). For how incognito mode and secure fields affect what the keyboard remembers and suggests, see [Incognito & secure fields](/privacy/incognito/).
