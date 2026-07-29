@@ -20,9 +20,24 @@ object EmojiNames {
      * Display name for [emoji], falling back to [base] (the palette entry a
      * skin-toned or gendered variant was picked from) and then to the
      * tone/selector-free form, which is how the catalog keys most entries.
+     *
+     * [localised] is the name table for the language being typed, when a
+     * keyword pack supplies one; it is consulted first so an emoji reads in
+     * that language and falls back to the catalog's Unicode name rather than
+     * to some other installed language's.
      */
-    fun of(catalog: List<EmojiEntry>, emoji: String, base: String = emoji): String? {
+    fun of(
+        catalog: List<EmojiEntry>,
+        emoji: String,
+        base: String = emoji,
+        localised: Map<String, String> = emptyMap(),
+    ): String? {
         val map = indexFor(catalog)
+        return lookup(localised, emoji, base) ?: lookup(map, emoji, base)
+    }
+
+    private fun lookup(map: Map<String, String>, emoji: String, base: String): String? {
+        if (map.isEmpty()) return null
         return map[emoji]
             ?: map[strip(emoji)]
             ?: map[base]

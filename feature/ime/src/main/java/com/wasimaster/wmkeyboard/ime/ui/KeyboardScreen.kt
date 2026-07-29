@@ -8458,7 +8458,16 @@ private fun EmojiCell(
                 base = base,
                 display = display,
                 name = if (state.settings.emojiLongPressName) {
-                    EmojiNames.of(state.emojiCatalog, display, base)
+                    // Named in the language being typed when a pack for it is
+                    // installed, and in the catalog's own (Unicode) name
+                    // otherwise — never in whatever other language happens to
+                    // have a pack on the device.
+                    EmojiNames.of(
+                        catalog = state.emojiCatalog,
+                        emoji = display,
+                        base = base,
+                        localised = state.emojiNamesByLang[state.language.id].orEmpty(),
+                    )
                 } else {
                     null
                 },

@@ -86,7 +86,7 @@ object EmojiDictStore {
         // far as the catalogue is concerned; there is no user to tell, and the
         // download row already shows what is on disk.
         val pack = runCatching {
-            file.inputStream().use { stream -> EmojiKeywordPack.load(stream) }
+            file.inputStream().use { stream -> EmojiKeywordPack.load(stream, langId) }
         }.getOrNull()
         return if (pack == null || pack.isEmpty) null else pack
     }

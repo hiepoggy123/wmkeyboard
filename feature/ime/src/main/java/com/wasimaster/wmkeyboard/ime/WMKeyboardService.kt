@@ -295,6 +295,14 @@ open class WMKeyboardService : InputMethodService() {
     private var emojiShortcodes: EmojiShortcodes = EmojiShortcodes.EMPTY
     private var emojiTriggers: EmojiTriggers = EmojiTriggers.EMPTY
     private var emojiEntries: List<EmojiEntry> = emptyList()
+
+    /**
+     * Emoji display names from the installed keyword packs, by language then
+     * emoji. Kept apart from the merged catalog because only one name can be
+     * shown and the right one depends on the language being typed — see
+     * [KeyboardUiState.emojiNamesByLang].
+     */
+    private var emojiPackNames: Map<String, Map<String, String>> = emptyMap()
     private lateinit var userLexicon: UserLexicon
     private lateinit var languageMixConfidence: LanguageMixConfidence
     private lateinit var emojiUsage: EmojiUsage
@@ -1387,6 +1395,7 @@ open class WMKeyboardService : InputMethodService() {
                 // here — before anything indexes the catalog. Locked-boot skips
                 // them: they live in credential-encrypted storage.
                 val packs = if (userUnlocked) emojiPacks() else emptyList()
+                emojiPackNames = EmojiKeywordPack.namesByLanguage(packs)
                 Triple(english, bengali, EmojiKeywordPack.merge(bundled, packs))
             }
             val (english, bengali, catalog) = loaded
@@ -1478,6 +1487,7 @@ open class WMKeyboardService : InputMethodService() {
                     emojiFavourites = emojiUsage.favourites(),
                     emojiVariantPrefs = emojiUsage.variantPrefs(),
                     emojiCatalog = catalog,
+                    emojiNamesByLang = emojiPackNames,
                     emojiVariants = variants,
                 )
             }
@@ -1499,7 +1509,7 @@ open class WMKeyboardService : InputMethodService() {
      * Every emoji keyword pack on the device: the downloaded dictionaries
      * first, the user's own imports after.
      *
-     * Order matters for the display name — the last pack naming an emoji wins
+     * Order matters within one language — the last pack naming an emoji wins
      * — and an import is a deliberate act where a download is automatic, so
      * the import is the one that gets to override.
      */
@@ -1531,13 +1541,15 @@ open class WMKeyboardService : InputMethodService() {
         val catalog = withContext(Dispatchers.IO) {
             runCatching {
                 val bundled = assets.open("emoji/catalog.tsv").use { EmojiCatalog.load(it) }
-                EmojiKeywordPack.merge(bundled, emojiPacks())
+                val packs = emojiPacks()
+                emojiPackNames = EmojiKeywordPack.namesByLanguage(packs)
+                EmojiKeywordPack.merge(bundled, packs)
             }.getOrNull()
         } ?: return
         emojiEntries = catalog
         emojiSearch = EmojiSearch(catalog, emojiShortcodes)
         emojiSuggester = EmojiSuggester(catalog, emojiTriggers)
-        _uiState.update { it.copy(emojiCatalog = catalog) }
+        _uiState.update { it.copy(emojiCatalog = catalog, emojiNamesByLang = emojiPackNames) }
         recomputeHiddenEmoji(_uiState.value.settings)
     }
 

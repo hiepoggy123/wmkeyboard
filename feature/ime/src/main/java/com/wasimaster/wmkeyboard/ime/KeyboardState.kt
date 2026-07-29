@@ -763,6 +763,14 @@ data class KeyboardUiState(
     val emojiFavourites: List<String> = emptyList(),
     /** Palette-grid base emoji → the skin-tone/gender variant it renders as. */
     val emojiVariantPrefs: Map<String, String> = emptyMap(),
+    /**
+     * Emoji display names from the installed keyword packs, keyed by the
+     * language that names them and then by emoji. The long-press popup reads
+     * the entry for the language being typed and falls back to the catalog's
+     * Unicode name — names must not stack the way keywords do, since only one
+     * can be shown and every enabled language has a pack downloaded for it.
+     */
+    val emojiNamesByLang: Map<String, Map<String, String>> = emptyMap(),
     /** Emoji candidates for the suggestion strip (word being typed). */
     val emojiSuggestions: List<String> = emptyList(),
     /**

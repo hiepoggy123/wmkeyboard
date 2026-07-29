@@ -8,7 +8,8 @@ import org.junit.Test
 
 class EmojiKeywordPackTest {
 
-    private fun pack(text: String) = EmojiKeywordPack.load(text.byteInputStream())
+    private fun pack(text: String, langId: String? = null) =
+        EmojiKeywordPack.load(text.byteInputStream(), langId)
 
     private val catalog = listOf(
         EmojiEntry("💰", "objects", listOf("money", "bag"), name = "money bag"),
@@ -40,13 +41,38 @@ class EmojiKeywordPackTest {
         assertTrue(pack("").isEmpty)
     }
 
-    @Test fun mergeAddsKeywordsAndOverridesNames() {
-        val merged = EmojiKeywordPack.merge(catalog, listOf(pack("💰\tটাকা\tটাকার ব্যাগ\n")))
+    @Test fun mergeAddsKeywordsAndLeavesNamesAlone() {
+        val merged = EmojiKeywordPack.merge(catalog, listOf(pack("💰\tটাকা\tটাকার ব্যাগ\n", "bn")))
         val money = merged.first { it.emoji == "💰" }
         assertEquals(listOf("money", "bag", "টাকা"), money.keywords)
-        assertEquals("টাকার ব্যাগ", money.name)
-        // Untouched entries keep their bundled name.
+        // Names are resolved per typed language, not baked into the catalog:
+        // every enabled language gets a pack, and only one name can be shown.
+        assertEquals("money bag", money.name)
         assertEquals("birthday cake", merged.first { it.emoji == "🎂" }.name)
+    }
+
+    @Test fun namesAreGroupedByLanguage() {
+        val names = EmojiKeywordPack.namesByLanguage(
+            listOf(
+                pack("💰\tটাকা\tটাকার ব্যাগ\n", "bn"),
+                pack("💰\tपैसा\tपैसे का थैला\n", "hi"),
+            ),
+        )
+        assertEquals("টাকার ব্যাগ", names["bn"]?.get("💰"))
+        assertEquals("पैसे का थैला", names["hi"]?.get("💰"))
+    }
+
+    /** Within one language the later pack (the user's import) wins. */
+    @Test fun laterPackWinsWithinALanguage() {
+        val names = EmojiKeywordPack.namesByLanguage(
+            listOf(pack("💰\tটাকা\tডাউনলোড\n", "bn"), pack("💰\tটাকা\tআমার নাম\n", "bn")),
+        )
+        assertEquals("আমার নাম", names["bn"]?.get("💰"))
+    }
+
+    /** A pack with no language names nothing — there is nothing to show it under. */
+    @Test fun packsWithoutALanguageNameNothing() {
+        assertTrue(EmojiKeywordPack.namesByLanguage(listOf(pack("💰\tটাকা\tব্যাগ\n"))).isEmpty())
     }
 
     @Test fun packsStackAcrossLanguages() {

@@ -18,7 +18,8 @@ import java.io.InputStream
  * ```
  *  - column 1: the emoji itself;
  *  - column 2: comma-separated keywords (lowercased on load);
- *  - column 3 (optional): the display name for the long-press description.
+ *  - column 3 (optional): the display name for the long-press description,
+ *    shown while this pack's language is the one being typed.
  *
  * Blank lines and `# ` comments are skipped. Rows naming an emoji the catalog
  * does not carry are kept rather than dropped: the pack is matched against the
@@ -33,6 +34,13 @@ import java.io.InputStream
 class EmojiKeywordPack(
     val keywords: Map<String, List<String>>,
     val names: Map<String, String>,
+    /**
+     * The language this pack names emoji in, when it was loaded from a
+     * language folder. Names are only ever shown for the language being typed
+     * (see [namesByLanguage]), so a pack that does not know its own language
+     * contributes keywords only.
+     */
+    val langId: String? = null,
 ) {
 
     val isEmpty: Boolean get() = keywords.isEmpty() && names.isEmpty()
@@ -50,7 +58,7 @@ class EmojiKeywordPack(
         /** How far [load] will look for the first non-blank byte when sniffing. */
         private const val SNIFF_LIMIT = 64
 
-        fun load(stream: InputStream): EmojiKeywordPack {
+        fun load(stream: InputStream, langId: String? = null): EmojiKeywordPack {
             // Sniff before parsing: a leading "[" is the repo's JSON array,
             // anything else is read as TSV. Buffered so the peeked bytes can
             // be handed back to whichever parser wins.
@@ -69,7 +77,8 @@ class EmojiKeywordPack(
             }
             buffered.reset()
             if (first == '['.code) {
-                return EmojiDictCodec.decode(buffered.reader().readText()) ?: EMPTY
+                val decoded = EmojiDictCodec.decode(buffered.reader().readText()) ?: return EMPTY
+                return EmojiKeywordPack(decoded.keywords, decoded.names, langId)
             }
             val keywords = HashMap<String, MutableList<String>>()
             val names = HashMap<String, String>()
@@ -94,14 +103,20 @@ class EmojiKeywordPack(
                     }
                 }
             }
-            return EmojiKeywordPack(keywords.mapValues { it.value.distinct() }, names)
+            return EmojiKeywordPack(keywords.mapValues { it.value.distinct() }, names, langId)
         }
 
         /**
          * Folds [packs] into [catalog], adding each pack's keywords to the
-         * entry for that emoji and letting a pack name override the Unicode
-         * one. Packs stack: several languages can name the same emoji, and
-         * search should find it under all of them.
+         * entry for that emoji. Packs stack: several languages can name the
+         * same emoji, and search should find it under all of them.
+         *
+         * Names deliberately do *not* stack — they can't, since only one can be
+         * shown, and every enabled language gets a pack downloaded for it
+         * automatically. Whichever pack happened to be folded in last used to
+         * win, which meant a Bengali/English/Hindi user read every emoji name
+         * in Hindi. Names are resolved per language at lookup time instead —
+         * see [namesByLanguage] and [EmojiNames].
          *
          * Returns [catalog] itself when nothing applies, so the common case
          * (no packs installed) costs one boolean and keeps the identity that
@@ -111,28 +126,39 @@ class EmojiKeywordPack(
             catalog: List<EmojiEntry>,
             packs: List<EmojiKeywordPack>,
         ): List<EmojiEntry> {
-            val applicable = packs.filterNot { it.isEmpty }
+            val applicable = packs.filter { it.keywords.isNotEmpty() }
             if (applicable.isEmpty()) return catalog
             return catalog.map { entry ->
                 val extra = ArrayList<String>()
-                var name: String? = null
                 for (pack in applicable) {
                     pack.keywords[entry.emoji]?.let { extra.addAll(it) }
-                    pack.names[entry.emoji]?.let { name = it }
                 }
-                if (extra.isEmpty() && name == null) {
+                if (extra.isEmpty()) {
                     entry
                 } else {
-                    entry.copy(
-                        keywords = if (extra.isEmpty()) {
-                            entry.keywords
-                        } else {
-                            (entry.keywords + extra).distinct()
-                        },
-                        name = name ?: entry.name,
-                    )
+                    entry.copy(keywords = (entry.keywords + extra).distinct())
                 }
             }
+        }
+
+        /**
+         * The names [packs] carry, grouped by the language that names them, so
+         * the long-press popup can show the name in the language being typed
+         * and fall back to the catalog's Unicode name otherwise.
+         *
+         * Within one language the later pack wins, which puts the user's own
+         * import above the automatic download — an import is a deliberate act.
+         * Packs with no [langId] name nothing: there is no language to show
+         * them under.
+         */
+        fun namesByLanguage(packs: List<EmojiKeywordPack>): Map<String, Map<String, String>> {
+            val byLang = HashMap<String, MutableMap<String, String>>()
+            for (pack in packs) {
+                val lang = pack.langId ?: continue
+                if (pack.names.isEmpty()) continue
+                byLang.getOrPut(lang) { HashMap() }.putAll(pack.names)
+            }
+            return byLang
         }
     }
 }
@@ -171,7 +197,7 @@ object EmojiKeywordPacks {
     /** The loaded packs for one language, in file order. */
     fun load(filesDir: File, langId: String): List<EmojiKeywordPack> =
         packs(filesDir, langId).mapNotNull { file ->
-            runCatching { file.inputStream().use { EmojiKeywordPack.load(it) } }
+            runCatching { file.inputStream().use { EmojiKeywordPack.load(it, langId) } }
                 .getOrNull()
                 ?.takeUnless { it.isEmpty }
         }
