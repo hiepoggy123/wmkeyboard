@@ -1497,16 +1497,17 @@ data class ClipboardSettings(
  */
 data class EmojiSettings(
     /**
-     * Default skin tone shown for toned emoji in the suggestion strip and
-     * emoji search. [EmojiSkinTone.NONE] keeps the neutral yellow base.
+     * Default skin tone shown for toned emoji everywhere they are drawn — the
+     * emoji panel's grid, the suggestion strip and emoji search.
+     * [EmojiSkinTone.NONE] keeps the neutral yellow base.
      */
     val defaultSkinTone: EmojiSkinTone = EmojiSkinTone.NONE,
     /**
      * Let the tone last picked for an emoji (from the panel's long-press
-     * popup) override [defaultSkinTone] in suggestions and search. Off (the
-     * default) means the global default always wins in those two places.
+     * popup) override [defaultSkinTone]. On by default: a tone picked for one
+     * emoji is a deliberate, more specific choice than the global default.
      */
-    val toneOverrideByLastUsed: Boolean = false,
+    val toneOverrideByLastUsed: Boolean = true,
     /**
      * Close the current panel and return to the keys immediately after a single
      * insert, instead of staying open for a run. Applies to the emoji panel (one

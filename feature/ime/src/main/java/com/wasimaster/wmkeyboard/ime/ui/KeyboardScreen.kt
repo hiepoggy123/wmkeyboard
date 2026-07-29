@@ -2304,12 +2304,14 @@ private fun EmojiBarStrip(
     modifier: Modifier = Modifier,
 ) {
     // Favourites already lead the recents/frequents lists (EmojiUsage pins
-    // them), so each content mode is a straight pick.
+    // them), so each content mode is a straight pick. History entries are
+    // exact sequences already; only the starter set is written as neutral
+    // bases, so it is the one that needs the skin tone applied.
     val emojis = when (state.settings.emojiBarContent) {
         EmojiBarContent.MOST_USED -> state.emojiFrequents
         EmojiBarContent.RECENTS -> state.emojiRecents
         EmojiBarContent.FAVOURITES -> state.emojiFavourites
-    }.ifEmpty { DEFAULT_BAR_EMOJIS }
+    }.ifEmpty { DEFAULT_BAR_EMOJIS.map { emojiDisplay(state, it) } }
     val scrollable = state.settings.emoji.barScrollable
     val count = state.settings.emoji.barCount.coerceIn(EmojiBarCountRange)
     Row(
@@ -7785,11 +7787,12 @@ private fun EmojiSearchField(
 }
 
 /**
- * The face to show for a searched emoji [base]: the global default skin tone,
- * or the last-used variant when that override is enabled. Mirrors the IME's
- * `applyEmojiTone`, so what search shows is what a tap commits.
+ * The face to show for an emoji [base] in the panel grid and in search: the
+ * global default skin tone, or the last-used variant when that override is
+ * enabled. Mirrors the IME's `applyEmojiTone`, so what is drawn is what a tap
+ * commits.
  */
-private fun emojiSearchDisplay(state: KeyboardUiState, base: String): String {
+private fun emojiDisplay(state: KeyboardUiState, base: String): String {
     val emoji = state.settings.emoji
     return state.emojiVariants.tonedDisplay(
         base = base,
@@ -7999,7 +8002,7 @@ private fun EmojiPanel(
                 count = results.size,
                 columns = adaptiveColumns(resultsGrid),
                 onActivate = { index ->
-                    results.getOrNull(index)?.let { onEmoji(emojiSearchDisplay(state, it)) }
+                    results.getOrNull(index)?.let { onEmoji(emojiDisplay(state, it)) }
                 },
             )
             ScrollFocusIntoView(focusedResult) { resultsGrid.animateScrollToItem(it) }
@@ -8014,7 +8017,7 @@ private fun EmojiPanel(
                         base = emoji,
                         // Search honours the global default skin tone (and the
                         // last-used variant when that override is on).
-                        display = emojiSearchDisplay(state, emoji),
+                        display = emojiDisplay(state, emoji),
                         state = state,
                         genderVariants = variantChildren[emoji].orEmpty(),
                         onTap = onEmoji,
@@ -8145,9 +8148,7 @@ private fun EmojiPanel(
                             count = emojis.size,
                             columns = adaptiveColumns(categoryGrid),
                             onActivate = { index ->
-                                emojis.getOrNull(index)?.let {
-                                    onEmoji(state.emojiVariantPrefs[it] ?: it)
-                                }
+                                emojis.getOrNull(index)?.let { onEmoji(emojiDisplay(state, it)) }
                             },
                         )
                     }
@@ -8166,7 +8167,11 @@ private fun EmojiPanel(
                         itemsIndexed(emojis, key = { _, emoji -> emoji }) { index, emoji ->
                             EmojiCell(
                                 base = emoji,
-                                display = state.emojiVariantPrefs[emoji] ?: emoji,
+                                // The grid honours the global default skin tone
+                                // too (and the last-used variant when that
+                                // override is on) — a default nothing draws is
+                                // a setting that looks broken.
+                                display = emojiDisplay(state, emoji),
                                 state = state,
                                 genderVariants = variantChildren[emoji].orEmpty(),
                                 onTap = onEmoji,
