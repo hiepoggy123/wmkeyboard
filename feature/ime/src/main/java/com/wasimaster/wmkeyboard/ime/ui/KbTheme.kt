@@ -50,7 +50,6 @@ import androidx.compose.ui.text.font.FontFamily
 import com.wasimaster.wmkeyboard.core.emoji.EmojiFontShaping
 import com.wasimaster.wmkeyboard.core.settings.AutoThemeTrigger
 import com.wasimaster.wmkeyboard.core.settings.ColorVisionFilter
-import com.wasimaster.wmkeyboard.core.script.FontHint
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.ThemeMode
 import com.wasimaster.wmkeyboard.core.tools.SolarCalculator
@@ -567,31 +566,25 @@ fun KeyboardThemeProvider(settings: KeyboardSettings, content: @Composable () ->
     // Text on the keyboard — key labels, suggestions, panels — follows it
     // without per-call plumbing. Emojis get their own family via
     // LocalEmojiFontFamily at the few places emojis are drawn.
-    // Latin-script and Bengali modes each have their own font choice. The
-    // Bengali faces all carry Latin glyphs too, so Avro's romanized keys
-    // and mixed suggestion strips stay in one face while Bengali is active.
-    // (Phase 5 fans this out to a per-script font map; for now the two shipped
-    // scripts keep their existing choices.)
-    // Per-script font: Bengali keeps its own user-picked face; every other
-    // non-Latin script draws with its dedicated Noto face so its glyphs are
-    // correct even when the user's key font is a Latin-only display face; Latin
-    // (and Cyrillic/Greek, which ride the Latin faces) use the user's key font.
+    // Per-script font: every non-Latin script draws with the face the user
+    // picked for it, or its dedicated Noto face, so its glyphs stay correct even
+    // when the key font is a Latin-only display face. Latin (and Cyrillic/Greek,
+    // which ride the Latin faces) use the user's key font. Bengali is no
+    // different from the rest — its faces simply also carry Latin glyphs, which
+    // is what keeps Avro's romanized keys and mixed strips in one face.
     val scriptId = settings.script.id
     val keyFontFamily = remember(
         scriptId,
         settings.keyFontId,
-        settings.bengaliFontId,
         settings.scriptFontIds,
         settings.customFontName,
-        settings.customBengaliFontName,
+        settings.customScriptFontNames,
     ) {
-        when (settings.script.fontHint) {
-            FontHint.BENGALI -> KeyboardFonts.family(context, settings.bengaliFontId)
-            else -> KeyboardFonts.scriptFamily(
-                scriptId,
-                settings.scriptFontIds[scriptId.name] ?: KeyboardFonts.DEFAULT_ID,
-            ) ?: KeyboardFonts.family(context, settings.keyFontId)
-        }
+        KeyboardFonts.scriptFamily(
+            context,
+            scriptId,
+            settings.scriptFontIds[scriptId.name] ?: KeyboardFonts.DEFAULT_ID,
+        ) ?: KeyboardFonts.family(context, settings.keyFontId)
     }
     val emojiFontFamily = remember(settings.emojiFont, settings.emojiFontInstalled.installedId) {
         KeyboardFonts.emojiFamily(

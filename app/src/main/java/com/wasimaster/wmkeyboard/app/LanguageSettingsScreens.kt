@@ -48,11 +48,14 @@ import com.wasimaster.wmkeyboard.core.input.composer.DoublePinyinScheme
 import com.wasimaster.wmkeyboard.core.input.composer.HanVariant
 import com.wasimaster.wmkeyboard.core.layout.language
 import com.wasimaster.wmkeyboard.core.layout.resolveLayout
+import com.wasimaster.wmkeyboard.core.script.ComposerType
 import com.wasimaster.wmkeyboard.core.script.DeviceLocales
 import com.wasimaster.wmkeyboard.core.script.LanguageDef
 import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
 import com.wasimaster.wmkeyboard.core.script.LanguageSuggestions
 import com.wasimaster.wmkeyboard.core.script.NumeralSystem
+import com.wasimaster.wmkeyboard.core.script.ScriptId
+import com.wasimaster.wmkeyboard.core.script.ScriptRegistry
 import com.wasimaster.wmkeyboard.core.script.SuggestedLanguage
 import com.wasimaster.wmkeyboard.core.script.SuggestionReason
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
@@ -231,6 +234,29 @@ internal fun AddLanguageScreen(
 }
 
 /**
+ * A cluster the reader will recognise, for the conjunct-backspace row. A script
+ * with no sample here still gets the setting; the row just describes it in words
+ * rather than showing one, which beats showing a Bengali cluster to someone
+ * setting up Khmer.
+ */
+private fun conjunctSample(script: ScriptId): String = when (script) {
+    ScriptId.BENGALI -> "ক্ষ"
+    ScriptId.DEVANAGARI -> "क्ष"
+    ScriptId.GURMUKHI -> "ਕ੍ਸ਼"
+    ScriptId.GUJARATI -> "ક્ષ"
+    ScriptId.ORIYA -> "କ୍ଷ"
+    ScriptId.TAMIL -> "க்ஷ"
+    ScriptId.TELUGU -> "క్ష"
+    ScriptId.KANNADA -> "ಕ್ಷ"
+    ScriptId.MALAYALAM -> "ക്ഷ"
+    ScriptId.SINHALA -> "ක්ෂ"
+    ScriptId.KHMER -> "ក្ស"
+    ScriptId.MYANMAR -> "က္ခ"
+    ScriptId.TIBETAN -> "ཀྵ"
+    else -> "a conjunct"
+}
+
+/**
  * Adds a language by enabling its first layout. The rest of its layouts, and any
  * secondary suggestion sources, are then a tap away on its detail screen — which
  * is where every caller sends the user next.
@@ -277,6 +303,27 @@ internal fun LanguageDetailScreen(
                         if (next.isNotEmpty()) repository.setEnabledLayoutIds(next.distinct())
                     }
                 }
+            }
+        }
+    }
+
+    // Cluster deletion, for the languages whose script has clusters to delete.
+    // Per language for the same reason numerals are: someone typing Bengali and
+    // Hindi together may well want whole conjuncts gone in one and code points
+    // in the other, and a single global switch made that impossible.
+    if (ScriptRegistry[lang.script].composer == ComposerType.INDIC_CLUSTER) {
+        SettingsGroup("Clusters") {
+            item {
+                val sample = conjunctSample(lang.script)
+                ToggleSetting(
+                    "Conjunct-aware backspace",
+                    "Delete a whole cluster like $sample as one unit",
+                    langId in settings.conjunctBackspaceLanguages,
+                    info = "Normally backspace removes one code point at a time, which can " +
+                        "leave half-formed clusters on screen. With this on, one press " +
+                        "deletes the whole cluster while typing ${lang.englishName}. " +
+                        "Other languages keep their own setting.",
+                ) { scope.launch { repository.setConjunctBackspace(langId, it) } }
             }
         }
     }

@@ -439,7 +439,10 @@ private fun MicContent(
 
         // Offline-model chip (API 33+): downloading the language's on-device
         // model makes dictation offline, faster, and beep-free.
-        val modelLanguage = if (voice.languageTag.startsWith("bn")) "Bengali" else "English"
+        // Whatever language dictation is actually set to, not a Bengali-or-else
+        // guess — "Get English for offline dictation" while dictating in Spanish
+        // is worse than saying nothing. An unrecognised tag stays generic.
+        val modelLanguage = LanguageRegistry.byLocale(voice.languageTag)?.englishName
         when (voice.modelState) {
             VoiceModelState.DOWNLOADABLE -> Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -457,14 +460,22 @@ private fun MicContent(
                     tint = kb.secondaryText,
                 )
                 Text(
-                    "Get $modelLanguage for offline dictation",
+                    if (modelLanguage != null) {
+                        "Get $modelLanguage for offline dictation"
+                    } else {
+                        "Get this language for offline dictation"
+                    },
                     color = kb.secondaryText,
                     fontSize = 12.sp,
                     modifier = Modifier.padding(start = 5.dp),
                 )
             }
             VoiceModelState.DOWNLOADING -> Text(
-                "Downloading $modelLanguage offline model" +
+                if (modelLanguage != null) {
+                    "Downloading $modelLanguage offline model"
+                } else {
+                    "Downloading offline model"
+                } +
                     if (voice.modelProgress >= 0) " — ${voice.modelProgress}%" else "…",
                 color = kb.secondaryText,
                 fontSize = 12.sp,

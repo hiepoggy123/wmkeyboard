@@ -874,6 +874,10 @@ private fun ToolSetupPage(repository: SettingsRepository, settings: KeyboardSett
     )
     if (ToolbarTool.CALENDAR in settings.enabledTools) {
         SectionTitle("Calendar")
+        // All three already open on what the device's region suggests — the
+        // Bengali calendar in Bangladesh, era years in Japan, a Friday-Saturday
+        // weekend across much of the Middle East. This page is where someone
+        // sees that guess and corrects it.
         AltCalendarSetting(
             title = "First calendar",
             subtitle = "Shown alongside the Gregorian month, and inside each day cell",
@@ -885,6 +889,10 @@ private fun ToolSetupPage(repository: SettingsRepository, settings: KeyboardSett
             subtitle = "A second one for the header and the selected day",
             selected = settings.calendarAltTwo,
             onChange = { scope.launch { repository.setCalendarAltTwo(it) } },
+        )
+        WeekendSetting(
+            selected = settings.calendarWeekend,
+            onChange = { scope.launch { repository.setCalendarWeekend(it) } },
         )
     }
     if (ToolbarTool.WEATHER in settings.enabledTools) {

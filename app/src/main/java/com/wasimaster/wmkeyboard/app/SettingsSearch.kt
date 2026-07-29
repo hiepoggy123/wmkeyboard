@@ -214,7 +214,14 @@ private val SettingRows: List<SettingsSearchEntry> = listOfNotNull(
     entry("Comma key opens emoji", "Replace the comma key with an emoji key", "Layout & size", "layout"),
     entry("Emoji key instead of 🌐", "Replace the language key with an emoji key", "Layout & size", "layout"),
     entry("Import a layout", "Open a .wmlayout.json file someone shared", "Key layouts", "keymaps"),
-    entry("Conjunct-aware backspace", "Delete a whole যুক্তবর্ণ (like ক্ষ or স্ত্রী) as one unit", "Languages", "languages"),
+    // Per language now, so search lands on the language list rather than on a
+    // switch that no longer exists at the top level.
+    entry(
+        "Conjunct-aware backspace",
+        "Delete a whole cluster as one unit — set per language, on its own screen",
+        "Languages",
+        "languages",
+    ),
     entry("Emoji button in toolbar", "One-tap emoji access from the top bar", "Emoji", "emoji"),
     entry("Full-screen emoji panel", "Hide the toolbar and move the category tabs up next to a back button", "Emoji", "emoji"),
     entry("Emoji suggestions", "Offer emojis while typing — birthday suggests 🎂 🎉 🥳", "Emoji", "emoji"),
@@ -298,6 +305,7 @@ private val SettingRows: List<SettingsSearchEntry> = listOfNotNull(
         tool = ToolbarTool.CALENDAR,
     ),
     entry("Second calendar", "A second calendar for the header and the selected day", tool = ToolbarTool.CALENDAR),
+    entry("Weekend", "Which weekday initials the month grid tints", tool = ToolbarTool.CALENDAR),
     entry("Hijri day adjustment", "Shift the computed Hijri date to match local moon sighting", tool = ToolbarTool.CALENDAR),
     entry("Start with the selfie camera", "Open the tool on the front camera instead of the back one", tool = ToolbarTool.CAMERA),
     entry("Mirror selfies", "Save front-camera photos the way the preview shows them", tool = ToolbarTool.CAMERA),

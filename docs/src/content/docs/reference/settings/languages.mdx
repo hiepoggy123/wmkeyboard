@@ -46,25 +46,28 @@ The Key layouts screen has its own, differently-scoped **Your layouts** section:
 
 A **Switch order** group appears only once more than one layout is enabled — true on most fresh installs, since the starting set is seeded from your phone's language list plus English, but *not* on a phone set to English only, which starts with QWERTY alone and no Switch order group at all. Drag to reorder the raw layout list; it reorders every enabled *layout*, not language, so two English layouts keep independent slots in the ring even though they're both "English." This is the same list the <KeyCap>🌐</KeyCap> key and spacebar swipe cycle through; full behavior is on [Switching languages](/languages/switching/#reordering-and-trimming-the-ring).
 
-Three more groups sit below Your layouts:
+Two more groups sit below Your layouts:
 
 - **Per-app language** — one toggle, **Remember language per app** (<SettingsPath path="Languages / Per-app language / Remember language per app" />, default **off**). Reopening a text field in an app you've explicitly switched languages in restores that layout; apps you haven't switched in follow your last-used one globally. A field that forces Latin input (a password box) or advertises its own language still overrides this.
 - **System language switcher** — **List languages in Android's switcher** (<SettingsPath path="Languages / System language switcher / List languages in Android's switcher" />, default **on**) registers every enabled layout as an Android input-method subtype, so the system's "Choose input method" sheet lists and can switch each one. While it's on, two more rows appear: **Show app name first** (default **off**), which puts "WM Keyboard" ahead of the language in the switcher's label instead of after it, and **Choose languages in system settings**, which opens Android's own tick-list of this keyboard's languages. On Android 14 and newer the keyboard enables every registered subtype itself and that row is only a way to check Android's view of things; on Android 13 and older there is no API for it, so ticking them there by hand is the only way the switcher lists more than one.
-- **Complex scripts** — shown only if an enabled language's script forms conjunct clusters (Bengali, Devanagari, Tamil and several others), so whether it's there on a fresh install depends on what your phone's languages seeded. One toggle, **Conjunct-aware backspace** (<SettingsPath path="Languages / Conjunct-aware backspace" />, default **off**), deletes a whole cluster like ক্ষ or क्ष in a single press instead of one code point at a time. Bengali-specific detail lives on [Bengali](/languages/bengali/).
 
-<PhoneFrame caption="Further down the screen: Per-app language, System language switcher, and Complex scripts.">
+Conjunct-aware backspace used to sit here too, as a single **Complex scripts** switch across every cluster-forming script at once. It is per language now, on each language's own screen (below). An install that had the old switch on keeps cluster deletion in whichever cluster-forming languages it had enabled at the time.
+
+<PhoneFrame caption="Further down the screen: Per-app language and System language switcher.">
   {/* shot: reference/settings/languages-bottom */}
 </PhoneFrame>
 
 ## Each language's own screen
 
-Tapping a language (from Your languages or straight after adding one) opens a screen titled with that language's own name, built from up to seven groups depending on what it supports.
+Tapping a language (from Your languages or straight after adding one) opens a screen titled with that language's own name, built from up to eight groups depending on what it supports.
 
 <PhoneFrame caption="Bengali's own screen: Layouts, Numerals, Also suggest from, Dictionary, and Emoji.">
   {/* shot: reference/settings/language-detail-bengali */}
 </PhoneFrame>
 
 **Layouts** — one toggle per layout the language ships, no subtitle. Turning off the last enabled layout anywhere is a no-op rather than an error, so you can never empty the switch ring from here.
+
+**Clusters** — shown only for a language whose script forms conjunct clusters (Bengali, Devanagari, Gurmukhi, Gujarati, Odia, Tamil, Telugu, Kannada, Malayalam, Sinhala, Khmer, Myanmar, Tibetan and others). One toggle, **Conjunct-aware backspace** (<SettingsPath path="Languages / (a language) / Clusters / Conjunct-aware backspace" />, default **off**), deletes a whole cluster in a single press instead of one code point at a time. The subtitle shows a cluster from that language's own script, so the Bengali row reads ক্ষ and the Hindi one क्ष. Set per language: turning it on for one leaves the others alone.
 
 **Numerals** — a single choice, **Numeral system** (<SettingsPath path="Languages / (a language) / Numerals / Numeral system" />), shown as a row of short segmented options. Six choices, all defaulting to **Auto** for every language:
 
@@ -116,7 +119,7 @@ Three languages, `zh`, `ja`, and `yue`, get an extra group named after themselve
 | List languages in Android's switcher | Languages → System language switcher | On |
 | Show app name first | Languages → System language switcher | Off |
 | Choose languages in system settings | Languages → System language switcher | Opens Android's settings (no stored value) |
-| Conjunct-aware backspace | Languages → Complex scripts | Off |
+| Conjunct-aware backspace | Languages → *(a language)* → Clusters | Off, per language |
 | Layouts (per layout) | Languages → *(a language)* → Layouts | On for the one layout that language was added with (its first); off for the rest |
 | Numeral system | Languages → *(a language)* → Numerals | Auto |
 | Also suggest from (per other language) | Languages → *(a language)* → Also suggest from | Off |
@@ -132,7 +135,7 @@ Two related settings live outside this screen entirely: **where** a numeral choi
 
 ## Details & edge cases
 
-- **Settings search barely covers this screen.** Only two rows here are indexed by name: the top-level "Languages" entry itself and "Conjunct-aware backspace." Everything else (Add language, Switch order, Per-app language, the system switcher toggles, and everything on a per-language detail screen) has to be found by browsing, not by typing into Settings search.
+- **Settings search barely covers this screen.** Only two rows here are indexed by name: the top-level "Languages" entry itself and "Conjunct-aware backspace" (which now lands you on the language list, since the row itself lives one screen deeper). Everything else (Add language, Suggested for you, Switch order, Per-app language, the system switcher toggles, and everything on a per-language detail screen) has to be found by browsing, not by typing into Settings search.
 - **Registering a subtype does not enable it.** Android decides which subtypes are enabled, and with nothing explicitly enabled it derives the set from your phone's system languages, which is usually one. Android 14 and newer let the keyboard enable them all itself; below that, use **Choose languages in system settings** or the switcher will keep showing a single entry.
 - **352 is the catalogue size, not the enabled count.** A fresh install enables at most four layouts, seeded from your phone's language list; everything else in the catalogue sits inactive, loaded on demand, until you add it.
 - **Your region suggests, it never enables.** The SIM's country feeds the Suggested for you list and nothing else. Seeding a fresh install uses only your phone's *language* list — landing in a country doesn't rearrange your keyboard.

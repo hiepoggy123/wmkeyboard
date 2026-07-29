@@ -63,13 +63,13 @@ Both fixed layouts share the same cluster-editing behavior as Avro (see [Editing
 
 Bengali script builds conjuncts (যুক্তবর্ণ) by joining consonants with a hasant (্): ক্ষ, স্ত্রী, জ্ঞ. By default, backspace over already-typed Bengali text removes one character at a time, which can leave a half-formed cluster on screen: জ্ঞ with one backspace becomes জ্, not জ.
 
-<SettingsPath path="Languages / Conjunct-aware backspace" />
+<SettingsPath path="Languages / Bangla / Clusters / Conjunct-aware backspace" />
 
 Turning on **Conjunct-aware backspace** changes this: a whole conjunct cluster is deleted in a single press instead. স্ত্রী (a triple conjunct) disappears as one unit, ক্ষ as one unit, and a bare trailing hasant with nothing joined to it yet still deletes alone. The setting is **off by default**, and it applies to committed Bengali text across all three Bengali layouts (Avro, Probhat, and Jatiya alike) since they share the same cluster logic. It only affects text already committed to the field; deleting through your still-composing Avro romanization always removes one Latin character per press.
 
-This toggle isn't Bengali-exclusive: it shows up under **Languages** whenever any enabled language uses a script that forms conjuncts (Devanagari and others work the same way), and turning it on affects all of them at once, not Bengali alone.
+This toggle isn't Bengali-exclusive: every language on a cluster-forming script gets its own copy of it (Devanagari, Tamil, Khmer and others work the same way). It's set per language, so Bengali deleting whole conjuncts doesn't commit you to Hindi doing the same.
 
-<PhoneFrame caption="Conjunct-aware backspace, under Languages → Complex scripts. Off by default.">
+<PhoneFrame caption="Conjunct-aware backspace, under the Bangla language's own Clusters group. Off by default.">
   {/* shot: languages/conjunct-backspace-toggle */}
 </PhoneFrame>
 
@@ -93,10 +93,11 @@ Open Bengali's own screen from **Languages** in the app, or search for it from *
 - **Dictionary** — Bengali ships with a bundled dictionary, and a downloadable wordlist (about 451,000 words) is available for better suggestions; you can also import your own list. See [Downloadable dictionaries](/languages/dictionaries/) for how sizes compare across languages.
 - **Emoji** — download the larger Bengali emoji-keyword pack here (about 3,900 emoji named; the bundled catalog's Bengali keywords already work without it). Downloads automatically if [Download automatically](/emoji/customization/) is on.
 
-Two more Bengali-relevant settings live outside this screen:
+- **Clusters** — <SettingsPath path="Languages / Bangla / Clusters / Conjunct-aware backspace" />, covered above, off by default.
 
-- <SettingsPath path="Languages / Conjunct-aware backspace" /> — covered above, off by default.
-- <SettingsPath path="Appearance / Keyboard font / Bengali font" /> — a dedicated font picker shown only while a Bengali-script language is enabled, separate from the general keyboard font. It applies to all three Bengali layouts at once (Avro, Probhat, Jatiya use the same choice), with several Bengali-focused Google Fonts to pick from plus your own imported font file.
+One more Bengali-relevant setting lives outside this screen:
+
+- <SettingsPath path="Appearance / Keyboard font / Bengali font" /> — one of the per-script font sections, shown only while a Bengali-script language is enabled and separate from the general keyboard font. It applies to all three Bengali layouts at once (Avro, Probhat, Jatiya use the same choice), with several Bengali-focused Google Fonts to pick from plus your own imported font file — Bengali is the one script section that also takes an import.
 
 ## Details & edge cases
 

@@ -951,12 +951,16 @@ internal fun CalendarPanel(
                         contentDescription = "Next month", tint = kb.toolbarIcon)
                 }
             }
-            // Weekday initials; Friday tinted (weekend in Bangladesh).
+            // Weekday initials, with the user's weekend tinted. Which days those
+            // are is a setting, defaulted from the device's region — Friday and
+            // Saturday in much of the Middle East, Friday alone in Bangladesh,
+            // Saturday and Sunday most other places.
+            val weekend = state.settings.calendarWeekend.days
             Row(modifier = Modifier.fillMaxWidth()) {
                 listOf("S", "M", "T", "W", "T", "F", "S").forEachIndexed { index, initial ->
                     Text(
                         initial,
-                        color = if (index == 5) kb.accent else kb.toolbarIcon,
+                        color = if (index in weekend) kb.accent else kb.toolbarIcon,
                         fontSize = 10.sp,
                         fontWeight = FontWeight.SemiBold,
                         textAlign = TextAlign.Center,

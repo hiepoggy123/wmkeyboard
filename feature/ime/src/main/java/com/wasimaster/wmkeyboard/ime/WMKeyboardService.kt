@@ -509,6 +509,18 @@ open class WMKeyboardService : InputMethodService() {
     /** Bundled Bengali entries, kept so the phonetic index can be rebuilt. */
     private var bengaliAssetEntries: List<Pair<String, Int>> = emptyList()
 
+    /**
+     * Whether the last dictionary load included Bengali. The transliteration
+     * map is a constructor argument of the engine and can't be swapped in, so
+     * adding Bengali after the fact needs the whole load run again — this is
+     * what notices.
+     */
+    private var loadedBengali = false
+
+    /** Whether any enabled language routes through the Bengali machinery. */
+    private fun bengaliEnabled(): Boolean =
+        _uiState.value.settings.enabledLanguages.any { it.id == "bn" }
+
     /** Last word committed by a swipe, so tapping an alternate replaces it. */
     private var lastGestureWord: String? = null
     private var previewJob: Job? = null
@@ -1223,6 +1235,12 @@ open class WMKeyboardService : InputMethodService() {
                 // (incognito, fields that forbid typing intelligence) is checked
                 // at the commit itself, where the field is known.
                 CjkLearning.enabled = settings.learnFromTyping
+                // Adding or removing Bengali changes what the engine was built
+                // with, not just what it looks up, so it is rebuilt rather than
+                // patched. Only fires on an actual change to the enabled set.
+                if (suggestionEngine != null && bengaliEnabled() != loadedBengali) {
+                    loadDictionariesAndEmoji()
+                }
                 // Only English drives the bundled English word list; every other
                 // language (with no bundled dictionary) drops it so autocorrect
                 // and completions never offer English for their words. Bengali
@@ -1382,6 +1400,8 @@ open class WMKeyboardService : InputMethodService() {
      */
     private fun loadDictionariesAndEmoji() {
         serviceScope.launch {
+            val bengaliEnabled = bengaliEnabled()
+            loadedBengali = bengaliEnabled
             val loaded = withContext(Dispatchers.Default) {
                 AssetLayouts.load(assets)
                 // Older installs inflated the bundled lists into
@@ -1394,7 +1414,12 @@ open class WMKeyboardService : InputMethodService() {
                 // the same language (bigger, user-chosen size) wins over the
                 // bundled copy.
                 val english = openLanguageDictionary("en")
-                val bengali = openLanguageDictionary("bn")
+                // Bengali's bundled list, its phonetic index and its loanword
+                // map only exist to serve Bengali. Someone typing French and
+                // Japanese pays ~20k words of mmap and an index build for
+                // machinery they will never reach, so it loads with the
+                // language and not before.
+                val bengali = if (bengaliEnabled) openLanguageDictionary("bn") else null
                 val bundled = assets.open("emoji/catalog.tsv").use { EmojiCatalog.load(it) }
                 // Imported language packs name the same emoji in a language the
                 // bundled catalog has no keywords for, so they are folded in
@@ -1411,7 +1436,11 @@ open class WMKeyboardService : InputMethodService() {
                 english?.entries().orEmpty() to bengali?.entries().orEmpty()
             }
             val (loanwords, variants, seedBigrams) = withContext(Dispatchers.Default) {
-                val lw = assets.open("dictionaries/en_bn.tsv").use { EnglishBengaliMap.load(it) }
+                val lw = if (bengaliEnabled) {
+                    assets.open("dictionaries/en_bn.tsv").use { EnglishBengaliMap.load(it) }
+                } else {
+                    EnglishBengaliMap.EMPTY
+                }
                 val v = runCatching {
                     assets.open("emoji/variants.tsv").use { EmojiVariantIndex.load(it) }
                 }.getOrDefault(EmojiVariantIndex.empty())
@@ -3298,7 +3327,7 @@ open class WMKeyboardService : InputMethodService() {
                 // Multi-code-point emoji (☠️, 👍🏽, 👨‍👩‍👧) go in one press
                 // instead of shedding a piece per backspace.
                 emojiLength > 0 -> emojiLength
-                state.settings.conjunctBackspace ->
+                state.language.id in state.settings.conjunctBackspaceLanguages ->
                     state.composer.deleteLength(before).coerceAtLeast(1)
                 before.length >= 2 &&
                     Character.isSurrogatePair(before[before.length - 2], before[before.length - 1]) -> 2
@@ -10275,7 +10304,7 @@ open class WMKeyboardService : InputMethodService() {
         if (token == loadedDictToken || suggestionEngine == null) return@withContext
         loadedDictToken = token
         val english = openLanguageDictionary("en")
-        val bengali = openLanguageDictionary("bn")
+        val bengali = if (loadedBengali) openLanguageDictionary("bn") else null
         gestureLexicon = english?.entries().orEmpty()
         invalidateGestureLexicon()
         bengaliAssetEntries = bengali?.entries().orEmpty()

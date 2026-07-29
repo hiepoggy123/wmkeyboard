@@ -80,7 +80,7 @@ Voice typing doesn't have its own language picker: it dictates in whatever langu
 
 The system recognizer prefers running fully on-device (Android 12 and up) when your phone's model for that language is installed: it's faster, needs no network, and skips the little beep before it starts listening. If a language's on-device model can't handle recognition, WM Keyboard falls back to the network recognizer transparently.
 
-On Android 13 and up, if an on-device model for your language is available but not installed, a chip offers to download it: "Get English for offline dictation" or "Get Bengali for offline dictation" (the chip's language name is currently only ever English or Bengali, even when dictating in a different language). Tapping it starts the system's own download and shows progress until it's installed.
+On Android 13 and up, if an on-device model for your language is available but not installed, a chip offers to download it, named for the language you are actually dictating in: "Get Spanish for offline dictation", "Get Bengali for offline dictation", and so on. A dictation language the catalogue doesn't recognise reads "Get this language for offline dictation" rather than guessing. Tapping it starts the system's own download and shows progress until it's installed.
 
 <PhoneFrame caption="Offline model download chip in the voice panel.">
 {/* shot: tools/voice-offline-model-chip */}

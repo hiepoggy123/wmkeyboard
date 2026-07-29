@@ -206,6 +206,7 @@ import com.wasimaster.wmkeyboard.core.settings.MediaSendMode
 import com.wasimaster.wmkeyboard.core.settings.QrEccLevel
 import com.wasimaster.wmkeyboard.core.tools.AiClient
 import com.wasimaster.wmkeyboard.core.tools.AltCalendar
+import com.wasimaster.wmkeyboard.core.tools.Weekend
 import com.wasimaster.wmkeyboard.core.tools.AiPrompts
 import com.wasimaster.wmkeyboard.core.tools.GeoPlace
 import com.wasimaster.wmkeyboard.core.tools.SmartSuggest
@@ -224,9 +225,7 @@ import com.wasimaster.wmkeyboard.BuildConfig
 import com.wasimaster.wmkeyboard.core.settings.KeyboardAlignment
 import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
 import com.wasimaster.wmkeyboard.core.script.NumeralCommitScope
-import com.wasimaster.wmkeyboard.core.script.ComposerType
 import com.wasimaster.wmkeyboard.core.script.ScriptId
-import com.wasimaster.wmkeyboard.core.script.ScriptRegistry
 import com.wasimaster.wmkeyboard.core.input.composer.CjkLearning
 import com.wasimaster.wmkeyboard.core.mlkit.MlKitInit
 import com.wasimaster.wmkeyboard.core.layout.AssetLayouts
@@ -269,6 +268,7 @@ import com.wasimaster.wmkeyboard.core.emoji.EmojiDictStore
 import com.wasimaster.wmkeyboard.core.emoji.EmojiFontShaping
 import com.wasimaster.wmkeyboard.core.emoji.EmojiKeywordPack
 import com.wasimaster.wmkeyboard.core.emoji.EmojiKeywordPacks
+import com.wasimaster.wmkeyboard.core.emoji.EmojiSearchExamples
 import com.wasimaster.wmkeyboard.core.prediction.CustomDictionaries
 import com.wasimaster.wmkeyboard.core.prediction.DictionaryLoader
 import com.wasimaster.wmkeyboard.core.prediction.UserLexicon
@@ -4266,28 +4266,10 @@ private fun LanguageSettings(
             }
         }
     }
-    // Only shown when a conjunct-forming (Indic/Brahmic) script is enabled — the
-    // setting drives cluster-aware deletion for every INDIC_CLUSTER script
-    // (Bengali, Devanagari, Tamil, …), not Bengali alone.
-    if (settings.enabledLanguages.any {
-            ScriptRegistry[it.script].composer == ComposerType.INDIC_CLUSTER
-        }
-    ) {
-        SettingsGroup("Complex scripts") {
-            item {
-                ToggleSetting(
-                    "Conjunct-aware backspace",
-                    "Delete a whole conjunct (যুক্তবর্ণ like ক্ষ, or क्ष) as one unit",
-                    settings.conjunctBackspace,
-                    info = "Normally backspace removes one code point at a time, which can leave " +
-                        "half-formed conjuncts. With this on, a conjunct cluster like স্ত্রী or " +
-                        "क्ष is deleted in a single press.",
-                ) {
-                    scope.launch { repository.setConjunctBackspace(it) }
-                }
-            }
-        }
-    }
+    // Conjunct-aware backspace used to live here as one switch across every
+    // cluster-forming script at once. It is per language now, on each language's
+    // own screen, next to that language's other options — see
+    // [ConjunctBackspaceSetting].
 }
 
 // ---- emoji ----
@@ -4299,13 +4281,18 @@ private fun EmojiSettings(
     onNavigate: (String) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
+    // Examples in the user's own languages: "type জন্মদিন" only reads as proof
+    // the feature works to someone who reads Bengali.
+    val languageIds = settings.enabledLanguages.map { it.id }
+    val birthdayWord = EmojiSearchExamples.one(EmojiSearchExamples.birthday, languageIds)
     SettingsGroup("Access") {
         item {
             ToggleSetting(
                 "Emoji button in toolbar", "One-tap emoji access from the top bar", settings.emojiToolbar,
                 info = "Keeps the emoji button visible in the top bar even while suggestions " +
                     "are showing. The emoji panel itself has tabs per category, search in " +
-                    "English and Bengali, and skin-tone variants on long-press.",
+                    "English and Bengali (and any language you add a keyword pack for), " +
+                    "and skin-tone variants on long-press.",
             ) { scope.launch { repository.setEmojiToolbar(it) } }
         }
         item {
@@ -4327,7 +4314,8 @@ private fun EmojiSettings(
                 "Offer emojis while typing — birthday suggests 🎂 🎉 🥳",
                 settings.emojiPrediction,
                 info = "Matching emojis appear at the end of the suggestion strip while you " +
-                    "type, in English or Bengali (জন্মদিন also suggests 🎂).",
+                    "type, in English or in any language whose keywords you have " +
+                    "($birthdayWord also suggests 🎂).",
             ) { scope.launch { repository.setEmojiPrediction(it) } }
         }
         if (settings.emojiPrediction) {
@@ -5576,9 +5564,15 @@ private fun EmojiKeywordSettings(repository: SettingsRepository, settings: Keybo
         }
     }
 
+    // The examples are drawn from the languages this user actually types, so
+    // the line demonstrates the feature instead of demonstrating three scripts
+    // they may not read.
+    val packExamples = EmojiSearchExamples
+        .pick(EmojiSearchExamples.money, settings.enabledLanguages.map { it.id }, limit = 3)
+        .joinToString(", ")
     Text(
         "Emoji search ships with English and Bengali keywords. A pack adds " +
-            "another language, so টাকা, dinero or お金 all find 💰 — and its " +
+            "another language, so $packExamples all find 💰 — and its " +
             "words show up as emoji suggestions while you type.\n\n" +
             "Packs stack on top of the bundled keywords rather than replacing " +
             "them, and a language may have several.",
@@ -5770,9 +5764,10 @@ private fun FontSettings(repository: SettingsRepository, settings: KeyboardSetti
     }
 
     Text(
-        "Applies to key labels, suggestions and the keyboard's panels. The " +
-            "English font is used in English mode, the Bengali font in Avro, " +
-            "প্রভাত and জাতীয় modes. Google fonts are fetched once through the " +
+        "Applies to key labels, suggestions and the keyboard's panels. Each " +
+            "script gets its own face, picked below and used whenever you're " +
+            "typing a language that writes in it; the English font also covers " +
+            "Cyrillic and Greek. Google fonts are fetched once through the " +
             "system font provider and cached on-device; missing glyphs fall " +
             "back to the system font automatically.",
         style = MaterialTheme.typography.bodyMedium,
@@ -5795,40 +5790,37 @@ private fun FontSettings(repository: SettingsRepository, settings: KeyboardSetti
         scripts = setOf(ScriptId.LATIN, ScriptId.CYRILLIC, ScriptId.GREEK),
         onDeleteInstalled = ::deleteInstalled,
     )
-    // The Bengali font picker is the one script-specific face the user chooses by
-    // hand; every other non-Latin script uses its Noto face automatically. Only
-    // show it when a Bengali-script language is enabled.
-    if (settings.enabledLanguages.any { it.script == ScriptId.BENGALI }) {
-        FontPickerSection(
-            header = "Bengali font",
-            sample = "আমি ভালো আছি · কখগঘঙ চছজঝঞ",
-            selectedId = settings.bengaliFontId,
-            googleNames = KeyboardFonts.bengaliGoogleFonts,
-            customId = KeyboardFonts.CUSTOM_BENGALI_ID,
-            customFile = KeyboardFonts.customBengaliFontFile(context),
-            customName = settings.customBengaliFontName,
-            onSelect = { id -> scope.launch { repository.setBengaliFontId(id) } },
-            onImport = { uri -> importIntoLibrary(uri) { repository.setBengaliFontId(it) } },
-            installedFonts = installedFonts,
-            installedTitle = "Installed Bengali fonts",
-            scripts = setOf(ScriptId.BENGALI),
-            onDeleteInstalled = ::deleteInstalled,
-        )
-    }
-    // Curated font pickers for the other non-Latin scripts, each shown only while
-    // a language using that script is enabled. These offer the script's automatic
-    // Noto face plus a few alternatives (no custom import — that stays English/
-    // Bengali-only). Latin/Cyrillic/Greek follow the English font above.
+    // Curated font pickers for the non-Latin scripts, each shown only while a
+    // language using that script is enabled. Every one offers the script's
+    // automatic Noto face plus a few alternatives; the scripts that also take an
+    // imported file (Bengali today) additionally get the import button and the
+    // installed-font library. Latin/Cyrillic/Greek follow the English font above.
     val enabledScripts = settings.enabledLanguages.mapTo(mutableSetOf()) { it.script }
     for (choices in KeyboardFonts.scriptFontChoices) {
         if (choices.script !in enabledScripts) continue
+        val script = choices.script.name
+        // Non-null only for the scripts whose picker takes an imported file;
+        // everything import-shaped below hangs off it.
+        val customId = KeyboardFonts.customScriptFontId(choices.script)
+        val importable = customId != null
+        val onImportFont: ((Uri) -> Unit)? = customId?.let {
+            { uri: Uri -> importIntoLibrary(uri) { id -> repository.setScriptFontId(script, id) } }
+        }
         FontPickerSection(
             header = "${choices.label} font",
             sample = choices.sample,
-            selectedId = settings.scriptFontIds[choices.script.name] ?: KeyboardFonts.DEFAULT_ID,
+            selectedId = settings.scriptFontIds[script] ?: KeyboardFonts.DEFAULT_ID,
             googleNames = choices.fonts,
             defaultLabel = "Automatic (Noto)",
-            onSelect = { id -> scope.launch { repository.setScriptFontId(choices.script.name, id) } },
+            customId = customId,
+            customFile = KeyboardFonts.customScriptFontFile(context, choices.script),
+            customName = settings.customScriptFontNames[script].orEmpty(),
+            onSelect = { id -> scope.launch { repository.setScriptFontId(script, id) } },
+            onImport = onImportFont,
+            installedFonts = if (importable) installedFonts else emptyList(),
+            installedTitle = "Installed ${choices.label} fonts",
+            scripts = setOf(choices.script),
+            onDeleteInstalled = if (importable) ::deleteInstalled else null,
         )
     }
     Spacer(Modifier.height(16.dp))
@@ -5859,7 +5851,8 @@ private fun FontPickerSection(
     googleNames: List<String>,
     onSelect: (String) -> Unit,
     defaultLabel: String = "System default",
-    customId: String = KeyboardFonts.CUSTOM_ID,
+    /** The imported-file id this picker writes, or null if it takes no import. */
+    customId: String? = KeyboardFonts.CUSTOM_ID,
     customFile: java.io.File? = null,
     customName: String = "",
     onImport: ((android.net.Uri) -> Unit)? = null,
@@ -5914,7 +5907,11 @@ private fun FontPickerSection(
                 ) { onSelect(id) }
             }
         }
-        if (customFile?.exists() == true) {
+        // The single imported file this picker used to keep before fonts moved
+        // into the shared library above. Shown only while that file is still
+        // there, so an old import stays selectable and a fresh install never
+        // sees the row.
+        if (customId != null && customFile?.exists() == true) {
             item {
                 FontChoiceRow(
                     label = customName.ifBlank { "Imported font" },
@@ -6763,6 +6760,11 @@ private fun ToolDetailSettings(
                         onChange = { scope.launch { repository.setCalendarAltTwo(it) } },
                     )
                 }
+                item {
+                    WeekendSetting(settings.calendarWeekend) {
+                        scope.launch { repository.setCalendarWeekend(it) }
+                    }
+                }
                 if (showsHijri) {
                     item {
                         SliderSetting(
@@ -6786,7 +6788,11 @@ private fun ToolDetailSettings(
                 "Pick any two calendars to show next to the Gregorian one. Chinese dates " +
                     "are computed astronomically; Hebrew, Persian, Hindu (Saka), Buddhist " +
                     "and Japanese are exact arithmetic; Hijri is the tabular calendar, so " +
-                    "it has the day offset above.",
+                    "it has the day offset above.\n\n" +
+                    "All three start from your phone's region — the Bengali calendar in " +
+                    "Bangladesh, era years in Japan, a Friday–Saturday weekend across much " +
+                    "of the Middle East. That is only a guess at what you'd want; change " +
+                    "any of it here.",
             )
             CaptionText(
                 "Tapping a day shows its events from your device calendar. The keyboard " +
@@ -8373,6 +8379,46 @@ internal fun AltCalendarSetting(
     }
 }
 
+/**
+ * The weekend picker, as a row plus dialog so it works both on the tool's
+ * settings screen and in the onboarding wizard, which has no [SettingsGroup].
+ */
+@Composable
+internal fun WeekendSetting(selected: Weekend, onChange: (Weekend) -> Unit) {
+    var dialogOpen by remember { mutableStateOf(false) }
+    NavRow(
+        "Weekend",
+        subtitle = "Which weekday initials the month grid tints",
+        value = selected.label,
+        onClick = { dialogOpen = true },
+    )
+    if (dialogOpen) {
+        AlertDialog(
+            onDismissRequest = { dialogOpen = false },
+            title = { Text("Weekend") },
+            text = {
+                LazyColumn {
+                    items(Weekend.entries) { weekend ->
+                        ListItem(
+                            headlineContent = { Text(weekend.label) },
+                            trailingContent = if (weekend == selected) {
+                                { Icon(Icons.Outlined.Check, contentDescription = "Selected") }
+                            } else null,
+                            modifier = Modifier.clickable {
+                                dialogOpen = false
+                                onChange(weekend)
+                            },
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { dialogOpen = false }) { Text("Close") }
+            },
+        )
+    }
+}
+
 /** "Translate into" row with a full-language-list dialog. */
 @Composable
 private fun TranslateLanguageSetting(repository: SettingsRepository, settings: KeyboardSettings) {
@@ -8806,10 +8852,13 @@ private fun PrivacySettings(repository: SettingsRepository, settings: KeyboardSe
         }
     }
     CaptionText(
-        "WM Keyboard works offline: dictionaries, Bengali transliteration and " +
-            "emoji search are all bundled, and there is no telemetry. The one " +
-            "exception is the optional weather tool, which fetches conditions from " +
-            "Open-Meteo only when you open it (and can be disabled under Tools).",
+        "Typing runs entirely on this device. Dictionaries, prediction, " +
+            "autocorrect, transliteration and emoji search are bundled with the " +
+            "app, and none of them need a network connection. There is no " +
+            "telemetry and no analytics. Network access is per tool and only on " +
+            "the tap that uses it — translate, weather, web and image search, " +
+            "GIFs and stickers, dictionary lookup and the AI tools — and every " +
+            "one of them can be switched off under Tools.",
     )
 }
 
