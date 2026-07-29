@@ -197,6 +197,7 @@ import com.wasimaster.wmkeyboard.core.tools.typingConfigLabel
 import com.wasimaster.wmkeyboard.core.tools.WikipediaClient
 import com.wasimaster.wmkeyboard.core.tools.WeatherClient
 import com.wasimaster.wmkeyboard.core.tools.WebResult
+import com.wasimaster.wmkeyboard.core.mlkit.MlKitInit
 import com.wasimaster.wmkeyboard.core.media.MediaControlManager
 import com.wasimaster.wmkeyboard.core.media.MediaNotificationListener
 import com.wasimaster.wmkeyboard.core.voice.VoiceInputEngine
@@ -1005,6 +1006,10 @@ open class WMKeyboardService : InputMethodService() {
 
         userUnlocked = DirectBoot.isUserUnlocked(this)
         DebugLog.i("ime", "service created (unlocked=$userUnlocked)")
+        // A process that started on the lock screen never ran ML Kit's init
+        // provider, and every ML Kit tool in it — handwriting, OCR, QR, doc
+        // scan — stays broken until it is initialized by hand.
+        if (userUnlocked) MlKitInit.ensure(this)
         settingsRepository = SettingsRepository(this)
         // Decode the synthesized key sounds up front so the first press plays.
         KeySoundPlayer.warmUp(this)
@@ -1324,6 +1329,9 @@ open class WMKeyboardService : InputMethodService() {
             unlockReceiverRegistered = false
         }
         attachPersonalStores()
+        // This process started on the lock screen, so ML Kit's init provider
+        // was skipped; now that storage is up it can be initialized by hand.
+        MlKitInit.ensure(this)
         // The bundled lists were inflated into device-protected storage, which
         // stays valid; only the user's own lists were unreachable. Forcing the
         // token stale makes the next field focus re-mmap everything.
@@ -2238,9 +2246,11 @@ open class WMKeyboardService : InputMethodService() {
         hwRecognizer.close()
         LocalLlmEngine.release()
         WhisperEngine.release()
-        lifecycleOwner.onDestroy()
         serviceScope.cancel()
+        // Before the owner is destroyed: super.onDestroy runs a full input
+        // teardown, and onFinishInputView pauses the owner on the way out.
         super.onDestroy()
+        lifecycleOwner.onDestroy()
     }
 
     override fun onTrimMemory(level: Int) {

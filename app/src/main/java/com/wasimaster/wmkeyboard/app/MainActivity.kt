@@ -228,6 +228,7 @@ import com.wasimaster.wmkeyboard.core.script.ComposerType
 import com.wasimaster.wmkeyboard.core.script.ScriptId
 import com.wasimaster.wmkeyboard.core.script.ScriptRegistry
 import com.wasimaster.wmkeyboard.core.input.composer.CjkLearning
+import com.wasimaster.wmkeyboard.core.mlkit.MlKitInit
 import com.wasimaster.wmkeyboard.core.layout.AssetLayouts
 import com.wasimaster.wmkeyboard.core.layout.language
 import com.wasimaster.wmkeyboard.core.layout.resolveLayout
@@ -321,6 +322,10 @@ class MainActivity : ComponentActivity() {
         // Shares a process with the keyboard service when both are running, so
         // this is often a no-op — but the settings app can be opened first.
         DebugLog.attach(applicationContext)
+        // Same story for ML Kit: when the shared process came up on the lock
+        // screen its init provider was skipped, and the handwriting model
+        // manager below is one of the screens that pays for it.
+        MlKitInit.ensure(applicationContext)
         repository = SettingsRepository(applicationContext)
         // The JSON asset layouts back the tail of the language list; load them
         // before the first settings emission so an enabled asset layout resolves

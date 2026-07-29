@@ -31,20 +31,32 @@ class KeyboardViewLifecycleOwner : LifecycleOwner, ViewModelStoreOwner, SavedSta
 
     fun onCreate() {
         savedStateRegistryController.performRestore(null)
-        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_CREATE)
+        dispatch(Lifecycle.Event.ON_CREATE)
     }
 
     fun onResume() {
-        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_RESUME)
+        dispatch(Lifecycle.Event.ON_RESUME)
     }
 
     fun onPause() {
-        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_PAUSE)
+        dispatch(Lifecycle.Event.ON_PAUSE)
     }
 
     fun onDestroy() {
-        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_DESTROY)
+        dispatch(Lifecycle.Event.ON_DESTROY)
         store.clear()
+    }
+
+    /**
+     * DESTROYED is the end of the line — LifecycleRegistry throws on any move
+     * out of it. The platform walks the service through a full input teardown
+     * from inside InputMethodService.onDestroy, so onFinishInputView (and with
+     * it ON_PAUSE) can arrive after the service has already said goodbye. That
+     * throw propagates out of handleStopService and takes the process with it.
+     */
+    private fun dispatch(event: Lifecycle.Event) {
+        if (lifecycleRegistry.currentState == Lifecycle.State.DESTROYED) return
+        lifecycleRegistry.handleLifecycleEvent(event)
     }
 
     fun attachTo(view: View) {

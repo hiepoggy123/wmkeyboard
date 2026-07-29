@@ -129,7 +129,15 @@ object HandwritingModels {
         return LanguageRegistry.all.firstOrNull { (SUBTAG_ALIASES[it.id] ?: it.id) == subtag }
     }
 
-    private val manager = RemoteModelManager.getInstance()
+    /**
+     * Lazy, not eager: `getInstance` throws when ML Kit's init provider was
+     * skipped (see MlKitInit), and a throw out of this object's initializer
+     * poisons the class for the whole process — every later touch of the
+     * catalogue, even the parts that never go near ML Kit, would then fail
+     * with NoClassDefFoundError. Deferring it keeps the damage inside the
+     * three download calls that actually need the manager.
+     */
+    private val manager: RemoteModelManager by lazy { RemoteModelManager.getInstance() }
 
     fun model(tag: String): DigitalInkRecognitionModel? {
         val identifier = runCatching {
