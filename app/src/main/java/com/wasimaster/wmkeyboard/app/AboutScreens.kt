@@ -425,6 +425,7 @@ internal fun AboutSettings(
             NavRow(
                 "Diagnostics",
                 "What the keyboard recorded about itself — read it, or send it with a bug report",
+                route = "debug_log",
                 onClick = onOpenDebugLog,
             )
         }
@@ -477,9 +478,11 @@ internal fun AboutSettings(
 
     SettingsGroup("Third party") {
         item {
-            NavRow("Open-source licences", "Libraries and data bundled in this build") {
-                onOpenLicenses()
-            }
+            NavRow(
+                "Open-source licences",
+                "Libraries and data bundled in this build",
+                route = "licenses",
+            ) { onOpenLicenses() }
         }
     }
 

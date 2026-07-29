@@ -15,16 +15,19 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibilityScope
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -42,7 +45,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import android.view.KeyEvent
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.HelpOutline
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Accessibility
@@ -102,18 +104,15 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemColors
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
@@ -122,7 +121,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
@@ -144,11 +142,12 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.Stable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import com.wasimaster.wmkeyboard.core.ui.toolAccentColor
 import com.wasimaster.wmkeyboard.core.ui.toolAccentColorArgb
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontFamily
@@ -411,12 +410,36 @@ internal fun AppTheme(settings: KeyboardSettings, content: @Composable () -> Uni
     }
 }
 
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 private fun SettingsNavHost(
     repository: SettingsRepository,
     settings: KeyboardSettings,
     pending: PendingNav? = null,
     onPendingHandled: () -> Unit = {},
+) {
+    // A section's icon and name fly from its home row to the heading of the
+    // screen it opens, so the two read as one object being opened rather than
+    // as a list and an unrelated page. Published for the whole graph here;
+    // each destination adds its own scope, and the rows and headings pick both
+    // up without being handed anything.
+    SharedTransitionLayout(modifier = Modifier.fillMaxSize()) {
+        CompositionLocalProvider(
+            // A shared element is a motion and has no still version, so
+            // reduced motion switches it off at the source.
+            LocalSharedTransition provides if (settings.reduceMotion) null else this,
+        ) {
+            SettingsNavGraph(repository, settings, pending, onPendingHandled)
+        }
+    }
+}
+
+@Composable
+private fun SettingsNavGraph(
+    repository: SettingsRepository,
+    settings: KeyboardSettings,
+    pending: PendingNav?,
+    onPendingHandled: () -> Unit,
 ) {
     val navController = rememberNavController()
     // A pack downloaded from these screens has to reach the running keyboard,
@@ -443,21 +466,28 @@ private fun SettingsNavHost(
         }
         onPendingHandled()
     }
-    // Quick shared-axis slide instead of the sluggish default cross-fade;
-    // collapsed to an instant cut when the user has asked for reduced motion.
-    val navMs = if (settings.reduceMotion) 0 else 220
-    val spec = tween<androidx.compose.ui.unit.IntOffset>(navMs)
-    val fadeSpec = tween<Float>(navMs)
+    // A screen push, not a cross-fade: the arriving screen comes the whole way
+    // in from the right while the one behind it drifts a third of the way left,
+    // so the two read as a stack being pushed rather than two things dissolving.
+    // Both surfaces are opaque, so nothing fades — a fade over a full-width
+    // slide only makes the overlap look muddy. Collapsed to an instant cut when
+    // the user has asked for reduced motion.
+    val navMs = if (settings.reduceMotion) 0 else NavTransitionMs
+    val spec = tween<androidx.compose.ui.unit.IntOffset>(
+        durationMillis = navMs,
+        easing = NavTransitionEasing,
+    )
+    val parallax = 3
     // Frozen at first composition: completing onboarding navigates away
     // explicitly, it must not yank the graph out from under the NavHost.
     val startDestination = remember { if (settings.onboardingDone) "home" else "onboarding" }
     NavHost(
         navController = navController,
         startDestination = startDestination,
-        enterTransition = { slideInHorizontally(spec) { it / 5 } + fadeIn(fadeSpec) },
-        exitTransition = { slideOutHorizontally(spec) { -it / 5 } + fadeOut(fadeSpec) },
-        popEnterTransition = { slideInHorizontally(spec) { -it / 5 } + fadeIn(fadeSpec) },
-        popExitTransition = { slideOutHorizontally(spec) { it / 5 } + fadeOut(fadeSpec) },
+        enterTransition = { slideInHorizontally(spec) { it } },
+        exitTransition = { slideOutHorizontally(spec) { -it / parallax } },
+        popEnterTransition = { slideInHorizontally(spec) { -it / parallax } },
+        popExitTransition = { slideOutHorizontally(spec) { it } },
     ) {
         composable("onboarding") {
             OnboardingScreen(
@@ -492,7 +522,7 @@ private fun SettingsNavHost(
             )
         }
         composable("typing") {
-            SettingsScreen("Typing", { navController.popBackStack() }) {
+            SettingsScreen("Typing", { navController.popBackStack() }, route = "typing") {
                 TypingSettings(
                     repository, settings,
                     onOpenDictionary = { navController.navigate("dictionary") },
@@ -503,42 +533,42 @@ private fun SettingsNavHost(
             }
         }
         composable("keypress") {
-            SettingsScreen("Key press", { navController.popBackStack() }) {
+            SettingsScreen("Key press", { navController.popBackStack() }, route = "keypress") {
                 KeyPressSettings(repository, settings)
             }
         }
         composable("dictionary") {
-            SettingsScreen("Personal dictionary", { navController.popBackStack() }) {
+            SettingsScreen("Personal dictionary", { navController.popBackStack() }, route = "dictionary") {
                 DictionarySettings(repository)
             }
         }
         composable("backup") {
-            SettingsScreen("Backup & restore", { navController.popBackStack() }) {
+            SettingsScreen("Backup & restore", { navController.popBackStack() }, route = "backup") {
                 BackupSettings(repository)
             }
         }
         composable("customdictionaries") {
-            SettingsScreen("Custom dictionaries", { navController.popBackStack() }) {
+            SettingsScreen("Custom dictionaries", { navController.popBackStack() }, route = "customdictionaries") {
                 CustomDictionarySettings(repository, settings)
             }
         }
         composable("emojikeywords") {
-            SettingsScreen("Emoji keywords", { navController.popBackStack() }) {
+            SettingsScreen("Emoji keywords", { navController.popBackStack() }, route = "emojikeywords") {
                 EmojiKeywordSettings(repository, settings)
             }
         }
         composable("blacklist") {
-            SettingsScreen("Suggestion blacklist", { navController.popBackStack() }) {
+            SettingsScreen("Suggestion blacklist", { navController.popBackStack() }, route = "blacklist") {
                 BlacklistSettings(repository, settings)
             }
         }
         composable("hwshortcuts") {
-            SettingsScreen("Tool shortcuts list", { navController.popBackStack() }) {
+            SettingsScreen("Tool shortcuts list", { navController.popBackStack() }, route = "hwshortcuts") {
                 HardwareShortcutsSettings(repository, settings)
             }
         }
         composable("appearance") {
-            SettingsScreen("Appearance", { navController.popBackStack() }) {
+            SettingsScreen("Appearance", { navController.popBackStack() }, route = "appearance") {
                 AppearanceSettings(
                     repository, settings,
                     onOpenThemes = { navController.navigate("themes") },
@@ -548,22 +578,22 @@ private fun SettingsNavHost(
             }
         }
         composable("layout") {
-            SettingsScreen("Layout & size", { navController.popBackStack() }) {
+            SettingsScreen("Layout & size", { navController.popBackStack() }, route = "layout") {
                 LayoutSettings(repository, settings)
             }
         }
         composable("fonts") {
-            SettingsScreen("Keyboard font", { navController.popBackStack() }) {
+            SettingsScreen("Keyboard font", { navController.popBackStack() }, route = "fonts") {
                 FontSettings(repository, settings)
             }
         }
         composable("icons") {
-            SettingsScreen("Icons", { navController.popBackStack() }) {
+            SettingsScreen("Icons", { navController.popBackStack() }, route = "icons") {
                 IconsScreen(repository, settings)
             }
         }
         composable("themes") {
-            SettingsScreen("Keyboard themes", { navController.popBackStack() }) {
+            SettingsScreen("Keyboard themes", { navController.popBackStack() }, route = "themes") {
                 ThemesScreen(repository, settings) { id -> navController.navigate("theme_edit/$id") }
             }
         }
@@ -574,17 +604,17 @@ private fun SettingsNavHost(
             }
         }
         composable("keymaps") {
-            SettingsScreen("Key layouts", { navController.popBackStack() }) {
+            SettingsScreen("Key layouts", { navController.popBackStack() }, route = "keymaps") {
                 KeyLayoutsScreen(repository, settings) { route -> navController.navigate(route) }
             }
         }
         composable("sticker_packs") {
-            SettingsScreen("Sticker packs", { navController.popBackStack() }) {
+            SettingsScreen("Sticker packs", { navController.popBackStack() }, route = "sticker_packs") {
                 StickerPacksScreen { route -> navController.navigate(route) }
             }
         }
         composable("plugins") {
-            SettingsScreen("Plugins", { navController.popBackStack() }) {
+            SettingsScreen("Plugins", { navController.popBackStack() }, route = "plugins") {
                 PluginsScreen { route -> navController.navigate(route) }
             }
         }
@@ -604,7 +634,7 @@ private fun SettingsNavHost(
             ),
         ) { backStackEntry ->
             val prefill = decodeRouteArg(backStackEntry.arguments?.getString("add"))
-            SettingsScreen("Addons", { navController.popBackStack() }) {
+            SettingsScreen("Addons", { navController.popBackStack() }, route = "addons") {
                 AddonsScreen(prefill) { route -> navController.navigate(route) }
             }
         }
@@ -612,14 +642,43 @@ private fun SettingsNavHost(
         // names a repository by address, not by its position in the user's list.
         composable("addon_repo/{repoUrl}") { backStackEntry ->
             val url = decodeRouteArg(backStackEntry.arguments?.getString("repoUrl"))
-            SettingsScreen("Browse addons", { navController.popBackStack() }) {
+            // Headed with the repository, not with the act of browsing it: its
+            // name over its author, both centred, both carried into the strip.
+            val repo = rememberRepoHeading(url)
+            SettingsScreen(
+                repo.name,
+                { navController.popBackStack() },
+                route = addonRepoFlightRoute(url),
+                centerTitle = true,
+                subtitle = repo.author.ifBlank { null },
+                subtitleInBar = true,
+            ) {
                 AddonRepoScreen(url) { route -> navController.navigate(route) }
             }
         }
         composable("addon/{repoUrl}/{addonId}") { backStackEntry ->
             val url = decodeRouteArg(backStackEntry.arguments?.getString("repoUrl"))
             val addonId = decodeRouteArg(backStackEntry.arguments?.getString("addonId"))
-            SettingsScreen("Addon", { navController.popBackStack() }) {
+            // Headed with what the addon is, not with the word "Addon": the
+            // type is the one thing the catalogue card already showed, so it
+            // is the word that can grow into the heading.
+            val heading = rememberAddonHeading(url, addonId)
+            SettingsScreen(
+                heading.title,
+                { navController.popBackStack() },
+                route = addonFlightRoute(url, addonId),
+                icon = {
+                    Icon(
+                        heading.icon,
+                        contentDescription = null,
+                        modifier = Modifier.size(WmIconTileGlyph),
+                    )
+                },
+                accent = heading.accent,
+                iconTile = false,
+                iconInBar = true,
+                barTint = heading.accent,
+            ) {
                 AddonDetailScreen(url, addonId) { route -> navController.navigate(route) }
             }
         }
@@ -644,12 +703,12 @@ private fun SettingsNavHost(
             }
         }
         composable("languages") {
-            SettingsScreen("Languages", { navController.popBackStack() }) {
+            SettingsScreen("Languages", { navController.popBackStack() }, route = "languages") {
                 LanguageSettings(repository, settings) { route -> navController.navigate(route) }
             }
         }
         composable("add_language") {
-            SettingsScreen("Add language", { navController.popBackStack() }) {
+            SettingsScreen("Add language", { navController.popBackStack() }, route = "add_language") {
                 AddLanguageScreen(repository, settings) { langId ->
                     navController.navigate("language/$langId")
                 }
@@ -657,7 +716,11 @@ private fun SettingsNavHost(
         }
         composable("language/{langId}") { backStackEntry ->
             val langId = backStackEntry.arguments?.getString("langId").orEmpty()
-            SettingsScreen(LanguageRegistry.byId(langId).displayName, { navController.popBackStack() }) {
+            SettingsScreen(
+                LanguageRegistry.byId(langId).displayName,
+                { navController.popBackStack() },
+                route = "language/$langId",
+            ) {
                 LanguageDetailScreen(
                     langId, repository, settings,
                     onNavigate = { route -> navController.navigate(route) },
@@ -666,12 +729,12 @@ private fun SettingsNavHost(
             }
         }
         composable("emoji") {
-            SettingsScreen("Emoji", { navController.popBackStack() }) {
+            SettingsScreen("Emoji", { navController.popBackStack() }, route = "emoji") {
                 EmojiSettings(repository, settings) { navController.navigate(it) }
             }
         }
         composable("tools") {
-            SettingsScreen("Tools", { navController.popBackStack() }) {
+            SettingsScreen("Tools", { navController.popBackStack() }, route = "tools") {
                 ToolsSettings(repository, settings) { tool -> navController.navigate("tool/${tool.name}") }
             }
         }
@@ -679,7 +742,22 @@ private fun SettingsNavHost(
             val tool = backStackEntry.arguments?.getString("toolName")
                 ?.let { runCatching { ToolbarTool.valueOf(it) }.getOrNull() }
             if (tool != null) {
-                SettingsScreen(toolTitle(tool), { navController.popBackStack() }) {
+                // A tool's colour belongs to the tool, not to a place in the
+                // settings tree, so it paints the glyph and leaves the bar
+                // alone — a dozen tool pages each repainting the strip would
+                // read as a dozen unrelated apps. No tile either: the glyph
+                // bare is the same object the Tools row drew, so it can fly
+                // from it. It stays through the collapse — it is the only
+                // thing naming which tool this is.
+                SettingsScreen(
+                    toolTitle(tool),
+                    { navController.popBackStack() },
+                    route = toolRoute(tool),
+                    icon = { ToolGlyph(tool) },
+                    accent = toolAccentColor(tool, settings.toolColorOverrides),
+                    iconTile = false,
+                    iconInBar = true,
+                ) {
                     ToolDetailSettings(repository, settings, tool) { route ->
                         navController.navigate(route)
                     }
@@ -687,7 +765,7 @@ private fun SettingsNavHost(
             }
         }
         composable("accessibility") {
-            SettingsScreen("Accessibility", { navController.popBackStack() }) {
+            SettingsScreen("Accessibility", { navController.popBackStack() }, route = "accessibility") {
                 AccessibilitySettings(
                     repository, settings,
                     onOpenFonts = { navController.navigate("fonts") },
@@ -697,12 +775,12 @@ private fun SettingsNavHost(
             }
         }
         composable("privacy") {
-            SettingsScreen("Privacy", { navController.popBackStack() }) {
+            SettingsScreen("Privacy", { navController.popBackStack() }, route = "privacy") {
                 PrivacySettings(repository, settings)
             }
         }
         composable("rows") {
-            SettingsScreen("Rows & bars", { navController.popBackStack() }) {
+            SettingsScreen("Rows & bars", { navController.popBackStack() }, route = "rows") {
                 RowsSettings(repository, settings) { navController.navigate(it) }
             }
         }
@@ -713,7 +791,7 @@ private fun SettingsNavHost(
             }
         }
         composable("modes") {
-            SettingsScreen("Keyboard modes", { navController.popBackStack() }) {
+            SettingsScreen("Keyboard modes", { navController.popBackStack() }, route = "modes") {
                 ModesSettings(repository, settings) { navController.navigate(it) }
             }
         }
@@ -724,7 +802,7 @@ private fun SettingsNavHost(
             }
         }
         composable("about") {
-            SettingsScreen("About", { navController.popBackStack() }) {
+            SettingsScreen("About", { navController.popBackStack() }, route = "about") {
                 AboutSettings(
                     onOpenLicenses = { navController.navigate("licenses") },
                     onOpenLicenseText = { navController.navigate("license_text/$it") },
@@ -733,12 +811,12 @@ private fun SettingsNavHost(
             }
         }
         composable("debug_log") {
-            SettingsScreen("Diagnostics", { navController.popBackStack() }) {
+            SettingsScreen("Diagnostics", { navController.popBackStack() }, route = "debug_log") {
                 DebugLogScreen()
             }
         }
         composable("licenses") {
-            SettingsScreen("Open-source licences", { navController.popBackStack() }) {
+            SettingsScreen("Open-source licences", { navController.popBackStack() }, route = "licenses") {
                 LicensesScreen { navController.navigate("license_text/$it") }
             }
         }
@@ -753,148 +831,202 @@ private fun SettingsNavHost(
 
 // ---- home / setup ----
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun HomeScreen(settings: KeyboardSettings, onNavigate: (String) -> Unit) {
+private fun AnimatedVisibilityScope.HomeScreen(
+    settings: KeyboardSettings,
+    onNavigate: (String) -> Unit,
+) {
     val context = LocalContext.current
-    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
-    Scaffold(
-        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
-        topBar = {
-            LargeTopAppBar(
-                title = { Text("WM Keyboard") },
-                actions = {
-                    IconButton(onClick = { onNavigate("search") }) {
-                        Icon(Icons.Outlined.Search, contentDescription = "Search settings")
-                    }
-                },
-                scrollBehavior = scrollBehavior,
-            )
+    val setup = rememberKeyboardSetup(context)
+    // The one screen whose heading is the app's own name rather than a place
+    // inside it, so it is centred rather than hung off the bar's left edge.
+    // Once there is nothing to set up, the card saying so would be a whole
+    // card spent on good news — it becomes a line under the heading instead.
+    WmScreen(
+        title = "WM Keyboard",
+        route = "home",
+        centerTitle = true,
+        subtitle = if (setup.ready) "Your currently active keyboard" else null,
+        subtitleIcon = if (setup.ready) Icons.Outlined.CheckCircle else null,
+        subtitleIconTint = ActiveGreen,
+        badge = { AppIconBadge() },
+        badgeInBar = true,
+        anim = this,
+        actions = {
+            IconButton(onClick = { onNavigate("search") }) {
+                Icon(Icons.Outlined.Search, contentDescription = "Search settings")
+            }
         },
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .padding(padding)
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState()),
-        ) {
+    ) {
+        if (!setup.ready) {
             Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-                SetupCard(context)
+                SetupCard(context, setup = setup)
             }
             Spacer(Modifier.height(8.dp))
-            SettingsGroup("Typing") {
-                item {
-                    HomeItem(
-                        Icons.Outlined.Keyboard, "Typing",
-                        "Autocorrect, suggestions, gestures",
-                    ) { onNavigate("typing") }
-                }
-                item {
-                    HomeItem(
-                        Icons.Outlined.TouchApp, "Key press",
-                        "Haptics, key popup, long-press shortcuts",
-                    ) { onNavigate("keypress") }
-                }
-                item {
-                    HomeItem(
-                        Icons.Outlined.Language, "Languages",
-                        "English, বাংলা (Avro phonetic, প্রভাত, জাতীয়)",
-                    ) { onNavigate("languages") }
-                }
+        }
+        SettingsGroup("Typing") {
+            item {
+                HomeItem(
+                    "typing", Icons.Outlined.Keyboard, "Typing",
+                    "Autocorrect, suggestions, gestures", onNavigate,
+                )
             }
-            SettingsGroup("Keyboard") {
-                item {
-                    HomeItem(
-                        Icons.Outlined.Palette, "Appearance",
-                        "Themes, fonts, toolbar style",
-                    ) { onNavigate("appearance") }
-                }
-                item {
-                    HomeItem(
-                        Icons.Outlined.AspectRatio, "Layout & size",
-                        "Key size, number row, one-handed, split & floating",
-                    ) { onNavigate("layout") }
-                }
-                item {
-                    HomeItem(
-                        Icons.Outlined.GridOn, "Key layouts",
-                        "Design your own key grid, or start from a built-in one",
-                    ) { onNavigate("keymaps") }
-                }
-                item {
-                    HomeItem(
-                        Icons.Outlined.ViewAgenda, "Rows & bars",
-                        "Symbol row, emoji row, row order & symbol sets",
-                    ) { onNavigate("rows") }
-                }
-                item {
-                    HomeItem(
-                        Icons.Outlined.Tune, "Keyboard modes",
-                        "Per-app setups: email, browser, coding, passwords",
-                    ) { onNavigate("modes") }
-                }
+            item {
+                HomeItem(
+                    "keypress", Icons.Outlined.TouchApp, "Key press",
+                    "Haptics, key popup, long-press shortcuts", onNavigate,
+                )
             }
-            SettingsGroup("Features") {
-                item {
-                    HomeItem(
-                        Icons.Outlined.EmojiEmotions, "Emoji",
-                        "Suggestions, emoji row, emoji style, favourites",
-                    ) { onNavigate("emoji") }
-                }
-                item {
-                    HomeItem(
-                        Icons.Outlined.Widgets, "Tools",
-                        "Flashlight, compass, snippets, calendar & more",
-                    ) { onNavigate("tools") }
-                }
-                item {
-                    HomeItem(
-                        Icons.Outlined.Extension, "Addons",
-                        "Install themes, layouts, fonts and more from the web",
-                    ) { onNavigate("addons") }
-                }
+            item {
+                HomeItem(
+                    "languages", Icons.Outlined.Language, "Languages",
+                    "English, বাংলা (Avro phonetic, প্রভাত, জাতীয়)", onNavigate,
+                )
             }
-            SettingsGroup("Accessibility") {
-                item {
-                    HomeItem(
-                        Icons.Outlined.Accessibility, "Accessibility",
-                        "Contrast, colour vision, TalkBack, reduced motion",
-                    ) { onNavigate("accessibility") }
-                }
+        }
+        SettingsGroup("Keyboard") {
+            item {
+                HomeItem(
+                    "appearance", Icons.Outlined.Palette, "Appearance",
+                    "Themes, fonts, toolbar style", onNavigate,
+                )
             }
-            SettingsGroup("Data") {
-                item {
-                    HomeItem(
-                        Icons.Outlined.Security, "Privacy",
-                        "On-device learning, incognito",
-                    ) { onNavigate("privacy") }
-                }
-                item {
-                    HomeItem(
-                        Icons.Outlined.Save, "Backup & restore",
-                        "Export your settings to a file, or restore them",
-                    ) { onNavigate("backup") }
-                }
+            item {
+                HomeItem(
+                    "layout", Icons.Outlined.AspectRatio, "Layout & size",
+                    "Key size, number row, one-handed, split & floating", onNavigate,
+                )
             }
-            SettingsGroup("About") {
-                item {
-                    HomeItem(
-                        Icons.Outlined.Info, "About",
-                        "Version, licence, open-source notices",
-                    ) { onNavigate("about") }
-                }
+            item {
+                HomeItem(
+                    "keymaps", Icons.Outlined.GridOn, "Key layouts",
+                    "Design your own key grid, or start from a built-in one", onNavigate,
+                )
             }
-            Spacer(Modifier.height(24.dp))
+            item {
+                HomeItem(
+                    "rows", Icons.Outlined.ViewAgenda, "Rows & bars",
+                    "Symbol row, emoji row, row order & symbol sets", onNavigate,
+                )
+            }
+            item {
+                HomeItem(
+                    "modes", Icons.Outlined.Tune, "Keyboard modes",
+                    "Per-app setups: email, browser, coding, passwords", onNavigate,
+                )
+            }
+        }
+        SettingsGroup("Features") {
+            item {
+                HomeItem(
+                    "emoji", Icons.Outlined.EmojiEmotions, "Emoji",
+                    "Suggestions, emoji row, emoji style, favourites", onNavigate,
+                )
+            }
+            item {
+                HomeItem(
+                    "tools", Icons.Outlined.Widgets, "Tools",
+                    "Flashlight, compass, snippets, calendar & more", onNavigate,
+                )
+            }
+            item {
+                HomeItem(
+                    "addons", Icons.Outlined.Extension, "Addons",
+                    "Install themes, layouts, fonts and more from the web", onNavigate,
+                )
+            }
+        }
+        SettingsGroup("Accessibility") {
+            item {
+                HomeItem(
+                    "accessibility", Icons.Outlined.Accessibility, "Accessibility",
+                    "Contrast, colour vision, TalkBack, reduced motion", onNavigate,
+                )
+            }
+        }
+        SettingsGroup("Data") {
+            item {
+                HomeItem(
+                    "privacy", Icons.Outlined.Security, "Privacy",
+                    "On-device learning, incognito", onNavigate,
+                )
+            }
+            item {
+                HomeItem(
+                    "backup", Icons.Outlined.Save, "Backup & restore",
+                    "Export your settings to a file, or restore them", onNavigate,
+                )
+            }
+        }
+        SettingsGroup("About") {
+            item {
+                HomeItem(
+                    "about", Icons.Outlined.Info, "About",
+                    "Version, licence, open-source notices", onNavigate,
+                )
+            }
         }
     }
 }
 
+/** The launcher squircle's corner, as a share of the icon's own width. */
+private const val AppIconCorner = 28
+
+/** The tick beside "currently active" — a state, so it is green rather than themed. */
+private val ActiveGreen = Color(0xFF43A047)
+
+/**
+ * The launcher icon, drawn above the root screen's heading.
+ *
+ * Composed by hand from the adaptive icon's own two layers rather than loaded
+ * as `@mipmap/ic_launcher`: on API 26 and up that resource *is* the
+ * `<adaptive-icon>` XML, which `painterResource` cannot inflate. The layers are
+ * 108 units wide with the visible circle 72 of them across, so they are drawn
+ * oversized by that ratio and masked back down — the same arithmetic the
+ * launcher does.
+ */
 @Composable
-internal fun SetupCard(context: Context, onReady: (() -> Unit)? = null) {
+private fun AppIconBadge() {
+    val layer = HeaderBadgeSize * 108f / 72f
+    Box(
+        // The launcher's own squircle rather than a circle, so the icon here
+        // and the icon on the home screen are recognisably the same object.
+        modifier = Modifier.size(HeaderBadgeSize).clip(RoundedCornerShape(AppIconCorner)),
+        contentAlignment = Alignment.Center,
+    ) {
+        Image(
+            painterResource(com.wasimaster.wmkeyboard.R.drawable.ic_launcher_background),
+            contentDescription = null,
+            modifier = Modifier.size(layer),
+        )
+        Image(
+            painterResource(com.wasimaster.wmkeyboard.R.mipmap.ic_launcher_fg),
+            contentDescription = "WM Keyboard",
+            modifier = Modifier.size(layer),
+        )
+    }
+}
+
+/** How far through enabling and selecting the keyboard the user has got. */
+internal data class KeyboardSetupState(val enabled: Boolean, val selected: Boolean) {
+    val ready: Boolean get() = enabled && selected
+}
+
+/**
+ * Watches whether this keyboard is enabled and selected. The IME picker is a
+ * system dialog, so the activity never pauses or resumes when the user
+ * switches keyboards — polling while visible is what keeps the answer honest.
+ *
+ * [onReady] fires once per transition into the ready state, so onboarding can
+ * advance without the user tapping Next after returning from Settings, the way
+ * other keyboard apps do.
+ */
+@Composable
+internal fun rememberKeyboardSetup(
+    context: Context,
+    onReady: (() -> Unit)? = null,
+): KeyboardSetupState {
     val imm = remember { context.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager }
-    // The IME picker is a system dialog, so the activity never pauses or
-    // resumes when the user switches keyboards — poll while visible to
-    // keep the card's state honest.
     var refresh by remember { mutableIntStateOf(0) }
     LaunchedEffect(Unit) {
         while (true) {
@@ -902,21 +1034,35 @@ internal fun SetupCard(context: Context, onReady: (() -> Unit)? = null) {
             delay(1000)
         }
     }
-    val enabled = remember(refresh) {
-        imm.enabledInputMethodList.any { it.packageName == context.packageName }
+    val state = remember(refresh) {
+        KeyboardSetupState(
+            enabled = imm.enabledInputMethodList.any { it.packageName == context.packageName },
+            selected = Settings.Secure
+                .getString(context.contentResolver, Settings.Secure.DEFAULT_INPUT_METHOD)
+                ?.substringBefore('/') == context.packageName,
+        )
     }
-    val selected = remember(refresh) {
-        Settings.Secure.getString(context.contentResolver, Settings.Secure.DEFAULT_INPUT_METHOD)
-            ?.substringBefore('/') == context.packageName
+    LaunchedEffect(state.ready) {
+        if (state.ready) onReady?.invoke()
     }
-    // Fires once per transition into the ready state, so the caller can
-    // advance onboarding without the user tapping Next after returning
-    // from Settings — mirrors how other keyboard apps auto-continue.
-    LaunchedEffect(enabled, selected) {
-        if (enabled && selected) onReady?.invoke()
-    }
+    return state
+}
 
-    if (enabled && selected) {
+/**
+ * The enable-and-select prompt. Callers that have already read the state — the
+ * home screen, which says the same thing in its heading instead — pass it in
+ * rather than starting a second poll.
+ */
+@Composable
+internal fun SetupCard(
+    context: Context,
+    onReady: (() -> Unit)? = null,
+    setup: KeyboardSetupState = rememberKeyboardSetup(context, onReady),
+) {
+    val imm = remember { context.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager }
+    val enabled = setup.enabled
+
+    if (setup.ready) {
         Card(modifier = Modifier.fillMaxWidth()) {
             Row(
                 modifier = Modifier.padding(16.dp),
@@ -962,33 +1108,56 @@ internal fun SetupCard(context: Context, onReady: (() -> Unit)? = null) {
     }
 }
 
+/**
+ * A destination on the settings home. The icon is drawn on the destination's
+ * own accent tile — the home list is the app's front door, so it is the one
+ * place that trades a uniform column of primary for something scannable.
+ *
+ * The tile and the name are also the take-off end of the flight into the
+ * screen this row opens: the same tile becomes that screen's heading icon, and
+ * the same word its heading.
+ */
 @Composable
 private fun HomeItem(
+    route: String,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     title: String,
     subtitle: String,
-    onClick: () -> Unit,
+    onNavigate: (String) -> Unit,
 ) {
-    ListItem(
-        leadingContent = {
-            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-        },
-        headlineContent = { Text(title) },
-        supportingContent = { Text(subtitle) },
-        colors = transparentListColors(),
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
+    WmRow(
+        title = title,
+        subtitle = subtitle,
+        icon = icon,
+        accent = routeAccent(route),
+        flightTo = route,
+        onClick = { onNavigate(route) },
     )
 }
 
 // ---- shared scaffold & group card system ----
 
-@OptIn(ExperimentalMaterial3Api::class)
+/**
+ * A settings destination. Declared on [AnimatedVisibilityScope] so every call
+ * inside a `composable { }` block picks the destination's own animation scope
+ * up for free — that scope is half of what a shared element needs.
+ *
+ * [route] is set on the screens that have a row on the home list: it earns the
+ * heading its icon, and flies both the icon and the name over from that row.
+ */
 @Composable
-private fun SettingsScreen(
+private fun AnimatedVisibilityScope.SettingsScreen(
     title: String,
     onBack: () -> Unit,
+    route: String? = null,
+    icon: (@Composable () -> Unit)? = null,
+    accent: Color? = null,
+    iconTile: Boolean = true,
+    iconInBar: Boolean = false,
+    barTint: Color? = null,
+    centerTitle: Boolean = false,
+    subtitle: String? = null,
+    subtitleInBar: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     // A highlight that found no matching row on this screen (the searched
@@ -998,31 +1167,21 @@ private fun SettingsScreen(
     // Use button does.
     val highlightSerial = remember(title) { SettingsHighlight.serial }
     DisposableEffect(title) { onDispose { SettingsHighlight.clearIfUnchanged(highlightSerial) } }
-    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
-    Scaffold(
-        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
-        topBar = {
-            LargeTopAppBar(
-                title = { Text(title) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                scrollBehavior = scrollBehavior,
-            )
-        },
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .padding(padding)
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState()),
-        ) {
-            content()
-            Spacer(Modifier.height(24.dp))
-        }
-    }
+    WmScreen(
+        title = title,
+        onBack = onBack,
+        route = route,
+        icon = icon,
+        accent = accent,
+        iconTile = iconTile,
+        iconInBar = iconInBar,
+        barTint = barTint,
+        centerTitle = centerTitle,
+        subtitle = subtitle,
+        subtitleInBar = subtitleInBar,
+        anim = this,
+        content = content,
+    )
 }
 
 /**
@@ -1175,29 +1334,38 @@ internal fun SectionHeader(text: String) {
 
 /** Free-standing explanatory text aligned with group content. */
 @Composable
-internal fun CaptionText(text: String, error: Boolean = false) {
+internal fun CaptionText(text: String, modifier: Modifier = Modifier, error: Boolean = false) {
     Text(
         text,
         style = MaterialTheme.typography.bodySmall,
         color = if (error) MaterialTheme.colorScheme.error
         else MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(horizontal = 32.dp, vertical = 8.dp),
+        modifier = modifier.padding(horizontal = 32.dp, vertical = 8.dp),
     )
 }
 
-/** A navigation row: title, optional subtitle, optional current value, chevron. */
+/**
+ * A navigation row: title, optional subtitle, optional current value, chevron.
+ *
+ * [route] names the destination the row opens, which flies the row's name up
+ * into that screen's heading. These rows carry no icon — the tile treatment is
+ * the home list's alone, and half a group wearing tiles reads as a mistake —
+ * so only the name travels; the heading's icon fades in with its screen.
+ */
 @Composable
 internal fun NavRow(
     title: String,
     subtitle: String? = null,
     value: String? = null,
+    route: String? = null,
     onClick: () -> Unit,
 ) {
     HighlightableRow(title) {
-        ListItem(
-            headlineContent = { Text(title) },
-            supportingContent = subtitle?.let { { Text(it) } },
-            trailingContent = {
+        WmRow(
+            title = title,
+            subtitle = subtitle,
+            flightTo = route,
+            trailing = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     if (value != null) {
                         Text(
@@ -1214,10 +1382,7 @@ internal fun NavRow(
                     )
                 }
             },
-            colors = transparentListColors(),
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable(onClick = onClick),
+            onClick = onClick,
         )
     }
 }
@@ -1228,19 +1393,26 @@ internal fun ToggleSetting(
     subtitle: String?,
     checked: Boolean,
     info: String? = null,
+    switchKey: String? = null,
     onChange: (Boolean) -> Unit,
 ) {
     HighlightableRow(title) {
-        ListItem(
-            headlineContent = { Text(title) },
-            supportingContent = subtitle?.let { { Text(it) } },
-            trailingContent = {
+        WmRow(
+            title = title,
+            subtitle = subtitle,
+            trailing = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     if (info != null) InfoButton(title, info)
-                    Switch(checked = checked, onCheckedChange = onChange)
+                    Switch(
+                        checked = checked,
+                        onCheckedChange = onChange,
+                        // The same switch the row that opened this screen was
+                        // showing, when the caller says so.
+                        modifier = if (switchKey == null) Modifier
+                        else Modifier.wmSharedElement(switchKey),
+                    )
                 }
             },
-            colors = transparentListColors(),
         )
     }
 }
@@ -1361,13 +1533,12 @@ internal fun SliderSetting(
 private fun ResetPinnedToolsSetting(repository: SettingsRepository, scope: CoroutineScope) {
     var confirm by remember { mutableStateOf(false) }
     HighlightableRow("Reset pinned tools") {
-        ListItem(
-            headlineContent = { Text("Reset pinned tools") },
-            supportingContent = { Text("Restore the default toolbar tools") },
-            trailingContent = {
+        WmRow(
+            title = "Reset pinned tools",
+            subtitle = "Restore the default toolbar tools",
+            trailing = {
                 OutlinedButton(onClick = { confirm = true }) { Text("Reset") }
             },
-            colors = transparentListColors(),
         )
     }
     if (confirm) {
@@ -1791,6 +1962,7 @@ private fun TypingSettings(
             NavRow(
                 "Personal dictionary",
                 "Words the keyboard has learned — review, remove, add your own",
+                route = "dictionary",
                 onClick = onOpenDictionary,
             )
         }
@@ -1798,6 +1970,7 @@ private fun TypingSettings(
             NavRow(
                 "Custom dictionaries",
                 "Import your own word lists, per language",
+                route = "customdictionaries",
                 onClick = onOpenCustomDictionaries,
             )
         }
@@ -1810,6 +1983,7 @@ private fun TypingSettings(
                 } else {
                     "$count word${if (count == 1) "" else "s"} never suggested"
                 },
+                route = "blacklist",
                 onClick = onOpenBlacklist,
             )
         }
@@ -2175,6 +2349,7 @@ private fun TypingSettings(
                     "Tool shortcuts list",
                     "Which letter opens which tool",
                     value = describeLeader(parseLeader(hw.leader) ?: DefaultLeader),
+                    route = "hwshortcuts",
                     onClick = onOpenHardwareShortcuts,
                 )
             }
@@ -2272,16 +2447,15 @@ private fun HardwareShortcutsSettings(repository: SettingsRepository, settings: 
             for (tool in tools) {
                 item {
                     val letter = letterOf[tool]
-                    ListItem(
-                        colors = transparentListColors(),
-                        headlineContent = { Text(toolTitle(tool)) },
-                        supportingContent = if (tool !in settings.enabledTools) {
-                            { CaptionText("Turned off in Tools") }
-                        } else null,
-                        leadingContent = {
+                    WmRow(
+                        title = toolTitle(tool),
+                        leading = {
                             SlotIcon(IconSlots.forTool(tool), contentDescription = null)
                         },
-                        trailingContent = {
+                        supporting = if (tool !in settings.enabledTools) {
+                            { CaptionText("Turned off in Tools") }
+                        } else null,
+                        trailing = {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
                                     letter?.toString() ?: "—",
@@ -2304,7 +2478,7 @@ private fun HardwareShortcutsSettings(repository: SettingsRepository, settings: 
                                 }
                             }
                         },
-                        modifier = Modifier.clickable { editing = tool },
+                        onClick = { editing = tool },
                     )
                 }
             }
@@ -2383,15 +2557,14 @@ private fun LeaderCaptureDialog(
                 CaptionText("Double-tap a modifier — nothing else uses it.")
                 for (modifier in TapModifier.entries) {
                     val trigger = LeaderTrigger.DoubleTap(modifier)
-                    ListItem(
-                        colors = transparentListColors(),
-                        headlineContent = { Text("Double-tap ${modifier.label}") },
-                        trailingContent = {
+                    WmRow(
+                        title = "Double-tap ${modifier.label}",
+                        trailing = {
                             if (current == trigger && captured == null) {
                                 Icon(Icons.Outlined.Check, contentDescription = "Current")
                             }
                         },
-                        modifier = Modifier.clickable { onPick(trigger) },
+                        onClick = { onPick(trigger) },
                     )
                 }
                 Spacer(Modifier.height(8.dp))
@@ -2708,10 +2881,10 @@ private fun InstalledSoundSection(repository: SettingsRepository, settings: Keyb
         for (sound in sounds) {
             val selected = settings.keySoundStyle == KeySoundStyle.CUSTOM &&
                 settings.keySoundCustom.customId == sound.id
-            ListItem(
-                headlineContent = { Text(sound.name) },
-                supportingContent = sound.author.takeIf { it.isNotBlank() }?.let { { Text(it) } },
-                trailingContent = {
+            WmRow(
+                title = sound.name,
+                supporting = sound.author.takeIf { it.isNotBlank() }?.let { { Text(it) } },
+                trailing = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         if (selected) {
                             Icon(
@@ -2733,15 +2906,12 @@ private fun InstalledSoundSection(repository: SettingsRepository, settings: Keyb
                         }
                     }
                 },
-                colors = transparentListColors(),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable {
-                        scope.launch { repository.setKeySoundCustomId(sound.id) }
-                        KeySoundPlayer.preview(
-                            context, KeySoundStyle.CUSTOM, settings.keySoundVolume, sound.id,
-                        )
-                    },
+                onClick = {
+                    scope.launch { repository.setKeySoundCustomId(sound.id) }
+                    KeySoundPlayer.preview(
+                        context, KeySoundStyle.CUSTOM, settings.keySoundVolume, sound.id,
+                    )
+                },
             )
         }
         OutlinedButton(
@@ -3196,6 +3366,7 @@ private fun AppearanceSettings(
                 "Keyboard themes",
                 "Light/dark/AMOLED, colors, background images, import/export",
                 value = selected?.name ?: "Default",
+                route = "themes",
                 onClick = onOpenThemes,
             )
         }
@@ -3204,6 +3375,7 @@ private fun AppearanceSettings(
                 "Keyboard font",
                 "Google Fonts, or import your own font file",
                 value = KeyboardFonts.displayName(settings.keyFontId, settings.customFontName),
+                route = "fonts",
                 onClick = onOpenFonts,
             )
         }
@@ -3219,6 +3391,7 @@ private fun AppearanceSettings(
                     changed > 0 -> "$changed changed"
                     else -> "Default"
                 },
+                route = "icons",
                 onClick = onOpenIcons,
             )
         }
@@ -3850,15 +4023,18 @@ private fun LanguageSettings(
                 val names = settings.enabledLayoutIds
                     .filter { resolveLayout(settings.customLayouts, it).language().id == language.id }
                     .joinToString { resolveLayout(settings.customLayouts, it).name }
-                NavRow(language.displayName, subtitle = names.ifBlank { null }) {
-                    onNavigate("language/${language.id}")
-                }
+                NavRow(
+                    language.displayName,
+                    subtitle = names.ifBlank { null },
+                    route = "language/${language.id}",
+                ) { onNavigate("language/${language.id}") }
             }
         }
         item {
             NavRow(
                 "Add language",
                 subtitle = "Type in any of ${LanguageRegistry.all.size} languages",
+                route = "add_language",
             ) { onNavigate("add_language") }
         }
     }
@@ -3914,6 +4090,7 @@ private fun LanguageSettings(
                 } else {
                     "Edit, add and remove layouts"
                 },
+                route = "keymaps",
             ) { onNavigate("keymaps") }
         }
     }
@@ -4060,11 +4237,12 @@ private fun EmojiSettings(
         item {
             ChoiceSetting(
                 title = "Default skin tone",
-                subtitle = "For toned emoji in suggestions and emoji search",
+                subtitle = "For toned emoji in the panel, suggestions and search",
                 info = "Toned emoji (👍, 🙏, 🧑…) are shown with this Fitzpatrick tone in the " +
-                    "suggestion strip and the emoji search results, and inserted that way. " +
-                    "The emoji panel's own grid still follows the tone you last picked per " +
-                    "emoji. \"None\" keeps the neutral yellow base.",
+                    "emoji panel's grid, the suggestion strip and the emoji search results, " +
+                    "and inserted that way. An emoji you have picked a tone for yourself keeps " +
+                    "that tone while \"Override with last used\" is on. \"None\" keeps the " +
+                    "neutral yellow base.",
                 options = listOf(
                     EmojiSkinTone.NONE to "✋",
                     EmojiSkinTone.LIGHT to "✋🏻",
@@ -4081,10 +4259,10 @@ private fun EmojiSettings(
                 "Override with last used",
                 "Prefer the tone you last picked for an emoji over the default",
                 settings.emoji.toneOverrideByLastUsed,
-                info = "When on, an emoji you have already picked a tone for (from its " +
-                    "long-press popup on the panel) shows that tone in suggestions and search " +
-                    "instead of the default above. Off (the default) means the default skin " +
-                    "tone always wins in those two places.",
+                info = "When on (the default), an emoji you have already picked a tone for " +
+                    "(from its long-press popup on the panel) keeps that tone everywhere — " +
+                    "panel, suggestions and search — instead of taking the default above. " +
+                    "Off means the default skin tone always wins.",
             ) { scope.launch { repository.setEmojiToneOverrideByLastUsed(it) } }
         }
     }
@@ -4147,6 +4325,7 @@ private fun EmojiSettings(
             NavRow(
                 "Emoji keywords",
                 "Download or import keywords to search emoji in another language",
+                route = "emojikeywords",
             ) { onNavigate("emojikeywords") }
         }
     }
@@ -4369,10 +4548,10 @@ private fun InstalledEmojiFontList(repository: SettingsRepository, settings: Key
     }
     for (font in fonts) {
         val selected = settings.emojiFontInstalled.installedId == font.id
-        ListItem(
-            headlineContent = { Text(font.name) },
-            supportingContent = font.author.takeIf { it.isNotBlank() }?.let { { Text(it) } },
-            trailingContent = {
+        WmRow(
+            title = font.name,
+            supporting = font.author.takeIf { it.isNotBlank() }?.let { { Text(it) } },
+            trailing = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     if (selected) {
                         Icon(
@@ -4391,10 +4570,7 @@ private fun InstalledEmojiFontList(repository: SettingsRepository, settings: Key
                     }
                 }
             },
-            colors = transparentListColors(),
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable { scope.launch { repository.setInstalledEmojiFont(font.id) } },
+            onClick = { scope.launch { repository.setInstalledEmojiFont(font.id) } },
         )
     }
 }
@@ -4457,17 +4633,14 @@ private fun DictionarySettings(repository: SettingsRepository) {
     SettingsGroup {
         for ((word, count) in words) {
             item {
-                ListItem(
-                    headlineContent = { Text(word) },
-                    supportingContent = {
-                        Text(if (count >= 200) "Added by you" else "Seen $count×")
-                    },
-                    trailingContent = {
+                WmRow(
+                    title = word,
+                    subtitle = if (count >= 200) "Added by you" else "Seen $count×",
+                    trailing = {
                         IconButton(onClick = { persist { it.forget(word) } }) {
                             Icon(Icons.Outlined.Delete, contentDescription = "Remove $word")
                         }
                     },
-                    colors = transparentListColors(),
                 )
             }
         }
@@ -4533,16 +4706,15 @@ private fun BlacklistSettings(repository: SettingsRepository, settings: Keyboard
     SettingsGroup {
         for (word in words) {
             item {
-                ListItem(
-                    headlineContent = { Text(word) },
-                    trailingContent = {
+                WmRow(
+                    title = word,
+                    trailing = {
                         IconButton(onClick = {
                             scope.launch { repository.removeSuggestionBlacklistWord(word) }
                         }) {
                             Icon(Icons.Outlined.Delete, contentDescription = "Remove $word")
                         }
                     },
-                    colors = transparentListColors(),
                 )
             }
         }
@@ -5076,10 +5248,10 @@ private fun CustomDictionarySettings(repository: SettingsRepository, settings: K
         SettingsGroup(language.englishName) {
             for (entry in entries) {
                 item {
-                    ListItem(
-                        headlineContent = { Text(entry.file.nameWithoutExtension) },
-                        supportingContent = { Text("${entry.words} words") },
-                        trailingContent = {
+                    WmRow(
+                        title = entry.file.nameWithoutExtension,
+                        subtitle = "${entry.words} words",
+                        trailing = {
                             IconButton(
                                 enabled = !busy,
                                 onClick = {
@@ -5099,7 +5271,6 @@ private fun CustomDictionarySettings(repository: SettingsRepository, settings: K
                                 )
                             }
                         },
-                        colors = transparentListColors(),
                     )
                 }
             }
@@ -5323,10 +5494,10 @@ private fun EmojiKeywordSettings(repository: SettingsRepository, settings: Keybo
             }
             for (entry in entries) {
                 item {
-                    ListItem(
-                        headlineContent = { Text(entry.file.nameWithoutExtension) },
-                        supportingContent = { Text("${entry.emoji} emoji") },
-                        trailingContent = {
+                    WmRow(
+                        title = entry.file.nameWithoutExtension,
+                        subtitle = "${entry.emoji} emoji",
+                        trailing = {
                             IconButton(
                                 enabled = !busy,
                                 onClick = {
@@ -5346,7 +5517,6 @@ private fun EmojiKeywordSettings(repository: SettingsRepository, settings: Keybo
                                 )
                             }
                         },
-                        colors = transparentListColors(),
                     )
                 }
             }
@@ -5661,16 +5831,19 @@ private fun FontChoiceRow(
     onDelete: (() -> Unit)? = null,
     onClick: () -> Unit,
 ) {
-    ListItem(
-        headlineContent = { Text(label, fontFamily = family, fontSize = 18.sp) },
-        supportingContent = {
+    WmRow(
+        title = label,
+        // The row is the preview: name and sample both drawn in the font
+        // itself, so picking one shows what it will look like.
+        titleContent = { Text(label, fontFamily = family, fontSize = 18.sp) },
+        supporting = {
             Text(
                 sample,
                 fontFamily = family,
                 maxLines = 1,
             )
         },
-        trailingContent = if (selected || onDelete != null) {
+        trailing = if (selected || onDelete != null) {
             {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     if (selected) {
@@ -5690,10 +5863,7 @@ private fun FontChoiceRow(
         } else {
             null
         },
-        colors = transparentListColors(),
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
+        onClick = onClick,
     )
 }
 
@@ -5967,19 +6137,23 @@ private fun ToolsSettings(
         SettingsGroup(groupTitle) {
             for (tool in tools) {
                 item {
-                    ListItem(
-                        leadingContent = {
+                    WmRow(
+                        title = toolTitle(tool),
+                        subtitle = toolDescription(tool),
+                        leading = {
                             SlotIcon(
                                 IconSlots.forTool(tool),
                                 contentDescription = null,
+                                modifier = Modifier
+                                    .wmSharedElement(takeOffKey("icon", toolRoute(tool))),
                                 tint = if (settings.coloredToolIcons)
                                     toolAccentColor(tool, settings.toolColorOverrides)
                                 else MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         },
-                        headlineContent = { Text(toolTitle(tool)) },
-                        supportingContent = { Text(toolDescription(tool)) },
-                        trailingContent = {
+                        flightTo = toolRoute(tool),
+                        subtitleFlies = true,
+                        trailing = {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 if (toolHasOptions(tool)) {
                                     Icon(
@@ -5996,18 +6170,34 @@ private fun ToolsSettings(
                                     onCheckedChange = { enabled ->
                                         scope.launch { repository.setToolEnabled(tool, enabled) }
                                     },
+                                    modifier = Modifier
+                                        .wmSharedElement(takeOffKey("switch", toolRoute(tool))),
                                 )
                             }
                         },
-                        colors = transparentListColors(),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { onOpenTool(tool) },
+                        onClick = { onOpenTool(tool) },
                     )
                 }
             }
         }
     }
+}
+
+/**
+ * A tool's own settings page, as flights name it. Not the navigation route
+ * (`tool/{toolName}`), which is the same string for every tool and would put
+ * one key on all of them.
+ */
+internal fun toolRoute(tool: ToolbarTool): String = "tool/${tool.name}"
+
+/** A tool's glyph at heading size — the icon pack's, if the user installed one. */
+@Composable
+private fun ToolGlyph(tool: ToolbarTool) {
+    SlotIcon(
+        IconSlots.forTool(tool),
+        contentDescription = null,
+        modifier = Modifier.size(HeaderGlyphSize),
+    )
 }
 
 /** One tool's screen: the enable switch plus every setting the tool has. */
@@ -6019,13 +6209,17 @@ private fun ToolDetailSettings(
     onNavigate: (String) -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
-    CaptionText(toolDescription(tool))
+    CaptionText(
+        toolDescription(tool),
+        modifier = Modifier.wmSharedBounds(landingKey("subtitle")),
+    )
     SettingsGroup {
         item {
             ToggleSetting(
                 "Enabled",
                 "Show this tool on the toolbar and in the toolbox",
                 tool in settings.enabledTools,
+                switchKey = landingKey("switch"),
             ) { scope.launch { repository.setToolEnabled(tool, it) } }
         }
         // Recolour just this tool's icon. Only meaningful while the global
@@ -6035,16 +6229,11 @@ private fun ToolDetailSettings(
                 var showPicker by remember { mutableStateOf(false) }
                 val override = settings.toolColorOverrides[tool]
                 val resolved = override ?: toolAccentColorArgb(tool)
-                ListItem(
-                    leadingContent = { Swatch(resolved) },
-                    headlineContent = { Text("Icon colour") },
-                    supportingContent = {
-                        Text(if (override != null) "Custom — tap to change" else "Default — tap to customise")
-                    },
-                    colors = transparentListColors(),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { showPicker = true },
+                WmRow(
+                    title = "Icon colour",
+                    subtitle = if (override != null) "Custom — tap to change" else "Default — tap to customise",
+                    leading = { Swatch(resolved) },
+                    onClick = { showPicker = true },
                 )
                 if (showPicker) {
                     ColorPickerDialog(
@@ -6070,15 +6259,10 @@ private fun ToolDetailSettings(
     when (tool) {
         ToolbarTool.PLUGINS -> SettingsGroup("Plugins") {
             item {
-                ListItem(
-                    headlineContent = { Text("Manage plugins") },
-                    supportingContent = {
-                        Text("Turn plugins on, see what's installed, and what each one can do")
-                    },
-                    colors = transparentListColors(),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { onNavigate("plugins") },
+                WmRow(
+                    title = "Manage plugins",
+                    subtitle = "Turn plugins on, see what's installed, and what each one can do",
+                    onClick = { onNavigate("plugins") },
                 )
             }
         }
@@ -6900,6 +7084,7 @@ private fun ToolDetailSettings(
                         NavRow(
                             "Sticker packs",
                             "Make, edit, import and export packs of your own",
+                            route = "sticker_packs",
                             onClick = { onNavigate("sticker_packs") },
                         )
                     }
@@ -7288,18 +7473,11 @@ private fun ToolDetailSettings(
         ToolbarTool.SYMBOLS -> {
             SettingsGroup("Recents") {
                 item {
-                    ListItem(
-                        headlineContent = { Text("Clear recent symbols") },
-                        supportingContent = {
-                            Text(
-                                if (settings.symbolRecents.isEmpty()) "No recents yet"
-                                else "${settings.symbolRecents.size} symbols remembered",
-                            )
-                        },
-                        colors = transparentListColors(),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { scope.launch { repository.clearSymbolRecents() } },
+                    WmRow(
+                        title = "Clear recent symbols",
+                        subtitle = if (settings.symbolRecents.isEmpty()) "No recents yet"
+                            else "${settings.symbolRecents.size} symbols remembered",
+                        onClick = { scope.launch { repository.clearSymbolRecents() } },
                     )
                 }
             }
@@ -7627,29 +7805,26 @@ private fun TypingTestToolSettings(repository: SettingsRepository, settings: Key
 
     SettingsGroup("Records") {
         item {
-            ListItem(
-                headlineContent = { Text("Tests completed") },
-                trailingContent = { Text("${settings.typingTestsCompleted}") },
-                colors = transparentListColors(),
+            WmRow(
+                title = "Tests completed",
+                trailing = { Text("${settings.typingTestsCompleted}") },
             )
         }
         if (history.isNotEmpty()) {
             item {
-                ListItem(
-                    headlineContent = { Text("Recent average") },
-                    supportingContent = { Text("Across the last ${history.size} runs") },
-                    trailingContent = { Text("${history.average().roundToInt()} wpm") },
-                    colors = transparentListColors(),
+                WmRow(
+                    title = "Recent average",
+                    subtitle = "Across the last ${history.size} runs",
+                    trailing = { Text("${history.average().roundToInt()} wpm") },
                 )
             }
         }
         // One row per config the user has actually run, best first.
         for ((key, wpm) in bests.entries.sortedByDescending { it.value }) {
             item {
-                ListItem(
-                    headlineContent = { Text(typingBestLabel(key)) },
-                    colors = transparentListColors(),
-                    trailingContent = { Text("${wpm.roundToInt()} wpm") },
+                WmRow(
+                    title = typingBestLabel(key),
+                    trailing = { Text("${wpm.roundToInt()} wpm") },
                 )
             }
         }
@@ -7913,16 +8088,13 @@ private fun ToolKeywordSetting(
         }
         if (saved != defaults) {
             item {
-                ListItem(
-                    headlineContent = { Text("Reset to default") },
-                    supportingContent = { Text(defaults.joinToString(", ")) },
-                    colors = transparentListColors(),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable {
-                            text = defaults.joinToString(", ")
-                            scope.launch { repository.setToolKeywords(tool, defaults) }
-                        },
+                WmRow(
+                    title = "Reset to default",
+                    subtitle = defaults.joinToString(", "),
+                    onClick = {
+                        text = defaults.joinToString(", ")
+                        scope.launch { repository.setToolKeywords(tool, defaults) }
+                    },
                 )
             }
         }
@@ -8205,20 +8377,16 @@ private fun HandwritingModelManager(settings: KeyboardSettings) {
         for (language in languages) {
             item {
                 val status = statuses[language.tag] ?: "checking"
-                ListItem(
-                    headlineContent = { Text(language.displayName) },
-                    supportingContent = {
-                        Text(
-                            when (status) {
-                                "checking" -> "Checking…"
-                                "downloaded" -> "Downloaded — works offline"
-                                "downloading" -> "Downloading…"
-                                "error" -> "Download failed — check your connection"
-                                else -> "Not downloaded"
-                            },
-                        )
-                    },
-                    trailingContent = {
+                WmRow(
+                    title = language.displayName,
+                    subtitle = when (status) {
+                            "checking" -> "Checking…"
+                            "downloaded" -> "Downloaded — works offline"
+                            "downloading" -> "Downloading…"
+                            "error" -> "Download failed — check your connection"
+                            else -> "Not downloaded"
+                        },
+                    trailing = {
                         when (status) {
                             "downloading", "checking" -> CircularProgressIndicator(
                                 modifier = Modifier.size(24.dp),
@@ -8246,7 +8414,6 @@ private fun HandwritingModelManager(settings: KeyboardSettings) {
                             }) { Text("Download") }
                         }
                     },
-                    colors = transparentListColors(),
                 )
             }
         }
@@ -8274,14 +8441,11 @@ internal fun WeatherLocationSetting(repository: SettingsRepository, settings: Ke
     } else {
         "Not set — tap to add coordinates"
     }
-    ListItem(
-        headlineContent = { Text("Location") },
-        supportingContent = { Text(summary) },
-        trailingContent = { Icon(Icons.Outlined.Edit, contentDescription = "Edit location") },
-        colors = transparentListColors(),
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { editing = true },
+    WmRow(
+        title = "Location",
+        subtitle = summary,
+        trailing = { Icon(Icons.Outlined.Edit, contentDescription = "Edit location") },
+        onClick = { editing = true },
     )
     if (!editing) return
 
@@ -8685,9 +8849,9 @@ private fun SnippetSettings() {
     SettingsGroup {
         for (snippet in snippets) {
             item {
-                ListItem(
-                    headlineContent = { Text(snippet.label) },
-                    supportingContent = {
+                WmRow(
+                    title = snippet.label,
+                    supporting = {
                         Column {
                             Text(snippet.text, maxLines = 2)
                             val preview = SnippetStore.expandWithCursor(
@@ -8712,7 +8876,7 @@ private fun SnippetSettings() {
                             }
                         }
                     },
-                    trailingContent = {
+                    trailing = {
                         Row {
                             IconButton(onClick = { editing = snippet }) {
                                 Icon(Icons.Outlined.Edit, contentDescription = "Edit")
@@ -8722,7 +8886,6 @@ private fun SnippetSettings() {
                             }
                         }
                     },
-                    colors = transparentListColors(),
                 )
             }
         }
@@ -8882,10 +9045,10 @@ private fun RowsSettings(
         val order = settings.barOrder
         order.forEachIndexed { index, row ->
             item {
-                ListItem(
-                    headlineContent = { Text(barRowTitle(row)) },
-                    supportingContent = { Text(barRowSubtitle(row, settings)) },
-                    trailingContent = {
+                WmRow(
+                    title = barRowTitle(row),
+                    subtitle = barRowSubtitle(row, settings),
+                    trailing = {
                         if (row != BarRow.TOPBAR) {
                             Row {
                                 IconButton(
@@ -8911,7 +9074,6 @@ private fun RowsSettings(
                             }
                         }
                     },
-                    colors = transparentListColors(),
                 )
             }
         }
@@ -8924,16 +9086,16 @@ private fun RowsSettings(
                 val enabled = set.id in settings.symbolRowSetIds
                 val edited = settings.customSymbolSets.any { it.id == set.id }
                 val builtIn = BuiltInSymbolSets.byId(set.id) != null
-                ListItem(
-                    headlineContent = { Text(set.name) },
-                    supportingContent = {
+                WmRow(
+                    title = set.name,
+                    supporting = {
                         Text(
                             set.chars.take(8).joinToString(" ") + if (set.chars.size > 8) " …" else "",
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
                     },
-                    leadingContent = {
+                    leading = {
                         Checkbox(
                             checked = enabled,
                             onCheckedChange = { on ->
@@ -8953,7 +9115,7 @@ private fun RowsSettings(
                     // Every set is editable now, built-ins included: editing
                     // one stores an override under the same id, so modes that
                     // reference it keep working and "Reset" brings it back.
-                    trailingContent = {
+                    trailing = {
                         IconButton(onClick = { onNavigate("symbol_set_edit/${set.id}") }) {
                             Icon(
                                 Icons.Outlined.Edit,
@@ -8965,21 +9127,17 @@ private fun RowsSettings(
                             )
                         }
                     },
-                    colors = transparentListColors(),
                 )
             }
         }
         item {
-            ListItem(
-                leadingContent = { Icon(Icons.Outlined.Add, contentDescription = null) },
-                headlineContent = { Text("New symbol set") },
-                supportingContent = { Text("Your own characters and snippets") },
-                colors = transparentListColors(),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable {
-                        onNavigate("symbol_set_edit/custom_${System.currentTimeMillis()}")
-                    },
+            WmRow(
+                title = "New symbol set",
+                subtitle = "Your own characters and snippets",
+                leading = { Icon(Icons.Outlined.Add, contentDescription = null) },
+                onClick = {
+                    onNavigate("symbol_set_edit/custom_${System.currentTimeMillis()}")
+                },
             )
         }
     }
@@ -9233,22 +9391,16 @@ internal fun <T> ReorderSetting(
 ) {
     var open by remember { mutableStateOf(false) }
     val enabled = items.size > 1
-    ListItem(
-        headlineContent = { Text(title) },
-        supportingContent = {
-            Text(
-                if (enabled) {
-                    items.joinToString(" · ", limit = 4) { label(it) }
-                } else {
-                    "Pick at least two above to set an order"
-                },
-            )
-        },
-        trailingContent = { Icon(Icons.Outlined.DragHandle, contentDescription = null) },
-        colors = transparentListColors(),
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(enabled = enabled) { open = true },
+    WmRow(
+        title = title,
+        subtitle = if (enabled) {
+                items.joinToString(" · ", limit = 4) { label(it) }
+            } else {
+                "Pick at least two above to set an order"
+            },
+        trailing = { Icon(Icons.Outlined.DragHandle, contentDescription = null) },
+        enabled = enabled,
+        onClick = { open = true },
     )
     if (open) {
         ReorderDialog(
@@ -9302,34 +9454,28 @@ private fun ModesSettings(
     SettingsGroup("Modes") {
         for (mode in settings.keyboardModes) {
             item {
-                ListItem(
-                    leadingContent = {
+                WmRow(
+                    title = mode.name,
+                    subtitle = modeBindingsSummary(mode),
+                    leading = {
                         Icon(ModeIcons.icon(mode.icon), contentDescription = null)
                     },
-                    headlineContent = { Text(mode.name) },
-                    supportingContent = { Text(modeBindingsSummary(mode)) },
-                    trailingContent = {
+                    trailing = {
                         IconButton(onClick = {
                             scope.launch { repository.deleteKeyboardMode(mode.id) }
                         }) {
                             Icon(Icons.Outlined.Delete, contentDescription = "Delete mode")
                         }
                     },
-                    colors = transparentListColors(),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { onNavigate("mode_edit/${mode.id}") },
+                    onClick = { onNavigate("mode_edit/${mode.id}") },
                 )
             }
         }
         item {
-            ListItem(
-                leadingContent = { Icon(Icons.Outlined.Add, contentDescription = null) },
-                headlineContent = { Text("New mode") },
-                colors = transparentListColors(),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { onNavigate("mode_edit/mode_custom_${System.currentTimeMillis()}") },
+            WmRow(
+                title = "New mode",
+                leading = { Icon(Icons.Outlined.Add, contentDescription = null) },
+                onClick = { onNavigate("mode_edit/mode_custom_${System.currentTimeMillis()}") },
             )
         }
     }
@@ -9384,16 +9530,13 @@ private fun ModeEditor(
         }
         item {
             var pickerOpen by remember { mutableStateOf(false) }
-            ListItem(
-                leadingContent = {
+            WmRow(
+                title = "Icon",
+                subtitle = "Shown beside the name in the Modes tool",
+                leading = {
                     Icon(ModeIcons.icon(mode.icon), contentDescription = null)
                 },
-                headlineContent = { Text("Icon") },
-                supportingContent = { Text("Shown beside the name in the Modes tool") },
-                colors = transparentListColors(),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { pickerOpen = true },
+                onClick = { pickerOpen = true },
             )
             if (pickerOpen) {
                 ModeIconPickerDialog(
@@ -9434,23 +9577,16 @@ private fun ModeEditor(
         }
         item {
             var themePickerOpen by remember { mutableStateOf(false) }
-            ListItem(
-                headlineContent = { Text("Theme") },
-                supportingContent = {
-                    Text(
-                        mode.themeId?.let { themeDisplayName(settings, it) }
-                            ?: "Inherit — whatever theme is set",
-                    )
-                },
-                trailingContent = {
+            WmRow(
+                title = "Theme",
+                subtitle = mode.themeId?.let { themeDisplayName(settings, it) }
+                    ?: "Inherit — whatever theme is set",
+                trailing = {
                     if (mode.themeId != null) {
                         TextButton(onClick = { save(mode.copy(themeId = null)) }) { Text("Clear") }
                     }
                 },
-                colors = transparentListColors(),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { themePickerOpen = true },
+                onClick = { themePickerOpen = true },
             )
             if (themePickerOpen) {
                 ModeThemePickerDialog(
@@ -9677,38 +9813,30 @@ private fun ModeEditor(
                         ).toString()
                     }.getOrDefault(pkg)
                 }
-                ListItem(
-                    headlineContent = { Text(label) },
-                    supportingContent = if (label != pkg) {
+                WmRow(
+                    title = label,
+                    supporting = if (label != pkg) {
                         { Text(pkg) }
                     } else null,
-                    trailingContent = {
+                    trailing = {
                         IconButton(onClick = { save(mode.copy(apps = mode.apps - pkg)) }) {
                             Icon(Icons.Outlined.Delete, contentDescription = "Remove app")
                         }
                     },
-                    colors = transparentListColors(),
                 )
             }
         }
         item {
             var pickerOpen by remember { mutableStateOf(false) }
-            ListItem(
-                leadingContent = { Icon(Icons.Outlined.Add, contentDescription = null) },
-                headlineContent = { Text("Add app") },
-                supportingContent = {
-                    Text(
-                        if (mode.fieldKinds.isEmpty()) {
-                            "This mode switches on when the app's fields are focused"
-                        } else {
-                            "Plus one of the field types above"
-                        },
-                    )
-                },
-                colors = transparentListColors(),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { pickerOpen = true },
+            WmRow(
+                title = "Add app",
+                subtitle = if (mode.fieldKinds.isEmpty()) {
+                        "This mode switches on when the app's fields are focused"
+                    } else {
+                        "Plus one of the field types above"
+                    },
+                leading = { Icon(Icons.Outlined.Add, contentDescription = null) },
+                onClick = { pickerOpen = true },
             )
             if (pickerOpen) {
                 AppPickerDialog(
