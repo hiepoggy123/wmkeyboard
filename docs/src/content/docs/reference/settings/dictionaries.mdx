@@ -62,7 +62,7 @@ Each language group can carry a bundled-catalog row (only shown for the 125 lang
 - **Imported packs** — one row per file, headline the filename minus extension, subtitle "N emoji", trash to remove, plus **Import pack**/**Import another** and **From URL** buttons that work exactly like Custom dictionaries.
 
 <PhoneFrame caption="Emoji keywords: the Downloads toggle, a bundled-catalog row, and an imported pack for one language.">
-  {/* shot: reference/settings/dictionary-emoji-keywords */}
+  ![Emoji keywords: the Downloads toggle, a bundled-catalog row, and an imported pack for one language.](@assets/screens/reference/settings/dictionary-emoji-keywords.webp)
 </PhoneFrame>
 
 A language's group appears here if it's currently enabled, has a downloaded catalog, or has an imported pack, so deleting a pack for a language you've since turned off is still possible. Import format: a tab-separated file, one emoji per line, then its comma-separated keywords, and optionally another tab and a display name; lines starting with `"# "` are ignored (a bare `#` isn't a comment here, since it starts the keycap row); the repo's own JSON dictionaries import as-is too. The size cap is 8 MiB (smaller than Custom dictionaries' 32 MiB), enforced identically for local files and URL downloads. But because every URL-import failure collapses onto the same code path, a dead link or network error reports the same "That file is too large to import." as a genuinely oversized file. A successful import reports "Added keywords for N emoji to `<language>`."; an empty file reports "No emoji found in that file — is it a keyword pack?"

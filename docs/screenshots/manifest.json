@@ -874,7 +874,7 @@
       "Tap Emoji under Features",
       "Scroll to the Emoji style group so the emoji font preview row is visible"
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "\"emoji\" is not in the wmkeyboard://settings deep-link allowlist (only typing, appearance, themes, languages, tools, search are) \u2014 reach it by tapping through the settings home screen instead. Capture with default settings (Emoji font = System) so the preview row shows the device's own emoji pack.",
     "kind": "still"
   },
@@ -889,7 +889,7 @@
       "Tap Emoji under Features",
       "Tap \"Emoji keywords\""
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "Ideally capture with one language already downloaded (shows a Delete button) and one not yet downloaded (shows a Download button) visible in the same frame to illustrate both states.",
     "kind": "still"
   },
@@ -3261,7 +3261,7 @@
     "setup": [
       "adb shell am start -n com.wasimaster.wmkeyboard/.app.MainActivity -a android.intent.action.VIEW -d \"wmkeyboard://settings/themes\""
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "Settings deep links are not BROWSABLE, so this must be an explicit intent naming MainActivity directly (works even without an intent-filter match, since the component is named). Shows the Themes settings screen as the destination.",
     "kind": "still"
   },
@@ -3423,7 +3423,7 @@
       "am start -a android.intent.action.VIEW -d wmkeyboard://settings/search",
       "Type a query such as \"haptic\" into the focused search field so results populate before the shot."
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "Pick a query that returns 3-6 results so the breadcrumb text is legible at phone-frame scale; avoid a query with only one hit.",
     "kind": "still"
   },
@@ -3655,7 +3655,7 @@
       "Tap-sequence: on the settings home screen, tap the 'Data' group, then tap 'Backup & restore'.",
       "Scroll so the full 'Include in export' toggle group and the Export/Import buttons are visible in frame (may need two shots or a tall capture)."
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "Shows the 10-toggle export list at its default state (Settings/Themes/Snippets/Custom word lists/Addon repositories on, the rest off) plus the Export backup and Import backup buttons below.",
     "kind": "still"
   },
@@ -3731,7 +3731,7 @@
       "Search 'Emoji keywords' and tap the result (the Emoji screen itself is not deep-link allowlisted, so search is the reliable path).",
       "Have one language with a downloaded bundled catalog and a second with an imported pack so both row kinds are visible under the Downloads toggle."
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "Route 'emoji' and 'emojikeywords' are both outside SettingsShortcuts.Routes (only typing/appearance/themes/languages/tools/search). Falling back to settings search is the cleanest path.",
     "kind": "still"
   },
