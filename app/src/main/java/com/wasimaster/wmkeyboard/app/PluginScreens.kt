@@ -3,8 +3,9 @@ package com.wasimaster.wmkeyboard.app
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material.icons.outlined.Delete
@@ -24,9 +25,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.wasimaster.wmkeyboard.core.plugins.InstalledPlugin
 import com.wasimaster.wmkeyboard.core.plugins.PluginFile
 import com.wasimaster.wmkeyboard.core.plugins.PluginImportResult
 import com.wasimaster.wmkeyboard.core.plugins.PluginLog
@@ -86,6 +85,7 @@ internal fun PluginsScreen(onNavigate: (String) -> Unit) {
                             onCheckedChange = { store.setSubsystemEnabled(it) },
                         )
                     },
+                    colors = transparentListColors(),
                 )
             }
         }
@@ -128,11 +128,13 @@ internal fun PluginsScreen(onNavigate: (String) -> Unit) {
                             trailingContent = {
                                 Icon(Icons.AutoMirrored.Outlined.ArrowForward, contentDescription = null)
                             },
-                            modifier = Modifier.padding(0.dp),
+                            colors = transparentListColors(),
+                            // The arrow promises a tap opens it. It used to sit
+                            // above a separate "Manage" button and do nothing.
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onNavigate("plugin/${plugin.id}") },
                         )
-                    }
-                    item {
-                        PluginDetailLink(plugin) { onNavigate("plugin/${plugin.id}") }
                     }
                 }
             }
@@ -143,13 +145,11 @@ internal fun PluginsScreen(onNavigate: (String) -> Unit) {
                 ListItem(
                     headlineContent = { Text("Install from a file") },
                     supportingContent = { Text("Choose a .wmplugin file") },
-                    modifier = Modifier.padding(0.dp),
+                    colors = transparentListColors(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { picker.launch(PluginFile.IMPORT_MIME_TYPES) },
                 )
-            }
-            item {
-                TextButton(onClick = { picker.launch(PluginFile.IMPORT_MIME_TYPES) }) {
-                    Text("Choose file")
-                }
             }
             item {
                 CaptionText(
@@ -197,12 +197,8 @@ private fun PluginFact(text: String, allowed: Boolean) {
                 },
             )
         },
+        colors = transparentListColors(),
     )
-}
-
-@Composable
-private fun PluginDetailLink(plugin: InstalledPlugin, onOpen: () -> Unit) {
-    TextButton(onClick = onOpen) { Text("Manage ${plugin.name}") }
 }
 
 /** One plugin: what it may do, what it has stored, its log, and how to remove it. */
@@ -242,6 +238,7 @@ internal fun PluginDetailScreen(pluginId: String, onBack: () -> Unit) {
                         },
                     )
                 },
+                colors = transparentListColors(),
             )
         }
         item {
@@ -262,16 +259,27 @@ internal fun PluginDetailScreen(pluginId: String, onBack: () -> Unit) {
                         onCheckedChange = { store.setEnabled(pluginId, it) },
                     )
                 },
+                colors = transparentListColors(),
             )
         }
     }
 
     SettingsGroup("What it can do") {
         if (plugin.grantedPermissions.isEmpty()) {
-            item { ListItem(headlineContent = { Text("Nothing outside its own panel") }) }
+            item {
+                ListItem(
+                    headlineContent = { Text("Nothing outside its own panel") },
+                    colors = transparentListColors(),
+                )
+            }
         } else {
             for (permission in plugin.grantedPermissions) {
-                item { ListItem(headlineContent = { Text(permission.label) }) }
+                item {
+                    ListItem(
+                        headlineContent = { Text(permission.label) },
+                        colors = transparentListColors(),
+                    )
+                }
             }
         }
         item {
@@ -287,6 +295,7 @@ internal fun PluginDetailScreen(pluginId: String, onBack: () -> Unit) {
             ListItem(
                 headlineContent = { Text("Using ${usedBytes / 1024} KB of ${PluginStorage.MAX_TOTAL_BYTES / 1024} KB") },
                 supportingContent = { Text("Saved on this device only") },
+                colors = transparentListColors(),
             )
         }
         item {
@@ -302,7 +311,12 @@ internal fun PluginDetailScreen(pluginId: String, onBack: () -> Unit) {
                 )
             }
             for (line in log.takeLast(LOG_LINES)) {
-                item { ListItem(headlineContent = { Text(line, style = MaterialTheme.typography.bodySmall) }) }
+                item {
+                    ListItem(
+                        headlineContent = { Text(line, style = MaterialTheme.typography.bodySmall) },
+                        colors = transparentListColors(),
+                    )
+                }
             }
             item {
                 TextButton(onClick = { PluginLog(store.logFile(pluginId)).clear(); refresh++ }) {

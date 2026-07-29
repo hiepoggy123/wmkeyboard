@@ -102,7 +102,7 @@ object AddonInstaller {
             AddonType.Snippets -> removeSnippets(context, record.localRef)
             AddonType.Stickers -> StickerPackStore.get(context).deletePack(record.localRef)
             AddonType.IconPack -> uninstallIconPack(context, record.localRef)
-            AddonType.Font -> FontStore.get(context).delete(record.localRef)
+            AddonType.Font -> uninstallFont(context, record.localRef)
             AddonType.EmojiFont -> uninstallEmojiFont(context, record.localRef)
             AddonType.Sound -> uninstallSound(context, record.localRef)
             // Deletes the plugin's whole directory: script, stored data and log.
@@ -366,6 +366,15 @@ object AddonInstaller {
         SettingsRepository(context).forgetKeySound(soundId)
         // The pool holds a decoded copy that outlives the file.
         KeySoundPlayer.forgetCustom(soundId)
+    }
+
+    private suspend fun uninstallFont(context: Context, fontId: String) {
+        FontStore.get(context).delete(fontId)
+        // A text face can be selected in three places — English, Bengali, and
+        // any per-script override — and deleting the file from under a live
+        // selection leaves the keyboard drawing with the fallback while the
+        // picker still shows the font chosen.
+        SettingsRepository(context).forgetInstalledFont(FontStore.fontIdFor(fontId))
     }
 
     private suspend fun uninstallEmojiFont(context: Context, fontId: String) {

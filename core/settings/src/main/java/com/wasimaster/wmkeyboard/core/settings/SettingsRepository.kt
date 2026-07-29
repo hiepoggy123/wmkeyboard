@@ -2012,6 +2012,13 @@ class SettingsRepository(private val context: Context) {
         private val BENGALI_FONT_ID = stringPreferencesKey("bengali_font_id")
         private val CUSTOM_BENGALI_FONT_NAME = stringPreferencesKey("custom_bengali_font_name")
         private val SCRIPT_FONT_IDS = stringPreferencesKey("script_font_ids")
+
+        /**
+         * The automatic face, mirroring `KeyboardFonts.DEFAULT_ID`. Repeated
+         * rather than imported because that object lives in the IME module,
+         * which this one is below.
+         */
+        private const val DEFAULT_FONT_ID = "default"
         private val LEXICON_VERSION = intPreferencesKey("lexicon_version")
         private val CUSTOM_DICT_VERSION = intPreferencesKey("custom_dict_version")
         private val EMOJI_FONT = stringPreferencesKey("emoji_font")
@@ -4211,6 +4218,25 @@ class SettingsRepository(private val context: Context) {
             if (it[EMOJI_FONT] == EmojiFontChoice.INSTALLED.name) {
                 it[EMOJI_FONT] = EmojiFontChoice.SYSTEM.name
             }
+        }
+
+    /**
+     * Drops [fontId] — a settings font-id, so `installed:` and all — from every
+     * slot that names it: the English face, the Bengali face, and any per-script
+     * override. Called when an installed font is deleted.
+     *
+     * All three, not just the one the user was looking at: a font picked for
+     * Devanagari is invisible from the English picker, so deleting the file from
+     * anywhere else would leave that script rendering as the fallback while the
+     * script picker still showed the font selected.
+     */
+    suspend fun forgetInstalledFont(fontId: String) =
+        editPrefs { prefs ->
+            if (prefs[KEY_FONT_ID] == fontId) prefs[KEY_FONT_ID] = DEFAULT_FONT_ID
+            if (prefs[BENGALI_FONT_ID] == fontId) prefs[BENGALI_FONT_ID] = DEFAULT_FONT_ID
+            val scripts = prefs[SCRIPT_FONT_IDS]?.let { decodeScriptFontIds(it) }.orEmpty()
+            val next = scripts.filterValues { it != fontId }
+            if (next.size != scripts.size) prefs[SCRIPT_FONT_IDS] = encodeScriptFontIds(next)
         }
 
     /**

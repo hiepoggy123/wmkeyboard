@@ -5444,11 +5444,10 @@ private fun FontSettings(repository: SettingsRepository, settings: KeyboardSetti
 
     fun deleteInstalled(font: InstalledFont) {
         scope.launch {
-            val id = FontStore.fontIdFor(font.id)
             // Drop the selection first, so the keyboard never renders against a
-            // file that is about to disappear.
-            if (settings.keyFontId == id) repository.setKeyFontId(KeyboardFonts.DEFAULT_ID)
-            if (settings.bengaliFontId == id) repository.setBengaliFontId(KeyboardFonts.DEFAULT_ID)
+            // file that is about to disappear. Covers the per-script overrides
+            // too, which neither of the pickers on this screen can see.
+            repository.forgetInstalledFont(FontStore.fontIdFor(font.id))
             withContext(Dispatchers.IO) { fontStore.delete(font.id) }
         }
     }
