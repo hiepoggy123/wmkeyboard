@@ -17,6 +17,8 @@ import android.hardware.camera2.CameraManager
 import android.media.AudioManager
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.os.Process
 import android.os.SystemClock
 import android.text.InputType
@@ -1021,8 +1023,12 @@ open class WMKeyboardService : InputMethodService() {
         // scan — stays broken until it is initialized by hand.
         if (userUnlocked) MlKitInit.ensure(this)
         settingsRepository = SettingsRepository(this)
-        // Decode the synthesized key sounds up front so the first press plays.
+        // Decode the synthesized key sounds up front so the first press plays,
+        // and resolve the audio/vibrator services here rather than from the
+        // pointer-down handler of whichever key the user hits first.
         KeySoundPlayer.warmUp(this)
+        HapticPlayer.warmUp(this)
+        startDndWatch()
         attachPersonalStores()
         // Direct boot: nothing below can read credential-encrypted storage yet,
         // so wait for the unlock rather than for the next process start — the
@@ -1844,6 +1850,9 @@ open class WMKeyboardService : InputMethodService() {
         // moment it can start mattering, and a keyboard that wakes on every
         // percentage point to decide whether to save power is self-defeating.
         powerSaver.refresh()
+        // Covers the OEMs where `zen_mode` is unreadable and the observer never
+        // fires — see refreshDndState.
+        refreshDndState()
         expectedSelStart = info?.initialSelStart ?: -1
         expectedSelEnd = info?.initialSelEnd ?: -1
         // A job debounced against the previous field must not land its strip
@@ -2293,6 +2302,11 @@ open class WMKeyboardService : InputMethodService() {
             (getSystemService(Context.CAMERA_SERVICE) as CameraManager)
                 .unregisterTorchCallback(torchCallback)
         }
+        zenObserver?.let { contentResolver.unregisterContentObserver(it) }
+        zenObserver = null
+        // The deferred buzz used to be cancelled by serviceScope.cancel() below;
+        // on a Handler it has to be taken off the queue by hand.
+        feedbackHandler.removeCallbacks(deferredVibrate)
         userLexicon.save()
         CjkLearning.store?.save()
         emojiUsage.save()
@@ -10411,6 +10425,20 @@ open class WMKeyboardService : InputMethodService() {
     private var lastVibrateAt = 0L
     private var vibratePending = false
 
+    /**
+     * Drives the deferred buzz. A plain [Handler] rather than a coroutine: the
+     * old `serviceScope.launch { delay(wait) }` allocated a Job, a continuation
+     * and a timer registration on every press that landed inside the gap —
+     * which, during a fast typing burst, is most of them. One Runnable reposted
+     * costs nothing and the coalescing is unchanged.
+     */
+    private val feedbackHandler = Handler(Looper.getMainLooper())
+    private val deferredVibrate = Runnable {
+        vibratePending = false
+        lastVibrateAt = SystemClock.uptimeMillis()
+        doVibrate()
+    }
+
     private fun vibrate() {
         // Key sound rides along with every feedback point; it has no
         // interference problem, so it skips the haptic coalescing below.
@@ -10431,12 +10459,7 @@ open class WMKeyboardService : InputMethodService() {
             doVibrate()
         } else if (!vibratePending) {
             vibratePending = true
-            serviceScope.launch {
-                delay(wait)
-                vibratePending = false
-                lastVibrateAt = SystemClock.uptimeMillis()
-                doVibrate()
-            }
+            feedbackHandler.postDelayed(deferredVibrate, wait)
         }
     }
 
@@ -10463,7 +10486,7 @@ open class WMKeyboardService : InputMethodService() {
     private fun doVibrate() {
         val settings = _uiState.value.settings
         if (!settings.hapticFeedback) return
-        if (settings.feedback.hapticsRespectDnd && isDndActive()) return
+        if (settings.feedback.hapticsRespectDnd && dndActive) return
         HapticPlayer.play(
             this,
             settings.hapticStyle,
@@ -10474,13 +10497,63 @@ open class WMKeyboardService : InputMethodService() {
     }
 
     /**
+     * Last known Do Not Disturb state, kept current by [zenObserver] rather
+     * than read when a key is pressed. [readDndActive] is two binder round
+     * trips — a ContentResolver query into system_server and possibly a
+     * NotificationManager call — and `hapticsRespectDnd` asked for it from
+     * inside the pointer-down handler, so it ran on the main thread on every
+     * single keystroke.
+     */
+    @Volatile
+    private var dndActive = false
+    private var zenObserver: android.database.ContentObserver? = null
+
+    /**
+     * Watches `zen_mode` for the rest of the process's life. The setting is
+     * global and needs no permission to observe, so this stays registered
+     * rather than following the input view — a DND toggle while the keyboard
+     * is up is exactly the case the cache has to get right.
+     *
+     * Deliberately does not seed [dndActive] here: that would put the two
+     * binder reads on the cold-start path, and `onStartInputView` refreshes it
+     * before any key can be pressed anyway.
+     */
+    private fun startDndWatch() {
+        val observer = object : android.database.ContentObserver(feedbackHandler) {
+            override fun onChange(selfChange: Boolean, uri: android.net.Uri?) {
+                super.onChange(selfChange, uri)
+                refreshDndState()
+            }
+        }
+        zenObserver = observer
+        runCatching {
+            contentResolver.registerContentObserver(
+                android.provider.Settings.Global.getUriFor("zen_mode"),
+                false,
+                observer,
+            )
+        }
+    }
+
+    /**
+     * Re-reads the state the observer cannot see. On the OEMs where `zen_mode`
+     * is unreadable, [readDndActive] falls through to the interruption filter
+     * and no ContentObserver ever fires for it — so the value is also refreshed
+     * whenever the keyboard comes up, which is off the touch path and the point
+     * at which a stale answer starts to matter.
+     */
+    private fun refreshDndState() {
+        dndActive = readDndActive()
+    }
+
+    /**
      * Whether the system is currently in Do Not Disturb. Reads the `zen_mode`
      * global first — it's non-zero for every DND flavour and needs no
      * permission, unlike [NotificationManager.getCurrentInterruptionFilter]
      * which reports UNKNOWN without notification-policy access on some OEMs.
      * Falls back to the interruption filter where the global is unreadable.
      */
-    private fun isDndActive(): Boolean {
+    private fun readDndActive(): Boolean {
         val zen = runCatching {
             android.provider.Settings.Global.getInt(contentResolver, "zen_mode", 0)
         }.getOrDefault(0)

@@ -23,6 +23,34 @@ object HapticPlayer {
     private var lastPreviewAt = 0L
 
     /**
+     * Held rather than looked up per press: [play] runs inside the pointer-down
+     * handler, and resolving the vibrator there put a service lookup on the
+     * touch path of every keystroke. Built from the application context so the
+     * singleton never pins an activity or the IME's own context.
+     */
+    @Volatile
+    private var vibrator: Vibrator? = null
+
+    /** Primes [vibrator] off the touch path, so the first press doesn't pay for it. */
+    fun warmUp(context: Context) {
+        vibratorFor(context)
+    }
+
+    @Suppress("DEPRECATION")
+    private fun vibratorFor(context: Context): Vibrator {
+        vibrator?.let { return it }
+        val app = context.applicationContext
+        val v = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val manager = app.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
+            manager.defaultVibrator
+        } else {
+            app.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+        }
+        vibrator = v
+        return v
+    }
+
+    /**
      * Rate-limited [play] for settings UIs: fires the motor with the values
      * being edited (not yet necessarily persisted), at most once per
      * [PREVIEW_GAP_MS].
@@ -69,13 +97,7 @@ object HapticPlayer {
         if (style == HapticStyle.SYSTEM_KEY || style == HapticStyle.SYSTEM_TAP) {
             if (view != null && playSystem(view, style)) return
         }
-        val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            val manager =
-                context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
-            manager.defaultVibrator
-        } else {
-            context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
-        }
+        val vibrator = vibratorFor(context)
         if (style == HapticStyle.SHARP &&
             Build.VERSION.SDK_INT >= Build.VERSION_CODES.R &&
             vibrator.areAllPrimitivesSupported(VibrationEffect.Composition.PRIMITIVE_CLICK)

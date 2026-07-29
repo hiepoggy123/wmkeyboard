@@ -35,6 +35,16 @@ object KeySoundPlayer {
     private var lastPreviewAt = 0L
 
     private var pool: SoundPool? = null
+
+    /**
+     * Held rather than looked up per press: [systemFx] runs inside the pointer-
+     * down handler, and `getSystemService` there put a service lookup on the
+     * touch path of every keystroke. Built from the application context so the
+     * singleton never pins an activity or the IME's own context.
+     */
+    @Volatile
+    private var audio: AudioManager? = null
+
     private val soundIds = mutableMapOf<KeySoundStyle, Int>()
     private val loadedIds = mutableSetOf<Int>()
 
@@ -49,6 +59,11 @@ object KeySoundPlayer {
     /** Builds the pool and starts decoding so the first key press isn't late. */
     fun warmUp(context: Context) {
         ensurePool(context)
+        // Same reason: the Click and Standard styles never touch the pool, so
+        // without this their first press is the one paying for the lookup.
+        if (audio == null) {
+            audio = context.applicationContext.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        }
     }
 
     /**
@@ -129,8 +144,10 @@ object KeySoundPlayer {
     }
 
     private fun systemFx(context: Context, effect: Int, volume: Float) {
-        val audio = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-        audio.playSoundEffect(effect, volume)
+        val am = audio ?: (
+            context.applicationContext.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+            ).also { audio = it }
+        am.playSoundEffect(effect, volume)
     }
 
     @Synchronized
