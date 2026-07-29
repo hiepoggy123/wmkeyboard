@@ -98,12 +98,13 @@ android {
 
     buildTypes {
         release {
-            val releaseSigningConfig = signingConfigs.getByName("release")
-            signingConfig = if (releaseSigningConfig.storeFile?.exists() == true) {
-                releaseSigningConfig
-            } else {
-                signingConfigs.getByName("debug")
-            }
+            // No debug-key fallback. A debug-signed "release" build looks
+            // shippable and is not: Play rejects the debug key outright, and
+            // anything installed from such a build can never be updated by the
+            // real key. Without the keystore the build produces an *unsigned*
+            // release APK instead — an obvious failure rather than a silent one.
+            signingConfig = signingConfigs.getByName("release")
+                .takeIf { it.storeFile?.exists() == true }
             isMinifyEnabled = true
             isShrinkResources = true
             optimization {
