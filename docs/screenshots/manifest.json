@@ -489,7 +489,7 @@
       "tool/HANDWRITING is NOT in the deep-link allowlist (SettingsShortcuts.Routes only has typing/appearance/themes/languages/tools/search) \u2014 tap \"Handwriting\" in the Tools list from the screen the link above opens.",
       "Scroll to the \"Recognition models\" section. Ideally have one language downloaded, one not-downloaded and one downloading/failed to show multiple row states; otherwise capture whatever real state is present."
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "MainActivity.kt ~6828-6834 (SectionHeader + caption) and HandwritingModelManager composable. Caption text used verbatim on the page: \"about 20 MB\" one-time download, then offline.",
     "kind": "still"
   },
@@ -1145,7 +1145,7 @@
       "am start -a android.intent.action.VIEW -d wmkeyboard://settings/tools",
       "Tap Stickers, then 'Sticker packs' under Your stickers, then open an existing pack (create one with a few stickers first if none exist) to land on the sticker_pack/{packId} screen"
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "Deep link only reaches the Tools list (route 'tools' is the allowlisted one) \u2014 Sticker packs and the per-pack screen need the two follow-up taps noted above; seed the pack with 3-5 stickers beforehand so reorder/export controls have something to act on.",
     "kind": "still"
   },
@@ -2281,7 +2281,7 @@
       "Tap the Power saving tile to open its detail screen (tool/POWER_SAVING is not itself in the deep-link allowlist, only the top-level 'tools' route is)",
       "Capture the 'Power saving' settings group at the top of the screen: Power saving now, Switch on by itself, Low battery is, Off while charging"
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "Set Switch on by itself to 'Battery is low' or 'Battery saver or low battery' before capturing so the Low battery is slider and Off while charging toggle are both visible (they're conditionally shown).",
     "kind": "still"
   },
@@ -2296,7 +2296,7 @@
       "Tap the Power saving tile, then scroll down to the 'What to drop' settings group",
       "Capture enough of the scroll to show several of the eleven toggles (Key vibration through On-device models)"
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "The full group is 11 toggles and likely needs two frames or a tall crop to show entirely; a single screenshot showing the group header plus the first several rows is acceptable.",
     "kind": "still"
   },
@@ -2954,7 +2954,7 @@
       "am start -a android.intent.action.VIEW -d wmkeyboard://settings/tools",
       "Tap Weather to open its settings screen (only the top-level Tools list is deep-link addressable, not the individual tool/WEATHER route)."
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "Optionally capture the location-edit dialog open (tap the Location row) rather than just the summary row, to show the search field.",
     "kind": "still"
   },
