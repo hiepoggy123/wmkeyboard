@@ -1222,7 +1222,7 @@
       "Tap 'Personal dictionary' to open the dictionary list (route \"dictionary\", not itself deep-linkable).",
       "Before capturing, type a few sentences in the field harness (mode=field) or use the 'Add word' button a couple of times so the list isn't empty."
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "Words seen fewer than 200 times show as 'Seen N\u00d7'; words added via the dialog show as 'Added by you' (boost 200). Capture with at least one of each for a representative shot.",
     "kind": "still"
   },
@@ -1379,7 +1379,7 @@
       "am start -a android.intent.action.VIEW -d wmkeyboard://settings/typing",
       "or navigate to the Settings app home screen directly and screenshot HomeScreen (the six clusters: Typing, Keyboard, Features, Accessibility, Data, About)"
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "wmkeyboard://settings/ allowlist only covers typing, appearance, themes, languages, tools, search \u2014 not a bare home route, so for the literal home screen a plain app-open + navigate is more reliable than a deep link. Emphasize the six SettingsGroup clusters from MainActivity.kt HomeScreen.",
     "kind": "still"
   },
@@ -2135,7 +2135,7 @@
       "adb exec-out screencap -p > glide-settings-gestures.png",
       "cwebp -q 88 glide-settings-gestures.png -o glide-settings-gestures.webp"
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "typing is an allowlisted deep-link route. Frame the Gesture typing toggle plus the three trail sliders; scroll position needs a manual swipe since the group sits partway down the screen.",
     "kind": "still"
   },
@@ -2179,7 +2179,7 @@
       "am start -a android.intent.action.VIEW -d wmkeyboard://settings/typing",
       "Tap 'Tool shortcuts list' under the Physical keyboard group (only visible while Tool shortcuts is on) to open the letter-binding screen."
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "Route 'hwshortcuts' is not in the deep-link allowlist (only typing/appearance/themes/languages/tools/search are) \u2014 must navigate via a tap from the Typing screen.",
     "kind": "still"
   },
@@ -2487,7 +2487,7 @@
       "Tap 'Suggestion blacklist' under the Suggestions group to open the editor screen",
       "Add a couple of sample words first (e.g. via the Add word dialog) so the list isn't empty in the shot"
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "Shows the sorted word list with trailing delete icons per row. Route 'blacklist' is not itself deep-link allowlisted, only 'typing' is, so navigate via the Typing screen and tap through.",
     "kind": "still"
   },
@@ -2502,7 +2502,7 @@
       "Tap 'Suggestion blacklist' to open the editor, then tap 'Add word'",
       "Type a sample word into the 'Word' field before capturing so the Add button is enabled"
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "AlertDialog with single OutlinedTextField labeled 'Word', Add/Cancel buttons; Add is disabled while blank so type something first.",
     "kind": "still"
   },
@@ -2589,7 +2589,7 @@
       "am start -a android.intent.action.VIEW -d wmkeyboard://settings/typing",
       "Scroll to the Smart chips group and screenshot the master switch plus the four per-family toggles."
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "Typing is deep-link allowlisted per MainActivity.kt/SettingsSearch.kt. All five toggles default true.",
     "kind": "still"
   },
@@ -2678,7 +2678,7 @@
       "am start -a android.intent.action.VIEW -d wmkeyboard://settings/typing",
       "Scroll to the Suggestions group and tap 'Personal dictionary'"
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "Route 'dictionary' is not in the deep-link allowlist (only typing/appearance/themes/languages/tools/search are), so the deep link lands on Typing and needs one tap into Personal dictionary. Pre-seed a few words before shooting so both an 'Added by you' row (weight >= 200) and a 'Seen N\u00d7' row are visible in the same frame -- either type a word 200+ times via automation, or manually add one (Add word) and let a couple others accumulate a lower count from normal typing.",
     "kind": "still"
   },
@@ -2693,7 +2693,7 @@
       "Scroll to the Suggestions group, tap 'Personal dictionary', tap 'Add word'",
       "Type a sample word (e.g. a made-up nickname) into the dialog field before capturing"
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "Capture with the dialog open and the text field non-empty so the enabled 'Add' button is visible.",
     "kind": "still"
   },
@@ -2854,7 +2854,7 @@
       "am start -a android.intent.action.VIEW -d wmkeyboard://settings/typing",
       "Scroll to the \"Suggestions\" settings group (Suggestions, Punctuation suggestions, Suggestions in every field, Suggestions bar always visible, Best suggestion in the middle, Suggest contact names, ...)."
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "Crop/scroll to the Suggestions group specifically, not the whole Typing screen.",
     "kind": "still"
   },
@@ -3395,7 +3395,7 @@
       "am start -a android.intent.action.VIEW -d wmkeyboard://settings/typing",
       "Scroll to the Gestures group (Quick swipe on spacebar, Hold + swipe on spacebar, 2-D cursor touchpad, Swipe down to hide, Gesture typing)"
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "Reconstructed manually \u2014 the writer agent's structured-output call dropped due to a connection error after the file edit itself succeeded.",
     "kind": "still"
   },
@@ -3409,7 +3409,7 @@
       "am start -a android.intent.action.VIEW -d wmkeyboard://settings/typing",
       "Then press back once to land on Home (Home itself has no direct deep-link route; typing is the nearest allowlisted route and backing out is faster than the app icon's default launch, which may show onboarding on a fresh install)."
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "Scroll position should show at least the Typing and Keyboard groups; the setup card at top will read 'WM Keyboard is your active keyboard' if the harness device already has it enabled \u2014 that's the desired state for a clean shot.",
     "kind": "still"
   },
@@ -3481,7 +3481,7 @@
       "am start -a android.intent.action.VIEW -d wmkeyboard://settings/typing",
       "accessibility is not in the deep-link allowlist (only typing, appearance, themes, languages, tools, search are) \u2014 from the settings home screen, tap the Accessibility row under the Accessibility group to reach this screen, then screenshot the Vision group at the top"
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "Same screenshot subject as accessibility/vision-group registered by the finished /accessibility/overview/ guide page, but a distinct asset id/path under reference/settings/ per the manifest namespace rule \u2014 capture agent may reuse a single capture for both ids if convenient, but register/file both separately.",
     "kind": "still"
   },
@@ -3686,7 +3686,7 @@
       "Scroll to the Suggestions group and tap Personal dictionary.",
       "Have a mix of typed (low count) and manually-added (weight 200, reads 'Added by you') words so both row styles show."
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "Route 'dictionary' is not deep-link allowlisted (only typing/appearance/themes/languages/tools/search are, per SettingsShortcuts.kt), so deep-link to typing and tap the Suggestions row.",
     "kind": "still"
   },
@@ -3701,7 +3701,7 @@
       "Scroll to the Suggestions group and tap Custom dictionaries.",
       "Import at least one word list for one enabled language beforehand so a populated group and an empty group both appear if possible."
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "Route 'customdictionaries' is not deep-link allowlisted; reached via Typing screen only.",
     "kind": "still"
   },
@@ -3716,7 +3716,7 @@
       "Scroll to the Suggestions group and tap Suggestion blacklist.",
       "Add 2-3 words beforehand so the alphabetically-sorted list isn't empty."
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "Route 'blacklist' is not deep-link allowlisted; reached via Typing screen only.",
     "kind": "still"
   },
@@ -4372,7 +4372,7 @@
       "adb shell am start -n com.wasimaster.wmkeyboard/.app.MainActivity -a android.intent.action.VIEW -d wmkeyboard://settings/typing",
       "screen opens already scrolled to the top (Automatic corrections group) \u2014 no further scroll needed"
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "Route is deep-link allowlisted (SettingsShortcuts.kt Routes set). Capture with Autocorrect on so the confidence slider and the three gated toggles are visible.",
     "kind": "still"
   },
@@ -4386,7 +4386,7 @@
       "adb shell am start -n com.wasimaster.wmkeyboard/.app.MainActivity -a android.intent.action.VIEW -d wmkeyboard://settings/typing",
       "scroll down to the 'Suggestions' group heading"
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "Consider adding 1-2 blacklist words beforehand so the Suggestion blacklist row shows a count subtitle instead of the empty-state text.",
     "kind": "still"
   },
@@ -4400,7 +4400,7 @@
       "adb shell am start -n com.wasimaster.wmkeyboard/.app.MainActivity -a android.intent.action.VIEW -d wmkeyboard://settings/typing",
       "scroll down to the 'Smart chips' group heading"
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "Default currency is BDT (Taka) \u2014 the Convert currencies subtitle will read 'offers the amount in BDT' unless the device's currencyTo has been changed first.",
     "kind": "still"
   },
@@ -4414,7 +4414,7 @@
       "adb shell am start -n com.wasimaster.wmkeyboard/.app.MainActivity -a android.intent.action.VIEW -d wmkeyboard://settings/typing",
       "scroll down to the 'Gestures' group, framing the 'Quick swipe on spacebar' and 'Hold + swipe on spacebar' rows"
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "Full-flavor build will additionally show 'Handwrite with swipes' above Glide across spacebar; lite build skips straight to it. Pick one flavor consistently with other Gestures-related screenshots on typing/gestures.mdx and typing/glide-typing.mdx.",
     "kind": "still"
   },
@@ -4429,7 +4429,7 @@
       "scroll down to the 'Volume keys' group",
       "tap 'Volume cursor control' to turn it on, which reveals 'Release while audio plays' below it"
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "Both rows only appear together once Volume cursor control is on (default off) \u2014 must toggle it on before capturing.",
     "kind": "still"
   },
@@ -4443,7 +4443,7 @@
       "adb shell am start -n com.wasimaster.wmkeyboard/.app.MainActivity -a android.intent.action.VIEW -d wmkeyboard://settings/typing",
       "scroll to the bottom, to the 'Physical keyboard' group"
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "Tool shortcuts list row only appears while the 'Tool shortcuts' toggle above it is on (default on) \u2014 no action needed at defaults.",
     "kind": "still"
   },
@@ -4457,7 +4457,7 @@
       "adb shell am start -n com.wasimaster.wmkeyboard/.app.MainActivity -a android.intent.action.VIEW -d wmkeyboard://settings/typing",
       "scroll to 'Physical keyboard' and tap the 'Tool shortcuts list' row (route 'hwshortcuts' is NOT deep-link allowlisted \u2014 SettingsShortcuts.kt Routes only contains typing/appearance/themes/languages/tools/search \u2014 so this screen must be reached by the tap, not a second am start)"
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "Capture at default bindings (23 letters bound, Reset to defaults not pressed) so it matches the default table on typing/hardware-keyboard.mdx.",
     "kind": "still"
   },

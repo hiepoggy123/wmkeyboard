@@ -37,11 +37,19 @@ def sh(cmd):
 
 
 def pull_recent(count):
-    """Pull the `count` newest device screenshots, oldest first."""
-    listing = sh(f"adb shell ls -t {DEVICE_DIR}/*.jpg 2>/dev/null").split()
-    if not listing:
+    """Pull the `count` newest device screenshots, oldest first.
+
+    Samsung writes screenshots as .jpg with spaces in the name
+    (`Screenshot_20260729_061342_WM Keyboard.jpg`), so this lists bare names one
+    per line instead of globbing: a `*.jpg` glob gets expanded by the local
+    shell before adb ever sees it, and splitting on whitespace mangles the names.
+    """
+    listing = sh(f"adb shell ls -t '{DEVICE_DIR}'").splitlines()
+    images = [n.strip() for n in listing
+              if n.strip().lower().endswith((".png", ".jpg", ".jpeg"))]
+    if not images:
         sys.exit(f"No screenshots found in {DEVICE_DIR} on the device.")
-    newest_first = listing[:count]
+    newest_first = images[:count]
     if len(newest_first) < count:
         sys.exit(
             f"Asked for {count} screenshots but only {len(newest_first)} are on the "
@@ -49,9 +57,12 @@ def pull_recent(count):
         )
     os.makedirs(STAGING, exist_ok=True)
     local = []
-    for index, remote in enumerate(reversed(newest_first)):  # oldest first
-        dest = os.path.join(STAGING, f"{index:03d}.png")
-        subprocess.run(["adb", "pull", remote.strip(), dest], capture_output=True)
+    for index, name in enumerate(reversed(newest_first)):  # oldest first
+        dest = os.path.join(STAGING, f"{index:03d}{os.path.splitext(name)[1].lower()}")
+        pull = subprocess.run(["adb", "pull", f"{DEVICE_DIR}/{name}", dest],
+                              capture_output=True, text=True)
+        if not os.path.exists(dest) or os.path.getsize(dest) == 0:
+            sys.exit(f"Failed to pull {name}: {pull.stderr.strip() or 'empty file'}")
         local.append(dest)
     return local
 
@@ -112,8 +123,10 @@ def main():
     for entry, png in zip(targets, shots):
         dest = os.path.join(DOCS, entry["file"])
         os.makedirs(os.path.dirname(dest), exist_ok=True)
-        subprocess.run(["cwebp", "-q", "88", png, "-o", dest], check=True,
-                       capture_output=True)
+        convert = subprocess.run(["cwebp", "-q", "88", png, "-o", dest],
+                                 capture_output=True, text=True)
+        if convert.returncode != 0:
+            sys.exit(f"cwebp failed on {png} -> {entry['id']}:\n{convert.stderr.strip()}")
         size = os.path.getsize(dest) // 1024
         placed = embed(entry)
         entry["status"] = "done"

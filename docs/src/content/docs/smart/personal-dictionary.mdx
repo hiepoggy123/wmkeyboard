@@ -11,7 +11,7 @@ import SettingsPath from '@components/SettingsPath.astro';
 WM Keyboard quietly builds a private, on-device vocabulary from what you actually type (names, slang, abbreviations, anything the bundled dictionary doesn't know) and every word in it becomes permanently safe from autocorrect. You can review that vocabulary, add to it or remove from it by hand, and wipe it entirely, all from Settings.
 
 <PhoneFrame caption="The Personal dictionary screen: learned and manually-added words, most-used first.">
-  {/* shot: smart/personal-dictionary-list */}
+  ![The Personal dictionary screen: learned and manually-added words, most-used first.](@assets/screens/smart/personal-dictionary-list.webp)
 </PhoneFrame>
 
 ## What gets learned, and how strongly
@@ -44,7 +44,7 @@ Alongside single words, the same learning pass builds word-to-word pairs (so typ
 Every word you've typed or added sits in one list, sorted by how often it's been reinforced. Each row reads "Added by you" once its weight reaches 200, and "Seen N×" below that. **Add word** opens a dialog with a single field. Confirm to add it with a weight of 200, so it always reads "Added by you" and, like anything else in the list, is immediately safe from autocorrect. A trash icon on each row removes that word (and drops it out of any word pairs it was part of).
 
 <PhoneFrame caption="Adding a word by hand from the Add word dialog.">
-  {/* shot: smart/personal-dictionary-add */}
+  ![Adding a word by hand from the Add word dialog.](@assets/screens/smart/personal-dictionary-add.webp)
 </PhoneFrame>
 
 Every add or remove here updates a version marker the running keyboard watches, so if the keyboard is open in another app while you edit the list, it reloads your change instead of silently overwriting it the next time it saves. Before you've typed or added anything, the screen reads "Nothing here yet — words appear as you type (with 'Learn from typing' on under Privacy), or add one above."

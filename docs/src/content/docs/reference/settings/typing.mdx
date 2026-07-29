@@ -13,7 +13,7 @@ import Flavor from '@components/Flavor.astro';
 The Typing screen is the largest single screen in Settings, with eight groups covering everything from autocorrect confidence to physical-keyboard shortcuts, plus one sub-screen (the tool-shortcuts letter list) a tap deeper. Most of what's here also has its own task-focused guide, linked from each group below; this page is the field-by-field reference to check a default or find a setting by name.
 
 <PhoneFrame caption="The Typing settings screen, scrolled to the Automatic corrections group.">
-  {/* shot: reference/settings/typing-overview */}
+  ![The Typing settings screen, scrolled to the Automatic corrections group.](@assets/screens/reference/settings/typing-overview.webp)
 </PhoneFrame>
 
 ## Automatic corrections
@@ -65,7 +65,7 @@ Full writeup: [Autocorrect](/smart/autocorrect/) covers the confidence math, wha
 **Suggestions** is the master switch for the whole strip: word completions, typo corrections offered as candidates, and next-word prediction. The three navigation rows at the bottom each open their own screen rather than an inline setting, and the subtitle on **Suggestion blacklist** switches from "Words to never suggest or autocorrect to" to a running count ("3 words never suggested") once you've added something. All three are documented in full on [Dictionaries & words](/reference/settings/dictionaries/), not repeated here.
 
 <PhoneFrame caption="The Suggestions group, including the three dictionary and blacklist navigation rows.">
-  {/* shot: reference/settings/typing-suggestions-group */}
+  ![The Suggestions group, including the three dictionary and blacklist navigation rows.](@assets/screens/reference/settings/typing-suggestions-group.webp)
 </PhoneFrame>
 
 Full writeup: [Suggestions & prediction](/smart/suggestions/) for the strip itself, [Contact-aware typing](/smart/contacts/) for the three permission-gated toggles, [Password manager & autofill chips](/smart/autofill/) for the Android-11 toggle, and [Autocorrect](/smart/autocorrect/#reducing-typos-before-they-happen) for smart key-hit detection.
@@ -85,7 +85,7 @@ Full writeup: [Suggestions & prediction](/smart/suggestions/) for the strip itse
 **Convert currencies**' own subtitle names your live target currency (Taka by default, since the app's built-in default is `BDT`) rather than a static description, and it updates the moment you change it inside the Currency converter tool. The same three calculate/currency/unit toggles are mirrored inside each tool's own Options screen; see [Smart chips](/smart/chips/#options) for where.
 
 <PhoneFrame caption="The Smart chips group: the master switch and its four per-family toggles.">
-  {/* shot: reference/settings/typing-smart-chips-group */}
+  ![The Smart chips group: the master switch and its four per-family toggles.](@assets/screens/reference/settings/typing-smart-chips-group.webp)
 </PhoneFrame>
 
 Full writeup: [Smart chips](/smart/chips/).
@@ -120,7 +120,7 @@ Full writeup: [Smart chips](/smart/chips/).
 **Handwrite with swipes** is a two-option picker, not a toggle: it decides what a letter-area swipe *means*, and only appears in the full edition (it needs the bundled ML Kit handwriting model). **Dot leeway after drawing** is the mirror image of **Cooldown after typing**: one guards against misreading a tap as a glide start, the other against misreading a tap as a handwriting dot, and only one of the pair is ever visible at once since they're gated on opposite `Handwrite with swipes` choices.
 
 <PhoneFrame caption="The Gestures group: the spacebar's Quick swipe and Hold + swipe pickers.">
-  {/* shot: reference/settings/typing-gestures-group */}
+  ![The Gestures group: the spacebar's Quick swipe and Hold + swipe pickers.](@assets/screens/reference/settings/typing-gestures-group.webp)
 </PhoneFrame>
 
 Full writeup: [Gestures](/typing/gestures/) for the spacebar/backspace/volume-key drags, [Glide typing](/typing/glide-typing/) for the glide sub-settings, and [Handwriting](/tools/handwriting/#handwriting-without-opening-the-panel) for handwrite mode.
@@ -157,7 +157,7 @@ With this on, holding <KeyCap>Shift</KeyCap> (or pressing it first on a physical
 With **Volume cursor control** on, volume down/up step the text cursor left/right instead of changing the volume while the keyboard is showing. **Release while audio plays** hands the keys back to normal volume control the instant something is actually playing, re-checked on every keypress.
 
 <PhoneFrame caption="Volume cursor control and its media-aware release toggle.">
-  {/* shot: reference/settings/typing-volume-keys-group */}
+  ![Volume cursor control and its media-aware release toggle.](@assets/screens/reference/settings/typing-volume-keys-group.webp)
 </PhoneFrame>
 
 Full writeup: [Gestures](/typing/gestures/#volume-keys-as-a-cursor-control).
@@ -179,7 +179,7 @@ Full writeup: [Gestures](/typing/gestures/#volume-keys-as-a-cursor-control).
 **Process hardware keys** only governs typed characters. Turning it off stops physical keys from running through autocorrect and suggestions, but Tool shortcuts, panel navigation, and Esc keep working regardless, since none of them touch typed text.
 
 <PhoneFrame caption="The Physical keyboard group, with Tool shortcuts list showing the current shortcut key.">
-  {/* shot: reference/settings/typing-physical-keyboard-group */}
+  ![The Physical keyboard group, with Tool shortcuts list showing the current shortcut key.](@assets/screens/reference/settings/typing-physical-keyboard-group.webp)
 </PhoneFrame>
 
 Full writeup: [Hardware keyboards](/typing/hardware-keyboard/).
@@ -194,7 +194,7 @@ Tapping **Tool shortcuts list** opens a dedicated screen (route `hwshortcuts`) w
 A **Reset to defaults** button at the bottom restores every letter and the shortcut key itself, behind a confirmation dialog.
 
 <PhoneFrame caption="The Tool shortcuts list screen: every tool with its assigned letter.">
-  {/* shot: reference/settings/typing-hwshortcuts-screen */}
+  ![The Tool shortcuts list screen: every tool with its assigned letter.](@assets/screens/reference/settings/typing-hwshortcuts-screen.webp)
 </PhoneFrame>
 
 <KeyCap>T</KeyCap> (toolbox) and <KeyCap>?</KeyCap> (cheat sheet) are reserved and can never be bound to a tool. The other 23 letters default close to each tool's own initial. The full binding table lives on [Hardware keyboards](/typing/hardware-keyboard/#opening-tools-with-the-leader-key) and the printable cheat sheet on [Hardware shortcuts](/reference/shortcuts/); this page only covers the settings screen itself.

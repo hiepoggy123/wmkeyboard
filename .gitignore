@@ -53,3 +53,6 @@ env/
 .ruff_cache/
 *.egg-info/
 dist/
+
+# Screenshot import staging
+docs/screenshots/.incoming/
