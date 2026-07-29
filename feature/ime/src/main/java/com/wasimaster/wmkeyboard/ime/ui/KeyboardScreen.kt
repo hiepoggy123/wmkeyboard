@@ -86,6 +86,7 @@ import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.automirrored.outlined.InsertDriveFile
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material.icons.outlined.PictureAsPdf
 import androidx.compose.material.icons.outlined.VideoFile
@@ -255,7 +256,13 @@ import com.wasimaster.wmkeyboard.core.settings.LetterSwipeAction
 import com.wasimaster.wmkeyboard.core.settings.SpaceSwipeAction
 import com.wasimaster.wmkeyboard.core.settings.SpacebarDisplay
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
+import com.wasimaster.wmkeyboard.core.settings.ToolboxLayout
+import com.wasimaster.wmkeyboard.core.settings.ToolboxPageSizeRange
+import com.wasimaster.wmkeyboard.core.settings.ToolboxSettings
 import com.wasimaster.wmkeyboard.core.settings.isSupportedTool
+import com.wasimaster.wmkeyboard.core.settings.toolOpensScreen
+import com.wasimaster.wmkeyboard.core.settings.toolboxPage
+import com.wasimaster.wmkeyboard.core.settings.toolboxPageCount
 import com.wasimaster.wmkeyboard.core.snippets.Snippet
 import com.wasimaster.wmkeyboard.core.tools.BuiltInSymbolSets
 import com.wasimaster.wmkeyboard.core.tools.resolveSymbolSets
@@ -2917,6 +2924,19 @@ private class ToolDragController {
     var toolboxContentCoords: LayoutCoordinates? = null
     var toolboxCellSize: Size = Size.Zero
     var toolboxColumns: Int = 1
+    /**
+     * Index the visible page starts at, when the toolbox is paginated. The
+     * registered content coords belong to that one page, so its first cell is
+     * slot [toolboxPageStart], not slot 0. Zero for the scrolling toolbox,
+     * where the content is the whole grid.
+     */
+    var toolboxPageStart: Int = 0
+    /**
+     * How many slots that page holds — the drop is clamped to it so a drag
+     * that wanders past the last pill on page 2 lands at the end of page 2
+     * rather than at the end of the toolbox.
+     */
+    var toolboxPageLength: Int = Int.MAX_VALUE
     /** The tools the toolbox grid is showing, in toolbox order. */
     var toolboxTools: List<ToolbarTool> = emptyList()
     /** Complete ordering over every tool; reorders rewrite this. */
@@ -3001,7 +3021,10 @@ private class ToolDragController {
         val count = (toolboxTools - tool).size
         val col = ((at.x - origin.x) / cell.width).toInt().coerceIn(0, columns - 1)
         val row = ((at.y - origin.y) / cell.height).toInt().coerceAtLeast(0)
-        return (row * columns + col).coerceIn(0, count)
+        // The cell is local to whatever registered the coords: the whole grid
+        // when the toolbox scrolls, one page when it paginates.
+        val local = (row * columns + col).coerceIn(0, toolboxPageLength)
+        return (toolboxPageStart + local).coerceIn(0, count)
     }
 
     /** The full tool order with [tool] moved to display slot [slot] of the grid. */
@@ -3759,8 +3782,12 @@ private fun RowScope.ToolbarRow(
  * until the user rearranges it). Tap to use a tool in place; hold and drag
  * it up onto the toolbar to pin it, or around the grid to reorder. Toolbar
  * tools drag down here to unpin — at the spot they're dropped.
+ *
+ * Two shapes, chosen by [ToolboxSettings.layout]: round icons with a caption,
+ * or [ToolPill] rows. Either can scroll as one long grid or break into swiped
+ * pages; that is [ToolboxSettings.paginate], and the cells are the same
+ * [ToolboxGrid] either way.
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ToolboxPanel(
     state: KeyboardUiState,
@@ -3782,6 +3809,8 @@ private fun ToolboxPanel(
         onDispose {
             drag.toolboxViewport = null
             drag.toolboxContentCoords = null
+            drag.toolboxPageStart = 0
+            drag.toolboxPageLength = Int.MAX_VALUE
         }
     }
     Column(
@@ -3841,7 +3870,15 @@ private fun ToolboxPanel(
         val available = state.settings.toolboxOrder.filter {
             it !in state.settings.toolbarTools && it in state.settings.enabledTools && isSupportedTool(it)
         }
-        val columns = state.settings.toolboxColumns.coerceAtLeast(1)
+        val toolbox = state.settings.toolbox
+        val pills = toolbox.layout == ToolboxLayout.PILLS
+        // The two layouts count their columns separately: a pill needs room for
+        // a name, so its comfortable width is nothing like an icon's.
+        val columns = if (pills) {
+            toolbox.pillColumns.coerceAtLeast(1)
+        } else {
+            state.settings.toolboxColumns.coerceAtLeast(1)
+        }
         drag.toolboxTools = available
         drag.toolboxOrder = state.settings.toolboxOrder
         drag.toolboxColumns = columns
@@ -3881,24 +3918,6 @@ private fun ToolboxPanel(
             }
             return@Column
         }
-        // More tools than fit the panel height now — the grid scrolls.
-        // The placement anchor is this scrolling content column, NOT the
-        // keyboard body: relative to the body every icon "moves" on every
-        // scroll frame, which made each one restart its placement spring
-        // per frame (a coroutine-and-relayout storm that tanked scroll fps).
-        // Relative to the content, scrolling is a no-op for the animation.
-        var gridCoords by remember { mutableStateOf<LayoutCoordinates?>(null) }
-        var gridOrigin by remember { mutableStateOf(Offset.Zero) }
-        val feedback = LocalKeyPressFeedback.current
-        val scope = rememberCoroutineScope()
-        val tapTool by rememberUpdatedState(onToolTap)
-        // Read through holders, and key the handler on nothing. `available` is
-        // a fresh list on every recomposition and the drop preview recomposes
-        // this panel on every frame of a drag, so keying pointerInput on it
-        // would tear down and restart the very gesture it is running — the
-        // same trap the per-cell handler documented.
-        val toolsNow by rememberUpdatedState(available)
-        val columnsNow by rememberUpdatedState(columns)
         // Indexed against `available`, never `display`: the drop preview inserts
         // a null ghost slot into `display`, which would shift every index past it
         // and open the wrong tool. The ring is hidden mid-drag anyway (below),
@@ -3909,184 +3928,420 @@ private fun ToolboxPanel(
             columns = columns,
             onActivate = { index -> available.getOrNull(index)?.let(onToolTap) },
         )
-        val gridScroll = rememberScrollState()
-        // No lazy state to scroll by index, so scroll by row: every cell reports
-        // the same size, and the drag controller already collects it.
         val focusedTool = state.focusedIndex().takeIf { drag.dragging == null }
-        ScrollFocusIntoView(focusedTool) { index ->
-            val rowHeight = drag.toolboxCellSize.height
-            if (rowHeight > 0f) {
-                val target = (index / columns) * rowHeight
-                gridScroll.animateScrollTo(target.toInt().coerceIn(0, gridScroll.maxValue))
-            }
+        if (!toolbox.paginate) {
+            // One long grid the user scrolls: every cell is at its absolute
+            // slot, so the drop math needs no page offset.
+            drag.toolboxPageStart = 0
+            drag.toolboxPageLength = Int.MAX_VALUE
+            ToolboxGrid(
+                state = state,
+                drag = drag,
+                display = display,
+                pageStart = 0,
+                columns = columns,
+                pills = pills,
+                dragTool = dragTool,
+                focusedSlot = focusedTool,
+                registerGeometry = true,
+                onToolTap = onToolTap,
+            )
+            return@Column
         }
-        // One FlowRow, so a part-full last line still lines up with the ones
-        // above it, and one gesture handler for the whole grid rather than one
-        // per cell. Hoisting it is what lets a cell be disposed mid-drag: the
-        // handler outlives any cell, so the dragged tool can leave the list
-        // and the rest can close up behind it.
-        FlowRow(
-            modifier = Modifier
-                .verticalScroll(gridScroll)
-                .onGloballyPositioned {
-                    gridCoords = it
-                    gridOrigin = it.positionInRoot()
-                    drag.toolboxContentCoords = it
-                }
-                .pointerInput(Unit) {
-                    val dragSlop = ToolDragSlop.toPx()
-                    awaitEachGesture {
-                        val down = awaitFirstDown(requireUnconsumed = false)
-                        // Which tool was grabbed is resolved once, from where
-                        // the finger landed. The grid is uniform, so this is
-                        // the same arithmetic the drop target uses. Nothing has
-                        // moved yet at this point: a drag is not live, so the
-                        // list on screen is still the plain one.
-                        val cell = drag.toolboxCellSize
-                        if (cell.width <= 0f || cell.height <= 0f) return@awaitEachGesture
-                        val cols = columnsNow
-                        val col = (down.position.x / cell.width).toInt()
-                        val row = (down.position.y / cell.height).toInt()
-                        val tool = toolsNow
-                            .getOrNull(row * cols + col)
-                            ?.takeIf { col in 0 until cols && down.position.x >= 0f }
-                            ?: return@awaitEachGesture
-                        // Root coordinates throughout: the grid reflows around
-                        // the drop preview while the finger is down, and a
-                        // node that moves under a still finger reports deltas
-                        // of its own.
-                        val downRoot = gridOrigin + down.position
-                        var rootPos = downRoot
-                        var longPressed = false
-                        var dragged = false
-                        var released = false
-                        var scrolled = false
-                        val timer = scope.launch {
-                            delay(viewConfiguration.longPressTimeoutMillis)
-                            feedback()
-                            longPressed = true
-                            drag.start(tool, false, rootPos)
-                        }
-                        try {
-                            while (true) {
-                                val event = awaitPointerEvent()
-                                val change = event.changes.firstOrNull { it.id == down.id } ?: break
-                                if (!change.pressed) {
-                                    released = true
-                                    if (longPressed) change.consume()
+        // Paginated: fixed pages to swipe through instead of a scroll. The
+        // ghost takes a slot like anything else, so a drop preview near a page
+        // boundary pushes the last tool onto the next page — which is what the
+        // drop itself would do, so the preview stays honest.
+        val pageSize = toolbox.pageSize.coerceIn(ToolboxPageSizeRange)
+        val pageCount = toolboxPageCount(display.size, pageSize)
+        val pager = rememberPagerState(pageCount = { pageCount })
+        HorizontalPager(
+            state = pager,
+            modifier = Modifier.weight(1f),
+            // A page is cheap to build, but building the ones nobody has
+            // swiped towards is still work the first frame doesn't need.
+            beyondViewportPageCount = 0,
+        ) { page ->
+            // Only the page in front publishes to the drag controller: its
+            // neighbours stay composed through a swipe, and two pages claiming
+            // the drop geometry would race over one set of coordinates.
+            val current = page == pager.currentPage
+            if (current) {
+                drag.toolboxPageStart = page * pageSize
+                drag.toolboxPageLength = pageSize
+            }
+            ToolboxGrid(
+                state = state,
+                drag = drag,
+                display = toolboxPage(display, page, pageSize),
+                pageStart = page * pageSize,
+                columns = columns,
+                pills = pills,
+                dragTool = dragTool,
+                focusedSlot = focusedTool.takeIf { current },
+                registerGeometry = current,
+                onToolTap = onToolTap,
+            )
+        }
+        PageDots(count = pageCount, current = pager.currentPage)
+        // The hardware focus ring walks the whole toolbox, so following it here
+        // means turning to the page it walked onto.
+        LaunchedEffect(focusedTool, pageSize, pageCount) {
+            val index = focusedTool ?: return@LaunchedEffect
+            val target = (index / pageSize).coerceIn(0, pageCount - 1)
+            if (target != pager.currentPage) pager.animateScrollToPage(target)
+        }
+    }
+}
+
+/**
+ * One screenful of toolbox cells — the whole grid when the toolbox scrolls,
+ * a single page when it paginates — plus the one gesture handler that owns
+ * every cell in it.
+ *
+ * The handler is hoisted above the cells rather than sitting on each one, and
+ * that is what lets a cell be disposed mid-drag: the handler outlives any cell,
+ * so the dragged tool can leave the list and the rest can close up behind it.
+ * One FlowRow, so a part-full last line still lines up with the ones above it.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ToolboxGrid(
+    state: KeyboardUiState,
+    drag: ToolDragController,
+    /** This page's cells: tools, with a null where the drop ghost goes. */
+    display: List<ToolbarTool?>,
+    /** Absolute slot of this page's first cell; 0 for the scrolling toolbox. */
+    pageStart: Int,
+    columns: Int,
+    pills: Boolean,
+    dragTool: ToolbarTool?,
+    /** Absolute slot the hardware focus ring is on, or null. */
+    focusedSlot: Int?,
+    /** Whether this grid is the one a drop should be measured against. */
+    registerGeometry: Boolean,
+    onToolTap: (ToolbarTool) -> Unit,
+) {
+    // The placement anchor is this scrolling content column, NOT the keyboard
+    // body: relative to the body every icon "moves" on every scroll frame,
+    // which made each one restart its placement spring per frame (a
+    // coroutine-and-relayout storm that tanked scroll fps). Relative to the
+    // content, scrolling is a no-op for the animation.
+    var gridCoords by remember { mutableStateOf<LayoutCoordinates?>(null) }
+    var gridOrigin by remember { mutableStateOf(Offset.Zero) }
+    val feedback = LocalKeyPressFeedback.current
+    val scope = rememberCoroutineScope()
+    val tapTool by rememberUpdatedState(onToolTap)
+    // Read through holders, and key the handler on nothing. `display` is a
+    // fresh list on every recomposition and the drop preview recomposes this
+    // panel on every frame of a drag, so keying pointerInput on it would tear
+    // down and restart the very gesture it is running — the same trap the
+    // per-cell handler documented.
+    val cellsNow by rememberUpdatedState(display)
+    val columnsNow by rememberUpdatedState(columns)
+    val registerNow by rememberUpdatedState(registerGeometry)
+    val gridScroll = rememberScrollState()
+    // No lazy state to scroll by index, so scroll by row: every cell reports
+    // the same size, and the drag controller already collects it.
+    ScrollFocusIntoView(focusedSlot) { index ->
+        val rowHeight = drag.toolboxCellSize.height
+        if (rowHeight > 0f) {
+            val target = (((index - pageStart) / columns) * rowHeight).coerceAtLeast(0f)
+            gridScroll.animateScrollTo(target.toInt().coerceIn(0, gridScroll.maxValue))
+        }
+    }
+    FlowRow(
+        modifier = Modifier
+            .verticalScroll(gridScroll)
+            .onGloballyPositioned {
+                gridCoords = it
+                gridOrigin = it.positionInRoot()
+                if (registerNow) drag.toolboxContentCoords = it
+            }
+            .pointerInput(Unit) {
+                val dragSlop = ToolDragSlop.toPx()
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    // Which tool was grabbed is resolved once, from where the
+                    // finger landed. The grid is uniform, so this is the same
+                    // arithmetic the drop target uses. Nothing has moved yet at
+                    // this point: a drag is not live, so the list on screen is
+                    // still the plain one, ghost-free.
+                    val cell = drag.toolboxCellSize
+                    if (cell.width <= 0f || cell.height <= 0f) return@awaitEachGesture
+                    val cols = columnsNow
+                    val col = (down.position.x / cell.width).toInt()
+                    val row = (down.position.y / cell.height).toInt()
+                    val tool = cellsNow
+                        .getOrNull(row * cols + col)
+                        ?.takeIf { col in 0 until cols && down.position.x >= 0f }
+                        ?: return@awaitEachGesture
+                    // Root coordinates throughout: the grid reflows around the
+                    // drop preview while the finger is down, and a node that
+                    // moves under a still finger reports deltas of its own.
+                    val downRoot = gridOrigin + down.position
+                    var rootPos = downRoot
+                    var longPressed = false
+                    var dragged = false
+                    var released = false
+                    var scrolled = false
+                    val timer = scope.launch {
+                        delay(viewConfiguration.longPressTimeoutMillis)
+                        feedback()
+                        longPressed = true
+                        drag.start(tool, false, rootPos)
+                    }
+                    try {
+                        while (true) {
+                            val event = awaitPointerEvent()
+                            val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                            if (!change.pressed) {
+                                released = true
+                                if (longPressed) change.consume()
+                                break
+                            }
+                            rootPos = gridOrigin + change.position
+                            val travel = (rootPos - downRoot).getDistance()
+                            if (!longPressed) {
+                                // Drift before the hold registers is a scroll,
+                                // or a page swipe — hand the gesture back.
+                                if (travel > viewConfiguration.touchSlop) {
+                                    scrolled = true
                                     break
                                 }
-                                rootPos = gridOrigin + change.position
-                                val travel = (rootPos - downRoot).getDistance()
-                                if (!longPressed) {
-                                    // Drift before the hold registers is a
-                                    // scroll — hand the gesture back.
-                                    if (travel > viewConfiguration.touchSlop) {
-                                        scrolled = true
-                                        break
-                                    }
-                                } else {
-                                    change.consume()
-                                    if (travel > dragSlop) dragged = true
-                                    drag.move(rootPos)
-                                }
-                            }
-                        } finally {
-                            timer.cancel()
-                            when {
-                                !longPressed -> {
-                                    drag.cancel()
-                                    if (released && !scrolled) tapTool(tool)
-                                }
-                                dragged -> drag.end()
-                                // A hold that never travelled past the slop is
-                                // a distinct gesture: open the tool's settings.
-                                else -> {
-                                    drag.cancel()
-                                    drag.onOpenSettings(tool)
-                                }
+                            } else {
+                                change.consume()
+                                if (travel > dragSlop) dragged = true
+                                drag.move(rootPos)
                             }
                         }
-                    }
-                },
-            maxItemsInEachRow = columns,
-        ) {
-            display.forEachIndexed { slot, tool ->
-                // The ghost's key encodes its slot so a move is a structural
-                // remove+add, not a same-key reorder. FlowRow re-measures and
-                // re-places its children on a structural change, but on a pure
-                // reorder it moves the composition groups while leaving every
-                // laid-out child at its old position — verified on device, where
-                // the grid reflowed once (the dragged tool leaving) and then
-                // froze for the rest of the drag: the ghost never moved and the
-                // icons never made room. Re-keying per slot forces the reflow on
-                // every step. (The toolbar is a Row, which re-places on reorder,
-                // so its ghost keeps one stable key.)
-                key(tool ?: "box-ghost-$boxSlot") {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth(1f / columns)
-                            // Every cell is the same size; whichever
-                            // reported last feeds the slot math.
-                            .onGloballyPositioned { drag.toolboxCellSize = it.size.toSize() },
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        // Pure visuals — the grid's own pointerInput owns the
-                        // gesture, so nothing here has to survive the dragged
-                        // tool leaving the list.
-                        //
-                        // Anchored at the scrolling content (see gridCoords),
-                        // NOT the keyboard body: body-relative, every scroll
-                        // frame moved every icon and restarted its spring — a
-                        // per-frame coroutine storm that tanked scroll fps.
-                        // Content-relative, scrolling is a no-op; reorders
-                        // still slide.
-                        val ghost = tool == null
-                        // dragTool is never null when a ghost entry exists.
-                        val shown = tool ?: dragTool ?: return@Box
-                        Column(
-                            modifier = Modifier
-                                .animatePlacement(
-                                    enabled = !state.settings.reduceMotion,
-                                ) { gridCoords }
-                                // `slot` indexes `display`, which equals
-                                // `available` whenever the ring is drawn at all —
-                                // focusedTool is null for the whole of a drag,
-                                // and only a drag makes the two lists differ.
-                                .focusRing(slot == focusedTool, RoundedCornerShape(12.dp))
-                                .padding(vertical = 10.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                        ) {
-                            if (ghost) {
-                                GhostToolCircle(shown)
-                            } else {
-                                ToolCircle(
-                                    slot = IconSlots.forTool(shown),
-                                    description = toolLabel(shown),
-                                    active = toolActive(shown, state),
-                                    interactive = false,
-                                    tint = if (state.settings.coloredToolIcons)
-                                        toolAccentColor(shown, state.settings.toolColorOverrides)
-                                    else null,
-                                ) {}
+                    } finally {
+                        timer.cancel()
+                        when {
+                            !longPressed -> {
+                                drag.cancel()
+                                if (released && !scrolled) tapTool(tool)
                             }
-                            Text(
-                                toolLabel(shown),
-                                fontSize = 11.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    .copy(alpha = if (ghost) 0.5f else 1f),
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier
-                                    .padding(top = 4.dp, start = 2.dp, end = 2.dp)
-                                    .fillMaxWidth(),
-                            )
+                            dragged -> drag.end()
+                            // A hold that never travelled past the slop is a
+                            // distinct gesture: open the tool's settings.
+                            else -> {
+                                drag.cancel()
+                                drag.onOpenSettings(tool)
+                            }
                         }
                     }
                 }
-            }
+            },
+        maxItemsInEachRow = columns,
+    ) {
+        display.forEachIndexed { slot, tool ->
+            // The ghost's key encodes its slot so a move is a structural
+            // remove+add, not a same-key reorder. FlowRow re-measures and
+            // re-places its children on a structural change, but on a pure
+            // reorder it moves the composition groups while leaving every
+            // laid-out child at its old position — verified on device, where
+            // the grid reflowed once (the dragged tool leaving) and then
+            // froze for the rest of the drag: the ghost never moved and the
+            // icons never made room. Re-keying per slot forces the reflow on
+            // every step. (The toolbar is a Row, which re-places on reorder,
+            // so its ghost keeps one stable key.)
+            key(tool ?: "box-ghost-${pageStart + slot}") {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(1f / columns)
+                        // Every cell is the same size; whichever
+                        // reported last feeds the slot math.
+                        .onGloballyPositioned { drag.toolboxCellSize = it.size.toSize() },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    // Pure visuals — the grid's own pointerInput owns the
+                    // gesture, so nothing here has to survive the dragged
+                    // tool leaving the list.
+                    val ghost = tool == null
+                    // dragTool is never null when a ghost entry exists.
+                    val shown = tool ?: dragTool ?: return@Box
+                    // `slot` indexes this page, which holds the plain tools
+                    // whenever the ring is drawn at all — focusedSlot is null
+                    // for the whole of a drag, and only a drag inserts a ghost.
+                    val focused = focusedSlot == pageStart + slot
+                    val accent = if (state.settings.coloredToolIcons) {
+                        toolAccentColor(shown, state.settings.toolColorOverrides)
+                    } else null
+                    // Anchored at the scrolling content (see gridCoords), NOT
+                    // the keyboard body: body-relative, every scroll frame
+                    // moved every icon and restarted its spring — a per-frame
+                    // coroutine storm that tanked scroll fps. Content-relative,
+                    // scrolling is a no-op; reorders still slide.
+                    val placement = Modifier
+                        .animatePlacement(enabled = !state.settings.reduceMotion) { gridCoords }
+                    if (pills) {
+                        ToolPill(
+                            tool = shown,
+                            active = toolActive(shown, state),
+                            accent = accent,
+                            filled = state.settings.toolbox.pillFilled,
+                            ghost = ghost,
+                            modifier = placement
+                                .padding(horizontal = 3.dp, vertical = 3.dp)
+                                .focusRing(focused, RoundedCornerShape(PillRadius)),
+                        )
+                        return@Box
+                    }
+                    Column(
+                        modifier = placement
+                            .focusRing(focused, RoundedCornerShape(12.dp))
+                            .padding(vertical = 10.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        if (ghost) {
+                            GhostToolCircle(shown)
+                        } else {
+                            ToolCircle(
+                                slot = IconSlots.forTool(shown),
+                                description = toolLabel(shown),
+                                active = toolActive(shown, state),
+                                interactive = false,
+                                tint = accent,
+                            ) {}
+                        }
+                        Text(
+                            toolLabel(shown),
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                .copy(alpha = if (ghost) 0.5f else 1f),
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier
+                                .padding(top = 4.dp, start = 2.dp, end = 2.dp)
+                                .fillMaxWidth(),
+                        )
+                    }
+                }
             }
         }
     }
+}
+
+/** Corner radius of a toolbox pill — half its height, so the ends are round. */
+private val PillRadius = 22.dp
+
+/**
+ * One tool as a wide row: icon, name, and — for the tools that open a panel or
+ * an activity rather than acting on the spot — a chevron on the trailing edge.
+ * The chevron is the whole point of the layout: at a glance, "Themes" reads as
+ * somewhere to go and "Flashlight" as something that just happens.
+ *
+ * With [filled] on, the tool's [accent] becomes the pill's background and the
+ * icon and label flip to whatever reads on it. That is usually white, but not
+ * always — a pale accent (the flashlight's amber) takes near-black instead,
+ * because a white-on-amber label is a label nobody can read.
+ */
+@Composable
+private fun ToolPill(
+    tool: ToolbarTool,
+    active: Boolean,
+    /** The tool's colour, or null when colourful tool icons are off. */
+    accent: Color?,
+    filled: Boolean,
+    ghost: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val kb = LocalKbTheme.current
+    val shape = RoundedCornerShape(PillRadius)
+    // Nothing to fill a pill with when the colours are switched off.
+    val fill = accent?.takeIf { filled }
+    val background = when {
+        ghost -> kb.toolCircleActive.copy(alpha = 0.22f)
+        fill != null -> fill
+        active -> kb.toolCircleActive
+        else -> kb.toolCircle
+    }
+    val content = when {
+        fill != null -> maxContrastOn(fill)
+        active -> kb.toolCircleActiveIcon
+        else -> kb.toolbarIcon
+    }
+    // Only the icon carries the accent in the unfilled pill; the label stays
+    // the theme's text colour so a wall of coloured words never happens.
+    val iconTint = when {
+        fill != null -> content
+        active -> kb.toolCircleActiveIcon
+        else -> accent ?: kb.toolbarIcon
+    }
+    val fade = if (ghost) 0.45f else 1f
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(44.dp)
+            .clip(shape)
+            .background(background, shape)
+            .then(
+                if (ghost) {
+                    Modifier.border(1.dp, kb.toolbarIcon.copy(alpha = 0.35f), shape)
+                } else {
+                    Modifier
+                }
+            )
+            .padding(start = 10.dp, end = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        SlotIcon(
+            IconSlots.forTool(tool),
+            contentDescription = null,
+            modifier = Modifier.size(20.dp),
+            tint = iconTint.copy(alpha = fade),
+        )
+        Text(
+            toolLabel(tool),
+            fontSize = 12.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            color = content.copy(alpha = if (ghost) 0.5f else 1f),
+            modifier = Modifier
+                .weight(1f)
+                .padding(start = 8.dp),
+        )
+        if (toolOpensScreen(tool)) {
+            Icon(
+                Icons.AutoMirrored.Outlined.KeyboardArrowRight,
+                contentDescription = null,
+                modifier = Modifier.size(16.dp),
+                tint = content.copy(alpha = if (ghost) 0.3f else 0.6f),
+            )
+        }
+    }
+}
+
+/**
+ * Which page of the paginated toolbox is in front. Deliberately not tappable:
+ * dots this small are a poor target, and the pages are one swipe apart.
+ */
+@Composable
+private fun PageDots(count: Int, current: Int) {
+    if (count <= 1) return
+    val kb = LocalKbTheme.current
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        repeat(count) { page ->
+            val on = page == current
+            Box(
+                modifier = Modifier
+                    .padding(horizontal = 3.dp)
+                    .size(if (on) 7.dp else 5.dp)
+                    .clip(CircleShape)
+                    .background(
+                        if (on) kb.toolCircleActiveIcon else kb.toolbarIcon.copy(alpha = 0.3f),
+                        CircleShape,
+                    ),
+            )
+        }
+    }
+}
 
 /**
  * Panels that take over the whole keyboard: the toolbar (plus any emoji or

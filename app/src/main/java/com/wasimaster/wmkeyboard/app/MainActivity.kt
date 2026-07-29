@@ -256,6 +256,8 @@ import com.wasimaster.wmkeyboard.core.settings.SpaceSwipeAction
 import com.wasimaster.wmkeyboard.core.settings.SpacebarDisplay
 import com.wasimaster.wmkeyboard.core.settings.ThemeMode
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
+import com.wasimaster.wmkeyboard.core.settings.ToolboxLayout
+import com.wasimaster.wmkeyboard.core.settings.ToolboxPageSizeRange
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -3581,16 +3583,85 @@ private fun AppearanceSettings(
             ) { scope.launch { repository.setToolCircleRadiusDp(it.toInt()) } }
         }
         item {
-            SliderSetting(
-                "Toolbox grid size",
-                subtitle = "Tools per row in the toolbox grid",
-                value = settings.toolboxColumns.toFloat(),
-                range = 3f..6f,
-                display = { "${it.roundToInt()} per row" },
-                info = "The toolbox is the grid behind the toolbar's grid button. " +
-                    "Fewer per row makes each tool bigger and easier to hit; more " +
-                    "per row fits more tools without scrolling.",
-            ) { scope.launch { repository.setToolboxColumns(it.roundToInt()) } }
+            ChoiceSetting(
+                "Toolbox layout",
+                subtitle = "How the toolbox draws its tools",
+                options = listOf(
+                    ToolboxLayout.ICONS to "Icons",
+                    ToolboxLayout.PILLS to "Pills",
+                ),
+                selected = settings.toolbox.layout,
+                info = "Icons is the original grid: a round icon per tool with its name " +
+                    "underneath. Pills gives each tool a wide rounded row instead — icon on " +
+                    "the left, name beside it, and an arrow on the right for the tools that " +
+                    "open something (Themes, Clipboard …) rather than acting on the spot " +
+                    "(Flashlight, Undo). Fewer tools fit, but every name is readable.",
+            ) { scope.launch { repository.setToolboxLayout(it) } }
+        }
+        if (settings.toolbox.layout == ToolboxLayout.ICONS) {
+            item {
+                SliderSetting(
+                    "Toolbox grid size",
+                    subtitle = "Tools per row in the toolbox grid",
+                    value = settings.toolboxColumns.toFloat(),
+                    range = 3f..6f,
+                    display = { "${it.roundToInt()} per row" },
+                    info = "The toolbox is the grid behind the toolbar's grid button. " +
+                        "Fewer per row makes each tool bigger and easier to hit; more " +
+                        "per row fits more tools without scrolling.",
+                ) { scope.launch { repository.setToolboxColumns(it.roundToInt()) } }
+            }
+        } else {
+            item {
+                SliderSetting(
+                    "Pills per row",
+                    subtitle = "How many tool pills sit side by side",
+                    value = settings.toolbox.pillColumns.toFloat(),
+                    range = 1f..3f,
+                    display = { "${it.roundToInt()} per row" },
+                    info = "Two is the default. One gives every tool the full width (good " +
+                        "for long names and big text); three only really works in landscape " +
+                        "or on a tablet, where names start truncating otherwise.",
+                ) { scope.launch { repository.setToolboxPillColumns(it.roundToInt()) } }
+            }
+            item {
+                ToggleSetting(
+                    "Fill pills with the tool color",
+                    "Color the whole pill instead of just its icon",
+                    settings.toolbox.pillFilled,
+                    info = "Off, each pill keeps the theme's own background and only the " +
+                        "icon carries the tool's color. On, the pill itself is that color " +
+                        "and the icon and name flip to whatever reads on it — white on most " +
+                        "colors, near-black on the pale ones. Needs \"Colorful tool icons\" " +
+                        "(Settings → Tools) on; with it off there's no color to fill with.",
+                ) { scope.launch { repository.setToolboxPillFilled(it) } }
+            }
+        }
+        item {
+            ToggleSetting(
+                "Swipe the toolbox in pages",
+                "Fixed pages you swipe sideways instead of one scrolling grid",
+                settings.toolbox.paginate,
+                info = "Off, the toolbox is one grid that scrolls up and down. On, it " +
+                    "breaks into pages you swipe between, with dots underneath showing " +
+                    "where you are — every tool then sits in the same spot every time, " +
+                    "which is what makes them findable by muscle memory. Dragging a tool " +
+                    "to reorder it works within the page you're on.",
+            ) { scope.launch { repository.setToolboxPaginate(it) } }
+        }
+        if (settings.toolbox.paginate) {
+            item {
+                SliderSetting(
+                    "Tools per page",
+                    subtitle = "How many tools each toolbox page holds",
+                    value = settings.toolbox.pageSize.toFloat(),
+                    range = ToolboxPageSizeRange.first.toFloat()..ToolboxPageSizeRange.last.toFloat(),
+                    display = { "${it.roundToInt()} per page" },
+                    info = "Pick a multiple of your row size and the last row of every page " +
+                        "comes out full. Ask for more than fits the panel and the page " +
+                        "scrolls as well as swipes, which rather defeats the point.",
+                ) { scope.launch { repository.setToolboxPageSize(it.roundToInt()) } }
+            }
         }
     }
 

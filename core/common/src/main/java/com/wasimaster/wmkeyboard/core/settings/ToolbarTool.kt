@@ -78,6 +78,29 @@ fun isDirectBootSafeTool(tool: ToolbarTool): Boolean = when (tool) {
     else -> tool in CursorTools
 }
 
+/**
+ * Whether tapping the tool takes the user somewhere — a keyboard panel, or an
+ * activity of its own — rather than acting on the spot and leaving the keys
+ * where they are.
+ *
+ * The pill toolbox draws a chevron on the ones that do, so "Flashlight" (a
+ * torch toggle) reads differently from "Themes" (a panel) before you tap
+ * either. Written as a short deny-list because opening something is the
+ * common case: a new tool is a panel unless it says otherwise. Keep it in
+ * step with the keyboard service's tool-tap handler, which is the thing that
+ * actually decides.
+ */
+fun toolOpensScreen(tool: ToolbarTool): Boolean = when (tool) {
+    // Toggles and one-shot actions: the keyboard stays exactly as it is.
+    ToolbarTool.ONE_HANDED, ToolbarTool.SPLIT, ToolbarTool.FLOATING,
+    ToolbarTool.FLASHLIGHT, ToolbarTool.UNDO, ToolbarTool.REDO,
+    ToolbarTool.INCOGNITO, ToolbarTool.POWER_SAVING, ToolbarTool.AUTOCORRECT,
+    ToolbarTool.HIDE_KEYBOARD,
+    -> false
+    // The cursor moves nudge the caret and nothing else.
+    else -> tool !in CursorTools
+}
+
 fun isSupportedTool(tool: ToolbarTool): Boolean = when {
     !BuildConfig.ENABLE_ML_KIT_HANDWRITING && tool == ToolbarTool.HANDWRITING -> false
     !BuildConfig.ENABLE_ML_KIT_SCANNERS && tool in setOf(
@@ -123,6 +146,25 @@ private val RankedToolOrder: List<ToolbarTool> = listOf(
 
 val DefaultToolOrder: List<ToolbarTool> =
     RankedToolOrder + (ToolbarTool.entries - RankedToolOrder.toSet())
+
+/**
+ * How many pages [count] tools fill at [pageSize] each. Always at least one:
+ * an empty toolbox is one empty page, not zero pages, and a pager with no
+ * pages at all is a crash waiting for the first swipe.
+ */
+fun toolboxPageCount(count: Int, pageSize: Int): Int =
+    if (pageSize <= 0) 1 else ((count + pageSize - 1) / pageSize).coerceAtLeast(1)
+
+/**
+ * The slice of [tools] on page [page]. Out-of-range pages come back empty
+ * rather than throwing — the page count follows a live list, so a page can
+ * outlive its contents by a frame when a tool is pinned away.
+ */
+fun <T> toolboxPage(tools: List<T>, page: Int, pageSize: Int): List<T> {
+    if (pageSize <= 0) return tools
+    val start = (page.coerceAtLeast(0) * pageSize).coerceAtMost(tools.size)
+    return tools.subList(start, (start + pageSize).coerceAtMost(tools.size))
+}
 
 /**
  * The tools pinned to the toolbar out of the box, and what "Reset pinned

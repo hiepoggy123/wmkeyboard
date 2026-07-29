@@ -501,6 +501,56 @@ data class ToolbarBehavior(
 )
 
 /**
+ * How the toolbox draws its tools.
+ *
+ * [ICONS] is the original grid: a round icon per tool with its name beneath,
+ * [KeyboardSettings.toolboxColumns] to a row. [PILLS] draws each tool as a
+ * wide rounded row instead — icon on the left, name beside it, and a chevron
+ * on the right for the tools that open something. Fewer fit on screen, but
+ * every one is readable without squinting at a caption.
+ */
+enum class ToolboxLayout { ICONS, PILLS }
+
+/**
+ * How the toolbox is laid out and paged. Its own class rather than flat fields
+ * on [KeyboardSettings] for the reason [ToolbarBehavior] gives: that
+ * constructor is at the JVM's argument ceiling. Each field still persists
+ * under its own DataStore key.
+ *
+ * [KeyboardSettings.toolboxColumns] and [KeyboardSettings.toolboxOrder] stay
+ * where they are — they predate this class and moving them would orphan every
+ * existing caller for no gain.
+ */
+data class ToolboxSettings(
+    /** Icon grid or pill rows (see [ToolboxLayout]). */
+    val layout: ToolboxLayout = ToolboxLayout.ICONS,
+    /** Pills per row, when [layout] is [ToolboxLayout.PILLS]. */
+    val pillColumns: Int = 2,
+    /**
+     * Fill each pill with the tool's accent colour and draw the icon white on
+     * top, instead of tinting just the icon and leaving the pill neutral. Only
+     * has an effect while [KeyboardSettings.coloredToolIcons] is on — with the
+     * colours off there is nothing to fill with.
+     */
+    val pillFilled: Boolean = false,
+    /**
+     * Swipe sideways through fixed pages instead of scrolling vertically.
+     * Applies to both layouts.
+     */
+    val paginate: Boolean = false,
+    /** Tools per page while [paginate] is on. */
+    val pageSize: Int = 12,
+)
+
+/**
+ * Tools a toolbox page may hold. The floor is one full row of the widest icon
+ * grid; the ceiling is well past what fits any phone, because a page taller
+ * than the panel simply scrolls — the setting is "how many before the swipe",
+ * not "how many are visible".
+ */
+val ToolboxPageSizeRange = 4..40
+
+/**
  * How the suggestion strip is reachable from a physical keyboard, where nothing
  * is tappable.
  */
@@ -1000,6 +1050,8 @@ data class KeyboardSettings(
     val toolboxOrder: List<ToolbarTool> = DefaultToolOrder,
     /** The toolbox drag hint was dismissed; after that it only rarely reappears. */
     val toolboxHintDismissed: Boolean = false,
+    /** How the toolbox draws and pages its tools (see [ToolboxSettings]). */
+    val toolbox: ToolboxSettings = ToolboxSettings(),
     /** Turn the torch off automatically when the keyboard is dismissed. */
     val flashlightAutoOff: Boolean = true,
     val compassShowDegrees: Boolean = true,
@@ -2315,6 +2367,11 @@ class SettingsRepository(private val context: Context) {
         private val GRAMMAR_DEBOUNCE_MS = intPreferencesKey("grammar_debounce_ms")
         private val UNIT_CONVERT_LAST = stringPreferencesKey("unit_convert_last")
         private val TOOLBOX_COLUMNS = intPreferencesKey("toolbox_columns")
+        private val TOOLBOX_LAYOUT = stringPreferencesKey("toolbox_layout")
+        private val TOOLBOX_PILL_COLUMNS = intPreferencesKey("toolbox_pill_columns")
+        private val TOOLBOX_PILL_FILLED = booleanPreferencesKey("toolbox_pill_filled")
+        private val TOOLBOX_PAGINATE = booleanPreferencesKey("toolbox_paginate")
+        private val TOOLBOX_PAGE_SIZE = intPreferencesKey("toolbox_page_size")
         private val EMOJI_ROW_ABOVE_TOOLBAR = booleanPreferencesKey("emoji_row_above_toolbar")
         private val TRANSLATE_TARGET_LANG = stringPreferencesKey("translate_target_lang")
         private val GRAMMAR_DIALECT = stringPreferencesKey("grammar_dialect")
@@ -2825,6 +2882,16 @@ class SettingsRepository(private val context: Context) {
             enabledTools = ToolbarTool.entries - decodeDisabledTools(p[DISABLED_TOOLS]),
             toolboxOrder = decodeToolOrder(p[TOOLBOX_ORDER]),
             toolboxHintDismissed = p[TOOLBOX_HINT_DISMISSED] ?: defaults.toolboxHintDismissed,
+            toolbox = ToolboxSettings(
+                layout = p[TOOLBOX_LAYOUT]?.let { runCatching { ToolboxLayout.valueOf(it) }.getOrNull() }
+                    ?: defaults.toolbox.layout,
+                pillColumns = p[TOOLBOX_PILL_COLUMNS]?.coerceIn(1, 3)
+                    ?: defaults.toolbox.pillColumns,
+                pillFilled = p[TOOLBOX_PILL_FILLED] ?: defaults.toolbox.pillFilled,
+                paginate = p[TOOLBOX_PAGINATE] ?: defaults.toolbox.paginate,
+                pageSize = p[TOOLBOX_PAGE_SIZE]?.coerceIn(ToolboxPageSizeRange)
+                    ?: defaults.toolbox.pageSize,
+            ),
             flashlightAutoOff = p[FLASHLIGHT_AUTO_OFF] ?: defaults.flashlightAutoOff,
             compassShowDegrees = p[COMPASS_SHOW_DEGREES] ?: defaults.compassShowDegrees,
             compassShowQibla = p[COMPASS_SHOW_QIBLA] ?: defaults.compassShowQibla,
@@ -3320,6 +3387,21 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setToolboxColumns(value: Int) =
         editPrefs { it[TOOLBOX_COLUMNS] = value.coerceIn(3, 6) }
+
+    suspend fun setToolboxLayout(value: ToolboxLayout) =
+        editPrefs { it[TOOLBOX_LAYOUT] = value.name }
+
+    suspend fun setToolboxPillColumns(value: Int) =
+        editPrefs { it[TOOLBOX_PILL_COLUMNS] = value.coerceIn(1, 3) }
+
+    suspend fun setToolboxPillFilled(value: Boolean) =
+        editPrefs { it[TOOLBOX_PILL_FILLED] = value }
+
+    suspend fun setToolboxPaginate(value: Boolean) =
+        editPrefs { it[TOOLBOX_PAGINATE] = value }
+
+    suspend fun setToolboxPageSize(value: Int) =
+        editPrefs { it[TOOLBOX_PAGE_SIZE] = value.coerceIn(ToolboxPageSizeRange) }
 
     suspend fun setEmojiRowAboveToolbar(value: Boolean) =
         editPrefs { it[EMOJI_ROW_ABOVE_TOOLBAR] = value }

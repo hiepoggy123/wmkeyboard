@@ -68,7 +68,12 @@ The toolbar is the strip above the keys that carries word suggestions while you 
 | Label text size | Slider, 7–14 sp | 9 sp | Only shown once Tool labels is on. |
 | Reset pinned tools | Button | — | Restores the global toolbar to Emoji, Clipboard, and Settings. Resets the global row even while a [mode](/typing/modes/) with its own pinned toolbar is active; to change what a mode pins, edit that mode instead. |
 | Tool circle radius | Slider, 0–20 dp | 20 dp | 20 draws a full circle behind each tool icon (Gboard style); smaller values give a rounded square; 0 removes the background, leaving bare icons. Has its own per-theme override in the [theme editor](/themes/editor/#corners). |
-| Toolbox grid size | Slider, 3–6 | 4 per row | Tools per row in the toolbox grid, the grid behind the toolbar's grid button. Fewer per row makes each tool bigger; more fits more tools without scrolling. |
+| Toolbox layout | Icons / Pills | Icons | Icons is the round-icon grid with a caption under each tool. Pills gives every tool a wide rounded row instead: icon on the left, name beside it, and an arrow on the right for the tools that open something. |
+| Toolbox grid size | Slider, 3–6 | 4 per row | Tools per row in the toolbox grid, the grid behind the toolbar's grid button. Fewer per row makes each tool bigger; more fits more tools without scrolling. Only shown while the layout is Icons. |
+| Pills per row | Slider, 1–3 | 2 per row | How many pills sit side by side. Only shown while the layout is Pills. |
+| Fill pills with the tool color | Toggle | Off | Colors the whole pill with the tool's accent instead of just its icon, flipping the icon and name to whatever reads on top. Needs Colorful tool icons (under <SettingsPath path="Tools" />) to be on. Only shown while the layout is Pills. |
+| Swipe the toolbox in pages | Toggle | Off | Breaks the toolbox into fixed pages you swipe sideways, with dots underneath, instead of one grid that scrolls. Applies to both layouts. |
+| Tools per page | Slider, 4–40 | 12 per page | How many tools each page holds. Only shown once paging is on. |
 
 <PhoneFrame caption="The Toolbar group, with the confirmation dialog for turning the toolbar off.">
 {/* shot: reference/settings/appearance-toolbar */}

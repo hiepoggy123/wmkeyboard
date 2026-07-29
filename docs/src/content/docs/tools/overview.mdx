@@ -33,6 +33,27 @@ If you picked **Recommended** rather than **Everything** during onboarding, note
 
 A keyboard [mode](/typing/modes/) can also carry its own pinned toolbar, separate from this global one; switching into that mode swaps the whole row. That's covered on the modes page, not here.
 
+## Two ways to draw the toolbox
+
+<SettingsPath path="Appearance / Toolbar" />
+
+**Toolbox layout** picks between them:
+
+- **Icons** (the default) is the grid you've seen above: a round icon per tool with its name in small text underneath, 4 to a row. Compact, and the most tools on screen at once.
+- **Pills** gives each tool a wide rounded row instead, two to a row. The icon sits on the left in the tool's own color, the name reads across the middle at full size, and tools that *open* something get a small arrow on the right. That last part is the reason to use it: **Themes** and **Clipboard** take you somewhere, while **Flashlight** and **Undo** just do their thing and leave the keys where they are, and the arrow tells you which is which before you tap.
+
+Two settings only apply to pills. **Pills per row** goes from 1 to 3 (one gives every name the full width, three really only fits in landscape). **Fill pills with the tool color** paints the whole pill in the tool's accent color and flips the icon and name to white, or to near-black where the accent is too pale for white to read on. It needs **Colorful tool icons** (under <SettingsPath path="Tools" />) to be on, since that's where the colors come from in the first place.
+
+Either layout still drags the same way: hold a tool to pick it up, drop it on the toolbar to pin it or elsewhere in the grid to reorder.
+
+## Scrolling or pages
+
+By default the toolbox is one grid that scrolls up and down. Turn on **Swipe the toolbox in pages** and it splits into fixed pages you swipe sideways instead, with dots underneath showing where you are. **Tools per page** sets how many each one holds (12 by default, anywhere from 4 to 40).
+
+The trade is muscle memory against reach. Paging keeps every tool at the same spot on the same page every time, so you learn where things are instead of hunting for them mid-scroll. Scrolling gets you to the far end faster. Paging works with both layouts.
+
+Pick a page size that's a multiple of your row size and every page comes out with full rows. Ask for more tools than fit the panel's height and the page will scroll as well as swipe, which rather defeats the point.
+
 ## Browsing all 60 tools
 
 <SettingsPath path="Tools" />
@@ -82,7 +103,12 @@ This is one part of a broader hardware-keyboard settings group: the leader itsel
 - **Tool labels** — off by default. Shows each tool's name under its icon; label size is 9sp by default when on.
 - **Reset pinned tools** — restores the toolbar to Emoji, Clipboard, and Settings. This always resets the *global* row, even while a mode with its own pinned toolbar is active. To change what a mode itself pins, edit that mode instead.
 - **Tool circle radius** — 20dp by default (a full circle behind each icon, Gboard-style). Lower values give a rounded square; 0 removes the background entirely.
-- **Toolbox grid size** — 4 tools per row by default, adjustable from 3–6.
+- **Toolbox layout** — Icons by default; Pills is the wide-row alternative. See [above](#two-ways-to-draw-the-toolbox).
+- **Toolbox grid size** — 4 tools per row by default, adjustable from 3–6. Icons layout only.
+- **Pills per row** — 2 by default, adjustable from 1–3. Pills layout only.
+- **Fill pills with the tool color** — off by default. Pills layout only, and needs Colorful tool icons on.
+- **Swipe the toolbox in pages** — off by default. See [above](#scrolling-or-pages).
+- **Tools per page** — 12 by default, adjustable from 4–40. Only shown once paging is on.
 
 ## Details & edge cases
 
@@ -90,6 +116,9 @@ This is one part of a broader hardware-keyboard settings group: the leader itsel
 - Five tools depend on ML Kit and are <Flavor edition="full" />: Handwriting, OCR, QR scan, Document scanner, and Grammar. The lite edition ships 55 of the 60 tools rather than 60, and a build-gated tool gets no settings row at all, never a switch you can't turn on.
 - Toolbar reordering is per-installation, not per-language: pinning a tool applies everywhere, not just while a particular language is active. A keyboard mode's own toolbar override is the one exception; see [above](#pinning-and-reordering).
 - The toolbox shows only tools that are both enabled *and* not already pinned, so enabling a tool that's already pinned won't create a second entry in the toolbox.
+- With paging on, a drag reorders within the page you're holding it over. The pages don't flip under your finger, so moving a tool to another page means dragging it onto the toolbar first, then off again on the page you want. Dragging up onto the toolbar to pin works from any page.
+- The pill layout's arrow follows what the tool actually does, not what kind of tool it is. **Document scanner** gets one because it opens Google's full-screen scanner, and **Settings** gets one because it opens the settings app, even though neither is a keyboard panel.
 - Tool icon colors only apply when **Colorful tool icons** is on; with it off, every tool icon uses the theme's plain foreground color regardless of any per-tool override you've set.
 
 {/* shot: tools/toolbox-drag-reorder is an anim candidate for a future pass; the still above covers the reduced-motion case. */}
+{/* shot: tools/toolbox-pills (plain and colour-filled, side by side) and tools/toolbox-pages (dots visible) are both pending. */}

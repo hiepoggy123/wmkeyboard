@@ -403,7 +403,7 @@ private fun KbTheme.mapColors(f: (Color) -> Color): KbTheme = copy(
 )
 
 /** Near-black or near-white, whichever reads on [background]. */
-private fun maxContrastOn(background: Color): Color =
+internal fun maxContrastOn(background: Color): Color =
     if (background.luminance() > 0.45f) Color(0xFF000000) else Color(0xFFFFFFFF)
 
 /**
