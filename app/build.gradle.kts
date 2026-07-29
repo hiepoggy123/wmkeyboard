@@ -122,8 +122,14 @@ android {
     }
     packaging {
         jniLibs {
+            // Uncompressed and page-aligned in the APK, which is both what the
+            // 16 KB page-size requirement wants and what lets the loader mmap
+            // the library straight out of the APK.
             useLegacyPackaging = false
-            keepDebugSymbols += "**/*.so"
+            // No keepDebugSymbols override: AGP strips as usual. Every .so we
+            // package — ours and the prebuilt ML Kit/LiteRT ones — already
+            // ships stripped (measured: 48 bytes of symbol table across all
+            // three ABIs), so keeping them was buying nothing.
         }
     }
 
