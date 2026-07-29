@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -83,6 +84,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.isSpecified
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
@@ -205,6 +207,73 @@ private val AddonType.seed: Color
         AddonType.Plugin -> Color(0xFF06B6D4)
         AddonType.Unknown -> Color(0xFF6B7280)
     }
+
+/**
+ * An addon's own page, as flights name it. Distinct per addon, so a card in a
+ * catalogue and a row in the installed list each fly into the right one.
+ */
+internal fun addonFlightRoute(manifestUrl: String, addonId: String): String =
+    "addon-page/$manifestUrl/$addonId"
+
+/** Version, size and author on one line — the same line on card and page. */
+private fun addonMetaLine(version: String, sizeBytes: Long?, author: String): String = buildString {
+    if (version.isNotBlank()) append("v$version")
+    sizeBytes?.let {
+        if (isNotEmpty()) append(" \u00b7 ")
+        append(formatBytes(it))
+    }
+    if (author.isNotBlank()) {
+        if (isNotEmpty()) append(" \u00b7 ")
+        append(author)
+    }
+}
+
+/**
+ * What an addon's page is headed with: its type, drawn in the type's own
+ * colour. Read from the cached manifest, or — for something installed from a
+ * repository that has since gone away — from the install record.
+ */
+internal data class AddonHeading(val title: String, val icon: ImageVector, val accent: Color)
+
+/**
+ * A repository's own page, as flights name it, and what that page is headed
+ * with — the repository's name over its author, rather than "Browse addons",
+ * which named the act instead of the place.
+ */
+internal fun addonRepoFlightRoute(manifestUrl: String): String = "addon-repo-page/$manifestUrl"
+
+internal data class RepoHeading(val name: String, val author: String)
+
+@Composable
+internal fun rememberRepoHeading(manifestUrl: String): RepoHeading {
+    val context = LocalContext.current
+    val store = remember { AddonStore.get(context) }
+    val revision by store.revision.collectAsStateWithLifecycle()
+    return remember(revision, manifestUrl) {
+        val repo = store.repo(manifestUrl)
+            ?.let { AddonDownloadManager.cachedManifest(it) }
+            ?.repo
+        RepoHeading(
+            name = repo?.name?.ifBlank { null } ?: "Browse addons",
+            author = repo?.author.orEmpty(),
+        )
+    }
+}
+
+@Composable
+internal fun rememberAddonHeading(manifestUrl: String, addonId: String): AddonHeading {
+    val context = LocalContext.current
+    val store = remember { AddonStore.get(context) }
+    val revision by store.revision.collectAsStateWithLifecycle()
+    val type = remember(revision, manifestUrl, addonId) {
+        store.repo(manifestUrl)
+            ?.let { AddonDownloadManager.cachedManifest(it) }
+            ?.addons?.firstOrNull { it.id == addonId }?.type
+            ?: store.installedFor(manifestUrl, addonId)?.second?.type
+            ?: AddonType.Unknown
+    }
+    return AddonHeading(type.singularLabel, type.icon, tintFor(type))
+}
 
 /**
  * The type's hue pulled toward legibility on the current surface: darkened on a
@@ -356,30 +425,52 @@ internal fun AddonsScreen(prefillUrl: String = "", onNavigate: (String) -> Unit)
                     val url = record.manifestUrl
                         .ifBlank { urlByRepoId[key.substringBeforeLast('/')].orEmpty() }
                         .ifBlank { NO_REPO }
-                    ListItem(
-                        headlineContent = { Text(record.name.ifBlank { key }) },
-                        supportingContent = {
+                    // The row's glyph and name are the addon's page, small:
+                    // both fly into its heading and its title. The type is not
+                    // tagged here — it is the heading's own word, and this row
+                    // spends it inside a longer line.
+                    val page = addonFlightRoute(url, key.substringAfterLast('/'))
+                    WmRow(
+                        title = record.name.ifBlank { key },
+                        titleContent = {
                             Text(
-                                buildString {
-                                    append(record.type.singularLabel)
-                                    if (record.version.isNotBlank()) append(" · ${record.version}")
-                                    if (record.repoName.isNotBlank()) append(" · ${record.repoName}")
-                                },
+                                record.name.ifBlank { key },
+                                modifier = Modifier.wmSharedBounds(takeOffKey("name", page)),
                             )
                         },
-                        leadingContent = {
+                        // The type becomes the page's heading and the version
+                        // its line of numbers, so they travel as their own
+                        // words rather than inside one sentence.
+                        supporting = {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    record.type.singularLabel,
+                                    modifier = Modifier.wmSharedBounds(takeOffKey("title", page)),
+                                )
+                                if (record.version.isNotBlank()) {
+                                    Text(" · ")
+                                    Text(
+                                        addonMetaLine(record.version, null, ""),
+                                        modifier = Modifier
+                                            .wmSharedBounds(takeOffKey("meta", page)),
+                                    )
+                                }
+                                if (record.repoName.isNotBlank()) {
+                                    Text(" · ${record.repoName}", maxLines = 1)
+                                }
+                            }
+                        },
+                        leading = {
                             Icon(
                                 record.type.icon,
                                 contentDescription = null,
                                 tint = tintFor(record.type),
+                                modifier = Modifier.wmSharedElement(takeOffKey("icon", page)),
                             )
                         },
-                        colors = transparentListColors(),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                onNavigate(addonDetailRoute(url, key.substringAfterLast('/')))
-                            },
+                        onClick = takeOffClick {
+                            onNavigate(addonDetailRoute(url, key.substringAfterLast('/')))
+                        },
                     )
                 }
             }
@@ -442,21 +533,34 @@ private fun RepositoryRow(
     val manifest = remember(ref.cachedManifest) { AddonDownloadManager.cachedManifest(ref) }
     var menu by remember { mutableStateOf(false) }
 
-    ListItem(
-        headlineContent = { Text(manifest?.repo?.name?.ifBlank { null } ?: ref.url) },
-        supportingContent = {
-            Text(
+    val page = addonRepoFlightRoute(ref.manifestUrl)
+    val author = manifest?.repo?.author.orEmpty()
+    WmRow(
+        title = manifest?.repo?.name?.ifBlank { null } ?: ref.url,
+        flightTo = page,
+        // The author is its own word here because it becomes the page's
+        // subtitle; the addon count stays behind.
+        supporting = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 when {
-                    manifest == null && ref.fetchedAt == 0L -> "Not loaded yet"
-                    manifest == null -> "Couldn't be read"
-                    else -> buildString {
-                        append("${manifest.addons.size} addons")
-                        if (manifest.repo.author.isNotBlank()) append(" · ${manifest.repo.author}")
+                    manifest == null && ref.fetchedAt == 0L -> Text("Not loaded yet")
+                    manifest == null -> Text("Couldn't be read")
+                    else -> {
+                        Text("${manifest.addons.size} addons")
+                        if (author.isNotBlank()) {
+                            Text(" · ")
+                            Text(
+                                author,
+                                modifier = Modifier.wmSharedBounds(takeOffKey("subtitle", page)),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
                     }
-                },
-            )
+                }
+            }
         },
-        leadingContent = manifest?.repo?.icon?.let { icon ->
+        leading = manifest?.repo?.icon?.let { icon ->
             AddonRepoCodec.resolveAsset(ref.manifestUrl, icon)?.let { url ->
                 {
                     AsyncImage(
@@ -469,7 +573,7 @@ private fun RepositoryRow(
                 }
             }
         },
-        trailingContent = {
+        trailing = {
             Box {
                 IconButton(onClick = { menu = true }) {
                     Icon(Icons.Outlined.MoreVert, contentDescription = "Repository options")
@@ -510,10 +614,8 @@ private fun RepositoryRow(
                 }
             }
         },
-        colors = transparentListColors(),
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(enabled = manifest != null) { onNavigate(addonRepoRoute(ref.manifestUrl)) },
+        enabled = manifest != null,
+        onClick = { onNavigate(addonRepoRoute(ref.manifestUrl)) },
     )
 }
 
@@ -602,6 +704,7 @@ internal fun AddonRepoScreen(manifestUrl: String, onNavigate: (String) -> Unit) 
     }
 
     if (manifest.repo.description.isNotBlank()) CaptionText(manifest.repo.description)
+
 
     OutlinedTextField(
         value = query,
@@ -720,6 +823,10 @@ private fun AddonCard(
     val preview = remember(entry, manifestUrl) {
         entry.previews.firstNotNullOfOrNull { AddonRepoCodec.resolveAsset(manifestUrl, it) }
     }
+    // The card is what the addon's page is made of: the screenshot, the name,
+    // the type and the line of numbers all fly across rather than being
+    // redrawn on the other side.
+    val page = addonFlightRoute(manifestUrl, entry.id)
 
     Column(
         modifier = Modifier
@@ -727,7 +834,7 @@ private fun AddonCard(
             .clip(RoundedCornerShape(14.dp))
             .border(1.dp, tint.copy(alpha = 0.35f), RoundedCornerShape(14.dp))
             .background(tint.copy(alpha = 0.06f))
-            .clickable(onClick = onClick)
+            .clickable(onClick = takeOffClick(onClick))
             .padding(6.dp),
     ) {
         // The card's shape follows its screenshot instead of forcing every one
@@ -759,14 +866,18 @@ private fun AddonCard(
                             }
                         }
                     },
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .wmSharedBounds(takeOffKey("image", page)),
                 )
             } else {
                 Icon(
                     entry.type.icon,
                     contentDescription = null,
                     tint = tint,
-                    modifier = Modifier.size(40.dp),
+                    modifier = Modifier
+                        .size(40.dp)
+                        .wmSharedElement(takeOffKey("icon", page)),
                 )
             }
             Box(modifier = Modifier.align(Alignment.TopEnd).padding(4.dp)) {
@@ -790,32 +901,30 @@ private fun AddonCard(
             style = MaterialTheme.typography.labelLarge,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(start = 4.dp, top = 6.dp),
+            modifier = Modifier
+                .padding(start = 4.dp, top = 6.dp)
+                .wmSharedBounds(takeOffKey("name", page)),
         )
+        // The type is what the addon's page is headed with, so this is the
+        // word that grows into that heading.
         Text(
             entry.type.singularLabel,
             style = MaterialTheme.typography.labelSmall,
             color = tint,
             maxLines = 1,
-            modifier = Modifier.padding(start = 4.dp),
+            modifier = Modifier
+                .padding(start = 4.dp)
+                .wmSharedBounds(takeOffKey("title", page)),
         )
         Text(
-            buildString {
-                if (entry.version.isNotBlank()) append("v${entry.version}")
-                entry.sizeBytes?.let {
-                    if (isNotEmpty()) append(" · ")
-                    append(formatBytes(it))
-                }
-                if (entry.author.isNotBlank()) {
-                    if (isNotEmpty()) append(" · ")
-                    append(entry.author)
-                }
-            },
+            addonMetaLine(entry.version, entry.sizeBytes, entry.author),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(start = 4.dp, bottom = 4.dp),
+            modifier = Modifier
+                .padding(start = 4.dp, bottom = 4.dp)
+                .wmSharedBounds(takeOffKey("meta", page)),
         )
     }
 }
@@ -1028,26 +1137,22 @@ internal fun AddonDetailScreen(
     val previews = remember(entry, manifestUrl) {
         entry.previews.mapNotNull { AddonRepoCodec.resolveAsset(manifestUrl, it) }
     }
-    PreviewGallery(previews)
+    // The page is headed with the addon's type, in the type's own colour, so
+    // the card's own type label is what grew into that heading — and the name
+    // and the numbers under it are the card's, landed.
+    PreviewGallery(previews, heroKey = landingKey("image"))
 
-    val tint = tintFor(entry.type)
     Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-        Text(entry.name, style = MaterialTheme.typography.headlineSmall)
+        Text(
+            entry.name,
+            style = MaterialTheme.typography.headlineSmall,
+            modifier = Modifier.wmSharedBounds(landingKey("name")),
+        )
         Spacer(Modifier.height(4.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-                entry.type.icon,
-                contentDescription = null,
-                tint = tint,
-                modifier = Modifier.size(18.dp),
-            )
-            Spacer(Modifier.width(6.dp))
             Text(
-                buildString {
-                    append(entry.type.singularLabel)
-                    if (entry.version.isNotBlank()) append(" · ${entry.version}")
-                    if (entry.author.isNotBlank()) append(" · ${entry.author}")
-                },
+                addonMetaLine(entry.version, entry.sizeBytes, entry.author),
+                modifier = Modifier.wmSharedBounds(landingKey("meta")),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -1175,7 +1280,7 @@ private val PREVIEW_STRIP_HEIGHT = 220.dp
  * [SINGLE_PREVIEW_MAX_HEIGHT] and centres instead.
  */
 @Composable
-private fun PreviewGallery(previews: List<String>) {
+private fun PreviewGallery(previews: List<String>, heroKey: String? = null) {
     if (previews.isEmpty()) return
     val loader = rememberMediaImageLoader()
     var viewing by remember(previews) { mutableIntStateOf(-1) }
@@ -1194,21 +1299,34 @@ private fun PreviewGallery(previews: List<String>) {
             } else {
                 PREVIEW_STRIP_HEIGHT
             }
-            AsyncImage(
-                model = url,
-                contentDescription = "Screenshot",
-                imageLoader = loader,
-                contentScale = ContentScale.Fit,
-                onSuccess = { state ->
-                    state.painter.intrinsicSize.takeIf { it.isSpecified }?.let { size ->
-                        if (size.width > 0f && size.height > 0f) ratio = size.width / size.height
-                    }
-                },
+            // The flight lands on the box, not on the image: an AsyncImage
+            // with nothing loaded yet measures zero wide, and a flight whose
+            // target is an empty rect has nowhere to go — which is why opening
+            // a card used to pop the page in instead of growing it out of the
+            // card, while going back (image long since loaded) looked right.
+            Box(
                 modifier = Modifier
+                    .fillMaxWidth()
                     .height(height)
-                    .clip(RoundedCornerShape(12.dp))
+                    .then(if (heroKey == null) Modifier else Modifier.wmSharedBounds(heroKey))
                     .clickable { viewing = 0 },
-            )
+                contentAlignment = Alignment.Center,
+            ) {
+                AsyncImage(
+                    model = url,
+                    contentDescription = "Screenshot",
+                    imageLoader = loader,
+                    contentScale = ContentScale.Fit,
+                    onSuccess = { state ->
+                        state.painter.intrinsicSize.takeIf { it.isSpecified }?.let { size ->
+                            if (size.width > 0f && size.height > 0f) ratio = size.width / size.height
+                        }
+                    },
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .clip(RoundedCornerShape(12.dp)),
+                )
+            }
         }
     } else {
         Row(
@@ -1219,16 +1337,29 @@ private fun PreviewGallery(previews: List<String>) {
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             previews.forEachIndexed { index, url ->
-                AsyncImage(
-                    model = url,
-                    contentDescription = "Screenshot ${index + 1}",
-                    imageLoader = loader,
-                    contentScale = ContentScale.Fit,
+                // Same story as above: a definite box so the first shot is
+                // somewhere to land even before it has loaded.
+                Box(
                     modifier = Modifier
+                        .width(PREVIEW_STRIP_HEIGHT * DEFAULT_PREVIEW_RATIO)
                         .height(PREVIEW_STRIP_HEIGHT)
-                        .clip(RoundedCornerShape(12.dp))
+                        .then(
+                            if (index != 0 || heroKey == null) Modifier
+                            else Modifier.wmSharedBounds(heroKey),
+                        )
                         .clickable { viewing = index },
-                )
+                    contentAlignment = Alignment.Center,
+                ) {
+                    AsyncImage(
+                        model = url,
+                        contentDescription = "Screenshot ${index + 1}",
+                        imageLoader = loader,
+                        contentScale = ContentScale.Fit,
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .clip(RoundedCornerShape(12.dp)),
+                    )
+                }
             }
         }
     }
@@ -1452,10 +1583,9 @@ private fun UninstallButton(onClick: () -> Unit) {
 
 @Composable
 private fun DetailRow(label: String, value: String) {
-    ListItem(
-        headlineContent = { Text(label) },
-        supportingContent = { Text(value) },
-        colors = transparentListColors(),
+    WmRow(
+        title = label,
+        subtitle = value,
     )
 }
 
@@ -1482,24 +1612,18 @@ private fun LicenseRow(manifestUrl: String, entry: AddonEntry) {
         loading = false
     }
 
-    ListItem(
-        headlineContent = { Text("Licence") },
-        supportingContent = {
-            Text(
-                entry.license?.takeIf { it.isNotBlank() }
-                    ?: if (canShowText) "Tap to read the licence" else "Not stated",
-            )
-        },
-        leadingContent = { Icon(Icons.Outlined.Gavel, contentDescription = null) },
-        trailingContent = if (canShowText) {
+    WmRow(
+        title = "Licence",
+        subtitle = entry.license?.takeIf { it.isNotBlank() }
+            ?: if (canShowText) "Tap to read the licence" else "Not stated",
+        leading = { Icon(Icons.Outlined.Gavel, contentDescription = null) },
+        trailing = if (canShowText) {
             { Icon(Icons.Outlined.Description, contentDescription = null) }
         } else {
             null
         },
-        colors = transparentListColors(),
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(enabled = canShowText) { showing = true },
+        enabled = canShowText,
+        onClick = { showing = true },
     )
 
     if (showing) {
@@ -1622,15 +1746,14 @@ private fun AddonPreviewSection(manifestUrl: String, entry: AddonEntry) {
         is AddonPreviewContent.Snippets -> SettingsGroup("Preview") {
             for (snippet in shown.entries) {
                 item {
-                    ListItem(
-                        headlineContent = { Text(snippet.label) },
-                        supportingContent = {
+                    WmRow(
+                        title = snippet.label,
+                        supporting = {
                             Text(snippet.text, maxLines = 3, overflow = TextOverflow.Ellipsis)
                         },
-                        trailingContent = snippet.trigger.takeIf { it.isNotBlank() }?.let {
+                        trailing = snippet.trigger.takeIf { it.isNotBlank() }?.let {
                             { Text(it, style = MaterialTheme.typography.labelSmall) }
                         },
-                        colors = transparentListColors(),
                     )
                 }
             }
@@ -1667,13 +1790,10 @@ private fun AddonPreviewSection(manifestUrl: String, entry: AddonEntry) {
 
         is AddonPreviewContent.Sound -> SettingsGroup("Preview") {
             item {
-                ListItem(
-                    headlineContent = { Text("Play the sound") },
-                    leadingContent = { Icon(Icons.Outlined.PlayArrow, contentDescription = null) },
-                    colors = transparentListColors(),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { AddonSoundPreview.play(shown.file) },
+                WmRow(
+                    title = "Play the sound",
+                    leading = { Icon(Icons.Outlined.PlayArrow, contentDescription = null) },
+                    onClick = { AddonSoundPreview.play(shown.file) },
                 )
             }
         }
@@ -1730,23 +1850,21 @@ private fun PluginPreview(plugin: AddonPreviewContent.Plugin) {
     SettingsGroup("What this plugin can do") {
         if (plugin.permissions.isEmpty()) {
             item {
-                ListItem(
-                    headlineContent = { Text("Nothing outside its own panel") },
-                    leadingContent = {
+                WmRow(
+                    title = "Nothing outside its own panel",
+                    leading = {
                         Icon(Icons.Outlined.CheckCircle, contentDescription = null)
                     },
-                    colors = transparentListColors(),
                 )
             }
         } else {
             for (permission in plugin.permissions) {
                 item {
-                    ListItem(
-                        headlineContent = { Text(permission.label) },
-                        leadingContent = {
+                    WmRow(
+                        title = permission.label,
+                        leading = {
                             Icon(Icons.Outlined.Save, contentDescription = null)
                         },
-                        colors = transparentListColors(),
                     )
                 }
             }
