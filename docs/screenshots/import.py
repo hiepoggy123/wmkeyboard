@@ -68,19 +68,23 @@ def pull_recent(count):
 
 
 def embed(entry):
-    """Swap the placeholder comment in the page for a real image tag."""
+    """Swap the placeholder comment in the page for a real image tag.
+
+    Returns "placed", "already" (a retake — the page points at this image
+    already, so overwriting the file is the whole job), or "missing".
+    """
     page = os.path.join(REPO, entry["page"])
     placeholder = "{/* shot: %s */}" % entry["id"]
     with open(page) as handle:
         content = handle.read()
-    if placeholder not in content:
-        return False
-    alt = entry["caption"].replace('"', "'")
     rel = entry["file"]
     rel = rel[len("src/assets/"):] if rel.startswith("src/assets/") else rel
+    if placeholder not in content:
+        return "already" if f"](@assets/{rel})" in content else "missing"
+    alt = entry["caption"].replace('"', "'")
     with open(page, "w") as handle:
         handle.write(content.replace(placeholder, f"![{alt}](@assets/{rel})"))
-    return True
+    return "placed"
 
 
 def main():
@@ -130,7 +134,8 @@ def main():
         size = os.path.getsize(dest) // 1024
         placed = embed(entry)
         entry["status"] = "done"
-        flag = "" if placed else "  (no placeholder found — check the page)"
+        flag = {"placed": "", "already": "  (retake — page already points here)",
+                "missing": "  (no placeholder found — check the page)"}[placed]
         print(f"  {entry['id']} -> {entry['file']} ({size} KB){flag}")
 
     json.dump(manifest, open(MANIFEST, "w"), indent=2)
