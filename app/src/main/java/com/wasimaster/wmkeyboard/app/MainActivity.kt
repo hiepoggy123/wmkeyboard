@@ -472,6 +472,7 @@ private fun SettingsNavHost(
         }
         composable("search") {
             SettingsSearchScreen(
+                settings = settings,
                 onBack = { navController.popBackStack() },
                 onOpen = { result ->
                     // Arm the flash before navigating: the destination's rows

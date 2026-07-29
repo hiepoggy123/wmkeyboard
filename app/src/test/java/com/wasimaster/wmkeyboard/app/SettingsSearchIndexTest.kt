@@ -66,4 +66,47 @@ class SettingsSearchIndexTest {
     fun `a query matching nothing returns nothing`() {
         assertEquals(emptyList<SettingsSearchEntry>(), searchSettings("zzzznotasetting"))
     }
+
+    @Test
+    fun `a screen outranks the toolbar shortcut that opens it`() {
+        // "Themes" is an exact hit on the toolbar tool and only a word of the
+        // screen's name, so raw scoring put the shortcut on top.
+        val results = searchSettings("themes")
+        assertTrue(results.isNotEmpty())
+        assertEquals("themes", results.first().route)
+    }
+
+    @Test
+    fun `a feature outranks the backup toggle named after it`() {
+        val results = searchSettings("sticker packs")
+        assertTrue(results.isNotEmpty())
+        assertEquals("Tools › Stickers", results.first().screen)
+        // The toggle is still findable, just not first.
+        assertTrue(results.any { it.route == "backup" })
+    }
+
+    @Test
+    fun `a setting outranks the backup toggle that includes it`() {
+        val results = searchSettings("api key")
+        assertTrue(results.isNotEmpty())
+        assertTrue(results.first().route.startsWith("tool/"))
+    }
+
+    @Test
+    fun `every screen a result can open has an icon`() {
+        val missing = SettingsSearchIndex
+            .filter { it.tool == null }
+            .map { it.route }
+            .distinct()
+            .filterNot { it in SettingsRouteIcons }
+        assertEquals("routes with no icon in SettingsRouteIcons", emptyList<String>(), missing)
+    }
+
+    @Test
+    fun `tool entries carry their tool, and only they do`() {
+        val wrong = SettingsSearchIndex.filter {
+            (it.tool != null) != it.route.startsWith("tool/")
+        }
+        assertEquals(emptyList<SettingsSearchEntry>(), wrong)
+    }
 }

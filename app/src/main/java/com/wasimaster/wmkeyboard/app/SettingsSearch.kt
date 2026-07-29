@@ -5,6 +5,32 @@ import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
 import com.wasimaster.wmkeyboard.core.settings.isSupportedTool
 
 /**
+ * How much an entry is worth next to the others, as a percentage applied to
+ * its raw match score.
+ *
+ * Two entries can match a word equally well and still deserve very different
+ * places in the list. "Themes" names both the themes screen and the toolbar
+ * shortcut that opens the theme picker, and someone searching *settings*
+ * wants the screen. The backup screen, meanwhile, has a toggle named after
+ * nearly every feature — "Sticker packs", "Include API keys" — and none of
+ * them is the feature itself.
+ */
+internal enum class EntryWeight(val percent: Int) {
+    /** A destination screen: the whole feature lives behind it. */
+    SECTION(200),
+
+    /** An ordinary setting row, or a tool's own page. */
+    NORMAL(100),
+
+    /**
+     * A row that only points at a setting whose real home is another screen:
+     * the backup screen's per-feature toggles, and the "All … settings"
+     * shortcuts on the tool pages.
+     */
+    MIRROR(40),
+}
+
+/**
  * One searchable setting: what it is called, where it lives, and the route
  * that opens the screen holding it.
  *
@@ -19,6 +45,9 @@ internal data class SettingsSearchEntry(
     /** Breadcrumb shown under the result, e.g. "Tools › Camera". */
     val screen: String,
     val route: String,
+    val weight: EntryWeight = EntryWeight.NORMAL,
+    /** Set on the tool entries, so a result can draw the tool's own icon. */
+    val tool: ToolbarTool? = null,
 )
 
 /**
@@ -32,10 +61,11 @@ private fun entry(
     screen: String = "",
     route: String = "",
     tool: ToolbarTool? = null,
+    weight: EntryWeight = EntryWeight.NORMAL,
 ): SettingsSearchEntry = if (tool != null) {
-    SettingsSearchEntry(title, subtitle, "Tools › ${toolTitle(tool)}", "tool/${tool.name}")
+    SettingsSearchEntry(title, subtitle, "Tools › ${toolTitle(tool)}", "tool/${tool.name}", weight, tool)
 } else {
-    SettingsSearchEntry(title, subtitle, screen, route)
+    SettingsSearchEntry(title, subtitle, screen, route, weight)
 }
 
 /** Every individual setting row, in screen order. */
@@ -63,9 +93,11 @@ private val SettingRows: List<SettingsSearchEntry> = listOfNotNull(
     entry("Suggest app names", "Complete the names of installed apps as you type", "Typing", "typing"),
     entry("Inline emoji search", "Type \":\" then a word to find emoji — :smi → 😄", "Typing", "typing"),
     entry("Password manager suggestions", "Show saved logins from your autofill service in the strip", "Typing", "typing"),
-    entry("Personal dictionary", "Words the keyboard has learned — review, remove, add your own", "Typing", "typing"),
-    entry("Custom dictionaries", "Import your own word lists, per language", "Typing", "typing"),
-    entry("Suggestion blacklist", "Words to never suggest or autocorrect to", "Typing", "typing"),
+    // Personal dictionary, Custom dictionaries and Suggestion blacklist are
+    // rows on this screen too, but each only opens a screen of its own. They
+    // are indexed once, in SectionRows, pointing straight at that screen —
+    // a second entry that lands on Typing and flashes the row would be a
+    // near-identical result one line below the useful one.
     entry("Smart chips", "Answer sums, conversions and tool keywords in the strip", "Typing", "typing"),
     entry("Calculate as you type", "\"12*4\" offers 48", "Typing", "typing"),
     entry("Convert currencies", "", "Typing", "typing"),
@@ -124,13 +156,12 @@ private val SettingRows: List<SettingsSearchEntry> = listOfNotNull(
     entry("Hold V to paste", "Long-pressing V pastes the clipboard", "Key press", "keypress"),
     entry("Hold Z to undo", "Long-pressing Z undoes the last edit", "Key press", "keypress"),
     entry("Hold Y to redo", "Long-pressing Y redoes the last undone edit", "Key press", "keypress"),
-    entry("Keyboard themes", "Light/dark/AMOLED, colors, background images, import/export", "Appearance", "appearance"),
+    // Keyboard themes, Keyboard font and Icons are rows here, but each opens
+    // its own screen — indexed once in SectionRows, pointing at that screen.
     entry("Auto theme", "Use a light theme by day and a dark theme at night", "Appearance › Themes", "themes"),
     entry("Light theme from", "Clock time the light theme takes over", "Appearance › Themes", "themes"),
     entry("Dark theme from", "Clock time the dark theme takes over", "Appearance › Themes", "themes"),
     entry("Landscape background image", "A separate theme background for landscape, editable per theme", "Appearance › Themes", "themes"),
-    entry("Keyboard font", "Google Fonts, or import your own font file", "Appearance", "appearance"),
-    entry("Icons", "Swap any tool or key icon, or install an icon pack", "Appearance", "appearance"),
     entry("Icon pack", "Which installed pack supplies the keyboard's icons", "Appearance › Icons", "icons"),
     entry("Import an icon pack", "Opens a .wmicons file someone shared", "Appearance › Icons", "icons"),
     entry("Reset all icons", "Drops every icon change and goes back to the built-in set", "Appearance › Icons", "icons"),
@@ -198,9 +229,20 @@ private val SettingRows: List<SettingsSearchEntry> = listOfNotNull(
     // drawn in the phone's own font rather than hidden, so the toggle is always
     // about the phone.
     entry("Hide emoji this phone can't display", "Skip emoji that show as a blank box", "Emoji", "emoji"),
-    entry("Include API keys", "Translate, GIF, search and AI keys", "Backup & restore", "backup"),
+    entry(
+        "Include API keys",
+        "Translate, GIF, search and AI keys",
+        "Backup & restore",
+        "backup",
+        weight = EntryWeight.MIRROR,
+    ),
     entry("Emoji button in toolbar", "Keep the emoji button visible next to suggestions", tool = ToolbarTool.EMOJI),
-    entry("All emoji settings", "Suggestions, history tab, emoji row, skin tones & favourites", tool = ToolbarTool.EMOJI),
+    entry(
+        "All emoji settings",
+        "Suggestions, history tab, emoji row, skin tones & favourites",
+        tool = ToolbarTool.EMOJI,
+        weight = EntryWeight.MIRROR,
+    ),
     entry("Clipboard history", "Save copied text for quick paste", tool = ToolbarTool.CLIPBOARD),
     entry("Suggest recent copy", "Show the last copied text as a chip on the suggestion strip", tool = ToolbarTool.CLIPBOARD),
     entry("Toast on copy", "Show a brief \"Copied\" pop-up when you copy or cut text", tool = ToolbarTool.CLIPBOARD),
@@ -223,9 +265,19 @@ private val SettingRows: List<SettingsSearchEntry> = listOfNotNull(
         tool = ToolbarTool.CLIPBOARD,
     ),
     entry("Split gap", "Width of the gap between the halves", tool = ToolbarTool.SPLIT),
-    entry("All layout & size settings", "Keyboard height, width, alignment and split", tool = ToolbarTool.SPLIT),
+    entry(
+        "All layout & size settings",
+        "Keyboard height, width, alignment and split",
+        tool = ToolbarTool.SPLIT,
+        weight = EntryWeight.MIRROR,
+    ),
     entry("Floating keyboard width", "Also adjustable by dragging the panel's corner grip", tool = ToolbarTool.FLOATING),
-    entry("All layout & size settings", "Keyboard height, width, alignment and floating mode", tool = ToolbarTool.FLOATING),
+    entry(
+        "All layout & size settings",
+        "Keyboard height, width, alignment and floating mode",
+        tool = ToolbarTool.FLOATING,
+        weight = EntryWeight.MIRROR,
+    ),
     entry("Auto-off with keyboard", "Turn the torch off when the keyboard is dismissed", tool = ToolbarTool.FLASHLIGHT),
     entry("Degree readout", "Show the numeric heading under the compass rose", tool = ToolbarTool.COMPASS),
     entry("Show qibla", "Mark the direction of the Kaaba on the compass", tool = ToolbarTool.COMPASS),
@@ -275,19 +327,39 @@ private val SettingRows: List<SettingsSearchEntry> = listOfNotNull(
     // The tool screen's own "Autocorrect" toggle is not listed: ToolRows
     // already indexes the tool under that title and route. A row named after
     // the tool holding it is always a duplicate result, never a second one.
-    entry("All typing settings", "Suggestions, autocorrect, capitalization and more", tool = ToolbarTool.AUTOCORRECT),
-    entry("All key press settings", "Haptic style and strength, key preview, long-press", tool = ToolbarTool.SOUND_HAPTICS),
+    entry(
+        "All typing settings",
+        "Suggestions, autocorrect, capitalization and more",
+        tool = ToolbarTool.AUTOCORRECT,
+        weight = EntryWeight.MIRROR,
+    ),
+    entry(
+        "All key press settings",
+        "Haptic style and strength, key preview, long-press",
+        tool = ToolbarTool.SOUND_HAPTICS,
+        weight = EntryWeight.MIRROR,
+    ),
     entry("Stylus only", "Only an S Pen or other stylus draws; finger touches are ignored", tool = ToolbarTool.HANDWRITING),
     entry("Auto space", "Insert a space between consecutively written words", tool = ToolbarTool.HANDWRITING),
     entry("Recognition pause", "How long after the last stroke before the word is recognized", tool = ToolbarTool.HANDWRITING),
-    entry("All theme settings", "Create, edit, import and export keyboard themes", tool = ToolbarTool.THEMES),
-    entry("All layout & size settings", "Keyboard height, width, alignment and one-handed mode", tool = ToolbarTool.ONE_HANDED),
+    entry(
+        "All theme settings",
+        "Create, edit, import and export keyboard themes",
+        tool = ToolbarTool.THEMES,
+        weight = EntryWeight.MIRROR,
+    ),
+    entry(
+        "All layout & size settings",
+        "Keyboard height, width, alignment and one-handed mode",
+        tool = ToolbarTool.ONE_HANDED,
+        weight = EntryWeight.MIRROR,
+    ),
     entry(
         "Cloud Translation API key (optional)",
         "Without a key, translation uses Google's free public endpoint",
         tool = ToolbarTool.TRANSLATE,
     ),
-    entry("Sticker packs", "Your own sticker packs, images and all", "Backup", "backup"),
+    entry("Sticker packs", "Your own sticker packs, images and all", "Backup", "backup", weight = EntryWeight.MIRROR),
     entry("Sticker packs", "Make, edit, import and export packs of your own", tool = ToolbarTool.STICKER),
     entry("New pack", "Then add stickers from your photos", "Tools › Stickers › Sticker packs", "sticker_packs"),
     entry("Import a pack", "Opens a .wmstickers file someone shared", "Tools › Stickers › Sticker packs", "sticker_packs"),
@@ -411,7 +483,7 @@ private val SettingRows: List<SettingsSearchEntry> = listOfNotNull(
     entry("Version", "", "About", "about"),
     entry("Licence", "MIT — © 2026 Wasi Master", "About", "about"),
     entry("Source code", "https://", "About", "about"),
-    entry("Open-source licences", "Libraries and data bundled in this build", "About", "about"),
+    // Open-source licences has its own screen, indexed once in SectionRows.
     entry("User guide", "Documentation for every feature", "About", "about"),
     entry("Privacy policy", "What leaves the device, what never does", "About", "about"),
     entry(
@@ -431,8 +503,11 @@ private val SettingRows: List<SettingsSearchEntry> = listOfNotNull(
 )
 
 /**
- * The top-level destinations. These are searchable in their own right so that
- * "themes" finds the themes screen and not only the rows inside it.
+ * The destinations: the settings home's own list, plus the screens that hang
+ * off it. They are searchable in their own right so that "themes" finds the
+ * themes screen and not only the rows inside it, and they carry
+ * [EntryWeight.SECTION] so the screen a word names outranks a row — or a
+ * toolbar shortcut — that merely mentions it.
  */
 private val SectionRows: List<SettingsSearchEntry> = listOf(
     entry("Typing", "Autocorrect, suggestions, gestures", "Settings", "typing"),
@@ -452,14 +527,19 @@ private val SectionRows: List<SettingsSearchEntry> = listOf(
     entry("About", "Version, licence, open-source notices", "Settings", "about"),
     entry("Keyboard themes", "Light/dark/AMOLED, colours, background images", "Appearance", "themes"),
     entry("Keyboard font", "Google Fonts, or import your own font file", "Appearance", "fonts"),
-    entry("Installed fonts", "Fonts added from Addons or imported from a file", "Appearance › Fonts", "fonts"),
+    entry("Icons", "Swap any tool or key icon, or install an icon pack", "Appearance", "icons"),
     entry("Personal dictionary", "Words the keyboard has learned", "Typing", "dictionary"),
     entry("Custom dictionaries", "Import your own word lists, per language", "Typing", "customdictionaries"),
     entry("Emoji keywords", "Download or import keyword packs so emoji search works in your language", "Emoji", "emojikeywords"),
-    entry("Download automatically", "Fetch emoji keywords for the languages you type", "Emoji › Emoji keywords", "emojikeywords"),
     entry("Suggestion blacklist", "Words to never suggest or autocorrect to", "Typing", "blacklist"),
     entry("Tool shortcuts list", "Which letter opens which tool from a physical keyboard", "Typing", "hwshortcuts"),
     entry("Open-source licences", "Libraries and data bundled in this build", "About", "licenses"),
+).map { it.copy(weight = EntryWeight.SECTION) }
+
+/** Rows that live on one of those screens rather than naming it. */
+private val SectionChildRows: List<SettingsSearchEntry> = listOf(
+    entry("Installed fonts", "Fonts added from Addons or imported from a file", "Appearance › Fonts", "fonts"),
+    entry("Download automatically", "Fetch emoji keywords for the languages you type", "Emoji › Emoji keywords", "emojikeywords"),
 )
 
 /**
@@ -468,7 +548,7 @@ private val SectionRows: List<SettingsSearchEntry> = listOf(
  */
 private val ToolRows: List<SettingsSearchEntry>
     get() = ToolbarTool.entries.filter(::isSupportedTool).map { tool ->
-        SettingsSearchEntry(toolTitle(tool), toolDescription(tool), "Tools", "tool/${tool.name}")
+        SettingsSearchEntry(toolTitle(tool), toolDescription(tool), "Tools", "tool/${tool.name}", tool = tool)
     }
 
 /**
@@ -479,7 +559,7 @@ private val ToolRows: List<SettingsSearchEntry>
 internal val SettingsSearchIndex: List<SettingsSearchEntry> by lazy {
     val unsupported = ToolbarTool.entries.filterNot(::isSupportedTool)
         .map { "tool/${it.name}" }.toSet()
-    (SectionRows + ToolRows + SettingRows).filterNot { it.route in unsupported }
+    (SectionRows + ToolRows + SectionChildRows + SettingRows).filterNot { it.route in unsupported }
 }
 
 /**
@@ -502,8 +582,11 @@ private fun score(entry: SettingsSearchEntry, token: String): Int {
 }
 
 /**
- * Ranked matches for [query]. Ties break on title length so the plainest
- * setting with a matching name floats above the wordier ones.
+ * Ranked matches for [query]. The raw match score is scaled by the entry's
+ * [EntryWeight], so a destination screen beats a row that names it just as
+ * well and a backup toggle sinks below the feature it backs up. Ties break on
+ * title length so the plainest setting with a matching name floats above the
+ * wordier ones.
  */
 internal fun searchSettings(
     query: String,
@@ -516,7 +599,7 @@ internal fun searchSettings(
         // Every token has to land somewhere: "emoji row" must not match a row
         // that only knows about emoji, nor every row on the emoji screen.
         .filter { (_, scores) -> scores.all { it > 0 } }
-        .map { (candidate, scores) -> candidate to scores.sum() }
+        .map { (candidate, scores) -> candidate to scores.sum() * candidate.weight.percent }
         .sortedWith(
             compareByDescending<Pair<SettingsSearchEntry, Int>> { it.second }
                 .thenBy { it.first.title.length },

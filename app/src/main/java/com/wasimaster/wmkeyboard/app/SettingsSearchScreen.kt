@@ -20,8 +20,30 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.Article
+import androidx.compose.material.icons.automirrored.outlined.MenuBook
+import androidx.compose.material.icons.automirrored.outlined.StickyNote2
+import androidx.compose.material.icons.outlined.Accessibility
+import androidx.compose.material.icons.outlined.AspectRatio
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.EmojiEmotions
+import androidx.compose.material.icons.outlined.Extension
+import androidx.compose.material.icons.outlined.Gavel
+import androidx.compose.material.icons.outlined.GridOn
+import androidx.compose.material.icons.outlined.Image
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.Keyboard
+import androidx.compose.material.icons.outlined.Language
+import androidx.compose.material.icons.outlined.Palette
+import androidx.compose.material.icons.outlined.Save
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.Security
+import androidx.compose.material.icons.outlined.TextFields
+import androidx.compose.material.icons.outlined.TouchApp
+import androidx.compose.material.icons.outlined.Tune
+import androidx.compose.material.icons.outlined.ViewAgenda
+import androidx.compose.material.icons.outlined.VisibilityOff
+import androidx.compose.material.icons.outlined.Widgets
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -43,9 +65,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
+import com.wasimaster.wmkeyboard.core.icons.IconSlots
+import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
+import com.wasimaster.wmkeyboard.core.ui.toolAccentColor
+import com.wasimaster.wmkeyboard.ime.ui.SlotIcon
 import kotlinx.coroutines.delay
 
 /**
@@ -137,9 +164,49 @@ internal fun HighlightableRow(title: String?, content: @Composable () -> Unit) {
  * Full-screen search over every setting. Results carry their breadcrumb, and
  * tapping one opens the owning screen with the row flashed.
  */
+/**
+ * The glyph each destination is drawn with, keyed by route — the settings
+ * home's own icons, extended to the screens that hang off it. A result
+ * therefore looks like the row it will take you to, and the screens all share
+ * an icon with their rows.
+ *
+ * Tool routes are absent on purpose: those draw the tool's own icon, which
+ * the user can replace with an icon pack.
+ */
+internal val SettingsRouteIcons: Map<String, ImageVector> = mapOf(
+    "typing" to Icons.Outlined.Keyboard,
+    "keypress" to Icons.Outlined.TouchApp,
+    "languages" to Icons.Outlined.Language,
+    "appearance" to Icons.Outlined.Palette,
+    "themes" to Icons.Outlined.Palette,
+    "fonts" to Icons.Outlined.TextFields,
+    "icons" to Icons.Outlined.Image,
+    "layout" to Icons.Outlined.AspectRatio,
+    "keymaps" to Icons.Outlined.GridOn,
+    "rows" to Icons.Outlined.ViewAgenda,
+    "modes" to Icons.Outlined.Tune,
+    "emoji" to Icons.Outlined.EmojiEmotions,
+    "emojikeywords" to Icons.Outlined.EmojiEmotions,
+    "tools" to Icons.Outlined.Widgets,
+    "sticker_packs" to Icons.AutoMirrored.Outlined.StickyNote2,
+    "plugins" to Icons.Outlined.Extension,
+    "addons" to Icons.Outlined.Extension,
+    "accessibility" to Icons.Outlined.Accessibility,
+    "privacy" to Icons.Outlined.Security,
+    "backup" to Icons.Outlined.Save,
+    "about" to Icons.Outlined.Info,
+    "licenses" to Icons.Outlined.Gavel,
+    "debug_log" to Icons.AutoMirrored.Outlined.Article,
+    "dictionary" to Icons.AutoMirrored.Outlined.MenuBook,
+    "customdictionaries" to Icons.AutoMirrored.Outlined.MenuBook,
+    "blacklist" to Icons.Outlined.VisibilityOff,
+    "hwshortcuts" to Icons.Outlined.Keyboard,
+)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun SettingsSearchScreen(
+    settings: KeyboardSettings,
     onBack: () -> Unit,
     onOpen: (SettingsSearchEntry) -> Unit,
 ) {
@@ -205,7 +272,7 @@ internal fun SettingsSearchScreen(
                 verticalArrangement = Arrangement.spacedBy(3.dp),
             ) {
                 items(results, key = { "${it.route}/${it.title}" }) { result ->
-                    ResultRow(result) {
+                    ResultRow(result, settings) {
                         keyboard?.hide()
                         onOpen(result)
                     }
@@ -216,20 +283,14 @@ internal fun SettingsSearchScreen(
 }
 
 @Composable
-private fun ResultRow(entry: SettingsSearchEntry, onClick: () -> Unit) {
+private fun ResultRow(entry: SettingsSearchEntry, settings: KeyboardSettings, onClick: () -> Unit) {
     androidx.compose.material3.Surface(
         shape = RoundedCornerShape(12.dp),
         color = MaterialTheme.colorScheme.surfaceContainer,
         modifier = Modifier.fillMaxWidth(),
     ) {
         ListItem(
-            leadingContent = {
-                Icon(
-                    Icons.Outlined.Search,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            },
+            leadingContent = { ResultIcon(entry, settings) },
             headlineContent = { Text(entry.title) },
             supportingContent = {
                 Column {
@@ -247,6 +308,31 @@ private fun ResultRow(entry: SettingsSearchEntry, onClick: () -> Unit) {
                 .clickable(onClick = onClick),
         )
     }
+}
+
+/**
+ * The icon beside a result: the tool's own glyph on a tool page — icon pack
+ * and accent colour included, so it matches the Tools list — otherwise the
+ * icon of the screen it lives on. The magnifier is the fallback for a route
+ * with no icon of its own.
+ */
+@Composable
+private fun ResultIcon(entry: SettingsSearchEntry, settings: KeyboardSettings) {
+    val tool = entry.tool
+    if (tool != null) {
+        SlotIcon(
+            IconSlots.forTool(tool),
+            contentDescription = null,
+            tint = if (settings.coloredToolIcons) toolAccentColor(tool, settings.toolColorOverrides)
+            else MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        return
+    }
+    Icon(
+        SettingsRouteIcons[entry.route] ?: Icons.Outlined.Search,
+        contentDescription = null,
+        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
 }
 
 @Composable
