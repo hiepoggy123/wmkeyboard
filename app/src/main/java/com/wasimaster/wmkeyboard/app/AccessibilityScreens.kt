@@ -1,10 +1,7 @@
 package com.wasimaster.wmkeyboard.app
 
-import android.content.Intent
-import android.provider.Settings
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.ui.platform.LocalContext
 import com.wasimaster.wmkeyboard.core.accessibility.KeyboardPassthrough
 import com.wasimaster.wmkeyboard.core.settings.ColorVisionFilter
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
@@ -171,8 +168,11 @@ internal fun AccessibilitySettings(
         }
         if (settings.screenReaderMode == ScreenReaderMode.PASSTHROUGH) {
             item {
-                val context = LocalContext.current
                 val granted = rememberGrantState(KeyboardPassthrough::isServiceEnabled)
+                // Disclosure before the accessibility screen: Play scrutinises
+                // this API harder than any permission, and the system's own
+                // warning there describes powers this service never asks for.
+                val accessibility = rememberDisclosedSpecialAccess(SpecialAccess.ACCESSIBILITY)
                 NavRow(
                     if (granted) "Keyboard gestures service" else "Keyboard gestures service required",
                     if (granted) {
@@ -180,14 +180,7 @@ internal fun AccessibilitySettings(
                     } else {
                         "Turn on \"WM Keyboard gestures\" in Settings › Accessibility"
                     },
-                ) {
-                    runCatching {
-                        context.startActivity(
-                            Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
-                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-                        )
-                    }
-                }
+                ) { accessibility() }
             }
         }
     }

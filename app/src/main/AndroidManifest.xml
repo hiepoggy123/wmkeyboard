@@ -300,6 +300,20 @@
             android:noHistory="true"
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
+        <!-- Notification access, usage access and the accessibility service are
+             granted on a system Settings screen rather than through a permission
+             dialog, so there is nothing to trampoline *through* — but the
+             prominent disclosure still has to be shown before the user gets
+             there, and the IME cannot host a dialog outside its own window.
+             This activity shows it and then opens the right Settings page. See
+             core/common SpecialAccess.kt. -->
+        <activity
+            android:name="com.wasimaster.wmkeyboard.app.SpecialAccessActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:noHistory="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
         <!-- Invisible trampoline that runs ML Kit's full-screen document
              scanner for the doc-scan tool; the IME commits the scanned
              pages once the target app gets focus back. -->

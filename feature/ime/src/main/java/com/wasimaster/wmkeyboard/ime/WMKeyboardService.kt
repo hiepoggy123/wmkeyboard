@@ -48,6 +48,8 @@ import com.wasimaster.wmkeyboard.app.CameraPermissionActivity
 import com.wasimaster.wmkeyboard.app.DocScanActivity
 import com.wasimaster.wmkeyboard.app.MainActivityContract
 import com.wasimaster.wmkeyboard.app.MicPermissionActivity
+import com.wasimaster.wmkeyboard.app.SpecialAccess
+import com.wasimaster.wmkeyboard.app.SpecialAccessActivity
 import com.wasimaster.wmkeyboard.app.StoragePermissionActivity
 import com.wasimaster.wmkeyboard.core.media.GallerySaver
 import com.wasimaster.wmkeyboard.core.media.MediaMime
@@ -5455,25 +5457,19 @@ open class WMKeyboardService : InputMethodService() {
         if (_uiState.value.panel == PanelMode.MEDIA_CONTROL) startMedia()
     }
 
-    /** IMEs cannot show the grant dialog; open the system Notification-access screen. */
+    /**
+     * IMEs cannot show the grant dialog, and notification access is granted on a
+     * system screen rather than by a dialog at all — so this goes through the
+     * disclosure trampoline, which explains what the listener does (and does
+     * not) read before opening the per-app notification-access page.
+     */
     fun onMediaAccessRequest() {
         val component = ComponentName(this, MediaNotificationListener::class.java)
-        val detail = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            Intent(Settings.ACTION_NOTIFICATION_LISTENER_DETAIL_SETTINGS)
-                .putExtra(
-                    Settings.EXTRA_NOTIFICATION_LISTENER_COMPONENT_NAME,
-                    component.flattenToString(),
-                )
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        } else {
-            null
-        }
-        val list = Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        // Prefer the per-app detail page (API 30+), falling back to the full
-        // listener list if the deep link is unavailable on this device.
-        if (detail == null || runCatching { startActivity(detail) }.isFailure) {
-            runCatching { startActivity(list) }
+        runCatching {
+            startActivity(
+                SpecialAccessActivity.intent(this, SpecialAccess.NOTIFICATIONS, component)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            )
         }
     }
 

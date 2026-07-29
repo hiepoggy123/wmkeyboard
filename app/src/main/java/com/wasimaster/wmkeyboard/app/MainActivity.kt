@@ -1671,11 +1671,12 @@ private fun TypingSettings(
         }
         item {
             val context = LocalContext.current
-            val contactsPermission = rememberLauncherForActivityResult(
-                ActivityResultContracts.RequestPermission()
-            ) { granted ->
-                if (granted) scope.launch { repository.setContactSuggestions(true) }
-            }
+            // Prominent disclosure before the system prompt, never the prompt on
+            // its own: see PermissionDisclosure.
+            val contactsPermission =
+                rememberDisclosedPermissionRequest(PermissionDisclosures.CONTACT_NAMES) {
+                    scope.launch { repository.setContactSuggestions(true) }
+                }
             ToggleSetting(
                 "Suggest contact names",
                 "Complete names from your contacts as you type",
@@ -1691,17 +1692,16 @@ private fun TypingSettings(
                     context.checkSelfPermission(Manifest.permission.READ_CONTACTS) ==
                         PackageManager.PERMISSION_GRANTED ->
                         scope.launch { repository.setContactSuggestions(true) }
-                    else -> contactsPermission.launch(Manifest.permission.READ_CONTACTS)
+                    else -> contactsPermission()
                 }
             }
         }
         item {
             val context = LocalContext.current
-            val emailPermission = rememberLauncherForActivityResult(
-                ActivityResultContracts.RequestPermission()
-            ) { granted ->
-                if (granted) scope.launch { repository.setContactEmailSuggestions(true) }
-            }
+            val emailPermission =
+                rememberDisclosedPermissionRequest(PermissionDisclosures.CONTACT_EMAILS) {
+                    scope.launch { repository.setContactEmailSuggestions(true) }
+                }
             ToggleSetting(
                 "Suggest contact emails",
                 "Complete a contact's email as you type the start of it",
@@ -1717,7 +1717,7 @@ private fun TypingSettings(
                     context.checkSelfPermission(Manifest.permission.READ_CONTACTS) ==
                         PackageManager.PERMISSION_GRANTED ->
                         scope.launch { repository.setContactEmailSuggestions(true) }
-                    else -> emailPermission.launch(Manifest.permission.READ_CONTACTS)
+                    else -> emailPermission()
                 }
             }
         }
@@ -6247,6 +6247,7 @@ private fun ToolDetailSettings(
                 }
                 item {
                     val context = LocalContext.current
+                    val usageAccess = rememberDisclosedSpecialAccess(SpecialAccess.USAGE)
                     ToggleSetting(
                         "Show source app",
                         "Record which app a clip was copied from, shown when you press " +
@@ -6257,31 +6258,19 @@ private fun ToolDetailSettings(
                             "source. Nothing about your app usage leaves the device.",
                     ) { on ->
                         scope.launch { repository.setClipboardTrackSource(on) }
-                        // Sending the user to grant the permission the first time they
-                        // switch it on — but not when it is already granted, which is
-                        // the common case for a toggle flipped off and on again.
-                        if (on && !hasUsageAccess(context)) runCatching {
-                            context.startActivity(
-                                Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)
-                                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-                            )
-                        }
+                        // Disclosure then the grant screen, the first time they
+                        // switch it on — but not when it is already granted, which
+                        // is the common case for a toggle flipped off and on again.
+                        if (on && !hasUsageAccess(context)) usageAccess()
                     }
                 }
                 if (settings.clipboard.trackSource && !usageAccessGranted) {
                     item {
-                        val context = LocalContext.current
+                        val usageAccessRow = rememberDisclosedSpecialAccess(SpecialAccess.USAGE)
                         NavRow(
                             "Usage Access permission required",
                             "Without it, clips are saved with no source app",
-                        ) {
-                            runCatching {
-                                context.startActivity(
-                                    Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)
-                                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-                                )
-                            }
-                        }
+                        ) { usageAccessRow() }
                     }
                 }
             }
