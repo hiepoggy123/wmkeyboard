@@ -12,9 +12,21 @@
      explores by touch, so enabling this alone never switches explore-by-touch
      on. See TouchPassthroughService.
 -->
+<!--
+     isAccessibilityTool is API 31+ and older platforms ignore it, so there is
+     nothing to guard and no second copy of this file under xml-v31 worth
+     keeping in step. It is not decoration: from API 31 it is what keeps the
+     service listed under Settings › Accessibility rather than being filed away
+     as a general-purpose app service, and it is the declaration Play's
+     accessibility review looks for. Both are true of this service — helping the
+     keyboard work with a screen reader is the only thing it does.
+-->
 <accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     android:accessibilityFeedbackType="feedbackGeneric"
     android:canRetrieveWindowContent="false"
     android:description="@string/passthrough_service_description"
+    android:isAccessibilityTool="true"
     android:notificationTimeout="0"
-    android:summary="@string/passthrough_service_summary" />
+    android:summary="@string/passthrough_service_summary"
+    tools:ignore="UnusedAttribute" />
