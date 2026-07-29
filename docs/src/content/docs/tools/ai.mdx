@@ -41,6 +41,21 @@ Once a result streams in, two buttons commit it: **Replace** swaps the field's t
   {/* shot: tools/ai-result-ready */}
 </PhoneFrame>
 
+### Reporting a result
+
+Every finished result also carries a **Report** button, at the bottom right of the panel next to the strip-markdown checkbox. Tap it if a model produced something offensive, dangerous, or plainly wrong, and it opens a pre-filled email to the developer with a blank line at the top for what went wrong.
+
+Nothing is uploaded when you tap it. The report is a draft in your own mail app, and you can read every line, edit it, or throw it away before sending. What it fills in for you:
+
+- Your complaint, once you type it in the space at the top.
+- Which action ran, which provider and model answered, and (for Custom) the instruction you gave.
+- The app version, Android version, and device model.
+- The text that went in and the text that came out, each trimmed to the first 4,000 characters.
+
+That last one is the part worth a second look before you hit send, since it quotes whatever was in the field. The button only appears once a result has finished streaming; half an answer isn't the thing you'd be reporting anyway.
+
+For bugs in the keyboard itself rather than something a model wrote, use the **Feedback** rows in [About](/reference/settings/about/) instead.
+
 ## Choosing where it runs
 
 A row of provider chips sits at the top of the tool's settings: **Claude**, **OpenAI**, **Gemini**, **Ollama**, **LM Studio**, and **On-device**. You're not limited to picking one forever; switching providers is just another tap.
@@ -118,6 +133,7 @@ The panel itself sends nothing until you actually tap an action chip: opening th
 
 - **On-device**: the text you run an action on never leaves the phone. Response length is bounded by the local model's own context window instead of a server-side limit.
 - **Any other provider** (cloud or self-hosted): the text you run an action on is sent to that provider, only at the moment you tap the action. API keys and server addresses are stored on the device, not in any WM Keyboard service. See [Privacy at a glance](/privacy/overview/) for how this fits the keyboard's broader per-tool approach to anything that leaves the device.
+- **Report**: builds a draft in your mail app and hands it over. The app has no reporting server and sends nothing itself, so a report only exists if you send the mail. API keys are never part of it.
 
 ## Details & edge cases
 

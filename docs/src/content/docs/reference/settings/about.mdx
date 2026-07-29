@@ -1,6 +1,6 @@
 ---
 title: "About & diagnostics"
-description: "Version, licence, and source links, plus a diagnostics screen for pulling a shareable bug report."
+description: "Version, licence, and source links, where to send a bug, and a diagnostics screen for pulling a shareable report."
 sidebar:
   order: 20
 ---
@@ -11,7 +11,7 @@ import Flavor from '@components/Flavor.astro';
 
 About has its own group on the Settings home screen: one tap gets you the build you're running, every licence bundled into the app, and a diagnostics screen for pulling a shareable report when something needs debugging.
 
-<PhoneFrame caption="The About screen: Share, App, Documentation, Third party, and Word lists groups.">
+<PhoneFrame caption="The About screen: Share, App, Feedback, Documentation, Third party, and Word lists groups.">
   {/* shot: reference/settings/about-screen */}
 </PhoneFrame>
 
@@ -29,6 +29,17 @@ The **App** group holds four rows:
 - **Diagnostics** opens the [diagnostics screen](#diagnosing-a-problem) covered below.
 
 Underneath the group, a caption spells out what the MIT licence means in practice: you can use, modify, and redistribute the app, provided the copyright notice and licence text travel with it.
+
+## Reporting a bug
+
+The **Feedback** group is where a problem goes. It has two rows:
+
+- **Report a bug** opens the project's GitHub issue tracker in your browser (`github.com/wasi-master/WMKeyboard/issues`). Start here if you can: an issue is public and searchable, so someone else may have already hit the same thing, and it can be tracked to a fix rather than sitting in an inbox.
+- **Email the developer** opens a draft to `arianmollik323@gmail.com` in your mail app, pre-filled with headings for what happened, what you expected, and how to reproduce it, plus the build, Android version, and device model at the bottom. Use this when the report has anything in it you'd rather not post publicly. Only mail apps show up in the chooser, since the row uses a `mailto:` intent rather than a generic share.
+
+Either way, take **Diagnostics** along: it names the exact build and device, and it never contains anything you typed. A phone with no mail app installed shows a toast with the address instead of opening anything.
+
+Something a model wrote rather than a bug in the app has its own button: see [Reporting a result](/tools/ai/#reporting-a-result) in the AI tool.
 
 ## Documentation, third-party notices, and word lists
 
@@ -82,6 +93,7 @@ The only real switch on this page is **Include the system log**, off by default:
 - **Several bundled components share one licence asset.** All the Apache-2.0 entries (AndroidX, Kotlin, Coil, OkHttp & Okio, ZXing, OpenCC, and, on a full build, Harper and LiteRT/LiteRT-LM) open the same Apache-2.0 text rather than a per-project copy; the per-project attribution (name, what it's used for, copyright line) is what you saw on the list row before tapping in.
 - **Licence texts don't reflow.** They're hard-wrapped at a fixed column width and rendered monospaced, so long lines scroll sideways instead of wrapping to the screen width.
 - **The word-list attribution splits by kind, not by download status.** The three word lists that ship as source (seed bigrams, loanword map, offensive-word list) are covered by the app's own MIT licence; every wordlist you download separately keeps its own upstream licence, listed under Open-source licences regardless of whether you've actually downloaded it yet.
-- **Sharing a link isn't the same as opening one.** The three Share rows always hand off to the system share sheet with a pre-filled message; only Source code, User guide, and Privacy policy, and any row inside the licence browser without a bundled text, open a browser tab directly.
+- **Sharing a link isn't the same as opening one.** The three Share rows always hand off to the system share sheet with a pre-filled message; Source code, Report a bug, User guide, and Privacy policy, and any row inside the licence browser without a bundled text, open a browser tab directly. Email the developer is the odd one out again: it opens a mail composer, not a browser or a share sheet.
+- **A report is a draft, not a submission.** Both the Feedback rows and the AI panel's Report button hand you something to read and edit; nothing is sent until you send it, and the app has no reporting server of its own.
 
 See [Privacy at a glance](/privacy/overview/) for what leaves the device and when, [Network policy](/privacy/network/) for the tool-by-tool network breakdown referenced above, and [Every wordlist](/languages/dictionaries/#every-wordlist) for the downloadable dictionaries this page's Word lists group points at.

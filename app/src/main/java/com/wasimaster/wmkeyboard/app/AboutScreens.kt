@@ -1,6 +1,7 @@
 package com.wasimaster.wmkeyboard.app
 
 import android.content.Intent
+import android.widget.Toast
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -22,6 +23,7 @@ import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import com.wasimaster.wmkeyboard.BuildConfig
+import com.wasimaster.wmkeyboard.core.support.Support
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -39,7 +41,7 @@ import kotlinx.coroutines.withContext
  * is distributed, but their terms still ask to be credited.
  */
 
-internal const val SOURCE_URL = "https://github.com/wasi-master/WMKeyboard"
+internal const val SOURCE_URL = Support.SOURCE_URL
 internal const val DOCS_URL = "https://wmkeyboard.pages.dev"
 private const val PRIVACY_POLICY_URL = "$DOCS_URL/privacy/overview/"
 private const val PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=${BuildConfig.APPLICATION_ID}"
@@ -430,6 +432,34 @@ internal fun AboutSettings(
     CaptionText(
         "WM Keyboard is free software: you may use, modify and redistribute it, " +
             "provided the copyright notice and licence text travel with it.",
+    )
+
+    SettingsGroup("Feedback") {
+        item {
+            NavRow(
+                "Report a bug",
+                "Open an issue on GitHub — public, searchable, and it can be tracked",
+            ) {
+                uriHandler.openUri(Support.ISSUES_URL)
+            }
+        }
+        item {
+            NavRow("Email the developer", Support.EMAIL) {
+                if (!Support.email(context, "WM Keyboard bug report", Support.bugReport())) {
+                    Toast.makeText(
+                        context,
+                        "No email app on this device — write to ${Support.EMAIL}",
+                        Toast.LENGTH_LONG,
+                    ).show()
+                }
+            }
+        }
+    }
+    CaptionText(
+        "An issue is the better first stop — someone else may have hit the same " +
+            "thing. Email works too if the report is private. Either way, take " +
+            "Diagnostics above along: it says which build and device this is, and " +
+            "it never contains anything you typed.",
     )
 
     SettingsGroup("Documentation") {

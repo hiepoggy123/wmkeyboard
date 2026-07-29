@@ -135,6 +135,7 @@ import com.wasimaster.wmkeyboard.core.settings.resolveKeyboardMode
 import com.wasimaster.wmkeyboard.core.snippets.Snippet
 import com.wasimaster.wmkeyboard.core.snippets.SnippetStore
 import com.wasimaster.wmkeyboard.core.stickers.StickerAddResult
+import com.wasimaster.wmkeyboard.core.support.Support
 import com.wasimaster.wmkeyboard.core.stickers.StickerImage
 import com.wasimaster.wmkeyboard.core.settings.GifSourceMode
 import com.wasimaster.wmkeyboard.core.text.EmojiGraphemes
@@ -1665,6 +1666,7 @@ open class WMKeyboardService : InputMethodService() {
                 onAiRunCustom = ::onAiRunCustom,
                 onAiPickModel = ::onAiPickModel,
                 onAiToggleStripMarkdown = ::onAiToggleStripMarkdown,
+                onAiReport = ::onAiReport,
                 onOpenToolSettings = ::openToolSettings,
                 onOpenRoute = ::openRoute,
                 onPluginOpen = ::onPluginOpen,
@@ -7571,6 +7573,41 @@ open class WMKeyboardService : InputMethodService() {
         val ai = _uiState.value.ai as? AiUi.Ready ?: return
         vibrate()
         commitToField(aiInsertableText(ai))
+    }
+
+    /**
+     * "Report" on a result: opens a mail draft to the maintainer holding the
+     * action, the model behind it, and the text either side of the generation.
+     *
+     * Nothing leaves the device here. The draft lands in the user's mail app,
+     * where they can read every line of it — including their own text, which a
+     * useful report has to quote — and edit or abandon it before sending. A
+     * keyboard that can produce text on demand needs somewhere for the bad
+     * results to go, and Play asks for exactly this on generated content.
+     */
+    fun onAiReport() {
+        val state = _uiState.value
+        val ai = state.ai as? AiUi.Ready ?: return
+        vibrate()
+        val sent = Support.email(
+            this,
+            "WM Keyboard — AI generation report",
+            Support.aiGenerationReport(
+                action = ai.action.label,
+                provider = state.settings.aiProvider.label,
+                model = AiClient.config(state.settings).model,
+                input = ai.sourceText,
+                output = ai.result,
+                instruction = if (ai.action == AiAction.CUSTOM) aiCustomInstruction else "",
+            ),
+        )
+        if (!sent) {
+            Toast.makeText(
+                this,
+                "No email app on this device — reports go to ${Support.EMAIL}",
+                Toast.LENGTH_LONG,
+            ).show()
+        }
     }
 
     /**

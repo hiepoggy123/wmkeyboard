@@ -38,10 +38,16 @@ any of this.
 | AI — cloud provider | Anthropic, OpenAI, or Gemini's own API | the text you ran the action on, plus a system prompt | only when you tap an action, never in the background |
 | AI — self-hosted (Ollama/LM Studio) | a server address you enter on your own network | same | same, over plain HTTP |
 | AI — on-device <Flavor edition="full" /> | none | nothing leaves the phone | never: this provider has no network path at all |
+| AI — reporting a result | none of the app's own | nothing: it builds a mail draft and hands it to your mail app | only when you tap Report, and only your mail app sends it |
 | Clipboard link previews | whatever URL you copied | a GET request to that page | off by default; when on, right after you copy a new link |
 | QR scan link previews <Flavor edition="full" /> | whatever URL a scanned code contains | a GET request to that page | off by default; when on, right after a QR code decodes to a URL |
 | Voice typing (system recognizer) | Android's platform speech service (not WM Keyboard's own code) | your speech audio | whenever the on-device model for that language isn't installed: always, below Android 12 |
 | Voice typing (Whisper) <Flavor edition="full" /> | none | nothing leaves the phone during dictation | never: fully offline once the model is downloaded |
+
+The AI panel's **Report** button is the one row that quotes your own text
+without any network of its own: it opens a draft in your mail app holding the
+generation and the text it ran on, and you read and send it (or don't). See
+[Reporting a result](/tools/ai/#reporting-a-result).
 
 A few of these are worth calling out specifically. GIF and sticker search
 fetch a trending feed the instant you open the panel, before you've typed

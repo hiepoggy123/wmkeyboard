@@ -73,13 +73,15 @@ See [Your data on device](/privacy/data/) and [Incognito mode](/privacy/incognit
 
 ## How do I report a bug or request a feature?
 
-There's no in‑app feedback form: the flow is to export a diagnostic report from the app, then open an issue on the GitHub repository linked from the About screen.
+Export a diagnostic report from the app, then use one of the two **Feedback** rows on the About screen: **Report a bug** opens the project's GitHub issue tracker, and **Email the developer** opens a pre-filled draft to `arianmollik323@gmail.com` for anything you'd rather not post publicly. An issue is the better first stop, since it's searchable and can be tracked to a fix.
 
 <SettingsPath path="About / Diagnostics" />
 
 This screen shows what the keyboard itself has recorded since it last started, plus any crash it didn't survive. The same page states plainly that nothing you actually type is ever recorded here. **Share diagnostics** hands the report to Android's share sheet as a file (so it isn't silently truncated by an app that only accepts short text), and **Copy to clipboard** gives you the same report as plain text instead. An **Include the system log** toggle, off by default, can add the process's full Android log for a hard-to-reproduce bug (worth a quick read before you send it anywhere, since it's produced by every library in the app, not just code the keyboard controls).
 
 **About → Source code** opens the project's GitHub repository, where you can open an issue or start a discussion the same way you would for any open-source project.
+
+If what went wrong is something the [AI tool](/tools/ai/#reporting-a-result) generated rather than the keyboard misbehaving, use the **Report** button on the AI panel instead. It builds a draft that quotes the generation itself, which a bug report wouldn't.
 
 ## Details & edge cases
 

@@ -639,6 +639,7 @@ fun KeyboardScreen(
     onAiRunCustom: () -> Unit = {},
     onAiPickModel: (com.wasimaster.wmkeyboard.core.settings.AiProvider, String?) -> Unit = { _, _ -> },
     onAiToggleStripMarkdown: () -> Unit = {},
+    onAiReport: () -> Unit = {},
     onOpenToolSettings: (ToolbarTool) -> Unit = {},
     onOpenRoute: (String) -> Unit = {},
     onPluginOpen: (String) -> Unit = {},
@@ -810,6 +811,7 @@ fun KeyboardScreen(
                 onAiRunCustom = onAiRunCustom,
                 onAiPickModel = onAiPickModel,
                 onAiToggleStripMarkdown = onAiToggleStripMarkdown,
+                onAiReport = onAiReport,
                 onOpenToolSettings = onOpenToolSettings,
                 onOpenRoute = onOpenRoute,
                 onPluginOpen = onPluginOpen,
@@ -4235,6 +4237,7 @@ private fun KeyboardBody(
     onAiRunCustom: () -> Unit,
     onAiPickModel: (com.wasimaster.wmkeyboard.core.settings.AiProvider, String?) -> Unit,
     onAiToggleStripMarkdown: () -> Unit,
+    onAiReport: () -> Unit,
     onOpenToolSettings: (ToolbarTool) -> Unit,
     onOpenRoute: (String) -> Unit = {},
     onPluginOpen: (String) -> Unit = {},
@@ -4816,6 +4819,7 @@ private fun KeyboardBody(
                         onRunCustom = onAiRunCustom,
                         onPickModel = onAiPickModel,
                         onToggleStripMarkdown = onAiToggleStripMarkdown,
+                        onReport = onAiReport,
                         onOpenToolSettings = onOpenToolSettings,
                     )
                 }

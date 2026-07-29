@@ -76,6 +76,7 @@ internal fun AiPanel(
     onRunCustom: () -> Unit,
     onPickModel: (AiProvider, String?) -> Unit,
     onToggleStripMarkdown: () -> Unit,
+    onReport: () -> Unit,
     onOpenToolSettings: (ToolbarTool) -> Unit,
 ) {
     val kb = LocalKbTheme.current
@@ -264,12 +265,27 @@ internal fun AiPanel(
                         lineHeight = 18.sp,
                     )
                 }
-                if (hasMarkdown) {
-                    PanelCheckbox(
-                        label = "Strip markdown",
-                        checked = ai.stripMarkdown,
-                        onToggle = onToggleStripMarkdown,
-                    )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    if (hasMarkdown) {
+                        PanelCheckbox(
+                            label = "Strip markdown",
+                            checked = ai.stripMarkdown,
+                            onToggle = onToggleStripMarkdown,
+                        )
+                    }
+                    Spacer(Modifier.weight(1f))
+                    // Anything a model writes needs a way to be reported —
+                    // Play asks for one, and a keyboard that can produce
+                    // offensive text at the tap of a chip should own that. It
+                    // opens a mail draft the user reads before sending; there
+                    // is no silent upload. Hidden while still streaming: half
+                    // a result is not the thing being complained about.
+                    if (!ai.generating) {
+                        ToolPanelChip("Report") { onReport() }
+                    }
                 }
                 Row(
                     modifier = Modifier
