@@ -29,7 +29,6 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -356,9 +355,9 @@ private fun CatalogModelRow(
     // button stays for discoverability, but the whole row is the target.
     val rowClick = if (downloaded && !selected) onSelect else null
     SelectionHighlight(selected = selected && downloaded, onClick = rowClick) {
-        ListItem(
-            colors = transparentListColors(),
-            headlineContent = {
+        WmRow(
+            title = model.displayName,
+            titleContent = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         model.displayName,
@@ -377,7 +376,7 @@ private fun CatalogModelRow(
                     TierBadge(model.tier)
                 }
             },
-            supportingContent = {
+            supporting = {
                 Column {
                     if (selected && downloaded) {
                         Text(
@@ -389,12 +388,12 @@ private fun CatalogModelRow(
                     Text(subtitle)
                 }
             },
-            leadingContent = if (selected && downloaded) {
+            leading = if (selected && downloaded) {
                 { Icon(Icons.Outlined.Check, contentDescription = "Selected") }
             } else null,
             // The primary action for a row lives on its right edge, where a
             // list's actions belong — not on a button underneath it.
-            trailingContent = {
+            trailing = {
                 when (status) {
                     is DownloadStatus.Downloaded -> IconButton(onClick = onDelete) {
                         Icon(
@@ -457,12 +456,12 @@ private fun CustomModelRow(
     onDelete: () -> Unit,
 ) {
     SelectionHighlight(selected = selected, onClick = if (selected) null else onSelect) {
-        ListItem(
-            colors = transparentListColors(),
-            headlineContent = {
+        WmRow(
+            title = file.name,
+            titleContent = {
                 Text(file.name, fontWeight = if (selected) FontWeight.SemiBold else null)
             },
-            supportingContent = {
+            supporting = {
                 Column {
                     if (selected) {
                         Text(
@@ -474,10 +473,10 @@ private fun CustomModelRow(
                     Text(formatBytes(file.length()))
                 }
             },
-            leadingContent = if (selected) {
+            leading = if (selected) {
                 { Icon(Icons.Outlined.Check, contentDescription = "Selected") }
             } else null,
-            trailingContent = {
+            trailing = {
                 IconButton(onClick = onDelete) {
                     Icon(Icons.Outlined.Delete, contentDescription = "Delete ${file.name}")
                 }

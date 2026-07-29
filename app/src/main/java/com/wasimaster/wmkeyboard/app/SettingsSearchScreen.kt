@@ -3,7 +3,6 @@ package com.wasimaster.wmkeyboard.app
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -11,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.relocation.BringIntoViewRequester
@@ -47,7 +47,6 @@ import androidx.compose.material.icons.outlined.Widgets
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -289,10 +288,10 @@ private fun ResultRow(entry: SettingsSearchEntry, settings: KeyboardSettings, on
         color = MaterialTheme.colorScheme.surfaceContainer,
         modifier = Modifier.fillMaxWidth(),
     ) {
-        ListItem(
-            leadingContent = { ResultIcon(entry, settings) },
-            headlineContent = { Text(entry.title) },
-            supportingContent = {
+        WmRow(
+            title = entry.title,
+            leading = { ResultIcon(entry, settings) },
+            supporting = {
                 Column {
                     if (entry.subtitle.isNotBlank()) Text(entry.subtitle)
                     Text(
@@ -302,36 +301,38 @@ private fun ResultRow(entry: SettingsSearchEntry, settings: KeyboardSettings, on
                     )
                 }
             },
-            colors = transparentListColors(),
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable(onClick = onClick),
+            onClick = onClick,
         )
     }
 }
 
 /**
- * The icon beside a result: the tool's own glyph on a tool page — icon pack
- * and accent colour included, so it matches the Tools list — otherwise the
- * icon of the screen it lives on. The magnifier is the fallback for a route
- * with no icon of its own.
+ * The icon beside a result, on the same accent tile the home list uses: the
+ * tool's own glyph on a tool page — icon pack and accent colour included, so it
+ * matches the Tools list — otherwise the icon of the screen it lives on. The
+ * magnifier is the fallback for a route with no icon of its own.
  */
 @Composable
 private fun ResultIcon(entry: SettingsSearchEntry, settings: KeyboardSettings) {
     val tool = entry.tool
     if (tool != null) {
-        SlotIcon(
-            IconSlots.forTool(tool),
-            contentDescription = null,
-            tint = if (settings.coloredToolIcons) toolAccentColor(tool, settings.toolColorOverrides)
-            else MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        val accent = if (settings.coloredToolIcons) {
+            toolAccentColor(tool, settings.toolColorOverrides)
+        } else {
+            MaterialTheme.colorScheme.primary
+        }
+        WmIconTile(accent) {
+            SlotIcon(
+                IconSlots.forTool(tool),
+                contentDescription = null,
+                modifier = Modifier.size(WmIconTileGlyph),
+            )
+        }
         return
     }
-    Icon(
+    WmIconTile(
         SettingsRouteIcons[entry.route] ?: Icons.Outlined.Search,
-        contentDescription = null,
-        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        accent = routeAccent(entry.route),
     )
 }
 

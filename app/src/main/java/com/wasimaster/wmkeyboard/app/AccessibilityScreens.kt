@@ -115,7 +115,7 @@ internal fun AccessibilitySettings(
                 "Keyboard font",
                 "Browse all fonts, or import your own",
                 KeyboardFonts.displayName(settings.keyFontId, settings.customFontName),
-                onOpenFonts,
+                onClick = onOpenFonts,
             )
         }
     }
@@ -239,7 +239,7 @@ internal fun AccessibilitySettings(
                 "Key size & spacing",
                 "Taller keys and wider gaps are easier to hit accurately",
                 null,
-                onOpenLayout,
+                onClick = onOpenLayout,
             )
         }
         item {
@@ -247,7 +247,7 @@ internal fun AccessibilitySettings(
                 "Haptics & sound",
                 "Confirm each key press by feel or by ear",
                 null,
-                onOpenKeyPress,
+                onClick = onOpenKeyPress,
             )
         }
     }

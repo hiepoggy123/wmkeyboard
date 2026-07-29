@@ -63,7 +63,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -245,12 +244,9 @@ internal fun KeyLayoutsScreen(
         }
         if (customs.isEmpty()) {
             item {
-                ListItem(
-                    colors = transparentListColors(),
-                    headlineContent = { Text("No layouts of your own yet") },
-                    supportingContent = {
-                        Text("Copy one below to start from a grid that already works.")
-                    },
+                WmRow(
+                    title = "No layouts of your own yet",
+                    subtitle = "Copy one below to start from a grid that already works.",
                 )
             }
         }
@@ -274,14 +270,13 @@ internal fun KeyLayoutsScreen(
 
     SettingsGroup {
         item {
-            ListItem(
-                colors = transparentListColors(),
-                modifier = Modifier.clickable {
+            WmRow(
+                title = "Import a layout",
+                subtitle = "Opens a .wmlayout.json file someone shared",
+                leading = { Icon(Icons.Outlined.FileOpen, contentDescription = null) },
+                onClick = {
                     importLauncher.launch(LayoutFile.IMPORT_MIME_TYPES)
                 },
-                leadingContent = { Icon(Icons.Outlined.FileOpen, contentDescription = null) },
-                headlineContent = { Text("Import a layout") },
-                supportingContent = { Text("Opens a .wmlayout.json file someone shared") },
             )
         }
     }
@@ -397,12 +392,10 @@ private fun LayoutRow(
     onDelete: (() -> Unit)?,
     deleteIsReset: Boolean,
 ) {
-    ListItem(
-        colors = transparentListColors(),
-        modifier = Modifier.clickable(onClick = onEdit),
-        headlineContent = { Text(layout.name) },
-        supportingContent = { Text(layoutSummary(layout, enabled)) },
-        trailingContent = {
+    WmRow(
+        title = layout.name,
+        subtitle = layoutSummary(layout, enabled),
+        trailing = {
             Row {
                 IconButton(onClick = onExport) {
                     Icon(Icons.Outlined.Share, contentDescription = "Export ${layout.name}")
@@ -421,6 +414,7 @@ private fun LayoutRow(
                 }
             }
         },
+        onClick = onEdit,
     )
 }
 
@@ -584,15 +578,12 @@ internal fun KeyLayoutEditorScreen(
             )
             SettingsGroup {
                 item {
-                    ListItem(
-                        colors = transparentListColors(),
-                        modifier = Modifier.clickable {
+                    WmRow(
+                        title = "Add an Fn layer",
+                        subtitle = "Starts from Esc, F1–F12, Tab, the arrows and Home/End",
+                        leading = { Icon(Icons.Outlined.Add, contentDescription = null) },
+                        onClick = {
                             edit { it.copy(layers = it.layers + (layer.key to BuiltInLayouts.FN_DEFAULT)) }
-                        },
-                        leadingContent = { Icon(Icons.Outlined.Add, contentDescription = null) },
-                        headlineContent = { Text("Add an Fn layer") },
-                        supportingContent = {
-                            Text("Starts from Esc, F1–F12, Tab, the arrows and Home/End")
                         },
                     )
                 }
@@ -691,9 +682,11 @@ internal fun KeyLayoutEditorScreen(
 
     SettingsGroup {
         item {
-            ListItem(
-                colors = transparentListColors(),
-                modifier = Modifier.clickable {
+            WmRow(
+                title = "Add a row",
+                subtitle = "Appends an empty row to this layer",
+                leading = { Icon(Icons.Outlined.Add, contentDescription = null) },
+                onClick = {
                     editLayer { ls ->
                         ls.copy(
                             rows = ls.rows + listOf(listOf(Key("new"))),
@@ -701,9 +694,6 @@ internal fun KeyLayoutEditorScreen(
                         )
                     }
                 },
-                leadingContent = { Icon(Icons.Outlined.Add, contentDescription = null) },
-                headlineContent = { Text("Add a row") },
-                supportingContent = { Text("Appends an empty row to this layer") },
             )
         }
         item {
@@ -751,16 +741,13 @@ internal fun KeyLayoutEditorScreen(
         }
         if (layout.layer(layer) != null) {
             item {
-                ListItem(
-                    colors = transparentListColors(),
-                    modifier = Modifier.clickable {
+                WmRow(
+                    title = "Reset this layer",
+                    subtitle = "Drops your ${layerTitle(layer).lowercase()} grid and uses the built-in one",
+                    leading = { Icon(Icons.Outlined.Refresh, contentDescription = null) },
+                    onClick = {
                         edit { it.copy(layers = it.layers - layer.key) }
                         selection = null
-                    },
-                    leadingContent = { Icon(Icons.Outlined.Refresh, contentDescription = null) },
-                    headlineContent = { Text("Reset this layer") },
-                    supportingContent = {
-                        Text("Drops your ${layerTitle(layer).lowercase()} grid and uses the built-in one")
                     },
                 )
             }
@@ -772,18 +759,13 @@ internal fun KeyLayoutEditorScreen(
         SettingsGroup("Problems") {
             for (finding in findings) {
                 item {
-                    ListItem(
-                        colors = transparentListColors(),
-                        headlineContent = { Text(finding.message) },
-                        supportingContent = {
-                            Text(
-                                if (finding.severity == LayoutSeverity.BLOCKING) {
-                                    "Has to be fixed before this layout can be switched on."
-                                } else {
-                                    "Worth a look, but the layout still works."
-                                },
-                            )
-                        },
+                    WmRow(
+                        title = finding.message,
+                        subtitle = if (finding.severity == LayoutSeverity.BLOCKING) {
+                                "Has to be fixed before this layout can be switched on."
+                            } else {
+                                "Worth a look, but the layout still works."
+                            },
                     )
                 }
             }
@@ -1600,17 +1582,16 @@ private fun KeyActionPickerDialog(
                         SectionHeaderPublic(option.group)
                         lastGroup = option.group
                     }
-                    ListItem(
-                        colors = transparentListColors(),
-                        modifier = Modifier.clickable { onPick(option.build()) },
-                        leadingContent = {
+                    WmRow(
+                        title = option.title,
+                        subtitle = option.detail,
+                        leading = {
                             RadioButton(
                                 selected = option.matches(current),
                                 onClick = { onPick(option.build()) },
                             )
                         },
-                        headlineContent = { Text(option.title) },
-                        supportingContent = { Text(option.detail) },
+                        onClick = { onPick(option.build()) },
                     )
                 }
             }
@@ -1677,7 +1658,9 @@ internal fun KeyLayoutJsonScreen(
         SettingsGroup("Applied, with changes") {
             for (line in repairs) {
                 item {
-                    ListItem(colors = transparentListColors(), headlineContent = { Text(line) })
+                    WmRow(
+                        title = line,
+                    )
                 }
             }
         }

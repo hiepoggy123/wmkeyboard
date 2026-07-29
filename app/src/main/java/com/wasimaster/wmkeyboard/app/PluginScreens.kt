@@ -3,15 +3,12 @@ package com.wasimaster.wmkeyboard.app
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -23,7 +20,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.wasimaster.wmkeyboard.core.plugins.PluginFile
@@ -70,22 +66,17 @@ internal fun PluginsScreen(onNavigate: (String) -> Unit) {
             // Highlightable by name: an addon page that refused to install a
             // plugin sends the user straight to this switch.
             HighlightableRow("Allow plugins") {
-                ListItem(
-                    headlineContent = { Text("Allow plugins") },
-                    supportingContent = {
-                        Text(
-                            "Plugins are small tools written by other people that run inside " +
-                                "a sandbox on this keyboard. Separate from the Plugins tool on " +
-                                "the toolbar, which only decides where the panel appears.",
-                        )
-                    },
-                    trailingContent = {
+                WmRow(
+                    title = "Allow plugins",
+                    subtitle = "Plugins are small tools written by other people that run inside " +
+                        "a sandbox on this keyboard. Separate from the Plugins tool on " +
+                        "the toolbar, which only decides where the panel appears.",
+                    trailing = {
                         Switch(
                             checked = enabled,
                             onCheckedChange = { store.setSubsystemEnabled(it) },
                         )
                     },
-                    colors = transparentListColors(),
                 )
             }
         }
@@ -114,26 +105,19 @@ internal fun PluginsScreen(onNavigate: (String) -> Unit) {
             } else {
                 for (plugin in plugins) {
                     item {
-                        ListItem(
-                            headlineContent = { Text(plugin.name) },
-                            supportingContent = {
-                                Text(
-                                    buildString {
-                                        append("Version ${plugin.version}")
-                                        if (plugin.author.isNotBlank()) append(" · ${plugin.author}")
-                                        if (!plugin.enabled) append(" · turned off")
-                                    },
-                                )
+                        WmRow(
+                            title = plugin.name,
+                            subtitle = buildString {
+                                append("Version ${plugin.version}")
+                                if (plugin.author.isNotBlank()) append(" · ${plugin.author}")
+                                if (!plugin.enabled) append(" · turned off")
                             },
-                            trailingContent = {
+                            trailing = {
                                 Icon(Icons.AutoMirrored.Outlined.ArrowForward, contentDescription = null)
                             },
-                            colors = transparentListColors(),
                             // The arrow promises a tap opens it. It used to sit
                             // above a separate "Manage" button and do nothing.
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { onNavigate("plugin/${plugin.id}") },
+                            onClick = { onNavigate("plugin/${plugin.id}") },
                         )
                     }
                 }
@@ -142,13 +126,10 @@ internal fun PluginsScreen(onNavigate: (String) -> Unit) {
 
         SettingsGroup("Add") {
             item {
-                ListItem(
-                    headlineContent = { Text("Install from a file") },
-                    supportingContent = { Text("Choose a .wmplugin file") },
-                    colors = transparentListColors(),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { picker.launch(PluginFile.IMPORT_MIME_TYPES) },
+                WmRow(
+                    title = "Install from a file",
+                    subtitle = "Choose a .wmplugin file",
+                    onClick = { picker.launch(PluginFile.IMPORT_MIME_TYPES) },
                 )
             }
             item {
@@ -185,9 +166,9 @@ internal fun PluginsScreen(onNavigate: (String) -> Unit) {
 
 @Composable
 private fun PluginFact(text: String, allowed: Boolean) {
-    ListItem(
-        headlineContent = { Text(text) },
-        leadingContent = {
+    WmRow(
+        title = text,
+        leading = {
             Text(
                 if (allowed) "✓" else "✕",
                 color = if (allowed) {
@@ -197,7 +178,6 @@ private fun PluginFact(text: String, allowed: Boolean) {
                 },
             )
         },
-        colors = transparentListColors(),
     )
 }
 
@@ -227,39 +207,29 @@ internal fun PluginDetailScreen(pluginId: String, onBack: () -> Unit) {
     // with an infinite maximum height, which Compose refuses outright.
     SettingsGroup {
         item {
-            ListItem(
-                headlineContent = { Text(plugin.name) },
-                supportingContent = {
-                    Text(
-                        buildString {
-                            append(plugin.description.ifBlank { "No description." })
-                            append("\n\nVersion ${plugin.version}")
-                            if (plugin.author.isNotBlank()) append(" by ${plugin.author}")
-                        },
-                    )
+            WmRow(
+                title = plugin.name,
+                subtitle = buildString {
+                    append(plugin.description.ifBlank { "No description." })
+                    append("\n\nVersion ${plugin.version}")
+                    if (plugin.author.isNotBlank()) append(" by ${plugin.author}")
                 },
-                colors = transparentListColors(),
             )
         }
         item {
-            ListItem(
-                headlineContent = { Text("Enabled") },
-                supportingContent = {
-                    Text(
-                        if (plugin.abandonedCount >= PluginStore.MAX_ABANDONS) {
-                            "Turned off because it stopped responding twice."
-                        } else {
-                            "Show this plugin in the Plugins panel"
-                        },
-                    )
+            WmRow(
+                title = "Enabled",
+                subtitle = if (plugin.abandonedCount >= PluginStore.MAX_ABANDONS) {
+                    "Turned off because it stopped responding twice."
+                } else {
+                    "Show this plugin in the Plugins panel"
                 },
-                trailingContent = {
+                trailing = {
                     Switch(
                         checked = plugin.enabled,
                         onCheckedChange = { store.setEnabled(pluginId, it) },
                     )
                 },
-                colors = transparentListColors(),
             )
         }
     }
@@ -267,18 +237,12 @@ internal fun PluginDetailScreen(pluginId: String, onBack: () -> Unit) {
     SettingsGroup("What it can do") {
         if (plugin.grantedPermissions.isEmpty()) {
             item {
-                ListItem(
-                    headlineContent = { Text("Nothing outside its own panel") },
-                    colors = transparentListColors(),
-                )
+                WmRow(title = "Nothing outside its own panel")
             }
         } else {
             for (permission in plugin.grantedPermissions) {
                 item {
-                    ListItem(
-                        headlineContent = { Text(permission.label) },
-                        colors = transparentListColors(),
-                    )
+                    WmRow(title = permission.label)
                 }
             }
         }
@@ -292,10 +256,9 @@ internal fun PluginDetailScreen(pluginId: String, onBack: () -> Unit) {
 
     SettingsGroup("Stored data") {
         item {
-            ListItem(
-                headlineContent = { Text("Using ${usedBytes / 1024} KB of ${PluginStorage.MAX_TOTAL_BYTES / 1024} KB") },
-                supportingContent = { Text("Saved on this device only") },
-                colors = transparentListColors(),
+            WmRow(
+                title = "Using ${usedBytes / 1024} KB of ${PluginStorage.MAX_TOTAL_BYTES / 1024} KB",
+                subtitle = "Saved on this device only",
             )
         }
         item {
@@ -312,9 +275,9 @@ internal fun PluginDetailScreen(pluginId: String, onBack: () -> Unit) {
             }
             for (line in log.takeLast(LOG_LINES)) {
                 item {
-                    ListItem(
-                        headlineContent = { Text(line, style = MaterialTheme.typography.bodySmall) },
-                        colors = transparentListColors(),
+                    WmRow(
+                        title = line,
+                        titleStyle = MaterialTheme.typography.bodySmall,
                     )
                 }
             }

@@ -30,7 +30,6 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -155,10 +154,9 @@ internal fun StickerPacksScreen(onNavigate: (String) -> Unit) {
     SettingsGroup("Your packs") {
         if (packs.isEmpty()) {
             item {
-                ListItem(
-                    colors = transparentListColors(),
-                    headlineContent = { Text("No sticker packs yet") },
-                    supportingContent = { Text("Make one below, or import a pack someone shared.") },
+                WmRow(
+                    title = "No sticker packs yet",
+                    subtitle = "Make one below, or import a pack someone shared.",
                 )
             }
         }
@@ -180,23 +178,21 @@ internal fun StickerPacksScreen(onNavigate: (String) -> Unit) {
 
     SettingsGroup {
         item {
-            ListItem(
-                colors = transparentListColors(),
-                modifier = Modifier.clickable { newPackName = "" },
-                leadingContent = { Icon(Icons.Outlined.Add, contentDescription = null) },
-                headlineContent = { Text("New pack") },
-                supportingContent = { Text("Then add stickers from your photos") },
+            WmRow(
+                title = "New pack",
+                subtitle = "Then add stickers from your photos",
+                icon = Icons.Outlined.Add,
+                accent = routeAccent("sticker_packs"),
+                onClick = { newPackName = "" },
             )
         }
         item {
-            ListItem(
-                colors = transparentListColors(),
-                modifier = Modifier.clickable {
-                    importLauncher.launch(StickerPackFile.IMPORT_MIME_TYPES)
-                },
-                leadingContent = { Icon(Icons.Outlined.FileOpen, contentDescription = null) },
-                headlineContent = { Text("Import a pack") },
-                supportingContent = { Text("Opens a .wmstickers file someone shared") },
+            WmRow(
+                title = "Import a pack",
+                subtitle = "Opens a .wmstickers file someone shared",
+                icon = Icons.Outlined.FileOpen,
+                accent = routeAccent("sticker_packs"),
+                onClick = { importLauncher.launch(StickerPackFile.IMPORT_MIME_TYPES) },
             )
         }
     }
@@ -263,11 +259,10 @@ private fun StickerPackRow(
     onDelete: () -> Unit,
 ) {
     val loader = rememberMediaImageLoader()
-    ListItem(
-        colors = transparentListColors(),
-        modifier = Modifier.clickable(onClick = onOpen),
-        headlineContent = { Text(pack.name) },
-        supportingContent = {
+    WmRow(
+        title = pack.name,
+        onClick = onOpen,
+        supporting = {
             Column {
                 Text(
                     if (pack.stickers.isEmpty()) "Empty"
@@ -294,7 +289,7 @@ private fun StickerPackRow(
                 }
             }
         },
-        trailingContent = {
+        trailing = {
             Row {
                 IconButton(onClick = onExport) {
                     Icon(Icons.Outlined.Share, contentDescription = "Export ${pack.name}")
@@ -375,29 +370,26 @@ internal fun StickerPackScreen(packId: String) {
 
     SettingsGroup("Pack") {
         item {
-            ListItem(
-                colors = transparentListColors(),
-                modifier = Modifier.clickable { renaming = pack.name },
-                headlineContent = { Text(pack.name) },
-                supportingContent = { Text("Tap to rename") },
+            WmRow(
+                title = pack.name,
+                subtitle = "Tap to rename",
+                onClick = { renaming = pack.name },
             )
         }
     }
 
     SettingsGroup {
         item {
-            ListItem(
-                colors = transparentListColors(),
-                modifier = Modifier.clickable(enabled = !busy) {
+            WmRow(
+                title = if (busy) "Adding…" else "Add stickers",
+                subtitle = "${pack.stickers.size} of " +
+                    "${StickerPackStore.MAX_STICKERS_PER_PACK} used",
+                icon = Icons.Outlined.Add,
+                accent = routeAccent("sticker_packs"),
+                enabled = !busy,
+                onClick = {
                     pickLauncher.launch(
                         PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
-                    )
-                },
-                leadingContent = { Icon(Icons.Outlined.Add, contentDescription = null) },
-                headlineContent = { Text(if (busy) "Adding…" else "Add stickers") },
-                supportingContent = {
-                    Text(
-                        "${pack.stickers.size} of ${StickerPackStore.MAX_STICKERS_PER_PACK} used",
                     )
                 },
             )
@@ -407,12 +399,10 @@ internal fun StickerPackScreen(packId: String) {
     if (pack.stickers.isEmpty()) {
         SettingsGroup {
             item {
-                ListItem(
-                    colors = transparentListColors(),
-                    headlineContent = { Text("No stickers in this pack") },
-                    supportingContent = {
-                        Text("Add some from your photos, or long-press a Klipy or GIPHY sticker in the keyboard.")
-                    },
+                WmRow(
+                    title = "No stickers in this pack",
+                    subtitle = "Add some from your photos, or long-press a Klipy or " +
+                        "GIPHY sticker in the keyboard.",
                 )
             }
         }

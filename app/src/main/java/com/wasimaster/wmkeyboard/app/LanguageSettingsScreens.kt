@@ -17,7 +17,6 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -251,7 +250,11 @@ internal fun LanguageDetailScreen(
             item { WordlistRow(entry) }
         }
         item {
-            NavRow("Custom dictionaries", "Import your own word lists") {
+            NavRow(
+                "Custom dictionaries",
+                "Import your own word lists",
+                route = "customdictionaries",
+            ) {
                 onNavigate("customdictionaries")
             }
         }
@@ -279,7 +282,11 @@ internal fun LanguageDetailScreen(
             item { EmojiDictRow(emojiDict) }
         }
         item {
-            NavRow("Emoji keywords", "Downloads for every language, and your own imports") {
+            NavRow(
+                "Emoji keywords",
+                "Downloads for every language, and your own imports",
+                route = "emojikeywords",
+            ) {
                 onNavigate("emojikeywords")
             }
         }
@@ -333,10 +340,9 @@ internal fun EmojiDictRow(entry: EmojiDictEntry) {
     val status = states[entry.languageId]
         ?: EmojiDictDownloadManager.DownloadStatus.NotDownloaded
 
-    ListItem(
-        colors = transparentListColors(),
-        headlineContent = { Text("Emoji keywords") },
-        supportingContent = {
+    WmRow(
+        title = "Emoji keywords",
+        supporting = {
             Text(
                 when (status) {
                     is EmojiDictDownloadManager.DownloadStatus.Downloaded ->
@@ -357,7 +363,7 @@ internal fun EmojiDictRow(entry: EmojiDictEntry) {
                 },
             )
         },
-        trailingContent = {
+        trailing = {
             when (status) {
                 is EmojiDictDownloadManager.DownloadStatus.Downloaded ->
                     IconButton(
@@ -419,12 +425,10 @@ private fun WordlistRow(entry: DictionaryEntry) {
     var sizeMenu by remember { mutableStateOf(false) }
     val effectiveWords = minOf(size.wordCap, entry.totalWordCount)
 
-    ListItem(
-        colors = transparentListColors(),
-        headlineContent = {
-            Text(entry.variant?.let { "Downloadable dictionary ($it)" } ?: "Downloadable dictionary")
-        },
-        supportingContent = {
+    WmRow(
+        title = entry.variant?.let { "Downloadable dictionary ($it)" }
+            ?: "Downloadable dictionary",
+        supporting = {
             Text(
                 when (status) {
                     is WordlistDownloadManager.DownloadStatus.Downloaded ->
@@ -442,7 +446,7 @@ private fun WordlistRow(entry: DictionaryEntry) {
                 },
             )
         },
-        trailingContent = {
+        trailing = {
             when (status) {
                 is WordlistDownloadManager.DownloadStatus.Downloaded ->
                     IconButton(onClick = { WordlistDownloadManager.delete(filesDir, entry) }) {
@@ -555,10 +559,10 @@ private fun CjkDictPackManager(
         for (pack in CjkDictCatalog.forLang(langId)) {
             item {
                 val status = states[pack.id] ?: CjkDictDownloadManager.DownloadStatus.NotDownloaded
-                ListItem(
-                    headlineContent = { Text(pack.displayName) },
-                    supportingContent = { Text(packStatusLabel(pack, status)) },
-                    trailingContent = {
+                WmRow(
+                    title = pack.displayName,
+                    subtitle = packStatusLabel(pack, status),
+                    trailing = {
                         when (status) {
                             is CjkDictDownloadManager.DownloadStatus.Downloading ->
                                 IconButton(onClick = { CjkDictDownloadManager.cancel() }) {
@@ -586,7 +590,6 @@ private fun CjkDictPackManager(
                             }
                         }
                     },
-                    colors = transparentListColors(),
                 )
             }
         }
@@ -673,23 +676,17 @@ private fun CjkDictPackManager(
                     // disabled rather than silently doing nothing.
                     val ready = scheme == DoublePinyinScheme.OFF || DoublePinyin.tableFor(scheme) != null
                     val select: () -> Unit = { scope.launch { repository.setPinyinDoublePinyin(scheme) } }
-                    ListItem(
-                        headlineContent = {
-                            Text(if (ready) scheme.displayName else "${scheme.displayName} — coming soon")
-                        },
-                        trailingContent = {
+                    WmRow(
+                        title = if (ready) scheme.displayName
+                        else "${scheme.displayName} — coming soon",
+                        trailing = {
                             RadioButton(
                                 selected = settings.cjk.pinyinDoublePinyin == scheme,
                                 enabled = ready,
                                 onClick = select,
                             )
                         },
-                        colors = transparentListColors(),
-                        modifier = if (ready) {
-                            Modifier.fillMaxWidth().clickable(onClick = select)
-                        } else {
-                            Modifier.fillMaxWidth()
-                        },
+                        onClick = if (ready) select else null,
                     )
                 }
             }

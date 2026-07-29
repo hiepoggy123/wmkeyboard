@@ -26,7 +26,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
@@ -214,29 +213,26 @@ internal fun IconsScreen(repository: SettingsRepository, settings: KeyboardSetti
 
     SettingsGroup {
         item {
-            ListItem(
-                colors = transparentListColors(),
-                modifier = Modifier.clickable {
-                    importLauncher.launch(IconPackFile.IMPORT_MIME_TYPES)
-                },
-                leadingContent = { Icon(Icons.Outlined.FileOpen, contentDescription = null) },
-                headlineContent = { Text("Import an icon pack") },
-                supportingContent = { Text("Opens a .wmicons file someone shared") },
+            WmRow(
+                title = "Import an icon pack",
+                subtitle = "Opens a .wmicons file someone shared",
+                icon = Icons.Outlined.FileOpen,
+                accent = routeAccent("icons"),
+                onClick = { importLauncher.launch(IconPackFile.IMPORT_MIME_TYPES) },
             )
         }
         item {
-            ListItem(
-                colors = transparentListColors(),
-                modifier = Modifier.clickable {
+            WmRow(
+                title = "Reset all icons",
+                subtitle = "Turns the pack off and drops every single-icon change. " +
+                    "Installed packs are kept.",
+                icon = Icons.Outlined.Refresh,
+                accent = routeAccent("icons"),
+                onClick = {
                     scope.launch {
                         repository.clearIconOverrides()
                         message = "Every icon is back to the built-in one."
                     }
-                },
-                leadingContent = { Icon(Icons.Outlined.Refresh, contentDescription = null) },
-                headlineContent = { Text("Reset all icons") },
-                supportingContent = {
-                    Text("Turns the pack off and drops every single-icon change. Installed packs are kept.")
                 },
             )
         }
@@ -246,16 +242,21 @@ internal fun IconsScreen(repository: SettingsRepository, settings: KeyboardSetti
         SettingsGroup(group.title) {
             for (slot in IconSlots.inGroup(group)) {
                 item {
-                    ListItem(
-                        colors = transparentListColors(),
-                        modifier = Modifier.clickable { picking = slot },
-                        leadingContent = {
-                            SlotIcon(slot.id, contentDescription = null)
+                    WmRow(
+                        title = slotLabel(slot),
+                        leading = {
+                            WmIconTile(routeAccent("icons")) {
+                                SlotIcon(
+                                    slot.id,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(WmIconTileGlyph),
+                                )
+                            }
                         },
-                        headlineContent = { Text(slotLabel(slot)) },
-                        supportingContent = {
+                        supporting = {
                             CaptionText(describeSource(settings, slot, store))
                         },
+                        onClick = { picking = slot },
                     )
                 }
             }
@@ -371,19 +372,18 @@ private fun PackRow(
     onClick: () -> Unit,
     trailing: (@Composable () -> Unit)? = null,
 ) {
-    ListItem(
-        colors = transparentListColors(),
-        modifier = Modifier.clickable(onClick = onClick),
-        leadingContent = {
+    WmRow(
+        title = name,
+        subtitle = supporting,
+        leading = {
             if (selected) {
                 Icon(Icons.Outlined.Check, contentDescription = "Active")
             } else {
                 Spacer(modifier = Modifier.width(24.dp))
             }
         },
-        headlineContent = { Text(name) },
-        supportingContent = { Text(supporting) },
-        trailingContent = trailing,
+        trailing = trailing,
+        onClick = onClick,
     )
 }
 
