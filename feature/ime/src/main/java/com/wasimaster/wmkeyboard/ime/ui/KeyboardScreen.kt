@@ -1282,7 +1282,14 @@ private fun TopBar(
         state.emojiSuggestions.isNotEmpty() || state.smart != null || recentClipChip ||
         // A morse sequence being tapped out counts as strip content: the
         // toolbar taking the row would hide the one live view of the chord.
-        state.morsePending.isNotEmpty()
+        state.morsePending.isNotEmpty() ||
+        // Inline chips count too, in both lanes. Neither arrives while the user
+        // is typing — a login field has no word candidates and a smart reply
+        // comes before you have written anything — so without this the toolbar
+        // would be the resting view exactly when the chips land, and they would
+        // only ever be seen by someone who had turned the suggestion bar on
+        // permanently.
+        state.autofillChips.isNotEmpty() || state.smartReplyChips.isNotEmpty()
     // Suggestions-first mode keeps the strip as the resting state (an empty
     // strip plus the chevron into the toolbar); the override then survives
     // idle gaps and instead resets when fresh candidates arrive.
@@ -1647,22 +1654,14 @@ private fun TopBar(
             // Autofill chips take the whole strip while they are up: they
             // answer the field directly ("use this saved login"), which beats
             // any word the dictionary could offer, and they are transient —
-            // dismissed, or gone as soon as the field is left.
-            if (state.inlineSuggestions.isNotEmpty()) {
-                Row(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxHeight()
-                        .horizontalScroll(rememberScrollState()),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    for (chip in state.inlineSuggestions) {
-                        AndroidView(
-                            factory = { chip },
-                            modifier = Modifier.padding(horizontal = 2.dp),
-                        )
-                    }
-                }
+            // dismissed, or gone as soon as the field is left. Smart replies
+            // off the same API do *not* get this treatment; they are handled
+            // further down, beside the words.
+            if (state.autofillChips.isNotEmpty()) {
+                InlineChipRow(
+                    chips = state.autofillChips,
+                    modifier = Modifier.weight(1f).fillMaxHeight(),
+                )
                 Box(
                     modifier = Modifier
                         .fillMaxHeight()
@@ -1752,6 +1751,10 @@ private fun TopBar(
                 )
             }
             if (smart != null && !keywordChip) return@Row
+            // Platform smart replies. They share the row rather than claiming
+            // it: a proposed reply is a suggestion like any other, and the user
+            // may well be about to type something else entirely.
+            val smartReplies = state.smartReplyChips
             // Recently-copied paste chip (Gboard style): takes the idle strip
             // when there are no candidates, one tap from pasting the last copy.
             // Word candidates always win the row, so it never hides a suggestion.
@@ -1770,6 +1773,10 @@ private fun TopBar(
             } else {
                 null
             }
+            // Replies crowd the row the same way word candidates do, so the
+            // paste chip gives way to its narrow form when both are present
+            // rather than stretching across a strip it now shares.
+            val clipChipShares = suggestionsShowing || smartReplies.isNotEmpty()
             if (recentClipChip && smart == null) {
                 ClipboardSuggestionChip(
                     clip = recentClip,
@@ -1779,14 +1786,39 @@ private fun TopBar(
                         else onClipboardSuggestion(recentClip)
                     },
                     onDismiss = onClipboardSuggestionDismiss,
-                    stretch = !suggestionsShowing,
-                    modifier = if (suggestionsShowing) {
+                    stretch = !clipChipShares,
+                    modifier = if (clipChipShares) {
                         Modifier.widthIn(max = 160.dp).padding(horizontal = 4.dp)
                     } else {
                         Modifier.weight(1f).padding(horizontal = 4.dp)
                     },
                 )
-                if (!suggestionsShowing) return@Row
+                if (!clipChipShares) return@Row
+            }
+            // Nothing typed yet: the replies are the strip, so they take the
+            // rest of the row and carry the dismiss ✕ the way the autofill lane
+            // does. This is the case they exist for — the message is on screen,
+            // the field is empty, and the reply is the whole answer.
+            if (smartReplies.isNotEmpty() && !suggestionsShowing) {
+                InlineChipRow(
+                    chips = smartReplies,
+                    modifier = Modifier.weight(1f).fillMaxHeight(),
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .clickable { onDismissInlineSuggestions() }
+                        .padding(horizontal = 8.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        Icons.Outlined.Close,
+                        contentDescription = "Dismiss smart replies",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(18.dp),
+                    )
+                }
+                return@Row
             }
             // Latin gets three wide chips; a conversion IME gets a scrolling
             // row. Three is the right number when the engine is choosing for you
@@ -1840,6 +1872,20 @@ private fun TopBar(
                     )
                 }
             }
+            // Replies ride the tail once there are words to share with, capped
+            // in width so the candidates keep their three slots — the weighted
+            // word row is measured after unweighted children, so an unbounded
+            // scroll row here would quietly eat the whole strip.
+            if (smartReplies.isNotEmpty()) {
+                VerticalDivider(
+                    modifier = Modifier.height(20.dp),
+                    color = MaterialTheme.colorScheme.outlineVariant,
+                )
+                InlineChipRow(
+                    chips = smartReplies,
+                    modifier = Modifier.widthIn(max = 180.dp).fillMaxHeight(),
+                )
+            }
             // Quick-punctuation chips ride the tail (the service leaves the list
             // empty whenever an emoji prediction claimed it, so the two never
             // fight for the row). A leading divider sets them off from the words.
@@ -1869,6 +1915,40 @@ private fun TopBar(
             }
         }
     }
+    }
+}
+
+/**
+ * A scrolling row of inline-suggestion chips — the views another process
+ * inflated for us. Shared by both lanes: password-manager chips, which take
+ * the whole strip, and platform smart replies, which take whatever the caller
+ * gives them.
+ *
+ * The views arrive fully built, so this only positions them; anything that
+ * looks like styling would be a guess at what the sending app drew.
+ */
+@Composable
+private fun InlineChipRow(
+    chips: List<android.view.View>,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier.horizontalScroll(rememberScrollState()),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        for (chip in chips) {
+            AndroidView(
+                // The same chip view can be re-hosted — a reply moves between
+                // the idle row and the tail row as candidates come and go — and
+                // a view that still remembers its old container throws on the
+                // way in, so detach it first.
+                factory = {
+                    (chip.parent as? android.view.ViewGroup)?.removeView(chip)
+                    chip
+                },
+                modifier = Modifier.padding(horizontal = 2.dp),
+            )
+        }
     }
 }
 

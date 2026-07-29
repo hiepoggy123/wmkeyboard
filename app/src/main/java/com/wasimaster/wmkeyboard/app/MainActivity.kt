@@ -1944,6 +1944,22 @@ private fun TypingSettings(
                         "system autofill service.",
                 ) { scope.launch { repository.setInlineAutofill(it) } }
             }
+            item {
+                ToggleSetting(
+                    "Smart replies",
+                    "Let the system offer replies to the message you're answering",
+                    settings.suggestionStrip.systemSmartReplies,
+                    info = "Android System Intelligence can read the conversation on screen " +
+                        "and propose short answers (\"On my way!\"), which appear as chips " +
+                        "beside the word suggestions — up to three at a time, drawn by the " +
+                        "system rather than the keyboard. They arrive over the same channel " +
+                        "as password manager chips but are counted and switched separately, " +
+                        "so you can have saved logins in the strip without the system reading " +
+                        "your messages, or the other way round. Turned off automatically in " +
+                        "incognito mode. Requires Android 11 or newer, and only some apps " +
+                        "offer replies at all.",
+                ) { scope.launch { repository.setSystemSmartReplies(it) } }
+            }
         }
         item {
             ToggleSetting(

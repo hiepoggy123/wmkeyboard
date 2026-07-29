@@ -741,8 +741,17 @@ data class KeyboardUiState(
      * Chips from the system autofill service, already inflated by *its*
      * process — the keyboard only hosts them. Views rather than data because
      * that is the whole point: their contents are never exposed to the IME.
+     * These take the whole strip while they are up.
      */
-    val inlineSuggestions: List<android.view.View> = emptyList(),
+    val autofillChips: List<android.view.View> = emptyList(),
+    /**
+     * Smart replies and other platform-sourced chips off the same inline
+     * suggestions API, inflated by Android System Intelligence rather than an
+     * autofill service. Unlike [autofillChips] these share the row with word
+     * candidates — a proposed reply is a suggestion, not an answer to the
+     * field — so they ride the tail of the strip.
+     */
+    val smartReplyChips: List<android.view.View> = emptyList(),
     /** Best gesture-typing candidate mid-swipe, shown floating above the finger. */
     val glideWord: String? = null,
     val composingPreview: String = "",

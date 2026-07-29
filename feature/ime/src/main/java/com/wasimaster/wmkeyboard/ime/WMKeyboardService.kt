@@ -2146,10 +2146,28 @@ open class WMKeyboardService : InputMethodService() {
             (settings.autoIncognito && currentInputEditorInfo.requestsNoPersonalizedLearning())
     }
 
+    /**
+     * How many chips each lane may show right now: credentials from the
+     * autofill service first, platform smart replies second. Zero means the
+     * lane is switched off, and (0, 0) means nothing may be requested at all.
+     *
+     * Incognito closes both lanes. The autofill one because credentials for a
+     * private session should not be offered; the reply one because a smart
+     * reply is the system reading the conversation on screen, which is the
+     * same thing incognito exists to stop everywhere else.
+     */
+    private fun inlineChipBudgets(): Pair<Int, Int> {
+        val settings = _uiState.value.settings
+        if (autofillBlockedByIncognito()) return 0 to 0
+        val autofill = if (settings.inlineAutofill) InlineAutofill.MAX_AUTOFILL_CHIPS else 0
+        val platform =
+            if (settings.suggestionStrip.systemSmartReplies) InlineAutofill.MAX_PLATFORM_CHIPS else 0
+        return autofill to platform
+    }
+
     override fun onCreateInlineSuggestionsRequest(uiExtras: Bundle): InlineSuggestionsRequest? {
         if (!InlineAutofill.supported) return null
-        val settings = _uiState.value.settings
-        if (!settings.inlineAutofill || autofillBlockedByIncognito()) return null
+        val (autofillBudget, platformBudget) = inlineChipBudgets()
         val density = resources.displayMetrics
         val stripHeightPx = (INLINE_CHIP_HEIGHT_DP * density.density).toInt()
         return runCatching {
@@ -2157,34 +2175,48 @@ open class WMKeyboardService : InputMethodService() {
                 uiExtras = uiExtras,
                 stripHeightPx = stripHeightPx,
                 maxWidthPx = density.widthPixels,
+                autofillBudget = autofillBudget,
+                platformBudget = platformBudget,
             )
         }.getOrNull()
     }
 
     /**
-     * The manager's answer. Returning true claims the suggestions so the
+     * The answer, mixing the manager's credential chips with whatever the
+     * platform decided to send. Returning true claims the suggestions so the
      * platform does not fall back to its own dropdown over the keyboard.
      */
     override fun onInlineSuggestionsResponse(response: InlineSuggestionsResponse): Boolean {
         if (!InlineAutofill.supported) return false
-        val settings = _uiState.value.settings
-        if (!settings.inlineAutofill || autofillBlockedByIncognito()) return false
+        val (autofillBudget, platformBudget) = inlineChipBudgets()
+        if (autofillBudget + platformBudget == 0) return false
+        val lanes = InlineAutofill.split(
+            suggestions = response.inlineSuggestions,
+            autofillBudget = autofillBudget,
+            platformBudget = platformBudget,
+        )
         val density = resources.displayMetrics
         InlineAutofill.inflateAll(
             context = this,
-            suggestions = response.inlineSuggestions,
+            lanes = lanes,
             stripHeightPx = (INLINE_CHIP_HEIGHT_DP * density.density).toInt(),
             maxWidthPx = density.widthPixels,
-        ) { views ->
-            _uiState.update { it.copy(inlineSuggestions = views) }
+        ) { chips ->
+            _uiState.update {
+                it.copy(autofillChips = chips.autofill, smartReplyChips = chips.platform)
+            }
         }
         return true
     }
 
-    /** Dismiss chip on the strip: drop them until the next autofill response. */
+    /**
+     * Dismiss chip on the strip: drop them until the next response. Both lanes
+     * go, since the ✕ says "stop offering me things about this field" and the
+     * two lanes are answering the same one.
+     */
     fun onDismissInlineSuggestions() {
         vibrate()
-        _uiState.update { it.copy(inlineSuggestions = emptyList()) }
+        _uiState.update { it.copy(autofillChips = emptyList(), smartReplyChips = emptyList()) }
     }
 
     /** The hide-keyboard tool and the toolbar swipe-down: close the keyboard. */
@@ -2220,10 +2252,13 @@ open class WMKeyboardService : InputMethodService() {
         // The keyboard is leaving the screen, so any plugin drawn on it stops
         // here too -- along with the routing that was sending keys to its box.
         stopPlugins()
-        // Credentials for the field just left must not linger over the next
-        // one, which may belong to another app entirely.
-        if (_uiState.value.inlineSuggestions.isNotEmpty()) {
-            _uiState.update { it.copy(inlineSuggestions = emptyList()) }
+        // Credentials — and replies to the conversation — for the field just
+        // left must not linger over the next one, which may belong to another
+        // app entirely.
+        if (_uiState.value.autofillChips.isNotEmpty() ||
+            _uiState.value.smartReplyChips.isNotEmpty()
+        ) {
+            _uiState.update { it.copy(autofillChips = emptyList(), smartReplyChips = emptyList()) }
         }
         // The keyboard is going away mid-dictation: release the mic (the
         // privacy indicator must never outlive the keyboard) and keep the

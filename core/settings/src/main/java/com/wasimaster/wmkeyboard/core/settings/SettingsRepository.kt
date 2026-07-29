@@ -834,7 +834,9 @@ data class KeyboardSettings(
     /**
      * Show password-manager entries from the system autofill service in the
      * suggestion strip (Android 11+). The chips are rendered by the manager
-     * itself; the keyboard only gives them the space.
+     * itself; the keyboard only gives them the space. Chips the *platform*
+     * sends down the same API (smart replies) are a separate lane with its own
+     * toggle, [SuggestionStripSettings.systemSmartReplies].
      */
     val inlineAutofill: Boolean = true,
     val gestureTyping: Boolean = true,
@@ -1843,6 +1845,18 @@ data class SuggestionStripSettings(
      * UI fills in. See [com.wasimaster.wmkeyboard.core.prediction.SystemUserDictionary].
      */
     val expandUserDictShortcuts: Boolean = false,
+    /**
+     * Show the system's smart replies ("On my way!") beside the word
+     * candidates. They arrive down the same inline-suggestions API as
+     * password-manager chips but from Android System Intelligence rather than
+     * an autofill service, so they get their own toggle: wanting saved logins
+     * in the strip says nothing about wanting the system to read the
+     * conversation and propose answers to it. Android 11+; suppressed in
+     * incognito along with the autofill lane. Lives here rather than beside
+     * [KeyboardSettings.inlineAutofill] only to stay under that class's JVM
+     * field ceiling.
+     */
+    val systemSmartReplies: Boolean = true,
 )
 
 /**
@@ -2109,6 +2123,7 @@ class SettingsRepository(private val context: Context) {
         private val CURRENCY_KEYS = stringPreferencesKey("currency_keys")
         private val AUTO_SPACE_AFTER_SUGGESTION = booleanPreferencesKey("auto_space_after_suggestion")
         private val EXPAND_USER_DICT_SHORTCUTS = booleanPreferencesKey("expand_user_dict_shortcuts")
+        private val SYSTEM_SMART_REPLIES = booleanPreferencesKey("system_smart_replies")
         private val SMART_HIT_DETECTION = booleanPreferencesKey("smart_hit_detection")
         private val SPACEBAR_DISPLAY = stringPreferencesKey("spacebar_display")
         private val NUMERAL_SYSTEM_BY_LANG = stringPreferencesKey("numeral_system_by_lang")
@@ -2698,6 +2713,8 @@ class SettingsRepository(private val context: Context) {
                     ?: defaults.suggestionStrip.autoSpaceAfterSuggestion,
                 expandUserDictShortcuts = p[EXPAND_USER_DICT_SHORTCUTS]
                     ?: defaults.suggestionStrip.expandUserDictShortcuts,
+                systemSmartReplies = p[SYSTEM_SMART_REPLIES]
+                    ?: defaults.suggestionStrip.systemSmartReplies,
             ),
             longPressDelayMs = p[LONG_PRESS_DELAY] ?: defaults.longPressDelayMs,
             keyRepeatIntervalMs = p[KEY_REPEAT_INTERVAL] ?: defaults.keyRepeatIntervalMs,
@@ -4392,6 +4409,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setExpandUserDictShortcuts(value: Boolean) =
         editPrefs { it[EXPAND_USER_DICT_SHORTCUTS] = value }
+
+    suspend fun setSystemSmartReplies(value: Boolean) =
+        editPrefs { it[SYSTEM_SMART_REPLIES] = value }
 
     suspend fun setNumberRowInSymbols(value: Boolean) =
         editPrefs { it[NUMBER_ROW_IN_SYMBOLS] = value }

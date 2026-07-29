@@ -81,7 +81,7 @@ Don't confuse this with the standalone **Numpad** tool in the toolbox, which is 
 - **Pasting into a password field can wipe the clip afterward.** See [Clipboard: passwords are handled deliberately](/tools/clipboard/#passwords-are-handled-deliberately) for the full paste-time purge behavior and its setting.
 
 :::note[Password manager suggestions are a separate feature]
-<SettingsPath path="Typing / Suggestions / Password manager suggestions" /> shows your system autofill service's saved-login chips inline in the suggestion strip. It isn't gated by `secureField` (it's tied to a login field, not a secure one), and the chips are drawn entirely by your password manager: the keyboard is only told their size and never sees the username or password inside them. It needs Android 11+ and a password manager set as your system autofill service, and turns itself off automatically while incognito mode is on.
+<SettingsPath path="Typing / Suggestions / Password manager suggestions" /> shows your system autofill service's saved-login chips inline in the suggestion strip. It isn't gated by `secureField` (it's tied to a login field, not a secure one), and the chips are drawn entirely by your password manager: the keyboard is only told their size and never sees the username or password inside them. It needs Android 11+ and a password manager set as your system autofill service, and turns itself off automatically while incognito mode is on. The system's [smart replies](/smart/autofill/#smart-replies) come down the same channel but have their own toggle, and aren't tied to field type at all.
 :::
 
 ## When an app gets its own field wrong

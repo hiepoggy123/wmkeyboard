@@ -93,6 +93,7 @@ private val SettingRows: List<SettingsSearchEntry> = listOfNotNull(
     entry("Suggest app names", "Complete the names of installed apps as you type", "Typing", "typing"),
     entry("Inline emoji search", "Type \":\" then a word to find emoji — :smi → 😄", "Typing", "typing"),
     entry("Password manager suggestions", "Show saved logins from your autofill service in the strip", "Typing", "typing"),
+    entry("Smart replies", "Let the system offer replies to the message you're answering", "Typing", "typing"),
     // Personal dictionary, Custom dictionaries and Suggestion blacklist are
     // rows on this screen too, but each only opens a screen of its own. They
     // are indexed once, in SectionRows, pointing straight at that screen —

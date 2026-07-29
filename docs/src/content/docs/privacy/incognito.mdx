@@ -57,8 +57,10 @@ Turning incognito on does exactly four things (nothing more):
    up anything new, and so does the CJK pick history: the two go quiet
    together. Emoji usage (what feeds the emoji panel's Recent and Most used
    tabs) is tracked separately and keeps recording regardless of incognito.
-3. **Blocks password-manager autofill chips.** The inline autofill strip a
-   password manager can draw above the keyboard doesn't appear.
+3. **Blocks inline chips, both kinds.** The saved-login chips a password
+   manager can draw above the keyboard don't appear, and neither do the
+   system's [smart replies](/smart/autofill/): a proposed reply means the
+   system read the conversation, which is what incognito is there to stop.
 4. **Shows a badge.** A small icon appears next to the toolbar, and the
    Incognito tool itself lights up as active, so you can tell at a glance
    that it's on.
@@ -66,8 +68,8 @@ Turning incognito on does exactly four things (nothing more):
 Two of those four have their own switches, tucked away from the Privacy
 screen under <SettingsPath path="Tools / Incognito" />: **Pause learning**
 and **Pause clipboard capture**, both on by default. Turn both off there and
-flipping "Incognito mode" on Privacy still blocks autofill chips and still
-shows the badge; it just stops pausing anything. The autofill block is the
+flipping "Incognito mode" on Privacy still blocks inline chips and still
+shows the badge; it just stops pausing anything. The chip block is the
 one effect that isn't gated by either of those two switches: it follows
 incognito unconditionally.
 
