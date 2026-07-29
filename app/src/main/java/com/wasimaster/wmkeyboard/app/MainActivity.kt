@@ -880,9 +880,12 @@ private fun AnimatedVisibilityScope.HomeScreen(
                 )
             }
             item {
+                // Named from what is actually enabled, not a fixed pair — the
+                // enabled set now starts from the phone's own languages, so
+                // there is no one right answer to hard-code here.
                 HomeItem(
                     "languages", Icons.Outlined.Language, "Languages",
-                    "English, বাংলা (Avro phonetic, প্রভাত, জাতীয়)", onNavigate,
+                    enabledLanguagesSummary(settings), onNavigate,
                 )
             }
         }
@@ -4125,6 +4128,30 @@ private fun LanguageSettings(
             ) { onNavigate("add_language") }
         }
     }
+    // A short device-derived shortlist, so the common case never has to go
+    // through the full registry. The reasoning lives in LanguageSuggestions.
+    val suggested = rememberSuggestedLanguages(settings, limit = LANGUAGE_SCREEN_SUGGESTIONS)
+    if (suggested.isNotEmpty()) {
+        SettingsGroup("Suggested for you") {
+            for (suggestion in suggested) {
+                item {
+                    NavRow(
+                        suggestion.language.displayName,
+                        subtitle = suggestionReasonLabel(suggestion),
+                    ) {
+                        addLanguage(scope, repository, settings, suggestion.language)
+                        onNavigate("language/${suggestion.language.id}")
+                    }
+                }
+            }
+            item {
+                CaptionText(
+                    "From your phone's own language settings and region. Nothing " +
+                        "you type is looked at, and nothing leaves the device.",
+                )
+            }
+        }
+    }
     // Reorder the switch ring (spacebar swipe / 🌐 cycle) across every enabled
     // layout, not just languages, so AZERTY and QWERTY keep distinct slots.
     if (settings.enabledLayoutIds.size > 1) {
@@ -6855,11 +6882,11 @@ private fun ToolDetailSettings(
         ToolbarTool.NUMPAD -> SettingsGroup("Options") {
             item {
                 ToggleSetting(
-                    "Phone-style layout",
-                    "1 2 3 on the top row, like a dialer. Off puts 7 8 9 on " +
-                        "top, like a calculator.",
-                    settings.numpadPhoneLayout,
-                ) { scope.launch { repository.setNumpadPhoneLayout(it) } }
+                    "Calculator-style layout",
+                    "7 8 9 on the top row, like a desk keypad. Off puts 1 2 3 " +
+                        "on top, like a dialer.",
+                    settings.numpadCalculatorLayout,
+                ) { scope.launch { repository.setNumpadCalculatorLayout(it) } }
             }
         }
         ToolbarTool.INCOGNITO -> {

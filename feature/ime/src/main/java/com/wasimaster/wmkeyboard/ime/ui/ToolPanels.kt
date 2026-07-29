@@ -1725,12 +1725,12 @@ internal fun NumpadPanel(
             .height(height)
             .padding(horizontal = 4.dp, vertical = 4.dp),
     ) {
-        // Calculator-style puts 789 on top (like a desktop keypad); the
-        // phone-style setting flips the digit rows to a dialer's 123-on-top.
-        val digits = if (state.settings.numpadPhoneLayout) {
-            listOf("1", "2", "3", "4", "5", "6", "7", "8", "9")
-        } else {
+        // Phone-style puts 123 on top (like a dialer); the calculator-style
+        // setting flips the digit rows to a desktop keypad's 789-on-top.
+        val digits = if (state.settings.numpadCalculatorLayout) {
             listOf("7", "8", "9", "4", "5", "6", "1", "2", "3")
+        } else {
+            listOf("1", "2", "3", "4", "5", "6", "7", "8", "9")
         }
         val rows = listOf(
             listOf(digits[0], digits[1], digits[2], "⌫"),

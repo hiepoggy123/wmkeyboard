@@ -21,14 +21,18 @@ The Languages screen is where you enable languages and layouts, reorder the swit
 
 The **Your languages** group lists each enabled language once, in switch order, one row per entry in `enabledLanguages`. A row's subtitle is a comma-joined list of that language's currently-enabled layout names (Bengali, for example, reads "Avro phonetic, প্রভাত (Probhat), জাতীয় (National)" once all three are on); if only one layout is enabled the subtitle is just that layout's name, and tapping any row opens that language's own screen (below).
 
-A trailing **Add language** row always closes the group, subtitled "Type in any of 352 languages" (that's the size of the whole catalogue, not just what's installed). Tapping it opens a full-screen search:
+A trailing **Add language** row always closes the group, subtitled "Type in any of 352 languages" (that's the size of the whole catalogue, not just what's installed).
+
+Immediately below it, a **Suggested for you** group offers up to four languages worked out from the device: every language in your phone's own language list first, then languages widely typed in your region (the SIM's country, the network's country, or the region on your locale, in that order of preference). Each row's subtitle is the reason — "One of your phone's languages" or "Widely typed in *(country)*" — and tapping one enables its first layout and opens its detail screen, exactly as the search results do. Languages already enabled never appear, so the group empties out as you add them and disappears when nothing is left to suggest. The narrative version, including what is deliberately *not* read, is on [Languages overview](/languages/overview/#suggested-languages).
+
+Tapping **Add language** opens a full-screen search:
 
 <PhoneFrame caption="Add language: search matches endonym, English name, id, and locale tag.">
   {/* shot: reference/settings/add-language-screen */}
 </PhoneFrame>
 
 - The search box matches (case-insensitively, as a substring) against a language's endonym, English name, id, and locale tag, so "german", "deutsch", "de", and "de-DE" all find German.
-- **An empty query lists the catalogue in registry order, not alphabetically:** English first, then Bengali, then French, and so on. Don't assume the unfiltered list is A-to-Z; search to jump to a specific language instead of scrolling.
+- **An empty query lists the catalogue in registry order, not alphabetically:** English first, then Bengali, then French, and so on. Don't assume the unfiltered list is A-to-Z; search to jump to a specific language instead of scrolling. The same **Suggested for you** group appears here too, above the catalogue, and only while the query is empty — start typing and it gets out of the way.
 - Each row's subtitle is the language's script name (for example "Latin" or "Bengali") plus " · dictionary included" for the two languages that bundle one (English and Bengali are the only ones). A row already added shows "Added" next to its chevron, which stays put either way.
 - Tapping an unadded language enables its first layout immediately, then opens that language's detail screen. Tapping an already-added one just opens its detail screen; it doesn't re-enable anything.
 
@@ -40,13 +44,13 @@ The Key layouts screen has its own, differently-scoped **Your layouts** section:
 
 ## Reordering, per-app memory, and the system switcher
 
-A **Switch order** group appears only once more than one layout is enabled (true on a fresh install, which starts with four: QWERTY, Avro, Probhat, Jatiya). Drag to reorder the raw layout list; it reorders every enabled *layout*, not language, so two English layouts keep independent slots in the ring even though they're both "English." This is the same list the <KeyCap>🌐</KeyCap> key and spacebar swipe cycle through; full behavior is on [Switching languages](/languages/switching/#reordering-and-trimming-the-ring).
+A **Switch order** group appears only once more than one layout is enabled — true on most fresh installs, since the starting set is seeded from your phone's language list plus English, but *not* on a phone set to English only, which starts with QWERTY alone and no Switch order group at all. Drag to reorder the raw layout list; it reorders every enabled *layout*, not language, so two English layouts keep independent slots in the ring even though they're both "English." This is the same list the <KeyCap>🌐</KeyCap> key and spacebar swipe cycle through; full behavior is on [Switching languages](/languages/switching/#reordering-and-trimming-the-ring).
 
 Three more groups sit below Your layouts:
 
 - **Per-app language** — one toggle, **Remember language per app** (<SettingsPath path="Languages / Per-app language / Remember language per app" />, default **off**). Reopening a text field in an app you've explicitly switched languages in restores that layout; apps you haven't switched in follow your last-used one globally. A field that forces Latin input (a password box) or advertises its own language still overrides this.
 - **System language switcher** — **List languages in Android's switcher** (<SettingsPath path="Languages / System language switcher / List languages in Android's switcher" />, default **on**) registers every enabled layout as an Android input-method subtype, so the system's "Choose input method" sheet lists and can switch each one. While it's on, two more rows appear: **Show app name first** (default **off**), which puts "WM Keyboard" ahead of the language in the switcher's label instead of after it, and **Choose languages in system settings**, which opens Android's own tick-list of this keyboard's languages. On Android 14 and newer the keyboard enables every registered subtype itself and that row is only a way to check Android's view of things; on Android 13 and older there is no API for it, so ticking them there by hand is the only way the switcher lists more than one.
-- **Complex scripts** — shown only if an enabled language's script forms conjunct clusters (Bengali is one, so this group is visible by default). One toggle, **Conjunct-aware backspace** (<SettingsPath path="Languages / Conjunct-aware backspace" />, default **off**), deletes a whole cluster like ক্ষ or क्ष in a single press instead of one code point at a time. Bengali-specific detail lives on [Bengali](/languages/bengali/).
+- **Complex scripts** — shown only if an enabled language's script forms conjunct clusters (Bengali, Devanagari, Tamil and several others), so whether it's there on a fresh install depends on what your phone's languages seeded. One toggle, **Conjunct-aware backspace** (<SettingsPath path="Languages / Conjunct-aware backspace" />, default **off**), deletes a whole cluster like ক্ষ or क्ष in a single press instead of one code point at a time. Bengali-specific detail lives on [Bengali](/languages/bengali/).
 
 <PhoneFrame caption="Further down the screen: Per-app language, System language switcher, and Complex scripts.">
   {/* shot: reference/settings/languages-bottom */}
@@ -75,7 +79,7 @@ Tapping a language (from Your languages or straight after adding one) opens a sc
 
 This only changes which glyphs the number row and keypad draw and (depending on the field) commit; it never touches the layout, script, or dictionary. Where a non-Latin choice actually gets typed into text fields versus kept as ASCII is a separate, global setting: <SettingsPath path="Layout & size / Numerals" />, not per-language.
 
-**Also suggest from** — appears once at least one other language is enabled (true by default, since English and Bengali both ship on). One toggle per other enabled language (<SettingsPath path="Languages / (a language) / Also suggest from" />); all start **off**. Turning one on blends that language's words into suggestions while you type this one, and words pulled in this way are never autocorrected away.
+**Also suggest from** — appears once at least one other language is enabled, which on a fresh install depends on whether your phone's languages seeded more than English. One toggle per other enabled language (<SettingsPath path="Languages / (a language) / Also suggest from" />); all start **off**. Turning one on blends that language's words into suggestions while you type this one, and words pulled in this way are never autocorrected away.
 
 **Dictionary** — a status caption, then one row per downloadable wordlist for the language (a language can have more than one), then a **Custom dictionaries** row to <SettingsPath path="Typing / Custom dictionaries" />. Each wordlist row defaults to the **Medium** size tier (150,000 words, out of Small/50,000 and Large/300,000) and isn't downloaded until you tap it. Full detail, including how downloaded and imported lists combine, is on [Downloadable dictionaries](/languages/dictionaries/).
 
@@ -83,7 +87,7 @@ This only changes which glyphs the number row and keypad draw and (depending on 
 
 **`{Language} options`** (Chinese, Japanese, and Cantonese only). See below.
 
-**Remove `{language}`** — a button at the very bottom, shown only once more than one language is enabled (true by default), so the last one can never be removed from here. Removing takes every layout belonging to that language out of the switch ring in one step.
+**Remove `{language}`** — a button at the very bottom, shown only once more than one language is enabled, so the last one can never be removed from here. Removing takes every layout belonging to that language out of the switch ring in one step.
 
 ### Chinese, Japanese, and Cantonese options
 
@@ -105,14 +109,15 @@ Three languages, `zh`, `ja`, and `yue`, get an extra group named after themselve
 
 | Setting | Where | Default |
 |---|---|---|
-| Your languages / Switch order | Languages | QWERTY, Avro, Probhat, Jatiya |
+| Your languages / Switch order | Languages | Seeded from your phone's language list, plus QWERTY (max 4 layouts) |
+| Suggested for you | Languages, Languages → Add language | Up to 4, from your phone's languages then your region |
 | Your layouts (custom layout toggles) | Languages | None (no custom layouts on a fresh install) |
 | Remember language per app | Languages → Per-app language | Off |
 | List languages in Android's switcher | Languages → System language switcher | On |
 | Show app name first | Languages → System language switcher | Off |
 | Choose languages in system settings | Languages → System language switcher | Opens Android's settings (no stored value) |
 | Conjunct-aware backspace | Languages → Complex scripts | Off |
-| Layouts (per layout) | Languages → *(a language)* → Layouts | On for each layout the language ships enabled by default (Bengali's three, English's QWERTY); off otherwise |
+| Layouts (per layout) | Languages → *(a language)* → Layouts | On for the one layout that language was added with (its first); off for the rest |
 | Numeral system | Languages → *(a language)* → Numerals | Auto |
 | Also suggest from (per other language) | Languages → *(a language)* → Also suggest from | Off |
 | Dictionary size tier (per download) | Languages → *(a language)* → Dictionary | Medium (150,000 words) |
@@ -129,7 +134,9 @@ Two related settings live outside this screen entirely: **where** a numeral choi
 
 - **Settings search barely covers this screen.** Only two rows here are indexed by name: the top-level "Languages" entry itself and "Conjunct-aware backspace." Everything else (Add language, Switch order, Per-app language, the system switcher toggles, and everything on a per-language detail screen) has to be found by browsing, not by typing into Settings search.
 - **Registering a subtype does not enable it.** Android decides which subtypes are enabled, and with nothing explicitly enabled it derives the set from your phone's system languages, which is usually one. Android 14 and newer let the keyboard enable them all itself; below that, use **Choose languages in system settings** or the switcher will keep showing a single entry.
-- **352 is the catalogue size, not the enabled count.** A fresh install enables 2 languages and 4 layouts (English's QWERTY, plus Bengali's Avro, Probhat, and Jatiya); the other 350 languages sit inactive, loaded on demand, until you search for and add them.
+- **352 is the catalogue size, not the enabled count.** A fresh install enables at most four layouts, seeded from your phone's language list; everything else in the catalogue sits inactive, loaded on demand, until you add it.
+- **Your region suggests, it never enables.** The SIM's country feeds the Suggested for you list and nothing else. Seeding a fresh install uses only your phone's *language* list — landing in a country doesn't rearrange your keyboard.
+- **Seeding runs once, and only over an untouched set.** It happens when the setup wizard opens, and only if the enabled layouts are still exactly the built-in fallback. If you enabled the keyboard from Android's settings and typed for a while before ever opening the app, whatever you set up there is kept.
 - **Only English and Bengali bundle a dictionary.** Every other language starts with zero built-in suggestions until you download or import a wordlist on its Dictionary group.
 - **A code comment inside the Double Pinyin list is stale.** It says a scheme is selectable "only once its key table ships (currently Xiaohe)," implying the rest are placeholders. In the shipped app all five non-Off schemes have their key tables and are fully selectable; none render as disabled.
 - **Removing a language removes every layout that belongs to it**, not just the one you last used. If you've enabled two English layouts (QWERTY and AZERTY, say), removing English takes both out of the switch ring at once.

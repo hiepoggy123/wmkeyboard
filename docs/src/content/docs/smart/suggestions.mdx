@@ -21,6 +21,8 @@ This page covers the strip itself: its layout, the completion/correction/predict
 
 Word candidates fill up to three slots. By default the strongest candidate (the one autocorrect would pick) sits in the center with the runner-up to its left, the layout most keyboards use; turning off **Best suggestion in the middle** (see [Options](#options)) ranks all three left to right instead.
 
+Slots are equal width, so a long word gets no more room than a short one. Rather than cut it off, the strip shrinks it to fit: the point size drops first, down to about two thirds of normal, and past that the letters themselves narrow a little. Most words that would once have read "internationali…" now fit whole, just set smaller and tighter. Nothing is configurable here, and short words are never scaled — a word that already fits is drawn at full size.
+
 Up to four predicted emoji can ride after the word chips (see [Emoji in the strip](#emoji-in-the-strip)), and a row of punctuation marks can ride after that (see [Punctuation chips](#punctuation-chips)), but never both at once. The emoji tail always wins the shared space; punctuation only appears when no emoji prediction is offered.
 
 <PhoneFrame caption="Word candidates followed by predicted emoji.">
@@ -124,6 +126,8 @@ A physical keyboard can also pick a strip candidate by number without touching t
 - **A correction candidate only appears when the typed word isn't already known.** Anything in the active dictionary, a custom or secondary-language dictionary, or your personal dictionary is offered as-is. The edit-distance correction pass never runs against a word the engine already recognizes.
 - **A dictionary word and a contact name can collide on capitalization.** A contact's name keeps its own capitalization ("Wasi") independent of how a dictionary word would be cased; if the same word would otherwise appear twice (once lowercase, once capitalized), only the better-scored one is shown, never both.
 - **Missing-space splits need a real word on both sides.** "ofthe" only becomes "of the" if both halves are independently known words. An arbitrary split of an unknown word never appears as a candidate.
+- **Shrinking a word has a floor, and past it the ellipsis is back.** The two stages together fit roughly twice the slot width. A word longer than that still ends in "…", and so does a slot squeezed narrow by a long smart reply or a full row of predicted emoji riding the tail.
+- **Only the three word candidates scale.** Conversion candidates (Pinyin, kana, jyutping) keep their fixed larger size, since Han and kana need it, and they scroll instead of splitting the bar evenly. Predicted emoji, punctuation chips and the clipboard pill are all fixed-size too.
 - **The strip fades rather than snapping.** When the composing buffer or field empties out completely (deleting back to nothing, clearing the field, backing out of a `:` emoji search), the last set of candidates stays visible and fades out over a short animation instead of disappearing instantly.
 - **A contact-email suggestion is never added to your personal dictionary**, since an address isn't a word to learn. Tapped inside a field the keyboard recognizes as an email input, it also commits with no trailing space (the address is usually the whole field); tapped from an ordinary text field it gets a trailing space like any other suggestion (see [Contact-aware typing](/smart/contacts/) for that behavior in full).
 

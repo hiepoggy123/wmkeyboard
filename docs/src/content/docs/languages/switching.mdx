@@ -43,7 +43,7 @@ The resting spacebar label follows **Spacebar shows** (also under Typing → Ges
 
 Press and hold the spacebar (with more than one layout enabled) and, shortly before the long-press delay would fire (250ms, or your long-press delay if it's shorter), one of two things opens:
 
-- **The inline preview** from the section above, if you have four or fewer layouts enabled and the quick-swipe slot is set to Language. This is what a default install shows, since it ships with exactly four layouts enabled and quick swipe already on Language.
+- **The inline preview** from the section above, if you have four or fewer layouts enabled and the quick-swipe slot is set to Language. This is what a fresh install shows: seeding never turns on more than four layouts, and quick swipe already defaults to Language.
 - **A scrollable picker list**, once you have more than four layouts enabled, or if you've reassigned the quick-swipe slot to something other than Language.
 
 Once the list is open, dragging vertically walks it one row at a time; the very first bit of finger movement after the list appears is absorbed as calibration and doesn't count as a step, so drift from before the hold fired never accidentally selects a neighbor. Lift your finger after moving and the highlighted row is selected; lift without ever moving and the list simply stays open so you can tap the row you want directly.
@@ -77,7 +77,7 @@ There's a separate **Comma key opens emoji** toggle (off by default) that replac
 
 <SettingsPath path="Languages" />
 
-Every key and gesture above cycles through the same ordered list: your enabled layouts, in switch order. A fresh install starts with four: QWERTY (English), Avro phonetic, প্রভাত (Probhat), and জাতীয় (National), i.e. English plus all three built-in Bengali layouts, and everything else in the catalogue sits inactive until you add it. See [Languages overview](/languages/overview/) for how the full catalogue works and what's in it.
+Every key and gesture above cycles through the same ordered list: your enabled layouts, in switch order. A fresh install seeds that list from your phone's own language settings: one layout per language it recognises, up to four, always including QWERTY. A phone set to Bangla and English starts with Avro and QWERTY; a phone set to English alone starts with QWERTY on its own, and has nothing to cycle to yet. Everything else in the catalogue sits inactive until you add it. See [Languages overview](/languages/overview/) for how the full catalogue works and what's in it.
 
 On the **Languages** screen:
 
@@ -124,7 +124,7 @@ A separate, unrelated toggle (**Remember language per app**, under Per-app langu
 | Spacebar text | Typing → Gestures | Blank (live name) |
 | Emoji key instead of 🌐 | Layout & size → Bottom-row keys | On |
 | Comma key opens emoji | Layout & size → Bottom-row keys | Off |
-| Your languages / Switch order | Languages | QWERTY, Avro, Probhat, Jatiya |
+| Your languages / Switch order | Languages | Seeded from your phone's language list, plus QWERTY (max 4 layouts) |
 | Remember language per app | Languages → Per-app language | Off |
 | List languages in Android's switcher | Languages → System language switcher | On |
 | Show app name first | Languages → System language switcher | Off |

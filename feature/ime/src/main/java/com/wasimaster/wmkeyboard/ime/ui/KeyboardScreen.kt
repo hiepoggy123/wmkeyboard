@@ -119,6 +119,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -183,12 +184,16 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextGeometricTransform
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
@@ -197,6 +202,7 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.isSpecified
 import androidx.compose.ui.unit.round
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.toOffset
@@ -2025,14 +2031,16 @@ private fun RowScope.LatinSuggestionChips(
     shiftState: ShiftState,
     onSuggestion: (String) -> Unit,
 ) {
-    Row(
+    // BoxWithConstraints, not a bare Row, because the chips shrink long words to
+    // fit and that needs the slot width up front. One subcomposition covers all
+    // three slots: they carry equal weight, so every slot is the same width.
+    BoxWithConstraints(
         modifier = Modifier
             .weight(1f)
             .fillMaxHeight()
             // Fades in a beat behind the emoji's slide as candidates arrive,
             // and out as they leave (see [stripContentAlpha]).
             .graphicsLayer { this.alpha = alpha() },
-        verticalAlignment = Alignment.CenterVertically,
     ) {
         val ranked = candidates.take(3)
         // Gboard convention: the primary candidate sits in the middle slot with
@@ -2045,44 +2053,156 @@ private fun RowScope.LatinSuggestionChips(
             ranked
         }
         val primaryIndex = if (centerPrimary) 1 else 0
-        shown.forEachIndexed { index, suggestion ->
-            if (index > 0) {
-                VerticalDivider(
-                    modifier = Modifier.height(20.dp),
-                    color = MaterialTheme.colorScheme.outlineVariant,
-                )
-            }
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxHeight()
-                    .clickable(enabled = enabled) { onSuggestion(suggestion) },
-                contentAlignment = Alignment.Center,
-            ) {
-                // A chip is sometimes an emoji rather than a word — a learned
-                // bigram can predict one ("you" → ❤️). Those have to be drawn
-                // in the chosen emoji font, and in the spelling that font
-                // wants, or they fall back to the system emoji.
-                val isEmoji = remember(suggestion) { EmojiGraphemes.isEmojiOnly(suggestion) }
-                Text(
+        val slotWidth = if (shown.isEmpty()) {
+            0.dp
+        } else {
+            (maxWidth - SuggestionDividerWidth * (shown.size - 1)) / shown.size
+        }
+        val textWidth = (slotWidth - SuggestionTextPadding * 2).coerceAtLeast(0.dp)
+        val measurer = rememberTextMeasurer()
+        val density = LocalDensity.current
+        val baseStyle = LocalTextStyle.current
+        val baseSize = if (baseStyle.fontSize.isSpecified) baseStyle.fontSize else SuggestionFontSize
+        val shaper = LocalEmojiShaper.current
+        Row(
+            modifier = Modifier.fillMaxSize(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            shown.forEachIndexed { index, suggestion ->
+                if (index > 0) {
+                    VerticalDivider(
+                        modifier = Modifier.height(20.dp),
+                        thickness = SuggestionDividerWidth,
+                        color = MaterialTheme.colorScheme.outlineVariant,
+                    )
+                }
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .clickable(enabled = enabled) { onSuggestion(suggestion) },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    // A chip is sometimes an emoji rather than a word — a learned
+                    // bigram can predict one ("you" → ❤️). Those have to be drawn
+                    // in the chosen emoji font, and in the spelling that font
+                    // wants, or they fall back to the system emoji.
+                    val isEmoji = remember(suggestion) { EmojiGraphemes.isEmojiOnly(suggestion) }
                     // Follows the live shift state, so pressing shift re-cases
                     // the strip (matching the committed word).
-                    text = if (isEmoji) {
-                        LocalEmojiShaper.current.shape(suggestion)
+                    val display = if (isEmoji) {
+                        shaper.shape(suggestion)
                     } else {
                         displayCaseForShift(suggestion, shiftState)
-                    },
-                    modifier = Modifier.padding(horizontal = 6.dp),
-                    color = MaterialTheme.colorScheme.onSurface,
-                    fontFamily = if (isEmoji) emojiFamilyFor(suggestion) else null,
-                    fontWeight = if (index == primaryIndex) FontWeight.SemiBold else FontWeight.Normal,
-                    textAlign = TextAlign.Center,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
+                    }
+                    val family = if (isEmoji) emojiFamilyFor(suggestion) else null
+                    val weight =
+                        if (index == primaryIndex) FontWeight.SemiBold else FontWeight.Normal
+                    // Re-measured only when the word, its styling or the slot
+                    // width actually change — not on every keystroke that leaves
+                    // this chip alone.
+                    val fit = remember(display, family, weight, textWidth, baseSize, baseStyle) {
+                        val measured = measurer.measure(
+                            text = AnnotatedString(display),
+                            style = baseStyle.merge(
+                                TextStyle(
+                                    fontSize = baseSize,
+                                    fontFamily = family,
+                                    fontWeight = weight,
+                                ),
+                            ),
+                            maxLines = 1,
+                            softWrap = false,
+                        ).size.width
+                        fitSuggestionText(
+                            measuredWidthPx = measured.toFloat(),
+                            availableWidthPx = with(density) { textWidth.toPx() },
+                        )
+                    }
+                    Text(
+                        text = display,
+                        modifier = Modifier.padding(horizontal = SuggestionTextPadding),
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontSize = baseSize * fit.fontScale,
+                        // The default 0.5sp tracking is dead width once a word is
+                        // already being squeezed.
+                        letterSpacing = if (fit.condensed) 0.sp else baseStyle.letterSpacing,
+                        fontFamily = family,
+                        fontWeight = weight,
+                        textAlign = TextAlign.Center,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        style = if (fit.condensed) {
+                            baseStyle.copy(
+                                textGeometricTransform =
+                                    TextGeometricTransform(scaleX = fit.scaleX),
+                            )
+                        } else {
+                            baseStyle
+                        },
+                    )
+                }
             }
         }
     }
+}
+
+/** Divider thickness between suggestion slots; subtracted from the usable slot width. */
+private val SuggestionDividerWidth = 1.dp
+
+/** Breathing room on each side of a suggestion word inside its slot. */
+private val SuggestionTextPadding = 6.dp
+
+/** Fallback base size when the ambient text style doesn't name one (Material's `bodyLarge`). */
+private val SuggestionFontSize = 16.sp
+
+/**
+ * How small a suggestion's font may go, as a fraction of the base size — 16sp
+ * down to about 11sp. Past this the word condenses horizontally instead, because
+ * shrinking further costs legibility faster than it buys width.
+ */
+private const val MinSuggestionFontScale = 0.68f
+
+/**
+ * How far a suggestion may be squeezed horizontally. Below roughly 0.8 the
+ * letterforms visibly distort, so anything still too long after this ellipsizes.
+ */
+private const val MinSuggestionScaleX = 0.8f
+
+/**
+ * How a suggestion word is scaled down to fit its slot.
+ *
+ * [fontScale] multiplies the base font size; [scaleX] condenses the glyphs
+ * horizontally on top of that. `SuggestionTextFit(1f, 1f)` means the word fits
+ * as-is and neither is applied.
+ */
+internal data class SuggestionTextFit(val fontScale: Float, val scaleX: Float) {
+    /** True once the word is being squeezed horizontally, not merely shrunk. */
+    val condensed: Boolean get() = scaleX < 1f
+}
+
+/**
+ * Works out how to fit a suggestion of [measuredWidthPx] into [availableWidthPx].
+ *
+ * Two stages, in the order that costs the least legibility: shrink the point
+ * size first (text width is near enough linear in font size, so the ratio of the
+ * two widths *is* the scale), and only once that hits [MinSuggestionFontScale]
+ * start condensing the glyphs. Together the two floors fit a word about 1.8× the
+ * slot width; longer than that and the caller's ellipsis takes over.
+ */
+internal fun fitSuggestionText(
+    measuredWidthPx: Float,
+    availableWidthPx: Float,
+    minFontScale: Float = MinSuggestionFontScale,
+    minScaleX: Float = MinSuggestionScaleX,
+): SuggestionTextFit {
+    if (availableWidthPx <= 0f || measuredWidthPx <= 0f || measuredWidthPx <= availableWidthPx) {
+        return SuggestionTextFit(1f, 1f)
+    }
+    val needed = availableWidthPx / measuredWidthPx
+    val fontScale = needed.coerceAtLeast(minFontScale)
+    val scaleX = (needed / fontScale).coerceIn(minScaleX, 1f)
+    return SuggestionTextFit(fontScale, scaleX)
 }
 
 /**

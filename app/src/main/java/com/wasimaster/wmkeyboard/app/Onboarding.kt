@@ -60,9 +60,12 @@ import com.wasimaster.wmkeyboard.core.emoji.EmojiRenderCheck
 import com.wasimaster.wmkeyboard.core.feedback.HapticPlayer
 import com.wasimaster.wmkeyboard.core.icons.IconSlots
 import com.wasimaster.wmkeyboard.ime.ui.SlotIcon
+import com.wasimaster.wmkeyboard.core.layout.BuiltInLayouts
 import com.wasimaster.wmkeyboard.core.layout.language
 import com.wasimaster.wmkeyboard.core.layout.resolveLayout
+import com.wasimaster.wmkeyboard.core.script.DeviceLocales
 import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
+import com.wasimaster.wmkeyboard.core.script.LanguageSuggestions
 import com.wasimaster.wmkeyboard.core.settings.DefaultToolOrder
 import com.wasimaster.wmkeyboard.core.settings.EmojiBarMode
 import com.wasimaster.wmkeyboard.core.settings.HapticStyle
@@ -120,6 +123,7 @@ internal fun OnboardingScreen(
     // navigating Back to it while already set up would bounce straight
     // forward again, defeating the Back button.
     var welcomeAutoAdvanced by rememberSaveable { mutableStateOf(false) }
+    SeedLanguagesFromDevice(repository, settings)
     val finish: () -> Unit = {
         scope.launch { repository.setOnboardingDone(true) }
         onFinished()
@@ -183,6 +187,35 @@ internal fun OnboardingScreen(
                 }
             }
         }
+    }
+}
+
+/**
+ * Starts a fresh install in the languages the phone is already set to.
+ *
+ * Runs at the top of the wizard rather than on the languages page, so someone
+ * who taps Skip on the very first screen still gets a keyboard that matches
+ * their phone instead of a fixed pair of languages.
+ *
+ * Only ever fires when the enabled set is still *exactly* the built-in fallback:
+ * that is the one state nobody can have chosen on purpose during onboarding, and
+ * checking it means a phone whose keyboard was set up from the system settings
+ * before the app was ever opened keeps what it was given.
+ */
+@Composable
+private fun SeedLanguagesFromDevice(repository: SettingsRepository, settings: KeyboardSettings) {
+    val context = LocalContext.current
+    val untouched = settings.enabledLayoutIds == BuiltInLayouts.defaultEnabledIds
+    // rememberSaveable, so a rotation mid-wizard can't re-seed over a language
+    // the user has since removed on the page below.
+    var seeded by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(untouched) {
+        if (seeded || !untouched) return@LaunchedEffect
+        seeded = true
+        val ids = withContext(Dispatchers.IO) {
+            LanguageSuggestions.seedLayoutIds(DeviceLocales.read(context))
+        }
+        if (ids.isNotEmpty()) repository.setEnabledLayoutIds(ids)
     }
 }
 
@@ -338,6 +371,13 @@ private fun LanguagesPage(repository: SettingsRepository, settings: KeyboardSett
 private const val ONBOARDING_LANGUAGE_LIMIT = 30
 
 /**
+ * How many device-derived suggestions the wizard offers. Shorter than the
+ * settings screen's list: this one sits above the search box on a page the user
+ * is trying to get past, so it has to stay glanceable.
+ */
+private const val ONBOARDING_SUGGESTION_LIMIT = 4
+
+/**
  * Adds any language in the registry, without leaving the wizard. Tapping one
  * enables its default layout — the layouts it also ships, and secondary
  * suggestion sources, stay in Settings → Languages, which has room for them.
@@ -349,6 +389,38 @@ private fun AddLanguageSection(repository: SettingsRepository, settings: Keyboar
     val enabledLangIds = settings.enabledLanguages.mapTo(HashSet()) { it.id }
     val q = query.trim().lowercase()
     val matches = LanguageRegistry.all.filter { it.id !in enabledLangIds && it.matchesQuery(q) }
+    val suggested = rememberSuggestedLanguages(settings, limit = ONBOARDING_SUGGESTION_LIMIT)
+
+    // Above the search box, because for most people this is the whole step:
+    // the languages their phone is already in are the ones they came to add.
+    if (suggested.isNotEmpty()) {
+        Text(
+            "Suggested for you",
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.padding(start = 16.dp, top = 20.dp, bottom = 4.dp),
+        )
+        for (suggestion in suggested) {
+            ListItem(
+                headlineContent = { Text(suggestion.language.displayName) },
+                supportingContent = { Text(suggestionReasonLabel(suggestion)) },
+                trailingContent = {
+                    Icon(
+                        Icons.Outlined.Add,
+                        contentDescription = "Add ${suggestion.language.englishName}",
+                    )
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { addLanguage(scope, repository, settings, suggestion.language) },
+            )
+            HorizontalDivider()
+        }
+        CaptionText(
+            "Picked from your phone's own language settings and region. Nothing " +
+                "you type is looked at, and nothing leaves the device.",
+        )
+    }
 
     Text(
         "Add a language",

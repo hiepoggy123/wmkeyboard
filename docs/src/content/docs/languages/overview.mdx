@@ -14,13 +14,26 @@ import cherokee from '../../../../../app/src/main/assets/layouts/chr_cherokee.wm
 
 WM Keyboard's language catalogue holds 352 entries, from the languages you'd expect down to InScript variants, minority Cyrillic alphabets, and a dozen constructed languages. Every one you enable becomes a full input mode with its own layout, dictionary, and settings, switchable without leaving the keyboard.
 
-<PhoneFrame caption="The Languages screen: your enabled languages, plus Add language to search the full catalogue.">
+<PhoneFrame caption="The Languages screen: your enabled languages, a device-derived Suggested for you group, and Add language to search the full catalogue.">
   {/* shot: languages/list-overview */}
 </PhoneFrame>
 
+## Suggested languages
+
+Both the Languages screen and the Add language screen open with a short **Suggested for you** group, so the language you came for is usually already on screen. Each row says why it's there: "One of your phone's languages", or "Widely typed in Bangladesh". Tapping one adds it exactly like tapping a search result does.
+
+Two things on the device feed that list, in this order:
+
+- **Your phone's language list** (Settings → System → Languages), in your own preference order. Anything you've told Android you read is a strong signal that you type it too.
+- **Your region**, from the SIM's country, the network's country, or failing both, the region on your locale. That maps to the languages widely typed there — a Bangladeshi SIM suggests Bangla and Sylheti, an Indian one Hindi, Bengali, Tamil, Marathi and so on.
+
+Nothing else is looked at. The keyboard does not read what you've typed, your contacts, your accounts, or which apps you have installed to decide this, none of it needs a permission, and no part of it leaves the device. See [Permissions](/privacy/permissions/) for the full accounting.
+
+Suggestions are only ever suggestions: nothing is enabled until you tap it. The one exception is a brand-new install, which starts out in the languages your phone is already set to — see [What ships](#what-ships).
+
 ## Adding a language
 
-Open **Languages** in the app and tap **Add language** to search the whole registry: the search box matches on endonym, English name, id, and locale tag, so "german", "Deutsch", "de", and "de-DE" all find the same entry. Tap an unadded language and it's enabled immediately, using its first layout, then opens straight to that language's own screen so you can pick a different layout or turn on suggestions from another enabled language.
+Below the suggestions, tap **Add language** to search the whole registry: the search box matches on endonym, English name, id, and locale tag, so "german", "Deutsch", "de", and "de-DE" all find the same entry. Tap an unadded language and it's enabled immediately, using its first layout, then opens straight to that language's own screen so you can pick a different layout or turn on suggestions from another enabled language.
 
 Every language's name in the list is shown as `endonym · English`, for example "বাংলা · Bangla" or "Русский · Russian". The native name comes first and the English name after it, so you can find a language whether or not you can already read its script.
 
@@ -69,7 +82,11 @@ If any enabled language uses a script that forms conjunct clusters (Bengali, Dev
 
 ## What ships
 
-WM Keyboard ships 393 layouts in total: 18 built into the app (QWERTY, AZERTY, Dvorak, Colemak, Workman, Halmak, Avro, Probhat, Jatiya, plus dedicated layouts for French, German, Spanish, Korean, Russian, Arabic, Greek, Hebrew, and Hindi) and 375 more bundled as individual layout files, one per language or variant that isn't among those 18. Only four are enabled out of the box: QWERTY, Avro, Probhat, and Jatiya (i.e. English plus all three Bangla layouts). Every other language sits in the catalogue until you add it, loaded on demand so a language you haven't picked yet costs nothing.
+WM Keyboard ships 393 layouts in total: 18 built into the app (QWERTY, AZERTY, Dvorak, Colemak, Workman, Halmak, Avro, Probhat, Jatiya, plus dedicated layouts for French, German, Spanish, Korean, Russian, Arabic, Greek, Hebrew, and Hindi) and 375 more bundled as individual layout files, one per language or variant that isn't among those 18.
+
+Which of them start enabled depends on your phone. A fresh install reads your phone's language list and turns on one layout per language it recognises, up to four, always including English (it's what fields that force plain ASCII — passwords, URLs, email addresses — fall back to). A phone set to Bangla starts with Avro and QWERTY; a phone set to French starts with the French layout and QWERTY; a phone set only to English starts with QWERTY alone. Your region is *not* used here — being somewhere is a reason to offer a language, not to switch your keyboard to it.
+
+Every other language sits in the catalogue until you add it, loaded on demand so a language you haven't picked yet costs nothing.
 
 ## The long tail
 

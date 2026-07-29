@@ -311,8 +311,8 @@ private val SettingRows: List<SettingsSearchEntry> = listOfNotNull(
         tool = ToolbarTool.TEXT_EDIT,
     ),
     entry(
-        "Phone-style layout",
-        "1 2 3 on the top row, like a dialer. Off puts 7 8 9 on top, like a calculator.",
+        "Calculator-style layout",
+        "7 8 9 on the top row, like a desk keypad. Off puts 1 2 3 on top, like a dialer.",
         tool = ToolbarTool.NUMPAD,
     ),
     entry("Pause learning", "No words or emoji habits are learned from typing", tool = ToolbarTool.INCOGNITO),
@@ -518,7 +518,7 @@ private val SettingRows: List<SettingsSearchEntry> = listOfNotNull(
 private val SectionRows: List<SettingsSearchEntry> = listOf(
     entry("Typing", "Autocorrect, suggestions, gestures", "Settings", "typing"),
     entry("Key press", "Haptics, key popup, long-press shortcuts", "Settings", "keypress"),
-    entry("Languages", "English, বাংলা (Avro phonetic, প্রভাত, জাতীয়)", "Settings", "languages"),
+    entry("Languages", "Add, remove and reorder your typing languages", "Settings", "languages"),
     entry("Appearance", "Themes, fonts, toolbar style", "Settings", "appearance"),
     entry("Layout & size", "Key size, number row, one-handed, split & floating", "Settings", "layout"),
     entry("Key layouts", "Design your own key grid, Ctrl/Alt keys, import & export", "Settings", "keymaps"),

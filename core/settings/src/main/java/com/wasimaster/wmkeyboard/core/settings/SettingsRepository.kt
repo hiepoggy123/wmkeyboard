@@ -1112,8 +1112,8 @@ data class KeyboardSettings(
      * [underPowerSaving] by the time anyone downstream sees it.
      */
     val powerSaving: PowerSavingSettings = PowerSavingSettings(),
-    /** Number pad digits phone-style (123 on top) instead of calculator-style (789 on top). */
-    val numpadPhoneLayout: Boolean = false,
+    /** Number pad digits calculator-style (789 on top) instead of phone-style (123 on top). */
+    val numpadCalculatorLayout: Boolean = false,
     /** Incognito stops the clipboard tool from capturing copies. */
     val incognitoPausesClipboard: Boolean = true,
     /** Incognito stops word and emoji learning. */
@@ -2354,6 +2354,13 @@ class SettingsRepository(private val context: Context) {
         private val QR_SEND_MODE = stringPreferencesKey("qr_send_mode")
         private val DICTIONARY_AUTO_LOOKUP = booleanPreferencesKey("dictionary_auto_lookup")
         private val TEXT_EDIT_REPEAT_MS = intPreferencesKey("text_edit_repeat_ms")
+        private val NUMPAD_CALCULATOR_LAYOUT = booleanPreferencesKey("numpad_calculator_layout")
+
+        /**
+         * The old key, back when the numpad defaulted to calculator order and the
+         * toggle opted into phone order. The default flipped, so the toggle flipped
+         * with it — an old `true` means the same grid as a new `false`.
+         */
         private val NUMPAD_PHONE_LAYOUT = booleanPreferencesKey("numpad_phone_layout")
         private val INCOGNITO_PAUSES_CLIPBOARD = booleanPreferencesKey("incognito_pauses_clipboard")
         private val INCOGNITO_PAUSES_LEARNING = booleanPreferencesKey("incognito_pauses_learning")
@@ -2971,7 +2978,9 @@ class SettingsRepository(private val context: Context) {
                 dropOnDeviceModels =
                     p[PS_DROP_ON_DEVICE_MODELS] ?: defaults.powerSaving.dropOnDeviceModels,
             ),
-            numpadPhoneLayout = p[NUMPAD_PHONE_LAYOUT] ?: defaults.numpadPhoneLayout,
+            numpadCalculatorLayout = p[NUMPAD_CALCULATOR_LAYOUT]
+                ?: p[NUMPAD_PHONE_LAYOUT]?.not()
+                ?: defaults.numpadCalculatorLayout,
             incognitoPausesClipboard = p[INCOGNITO_PAUSES_CLIPBOARD] ?: defaults.incognitoPausesClipboard,
             incognitoPausesLearning = p[INCOGNITO_PAUSES_LEARNING] ?: defaults.incognitoPausesLearning,
             autoIncognito = p[AUTO_INCOGNITO] ?: defaults.autoIncognito,
@@ -3343,8 +3352,11 @@ class SettingsRepository(private val context: Context) {
     suspend fun setTextEditRepeatMs(value: Int) =
         editPrefs { it[TEXT_EDIT_REPEAT_MS] = value.coerceIn(30, 200) }
 
-    suspend fun setNumpadPhoneLayout(value: Boolean) =
-        editPrefs { it[NUMPAD_PHONE_LAYOUT] = value }
+    suspend fun setNumpadCalculatorLayout(value: Boolean) =
+        editPrefs {
+            it[NUMPAD_CALCULATOR_LAYOUT] = value
+            it.remove(NUMPAD_PHONE_LAYOUT)
+        }
 
     suspend fun setIncognitoPausesClipboard(value: Boolean) =
         editPrefs { it[INCOGNITO_PAUSES_CLIPBOARD] = value }
