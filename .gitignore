@@ -56,3 +56,7 @@ dist/
 
 # Screenshot import staging
 docs/screenshots/.incoming/
+
+# IDE (Eclipse/JDT language server) output
+bin/
+**/bin/
