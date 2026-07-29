@@ -36,7 +36,20 @@ Animated GIFs can never actually become stickers. Android has no animated-WebP e
   {/* shot: emoji/gif-no-rich-media */}
 </PhoneFrame>
 
-Unlike the [sticker tool](/emoji/stickers/), long-pressing a GIF result does nothing. There's no "save this" affordance on the GIF panel, only on stickers.
+## Long-pressing a result
+
+Long-press a GIF instead of tapping it and a small menu opens over the grid:
+
+- **Copy** downloads the GIF and puts it on the system clipboard, so you can paste it wherever you like rather than into the field you happen to be in. Same thing the fallback in step 3 above does, except you asked for it instead of finding out afterwards that the field wouldn't take the file.
+- **Report** opens a mail draft to the maintainer naming the provider, your search term, and the result's id and URL, with room at the top to say what's wrong with it. Nothing is sent from the keyboard: the draft lands in your mail app, and you can read, edit, or abandon it. Klipy and GIPHY answer a search out of their own catalogues, so a result nobody vetted can come back; this is where that goes.
+
+Back (or tapping outside the menu) closes it without doing anything.
+
+Saving to a pack is sticker-only, since a GIF can't become one. That row shows on the [sticker panel's](/emoji/stickers/) version of this menu, not here.
+
+<PhoneFrame caption="Long-press menu over a GIF result: Copy and Report.">
+  {/* shot: emoji/gif-long-press */}
+</PhoneFrame>
 
 ## Options
 

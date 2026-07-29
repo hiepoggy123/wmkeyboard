@@ -98,6 +98,35 @@ object Support {
         appendLine(quote(output))
     }
 
+    /**
+     * A report about one GIF or sticker a provider served up. The user's
+     * complaint goes first; everything needed to find the result again —
+     * which provider, which search, and the file itself — follows.
+     *
+     * The keyboard doesn't own this content and can't moderate it: Klipy and
+     * GIPHY return whatever their catalogues hold for a query. Play asks for a
+     * reporting route on surfaces like that, and a maintainer can only act on
+     * a report (block the id, tighten the content filter, raise it with the
+     * provider) if it names the exact result.
+     */
+    fun mediaReport(
+        kind: String,
+        provider: String,
+        query: String,
+        id: String,
+        url: String,
+    ): String = buildString {
+        appendLine("What's wrong with this $kind:")
+        appendLine()
+        appendLine()
+        appendLine("---- $kind ----")
+        appendLine("provider: $provider")
+        appendLine("search: ${query.ifBlank { "(trending — no search term)" }}")
+        appendLine("id: $id")
+        appendLine("url: $url")
+        appendLine(environment())
+    }
+
     private fun quote(text: String): String {
         val trimmed = text.trim()
         if (trimmed.isEmpty()) return "(empty)"

@@ -970,6 +970,21 @@
     "kind": "still"
   },
   {
+    "id": "emoji/gif-long-press",
+    "page": "docs/src/content/docs/emoji/gifs.mdx",
+    "file": "src/assets/screens/emoji/gif-long-press.webp",
+    "caption": "Long-press menu over a GIF result: Copy and Report.",
+    "host": "harness-chat",
+    "setup": [
+      "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode chat --es theme dark",
+      "Open the GIF tool, search or browse trending so a Klipy/GIPHY result tile is visible",
+      "Long-press that tile to open the MediaActionSheet scrim/menu and capture with it open"
+    ],
+    "status": "todo",
+    "notes": "The GIF version of the menu has no save-to-pack rows (a GIF can't become a sticker), so it should read as exactly two rows: Copy and Report.",
+    "kind": "still"
+  },
+  {
     "id": "emoji/kaomoji-tab",
     "page": "docs/src/content/docs/emoji/kaomoji.mdx",
     "file": "src/assets/screens/emoji/kaomoji-tab.webp",
@@ -1124,15 +1139,15 @@
     "id": "emoji/sticker-long-press-save",
     "page": "docs/src/content/docs/emoji/stickers.mdx",
     "file": "src/assets/screens/emoji/sticker-long-press-save.webp",
-    "caption": "Long-press menu over a Klipy result, offering to save it to a pack.",
+    "caption": "Long-press menu over a Klipy result: save to a pack, copy, or report.",
     "host": "harness-chat",
     "setup": [
       "adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode chat --es theme dark",
       "Open the Stickers tool, search or browse trending so a Klipy/GIPHY result tile is visible",
-      "Long-press that tile to open the StickerActionSheet scrim/menu and capture with it open"
+      "Long-press that tile to open the MediaActionSheet scrim/menu and capture with it open (Save rows, then Copy and Report)"
     ],
     "status": "todo",
-    "notes": "Capture once with zero existing packs (menu shows only 'Save to a new pack') and optionally a second variant with 1-2 packs to show the 'Save to <pack name>' rows \u2014 page only needs one still, pick whichever reads clearer.",
+    "notes": "Capture once with zero existing packs (menu shows 'Save to a new pack', Copy, Report) and optionally a second variant with 1-2 packs to show the 'Save to <pack name>' rows \u2014 page only needs one still, pick whichever reads clearer. A My-stickers tile shows a shorter menu (Manage packs, Copy) and is not this shot.",
     "kind": "still"
   },
   {

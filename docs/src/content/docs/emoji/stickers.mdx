@@ -20,19 +20,23 @@ Open the tool from the toolbar and type to search Klipy and GIPHY, or switch to 
 
 Android has no dedicated "this is a sticker" flag: the only signal a receiving app gets is the file's MIME type, and WhatsApp in particular only recognizes its own private `image/webp.wasticker` type, not plain `image/webp`. So when the **Send stickers as** setting is set to Sticker, the keyboard offers that WhatsApp type first and falls back to a normal image if the field doesn't advertise it. A source that isn't WebP (an animated GIF result, say) can never go out with the sticker MIME (Android has no animated-WebP encoder), so it always sends as a plain image regardless of that setting.
 
-If the field can't take images at all, the tool doesn't bother downloading first and failing after: it vibrates once and shows a standing notice instead, with results still visible underneath at 45% opacity so you can still long-press one to save it (see [Saving a sticker to your own pack](#saving-a-sticker-to-your-own-pack) below). If the field does take images but rejects this particular file even after the WebP→PNG fallback, the file lands on the system clipboard instead, with a toast telling you to paste it, the same thing the clipboard tool's own image and file commits do when a field refuses them.
+If the field can't take images at all, the tool doesn't bother downloading first and failing after: it vibrates once and shows a standing notice instead, with results still visible underneath at 45% opacity so you can still long-press one to save or copy it (see [Long-pressing a sticker](#long-pressing-a-sticker) below). If the field does take images but rejects this particular file even after the WebP→PNG fallback, the file lands on the system clipboard instead, with a toast telling you to paste it, the same thing the clipboard tool's own image and file commits do when a field refuses them.
 
 <PhoneFrame caption="The standing notice a field that can't take images shows, with results dimmed underneath.">
   {/* shot: emoji/sticker-panel-unsupported-field */}
 </PhoneFrame>
 
-## Saving a sticker to your own pack
+## Long-pressing a sticker
 
-Long-pressing a Klipy or GIPHY result opens a menu to save it into one of your own packs: "Save to a new pack" if you have none yet, or "Save to `<pack name>`" for each pack you've made. This is the only save path: there's no way to pull a sticker back out of a chat someone sent you, only to keep one you were about to send yourself.
+Long-pressing a Klipy or GIPHY result opens a menu with three kinds of row:
 
-Long-pressing a sticker from **My stickers** opens "Manage packs" instead, which jumps straight to the pack management screen covered below.
+- **Save to a pack** — "Save to a new pack" if you have none yet, or "Save to `<pack name>`" for each pack you've made. This is the only save path: there's no way to pull a sticker back out of a chat someone sent you, only to keep one you were about to send yourself.
+- **Copy** puts the sticker on the system clipboard instead of into the field, to paste wherever you like.
+- **Report** opens a mail draft to the maintainer naming the provider, your search term, and the sticker's id and URL, with room at the top to say what's wrong with it. Nothing leaves the device on its own: the draft sits in your mail app for you to read, edit, or drop. Klipy and GIPHY search their own catalogues, so results arrive unvetted; this is where a bad one goes. [GIFs](/emoji/gifs/) have the same menu, minus the save rows.
 
-<PhoneFrame caption="Long-press menu over a Klipy result, offering to save it to a pack.">
+Long-pressing a sticker from **My stickers** shows "Manage packs" (which jumps straight to the pack management screen covered below) and **Copy**. There's no save row — you already have it — and no report row, since it's your own file and there's nobody to report it to.
+
+<PhoneFrame caption="Long-press menu over a Klipy result: save to a pack, copy, or report.">
   {/* shot: emoji/sticker-long-press-save */}
 </PhoneFrame>
 
@@ -87,7 +91,7 @@ Both tools are among the ones the setup wizard suggests enabling, and neither ne
 
 - **The WhatsApp sticker MIME is an unofficial, undocumented contract.** `image/webp.wasticker` appears in no public spec; it's a private convention both WhatsApp and Gboard happen to implement. It can change without notice, which is why there's a fallback chain rather than a single hardcoded rule.
 - **A field that only takes images, not stickers, still gets a normal image.** The sticker-vs-image choice is best-effort on top of whatever the field actually advertises; nothing is ever silently dropped over MIME mismatch alone: the clipboard fallback only kicks in when every image MIME candidate is rejected.
-- **Save doesn't apply to your own stickers.** Long-pressing something from My stickers opens pack management, not a save menu; there's nothing to save, you already have it.
+- **Save and report don't apply to your own stickers.** Long-pressing something from My stickers offers pack management and Copy only; there's nothing to save (you already have it) and nothing to report (nobody served it to you).
 - **A source already at spec is left alone.** If a picked image is already a 512×512 WebP under 100 KB, it's stored as-is rather than re-encoded.
 - **One process, one store, but two independent views of it.** The keyboard and the settings app run in the same app process and share the same on-disk pack store, so every mutator saves immediately rather than batching. Each side still caches its own snapshot of the packs, though, so the keyboard checks a cheap size-and-timestamp signal against the manifest and only reloads when it's actually changed, rather than re-parsing it on every keystroke.
 - **Packs need the device unlocked.** Sticker packs live in app-private storage that isn't available before you unlock the device after a restart, so the sticker tool isn't usable from a locked-screen field the way some other tools are.

@@ -421,6 +421,8 @@ internal fun GifPanel(
     onLongPress: (GifItem) -> Unit = {},
     onPackFilter: (String?) -> Unit = {},
     onSaveToPack: (GifItem, String?) -> Unit = { _, _ -> },
+    onCopy: (GifItem) -> Unit = {},
+    onReport: (GifItem) -> Unit = {},
     onDismissAction: () -> Unit = {},
     onOpenRoute: (String) -> Unit = {},
 ) {
@@ -509,14 +511,15 @@ internal fun GifPanel(
                         )
                     } else {
                         // Dimmed rather than removed when the field can't take
-                        // them: long-press (save to a pack) still works, and the
-                        // user can see what they'd get in a field that accepts it.
+                        // them: long-press (save, copy, report) still works, and
+                        // the user can see what they'd get in a field that
+                        // accepts it.
                         Box(modifier = Modifier.alpha(if (unsupported) 0.45f else 1f)) {
                             GifGrid(
                                 items = ui.items,
                                 downloadingId = state.mediaDownloadingId,
                                 onSelect = onSelect,
-                                onLongPress = if (stickers) onLongPress else null,
+                                onLongPress = onLongPress,
                                 panel = state.panel,
                                 focused = state.focusedIndex(),
                             )
@@ -525,12 +528,15 @@ internal fun GifPanel(
                 }
             }
         }
-        val action = state.stickerAction
-        if (stickers && action != null) {
-            StickerActionSheet(
+        val action = state.mediaAction
+        if (action != null) {
+            MediaActionSheet(
                 item = action,
+                stickers = stickers,
                 packs = state.stickerPacks,
                 onSaveToPack = onSaveToPack,
+                onCopy = onCopy,
+                onReport = onReport,
                 onOpenRoute = onOpenRoute,
                 onDismiss = onDismissAction,
             )
@@ -639,16 +645,24 @@ private fun StickerPackChips(
 }
 
 /**
- * Long-press menu over the sticker grid.
+ * Long-press menu over the GIF or sticker grid.
  *
  * An IME can't put up a dialog — it has no activity window — so this is a
  * scrim plus a panel-local surface, dismissed by tapping outside.
+ *
+ * Which rows show depends on where the item came from. Saving to a pack is
+ * sticker-only (a GIF can't become one), and neither reporting nor saving
+ * makes sense for the user's own stickers — they own the file already, and
+ * there's nobody to report it to.
  */
 @Composable
-private fun StickerActionSheet(
+private fun MediaActionSheet(
     item: GifItem,
+    stickers: Boolean,
     packs: List<com.wasimaster.wmkeyboard.core.stickers.StickerPack>,
     onSaveToPack: (GifItem, String?) -> Unit,
+    onCopy: (GifItem) -> Unit,
+    onReport: (GifItem) -> Unit,
     onOpenRoute: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -671,21 +685,26 @@ private fun StickerActionSheet(
                 .verticalScroll(rememberScrollState())
                 .padding(vertical = 6.dp),
         ) {
-            if (item.source == GifSource.LOCAL) {
-                StickerActionRow("Manage packs") { onOpenRoute(STICKER_PACKS_ROUTE) }
-            } else if (packs.isEmpty()) {
-                StickerActionRow("Save to a new pack") { onSaveToPack(item, null) }
-            } else {
-                for (pack in packs) {
-                    StickerActionRow("Save to ${pack.name}") { onSaveToPack(item, pack.id) }
+            val local = item.source == GifSource.LOCAL
+            if (stickers) {
+                if (local) {
+                    MediaActionRow("Manage packs") { onOpenRoute(STICKER_PACKS_ROUTE) }
+                } else if (packs.isEmpty()) {
+                    MediaActionRow("Save to a new pack") { onSaveToPack(item, null) }
+                } else {
+                    for (pack in packs) {
+                        MediaActionRow("Save to ${pack.name}") { onSaveToPack(item, pack.id) }
+                    }
                 }
             }
+            MediaActionRow("Copy") { onCopy(item) }
+            if (!local) MediaActionRow("Report") { onReport(item) }
         }
     }
 }
 
 @Composable
-private fun StickerActionRow(label: String, onClick: () -> Unit) {
+private fun MediaActionRow(label: String, onClick: () -> Unit) {
     Text(
         label,
         color = LocalKbTheme.current.popupText,

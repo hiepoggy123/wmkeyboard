@@ -899,8 +899,8 @@ data class KeyboardUiState(
     val stickerPacks: List<com.wasimaster.wmkeyboard.core.stickers.StickerPack> = emptyList(),
     /** Pack chip on the "My stickers" tab; null shows every pack. */
     val stickerPackId: String? = null,
-    /** Long-pressed sticker cell, showing its action sheet. */
-    val stickerAction: com.wasimaster.wmkeyboard.core.tools.GifItem? = null,
+    /** Long-pressed GIF or sticker cell, showing its action sheet. */
+    val mediaAction: com.wasimaster.wmkeyboard.core.tools.GifItem? = null,
     /** What the Plugins panel is showing: the list, a running plugin, or a failure. */
     val plugins: PluginPanelUi = PluginPanelUi.List(emptyList()),
     /**

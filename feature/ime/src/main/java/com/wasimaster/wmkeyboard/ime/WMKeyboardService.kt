@@ -1633,10 +1633,12 @@ open class WMKeyboardService : InputMethodService() {
                 onMediaRetry = ::onMediaRetry,
                 onGifSelect = ::onGifSelect,
                 onGifSourceSelect = ::onGifSourceSelect,
-                onStickerLongPress = ::onStickerLongPress,
+                onMediaLongPress = ::onMediaLongPress,
                 onStickerPackFilter = ::onStickerPackFilter,
                 onStickerSaveToPack = ::onStickerSaveToPack,
-                onStickerActionDismiss = ::onStickerActionDismiss,
+                onMediaCopy = ::onMediaCopy,
+                onMediaReport = ::onMediaReport,
+                onMediaActionDismiss = ::onMediaActionDismiss,
                 onWebResult = ::onWebResultSelect,
                 onWebResultOpen = ::onWebResultOpen,
                 onImageResult = ::onImageResultSelect,
@@ -5287,7 +5289,7 @@ open class WMKeyboardService : InputMethodService() {
                 mediaDownloadingId = null,
                 stickerPacks = stickerPackStore.packs(),
                 stickerPackId = null,
-                stickerAction = null,
+                mediaAction = null,
                 translate = TranslateUi(),
                 grammar = GrammarUi(available = GrammarChecker.available),
                 // Leaving the Plugins panel must hand the keys straight back to
@@ -7821,7 +7823,7 @@ open class WMKeyboardService : InputMethodService() {
     /** Search-bar tap on a media panel: toggle typing-into-the-query mode. */
     fun onMediaQueryTap() {
         vibrate()
-        _uiState.update { it.copy(mediaSearchActive = !it.mediaSearchActive, stickerAction = null) }
+        _uiState.update { it.copy(mediaSearchActive = !it.mediaSearchActive, mediaAction = null) }
     }
 
     /**
@@ -7950,7 +7952,7 @@ open class WMKeyboardService : InputMethodService() {
     fun onGifSourceSelect(source: GifSource) {
         vibrate()
         if (_uiState.value.mediaSource == source) return
-        _uiState.update { it.copy(mediaSource = source, stickerAction = null, stickerPackId = null) }
+        _uiState.update { it.copy(mediaSource = source, mediaAction = null, stickerPackId = null) }
         refreshMedia(_uiState.value.mediaQuery.trim())
     }
 
@@ -8068,19 +8070,112 @@ open class WMKeyboardService : InputMethodService() {
     fun onStickerPackFilter(packId: String?) {
         vibrate()
         if (_uiState.value.stickerPackId == packId) return
-        _uiState.update { it.copy(stickerPackId = packId, stickerAction = null) }
+        _uiState.update { it.copy(stickerPackId = packId, mediaAction = null) }
         refreshMedia(_uiState.value.mediaQuery.trim())
     }
 
-    /** Long-pressed a sticker cell: open its action sheet. */
-    fun onStickerLongPress(item: GifItem) {
-        if (_uiState.value.panel != PanelMode.STICKER) return
+    /** Long-pressed a GIF or sticker cell: open its action sheet. */
+    fun onMediaLongPress(item: GifItem) {
+        val panel = _uiState.value.panel
+        if (panel != PanelMode.STICKER && panel != PanelMode.GIF) return
         vibrate()
-        _uiState.update { it.copy(stickerAction = item) }
+        _uiState.update { it.copy(mediaAction = item) }
     }
 
-    fun onStickerActionDismiss() {
-        _uiState.update { it.copy(stickerAction = null) }
+    fun onMediaActionDismiss() {
+        _uiState.update { it.copy(mediaAction = null) }
+    }
+
+    /**
+     * "Copy" on a GIF or sticker: puts the file on the system clipboard
+     * instead of into the field.
+     *
+     * The tap path already falls back to the clipboard when a field refuses
+     * the file, but that only happens *after* choosing a field that won't take
+     * it. This is the deliberate version — grab the file now, paste it
+     * somewhere the keyboard isn't focused on.
+     */
+    fun onMediaCopy(item: GifItem) {
+        if (_uiState.value.mediaDownloadingId != null) return
+        vibrate()
+        _uiState.update { it.copy(mediaAction = null) }
+        if (item.source == GifSource.LOCAL) {
+            val found = stickerPackStore.findByItemId(item.id)
+            val file = found?.let { (pack, sticker) -> stickerPackStore.fileFor(pack.id, sticker) }
+            if (found == null || file == null || !file.exists()) {
+                // Same self-heal as insertLocalSticker: a file that vanished
+                // behind the store's back leaves the manifest lying.
+                found?.let { (pack, sticker) -> stickerPackStore.removeSticker(pack.id, sticker.id) }
+                Toast.makeText(this, "That sticker's file is gone", Toast.LENGTH_SHORT).show()
+                _uiState.update { it.copy(stickerPacks = stickerPackStore.packs()) }
+                refreshMedia(_uiState.value.mediaQuery.trim())
+                return
+            }
+            copyImageFileToClipboard(file)
+            return
+        }
+        _uiState.update { it.copy(mediaDownloadingId = item.id) }
+        mediaInsertJob = serviceScope.launch {
+            val file = withContext(Dispatchers.IO) { downloadMediaFile(item.fullUrl, item.mime) }
+            _uiState.update { it.copy(mediaDownloadingId = null) }
+            if (file == null) {
+                Toast.makeText(
+                    this@WMKeyboardService,
+                    "Download failed — check your connection",
+                    Toast.LENGTH_SHORT,
+                ).show()
+                return@launch
+            }
+            copyImageFileToClipboard(file)
+        }
+    }
+
+    /**
+     * "Report" on a GIF or sticker: opens a mail draft naming the result and
+     * where it came from.
+     *
+     * Klipy and GIPHY answer a query out of their own catalogues, so the
+     * keyboard shows content nobody here has vetted. Play wants a reporting
+     * route on a surface like that, and this is it. As with the AI report,
+     * nothing is sent from the device — the draft lands in the user's mail
+     * app for them to read, edit, or drop.
+     */
+    fun onMediaReport(item: GifItem) {
+        val state = _uiState.value
+        vibrate()
+        _uiState.update { it.copy(mediaAction = null) }
+        val kind = if (state.panel == PanelMode.STICKER) "sticker" else "GIF"
+        val sent = Support.email(
+            this,
+            "WM Keyboard — $kind report",
+            Support.mediaReport(
+                kind = kind,
+                provider = GifSources.displayName(item.source),
+                query = state.mediaQuery.trim(),
+                id = item.id,
+                url = item.fullUrl,
+            ),
+        )
+        if (!sent) {
+            Toast.makeText(
+                this,
+                "No email app on this device — reports go to ${Support.EMAIL}",
+                Toast.LENGTH_LONG,
+            ).show()
+        }
+    }
+
+    /** Hands a media file to the system clipboard, saying so out loud. */
+    private fun copyImageFileToClipboard(file: File) {
+        val uri = runCatching {
+            FileProvider.getUriForFile(this, clipboardFileProviderAuthority, file)
+        }.getOrNull()
+        if (uri == null) {
+            Toast.makeText(this, "Couldn't copy that file", Toast.LENGTH_SHORT).show()
+            return
+        }
+        copyUriToSystemClipboard(uri, "image")
+        Toast.makeText(this, "Copied — paste it anywhere", Toast.LENGTH_SHORT).show()
     }
 
     /**
@@ -8090,7 +8185,7 @@ open class WMKeyboardService : InputMethodService() {
     fun onStickerSaveToPack(item: GifItem, packId: String?) {
         if (_uiState.value.mediaDownloadingId != null) return
         vibrate()
-        _uiState.update { it.copy(stickerAction = null, mediaDownloadingId = item.id) }
+        _uiState.update { it.copy(mediaAction = null, mediaDownloadingId = item.id) }
         mediaInsertJob = serviceScope.launch {
             val result = withContext(Dispatchers.IO) {
                 val target = packId
@@ -8175,18 +8270,7 @@ open class WMKeyboardService : InputMethodService() {
         vibrate()
         _uiState.update { it.copy(mediaDownloadingId = id) }
         mediaInsertJob = serviceScope.launch {
-            val file = withContext(Dispatchers.IO) {
-                runCatching {
-                    val extension = MediaMime.extension(mime)
-                    val dir = File(cacheDir, "media").apply { mkdirs() }
-                    pruneMediaCache(dir)
-                    // Name is stable per item so re-inserting the same GIF
-                    // reuses the already-downloaded file.
-                    val target = File(dir, "media_${url.hashCode().toUInt()}.$extension")
-                    if (!target.exists() || target.length() == 0L) ToolHttp.download(url, target)
-                    target
-                }.getOrNull()
-            }
+            val file = withContext(Dispatchers.IO) { downloadMediaFile(url, mime) }
             _uiState.update { it.copy(mediaDownloadingId = null) }
             if (file == null) {
                 Toast.makeText(
@@ -8199,6 +8283,22 @@ open class WMKeyboardService : InputMethodService() {
             commitImageFile(file, mime, sendMode)
         }
     }
+
+    /**
+     * Downloads a GIF/sticker/image into the media cache, or null if it
+     * failed. Blocking — call it off the main thread.
+     *
+     * The cache name is stable per URL, so picking the same result twice
+     * (insert, then copy) skips the second download.
+     */
+    private fun downloadMediaFile(url: String, mime: String): File? = runCatching {
+        val extension = MediaMime.extension(mime)
+        val dir = File(cacheDir, "media").apply { mkdirs() }
+        pruneMediaCache(dir)
+        val target = File(dir, "media_${url.hashCode().toUInt()}.$extension")
+        if (!target.exists() || target.length() == 0L) ToolHttp.download(url, target)
+        target
+    }.getOrNull()
 
     /** Keeps the media cache bounded (newest ~30 files). */
     private fun pruneMediaCache(dir: File) {
@@ -9433,10 +9533,10 @@ open class WMKeyboardService : InputMethodService() {
                 disarmToolPicker()
                 true
             }
-            // The sticker action sheet is a layer above the panel, so back
+            // The GIF/sticker action sheet is a layer above the panel, so back
             // closes it first rather than the panel underneath it.
-            state.stickerAction != null -> {
-                onStickerActionDismiss()
+            state.mediaAction != null -> {
+                onMediaActionDismiss()
                 true
             }
             state.voice.strip -> {
