@@ -31,11 +31,15 @@ internal fun layoutExtraValue(layoutId: String): String = "$LAYOUT_ID_KEY=$layou
  * display name changed would silently disable the user's picks. Same algorithm
  * as [String.hashCode], forced non-negative (the framework rejects some negative
  * ids).
+ *
+ * Also what `InputMethodSubtype.hashCode()` returns for our subtypes, and that
+ * is the identity `setExplicitlyEnabledInputMethodSubtypes` works in — where 0
+ * means "unspecified", so it is nudged off that one value.
  */
 internal fun stableSubtypeId(layoutId: String): Int {
     var h = 0
     for (c in layoutId) h = 31 * h + c.code
-    return h and 0x7fffffff
+    return (h and 0x7fffffff).let { if (it == 0) 1 else it }
 }
 
 /**

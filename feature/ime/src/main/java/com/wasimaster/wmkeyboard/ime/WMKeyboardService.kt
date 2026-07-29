@@ -1338,6 +1338,12 @@ open class WMKeyboardService : InputMethodService() {
         loadedDictToken = Int.MIN_VALUE
         loadDictionariesAndEmoji()
         serviceScope.launch { settingsRepository.seedNewDefaultModes() }
+        // An enabled-subtype list written before the unlock only lived until
+        // this moment, so the switcher would quietly fall back to one language.
+        // Forcing the signature stale re-writes it — once now, and again if the
+        // settings that just became readable hold a different set of layouts.
+        registeredSubtypeSig = null
+        registerSubtypes(_uiState.value.settings)
         settingsRepository.onUserUnlocked()
         _uiState.update {
             it.copy(
@@ -3842,7 +3848,36 @@ open class WMKeyboardService : InputMethodService() {
         }
         val imm = getSystemService(InputMethodManager::class.java) ?: return
         runCatching { imm.setAdditionalInputMethodSubtypes(imeId, subtypes) }
-            .onSuccess { registeredSubtypeSig = sig }
+            .onSuccess {
+                registeredSubtypeSig = sig
+                enableSubtypes(imm, if (settings.osLanguageSwitcher) ids else emptyList())
+            }
+    }
+
+    /**
+     * Registering a subtype is not the same as it being *enabled*, and only
+     * enabled ones reach the switcher. With nothing explicitly enabled — the
+     * default for every IME — the framework derives the enabled set from the
+     * system locales, which on a normal single-locale phone is exactly one
+     * keyboard subtype. That is why the switcher listed one language however
+     * many we registered.
+     *
+     * API 34+ lets an IME write its own entry in
+     * `Settings.Secure.ENABLED_INPUT_METHODS`; an empty array resets to that
+     * locale-derived default, which is what the switcher-off path wants. The
+     * framework keys the entry on [InputMethodSubtype.hashCode], which is the
+     * explicit [stableSubtypeId] we hand the builder in [subtypeFor].
+     *
+     * On 24–33 there is no such API: the languages have to be ticked by hand in
+     * the system subtype enabler, which the settings screen links to.
+     *
+     * Written before the first unlock this is volatile (the framework says so),
+     * hence the re-register in [onUserUnlocked].
+     */
+    private fun enableSubtypes(imm: InputMethodManager, layoutIds: List<String>) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) return
+        val hashes = layoutIds.map { stableSubtypeId(it) }.toIntArray()
+        runCatching { imm.setExplicitlyEnabledInputMethodSubtypes(imeId, hashes) }
     }
 
     /**

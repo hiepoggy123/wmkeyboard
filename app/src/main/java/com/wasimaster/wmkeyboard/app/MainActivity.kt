@@ -187,6 +187,7 @@ import com.wasimaster.wmkeyboard.core.icons.IconPackStore
 import com.wasimaster.wmkeyboard.core.icons.IconSlots
 import com.wasimaster.wmkeyboard.core.util.requireInputStream
 import com.wasimaster.wmkeyboard.core.util.runCancellable
+import com.wasimaster.wmkeyboard.ime.WMKeyboardService
 import com.wasimaster.wmkeyboard.ime.ui.IconDefaults
 import com.wasimaster.wmkeyboard.ime.ui.KeyboardFonts
 import com.wasimaster.wmkeyboard.ime.ui.LocalIconSet
@@ -3836,6 +3837,7 @@ private fun LanguageSettings(
     onNavigate: (String) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     CaptionText(
         "Every enabled layout is its own input mode; cycle between them with " +
             "the 🌐 key or a spacebar swipe.",
@@ -3939,7 +3941,13 @@ private fun LanguageSettings(
                     "the system's \"Choose input method\" sheet lists them and can switch " +
                     "between them. Turn this off to keep language switching entirely inside " +
                     "the keyboard (🌐 key, spacebar swipe, or the picker) and expose no " +
-                    "subtypes to the system.",
+                    "subtypes to the system.\n\n" +
+                    "Registering a language and it being switchable are two different " +
+                    "things: Android only lists the ones that are *enabled*, and until " +
+                    "something enables them it picks them itself from your phone's " +
+                    "languages — usually one. On Android 14 and newer the keyboard enables " +
+                    "them all for you. Below that, tick them by hand in system settings " +
+                    "using the row underneath.",
             ) { scope.launch { repository.setOsLanguageSwitcher(it) } }
         }
         if (settings.osLanguageSwitcher) {
@@ -3953,6 +3961,17 @@ private fun LanguageSettings(
                         "(which one is bold or greyed), so this changes only the label text, " +
                         "not that styling.",
                 ) { scope.launch { repository.setSubtypeAppNameFirst(it) } }
+            }
+            item {
+                NavRow(
+                    "Choose languages in system settings",
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                        "Android's own list — only needed if the switcher looks wrong"
+                    } else {
+                        "Android 13 and older: tick each language here or the switcher " +
+                            "shows only one"
+                    },
+                ) { openSubtypeEnabler(context) }
             }
         }
     }
@@ -8140,6 +8159,25 @@ private fun openSpellCheckerSettings(context: Context) {
         runCatching {
             context.startActivity(Intent(Settings.ACTION_INPUT_METHOD_SETTINGS))
         }
+    }
+}
+
+/**
+ * Opens Android's subtype enabler for this keyboard — the screen where the user
+ * ticks which of our registered languages the system switcher may list. Needed
+ * on Android 13 and older, where an IME cannot enable its own subtypes and the
+ * framework otherwise picks one from the phone's language list.
+ *
+ * The extra is what scopes the screen to us; without it (or on an OEM build
+ * that dropped the activity) we fall back to the input-method settings page,
+ * which is one tap away from the same place.
+ */
+private fun openSubtypeEnabler(context: Context) {
+    val imeId = ComponentName(context, WMKeyboardService::class.java).flattenToShortString()
+    val direct = Intent(Settings.ACTION_INPUT_METHOD_SUBTYPE_SETTINGS)
+        .putExtra(Settings.EXTRA_INPUT_METHOD_ID, imeId)
+    if (runCatching { context.startActivity(direct) }.isFailure) {
+        runCatching { context.startActivity(Intent(Settings.ACTION_INPUT_METHOD_SETTINGS)) }
     }
 }
 

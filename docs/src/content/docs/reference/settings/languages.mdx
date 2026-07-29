@@ -45,7 +45,7 @@ A **Switch order** group appears only once more than one layout is enabled (true
 Three more groups sit below Your layouts:
 
 - **Per-app language** — one toggle, **Remember language per app** (<SettingsPath path="Languages / Per-app language / Remember language per app" />, default **off**). Reopening a text field in an app you've explicitly switched languages in restores that layout; apps you haven't switched in follow your last-used one globally. A field that forces Latin input (a password box) or advertises its own language still overrides this.
-- **System language switcher** — **List languages in Android's switcher** (<SettingsPath path="Languages / System language switcher / List languages in Android's switcher" />, default **on**) registers every enabled layout as an Android input-method subtype, so the system's "Choose input method" sheet lists and can switch each one. While it's on, a second toggle appears, **Show app name first** (default **off**), which puts "WM Keyboard" ahead of the language in the switcher's label instead of after it.
+- **System language switcher** — **List languages in Android's switcher** (<SettingsPath path="Languages / System language switcher / List languages in Android's switcher" />, default **on**) registers every enabled layout as an Android input-method subtype, so the system's "Choose input method" sheet lists and can switch each one. While it's on, two more rows appear: **Show app name first** (default **off**), which puts "WM Keyboard" ahead of the language in the switcher's label instead of after it, and **Choose languages in system settings**, which opens Android's own tick-list of this keyboard's languages. On Android 14 and newer the keyboard enables every registered subtype itself and that row is only a way to check Android's view of things; on Android 13 and older there is no API for it, so ticking them there by hand is the only way the switcher lists more than one.
 - **Complex scripts** — shown only if an enabled language's script forms conjunct clusters (Bengali is one, so this group is visible by default). One toggle, **Conjunct-aware backspace** (<SettingsPath path="Languages / Conjunct-aware backspace" />, default **off**), deletes a whole cluster like ক্ষ or क्ष in a single press instead of one code point at a time. Bengali-specific detail lives on [Bengali](/languages/bengali/).
 
 <PhoneFrame caption="Further down the screen: Per-app language, System language switcher, and Complex scripts.">
@@ -110,6 +110,7 @@ Three languages, `zh`, `ja`, and `yue`, get an extra group named after themselve
 | Remember language per app | Languages → Per-app language | Off |
 | List languages in Android's switcher | Languages → System language switcher | On |
 | Show app name first | Languages → System language switcher | Off |
+| Choose languages in system settings | Languages → System language switcher | Opens Android's settings (no stored value) |
 | Conjunct-aware backspace | Languages → Complex scripts | Off |
 | Layouts (per layout) | Languages → *(a language)* → Layouts | On for each layout the language ships enabled by default (Bengali's three, English's QWERTY); off otherwise |
 | Numeral system | Languages → *(a language)* → Numerals | Auto |
@@ -127,6 +128,7 @@ Two related settings live outside this screen entirely: **where** a numeral choi
 ## Details & edge cases
 
 - **Settings search barely covers this screen.** Only two rows here are indexed by name: the top-level "Languages" entry itself and "Conjunct-aware backspace." Everything else (Add language, Switch order, Per-app language, the system switcher toggles, and everything on a per-language detail screen) has to be found by browsing, not by typing into Settings search.
+- **Registering a subtype does not enable it.** Android decides which subtypes are enabled, and with nothing explicitly enabled it derives the set from your phone's system languages, which is usually one. Android 14 and newer let the keyboard enable them all itself; below that, use **Choose languages in system settings** or the switcher will keep showing a single entry.
 - **352 is the catalogue size, not the enabled count.** A fresh install enables 2 languages and 4 layouts (English's QWERTY, plus Bengali's Avro, Probhat, and Jatiya); the other 350 languages sit inactive, loaded on demand, until you search for and add them.
 - **Only English and Bengali bundle a dictionary.** Every other language starts with zero built-in suggestions until you download or import a wordlist on its Dictionary group.
 - **A code comment inside the Double Pinyin list is stale.** It says a scheme is selectable "only once its key table ships (currently Xiaohe)," implying the rest are placeholders. In the shipped app all five non-Off schemes have their key tables and are fully selectable; none render as disabled.

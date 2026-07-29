@@ -44,4 +44,18 @@ class SubtypesTest {
         assertNotEquals(stableSubtypeId("qwerty"), stableSubtypeId("azerty"))
         assertNotEquals(stableSubtypeId("bn_avro"), stableSubtypeId("bn_probhat"))
     }
+
+    /**
+     * 0 is the framework's "no explicit id" sentinel: a subtype carrying it
+     * falls back to hashing its fields, and the hash we then hand
+     * `setExplicitlyEnabledInputMethodSubtypes` matches nothing.
+     */
+    @Test
+    fun `subtype id is never the unspecified sentinel`() {
+        // The empty id is the reachable case; the real ids stand in for any
+        // that might land on 0 once masked.
+        for (id in listOf("", "qwerty", "bn_avro")) {
+            assertNotEquals(0, stableSubtypeId(id))
+        }
+    }
 }

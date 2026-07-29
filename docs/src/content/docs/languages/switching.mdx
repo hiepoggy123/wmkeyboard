@@ -93,10 +93,17 @@ There's no separate "recent languages" or "maximum visible" setting: the size of
 
 ## Switching from Android's system menu
 
-Two more toggles on the Languages screen connect your switch ring to Android itself, both under **System language switcher**:
+The **System language switcher** group on the Languages screen connects your switch ring to Android itself:
 
 - **List languages in Android's switcher** (on by default) registers every enabled layout as an Android input-method subtype, so the system's "Choose input method" sheet lists each one and can switch to it directly. An explicit switch made inside the keyboard is mirrored out to Android, and a switch made from the system sheet is followed back into the keyboard; the two stay in sync either way. Turning this off keeps switching entirely inside the keyboard and exposes no subtypes to Android at all.
 - **Show app name first** (off by default, shown only while the toggle above is on) puts "WM Keyboard" ahead of the language in the switcher's label instead of after it. Android still controls which part of the label is bold or greyed; this only changes the text order.
+- **Choose languages in system settings** (also shown only while the first toggle is on) opens Android's own list of this keyboard's languages, where each one can be ticked or unticked. See the callout below for when you actually need it.
+
+:::caution[On Android 13 and older you have to tick the languages yourself]
+Registering a language with Android and that language being *switchable* are two different things. Android only lists the subtypes it considers enabled, and if nothing has enabled any, it picks them itself from your phone's system languages, which normally means exactly one. That is why the switcher can show a single entry however many layouts you have on.
+
+Android 14 added an API that lets a keyboard enable its own subtypes, so on Android 14 and newer WM Keyboard enables all of them for you and the switcher lists the lot with nothing to configure. Below that there is no such API: open **Choose languages in system settings** and tick each language you want in the sheet.
+:::
 
 <PhoneFrame caption="Languages → System language switcher: register every enabled layout as an Android input-method subtype.">
   {/* shot: languages/system-switcher-toggle */}
@@ -129,4 +136,5 @@ A separate, unrelated toggle (**Remember language per app**, under Per-app langu
 - **With exactly two layouts enabled, swiping doesn't wrap-cycle**: it toggles. Piling on more drag distance in the same direction won't toggle a second time; you have to reverse direction, which starts a fresh toggle. (The count that matters is enabled layouts, not distinct languages; two layouts of the same language toggle too.)
 - **A held-but-unmoved spacebar or globe-key long-press leaves the picker list open for a direct tap** rather than dismissing it; there's no need to drag precisely if you'd rather just tap the language you want.
 - **Reordering affects layouts, not languages.** If you've added a second layout for the same language (AZERTY alongside QWERTY, say), Switch order treats them as independent stops; moving one doesn't move the other.
+- **A subtype that Android hasn't enabled stays invisible.** Registering is ours to do, enabling is Android's, and before Android 14 only the user could bridge the gap. If the system sheet lists one language on an older phone, nothing is broken; the languages just haven't been ticked in system settings yet.
 - **The Android system switcher and per-app memory are independent settings.** You can have Android list every layout as a subtype while per-app memory stays off, or the reverse; turning one off doesn't touch the other.
