@@ -3233,7 +3233,7 @@
       "am start -a android.intent.action.VIEW -d wmkeyboard://settings/typing",
       "Scroll to the Smart chips group and ensure Convert currencies is visible with its toggle in the on state."
     ],
-    "status": "todo",
+    "status": "done",
     "notes": "Not in the deep-link allowlist beyond 'typing' itself (which is allowlisted); the Smart chips group is partway down that screen so a scroll is needed after the deep link lands.",
     "kind": "still"
   },

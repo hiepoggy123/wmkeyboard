@@ -981,7 +981,7 @@ data class KeyboardSettings(
     val emojiLongPressName: Boolean = true,
     /** Emoji candidates in the suggestion strip while typing. */
     val emojiPrediction: Boolean = true,
-    val emojiBarMode: EmojiBarMode = EmojiBarMode.BUTTON,
+    val emojiBarMode: EmojiBarMode = EmojiBarMode.OFF,
     val emojiBarContent: EmojiBarContent = EmojiBarContent.MOST_USED,
     /** Whether an emoji suggestion replaces the typed word or follows it. */
     val emojiInsertMode: EmojiInsertMode = EmojiInsertMode.REPLACE,
