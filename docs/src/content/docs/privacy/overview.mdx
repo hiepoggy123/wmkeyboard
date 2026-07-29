@@ -22,6 +22,8 @@ Everything the keyboard needs to type, predict, autocorrect and learn from you r
 
 No analytics, crash-reporting, or telemetry SDK is built into the app: there's no Firebase, Crashlytics, Mixpanel, Sentry, Bugsnag, or Amplitude anywhere in the source tree, and no first-party WM Keyboard server that the app phones home to for any reason. There's no update check, either. Updates come from wherever you installed the app, the same as any other app. Every network call the app makes is a request you can trace to one specific, named tool.
 
+A fresh install asks for no permissions at all. Each one belongs to a single optional feature (microphone to voice input, camera to the camera tool, and so on), gets requested the first time you use that feature, and gets an explanation of its own before Android's prompt appears. The full list, along with what refusing does, is on [Permissions](/privacy/permissions/).
+
 :::note[The in-app caption undersells this]
 The Privacy screen's own caption says the keyboard works offline apart from one optional weather tool. That's true as far as it goes, but incomplete: there are more network-touching tools than that one line lets on. The rest of this page is the accurate, complete version.
 :::
@@ -93,4 +95,4 @@ Every per-tool network toggle mentioned above lives on that tool's own settings 
 - **Opening Settings → Addons re-checks every repository you've added**, once per visit, and the very first time you ever open that screen it also silently adds and fetches one sample addon repository so the screen isn't empty. Removing that starter repository is permanent; it isn't re-added on a later visit.
 - **Only the two heaviest downloads confirm before using mobile data.** Offline Whisper speech models and on-device AI models ask first on a metered connection (around 150 MB and 500 MB respectively). Wordlists, CJK dictionaries, emoji keyword packs, and addon payloads don't. See [Network policy](/privacy/network/#downloads-dictionaries-models-and-addons) for the full download-by-download table, including which of these get a checksum verified.
 
-See [Network policy](/privacy/network/) for the complete tool-by-tool table, [Your data on device](/privacy/data/) for what's stored locally, [Incognito & secure fields](/privacy/incognito/) for pausing learning and clipboard capture, and [Backup & restore](/privacy/backup/) for what leaves the device only when you choose to export or sync it.
+See [Network policy](/privacy/network/) for the complete tool-by-tool table, [Your data on device](/privacy/data/) for what's stored locally, [Permissions](/privacy/permissions/) for which feature asks for what and what happens if you refuse, [Incognito & secure fields](/privacy/incognito/) for pausing learning and clipboard capture, and [Backup & restore](/privacy/backup/) for what leaves the device only when you choose to export or sync it.

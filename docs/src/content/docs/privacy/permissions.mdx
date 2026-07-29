@@ -1,0 +1,70 @@
+---
+title: "Permissions"
+description: "Every permission the keyboard can ask for, which feature wants it, and what happens if you say no."
+sidebar:
+  order: 6
+---
+
+import SettingsPath from '@components/SettingsPath.astro';
+import Flavor from '@components/Flavor.astro';
+
+A fresh install asks for nothing. Every permission on this page belongs to exactly one optional feature, and none of them is requested until the first time you actually use that feature. Typing, prediction, autocorrect, gesture typing, emoji search and learning need no permission at all, so a keyboard you never point at a tool never sees a single prompt.
+
+## The explanation always comes first
+
+Before Android's own permission dialog appears, the keyboard shows its own: what it's about to ask for, which feature wants it, what happens to the data, and whether any of it leaves the phone. Two buttons, **Continue** and **Not now**.
+
+**Not now** is a real answer. It closes the dialog without asking Android for anything, and the feature stays in whatever state it was in: a tool that needs the permission keeps showing its "needs permission" panel, and a setting that needs one stays off. Nothing is silently enabled behind the dialog, and dismissing it with Back or a tap outside counts the same as **Not now**.
+
+The same explanation appears whichever direction you came from, so the microphone text is identical whether you reached it from the voice panel on the keyboard or from a settings screen.
+
+## What each permission is for
+
+These are the ones that produce a system prompt the first time.
+
+| Permission | Feature that wants it | What it does with it |
+|---|---|---|
+| Microphone | [Voice input](/tools/voice/) | Records only while you're dictating. Audio goes to the speech recognizer picked in your Android settings, which on most phones is Google's and may process it in the cloud. An offline Whisper model <Flavor edition="full" /> keeps it on the phone. Nothing is stored either way. |
+| Camera | [Camera tool](/tools/camera/), [OCR and QR scanning](/tools/scanner/) <Flavor edition="full" /> | Opens the camera only while that panel is on screen. Photos land in the app's private storage and go to the app you're typing in when you insert one. |
+| Contacts | [Contact name and email suggestions](/smart/contacts/) | Reads names and addresses into memory so they complete as you type, and so autocorrect stops "fixing" them. Never written to disk, never sent anywhere. |
+| Calendar | [Calendar tool](/tools/calendar/) | Reads your events so the tool can list them and insert one as text. Read-only, only while the tool is open. |
+| Photos | Screenshots in the [clipboard](/tools/clipboard/) | Spots newly taken screenshots so they turn up in the clipboard ready to insert. Android has no screenshots-only permission, so granting it opens your photo library as a whole even though the keyboard only ever looks at new screenshots. |
+| Storage | Save an image to your gallery | Android 9 and older only. Newer versions let an app write its own media with no permission, so nothing is asked for there. |
+
+Three more are granted at install with no prompt, because Android doesn't consider them sensitive: vibration (for haptics), internet, and the "is this connection metered?" check the model downloaders use before pulling hundreds of megabytes. What the internet permission is actually used for, tool by tool, is on [Network policy](/privacy/network/).
+
+## If Android stops asking
+
+Refuse the same permission twice and Android stops showing that prompt entirely. It doesn't tell the app, and it doesn't tell you: the next tap just returns "denied" with nothing on screen, which normally leaves you tapping a button that appears to do nothing.
+
+The keyboard checks for that case and changes what the button does. You get the same explanation as before, plus a line saying Android has stopped asking, and the button becomes **Open settings**, which drops you on the app's own permission page where the choice still lives. Grant it there and the feature works the next time you open it.
+
+One rough edge worth knowing: if you granted a permission and later revoked it from that same settings page, the keyboard will send you back to Settings rather than showing the prompt, even though the prompt would have worked. It errs toward the screen that always works over the one that might silently do nothing.
+
+## The three that aren't permissions
+
+Notification access, usage access and the accessibility service aren't permissions Android will prompt for. Each is a switch on a system Settings screen, and all the app can do is take you there. The keyboard shows the same kind of explanation first, for the same reason, and each of these three is off until you turn it on yourself.
+
+The system screens for all three carry broad, alarming warnings, because the *categories* are genuinely powerful. What this app actually uses is much narrower:
+
+| Access | Feature | What the keyboard uses it for |
+|---|---|---|
+| Notification access | [Media controls](/tools/media/) | Android only hands the play/pause/skip controls of the current media session to apps holding this. The keyboard's listener is empty: no notification, title, sender or content is read. It exists purely so the platform will surface the session. |
+| Usage access | "Show source app" on clipboard entries | Reads which app was in front at the moment you copied something, so the clip can show where it came from. Not your history, not time spent anywhere. Kept with the clip, on this device. |
+| Accessibility service | Keyboard gestures under a screen reader | Marks the key grid as bypassing TalkBack's touch handling, which is the only way an app can keep its own gestures there. It subscribes to no accessibility events, can't read window content, and covers nothing outside the keys. See [Screen readers](/reference/settings/accessibility/). |
+
+All three are revoked the same way they were granted, from the relevant system Settings screen, and the features fall back cleanly: media controls show their "needs access" panel, clips are saved with no source app, and the gestures mode behaves like Explore by touch.
+
+## Options
+
+<SettingsPath path="Privacy" />
+
+There's no permissions screen in the app, by design: each permission belongs to its feature, so it's requested and revoked where that feature lives rather than from a central list. To review or change everything at once, use Android's own page for the app: **Settings → Apps → WM Keyboard → Permissions**. Notification access, usage access and accessibility each sit on their own system screen rather than in that list.
+
+## Details & edge cases
+
+- **Revoking a permission never breaks the keyboard.** Every feature behind one is optional and checks at the moment it's used, so a revoked permission turns that one panel back into its "needs permission" state and leaves everything else alone. Typing is never affected.
+- **Two dictionary permissions are declared but do nothing on any current phone.** The app lists `READ_USER_DICTIONARY` and `WRITE_USER_DICTIONARY` for the "Add words to the system dictionary" setting described on [Your data on device](/privacy/data/#options). Since Android 6, the system grants the *active* keyboard access to that provider without a permission, so these are inert on anything modern and only matter on much older releases.
+- **Listing your installed apps isn't a permission.** The keyboard-mode editor can bind a mode to specific apps, and app names can be offered as suggestions, both of which need to see the list of launcher activities. Android 11 and later hide that list unless an app declares which kinds of apps it wants to see, which this app does narrowly (launcher activities, plus mail apps for the bug-report row). It doesn't use the blanket "query all packages" permission.
+- **The camera permission covers the scanners, but the document scanner is Google's own screen.** OCR and QR scanning <Flavor edition="full" /> run in a keyboard panel and use the permission above. Document scanning hands off to the full-screen scanner supplied by Google Play services, which manages its own camera access and returns the pages when it's done.
+- **Nothing here is asked for on behalf of a third party.** No permission on this page is requested by an SDK, an analytics library or an ad network, because the app contains none. See [Privacy at a glance](/privacy/overview/) for what that claim rests on and how to check it yourself.
