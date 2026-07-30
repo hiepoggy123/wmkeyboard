@@ -696,9 +696,7 @@ fun KeyboardScreen(
     // settings object on every keystroke whenever the variant had an override,
     // which is enough on its own to stop every key from skipping.
     val settings = remember(rawState.settings, variant) { rawState.settings.resolvedFor(variant) }
-    val state = remember(rawState, settings) {
-        if (settings === rawState.settings) rawState else rawState.copy(settings = settings)
-    }
+    val state = remember(rawState, settings) { rawState.copy(settings = settings) }
 
     // Resolved off the main thread, so the first frame or two after a cold
     // start draw the built-in icons and a pack swaps in behind them.
@@ -5467,6 +5465,63 @@ private fun spacebarArrowsShown(state: KeyboardUiState): Boolean {
         state.settings.enabledLayoutIds.size > 1
 }
 
+/**
+ * Every key on the board, resolved in one pass: the digit row (null when it is
+ * not shown) and the body rows, each with its own height and centring pad.
+ *
+ * Rebuilt only when something a key actually draws changes. Deliberately NOT
+ * keyed on the suggestions, the composing preview or the open panel: those change
+ * on every keystroke, and rebuilding here is exactly what used to re-run all ~40
+ * key bodies per keypress. Every field this reads is a key below — read one more
+ * without adding its key and the board goes stale.
+ */
+@Composable
+private fun rememberKeyGrid(
+    state: KeyboardUiState,
+    layout: KeyboardLayout,
+    bodyRows: List<List<Key>>,
+    extraRow: List<Key>?,
+    palette: KeyPalette,
+    gridWeight: Float,
+): Pair<KeyRowVisual?, List<KeyRowVisual>> {
+    val settings = state.settings
+    val split = settings.splitKeyboard
+    val splitGapPercent = settings.splitGapPercent
+    // Optional taller (or shorter) bottom row — space / enter — set independently
+    // of the other keys. Ignored when the layout carries its own per-row heights,
+    // so a custom layout's bottom row wins and the height is never applied twice.
+    // keyRowsHeight adds the same delta so the reserved height matches.
+    val bottomRowHeightDp = settings.layoutBehavior.bottomRowHeightDp
+    return remember(
+        bodyRows, extraRow, layout, palette, settings, gridWeight,
+        state.shiftState, state.modifiers, state.effectiveEnterAction,
+        state.enterActionLabel, state.language, state.script,
+        state.composer.isClusterShaping, state.vowelForm, state.layoutId,
+    ) {
+        val digits = extraRow?.let { row ->
+            keyRowVisual(
+                row, split, splitGapPercent, row.size.toFloat(),
+                settings.numberRowHeightDp, state, palette,
+            )
+        }
+        digits to bodyRows.mapIndexed { index, row ->
+            // Per-row height multiplier from the layout, if any. Rounded to whole
+            // dp so the rendered height matches keyRowsHeight exactly (which sums
+            // the same rounded values).
+            val perRowHeight = rowScaledKeyHeight(
+                settings.keyHeightDp, layout.rowHeights?.getOrNull(index),
+            )
+            val bottomRow = index == bodyRows.lastIndex && layout.rowHeights == null
+            val rowHeightDp = if (bottomRowHeightDp > 0 && bottomRow) {
+                bottomRowHeightDp
+            } else {
+                perRowHeight
+            }
+            keyRowVisual(row, split, splitGapPercent, gridWeight, rowHeightDp, state, palette)
+        }
+    }
+}
+
 /** Resolves a whole row, splitting it first so the halves are what gets drawn. */
 private fun keyRowVisual(
     row: List<Key>,
@@ -5994,51 +6049,8 @@ private fun KeyRows(
             } else {
                 null
             }
-            // Optional taller (or shorter) bottom row — space / enter — set
-            // independently of the other keys. Ignored when the layout carries
-            // its own per-row heights, so a custom layout's bottom row wins and
-            // the height is never applied twice. keyRowsHeight adds the same
-            // delta so the reserved height matches.
-            val bottomRowHeightDp = settings.layoutBehavior.bottomRowHeightDp
-            // Every key on the board, resolved in one pass and rebuilt only when
-            // something a key actually draws changes.
-            //
-            // Deliberately NOT keyed on the suggestions, the composing preview or
-            // the open panel: those change on every keystroke, and rebuilding here
-            // is exactly what used to re-run all ~40 key bodies per keypress. Every
-            // field [keyVisual] and the loop below read is a key here — read one
-            // more and it needs a key, or the rows go stale.
-            val (numberRowVisual, bodyRowVisuals) = remember(
-                bodyRows, extraRow, layout, palette, settings, split, splitGapPercent, gridWeight,
-                state.shiftState, state.modifiers, state.effectiveEnterAction,
-                state.enterActionLabel, state.language, state.script,
-                state.composer.isClusterShaping, state.vowelForm, state.layoutId,
-            ) {
-                val digits = extraRow?.let { row ->
-                    keyRowVisual(
-                        row, split, splitGapPercent, row.size.toFloat(),
-                        settings.numberRowHeightDp, state, palette,
-                    )
-                }
-                digits to bodyRows.mapIndexed { index, row ->
-                    // Per-row height multiplier from the layout, if any. Rounded
-                    // to whole dp so the rendered height matches keyRowsHeight
-                    // exactly (which sums the same rounded values).
-                    val rowHeightDp =
-                        if (bottomRowHeightDp > 0 && index == bodyRows.lastIndex &&
-                            layout.rowHeights == null
-                        ) {
-                            bottomRowHeightDp
-                        } else {
-                            rowScaledKeyHeight(
-                                settings.keyHeightDp, layout.rowHeights?.getOrNull(index),
-                            )
-                        }
-                    keyRowVisual(
-                        row, split, splitGapPercent, gridWeight, rowHeightDp, state, palette,
-                    )
-                }
-            }
+            val (numberRowVisual, bodyRowVisuals) =
+                rememberKeyGrid(state, layout, bodyRows, extraRow, palette, gridWeight)
             if (numberRowVisual != null) {
                 KeyRow(
                     row = numberRowVisual,
