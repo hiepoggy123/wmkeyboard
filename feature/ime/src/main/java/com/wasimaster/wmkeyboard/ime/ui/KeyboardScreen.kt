@@ -123,6 +123,7 @@ import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -682,8 +683,15 @@ fun KeyboardScreen(
         // way round.
         unfolded = configuration.smallestScreenWidthDp >= ScreenVariant.UNFOLDED_MIN_DP,
     )
-    val state = remember(rawState, variant) {
-        rawState.copy(settings = rawState.settings.resolvedFor(variant))
+    // Resolved on its own, and remembered on the settings rather than on the
+    // whole state: the keys downstream take `settings` as a parameter and Compose
+    // reads it as unstable (it is full of lists and maps), so it is compared by
+    // instance. Folding this into the state.copy below handed out a fresh
+    // settings object on every keystroke whenever the variant had an override,
+    // which is enough on its own to stop every key from skipping.
+    val settings = remember(rawState.settings, variant) { rawState.settings.resolvedFor(variant) }
+    val state = remember(rawState, settings) {
+        if (settings === rawState.settings) rawState else rawState.copy(settings = settings)
     }
 
     // Resolved off the main thread, so the first frame or two after a cold
@@ -5290,6 +5298,191 @@ private val SymbolsShiftedFillRow = listOf(
  */
 const val KeyRowsTestTag: String = "wm:key-rows"
 
+/**
+ * The key-face colours a key is painted with, lifted off [KbTheme] so the
+ * resolved keys depend on these eight values and not on the whole theme — a
+ * background image, a toolbar colour or a radius changing then costs no key work.
+ */
+@Immutable
+internal data class KeyPalette(
+    val key: Color,
+    val keyText: Color,
+    val modifierKey: Color,
+    val modifierKeyText: Color,
+    val enterKey: Color,
+    val enterKeyText: Color,
+    val pressedKey: Color,
+    val accent: Color,
+)
+
+internal fun KbTheme.keyPalette(): KeyPalette = KeyPalette(
+    key = key,
+    keyText = keyText,
+    modifierKey = modifierKey,
+    modifierKeyText = modifierKeyText,
+    enterKey = enterKey,
+    enterKeyText = enterKeyText,
+    pressedKey = pressedKey,
+    accent = accent,
+)
+
+/**
+ * Everything one key draws, resolved out of [KeyboardUiState] once per layout,
+ * shift, modifier or palette change instead of read out of the state per key.
+ *
+ * This type exists for skipping. The service publishes a fresh
+ * [KeyboardUiState] on every keystroke — the suggestions and the composing
+ * preview really do change — and strong skipping compares an unstable parameter
+ * by instance, so a key handed the whole state can never skip: one keypress
+ * re-ran every key body on the board, modifier chains and lambdas included.
+ * Nothing a key draws is per-keystroke except the Bengali vowel form, so keys
+ * take their resolved values instead and a mid-word keypress leaves every one of
+ * these identical.
+ */
+@Immutable
+internal data class KeyVisual(
+    /** The key as authored: what it commits, its width, popups, flicks, hints. */
+    val key: Key,
+    /** [displayLabel] for the live shift state, numeral system and vowel form. */
+    val label: String,
+    /** [spokenLabel]: the TalkBack description, and what PASSTHROUGH announces. */
+    val spoken: String,
+    /** Latch of the modifier this key toggles; null when it is not a modifier. */
+    val latch: ModifierState?,
+    /** The key's face, and the colour a press paints over it. */
+    val background: Color,
+    val pressedBackground: Color,
+    /** Label colour, and the one it flips to while pressed (Enter only). */
+    val contentColor: Color,
+    val pressedContentColor: Color,
+    /**
+     * Icon slot for the shift and enter keys, whose glyph tracks state; null for
+     * every other key. The fixed-glyph keys (delete, globe, emoji) name their
+     * own slot where they are drawn, since it cannot change.
+     */
+    val iconSlot: String?,
+    /** Shift is on or locked, so its icon draws in the accent colour. */
+    val iconActive: Boolean,
+    /** Enter with an app-supplied actionLabel draws that wording, not an icon. */
+    val enterLabel: String?,
+    /** Spacebar: its label, and whether the language-cycle arrows flank it. */
+    val spaceText: String,
+    val spaceArrows: Boolean,
+)
+
+/**
+ * One row as it is drawn: its keys resolved, already cut into halves for split
+ * mode (the right half is empty when the keyboard is not split), with the row's
+ * centring pad and key height.
+ */
+@Immutable
+private data class KeyRowVisual(
+    val left: List<KeyVisual>,
+    val right: List<KeyVisual>,
+    /** Half the row's slack to the grid width, as a layout weight. */
+    val sidePad: Float,
+    /**
+     * The centre gap between the halves, as a layout weight. Per row rather than
+     * per board because it is a percentage of the width the row was measured
+     * against, and the number row is measured against its own key count.
+     */
+    val splitGapWeight: Float,
+    val heightDp: Int,
+)
+
+/**
+ * Resolves one key against [state].
+ *
+ * A plain function rather than a composable so the invariant the whole split
+ * rests on — a keystroke changes nothing a key draws — is unit-testable.
+ */
+internal fun keyVisual(key: Key, state: KeyboardUiState, palette: KeyPalette): KeyVisual {
+    val action = key.action
+    // A latched modifier has to look held: it changes what the *next* key does,
+    // so with no visible state the user finds out by pressing one.
+    val latch = (action as? KeyAction.Mod)?.let { state.modifiers[it.key] }
+    // Samsung-style contrast: letter keys clearly lighter than the board,
+    // modifier keys a shade darker than the letters.
+    val background = when {
+        latch == ModifierState.LOCKED -> palette.accent
+        latch == ModifierState.ARMED -> palette.pressedKey
+        action == KeyAction.Enter -> palette.enterKey
+        action != KeyAction.Text -> palette.modifierKey
+        else -> palette.key
+    }
+    val contentColor = when {
+        action == KeyAction.Enter -> palette.enterKeyText
+        action != KeyAction.Text -> palette.modifierKeyText
+        else -> palette.keyText
+    }
+    return KeyVisual(
+        key = key,
+        label = displayLabel(key, state),
+        spoken = spokenLabel(key, state),
+        latch = latch,
+        background = background,
+        pressedBackground = palette.pressedKey,
+        contentColor = contentColor,
+        // Enter is the one key that recolours under the finger: its text colour
+        // is picked for its own accented face, which the press paints over.
+        pressedContentColor =
+            if (action == KeyAction.Enter) palette.modifierKeyText else contentColor,
+        iconSlot = when {
+            action == KeyAction.Shift -> when (state.shiftState) {
+                ShiftState.CAPS_LOCK -> IconSlots.KEY_SHIFT_LOCK
+                ShiftState.ON -> IconSlots.KEY_SHIFT_ON
+                ShiftState.OFF -> IconSlots.KEY_SHIFT
+            }
+            // CUSTOM is the one enter action with no slot: the app supplied its
+            // own wording, so there is no icon to replace.
+            action == KeyAction.Enter ->
+                IconDefaults.enterActionSlot(state.effectiveEnterAction) ?: IconSlots.KEY_ENTER
+            else -> null
+        },
+        iconActive = action == KeyAction.Shift && state.shiftState != ShiftState.OFF,
+        enterLabel = state.enterActionLabel?.takeIf {
+            action == KeyAction.Enter && state.effectiveEnterAction == EnterAction.CUSTOM
+        },
+        spaceText = if (action == KeyAction.Space) spacebarText(state) else "",
+        spaceArrows = action == KeyAction.Space && spacebarArrowsShown(state),
+    )
+}
+
+/**
+ * Whether the spacebar's language-cycle arrows are drawn. They only mean
+ * something when a swipe actually cycles languages and there is more than one
+ * language to cycle.
+ */
+private fun spacebarArrowsShown(state: KeyboardUiState): Boolean {
+    val swipeSwitchesLanguage = state.settings.spaceShortSwipe == SpaceSwipeAction.LANGUAGE ||
+        state.settings.spaceLongSwipe == SpaceSwipeAction.LANGUAGE
+    return state.settings.spacebarLanguageArrows &&
+        swipeSwitchesLanguage &&
+        state.settings.enabledLayoutIds.size > 1
+}
+
+/** Resolves a whole row, splitting it first so the halves are what gets drawn. */
+private fun keyRowVisual(
+    row: List<Key>,
+    split: Boolean,
+    splitGapPercent: Int,
+    gridWeight: Float,
+    heightDp: Int,
+    state: KeyboardUiState,
+    palette: KeyPalette,
+): KeyRowVisual {
+    // Split before resolving: the cut rewrites a straddling spacebar's width and
+    // blanks the left half's label, so the halves are the keys to resolve.
+    val (left, right) = if (split) splitKeys(row) else row to emptyList()
+    return KeyRowVisual(
+        left = left.map { keyVisual(it, state, palette) },
+        right = right.map { keyVisual(it, state, palette) },
+        sidePad = sidePadFor(row, gridWeight),
+        splitGapWeight = gridWeight * splitGapPercent / 100f,
+        heightDp = heightDp,
+    )
+}
+
 @Composable
 private fun KeyRows(
     state: KeyboardUiState,
@@ -5409,7 +5602,11 @@ private fun KeyRows(
     var trailReleased by remember { mutableStateOf(false) }
     // Frame clock driving the fade; points older than trailMs vanish.
     var trailNow by remember { mutableLongStateOf(0L) }
-    val trailColor = LocalKbTheme.current.gestureTrail
+    val kbTheme = LocalKbTheme.current
+    val trailColor = kbTheme.gestureTrail
+    // The eight colours the keys themselves are painted with. Remembered so the
+    // resolved rows below compare it by identity rather than by value.
+    val palette = remember(kbTheme) { kbTheme.keyPalette() }
     // Customisable glide-trail + start-sensitivity knobs (Settings → Gestures).
     val gesture = state.settings.gesture
     val trailMs = gesture.trailDurationMs.toLong()
@@ -5696,12 +5893,19 @@ private fun KeyRows(
                 .fillMaxWidth()
                 .padding(horizontal = KeyRowsPadHorizontal, vertical = KeyRowsPadVertical),
         ) {
-            val onLetterPositioned: (Char, LayoutCoordinates) -> Unit = { letter, coords ->
-                val topLeft = coords.positionInRoot() - boxOrigin
-                keyCenters[letter] = Offset(
-                    topLeft.x + coords.size.width / 2f,
-                    topLeft.y + coords.size.height / 2f,
-                )
+            // Remembered, not written inline: these two are parameters of every
+            // row and every key, so a fresh instance per composition would be
+            // enough on its own to stop the whole grid from skipping. Both read
+            // their state (the centres map, the box origin) live when the layout
+            // calls them, so holding one instance changes nothing they see.
+            val onLetterPositioned: (Char, LayoutCoordinates) -> Unit = remember(keyCenters) {
+                { letter, coords ->
+                    val topLeft = coords.positionInRoot() - boxOrigin
+                    keyCenters[letter] = Offset(
+                        topLeft.x + coords.size.width / 2f,
+                        topLeft.y + coords.size.height / 2f,
+                    )
+                }
             }
             // Records the spacebar's rect in *root* coordinates for the
             // multi-word split. Stored root-relative rather than box-relative on
@@ -5712,11 +5916,15 @@ private fun KeyRows(
             // rect stuck in absolute space and the containment test — which runs
             // in box space — would never hit. The gesture loop adds the live
             // `boxOrigin` at test time instead, when the Box is laid out.
-            val onSpacePositioned: (LayoutCoordinates) -> Unit = { coords ->
-                spaceRect.value = coords.boundsInRoot()
+            val onSpacePositioned: (LayoutCoordinates) -> Unit = remember(spaceRect) {
+                { coords -> spaceRect.value = coords.boundsInRoot() }
             }
-            val split = state.settings.splitKeyboard
-            val splitGapPercent = state.settings.splitGapPercent
+            val settings = state.settings
+            val split = settings.splitKeyboard
+            val splitGapPercent = settings.splitGapPercent
+            // The focused field wants a keypad, which suppresses the preview
+            // bubble unless the user opted back in.
+            val numericField = state.fieldKind.isNumericPad
             val mode = state.layoutMode
             // The digits keep the same slot on every layer, so switching
             // layers moves neither the row nor the pad below it. The `?123`
@@ -5738,7 +5946,9 @@ private fun KeyRows(
                     layout.rows
                 }
             }
-            if (numberRow) {
+            // Hoisted out of the render loop so the digit row resolves in the
+            // same pass as the body rows below; null when it is not shown.
+            val extraRow = if (numberRow) {
                 // Follows the same guard as the pad itself, so a search box
                 // opened over a number field gets its digit row back.
                 val kind = if (numericPadActive(state)) state.fieldKind else FieldKind.TEXT
@@ -5751,7 +5961,7 @@ private fun KeyRows(
                 // when the option is on — the symbol fill row while shift is held
                 // on the letters layer.
                 val shiftSymbols = state.settings.layoutBehavior.numberRowShiftSymbols
-                val extraRow = remember(kind, authored, state.layoutMode, state.shiftState, shiftSymbols) {
+                remember(kind, authored, state.layoutMode, state.shiftState, shiftSymbols) {
                     authored ?: when {
                         // A keypad already leads with digits, so the row
                         // carries what the pad lacks rather than a second set
@@ -5775,13 +5985,61 @@ private fun KeyRows(
                         else -> Layouts.SYMBOLS.rows.first()
                     }
                 }
+            } else {
+                null
+            }
+            // Optional taller (or shorter) bottom row — space / enter — set
+            // independently of the other keys. Ignored when the layout carries
+            // its own per-row heights, so a custom layout's bottom row wins and
+            // the height is never applied twice. keyRowsHeight adds the same
+            // delta so the reserved height matches.
+            val bottomRowHeightDp = settings.layoutBehavior.bottomRowHeightDp
+            // Every key on the board, resolved in one pass and rebuilt only when
+            // something a key actually draws changes.
+            //
+            // Deliberately NOT keyed on the suggestions, the composing preview or
+            // the open panel: those change on every keystroke, and rebuilding here
+            // is exactly what used to re-run all ~40 key bodies per keypress. Every
+            // field [keyVisual] and the loop below read is a key here — read one
+            // more and it needs a key, or the rows go stale.
+            val (numberRowVisual, bodyRowVisuals) = remember(
+                bodyRows, extraRow, layout, palette, settings, split, splitGapPercent, gridWeight,
+                state.shiftState, state.modifiers, state.effectiveEnterAction,
+                state.enterActionLabel, state.language, state.script,
+                state.composer.isClusterShaping, state.vowelForm, state.layoutId,
+            ) {
+                val digits = extraRow?.let { row ->
+                    keyRowVisual(
+                        row, split, splitGapPercent, row.size.toFloat(),
+                        settings.numberRowHeightDp, state, palette,
+                    )
+                }
+                digits to bodyRows.mapIndexed { index, row ->
+                    // Per-row height multiplier from the layout, if any. Rounded
+                    // to whole dp so the rendered height matches keyRowsHeight
+                    // exactly (which sums the same rounded values).
+                    val rowHeightDp =
+                        if (bottomRowHeightDp > 0 && index == bodyRows.lastIndex &&
+                            layout.rowHeights == null
+                        ) {
+                            bottomRowHeightDp
+                        } else {
+                            rowScaledKeyHeight(
+                                settings.keyHeightDp, layout.rowHeights?.getOrNull(index),
+                            )
+                        }
+                    keyRowVisual(
+                        row, split, splitGapPercent, gridWeight, rowHeightDp, state, palette,
+                    )
+                }
+            }
+            if (numberRowVisual != null) {
                 KeyRow(
-                    keys = extraRow,
-                    gridWeight = extraRow.size.toFloat(),
+                    row = numberRowVisual,
+                    settings = settings,
                     split = split,
-                    splitGapPercent = splitGapPercent,
-                    keyHeightDp = state.settings.numberRowHeightDp,
-                    state = state,
+                    numericField = numericField,
+                    layoutId = state.layoutId,
                     onKey = stampedOnKey,
                     onText = stampedOnText,
                     onCursorMove = onCursorMove,
@@ -5804,33 +6062,13 @@ private fun KeyRows(
                     ),
                 )
             }
-            // Optional taller (or shorter) bottom row — space / enter — set
-            // independently of the other keys. Ignored when the layout carries
-            // its own per-row heights, so a custom layout's bottom row wins and
-            // the height is never applied twice. keyRowsHeight adds the same
-            // delta so the reserved height matches.
-            val bottomRowHeightDp = state.settings.layoutBehavior.bottomRowHeightDp
-            bodyRows.forEachIndexed { index, row ->
-                // Per-row height multiplier from the layout, if any. Rounded to
-                // whole dp so the rendered height matches keyRowsHeight exactly
-                // (which sums the same rounded values).
-                val rowHeightDp =
-                    if (bottomRowHeightDp > 0 && index == bodyRows.lastIndex &&
-                        layout.rowHeights == null
-                    ) {
-                        bottomRowHeightDp
-                    } else {
-                        rowScaledKeyHeight(
-                            state.settings.keyHeightDp, layout.rowHeights?.getOrNull(index),
-                        )
-                    }
+            for (row in bodyRowVisuals) {
                 KeyRow(
-                    keys = row,
-                    gridWeight = gridWeight,
+                    row = row,
+                    settings = settings,
                     split = split,
-                    splitGapPercent = splitGapPercent,
-                    keyHeightDp = rowHeightDp,
-                    state = state,
+                    numericField = numericField,
+                    layoutId = state.layoutId,
                     onKey = stampedOnKey,
                     onText = stampedOnText,
                     onCursorMove = onCursorMove,
@@ -5954,12 +6192,11 @@ private fun KeyRows(
  */
 @Composable
 private fun KeyRow(
-    keys: List<Key>,
-    gridWeight: Float,
+    row: KeyRowVisual,
+    settings: KeyboardSettings,
     split: Boolean,
-    splitGapPercent: Int,
-    keyHeightDp: Int,
-    state: KeyboardUiState,
+    numericField: Boolean,
+    layoutId: String,
     onKey: (Key) -> Unit,
     onText: (String) -> Unit,
     onCursorMove: (Int) -> Unit,
@@ -5968,46 +6205,35 @@ private fun KeyRow(
     onSpacePositioned: (LayoutCoordinates) -> Unit = {},
     smartResolve: (Key, PointerId) -> Key = { k, _ -> k },
 ) {
-    val sidePad = sidePadFor(keys, gridWeight)
     Row {
-        if (sidePad > 0.01f) Spacer(modifier = Modifier.weight(sidePad))
+        if (row.sidePad > 0.01f) Spacer(modifier = Modifier.weight(row.sidePad))
+        for (visual in row.left) {
+            KeyCell(
+                visual,
+                row.heightDp,
+                settings,
+                numericField,
+                layoutId,
+                onKey,
+                onText,
+                onCursorMove,
+                onLayoutSelect,
+                onLetterPositioned,
+                onSpacePositioned,
+                smartResolve,
+            )
+        }
+        // Split mode only: the halves are cut where the row was resolved, so an
+        // unsplit row has nothing on the right and needs no gap.
         if (split) {
-            val (left, right) = remember(keys) { splitKeys(keys) }
-            for (key in left) {
+            Spacer(modifier = Modifier.weight(row.splitGapWeight))
+            for (visual in row.right) {
                 KeyCell(
-                    key,
-                    keyHeightDp,
-                    state,
-                    onKey,
-                    onText,
-                    onCursorMove,
-                    onLayoutSelect,
-                    onLetterPositioned,
-                    onSpacePositioned,
-                    smartResolve,
-                )
-            }
-            Spacer(modifier = Modifier.weight(gridWeight * splitGapPercent / 100f))
-            for (key in right) {
-                KeyCell(
-                    key,
-                    keyHeightDp,
-                    state,
-                    onKey,
-                    onText,
-                    onCursorMove,
-                    onLayoutSelect,
-                    onLetterPositioned,
-                    onSpacePositioned,
-                    smartResolve,
-                )
-            }
-        } else {
-            for (key in keys) {
-                KeyCell(
-                    key,
-                    keyHeightDp,
-                    state,
+                    visual,
+                    row.heightDp,
+                    settings,
+                    numericField,
+                    layoutId,
                     onKey,
                     onText,
                     onCursorMove,
@@ -6018,15 +6244,17 @@ private fun KeyRow(
                 )
             }
         }
-        if (sidePad > 0.01f) Spacer(modifier = Modifier.weight(sidePad))
+        if (row.sidePad > 0.01f) Spacer(modifier = Modifier.weight(row.sidePad))
     }
 }
 
 @Composable
 private fun RowScope.KeyCell(
-    key: Key,
+    visual: KeyVisual,
     keyHeightDp: Int,
-    state: KeyboardUiState,
+    settings: KeyboardSettings,
+    numericField: Boolean,
+    layoutId: String,
     onKey: (Key) -> Unit,
     onText: (String) -> Unit,
     onCursorMove: (Int) -> Unit,
@@ -6035,12 +6263,13 @@ private fun RowScope.KeyCell(
     onSpacePositioned: (LayoutCoordinates) -> Unit = {},
     smartResolve: (Key, PointerId) -> Key = { k, _ -> k },
 ) {
+    val key = visual.key
     val letter = key.label.singleOrNull()?.takeIf {
         key.action == KeyAction.Text && it.isLetter()
     }
     KeyButton(
-        key = key,
-        state = state,
+        visual = visual,
+        settings = settings,
         modifier = if (letter != null) {
             Modifier
                 .weight(key.width)
@@ -6053,6 +6282,8 @@ private fun RowScope.KeyCell(
             Modifier.weight(key.width)
         },
         heightDp = keyHeightDp,
+        numericField = numericField,
+        layoutId = layoutId,
         onKey = onKey,
         onText = onText,
         onCursorMove = onCursorMove,
@@ -6483,18 +6714,33 @@ private fun rowScaledKeyHeight(baseKeyHeightDp: Int, scale: Float?): Int =
         (baseKeyHeightDp * scale.coerceIn(0.4f, 2.5f)).roundToInt().coerceAtLeast(1)
     }
 
+/**
+ * One key.
+ *
+ * Takes its resolved [KeyVisual] rather than the whole [KeyboardUiState] so a
+ * keystroke that only moves the suggestions leaves every parameter here
+ * untouched and this body — 15-odd modifier links and a pointer detector's worth
+ * of lambdas — skips. [settings] is the one exception: it is compared by
+ * instance (Compose reads it as unstable, being full of collections), which is
+ * why [KeyboardScreen] holds its identity stable across keystrokes.
+ */
 @Composable
 private fun KeyButton(
-    key: Key,
-    state: KeyboardUiState,
+    visual: KeyVisual,
+    settings: KeyboardSettings,
     modifier: Modifier = Modifier,
     onKey: (Key) -> Unit,
     onText: (String) -> Unit,
     onCursorMove: (Int) -> Unit = {},
     onLayoutSelect: (String) -> Unit = {},
     heightDp: Int? = null,
+    /** The field wants a keypad: the preview bubble is off unless opted back in. */
+    numericField: Boolean = false,
+    /** Active layout, for the spacebar's language cycle and the picker highlight. */
+    layoutId: String = BuiltInLayouts.DEFAULT_ID,
     smartResolve: (Key, PointerId) -> Key = { k, _ -> k },
 ) {
+    val key = visual.key
     var pressed by remember { mutableStateOf(false) }
     var showAlternates by remember { mutableStateOf(false) }
     // The flick arm the finger is currently over on a kana-pad key, driving the
@@ -6512,7 +6758,6 @@ private fun KeyButton(
     // popup above the spacebar while the finger is still down.
     var languagePreview by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
-    val settings = state.settings
     val onKeyPress = LocalKeyPressFeedback.current
     val onKeySound = LocalKeySound.current
     val onClipboardKey = LocalClipboardKeyAction.current
@@ -6556,25 +6801,10 @@ private fun KeyButton(
         previewVisible = false
     }
 
-    // Samsung-style contrast: letter keys clearly lighter than the board,
-    // modifier keys a shade darker than the letters.
+    // The popups' own colours; the key's face is already resolved in [visual].
     val kb = LocalKbTheme.current
-    // A latched modifier has to look held: it changes what the *next* key
-    // does, so with no visible state the user finds out by pressing one.
-    val latch = (key.action as? KeyAction.Mod)?.let { state.modifiers[it.key] }
-    val background = when {
-        pressed -> kb.pressedKey
-        latch == ModifierState.LOCKED -> kb.accent
-        latch == ModifierState.ARMED -> kb.pressedKey
-        key.action == KeyAction.Enter -> kb.enterKey
-        key.action != KeyAction.Text -> kb.modifierKey
-        else -> kb.key
-    }
-    val contentColor = when {
-        key.action == KeyAction.Enter && !pressed -> kb.enterKeyText
-        key.action != KeyAction.Text -> kb.modifierKeyText
-        else -> kb.keyText
-    }
+    val background = if (pressed) visual.pressedBackground else visual.background
+    val contentColor = if (pressed) visual.pressedContentColor else visual.contentColor
     val keyShape = kb.keyShape()
 
     // Outer box = full grid cell and the touch target; inner box = the
@@ -6616,7 +6846,7 @@ private fun KeyButton(
         ScreenReaderMode.PASSTHROUGH -> !passthrough
         else -> false
     }
-    val label = spokenLabel(key, state)
+    val label = visual.spoken
     // Nothing announces the keys once the window is passed through — TalkBack
     // no longer sees the touches that would make it speak. The keyboard says
     // the key itself on press; the press only commits on release, so a key can
@@ -6649,7 +6879,7 @@ private fun KeyButton(
                     spaceShortSwipe = settings.spaceShortSwipe,
                     spaceLongSwipe = settings.spaceLongSwipe,
                     enabledLayoutIds = settings.enabledLayoutIds.ifEmpty { listOf(BuiltInLayouts.DEFAULT_ID) },
-                    currentLayoutId = state.layoutId,
+                    currentLayoutId = layoutId,
                     setPressed = { down -> pressed = down; announce(down) },
                     onKeyPress = onKeyPress,
                     onKeySound = onKeySound,
@@ -6704,7 +6934,7 @@ private fun KeyButton(
             .onGloballyPositioned { keyWidthPx = it.size.width },
         contentAlignment = Alignment.Center,
     ) {
-        KeyContent(key, state, contentColor)
+        KeyContent(visual, settings, contentColor)
         val popupPosition = rememberAboveAnchorPopup()
 
         if (showAlternates && key.longPress.isNotEmpty()) {
@@ -6755,7 +6985,7 @@ private fun KeyButton(
         // Numeric keypads (number/phone/date/time fields) suppress the bubble
         // unless the user opted back in — a floating digit over a PIN pad is
         // noise, and easy shoulder-surfing.
-        val popupAllowedInField = settings.popup.inNumericFields || !state.fieldKind.isNumericPad
+        val popupAllowedInField = settings.popup.inNumericFields || !numericField
         if (previewVisible && settings.popup.enabled && popupAllowedInField &&
             key.action == KeyAction.Text && !showAlternates
         ) {
@@ -6777,7 +7007,7 @@ private fun KeyButton(
                         contentAlignment = if (onKeyStyle) Alignment.TopCenter else Alignment.Center,
                     ) {
                         Text(
-                            text = displayLabel(key, state),
+                            text = visual.label,
                             modifier = if (onKeyStyle) Modifier.padding(top = 8.dp) else Modifier,
                             fontSize = ((if (onKeyStyle) 34 else 22) * settings.popup.fontScale).sp,
                             color = kb.popupText,
@@ -6813,11 +7043,11 @@ private fun KeyButton(
                         modifier = Modifier.padding(6.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        for (layoutId in previewWindow) {
-                            val selected = layoutId == previewMode
+                        for (chipLayoutId in previewWindow) {
+                            val selected = chipLayoutId == previewMode
                             Text(
                                 text = layoutSwitchLabel(
-                                    layoutId,
+                                    chipLayoutId,
                                     enabledLayoutIds,
                                     settings.customLayouts,
                                     settings.layoutBehavior.spacebarDisplay,
@@ -6843,14 +7073,14 @@ private fun KeyButton(
             LanguagePickerPopup(
                 popupPosition = popupPosition,
                 enabledLayoutIds = settings.enabledLayoutIds.ifEmpty { listOf(BuiltInLayouts.DEFAULT_ID) },
-                currentLayoutId = state.layoutId,
+                currentLayoutId = layoutId,
                 customLayouts = settings.customLayouts,
                 displayMode = settings.layoutBehavior.spacebarDisplay,
                 highlightIndex = pickerDragIndex,
                 onPick = {
                     showLanguagePicker = false
                     pickerDragIndex = null
-                    if (it != state.layoutId) onLayoutSelect(it)
+                    if (it != layoutId) onLayoutSelect(it)
                 },
                 onDismiss = { showLanguagePicker = false; pickerDragIndex = null },
             )
@@ -7028,21 +7258,16 @@ private fun layoutSwitchLabel(
 }
 
 @Composable
-private fun KeyContent(key: Key, state: KeyboardUiState, contentColor: Color) {
-    val fontScale = state.settings.fontScale
+private fun KeyContent(visual: KeyVisual, settings: KeyboardSettings, contentColor: Color) {
+    val key = visual.key
+    val fontScale = settings.fontScale
     when (key.action) {
+        // The shift slot and its spoken name both track the live shift state, and
+        // [spokenLabel] already words it the way this key wants read out.
         KeyAction.Shift -> SlotIcon(
-            when (state.shiftState) {
-                ShiftState.CAPS_LOCK -> IconSlots.KEY_SHIFT_LOCK
-                ShiftState.ON -> IconSlots.KEY_SHIFT_ON
-                ShiftState.OFF -> IconSlots.KEY_SHIFT
-            },
-            contentDescription = when (state.shiftState) {
-                ShiftState.CAPS_LOCK -> "Caps lock on"
-                ShiftState.ON -> "Shift on"
-                ShiftState.OFF -> "Shift"
-            },
-            tint = if (state.shiftState != ShiftState.OFF) MaterialTheme.colorScheme.primary else contentColor,
+            visual.iconSlot ?: IconSlots.KEY_SHIFT,
+            contentDescription = visual.spoken,
+            tint = if (visual.iconActive) MaterialTheme.colorScheme.primary else contentColor,
         )
         KeyAction.Delete -> SlotIcon(
             IconSlots.KEY_BACKSPACE,
@@ -7059,11 +7284,9 @@ private fun KeyContent(key: Key, state: KeyboardUiState, contentColor: Color) {
         // It is clipped to one line so a long label cannot blow up the row.
         // CUSTOM is also the one enter action with no icon slot, for the same
         // reason: there is nothing to replace.
-        KeyAction.Enter -> if (state.effectiveEnterAction == EnterAction.CUSTOM &&
-            state.enterActionLabel != null
-        ) {
+        KeyAction.Enter -> if (visual.enterLabel != null) {
             Text(
-                text = state.enterActionLabel,
+                text = visual.enterLabel,
                 fontSize = (13 * fontScale).sp,
                 color = contentColor,
                 maxLines = 1,
@@ -7073,7 +7296,7 @@ private fun KeyContent(key: Key, state: KeyboardUiState, contentColor: Color) {
             )
         } else {
             SlotIcon(
-                IconDefaults.enterActionSlot(state.effectiveEnterAction) ?: IconSlots.KEY_ENTER,
+                visual.iconSlot ?: IconSlots.KEY_ENTER,
                 contentDescription = "Enter",
                 tint = contentColor,
             )
@@ -7096,13 +7319,7 @@ private fun KeyContent(key: Key, state: KeyboardUiState, contentColor: Color) {
         ) {
             // Split-spacebar left halves carry an empty label: no language name.
             if (key.label.isNotEmpty()) {
-                // The arrows only mean something when a swipe actually cycles
-                // languages and there is more than one language to cycle.
-                val swipeSwitchesLanguage =
-                    state.settings.spaceShortSwipe == SpaceSwipeAction.LANGUAGE ||
-                        state.settings.spaceLongSwipe == SpaceSwipeAction.LANGUAGE
-                val showArrows = state.settings.spacebarLanguageArrows &&
-                    swipeSwitchesLanguage && state.settings.enabledLayoutIds.size > 1
+                val showArrows = visual.spaceArrows
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -7115,7 +7332,7 @@ private fun KeyContent(key: Key, state: KeyboardUiState, contentColor: Color) {
                     // A custom label replaces the language name; %s inside it
                     // puts the name back, so "— %s —" keeps tracking the mode.
                     Text(
-                        text = spacebarText(state),
+                        text = visual.spaceText,
                         fontSize = (11 * fontScale).sp,
                         color = contentColor.copy(alpha = 0.5f),
                         maxLines = 1,
@@ -7148,10 +7365,10 @@ private fun KeyContent(key: Key, state: KeyboardUiState, contentColor: Color) {
                 // not characters — render them clearly smaller than letters.
                 val isModeLabel = key.action != KeyAction.Text && key.label.length > 1
                 Text(
-                    text = displayLabel(key, state),
+                    text = visual.label,
                     modifier = Modifier.align(Alignment.Center),
                     fontSize = ((if (isModeLabel) 15.6f else 23f) * fontScale).sp,
-                    fontWeight = if (state.settings.boldKeyLabels) FontWeight.Bold else FontWeight.Medium,
+                    fontWeight = if (settings.boldKeyLabels) FontWeight.Bold else FontWeight.Medium,
                     color = contentColor,
                 )
             }
@@ -7163,22 +7380,22 @@ private fun KeyContent(key: Key, state: KeyboardUiState, contentColor: Color) {
             val hintIcon = KeyIcons.byName(key.iconHint)
             val hint = key.longPress.firstOrNull()
             when {
-                state.settings.longPressHints && hintIcon != null -> Icon(
+                settings.longPressHints && hintIcon != null -> Icon(
                     hintIcon,
                     contentDescription = null,
                     tint = contentColor.copy(alpha = 0.55f),
                     modifier = Modifier
                         .align(Alignment.TopEnd)
                         .padding(top = 1.dp, end = 4.dp)
-                        .size((11f * fontScale * state.settings.layoutBehavior.hintFontScale).dp),
+                        .size((11f * fontScale * settings.layoutBehavior.hintFontScale).dp),
                 )
-                state.settings.longPressHints && key.action == KeyAction.Text &&
+                settings.longPressHints && key.action == KeyAction.Text &&
                     key.clipboardAction == null && hint != null -> Text(
                     text = hint,
                     modifier = Modifier
                         .align(Alignment.TopEnd)
                         .padding(top = 1.dp, end = 4.dp),
-                    fontSize = (10 * fontScale * state.settings.layoutBehavior.hintFontScale).sp,
+                    fontSize = (10 * fontScale * settings.layoutBehavior.hintFontScale).sp,
                     color = contentColor.copy(alpha = 0.55f),
                 )
             }

@@ -29,6 +29,17 @@ android {
     lint { lintConfig = rootProject.file("config/lint/lint.xml") }
 }
 
+// Compose compiler skippability/stability report, on demand:
+//   ./gradlew :feature:ime:assembleFullDebug -PcomposeMetrics=true
+// then read build/compose/reports/*-composables.txt. Inert without the flag, so
+// ordinary builds neither slow down nor write the reports.
+if (providers.gradleProperty("composeMetrics").isPresent) {
+    composeCompiler {
+        metricsDestination.set(layout.buildDirectory.dir("compose/metrics"))
+        reportsDestination.set(layout.buildDirectory.dir("compose/reports"))
+    }
+}
+
 kotlin {
     compilerOptions {
         jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
