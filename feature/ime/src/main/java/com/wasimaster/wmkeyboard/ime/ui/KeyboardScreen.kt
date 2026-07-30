@@ -131,6 +131,7 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
@@ -178,6 +179,7 @@ import androidx.compose.ui.input.pointer.changedToDownIgnoreConsumed
 import androidx.compose.ui.input.pointer.changedToUp
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onPlaced
@@ -203,6 +205,7 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.round
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.toOffset
@@ -254,6 +257,7 @@ import com.wasimaster.wmkeyboard.core.settings.KeyboardMode
 import com.wasimaster.wmkeyboard.core.settings.EmojiBarMode
 import com.wasimaster.wmkeyboard.core.settings.EmojiTabMode
 import com.wasimaster.wmkeyboard.core.settings.KeyboardAlignment
+import com.wasimaster.wmkeyboard.core.settings.KeyPopupSettings
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.transliteration.BengaliGraphemes
 import com.wasimaster.wmkeyboard.core.settings.OneHandedMode
@@ -318,9 +322,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.roundToInt
@@ -5522,13 +5527,13 @@ private fun rememberKeyGrid(
     }
 }
 
-/** The key a preview bubble is showing for, and where that key sits. */
+/** A key whose preview bubble is up, and where that key sits. */
 @Immutable
-private data class KeyPreview(
+internal data class KeyPreview(
     /**
-     * Identity of the key that asked for this bubble, so a release only clears
-     * the bubble it owns — with two fingers down, lifting the first must not take
-     * the second's bubble with it.
+     * Identity of the key that asked for this bubble. Two fingers down means two
+     * bubbles, so every lookup is by token — lifting one finger must leave the
+     * other's bubble alone.
      */
     val token: Any,
     val label: String,
@@ -5538,167 +5543,230 @@ private data class KeyPreview(
 )
 
 /**
- * The one preview bubble the whole board shares.
+ * The preview bubbles the whole board shares.
  *
  * Every key used to raise its own [Popup] on press, and a Popup is a real
- * window: typing a word added and removed one through WindowManager per letter.
- * The keys now only publish what they want shown, and a single overlay hoisted
- * to the grid draws it — one window for the keyboard's lifetime.
+ * window: typing a word added and removed one through WindowManager per letter,
+ * with two timers per press to run it. The keys now only publish what they want
+ * shown, and a single overlay draws all of it inside one window that never
+ * moves — see [KeyPreviewOverlay] for why that matters.
+ *
+ * Timing is held here rather than in the keys so one coroutine can run every
+ * bubble: [expire] does the arithmetic, the overlay does the waiting.
  */
 @Stable
-private class KeyPreviewState {
-    /** What a finger is holding right now, or null when nothing is. */
-    var request by mutableStateOf<KeyPreview?>(null)
+internal class KeyPreviewState(
+    /** Injected so the timing above can be driven by a test without a device. */
+    private val now: () -> Long = { SystemClock.uptimeMillis() },
+) {
+    /** Bubbles on screen, in the order their keys were pressed. */
+    val shown = mutableStateListOf<KeyPreview>()
+
+    /** Bumped by every press and release, to wake the overlay's timer. */
+    var revision by mutableIntStateOf(0)
         private set
 
-    /**
-     * What is actually drawn. Outlives [request] by up to the minimum popup
-     * duration, so a fast tap still shows a readable bubble rather than a
-     * single-frame flash. Written only by the overlay's timer.
-     */
-    var shown by mutableStateOf<KeyPreview?>(null)
+    private val shownAt = HashMap<Any, Long>()
+    private val releasedAt = HashMap<Any, Long>()
 
     fun press(preview: KeyPreview) {
-        request = preview
+        drop(preview.token)
+        shown.add(preview)
+        shownAt[preview.token] = now()
+        revision++
     }
 
     fun release(token: Any) {
-        if (request?.token === token) request = null
+        // Only the first release counts: a second would push the minimum-duration
+        // floor out and keep the bubble up longer than it asked for.
+        if (token !in shownAt || token in releasedAt) return
+        releasedAt[token] = now()
+        revision++
     }
 
-    /** The long-press alternates took over: this bubble goes at once. */
+    /** The long-press alternates took over: that key's bubble goes at once. */
     fun cancel(token: Any) {
-        if (request?.token === token) request = null
-        if (shown?.token === token) shown = null
+        if (drop(token)) revision++
+    }
+
+    /**
+     * Drops every bubble whose time is up, and returns when the next one is due
+     * (uptime millis), or null when nothing is waiting on a clock.
+     *
+     * A held key's bubble only answers to [maxMs]. A released one goes at
+     * whichever comes first: that cap, or the minimum duration measured from
+     * when it appeared — so a fast tap still shows a readable bubble instead of a
+     * single-frame flash, and a release delivered late (commit lag, a new line
+     * inserting) does not extend it.
+     */
+    fun expire(now: Long, minMs: Int, maxMs: Int): Long? {
+        var next: Long? = null
+        for (preview in shown.toList()) {
+            val appeared = shownAt[preview.token] ?: continue
+            val released = releasedAt[preview.token]
+            val cap = appeared + maxMs
+            val due = if (released == null) cap else minOf(cap, maxOf(released, appeared + minMs))
+            if (due <= now) {
+                drop(preview.token)
+            } else {
+                next = if (next == null) due else minOf(next, due)
+            }
+        }
+        return next
+    }
+
+    private fun drop(token: Any): Boolean {
+        shownAt.remove(token)
+        releasedAt.remove(token)
+        val index = shown.indexOfFirst { it.token === token }
+        if (index < 0) return false
+        shown.removeAt(index)
+        return true
     }
 }
 
 /**
- * Positions the shared bubble over one key.
+ * Pins the overlay window over the key grid, [headroomPx] above it.
  *
- * The overlay is anchored on the whole key grid rather than on the key, so the
- * key's own rectangle is rebuilt here — [anchorBounds] is the grid in the popup's
- * coordinate space and [keyOffset] is where the key sits inside it. The result
- * goes to the same two providers the per-key popup used, so both styles land
- * exactly where they did before.
+ * Deliberately ignores everything it is passed except the anchor: the window
+ * must not move. A window that repositions per press slides visibly from the
+ * last key to the next one, and starts wherever it was parked — which is the bug
+ * this replaced. The bubbles move inside it instead, which is ordinary layout.
  */
-private class KeyPreviewPositionProvider(
-    private val keyOffset: IntOffset,
-    private val keySize: IntSize,
-    private val onKey: Boolean,
-    private val gapPx: Int,
-) : PopupPositionProvider {
+private class GridOverlayPositionProvider(private val headroomPx: Int) : PopupPositionProvider {
     override fun calculatePosition(
         anchorBounds: IntRect,
         windowSize: IntSize,
         layoutDirection: LayoutDirection,
         popupContentSize: IntSize,
-    ): IntOffset {
-        val keyBounds = IntRect(
-            IntOffset(anchorBounds.left + keyOffset.x, anchorBounds.top + keyOffset.y),
-            keySize,
-        )
-        val provider = if (onKey) {
-            OnKeyPopupPositionProvider
-        } else {
-            AboveAnchorPopupPositionProvider(gapPx)
-        }
-        return provider.calculatePosition(keyBounds, windowSize, layoutDirection, popupContentSize)
-    }
+    ): IntOffset = IntOffset(anchorBounds.left, anchorBounds.top - headroomPx)
 }
 
 /**
- * Draws the shared key preview, and runs the only timer the bubble needs.
+ * Draws every live key preview, and runs the one timer they share.
  *
- * The Popup is composed unconditionally — with nothing held it holds no content
- * and the window sits at zero size. That is the whole point: raising it per press
- * is what cost a WindowManager add and remove per keystroke.
+ * One window for the keyboard's lifetime, fixed over the grid and extending
+ * [headroom] above it so the floating style has room for the top row's bubble.
+ * The bubbles are placed within it by the same two providers the per-key popup
+ * used, handed the key's rectangle in the overlay's own space — so both styles
+ * land where they always did, without the window itself ever moving.
  *
- * [gridOrigin] is the grid's own place in the root, which turns the keys'
- * root-space rectangles into offsets inside the anchor.
+ * [gridOrigin] and [gridSize] are the grid's place and size in the compose root,
+ * which turn the keys' root-space rectangles into offsets inside this window.
  */
 @Composable
 private fun KeyPreviewOverlay(
     state: KeyPreviewState,
     settings: KeyboardSettings,
     gridOrigin: Offset,
+    gridSize: IntSize,
 ) {
     val popup = settings.popup
-    // One timer for the board, in place of the two LaunchedEffects every key ran
-    // per press. Driven by a snapshotFlow rather than an effect key, so the press
-    // stays off the composition path (see KeyButton).
+    // One coroutine for the board, in place of the two LaunchedEffects every key
+    // ran per press. It sleeps until the nearest bubble is due or something is
+    // pressed, whichever lands first; `expire` owns the arithmetic.
     LaunchedEffect(state, popup.minDurationMs, popup.maxDurationMs) {
-        val effectScope = this
-        var shownAt = 0L
-        // Absolute ceiling on the bubble's life, re-armed on every press and
-        // deliberately outside collectLatest's own job: cancelling it on release
-        // meant it only ever fired when the release never arrived — the rare
-        // case. The common strand is a release delivered late under commit lag (a
-        // new line inserting is the usual cause), which takes the release branch
-        // below. Here the cap fires no matter how the press ends, so neither a
-        // dropped nor a late release can strand the bubble, and the Maximum popup
-        // duration slider has real effect.
-        var cap: Job? = null
-        snapshotFlow { state.request }.collectLatest { request ->
-            if (request != null) {
-                shownAt = SystemClock.uptimeMillis()
-                state.shown = request
-                cap?.cancel()
-                cap = effectScope.launch {
-                    delay(popup.maxDurationMs.toLong())
-                    state.shown = null
+        while (true) {
+            // Read the revision *before* expiring, and wait for it to differ. A
+            // press landing between the two would otherwise be missed — the flow
+            // would start from the already-bumped value and sleep through it.
+            val seen = state.revision
+            val due = state.expire(SystemClock.uptimeMillis(), popup.minDurationMs, popup.maxDurationMs)
+            if (due == null) {
+                // Nothing on a clock: sleep until a key is pressed or released.
+                snapshotFlow { state.revision }.first { it != seen }
+            } else {
+                withTimeoutOrNull(due - SystemClock.uptimeMillis()) {
+                    snapshotFlow { state.revision }.first { it != seen }
                 }
-            } else if (state.shown != null) {
-                val remaining = popup.minDurationMs - (SystemClock.uptimeMillis() - shownAt)
-                if (remaining > 0) delay(remaining)
-                state.shown = null
             }
         }
     }
 
+    val density = LocalDensity.current
+    val gapPx = with(density) { KeyPopupGap.roundToPx() }
+    // Room above the grid for a floating bubble over the top row: its own height
+    // plus the gap it keeps from the key.
+    val headroomPx = with(density) { (popup.heightDp.dp + KeyPopupGap * 2).roundToPx() }
+    val onKeyStyle = popup.onKey
+    val bubbles = state.shown.toList()
+    Popup(
+        popupPositionProvider = remember(headroomPx) { GridOverlayPositionProvider(headroomPx) },
+        properties = PreviewPopupProperties,
+    ) {
+        Layout(
+            // Keyed by the pressing key, so a bubble expiring under a finger that
+            // is still down removes that bubble rather than shuffling the rest up
+            // into its slot.
+            content = {
+                for (preview in bubbles) {
+                    key(preview.token) { KeyPreviewBubble(preview, popup, onKeyStyle) }
+                }
+            },
+        ) { measurables, constraints ->
+            val width = if (gridSize.width > 0) gridSize.width else constraints.maxWidth
+            val height = gridSize.height + headroomPx
+            val placeables = measurables.map { it.measure(Constraints()) }
+            layout(width, height) {
+                placeables.forEachIndexed { index, placeable ->
+                    val preview = bubbles[index]
+                    // The key, in this window's space: its offset inside the grid,
+                    // pushed down by the headroom the window adds on top.
+                    val keyBounds = IntRect(
+                        IntOffset(
+                            (preview.position.x - gridOrigin.x).roundToInt(),
+                            (preview.position.y - gridOrigin.y).roundToInt() + headroomPx,
+                        ),
+                        preview.size,
+                    )
+                    val provider = if (onKeyStyle) {
+                        OnKeyPopupPositionProvider
+                    } else {
+                        AboveAnchorPopupPositionProvider(gapPx)
+                    }
+                    placeable.place(
+                        provider.calculatePosition(
+                            keyBounds,
+                            IntSize(width, height),
+                            layoutDirection,
+                            IntSize(placeable.width, placeable.height),
+                        ),
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * One preview bubble. In on-key mode it is key-wide with a large label near the
+ * top, clear of the finger (the stock-keyboard style where the bubble replaces
+ * the key); otherwise it floats above the fingertip.
+ */
+@Composable
+private fun KeyPreviewBubble(preview: KeyPreview, popup: KeyPopupSettings, onKeyStyle: Boolean) {
     val kb = LocalKbTheme.current
     val density = LocalDensity.current
-    val gapPx = with(density) { 10.dp.roundToPx() }
-    val shown = state.shown
-    val onKeyStyle = popup.onKey
-    val position = remember(shown, onKeyStyle, gapPx, gridOrigin) {
-        KeyPreviewPositionProvider(
-            keyOffset = IntOffset(
-                ((shown?.position?.x ?: 0f) - gridOrigin.x).roundToInt(),
-                ((shown?.position?.y ?: 0f) - gridOrigin.y).roundToInt(),
-            ),
-            keySize = shown?.size ?: IntSize.Zero,
-            onKey = onKeyStyle,
-            gapPx = gapPx,
-        )
-    }
-    Popup(popupPositionProvider = position, properties = PreviewPopupProperties) {
-        if (shown == null) return@Popup
-        Surface(
-            shape = RoundedCornerShape(kb.popupRadiusDp.dp),
-            color = kb.popup,
-            shadowElevation = 6.dp,
-        ) {
-            Box(
-                modifier = Modifier
-                    .height(popup.heightDp.dp)
-                    .widthIn(
-                        min = if (onKeyStyle) {
-                            with(density) { shown.size.width.toDp() } + 8.dp
-                        } else {
-                            0.dp
-                        },
-                    )
-                    .padding(horizontal = 14.dp),
-                contentAlignment = if (onKeyStyle) Alignment.TopCenter else Alignment.Center,
-            ) {
-                Text(
-                    text = shown.label,
-                    modifier = if (onKeyStyle) Modifier.padding(top = 8.dp) else Modifier,
-                    fontSize = ((if (onKeyStyle) 34 else 22) * popup.fontScale).sp,
-                    color = kb.popupText,
+    Surface(
+        shape = RoundedCornerShape(kb.popupRadiusDp.dp),
+        color = kb.popup,
+        shadowElevation = 6.dp,
+    ) {
+        Box(
+            modifier = Modifier
+                .height(popup.heightDp.dp)
+                .widthIn(
+                    min = if (onKeyStyle) with(density) { preview.size.width.toDp() } + 8.dp else 0.dp,
                 )
-            }
+                .padding(horizontal = 14.dp),
+            contentAlignment = if (onKeyStyle) Alignment.TopCenter else Alignment.Center,
+        ) {
+            Text(
+                text = preview.label,
+                modifier = if (onKeyStyle) Modifier.padding(top = 8.dp) else Modifier,
+                fontSize = ((if (onKeyStyle) 34 else 22) * popup.fontScale).sp,
+                color = kb.popupText,
+            )
         }
     }
 }
@@ -6286,7 +6354,7 @@ private fun KeyRows(
 
         // Anchored on the grid rather than on a key, and composed whether or not
         // anything is held — see [KeyPreviewOverlay].
-        KeyPreviewOverlay(keyPreview, state.settings, boxOrigin)
+        KeyPreviewOverlay(keyPreview, state.settings, boxOrigin, boxSize)
 
         if (trail.size > 1) {
             Canvas(modifier = Modifier.matchParentSize()) {
@@ -6770,11 +6838,19 @@ private class AboveAnchorPopupPositionProvider(private val gapPx: Int) : PopupPo
     }
 }
 
+/**
+ * Gap a popup keeps from the key it belongs to, so the bubble and the long-press
+ * alternates are not hidden under the pressing finger. Named because the preview
+ * overlay sizes its headroom from it — the two have to agree or the top row's
+ * bubble is clipped.
+ */
+private val KeyPopupGap = 10.dp
+
 @Composable
 private fun rememberAboveAnchorPopup(): PopupPositionProvider {
     val density = LocalDensity.current
     return remember(density) {
-        AboveAnchorPopupPositionProvider(with(density) { 10.dp.roundToPx() })
+        AboveAnchorPopupPositionProvider(with(density) { KeyPopupGap.roundToPx() })
     }
 }
 
