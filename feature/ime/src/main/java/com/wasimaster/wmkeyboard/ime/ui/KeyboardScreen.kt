@@ -124,6 +124,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.IntState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -136,6 +137,7 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import android.content.res.Configuration
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalConfiguration
@@ -144,6 +146,7 @@ import com.wasimaster.wmkeyboard.core.settings.resolvedFor
 import com.wasimaster.wmkeyboard.core.input.MorseCode
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.State
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.withFrameMillis
 import androidx.compose.runtime.staticCompositionLocalOf
@@ -159,9 +162,11 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawOutline
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
@@ -313,6 +318,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.abs
@@ -6741,11 +6747,15 @@ private fun KeyButton(
     smartResolve: (Key, PointerId) -> Key = { k, _ -> k },
 ) {
     val key = visual.key
-    var pressed by remember { mutableStateOf(false) }
+    // Held as the state object, never read through a `by` delegate: every read of
+    // the press below is either inside a draw lambda or inside a composable of
+    // its own, so a press repaints the key instead of recomposing it. Reading it
+    // anywhere in this body puts composition and layout back on the press path.
+    val pressed = remember { mutableStateOf(false) }
     var showAlternates by remember { mutableStateOf(false) }
     // The flick arm the finger is currently over on a kana-pad key, driving the
     // cross popup's highlight; null when centred (a plain tap) or released.
-    var flickDirection by remember { mutableStateOf<FlickDirection?>(null) }
+    val flickDirection = remember { mutableStateOf<FlickDirection?>(null) }
     // Full tappable language list: opened by a long-press on the globe key or
     // by holding the spacebar when more than two languages are enabled (a
     // swipe through a long ring is tedious). Independent of languagePreview.
@@ -6770,48 +6780,50 @@ private fun KeyButton(
     // The preview bubble outlives the physical press by up to the minimum
     // popup duration, so a fast tap still shows a readable bubble instead
     // of a single-frame flash.
-    var previewVisible by remember { mutableStateOf(false) }
+    val previewVisible = remember { mutableStateOf(false) }
     var previewShownAt by remember { mutableLongStateOf(0L) }
-    LaunchedEffect(pressed) {
-        if (pressed) {
-            previewShownAt = SystemClock.uptimeMillis()
-            previewVisible = true
-        } else if (previewVisible) {
-            val remaining = settings.popup.minDurationMs -
-                (SystemClock.uptimeMillis() - previewShownAt)
-            if (remaining > 0) delay(remaining)
-            previewVisible = false
+    // Watches the press through a snapshotFlow rather than as a LaunchedEffect
+    // key: reading it as a key is a composition read, which would put this key's
+    // whole body back on the press path. collectLatest keeps the old semantics —
+    // a fresh press abandons the release that is still counting down.
+    LaunchedEffect(settings.popup.minDurationMs, settings.popup.maxDurationMs) {
+        val effectScope = this
+        // Absolute ceiling on the bubble's life, re-armed on every press, and
+        // deliberately outside collectLatest's own job: keying it on the press
+        // meant a release cancelled the cap before it could fire, so it only
+        // ever ran when the release never arrived — the rare case. The common
+        // strand is a release delivered late under commit lag (a new line
+        // inserting is the usual cause), which takes the release branch below
+        // and never hit the old cap. Here the cap fires no matter how the press
+        // ends, so a dropped or late release cannot strand the bubble and the
+        // Maximum popup duration slider has real effect.
+        var cap: Job? = null
+        snapshotFlow { pressed.value }.collectLatest { down ->
+            if (down) {
+                previewShownAt = SystemClock.uptimeMillis()
+                previewVisible.value = true
+                cap?.cancel()
+                cap = effectScope.launch {
+                    delay(settings.popup.maxDurationMs.toLong())
+                    previewVisible.value = false
+                }
+            } else if (previewVisible.value) {
+                val remaining = settings.popup.minDurationMs -
+                    (SystemClock.uptimeMillis() - previewShownAt)
+                if (remaining > 0) delay(remaining)
+                previewVisible.value = false
+            }
         }
-    }
-    // Absolute ceiling on the bubble's life, measured from when it appeared
-    // and re-armed on every press (previewShownAt changes). Kept in its own
-    // effect rather than the pressed branch above: keying it on `pressed`
-    // meant a release cancelled the cap before it could fire, so it only ever
-    // ran when the release never arrived — the rare case. The common strand is
-    // a release delivered late under commit lag (a new line inserting is the
-    // usual cause), which routes through the else branch and never hit the
-    // old cap. Here the cap fires no matter how the press ends, so a dropped
-    // or late release can't strand the bubble and the Maximum popup duration
-    // slider has real effect.
-    LaunchedEffect(previewShownAt) {
-        if (previewShownAt == 0L) return@LaunchedEffect
-        val cap = settings.popup.maxDurationMs -
-            (SystemClock.uptimeMillis() - previewShownAt)
-        if (cap > 0) delay(cap.toLong())
-        previewVisible = false
     }
 
     // The popups' own colours; the key's face is already resolved in [visual].
     val kb = LocalKbTheme.current
-    val background = if (pressed) visual.pressedBackground else visual.background
-    val contentColor = if (pressed) visual.pressedContentColor else visual.contentColor
     val keyShape = kb.keyShape()
 
     // Outer box = full grid cell and the touch target; inner box = the
     // visible key, inset by the gap. Presses in the gap between keys land
     // on whichever cell they fall in, so there are no dead zones.
-    val density = LocalDensity.current
-    var keyWidthPx by remember { mutableIntStateOf(0) }
+    val keyWidthPx = remember { mutableIntStateOf(0) }
 
     // Tremor filter: drop a second contact on the same key that lands
     // within the debounce window. Scoped per key, so alternating keys
@@ -6880,7 +6892,7 @@ private fun KeyButton(
                     spaceLongSwipe = settings.spaceLongSwipe,
                     enabledLayoutIds = settings.enabledLayoutIds.ifEmpty { listOf(BuiltInLayouts.DEFAULT_ID) },
                     currentLayoutId = layoutId,
-                    setPressed = { down -> pressed = down; announce(down) },
+                    setPressed = { down -> pressed.value = down; announce(down) },
                     onKeyPress = onKeyPress,
                     onKeySound = onKeySound,
                     vibrateOnSpace = settings.feedback.vibrateOnSpace,
@@ -6889,7 +6901,7 @@ private fun KeyButton(
                     hapticOnLongPress = settings.hapticOnLongPress,
                     hapticOnLongPressRelease = settings.hapticOnLongPressRelease,
                     openAlternates = { showAlternates = true },
-                    setFlickDirection = { flickDirection = it },
+                    setFlickDirection = { flickDirection.value = it },
                     onKey = debounced,
                     // Repeat ticks bypass the debounce (raw onKey), taps don't.
                     onKeyRepeat = onKey,
@@ -6914,27 +6926,39 @@ private fun KeyButton(
                 )
             )
             .padding(horizontal = keyGapH(settings), vertical = keyGapV(settings))
-            .background(background, keyShape)
-            .then(
-                // Sheen over letter keys only; pressed/enter/modifier states
-                // keep their solid colors so state changes stay legible.
-                if (kb.keyGradient != null && !pressed && key.action == KeyAction.Text) {
-                    Modifier.background(kb.keyGradient.brush(), keyShape)
-                } else {
-                    Modifier
+            // The face and its sheen are painted here rather than by
+            // Modifier.background, because both depend on the press: read inside
+            // the draw lambda, a press invalidates only the draw, so pressing a
+            // key no longer recomposes or re-measures it. The outline and the
+            // brush are built in the cache block, which the press does not touch.
+            .drawWithCache {
+                val outline = keyShape.createOutline(size, layoutDirection, this)
+                // Sheen over letter keys only; pressed/enter/modifier states keep
+                // their solid colors so state changes stay legible.
+                val sheen = kb.keyGradient
+                    ?.takeIf { key.action == KeyAction.Text }
+                    ?.brush()
+                onDrawBehind {
+                    val down = pressed.value
+                    drawOutline(outline, if (down) visual.pressedBackground else visual.background)
+                    if (sheen != null && !down) drawOutline(outline, sheen)
                 }
-            )
+            }
             .then(
+                // Left as a border modifier: it does not depend on the press, and
+                // Modifier.border insets a rounded outline by half the stroke so
+                // the whole width lands inside the key — hand-stroking the same
+                // outline would straddle the edge and read thinner.
                 if (kb.keyBorder != null && kb.keyBorderWidthDp > 0f) {
                     Modifier.border(kb.keyBorderWidthDp.dp, kb.keyBorder, keyShape)
                 } else {
                     Modifier
                 }
             )
-            .onGloballyPositioned { keyWidthPx = it.size.width },
+            .onGloballyPositioned { keyWidthPx.intValue = it.size.width },
         contentAlignment = Alignment.Center,
     ) {
-        KeyContent(visual, settings, contentColor)
+        KeyLabel(visual, settings, pressed)
         val popupPosition = rememberAboveAnchorPopup()
 
         if (showAlternates && key.longPress.isNotEmpty()) {
@@ -6969,53 +6993,17 @@ private fun KeyButton(
             }
         }
 
-        // Cross popup for a kana-pad key: the centre kana with its flick arms
-        // laid out around it, the arm under the finger highlighted. Shown while
-        // the key is held (unless the long-press alternates popup took over).
-        if (pressed && key.flick.isNotEmpty() && !showAlternates) {
-            Popup(popupPositionProvider = FlickPopupPositionProvider) {
-                FlickCrossPopup(key, flickDirection, settings.popup.fontScale)
-            }
-        }
-
-        // Key preview bubble while pressed. In on-key mode the bubble
-        // grows upward from the pressed key itself (stock-keyboard style,
-        // key-wide with a large label near the top, clear of the finger);
-        // otherwise it floats above the fingertip.
-        // Numeric keypads (number/phone/date/time fields) suppress the bubble
-        // unless the user opted back in — a floating digit over a PIN pad is
-        // noise, and easy shoulder-surfing.
-        val popupAllowedInField = settings.popup.inNumericFields || !numericField
-        if (previewVisible && settings.popup.enabled && popupAllowedInField &&
-            key.action == KeyAction.Text && !showAlternates
-        ) {
-            val onKeyStyle = settings.popup.onKey
-            Popup(
-                popupPositionProvider = if (onKeyStyle) OnKeyPopupPositionProvider else popupPosition,
-                properties = PreviewPopupProperties,
-            ) {
-                Surface(
-                    shape = RoundedCornerShape(kb.popupRadiusDp.dp),
-                    color = kb.popup,
-                    shadowElevation = 6.dp,
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .height(settings.popup.heightDp.dp)
-                            .widthIn(min = if (onKeyStyle) with(density) { keyWidthPx.toDp() } + 8.dp else 0.dp)
-                            .padding(horizontal = 14.dp),
-                        contentAlignment = if (onKeyStyle) Alignment.TopCenter else Alignment.Center,
-                    ) {
-                        Text(
-                            text = visual.label,
-                            modifier = if (onKeyStyle) Modifier.padding(top = 8.dp) else Modifier,
-                            fontSize = ((if (onKeyStyle) 34 else 22) * settings.popup.fontScale).sp,
-                            color = kb.popupText,
-                        )
-                    }
-                }
-            }
-        }
+        KeyPressPopups(
+            visual = visual,
+            settings = settings,
+            numericField = numericField,
+            alternatesOpen = showAlternates,
+            popupPosition = popupPosition,
+            pressed = pressed,
+            previewVisible = previewVisible,
+            flickDirection = flickDirection,
+            keyWidthPx = keyWidthPx,
+        )
 
         // Tooltip above the spacebar while a swipe is cycling languages: the
         // enabled modes in a row, the live selection highlighted. Capped at a
@@ -7084,6 +7072,111 @@ private fun KeyButton(
                 },
                 onDismiss = { showLanguagePicker = false; pickerDragIndex = null },
             )
+        }
+    }
+}
+
+/**
+ * The key's label, in a restart scope of its own.
+ *
+ * Enter is the one key whose label colour flips under the finger, and a text
+ * colour cannot move to the draw phase the way the key's face did — it is baked
+ * into the text layout. So the label gets its own composable: pressing Enter
+ * recomposes this and nothing else, instead of the whole key. Every other key
+ * reads no press state at all, because the two colours are the same value and
+ * the `&&` never gets that far — those keys stay entirely off the press path.
+ *
+ * The alternative was dropping the Enter recolour outright. Kept because it is
+ * the only feedback that key has: its face is already the accent colour, so a
+ * press that only swapped the face would barely read.
+ */
+@Composable
+private fun KeyLabel(visual: KeyVisual, settings: KeyboardSettings, pressed: State<Boolean>) {
+    val recolours = visual.pressedContentColor != visual.contentColor
+    KeyContent(
+        visual,
+        settings,
+        if (recolours && pressed.value) visual.pressedContentColor else visual.contentColor,
+    )
+}
+
+/**
+ * The two popups a plain press raises: the flick cross on a kana-pad key, and
+ * the key preview bubble.
+ *
+ * Also its own restart scope, and for the same reason as [KeyLabel] — a Popup is
+ * composed content, so unlike the key's face these cannot be moved to the draw
+ * phase. Keeping their state reads here means a press recomposes this small
+ * function rather than [KeyButton]'s body. The long-press and spacebar popups
+ * stay with the key: they are not on the per-keystroke path.
+ */
+@Composable
+private fun KeyPressPopups(
+    visual: KeyVisual,
+    settings: KeyboardSettings,
+    numericField: Boolean,
+    /** The long-press alternates took over, so neither of these is shown. */
+    alternatesOpen: Boolean,
+    popupPosition: PopupPositionProvider,
+    pressed: State<Boolean>,
+    previewVisible: State<Boolean>,
+    flickDirection: State<FlickDirection?>,
+    keyWidthPx: IntState,
+) {
+    val key = visual.key
+    val kb = LocalKbTheme.current
+    // Cross popup for a kana-pad key: the centre kana with its flick arms laid
+    // out around it, the arm under the finger highlighted. Shown while the key is
+    // held (unless the long-press alternates popup took over).
+    if (key.flick.isNotEmpty() && !alternatesOpen && pressed.value) {
+        Popup(popupPositionProvider = FlickPopupPositionProvider) {
+            FlickCrossPopup(key, flickDirection.value, settings.popup.fontScale)
+        }
+    }
+
+    // Key preview bubble while pressed. In on-key mode the bubble
+    // grows upward from the pressed key itself (stock-keyboard style,
+    // key-wide with a large label near the top, clear of the finger);
+    // otherwise it floats above the fingertip.
+    // Numeric keypads (number/phone/date/time fields) suppress the bubble
+    // unless the user opted back in — a floating digit over a PIN pad is
+    // noise, and easy shoulder-surfing.
+    val popupAllowedInField = settings.popup.inNumericFields || !numericField
+    if (settings.popup.enabled && popupAllowedInField &&
+        key.action == KeyAction.Text && !alternatesOpen && previewVisible.value
+    ) {
+        val onKeyStyle = settings.popup.onKey
+        val density = LocalDensity.current
+        Popup(
+            popupPositionProvider = if (onKeyStyle) OnKeyPopupPositionProvider else popupPosition,
+            properties = PreviewPopupProperties,
+        ) {
+            Surface(
+                shape = RoundedCornerShape(kb.popupRadiusDp.dp),
+                color = kb.popup,
+                shadowElevation = 6.dp,
+            ) {
+                Box(
+                    modifier = Modifier
+                        .height(settings.popup.heightDp.dp)
+                        .widthIn(
+                            min = if (onKeyStyle) {
+                                with(density) { keyWidthPx.intValue.toDp() } + 8.dp
+                            } else {
+                                0.dp
+                            },
+                        )
+                        .padding(horizontal = 14.dp),
+                    contentAlignment = if (onKeyStyle) Alignment.TopCenter else Alignment.Center,
+                ) {
+                    Text(
+                        text = visual.label,
+                        modifier = if (onKeyStyle) Modifier.padding(top = 8.dp) else Modifier,
+                        fontSize = ((if (onKeyStyle) 34 else 22) * settings.popup.fontScale).sp,
+                        color = kb.popupText,
+                    )
+                }
+            }
         }
     }
 }
