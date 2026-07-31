@@ -69,7 +69,7 @@ cargo ndk -t arm64-v8a -t armeabi-v7a -t x86_64 --platform 24 \
 `native/harper-jni/README.md` still gives `-o ../../app/src/main/jniLibs` as the output path. That directory doesn't exist anymore. The library moved to `core/intelligence/src/full/jniLibs` when the project modularized. Use the path above, not the one in the crate's own README.
 :::
 
-`--platform 24` matches the app's `minSdk` exactly. Of the three ABIs cargo-ndk builds, only `arm64-v8a` actually ships in the final APK: `splits.abi` in `app/build.gradle.kts` excludes the others and disables the universal APK, so `armeabi-v7a` and `x86_64` `.so` files exist in the source tree but never reach a device build from this project as-is.
+`--platform 24` matches the app's `minSdk` exactly. Release builds package all three supported ABIs (`arm64-v8a`, `armeabi-v7a`, and `x86_64`) via `ndk.abiFilters` in `app/build.gradle.kts`, while debug builds restrict to `arm64-v8a` for faster local compilation. Generic 32-bit `x86` is not supported.
 
 ## Running static analysis
 

@@ -5,7 +5,7 @@ Rust cdylib wrapping [Harper](https://github.com/automattic/harper)
 Kotlin entry point: `com.wasimaster.wmkeyboard.core.grammar.HarperNative`.
 
 The prebuilt `libharper_jni.so` files are committed under
-`app/src/main/jniLibs/<abi>/` so the app builds without a Rust toolchain.
+`core/intelligence/src/full/jniLibs/<abi>/` so the app builds without a Rust toolchain.
 Rebuild them after changing this crate or bumping `harper-core`:
 
 ```sh
@@ -14,10 +14,10 @@ rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-and
 cargo install cargo-ndk
 brew install --cask android-ndk   # or any NDK; set ANDROID_NDK_HOME
 
-# Build all ABIs straight into the app (from this directory)
+# Build all supported ABIs (arm64-v8a, armeabi-v7a, x86_64) into core/intelligence (from this directory)
 ANDROID_NDK_HOME=/opt/homebrew/share/android-ndk \
 cargo ndk -t arm64-v8a -t armeabi-v7a -t x86_64 --platform 24 \
-  -o ../../app/src/main/jniLibs build --release
+  -o ../../core/intelligence/src/full/jniLibs build --release
 ```
 
 Host-side tests (`cargo test`) exercise the lint→JSON path without Android.

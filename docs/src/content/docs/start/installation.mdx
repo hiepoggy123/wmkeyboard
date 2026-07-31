@@ -79,7 +79,7 @@ A separate, **off by default** toggle that opts the keyboard into Android's own 
 ## System requirements
 
 - **Android 7.0 (API 24) or newer** is the floor the app is built against; it targets Android 16 (API 36).
-- **A 64-bit ARM device.** The APK is built for arm64-v8a only; no armeabi-v7a, x86, or x86_64 variant exists, so a 32-bit or x86 device can't install it regardless of Android version.
+- **Supported CPU architectures:** `arm64-v8a`, `armeabi-v7a`, and `x86_64`. Generic 32-bit `x86` is not supported (only 64-bit `x86_64` is).
 - Camera, microphone, and sensor access are all optional: every hardware-backed tool (camera scanner, voice dictation, compass, etc.) declares the underlying hardware feature as non-required in the manifest, so missing hardware just disables that one tool rather than blocking install.
 
 ## Details & edge cases
