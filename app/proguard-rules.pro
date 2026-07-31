@@ -111,3 +111,15 @@
 -dontwarn javax.script.**
 -dontwarn org.luaj.vm2.luajc.**
 -dontwarn org.luaj.vm2.script.**
+
+# --- AndroidX WorkManager & Room (transitive ML Kit dependency) --------------
+# Room database implementations (e.g. WorkDatabase_Impl) are instantiated reflectively
+# by androidx.startup during app launch.
+-keep class * extends androidx.room.RoomDatabase {
+    <init>(...);
+}
+-keep class androidx.work.impl.WorkDatabase_Impl {
+    <init>(...);
+}
+-dontwarn androidx.work.impl.**
+
