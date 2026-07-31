@@ -1,7 +1,9 @@
 package com.wasimaster.wmkeyboard.core.debug
 
 import android.content.Context
+import android.content.Intent
 import android.os.Build
+import com.wasimaster.wmkeyboard.app.CrashReportActivity
 import com.wasimaster.wmkeyboard.config.BuildConfig
 import com.wasimaster.wmkeyboard.core.directboot.DirectBoot
 import java.io.File
@@ -59,14 +61,36 @@ object DebugLog {
     /** Separator between crash records in the file, on its own line. */
     private const val CRASH_SEPARATOR = "---- crash ----"
 
+    /**
+     * Process the crash screen runs in — see the `android:process` on
+     * [CrashReportActivity] in the manifest. It has to be a different process
+     * from the one that crashed, because that one is about to be killed.
+     */
+    const val CRASH_PROCESS_SUFFIX = ":crash"
+
+    /**
+     * How long the dying process waits after asking for the crash screen. The
+     * activity manager has to spawn a whole process; killing ourselves the
+     * instant `startActivity` returns sometimes takes the launch down with us.
+     */
+    private const val LAUNCH_GRACE_MILLIS = 200L
+
     private val entries = ArrayDeque<LogEntry>(CAPACITY)
 
     /** Set by [attach]; device-protected so it is writable from boot. */
     @Volatile
     private var crashFile: File? = null
 
+    /** Set by [attach]; what the crash screen is launched from. */
+    @Volatile
+    private var appContext: Context? = null
+
     @Volatile
     private var handlerInstalled = false
+
+    /** Guards against a crash *inside* the crash path looping the handler. */
+    @Volatile
+    private var handlingCrash = false
 
     fun d(tag: String, message: String) = record(LogLevel.DEBUG, tag, message)
     fun i(tag: String, message: String) = record(LogLevel.INFO, tag, message)
@@ -98,24 +122,96 @@ object DebugLog {
      * The previous handler is chained rather than replaced: Android's default is
      * what actually ends the process, and skipping it would leave a dead app on
      * screen instead of a crash.
+     *
+     * The one exception is a diagnostic build ([BuildConfig.ENABLE_CRASH_SCREEN]),
+     * where the record also goes to [CrashReportActivity] in another process and
+     * *that* screen replaces Android's crash dialog — so this process kills
+     * itself instead of chaining, or the platform dialog would come up over the
+     * report. Nothing is lost: the trace is already on disk and in the intent
+     * before the kill.
      */
     @Synchronized
     fun attach(context: Context) {
-        if (crashFile == null) {
-            crashFile = runCatching {
-                val dir = File(DirectBoot.deviceContext(context).filesDir, CRASH_DIR)
-                dir.mkdirs()
-                File(dir, CRASH_FILE)
-            }.getOrNull()
-        }
+        if (appContext == null) appContext = context.applicationContext
+        useCrashFile(context)
         if (handlerInstalled) return
         handlerInstalled = true
         val previous = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, error ->
-            runCatching { writeCrash(thread.name, error) }
-            previous?.uncaughtException(thread, error)
+            val record = runCatching { writeCrash(thread.name, error) }.getOrNull().orEmpty()
+            val reported = if (BuildConfig.ENABLE_CRASH_SCREEN && !handlingCrash) {
+                handlingCrash = true
+                showCrashScreen(record)
+            } else {
+                false
+            }
+            if (reported) {
+                // Deliberately not chaining: see the note above. SIGKILL to
+                // ourselves rather than System.exit, which would run shutdown
+                // hooks and finalizers inside a process that has already lost
+                // whatever invariant just threw.
+                android.os.Process.killProcess(android.os.Process.myPid())
+            } else {
+                previous?.uncaughtException(thread, error)
+            }
         }
     }
+
+    /**
+     * Points [crashes] at the on-disk record without installing a handler —
+     * what the crash screen's own process needs, since installing one there
+     * would let a failure in the report screen launch another report screen.
+     */
+    @Synchronized
+    fun useCrashFile(context: Context) {
+        if (crashFile != null) return
+        crashFile = runCatching {
+            val dir = File(DirectBoot.deviceContext(context).filesDir, CRASH_DIR)
+            dir.mkdirs()
+            File(dir, CRASH_FILE)
+        }.getOrNull()
+    }
+
+    /**
+     * Starts the crash screen in its own process and reports whether the launch
+     * got through. False for every case where it cannot — no context yet, a
+     * background crash the platform refuses to let start an activity, a locked
+     * device, or a crash that happened in the crash process itself — and the
+     * caller falls back to Android's own handler.
+     */
+    private fun showCrashScreen(record: String): Boolean {
+        val context = appContext ?: return false
+        if (isCrashProcess()) return false
+        val launched = runCatching {
+            context.startActivity(
+                Intent(context, CrashReportActivity::class.java)
+                    .addFlags(
+                        Intent.FLAG_ACTIVITY_NEW_TASK or
+                            Intent.FLAG_ACTIVITY_NO_ANIMATION,
+                    )
+                    .putExtra(CrashReportActivity.EXTRA_REPORT, record),
+            )
+        }.isSuccess
+        if (!launched) return false
+        runCatching { Thread.sleep(LAUNCH_GRACE_MILLIS) }
+        return true
+    }
+
+    /** This process's name, or "" on a device that will not say. */
+    fun processName(): String =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            android.app.Application.getProcessName()
+        } else {
+            runCatching {
+                // cmdline is NUL-padded, so the name has to be cut at the
+                // first zero byte; trailing NULs would defeat the
+                // endsWith check below.
+                File("/proc/self/cmdline").readText().takeWhile { it.code != 0 }.trim()
+            }.getOrDefault("")
+        }
+
+    /** Whether this is the throwaway process the crash screen runs in. */
+    fun isCrashProcess(): Boolean = processName().endsWith(CRASH_PROCESS_SUFFIX)
 
     private val channelTag: String
         get() = when {
@@ -124,9 +220,13 @@ object DebugLog {
             else -> ""
         }
 
-    /** Appends a crash record, trimming the file to [CRASH_CAPACITY] records. */
-    private fun writeCrash(threadName: String, error: Throwable) {
-        val file = crashFile ?: return
+    /**
+     * Appends a crash record, trimming the file to [CRASH_CAPACITY] records,
+     * and hands the record back so the crash screen can be shown it directly —
+     * it must not depend on the file, which is exactly the thing that may have
+     * failed to write on a locked or full device.
+     */
+    private fun writeCrash(threadName: String, error: Throwable): String {
         val record = buildString {
             appendLine(CRASH_SEPARATOR)
             appendLine("time: ${timestamp(System.currentTimeMillis())}")
@@ -139,13 +239,17 @@ object DebugLog {
             appendLine("recent:")
             snapshot().takeLast(40).forEach { appendLine("  ${it.format()}") }
         }
-        val existing = runCatching { file.readText() }.getOrDefault("")
-        val kept = (existing + record)
-            .split(CRASH_SEPARATOR)
-            .filter { it.isNotBlank() }
-            .takeLast(CRASH_CAPACITY)
-            .joinToString("") { "$CRASH_SEPARATOR$it" }
-        runCatching { file.writeText(kept) }
+        val file = crashFile
+        if (file != null) {
+            val existing = runCatching { file.readText() }.getOrDefault("")
+            val kept = (existing + record)
+                .split(CRASH_SEPARATOR)
+                .filter { it.isNotBlank() }
+                .takeLast(CRASH_CAPACITY)
+                .joinToString("") { "$CRASH_SEPARATOR$it" }
+            runCatching { file.writeText(kept) }
+        }
+        return record
     }
 
     /** Crash records written since the last [clearCrashes], oldest first. */
@@ -161,7 +265,10 @@ object DebugLog {
      */
     fun exportText(): String = buildString {
         appendLine("WM Keyboard diagnostics")
-        appendLine("version: ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}) ${BuildConfig.FLAVOR}$channelTag ${BuildConfig.BUILD_TYPE}")
+        appendLine(
+            "version: ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}) " +
+                "${BuildConfig.FLAVOR}$channelTag ${BuildConfig.BUILD_TYPE}",
+        )
         appendLine("android: ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})")
         appendLine("device: ${Build.MANUFACTURER} ${Build.MODEL}")
         appendLine("taken: ${timestamp(System.currentTimeMillis())}")

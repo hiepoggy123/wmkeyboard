@@ -55,6 +55,9 @@ android {
         buildConfigField("String", "TRANSLATE_API_KEY", "\"${apiKey("wmkb.translateApiKey", "WMKB_TRANSLATE_API_KEY")}\"")
         buildConfigField("Boolean", "ENABLE_PLAY_STORE", "${flag("wmkb.enablePlayStore", "WMKB_ENABLE_PLAY_STORE")}")
         buildConfigField("Boolean", "ENABLE_FDROID", "${flag("wmkb.enableFdroid", "WMKB_ENABLE_FDROID")}")
+        // Diagnostic builds only — see the same field in :core:config, which is
+        // the copy DebugLog reads. Mirrored here for the app-package screens.
+        buildConfigField("Boolean", "ENABLE_CRASH_SCREEN", "${flag("wmkb.enableCrashScreen", "WMKB_ENABLE_CRASH_SCREEN")}")
     }
 
     // Build flavors for storage-constrained devices.

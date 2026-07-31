@@ -86,7 +86,11 @@
          under Settings → Privacy: WMBackupAgent writes nothing while that
          switch is off, and fullBackupOnly keeps the agent on the Auto Backup
          path so the rules files below still do the filtering. -->
+    <!-- android:name is here only so the crash handler is installed before any
+         other app code in the process — including the content-provider
+         initialisers that run before the first activity. See WMApplication. -->
     <application
+        android:name="com.wasimaster.wmkeyboard.app.WMApplication"
         android:allowBackup="true"
         android:backupAgent="com.wasimaster.wmkeyboard.app.WMBackupAgent"
         android:fullBackupOnly="true"
@@ -322,6 +326,26 @@
             android:excludeFromRecents="true"
             android:exported="false"
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
+        <!--
+             The crash report screen, shown instead of Android's "app has
+             stopped" dialog in a build made with -Pwmkb.enableCrashScreen=true.
+             A normal build never launches it.
+
+             Its own process, because the one that crashed is killed a moment
+             after this is started. Its own task affinity and excludeFromRecents,
+             so it never lands on top of (or inside) the settings task. A
+             platform theme rather than the app's, because the app's theme is one
+             of the things that may have just crashed.
+        -->
+        <activity
+            android:name="com.wasimaster.wmkeyboard.app.CrashReportActivity"
+            android:process=":crash"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:launchMode="singleTask"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.DeviceDefault.Light" />
 
         <!-- Serves copied clipboard images to target apps via commitContent. -->
         <provider

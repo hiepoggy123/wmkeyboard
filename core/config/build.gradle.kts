@@ -41,6 +41,13 @@ android {
         buildConfigField("String", "TRANSLATE_API_KEY", "\"${apiKey("wmkb.translateApiKey", "WMKB_TRANSLATE_API_KEY")}\"")
         buildConfigField("Boolean", "ENABLE_PLAY_STORE", "${flag("wmkb.enablePlayStore", "WMKB_ENABLE_PLAY_STORE")}")
         buildConfigField("Boolean", "ENABLE_FDROID", "${flag("wmkb.enableFdroid", "WMKB_ENABLE_FDROID")}")
+        // Diagnostic builds only: on an uncaught exception, replace Android's
+        // "app has stopped" dialog with a screen showing the stack trace, with
+        // buttons to copy or share it. For getting a trace off a device that
+        // belongs to someone else — no adb, no developer options, and a crash
+        // at startup means the in-app log screen is unreachable. Off by default;
+        // build with -Pwmkb.enableCrashScreen=true.
+        buildConfigField("Boolean", "ENABLE_CRASH_SCREEN", "${flag("wmkb.enableCrashScreen", "WMKB_ENABLE_CRASH_SCREEN")}")
     }
 
     flavorDimensions += "capabilities"

@@ -40,6 +40,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
+import com.wasimaster.wmkeyboard.BuildConfig
 import com.wasimaster.wmkeyboard.core.debug.DebugLog
 import com.wasimaster.wmkeyboard.core.debug.LogEntry
 import com.wasimaster.wmkeyboard.core.debug.LogLevel
@@ -123,6 +124,29 @@ internal fun DebugLogScreen() {
                     "but not something the keyboard controls the contents of. Read it before " +
                     "sending it anywhere.",
             ) { showSystemLog = it }
+        }
+    }
+
+    // Only in a build made with -Pwmkb.enableCrashScreen=true. The row is here
+    // rather than hidden behind a gesture because the whole point of such a
+    // build is to be handed to someone whose phone is failing, and whoever
+    // builds it wants to confirm the report screen actually comes up before
+    // sending the APK anywhere.
+    if (BuildConfig.ENABLE_CRASH_SCREEN) {
+        SettingsGroup("Diagnostic build") {
+            item {
+                CaptionText(
+                    "This build shows a crash report on screen instead of Android's " +
+                        "\"app has stopped\" dialog, so a trace can be copied off a device " +
+                        "with no computer attached.",
+                )
+            }
+            item {
+                NavRow(
+                    "Test the crash screen",
+                    "Crashes the app on purpose so you can check the report comes up",
+                ) { error("Crash screen test, triggered from settings") }
+            }
         }
     }
 
