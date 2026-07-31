@@ -92,6 +92,21 @@ class SuggestionEngineTest {
         assertTrue("They" !in e.suggest("Th", previousWord = null))
     }
 
+    @Test fun rejectedCorrectionNeverFiresAgain() {
+        // Backspacing over a correction is the user saying they meant what they
+        // typed; repeating it on the next space leaves them no way to type the
+        // word at all.
+        val e = engine()
+        assertEquals("world", e.shouldAutocorrect("wprld"))
+        e.rejectCorrection("wprld")
+        assertNull(e.shouldAutocorrect("wprld"))
+        // The rejection is the word, not the exact keystrokes: a capitalised
+        // "Wprld" is the same word the user just insisted on.
+        assertNull(e.shouldAutocorrect("Wprld"))
+        // Only that word — everything else still corrects.
+        assertEquals("hello", e.shouldAutocorrect("hallo"))
+    }
+
     @Test fun blacklistedWordIsNotAnAutocorrectTarget() {
         // "wprld" would normally autocorrect to "world"; blacklisting it must
         // stop the silent replacement.

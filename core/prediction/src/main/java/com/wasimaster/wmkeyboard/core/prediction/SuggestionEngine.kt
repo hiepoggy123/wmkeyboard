@@ -2,6 +2,8 @@ package com.wasimaster.wmkeyboard.core.prediction
 
 import com.wasimaster.wmkeyboard.core.transliteration.AvroPhonetic
 import com.wasimaster.wmkeyboard.core.transliteration.BengaliPhoneticIndex
+import java.util.Collections
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * A secondary-language word list paired with the id of the language it belongs
@@ -173,6 +175,31 @@ class SuggestionEngine(
      */
     @Volatile
     var skipAllCapsAutocorrect: Boolean = true
+
+    /**
+     * Words whose autocorrect the user has undone, lowercased. Typing one again
+     * commits it as typed: undoing a correction is a stronger statement than
+     * any confidence score, and a word that gets re-corrected every time is one
+     * the user has no way to type at all.
+     *
+     * Deliberately separate from the personal dictionary, which only records
+     * words when learning is on — the rejection has to hold in incognito and
+     * with "learn from typing" off too. Lives for the process, not on disk:
+     * this is a "not now" memory, and the lexicon is where a lasting one goes.
+     * Written from the main thread, read on the suggestion coroutine.
+     */
+    private val rejectedCorrections: MutableSet<String> =
+        Collections.newSetFromMap(ConcurrentHashMap<String, Boolean>())
+
+    /**
+     * Records that the user undid the autocorrect of [word] (typically by
+     * backspacing over it), so it is never corrected again; see
+     * [rejectedCorrections].
+     */
+    fun rejectCorrection(word: String) {
+        val lower = word.lowercase()
+        if (lower.isNotEmpty()) rejectedCorrections.add(lower)
+    }
 
     private val emptyTrie: WordSource = PackedTrie.EMPTY
 
@@ -540,6 +567,8 @@ class SuggestionEngine(
         // An all-caps word is a deliberate acronym or shout, not a typo of a
         // lowercase word — don't "correct" it away when the user asked us not to.
         if (skipAllCapsAutocorrect && isAllCaps(word)) return null
+        // The user already undid this exact correction once.
+        if (lower in rejectedCorrections) return null
         if (inDictionaries(lower) || userLexicon.contains(lower)) return null
         // Contact and app names are known words too — never "corrected" away.
         if (contacts.contains(lower) || apps.contains(lower)) return null

@@ -411,9 +411,22 @@ open class WMKeyboardService : InputMethodService() {
      */
     private var revertAnchor = -1
 
+    /**
+     * When [revertAnchor] was last armed. One keystroke can make several edits
+     * — the corrected word, then the space that triggered it — and an editor
+     * that reports each one separately would otherwise anchor on the first echo
+     * and then disarm on our own second one, so backspace-to-revert only worked
+     * on editors that coalesced the two. Every update within
+     * [REVERT_SETTLE_MS] of arming re-records the anchor instead of disarming;
+     * nothing the user can do moves the caret inside that window, and the
+     * revert paths still check the text they are about to replace.
+     */
+    private var revertArmedAt = 0L
+
     /** Called right after arming any of the immediate-revert states. */
     private fun armRevertGuard() {
         revertAnchor = -1
+        revertArmedAt = SystemClock.uptimeMillis()
     }
 
     /**
@@ -1825,11 +1838,17 @@ open class WMKeyboardService : InputMethodService() {
         // (hardware-keyboard typing), where onStartInputView never fires:
         // the previous field's cached selection and half-typed word must not
         // leak into this one. `restarting` (same editor, e.g. a programmatic
-        // text change) keeps the buffer — web views restart input liberally
-        // and resetting there would chop words mid-typing.
+        // text change) keeps the word being typed — web views restart input
+        // liberally and dropping it there would chop words mid-typing.
         expectedSelStart = attribute?.initialSelStart ?: -1
         expectedSelEnd = attribute?.initialSelEnd ?: -1
-        if (!restarting) {
+        if (restarting) {
+            // Same field, new connection: the composing span went with the old
+            // one. See [reattachComposing] — and note this runs on its own when
+            // the soft view is hidden (hardware-keyboard typing), where
+            // onStartInputView never fires to do it.
+            reattachComposing(expectedSelStart, expectedSelEnd)
+        } else {
             composing = StringBuilder()
             previousWord = null
             lastGestureWord = null
@@ -1862,10 +1881,24 @@ open class WMKeyboardService : InputMethodService() {
         smartJob?.cancel()
         gestureJob?.cancel()
         commitResolution = null
-        composing = StringBuilder()
-        previousWord = null
-        lastGestureWord = null
-        lastAutocorrect = null
+        // `restarting` is the same field reporting itself again — a programmatic
+        // text change, or a web view resetting its connection, both of which
+        // happen mid-word and neither of which the user did. The word being
+        // typed is still in the field, so blanking the buffer here split it in
+        // two: the strip lost the prefix and the next space autocorrected the
+        // tail on its own ("keyboard" typed through a restart committing as
+        // "keybcard"). The restart does end the editor's composing span though,
+        // so the buffer has to be re-attached to a fresh one or dropped — kept
+        // with no span behind it, the next setComposingText *inserts* it at the
+        // caret and the half-typed word appears twice.
+        if (restarting) {
+            reattachComposing(info?.initialSelStart ?: -1, info?.initialSelEnd ?: -1)
+        } else {
+            composing = StringBuilder()
+            previousWord = null
+            lastGestureWord = null
+            lastAutocorrect = null
+        }
         smartMutedAfter = null
         resetHardwareKeyState()
         // Covers the permission being granted after the setting was on.
@@ -2067,13 +2100,22 @@ open class WMKeyboardService : InputMethodService() {
         // arming is the commit's own echo and records the anchor, anything
         // that moves the caret afterwards disarms them.
         if (lastAutocorrect != null || lastGestureWord != null || pendingAutoSpace) {
-            if (revertAnchor == -1) {
-                revertAnchor = newSelStart
-            } else if (newSelStart != revertAnchor || newSelEnd != revertAnchor) {
-                lastAutocorrect = null
-                lastGestureWord = null
-                pendingAutoSpace = false
-                pendingPunctuationSpace = false
+            val settling = SystemClock.uptimeMillis() - revertArmedAt < REVERT_SETTLE_MS
+            when {
+                // A range selection is never one of our own commit echoes.
+                newSelStart != newSelEnd -> {
+                    lastAutocorrect = null
+                    lastGestureWord = null
+                    pendingAutoSpace = false
+                    pendingPunctuationSpace = false
+                }
+                revertAnchor == -1 || settling -> revertAnchor = newSelStart
+                newSelStart != revertAnchor -> {
+                    lastAutocorrect = null
+                    lastGestureWord = null
+                    pendingAutoSpace = false
+                    pendingPunctuationSpace = false
+                }
             }
         }
         val wasComposing = composing.isNotEmpty()
@@ -3271,6 +3313,15 @@ open class WMKeyboardService : InputMethodService() {
                     ic.deleteSurroundingText(expected.length, 0)
                     ic.commitText("$typed ", 1)
                     ic.endBatchEdit()
+                    // Undoing the correction retires it outright: without this
+                    // the very next space corrected the word straight back,
+                    // leaving no way to type it at all. Unconditional, unlike
+                    // the personal-dictionary entry below — a rejection has to
+                    // hold in incognito and with learning off too.
+                    suggestionEngine?.rejectCorrection(typed)
+                    // A stale precompute for this word would hand the old
+                    // correction to the next commit before the strip catches up.
+                    commitResolution = null
                     if (state.settings.learnFromTyping &&
                         !(state.incognitoOn && state.settings.incognitoPausesLearning) &&
                         !state.secureField
@@ -3642,6 +3693,14 @@ open class WMKeyboardService : InputMethodService() {
             return
         }
 
+        // The word and the space that ends it are one edit as far as the app is
+        // concerned: batching them means one selection update instead of two,
+        // which is what keeps the backspace-to-revert window armed (see
+        // [revertArmedAt]) and stops the corrected word flashing on its own for
+        // a frame. Only the composing paths below can have started a batch —
+        // every early return past this point runs with an empty buffer.
+        val batched = composing.isNotEmpty()
+        if (batched) ic.beginBatchEdit()
         val committed = commitComposing(
             ic,
             autocorrect = state.settings.autocorrect,
@@ -3680,6 +3739,7 @@ open class WMKeyboardService : InputMethodService() {
             }
         }
         ic.commitText(" ", 1)
+        if (batched) ic.endBatchEdit()
         lastSpaceTime = now
         maybeAutoCapitalize()
         // Next-word predictions (learned bigrams, including word → emoji)
@@ -3997,6 +4057,54 @@ open class WMKeyboardService : InputMethodService() {
         val ic = currentInputConnection ?: return
         commitComposing(ic, autocorrect = false)
         ic.commitText(text, 1)
+    }
+
+    /**
+     * Re-establishes the editor-side composing span for the word still in
+     * [composing] after the input connection restarted, or drops the buffer when
+     * the field no longer backs it. [start] and [end] are the selection the
+     * editor reported with the restart.
+     *
+     * A restart leaves the text but takes the span, so the buffer and the field
+     * disagree until one of them gives. Keeping the buffer alone is the worse
+     * half: with no span to replace, the next [updateComposingText] inserts the
+     * whole buffer at the caret and the word being typed shows up twice.
+     * Re-attaching keeps both — the word carries on being typed as if nothing
+     * happened.
+     *
+     * Only ever attaches over text that still reads back as the buffer's own
+     * output, so a stale or bogus [start] can't put the span over somebody
+     * else's characters; anything short of an exact match drops the buffer,
+     * which costs the word's prefix on the strip but never corrupts the field.
+     */
+    private fun reattachComposing(start: Int, end: Int) {
+        if (composing.isEmpty()) return
+        val ic = currentInputConnection
+        // What the field actually holds for this buffer: a transliterating
+        // composer's text is the composed form, not the roman source mirrored
+        // in the buffer. Same derivation as [updateComposingText].
+        val state = _uiState.value
+        val text = if (state.composer.isTransliterating) {
+            state.composer.composeBuffer(composing.toString())
+        } else {
+            composing.toString()
+        }
+        val reattached = ic != null && text.isNotEmpty() &&
+            start == end && start >= text.length &&
+            ic.getTextBeforeCursor(text.length, 0)?.toString() == text &&
+            ic.setComposingRegion(start - text.length, start)
+        if (reattached) {
+            _uiState.update { it.copy(composingPreview = text) }
+            return
+        }
+        composing = StringBuilder()
+        suggestionJob?.cancel()
+        // The word behind the caret is the bigram context now that it is no
+        // longer being composed, so predictions carry on from it.
+        if (ic != null) syncPreviousWordFromField(ic)
+        _uiState.update {
+            it.copy(composingPreview = "", suggestions = emptyList(), emojiSuggestions = emptyList())
+        }
     }
 
     /**
@@ -10578,6 +10686,15 @@ open class WMKeyboardService : InputMethodService() {
          * suppressed; a genuine settle re-reads on the next tap or keystroke.
          */
         private const val CARET_SCRUB_WINDOW_MS = 250L
+
+        /**
+         * How long after arming a revert window its anchor keeps following the
+         * editor's selection updates instead of treating them as a caret move;
+         * see [revertArmedAt]. Long enough to cover an editor that reports each
+         * commit of one keystroke separately (and the binder hop each report
+         * takes), far short of a deliberate tap elsewhere.
+         */
+        private const val REVERT_SETTLE_MS = 200L
 
         /** Height offered to autofill chips, matching the suggestion strip. */
         private const val INLINE_CHIP_HEIGHT_DP = 44
