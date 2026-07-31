@@ -14,7 +14,7 @@ python3 tools/icon/gen_icon.py
 
 Needs `fontTools`, `Pillow`, `rsvg-convert` (librsvg) and `cwebp` (webp), plus
 the monogram font. Pass `--font PATH` if it is not at
-`~/Downloads/amazobitaemostrov/AmazOOSTROVItalic.ttf`, and `--preview-only
+`~/Downloads/amazobitaemostrov/AmazOOSTROVv.2.ttf`, and `--preview-only
 --preview out.png` to look before writing anything.
 
 ## What it writes
@@ -42,7 +42,7 @@ no font.
 
 ## Notes
 
-- The monogram is **Amaz Obitaem Ostrov Italic**, converted to outlines. The
+- The monogram is **Amaz Obitaem Ostrov V.2** (straight), converted to outlines. The
   font file is never committed or shipped — only the resulting path data.
 - Palette follows the app seed colour (`#4C8DF6` → `#8B5CF6`); the keyboard body
   uses a lighter tint of the same ramp so it stays readable on the dark ground.

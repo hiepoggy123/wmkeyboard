@@ -2,7 +2,7 @@
 """Regenerate the WMKeyboard launcher icon from its vector definition.
 
 The mark is a Gboard-style lockup: a keyboard body with a speech-bubble pin
-carrying the "WM" monogram (Amaz Obitaem Ostrov Italic, outlines only -- the
+carrying the "WM" monogram (Amaz Obitaem Ostrov V.2 straight, outlines only -- the
 font file itself is never shipped).
 
 Everything is authored once, in a 108dp adaptive-icon canvas, and emitted as:
@@ -38,7 +38,11 @@ from PIL import Image, ImageDraw
 
 REPO = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 RES = os.path.join(REPO, "app", "src", "main", "res")
-DEFAULT_FONT = os.path.expanduser("~/Downloads/amazobitaemostrov/AmazOOSTROVItalic.ttf")
+DEFAULT_FONT = (
+    os.path.expanduser("~/Downloads/amazobitaemostrov/AmazOOSTROVv.2.ttf")
+    if os.path.exists(os.path.expanduser("~/Downloads/amazobitaemostrov/AmazOOSTROVv.2.ttf"))
+    else os.path.expanduser("~/Downloads/amazobitaemostrov/AmazOOSTROVItalic.ttf")
+)
 
 # ---------------------------------------------------------------- palette
 BG_TOP, BG_BOTTOM = "#2F3474", "#191C42"      # background gradient
@@ -50,7 +54,7 @@ PIN_FILL = "#FFFFFF"
 C = 54.0                                       # canvas centre (108dp canvas)
 SAFE_R = 32.5                                  # keep the lockup inside the 66dp circle
 
-KB_W, KB_H, KB_R, KB_Y = 64.0, 32.0, 6.4, 51.0
+KB_W, KB_H, KB_R, KB_Y = 58.0, 36.0, 6.4, 51.0
 KB_X = C - KB_W / 2
 KEY_PAD, KEY_GAP, KEY_R = 4.4, 2.1, 1.2
 KEY_ROWS = (5, 5)
