@@ -146,7 +146,8 @@ object Support {
      * out loud rather than swallow: the button did nothing visible otherwise.
      */
     fun email(context: Context, subject: String, body: String): Boolean {
-        val intent = Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:$EMAIL")).apply {
+        val uri = Uri.parse("mailto:$EMAIL?subject=${Uri.encode(subject)}&body=${Uri.encode(body)}")
+        val intent = Intent(Intent.ACTION_SENDTO, uri).apply {
             putExtra(Intent.EXTRA_SUBJECT, subject)
             putExtra(Intent.EXTRA_TEXT, body)
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
