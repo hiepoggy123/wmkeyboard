@@ -369,9 +369,19 @@ private val serviceAttributions: List<Attribution> = listOf(
         "https://huggingface.co/terms-of-service",
     ),
     Attribution(
-        "Anthropic, OpenAI & Google AI", "Optional bring-your-own-key AI tool", "",
+        "Anthropic", "Optional bring-your-own-key AI tool", "",
         "Provider terms, under your own account", null,
         "https://www.anthropic.com/legal/consumer-terms",
+    ),
+    Attribution(
+        "OpenAI", "Optional bring-your-own-key AI tool", "",
+        "Provider terms, under your own account", null,
+        "https://openai.com/policies/terms-of-use/",
+    ),
+    Attribution(
+        "Google AI", "Optional bring-your-own-key AI tool", "",
+        "Provider terms, under your own account", null,
+        "https://ai.google.dev/terms",
     ),
 )
 
