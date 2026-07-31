@@ -394,21 +394,30 @@ internal fun AboutSettings(
     val uriHandler = LocalUriHandler.current
     val context = LocalContext.current
     val flavor = BuildConfig.FLAVOR.replaceFirstChar { it.uppercase() }
+    val channel = when {
+        BuildConfig.ENABLE_PLAY_STORE -> " · Play Store"
+        BuildConfig.ENABLE_FDROID -> " · F-Droid"
+        else -> ""
+    }
 
     SettingsGroup("Share") {
-        item {
-            NavRow("Share via Play Store", PLAY_STORE_URL.removePrefix("https://")) {
-                shareLink(context, PLAY_STORE_URL)
+        if (!BuildConfig.ENABLE_FDROID) {
+            item {
+                NavRow("Share Play Store link", PLAY_STORE_URL.removePrefix("https://")) {
+                    shareLink(context, PLAY_STORE_URL)
+                }
             }
         }
-        item {
-            NavRow("Share via F-Droid", FDROID_URL.removePrefix("https://")) {
-                shareLink(context, FDROID_URL)
+        if (!BuildConfig.ENABLE_PLAY_STORE) {
+            item {
+                NavRow("Share F-Droid link", FDROID_URL.removePrefix("https://")) {
+                    shareLink(context, FDROID_URL)
+                }
             }
-        }
-        item {
-            NavRow("Share via GitHub", SOURCE_URL.removePrefix("https://")) {
-                shareLink(context, SOURCE_URL)
+            item {
+                NavRow("Share GitHub link", SOURCE_URL.removePrefix("https://")) {
+                    shareLink(context, SOURCE_URL)
+                }
             }
         }
     }
@@ -417,7 +426,7 @@ internal fun AboutSettings(
         item {
             NavRow(
                 "Version",
-                "$flavor build (${BuildConfig.BUILD_TYPE}) · code ${BuildConfig.VERSION_CODE}",
+                "$flavor build (${BuildConfig.BUILD_TYPE}$channel) · code ${BuildConfig.VERSION_CODE}",
                 value = BuildConfig.VERSION_NAME,
             ) {}
         }

@@ -41,9 +41,14 @@ object Support {
 
     /** Build and device line every report carries, so a reply can start. */
     fun environment(): String = buildString {
+        val channel = when {
+            BuildConfig.ENABLE_PLAY_STORE -> " (Play Store)"
+            BuildConfig.ENABLE_FDROID -> " (F-Droid)"
+            else -> ""
+        }
         appendLine(
             "version: ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}) " +
-                "${BuildConfig.FLAVOR} ${BuildConfig.BUILD_TYPE}",
+                "${BuildConfig.FLAVOR}$channel ${BuildConfig.BUILD_TYPE}",
         )
         appendLine("android: ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})")
         append("device: ${Build.MANUFACTURER} ${Build.MODEL}")

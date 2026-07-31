@@ -17,6 +17,12 @@ fun apiKey(propertyName: String, envName: String): String =
         ?: System.getenv(envName)?.trim()
         ?: ""
 
+fun flag(propertyName: String, envName: String): Boolean =
+    (providers.gradleProperty(propertyName).orNull
+        ?: localProperties.getProperty(propertyName)
+        ?: System.getenv(envName)
+        ?: "false").toBoolean()
+
 
 android {
     namespace = "com.wasimaster.wmkeyboard.config"
@@ -33,6 +39,8 @@ android {
         buildConfigField("String", "GIPHY_API_KEY", "\"${apiKey("wmkb.giphyApiKey", "WMKB_GIPHY_API_KEY")}\"")
         buildConfigField("String", "BRAVE_API_KEY", "\"${apiKey("wmkb.braveApiKey", "WMKB_BRAVE_API_KEY")}\"")
         buildConfigField("String", "TRANSLATE_API_KEY", "\"${apiKey("wmkb.translateApiKey", "WMKB_TRANSLATE_API_KEY")}\"")
+        buildConfigField("Boolean", "ENABLE_PLAY_STORE", "${flag("wmkb.enablePlayStore", "WMKB_ENABLE_PLAY_STORE")}")
+        buildConfigField("Boolean", "ENABLE_FDROID", "${flag("wmkb.enableFdroid", "WMKB_ENABLE_FDROID")}")
     }
 
     flavorDimensions += "capabilities"

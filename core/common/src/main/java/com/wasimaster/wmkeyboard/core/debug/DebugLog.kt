@@ -117,6 +117,13 @@ object DebugLog {
         }
     }
 
+    private val channelTag: String
+        get() = when {
+            BuildConfig.ENABLE_PLAY_STORE -> " (Play Store)"
+            BuildConfig.ENABLE_FDROID -> " (F-Droid)"
+            else -> ""
+        }
+
     /** Appends a crash record, trimming the file to [CRASH_CAPACITY] records. */
     private fun writeCrash(threadName: String, error: Throwable) {
         val file = crashFile ?: return
@@ -124,7 +131,7 @@ object DebugLog {
             appendLine(CRASH_SEPARATOR)
             appendLine("time: ${timestamp(System.currentTimeMillis())}")
             appendLine("thread: $threadName")
-            appendLine("version: ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}) ${BuildConfig.FLAVOR}")
+            appendLine("version: ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}) ${BuildConfig.FLAVOR}$channelTag")
             appendLine("android: ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT}) ${Build.MANUFACTURER} ${Build.MODEL}")
             appendLine(error.stackTraceToString())
             // What the app was doing on the way in is usually the whole story,
@@ -154,7 +161,7 @@ object DebugLog {
      */
     fun exportText(): String = buildString {
         appendLine("WM Keyboard diagnostics")
-        appendLine("version: ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}) ${BuildConfig.FLAVOR} ${BuildConfig.BUILD_TYPE}")
+        appendLine("version: ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}) ${BuildConfig.FLAVOR}$channelTag ${BuildConfig.BUILD_TYPE}")
         appendLine("android: ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})")
         appendLine("device: ${Build.MANUFACTURER} ${Build.MODEL}")
         appendLine("taken: ${timestamp(System.currentTimeMillis())}")
