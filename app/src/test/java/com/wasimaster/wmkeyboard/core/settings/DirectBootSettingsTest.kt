@@ -47,8 +47,10 @@ class DirectBootSettingsTest {
     fun `everything backed by filesDir falls back to a bundled default`() {
         val settings = KeyboardSettings(
             keyFontId = "custom",
-            bengaliFontId = "google:Hind Siliguri",
-            scriptFontIds = mapOf("DEVANAGARI" to "google:Noto Sans Devanagari"),
+            scriptFontIds = mapOf(
+                "BENGALI" to "google:Hind Siliguri",
+                "DEVANAGARI" to "google:Noto Sans Devanagari",
+            ),
             emojiFont = EmojiFontChoice.CUSTOM,
             customThemes = listOf(
                 ThemeSpec(
@@ -61,7 +63,6 @@ class DirectBootSettingsTest {
         ).restrictedToDirectBoot()
 
         assertEquals("default", settings.keyFontId)
-        assertEquals("default", settings.bengaliFontId)
         assertTrue(settings.scriptFontIds.isEmpty())
         assertEquals(EmojiFontChoice.SYSTEM, settings.emojiFont)
         // The theme itself survives — only the unreadable image path goes.

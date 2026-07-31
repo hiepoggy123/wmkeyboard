@@ -156,11 +156,11 @@ python3 docs/screenshots/import.py keyboard
 
 ### 14. `tools/numpad-panel`
 
-**Shot:** The numpad panel: a phone-style or calculator-style 4×4 grid, with Backspace repeating on hold.
+**Shot:** The numpad panel: a 4×4 grid in phone or calculator digit order, with Backspace repeating on hold.
 
 - adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text
 - Open the toolbar/toolbox and tap the Numpad tool.
-- Capture the default calculator-style layout (7 8 9 on top). Phone-style layout is opt-in under Settings > Tools > Numpad > Options.
+- Capture the default phone-style layout (1 2 3 on top). Calculator-style layout is opt-in under Settings > Tools > Numpad > Options.
 
 > Numpad is a manually-opened panel usable over any field, distinct from the automatic numeric layout that appears in genuinely numeric fields (field-adaptation, documented on typing/field-adaptation.mdx) — do not use kind=number for this shot, a plain text field better shows it's a manual override.
 

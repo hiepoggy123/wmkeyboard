@@ -214,7 +214,14 @@ private val SettingRows: List<SettingsSearchEntry> = listOfNotNull(
     entry("Comma key opens emoji", "Replace the comma key with an emoji key", "Layout & size", "layout"),
     entry("Emoji key instead of 🌐", "Replace the language key with an emoji key", "Layout & size", "layout"),
     entry("Import a layout", "Open a .wmlayout.json file someone shared", "Key layouts", "keymaps"),
-    entry("Conjunct-aware backspace", "Delete a whole যুক্তবর্ণ (like ক্ষ or স্ত্রী) as one unit", "Languages", "languages"),
+    // Per language now, so search lands on the language list rather than on a
+    // switch that no longer exists at the top level.
+    entry(
+        "Conjunct-aware backspace",
+        "Delete a whole cluster as one unit — set per language, on its own screen",
+        "Languages",
+        "languages",
+    ),
     entry("Emoji button in toolbar", "One-tap emoji access from the top bar", "Emoji", "emoji"),
     entry("Full-screen emoji panel", "Hide the toolbar and move the category tabs up next to a back button", "Emoji", "emoji"),
     entry("Emoji suggestions", "Offer emojis while typing — birthday suggests 🎂 🎉 🥳", "Emoji", "emoji"),
@@ -298,6 +305,7 @@ private val SettingRows: List<SettingsSearchEntry> = listOfNotNull(
         tool = ToolbarTool.CALENDAR,
     ),
     entry("Second calendar", "A second calendar for the header and the selected day", tool = ToolbarTool.CALENDAR),
+    entry("Weekend", "Which weekday initials the month grid tints", tool = ToolbarTool.CALENDAR),
     entry("Hijri day adjustment", "Shift the computed Hijri date to match local moon sighting", tool = ToolbarTool.CALENDAR),
     entry("Start with the selfie camera", "Open the tool on the front camera instead of the back one", tool = ToolbarTool.CAMERA),
     entry("Mirror selfies", "Save front-camera photos the way the preview shows them", tool = ToolbarTool.CAMERA),
@@ -311,8 +319,8 @@ private val SettingRows: List<SettingsSearchEntry> = listOfNotNull(
         tool = ToolbarTool.TEXT_EDIT,
     ),
     entry(
-        "Phone-style layout",
-        "1 2 3 on the top row, like a dialer. Off puts 7 8 9 on top, like a calculator.",
+        "Calculator-style layout",
+        "7 8 9 on the top row, like a desk keypad. Off puts 1 2 3 on top, like a dialer.",
         tool = ToolbarTool.NUMPAD,
     ),
     entry("Pause learning", "No words or emoji habits are learned from typing", tool = ToolbarTool.INCOGNITO),
@@ -518,7 +526,7 @@ private val SettingRows: List<SettingsSearchEntry> = listOfNotNull(
 private val SectionRows: List<SettingsSearchEntry> = listOf(
     entry("Typing", "Autocorrect, suggestions, gestures", "Settings", "typing"),
     entry("Key press", "Haptics, key popup, long-press shortcuts", "Settings", "keypress"),
-    entry("Languages", "English, বাংলা (Avro phonetic, প্রভাত, জাতীয়)", "Settings", "languages"),
+    entry("Languages", "Add, remove and reorder your typing languages", "Settings", "languages"),
     entry("Appearance", "Themes, fonts, toolbar style", "Settings", "appearance"),
     entry("Layout & size", "Key size, number row, one-handed, split & floating", "Settings", "layout"),
     entry("Key layouts", "Design your own key grid, Ctrl/Alt keys, import & export", "Settings", "keymaps"),

@@ -1,6 +1,6 @@
 # WM Keyboard
 
-A modern, privacy-first Android keyboard with first-class Bengali support.
+A modern, privacy-first, multilingual Android keyboard.
 
 Built with Kotlin, Jetpack Compose (including the keyboard view itself), Material 3,
 and a fully offline core: dictionaries, transliteration, prediction and emoji search
@@ -8,6 +8,10 @@ are all bundled — nothing leaves the device.
 
 ## Highlights
 
+- **352 languages, 393 layouts** — a data-driven registry covering native scripts,
+  InScript variants, Romanized entries and constructed languages. A fresh install
+  starts in the languages your phone is already set to, and suggests more from your
+  system language list and region.
 - **Avro-style Bengali phonetic typing** — type `ami valo achi`, get **আমি ভালো আছি**.
   A lenient phonetic index means loose spellings (`asi`, `achi`, `achhi`) all resolve
   to the right dictionary word.

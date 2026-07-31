@@ -31,6 +31,10 @@ import com.wasimaster.wmkeyboard.core.layout.resolveLayout
 import com.wasimaster.wmkeyboard.core.layout.script
 import com.wasimaster.wmkeyboard.core.tools.AltCalendar
 import com.wasimaster.wmkeyboard.core.tools.SolarTimes
+import com.wasimaster.wmkeyboard.core.tools.Weekend
+import com.wasimaster.wmkeyboard.core.tools.defaultAltCalendars
+import com.wasimaster.wmkeyboard.core.script.ComposerType
+import com.wasimaster.wmkeyboard.core.script.DeviceLocales
 import com.wasimaster.wmkeyboard.core.script.LanguageDef
 import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
 import com.wasimaster.wmkeyboard.core.script.NumeralCommitScope
@@ -744,18 +748,21 @@ data class KeyboardSettings(
     val keyFontId: String = "default",
     /** Display name of the imported custom font file, for the settings UI. */
     val customFontName: String = "",
-    /** Font used while a Bengali input mode is active (same id scheme). */
-    val bengaliFontId: String = "default",
-    /** Display name of the imported custom Bengali font file. */
-    val customBengaliFontName: String = "",
     /**
-     * Per-script font choice for the other non-Latin scripts, keyed by
+     * Per-script font choice for the non-Latin scripts, keyed by
      * [com.wasimaster.wmkeyboard.core.script.ScriptId] name. Value is "default"
-     * (the script's automatic Noto face) or "google:<Name>" from that script's
-     * curated list. Absent scripts use their automatic face. Latin/Cyrillic/Greek
-     * follow [keyFontId] and Bengali has [bengaliFontId], so neither appears here.
+     * (the script's automatic Noto face), "google:<Name>" from that script's
+     * curated list, or an imported-file id for the scripts that allow one.
+     * Absent scripts use their automatic face. Latin, Cyrillic and Greek follow
+     * [keyFontId] and so never appear here.
      */
     val scriptFontIds: Map<String, String> = emptyMap(),
+    /**
+     * Display names of imported custom font files, keyed the same way as
+     * [scriptFontIds]. Only the scripts whose picker offers an import ever have
+     * an entry; the Latin one is [customFontName], since it is not per script.
+     */
+    val customScriptFontNames: Map<String, String> = emptyMap(),
     /**
      * Bumped by the settings app whenever it edits the learned-words file
      * directly, so the IME (which keeps the lexicon in memory) reloads it.
@@ -965,7 +972,14 @@ data class KeyboardSettings(
     /** Per-app language/subtype memory (see [PerAppLanguageSettings]). */
     val perAppLanguage: PerAppLanguageSettings = PerAppLanguageSettings(),
     val onboardingDone: Boolean = false,
-    val conjunctBackspace: Boolean = false,
+    /**
+     * Language ids whose conjunct clusters backspace as one unit. Per language,
+     * not global: someone who types both Bengali and Hindi may well want whole
+     * clusters gone in one and code points in the other, and the old single
+     * switch made that impossible. Only languages on a cluster-forming script
+     * are ever put here.
+     */
+    val conjunctBackspaceLanguages: Set<String> = emptySet(),
     /** Chinese/Cantonese conversion-IME options (see [CjkSettings] for why nested). */
     val cjk: CjkSettings = CjkSettings(),
     val oneHandedMode: OneHandedMode = OneHandedMode.OFF,
@@ -1071,8 +1085,14 @@ data class KeyboardSettings(
      * order they are drawn. The first is also what the day cells get their
      * small second number from. Either may be [AltCalendar.NONE].
      */
-    val calendarAltOne: AltCalendar = AltCalendar.BENGALI,
-    val calendarAltTwo: AltCalendar = AltCalendar.HIJRI,
+    val calendarAltOne: AltCalendar = AltCalendar.NONE,
+    val calendarAltTwo: AltCalendar = AltCalendar.NONE,
+    /**
+     * Days the month grid tints as the weekend. Starts from the device's region
+     * (see [Weekend.forRegion]) rather than a fixed pair, since which days are
+     * the weekend is exactly the sort of thing that differs by where you are.
+     */
+    val calendarWeekend: Weekend = Weekend.SAT_SUN,
     /** Day offset applied to the tabular Hijri date (moon-sighting drift). */
     val hijriAdjustDays: Int = 0,
     /** Handwriting canvas ignores finger touches; only a stylus draws. */
@@ -1112,8 +1132,8 @@ data class KeyboardSettings(
      * [underPowerSaving] by the time anyone downstream sees it.
      */
     val powerSaving: PowerSavingSettings = PowerSavingSettings(),
-    /** Number pad digits phone-style (123 on top) instead of calculator-style (789 on top). */
-    val numpadPhoneLayout: Boolean = false,
+    /** Number pad digits calculator-style (789 on top) instead of phone-style (123 on top). */
+    val numpadCalculatorLayout: Boolean = false,
     /** Incognito stops the clipboard tool from capturing copies. */
     val incognitoPausesClipboard: Boolean = true,
     /** Incognito stops word and emoji learning. */
@@ -2076,9 +2096,18 @@ class SettingsRepository(private val context: Context) {
         private val KEY_GAP_SCALE = floatPreferencesKey("key_gap_scale")
         private val KEY_FONT_ID = stringPreferencesKey("key_font_id")
         private val CUSTOM_FONT_NAME = stringPreferencesKey("custom_font_name")
+        private val SCRIPT_FONT_IDS = stringPreferencesKey("script_font_ids")
+        private val CUSTOM_SCRIPT_FONT_NAMES = stringPreferencesKey("custom_script_font_names")
+
+        /**
+         * Bengali's own font keys, from when it was the one script with a picker
+         * of its own. It now rides [SCRIPT_FONT_IDS] like every other script, so
+         * these are read once to carry an existing choice across and never
+         * written again.
+         */
         private val BENGALI_FONT_ID = stringPreferencesKey("bengali_font_id")
         private val CUSTOM_BENGALI_FONT_NAME = stringPreferencesKey("custom_bengali_font_name")
-        private val SCRIPT_FONT_IDS = stringPreferencesKey("script_font_ids")
+        private const val BENGALI_SCRIPT = "BENGALI"
 
         /**
          * The automatic face, mirroring `KeyboardFonts.DEFAULT_ID`. Repeated
@@ -2218,6 +2247,13 @@ class SettingsRepository(private val context: Context) {
         private val PER_APP_LANGUAGE_ENABLED = booleanPreferencesKey("per_app_language_enabled")
         private val PER_APP_LAYOUT_MAP = stringPreferencesKey("per_app_layout_map")
         private val ONBOARDING_DONE = booleanPreferencesKey("onboarding_done")
+        private val CONJUNCT_BACKSPACE_LANGUAGES = stringPreferencesKey("conjunct_backspace_languages")
+
+        /**
+         * The old global switch, read once so an install that had it on keeps
+         * cluster deletion in the languages it was actually deleting clusters
+         * in. Never written again.
+         */
         private val CONJUNCT_BACKSPACE = booleanPreferencesKey("conjunct_backspace")
         private val PINYIN_FUZZY = booleanPreferencesKey("pinyin_fuzzy")
         private val PINYIN_DOUBLE_PINYIN = stringPreferencesKey("pinyin_double_pinyin")
@@ -2331,6 +2367,7 @@ class SettingsRepository(private val context: Context) {
         private val CALENDAR_SHOW_HIJRI = booleanPreferencesKey("calendar_show_hijri")
         private val CALENDAR_ALT_ONE = stringPreferencesKey("calendar_alt_one")
         private val CALENDAR_ALT_TWO = stringPreferencesKey("calendar_alt_two")
+        private val CALENDAR_WEEKEND = stringPreferencesKey("calendar_weekend")
         private val HIJRI_ADJUST_DAYS = intPreferencesKey("hijri_adjust_days")
         private val HANDWRITING_STYLUS_ONLY = booleanPreferencesKey("handwriting_stylus_only")
         private val HANDWRITING_COMMIT_DELAY = intPreferencesKey("handwriting_commit_delay")
@@ -2354,6 +2391,13 @@ class SettingsRepository(private val context: Context) {
         private val QR_SEND_MODE = stringPreferencesKey("qr_send_mode")
         private val DICTIONARY_AUTO_LOOKUP = booleanPreferencesKey("dictionary_auto_lookup")
         private val TEXT_EDIT_REPEAT_MS = intPreferencesKey("text_edit_repeat_ms")
+        private val NUMPAD_CALCULATOR_LAYOUT = booleanPreferencesKey("numpad_calculator_layout")
+
+        /**
+         * The old key, back when the numpad defaulted to calculator order and the
+         * toggle opted into phone order. The default flipped, so the toggle flipped
+         * with it — an old `true` means the same grid as a new `false`.
+         */
         private val NUMPAD_PHONE_LAYOUT = booleanPreferencesKey("numpad_phone_layout")
         private val INCOGNITO_PAUSES_CLIPBOARD = booleanPreferencesKey("incognito_pauses_clipboard")
         private val INCOGNITO_PAUSES_LEARNING = booleanPreferencesKey("incognito_pauses_learning")
@@ -2582,10 +2626,8 @@ class SettingsRepository(private val context: Context) {
                 .filterValues { !it.isEmpty },
             keyFontId = p[KEY_FONT_ID] ?: defaults.keyFontId,
             customFontName = p[CUSTOM_FONT_NAME] ?: defaults.customFontName,
-            bengaliFontId = p[BENGALI_FONT_ID] ?: defaults.bengaliFontId,
-            scriptFontIds = p[SCRIPT_FONT_IDS]?.let { decodeScriptFontIds(it) } ?: defaults.scriptFontIds,
-            customBengaliFontName = p[CUSTOM_BENGALI_FONT_NAME]
-                ?: defaults.customBengaliFontName,
+            scriptFontIds = scriptFontIdsFromPrefs(p, defaults),
+            customScriptFontNames = customScriptFontNamesFromPrefs(p, defaults),
             lexiconVersion = p[LEXICON_VERSION] ?: defaults.lexiconVersion,
             customDictVersion = p[CUSTOM_DICT_VERSION] ?: defaults.customDictVersion,
             emojiFont = p[EMOJI_FONT]
@@ -2716,7 +2758,7 @@ class SettingsRepository(private val context: Context) {
                     ?: defaults.perAppLanguage.layoutByPackage,
             ),
             onboardingDone = p[ONBOARDING_DONE] ?: defaults.onboardingDone,
-            conjunctBackspace = p[CONJUNCT_BACKSPACE] ?: defaults.conjunctBackspace,
+            conjunctBackspaceLanguages = conjunctLanguagesFromPrefs(p, layoutSelection.enabledLanguages),
             cjk = CjkSettings(
                 pinyinFuzzy = p[PINYIN_FUZZY] ?: defaults.cjk.pinyinFuzzy,
                 pinyinDoublePinyin = p[PINYIN_DOUBLE_PINYIN]
@@ -2902,8 +2944,10 @@ class SettingsRepository(private val context: Context) {
             weatherLatitude = p[WEATHER_LAT],
             weatherLongitude = p[WEATHER_LON],
             weatherPlaceName = p[WEATHER_PLACE] ?: defaults.weatherPlaceName,
-            calendarAltOne = calendarAltFromPrefs(p, first = true, defaults = defaults),
-            calendarAltTwo = calendarAltFromPrefs(p, first = false, defaults = defaults),
+            calendarAltOne = calendarAltFromPrefs(p, first = true),
+            calendarAltTwo = calendarAltFromPrefs(p, first = false),
+            calendarWeekend = p[CALENDAR_WEEKEND]?.let { Weekend.fromId(it) }
+                ?: Weekend.forRegion(deviceRegion),
             hijriAdjustDays = p[HIJRI_ADJUST_DAYS] ?: defaults.hijriAdjustDays,
             handwritingStylusOnly = p[HANDWRITING_STYLUS_ONLY] ?: defaults.handwritingStylusOnly,
             handwritingCommitDelayMs = p[HANDWRITING_COMMIT_DELAY]
@@ -2971,7 +3015,9 @@ class SettingsRepository(private val context: Context) {
                 dropOnDeviceModels =
                     p[PS_DROP_ON_DEVICE_MODELS] ?: defaults.powerSaving.dropOnDeviceModels,
             ),
-            numpadPhoneLayout = p[NUMPAD_PHONE_LAYOUT] ?: defaults.numpadPhoneLayout,
+            numpadCalculatorLayout = p[NUMPAD_CALCULATOR_LAYOUT]
+                ?: p[NUMPAD_PHONE_LAYOUT]?.not()
+                ?: defaults.numpadCalculatorLayout,
             incognitoPausesClipboard = p[INCOGNITO_PAUSES_CLIPBOARD] ?: defaults.incognitoPausesClipboard,
             incognitoPausesLearning = p[INCOGNITO_PAUSES_LEARNING] ?: defaults.incognitoPausesLearning,
             autoIncognito = p[AUTO_INCOGNITO] ?: defaults.autoIncognito,
@@ -3235,21 +3281,40 @@ class SettingsRepository(private val context: Context) {
     suspend fun setCalendarAltTwo(value: AltCalendar) =
         editPrefs { it[CALENDAR_ALT_TWO] = value.id }
 
+    suspend fun setCalendarWeekend(value: Weekend) =
+        editPrefs { it[CALENDAR_WEEKEND] = value.id }
+
     /**
-     * One of the two alternate-calendar slots. Installs from before the picker
-     * existed have no stored pick, so they inherit whichever of the old
-     * Bengali/Hijri switches were on, in that order.
+     * The device's region, for the settings whose sensible default depends on
+     * where the phone is rather than on a value anyone could pick globally.
+     *
+     * Read once and kept: `mapPreferences` runs on every settings emission, and
+     * the SIM is not going to change between two of them.
      */
-    private fun calendarAltFromPrefs(
-        p: Preferences,
-        first: Boolean,
-        defaults: KeyboardSettings,
-    ): AltCalendar {
+    private val deviceRegion: String? by lazy {
+        DeviceLocales.read(context).regionCodes.firstOrNull()
+    }
+
+    /**
+     * One of the two alternate-calendar slots.
+     *
+     * With no stored pick, the pair comes from the device's region, so a phone
+     * in Bangladesh opens the tool on the Bengali calendar and one in Japan on
+     * the Japanese era years, rather than everyone getting Bangladesh's. A
+     * region with no calendar worth showing gets none, since two extra numbers
+     * per cell are noise to whoever reads neither.
+     *
+     * Installs from before the picker existed have no stored pick either, but do
+     * have the old Bengali/Hijri switches, and those win over the region: they
+     * are a choice someone actually made.
+     */
+    private fun calendarAltFromPrefs(p: Preferences, first: Boolean): AltCalendar {
         p[if (first) CALENDAR_ALT_ONE else CALENDAR_ALT_TWO]?.let { return AltCalendar.fromId(it) }
         val bengali = p[CALENDAR_SHOW_BENGALI]
         val hijri = p[CALENDAR_SHOW_HIJRI]
         if (bengali == null && hijri == null) {
-            return if (first) defaults.calendarAltOne else defaults.calendarAltTwo
+            val (one, two) = defaultAltCalendars(deviceRegion)
+            return if (first) one else two
         }
         val legacy = buildList {
             if (bengali != false) add(AltCalendar.BENGALI)
@@ -3343,8 +3408,11 @@ class SettingsRepository(private val context: Context) {
     suspend fun setTextEditRepeatMs(value: Int) =
         editPrefs { it[TEXT_EDIT_REPEAT_MS] = value.coerceIn(30, 200) }
 
-    suspend fun setNumpadPhoneLayout(value: Boolean) =
-        editPrefs { it[NUMPAD_PHONE_LAYOUT] = value }
+    suspend fun setNumpadCalculatorLayout(value: Boolean) =
+        editPrefs {
+            it[NUMPAD_CALCULATOR_LAYOUT] = value
+            it.remove(NUMPAD_PHONE_LAYOUT)
+        }
 
     suspend fun setIncognitoPausesClipboard(value: Boolean) =
         editPrefs { it[INCOGNITO_PAUSES_CLIPBOARD] = value }
@@ -3740,28 +3808,55 @@ class SettingsRepository(private val context: Context) {
             it[KEY_FONT_ID] = "custom"
         }
 
-    suspend fun setBengaliFontId(value: String) =
-        editPrefs { it[BENGALI_FONT_ID] = value }
-
     /**
      * Selects [fontId] for [script] (a [com.wasimaster.wmkeyboard.core.script.ScriptId]
      * name). "default" drops the entry so the script falls back to its automatic
      * Noto face and the map stays compact.
      */
     suspend fun setScriptFontId(script: String, fontId: String) =
+        editPrefs { prefs -> putScriptFontId(prefs, script, fontId) }
+
+    /** Records an imported font's display name for [script] and selects it. */
+    suspend fun setCustomScriptFont(script: String, customFontId: String, name: String) =
         editPrefs { prefs ->
-            val current = prefs[SCRIPT_FONT_IDS]?.let { decodeScriptFontIds(it) }.orEmpty()
-            val next = if (fontId == "default") current - script else current + (script to fontId)
-            if (next == current) return@editPrefs
-            prefs[SCRIPT_FONT_IDS] = encodeScriptFontIds(next)
+            val current = prefs[CUSTOM_SCRIPT_FONT_NAMES]?.let { decodeScriptFontIds(it) }.orEmpty()
+            prefs[CUSTOM_SCRIPT_FONT_NAMES] = encodeScriptFontIds(current + (script to name))
+            putScriptFontId(prefs, script, customFontId)
         }
 
-    /** Records the imported Bengali font's display name and selects it. */
-    suspend fun setCustomBengaliFont(name: String) =
-        editPrefs {
-            it[CUSTOM_BENGALI_FONT_NAME] = name
-            it[BENGALI_FONT_ID] = "custom_bn"
-        }
+    private fun putScriptFontId(prefs: MutablePreferences, script: String, fontId: String) {
+        val current = prefs[SCRIPT_FONT_IDS]?.let { decodeScriptFontIds(it) }.orEmpty()
+        val next = if (fontId == DEFAULT_FONT_ID) current - script else current + (script to fontId)
+        // Writing the map is also what retires the old Bengali-only keys: once
+        // there is a per-script entry, the migration below stops consulting them.
+        if (next != current) prefs[SCRIPT_FONT_IDS] = encodeScriptFontIds(next)
+    }
+
+    /**
+     * The per-script font map, with Bengali's old standalone choice folded in.
+     *
+     * The migration is a read-time fallback rather than a rewrite, so a
+     * downgrade to a build that still reads `bengali_font_id` finds it untouched.
+     * An explicit per-script entry always wins, which is what makes the fold-in
+     * stop once the user picks anything on the new screen.
+     */
+    private fun scriptFontIdsFromPrefs(p: Preferences, defaults: KeyboardSettings): Map<String, String> {
+        val stored = p[SCRIPT_FONT_IDS]?.let { decodeScriptFontIds(it) } ?: defaults.scriptFontIds
+        if (stored.containsKey(BENGALI_SCRIPT)) return stored
+        val legacy = p[BENGALI_FONT_ID]?.takeIf { it != DEFAULT_FONT_ID } ?: return stored
+        return stored + (BENGALI_SCRIPT to legacy)
+    }
+
+    private fun customScriptFontNamesFromPrefs(
+        p: Preferences,
+        defaults: KeyboardSettings,
+    ): Map<String, String> {
+        val stored = p[CUSTOM_SCRIPT_FONT_NAMES]?.let { decodeScriptFontIds(it) }
+            ?: defaults.customScriptFontNames
+        if (stored.containsKey(BENGALI_SCRIPT)) return stored
+        val legacy = p[CUSTOM_BENGALI_FONT_NAME]?.takeIf { it.isNotEmpty() } ?: return stored
+        return stored + (BENGALI_SCRIPT to legacy)
+    }
 
     /** Signals the IME that the learned-words file changed on disk. */
     // ---- backup ----
@@ -4762,8 +4857,38 @@ class SettingsRepository(private val context: Context) {
     suspend fun setOnboardingDone(value: Boolean) =
         editPrefs { it[ONBOARDING_DONE] = value }
 
-    suspend fun setConjunctBackspace(value: Boolean) =
-        editPrefs { it[CONJUNCT_BACKSPACE] = value }
+    /** Turns cluster-aware backspace on or off for one language. */
+    suspend fun setConjunctBackspace(languageId: String, value: Boolean) =
+        editPrefs { prefs ->
+            val current = conjunctLanguagesFromPrefs(prefs, emptyList())
+            val next = if (value) current + languageId else current - languageId
+            if (next == current) return@editPrefs
+            // Always written, even when empty: an empty string is how "the user
+            // has been here and turned everything off" is told apart from "never
+            // touched", which is what stops the old global switch reviving.
+            prefs[CONJUNCT_BACKSPACE_LANGUAGES] = next.joinToString(",")
+        }
+
+    /**
+     * Which languages delete a whole cluster per backspace.
+     *
+     * Installs from before this was per language carry a single boolean. On it
+     * applied to every cluster-forming language they had enabled, so that is
+     * what it becomes — [enabledLanguages] is the set to spread it across, and
+     * is empty when the caller is a writer that only needs the current value.
+     */
+    private fun conjunctLanguagesFromPrefs(
+        p: Preferences,
+        enabledLanguages: List<LanguageDef>,
+    ): Set<String> {
+        p[CONJUNCT_BACKSPACE_LANGUAGES]?.let { raw ->
+            return raw.split(',').filter { it.isNotEmpty() }.toSet()
+        }
+        if (p[CONJUNCT_BACKSPACE] != true) return emptySet()
+        return enabledLanguages
+            .filter { ScriptRegistry[it.script].composer == ComposerType.INDIC_CLUSTER }
+            .mapTo(mutableSetOf()) { it.id }
+    }
 
     suspend fun setPinyinFuzzy(value: Boolean) =
         context.dataStore.edit { it[PINYIN_FUZZY] = value }

@@ -33,7 +33,6 @@ fun KeyboardSettings.restrictedToDirectBoot(): KeyboardSettings {
         // from a GMS content provider that is itself locked. Both fall back to
         // the system face rather than to no glyphs at all.
         keyFontId = "default",
-        bengaliFontId = "default",
         scriptFontIds = emptyMap(),
         emojiFont = EmojiFontChoice.SYSTEM,
         // An installed key sound is a file under filesDir too. Unlike the fonts

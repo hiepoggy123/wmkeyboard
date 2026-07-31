@@ -48,12 +48,21 @@ import com.wasimaster.wmkeyboard.core.input.composer.DoublePinyinScheme
 import com.wasimaster.wmkeyboard.core.input.composer.HanVariant
 import com.wasimaster.wmkeyboard.core.layout.language
 import com.wasimaster.wmkeyboard.core.layout.resolveLayout
+import com.wasimaster.wmkeyboard.core.script.ComposerType
+import com.wasimaster.wmkeyboard.core.script.DeviceLocales
 import com.wasimaster.wmkeyboard.core.script.LanguageDef
 import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
+import com.wasimaster.wmkeyboard.core.script.LanguageSuggestions
 import com.wasimaster.wmkeyboard.core.script.NumeralSystem
+import com.wasimaster.wmkeyboard.core.script.ScriptId
+import com.wasimaster.wmkeyboard.core.script.ScriptRegistry
+import com.wasimaster.wmkeyboard.core.script.SuggestedLanguage
+import com.wasimaster.wmkeyboard.core.script.SuggestionReason
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import java.util.Locale
 
 /**
  * The screens that make the [LanguageRegistry] reachable: a searchable list to
@@ -93,6 +102,66 @@ internal fun LanguageDef.matchesQuery(query: String): Boolean =
         localeTag.lowercase().contains(query)
 
 /**
+ * The enabled languages, for the one-line summary under the Languages row.
+ *
+ * Endonyms, in switch order, trimmed to the first few — the row is one line and
+ * someone typing in eight languages does not need all eight recited at them.
+ */
+internal fun enabledLanguagesSummary(settings: KeyboardSettings): String {
+    val names = settings.enabledLanguages.map { it.displayName.substringBefore(" · ") }
+    if (names.isEmpty()) return "No languages enabled"
+    val shown = names.take(LANGUAGE_SUMMARY_LIMIT).joinToString()
+    val rest = names.size - LANGUAGE_SUMMARY_LIMIT
+    return if (rest > 0) "$shown +$rest more" else shown
+}
+
+private const val LANGUAGE_SUMMARY_LIMIT = 3
+
+/**
+ * How many suggestions the Languages screen offers before the user has to go
+ * through "Add language". Short enough that it reads as a shortcut rather than
+ * as a second list.
+ */
+internal const val LANGUAGE_SCREEN_SUGGESTIONS = 4
+
+/**
+ * The languages this device suggests, minus whatever is already enabled.
+ *
+ * Read once and cached for as long as the screen lives: the phone's language
+ * list and SIM don't change mid-screen, and re-reading them on every
+ * recomposition would put a `TelephonyManager` call in the middle of a list
+ * scroll. The already-enabled set is *not* part of the cache key — a language
+ * disappearing from the list the instant it is tapped is the point.
+ */
+@Composable
+internal fun rememberSuggestedLanguages(
+    settings: KeyboardSettings,
+    limit: Int = LanguageSuggestions.DEFAULT_LIMIT,
+): List<SuggestedLanguage> {
+    val context = LocalContext.current
+    val signals = remember(context) { DeviceLocales.read(context) }
+    val enabled = settings.enabledLanguages.mapTo(HashSet()) { it.id }
+    return remember(signals, enabled, limit) {
+        LanguageSuggestions.suggest(signals, exclude = enabled, limit = limit)
+    }
+}
+
+/**
+ * Why a suggestion is being offered, in one line under its name. Region names
+ * come from the platform, so they arrive in the user's own language.
+ */
+internal fun suggestionReasonLabel(suggestion: SuggestedLanguage): String = when (suggestion.reason) {
+    SuggestionReason.SYSTEM_LANGUAGE -> "One of your phone's languages"
+    SuggestionReason.REGION -> {
+        val region = suggestion.regionCode
+            ?.let { Locale.Builder().setRegion(it).build().displayCountry }
+            ?.takeIf { it.isNotBlank() }
+        if (region != null) "Widely typed in $region" else "Widely typed near you"
+    }
+    SuggestionReason.FALLBACK -> languageRowSubtitle(suggestion.language)
+}
+
+/**
  * The searchable add-language list, over every [LanguageRegistry] entry — see
  * [matchesQuery] for what a search term is compared against. Tapping a
  * not-yet-added language enables its default layout, then opens its detail so
@@ -109,6 +178,7 @@ internal fun AddLanguageScreen(
     val enabledLangIds = settings.enabledLanguages.mapTo(HashSet()) { it.id }
     val q = query.trim().lowercase()
     val matches = LanguageRegistry.all.filter { it.matchesQuery(q) }
+    val suggested = rememberSuggestedLanguages(settings)
 
     OutlinedTextField(
         value = query,
@@ -120,7 +190,30 @@ internal fun AddLanguageScreen(
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 8.dp),
     )
-    SettingsGroup {
+    // Only while browsing: once someone is searching, they know what they want
+    // and a suggestion block above the results is in the way.
+    if (q.isEmpty() && suggested.isNotEmpty()) {
+        SettingsGroup("Suggested for you") {
+            for (suggestion in suggested) {
+                item {
+                    NavRow(
+                        suggestion.language.displayName,
+                        subtitle = suggestionReasonLabel(suggestion),
+                    ) {
+                        addLanguage(scope, repository, settings, suggestion.language)
+                        onOpenLanguage(suggestion.language.id)
+                    }
+                }
+            }
+            item {
+                CaptionText(
+                    "From your phone's own language settings and region. Nothing " +
+                        "you type is looked at, and nothing leaves the device.",
+                )
+            }
+        }
+    }
+    SettingsGroup(if (q.isEmpty() && suggested.isNotEmpty()) "All languages" else null) {
         for (lang in matches) {
             item {
                 val added = lang.id in enabledLangIds
@@ -129,15 +222,7 @@ internal fun AddLanguageScreen(
                     subtitle = languageRowSubtitle(lang),
                     value = if (added) "Added" else null,
                 ) {
-                    if (!added) {
-                        lang.layoutIds.firstOrNull()?.let { first ->
-                            scope.launch {
-                                repository.setEnabledLayoutIds(
-                                    (settings.enabledLayoutIds + first).distinct(),
-                                )
-                            }
-                        }
-                    }
+                    if (!added) addLanguage(scope, repository, settings, lang)
                     onOpenLanguage(lang.id)
                 }
             }
@@ -145,6 +230,46 @@ internal fun AddLanguageScreen(
         if (matches.isEmpty()) {
             item { CaptionText("No languages match “$query”.") }
         }
+    }
+}
+
+/**
+ * A cluster the reader will recognise, for the conjunct-backspace row. A script
+ * with no sample here still gets the setting; the row just describes it in words
+ * rather than showing one, which beats showing a Bengali cluster to someone
+ * setting up Khmer.
+ */
+private fun conjunctSample(script: ScriptId): String = when (script) {
+    ScriptId.BENGALI -> "ক্ষ"
+    ScriptId.DEVANAGARI -> "क्ष"
+    ScriptId.GURMUKHI -> "ਕ੍ਸ਼"
+    ScriptId.GUJARATI -> "ક્ષ"
+    ScriptId.ORIYA -> "କ୍ଷ"
+    ScriptId.TAMIL -> "க்ஷ"
+    ScriptId.TELUGU -> "క్ష"
+    ScriptId.KANNADA -> "ಕ್ಷ"
+    ScriptId.MALAYALAM -> "ക്ഷ"
+    ScriptId.SINHALA -> "ක්ෂ"
+    ScriptId.KHMER -> "ក្ស"
+    ScriptId.MYANMAR -> "က္ခ"
+    ScriptId.TIBETAN -> "ཀྵ"
+    else -> "a conjunct"
+}
+
+/**
+ * Adds a language by enabling its first layout. The rest of its layouts, and any
+ * secondary suggestion sources, are then a tap away on its detail screen — which
+ * is where every caller sends the user next.
+ */
+internal fun addLanguage(
+    scope: CoroutineScope,
+    repository: SettingsRepository,
+    settings: KeyboardSettings,
+    language: LanguageDef,
+) {
+    val first = language.layoutIds.firstOrNull() ?: return
+    scope.launch {
+        repository.setEnabledLayoutIds((settings.enabledLayoutIds + first).distinct())
     }
 }
 
@@ -178,6 +303,27 @@ internal fun LanguageDetailScreen(
                         if (next.isNotEmpty()) repository.setEnabledLayoutIds(next.distinct())
                     }
                 }
+            }
+        }
+    }
+
+    // Cluster deletion, for the languages whose script has clusters to delete.
+    // Per language for the same reason numerals are: someone typing Bengali and
+    // Hindi together may well want whole conjuncts gone in one and code points
+    // in the other, and a single global switch made that impossible.
+    if (ScriptRegistry[lang.script].composer == ComposerType.INDIC_CLUSTER) {
+        SettingsGroup("Clusters") {
+            item {
+                val sample = conjunctSample(lang.script)
+                ToggleSetting(
+                    "Conjunct-aware backspace",
+                    "Delete a whole cluster like $sample as one unit",
+                    langId in settings.conjunctBackspaceLanguages,
+                    info = "Normally backspace removes one code point at a time, which can " +
+                        "leave half-formed clusters on screen. With this on, one press " +
+                        "deletes the whole cluster while typing ${lang.englishName}. " +
+                        "Other languages keep their own setting.",
+                ) { scope.launch { repository.setConjunctBackspace(langId, it) } }
             }
         }
     }

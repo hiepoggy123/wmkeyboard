@@ -951,12 +951,16 @@ internal fun CalendarPanel(
                         contentDescription = "Next month", tint = kb.toolbarIcon)
                 }
             }
-            // Weekday initials; Friday tinted (weekend in Bangladesh).
+            // Weekday initials, with the user's weekend tinted. Which days those
+            // are is a setting, defaulted from the device's region — Friday and
+            // Saturday in much of the Middle East, Friday alone in Bangladesh,
+            // Saturday and Sunday most other places.
+            val weekend = state.settings.calendarWeekend.days
             Row(modifier = Modifier.fillMaxWidth()) {
                 listOf("S", "M", "T", "W", "T", "F", "S").forEachIndexed { index, initial ->
                     Text(
                         initial,
-                        color = if (index == 5) kb.accent else kb.toolbarIcon,
+                        color = if (index in weekend) kb.accent else kb.toolbarIcon,
                         fontSize = 10.sp,
                         fontWeight = FontWeight.SemiBold,
                         textAlign = TextAlign.Center,
@@ -1725,12 +1729,12 @@ internal fun NumpadPanel(
             .height(height)
             .padding(horizontal = 4.dp, vertical = 4.dp),
     ) {
-        // Calculator-style puts 789 on top (like a desktop keypad); the
-        // phone-style setting flips the digit rows to a dialer's 123-on-top.
-        val digits = if (state.settings.numpadPhoneLayout) {
-            listOf("1", "2", "3", "4", "5", "6", "7", "8", "9")
-        } else {
+        // Phone-style puts 123 on top (like a dialer); the calculator-style
+        // setting flips the digit rows to a desktop keypad's 789-on-top.
+        val digits = if (state.settings.numpadCalculatorLayout) {
             listOf("7", "8", "9", "4", "5", "6", "1", "2", "3")
+        } else {
+            listOf("1", "2", "3", "4", "5", "6", "7", "8", "9")
         }
         val rows = listOf(
             listOf(digits[0], digits[1], digits[2], "⌫"),

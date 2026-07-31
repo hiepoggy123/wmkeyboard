@@ -50,22 +50,38 @@ object KeyboardFonts {
      * strings (suggestion strip in Avro mode) stay in one face.
      */
     val bengaliGoogleFonts: List<String> = listOf(
-        "Hind Siliguri", "Noto Sans Bengali", "Noto Serif Bengali",
+        "Hind Siliguri", "Noto Serif Bengali",
         "Anek Bangla", "Baloo Da 2", "Tiro Bangla", "Atma", "Mina", "Galada",
     )
+
+    /**
+     * The imported-font file id for a script's picker, for the scripts whose
+     * picker offers an import. Bengali's id predates per-script fonts and is
+     * kept verbatim so an already-imported file keeps working.
+     */
+    private val customScriptFontIds: Map<ScriptId, String> = mapOf(
+        ScriptId.BENGALI to CUSTOM_BENGALI_ID,
+    )
+
+    /** Where a script's imported font file lives, or null if it allows none. */
+    fun customScriptFontFile(context: Context, script: ScriptId): File? =
+        customScriptFontIds[script]?.let { customFontFile(context, it) }
+
+    /** The imported-font id a script's picker writes, or null if it allows none. */
+    fun customScriptFontId(script: ScriptId): String? = customScriptFontIds[script]
 
     /**
      * The default (automatic) Noto face each non-Latin script draws with, so a
      * script always gets a correct glyph even when the user's key font is a
      * Latin-only display face. Latin, Cyrillic and Greek are absent — they ride
      * the user's [keyFontId] choice (Noto Sans, the system default, covers all
-     * three) — and Bengali has its own dedicated [bengaliFontId] picker, so it is
-     * resolved before this map. Scripts here may additionally expose a handful of
-     * pickable alternatives via [scriptFontChoices]; when the user has not chosen
-     * one this face is used. A name the Google Fonts provider does not recognise
-     * simply falls back to the system face, which carries the glyph anyway.
+     * three). Scripts here may additionally expose a handful of pickable
+     * alternatives via [scriptFontChoices]; when the user has not chosen one this
+     * face is used. A name the Google Fonts provider does not recognise simply
+     * falls back to the system face, which carries the glyph anyway.
      */
     private val scriptGoogleFonts: Map<ScriptId, String> = mapOf(
+        ScriptId.BENGALI to "Noto Sans Bengali",
         ScriptId.ARMENIAN to "Noto Sans Armenian",
         ScriptId.GEORGIAN to "Noto Sans Georgian",
         ScriptId.ARABIC to "Noto Naskh Arabic",
@@ -105,8 +121,7 @@ object KeyboardFonts {
      * All carry the script's glyphs; anything missing falls back to the system
      * font per-glyph. Scripts absent from this list (e.g. Thaana, which has no
      * second good face) still render with their automatic Noto face — they simply
-     * get no picker. Bengali is absent too: it keeps its own [bengaliGoogleFonts]
-     * picker, which also allows importing a custom file.
+     * get no picker.
      */
     data class ScriptFontChoices(
         val script: ScriptId,
@@ -116,6 +131,12 @@ object KeyboardFonts {
     )
 
     val scriptFontChoices: List<ScriptFontChoices> = listOf(
+        // Bengali leads the list because it is the one script here that also
+        // takes an imported file, so its picker is the longest.
+        ScriptFontChoices(
+            ScriptId.BENGALI, "Bengali", "আমি ভালো আছি · কখগঘঙ চছজঝঞ",
+            bengaliGoogleFonts,
+        ),
         ScriptFontChoices(
             ScriptId.ARABIC, "Arabic", "السلام عليكم · ابجد",
             listOf("Noto Sans Arabic", "Noto Kufi Arabic", "Amiri", "Cairo", "Tajawal", "Markazi Text", "Reem Kufi"),
@@ -239,15 +260,18 @@ object KeyboardFonts {
 
     /**
      * The [FontFamily] a [scriptId] wants, honouring the user's per-script pick
-     * ([selectedId], a `google:<Name>` id or [DEFAULT_ID]) and otherwise the
-     * script's automatic Noto face. Null for the scripts that follow the user's
-     * own font choice (Latin/Cyrillic/Greek) or have their own picker (Bengali).
-     * Used by the keyboard theme to pick a face per active script.
+     * ([selectedId]: a `google:<Name>` id, an imported-file id, or [DEFAULT_ID])
+     * and otherwise the script's automatic Noto face. Null for the scripts that
+     * follow the user's own font choice (Latin/Cyrillic/Greek). Used by the
+     * keyboard theme to pick a face per active script.
      */
-    fun scriptFamily(scriptId: ScriptId, selectedId: String = DEFAULT_ID): FontFamily? {
-        val name = selectedId.takeIf { it.startsWith(GOOGLE_PREFIX) }?.removePrefix(GOOGLE_PREFIX)
-            ?: scriptGoogleFonts[scriptId]
-        return name?.let { googleFamily(it) }
+    fun scriptFamily(
+        context: Context,
+        scriptId: ScriptId,
+        selectedId: String = DEFAULT_ID,
+    ): FontFamily? {
+        if (selectedId != DEFAULT_ID) family(context, selectedId)?.let { return it }
+        return scriptGoogleFonts[scriptId]?.let { googleFamily(it) }
     }
 
     fun googleId(name: String): String = GOOGLE_PREFIX + name
@@ -273,8 +297,11 @@ object KeyboardFonts {
     fun customFontFile(context: Context): File =
         File(context.filesDir, "fonts/custom_font.ttf")
 
-    fun customBengaliFontFile(context: Context): File =
-        File(context.filesDir, "fonts/custom_font_bn.ttf")
+    /** Where the imported file behind a `custom…` id lives. */
+    private fun customFontFile(context: Context, customId: String): File = when (customId) {
+        CUSTOM_BENGALI_ID -> File(context.filesDir, "fonts/custom_font_bn.ttf")
+        else -> customFontFile(context)
+    }
 
     fun customEmojiFontFile(context: Context): File =
         File(context.filesDir, "fonts/custom_emoji.ttf")
@@ -292,7 +319,7 @@ object KeyboardFonts {
     /** The family for a stored font id, or null for the system default. */
     fun family(context: Context, id: String): FontFamily? = when {
         id == CUSTOM_ID -> fileFamily(customFontFile(context))
-        id == CUSTOM_BENGALI_ID -> fileFamily(customBengaliFontFile(context))
+        id == CUSTOM_BENGALI_ID -> fileFamily(customFontFile(context, CUSTOM_BENGALI_ID))
         id.startsWith(GOOGLE_PREFIX) -> googleFamily(id.removePrefix(GOOGLE_PREFIX))
         // A font installed into the library, from a repository or the user's
         // own file. Null when it has since been deleted, which falls back to
