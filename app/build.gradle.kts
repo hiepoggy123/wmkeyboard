@@ -107,6 +107,7 @@ android {
         release {
             ndk {
                 abiFilters += setOf("arm64-v8a", "armeabi-v7a", "x86_64")
+                debugSymbolLevel = "FULL"
             }
             // No debug-key fallback. A debug-signed "release" build looks
             // shippable and is not: Play rejects the debug key outright, and
