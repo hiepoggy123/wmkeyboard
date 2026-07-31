@@ -47,7 +47,7 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        // ABI target filtering is handled by splits.abi below.
+        // ABI target filtering is handled by ndk.abiFilters per buildType below.
 
         buildConfigField("String", "KLIPY_API_KEY", "\"${apiKey("wmkb.klipyApiKey", "WMKB_KLIPY_API_KEY")}\"")
         buildConfigField("String", "GIPHY_API_KEY", "\"${apiKey("wmkb.giphyApiKey", "WMKB_GIPHY_API_KEY")}\"")
@@ -80,15 +80,6 @@ android {
         }
     }
 
-    splits {
-        abi {
-            isEnable = true
-            reset()
-            include("arm64-v8a")
-            isUniversalApk = false
-        }
-    }
-
     signingConfigs {
         create("release") {
             val storeFilePath = apiKey("RELEASE_STORE_FILE", "RELEASE_STORE_FILE")
@@ -105,7 +96,15 @@ android {
     }
 
     buildTypes {
+        debug {
+            ndk {
+                abiFilters += setOf("arm64-v8a")
+            }
+        }
         release {
+            ndk {
+                abiFilters += setOf("arm64-v8a", "armeabi-v7a", "x86_64")
+            }
             // No debug-key fallback. A debug-signed "release" build looks
             // shippable and is not: Play rejects the debug key outright, and
             // anything installed from such a build can never be updated by the
