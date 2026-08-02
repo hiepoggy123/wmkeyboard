@@ -63,6 +63,20 @@ fallback), but audio still leaves the device that way; see
 or [Offline voice (Whisper)](/tools/whisper/) for the fully on-device
 alternative.
 
+**Photo backgrounds** are not a toolbox tool but they do reach the network,
+so they belong in this list. Opening the picker and typing a word sends that
+word, plus the subject, color and orientation filters, to Unsplash and
+Pexels; nothing else about you goes with it. Thumbnails load from each
+service's own servers rather than being copied through anything of ours,
+which is how a photographer is credited with the view. Choosing a photo
+downloads that one file at keyboard size, and tells Unsplash once that it was
+taken, which is how its download counts stay honest. A **rotating
+background** is the one part that fetches without you watching: it tops up a
+small set of photos as the keyboard closes, never while you type, and skips
+that entirely while the device is locked, under power saving, on mobile data
+unless you allow it, and when High contrast keys is on. See
+[Online photos and rotation](/themes/online-photos/).
+
 Everything else in the toolbox is offline by design: OCR, QR/barcode
 scanning, document scanning, the calculator, unit converter, symbols picker,
 password generator, QR code generation, grammar and spell-check, the camera
@@ -116,7 +130,8 @@ background check-in tying them together.
 
 Each tool that needs a key has its own field, all blank by default:
 Translate's Cloud Translation key, GIF search's Klipy and GIPHY keys, Web
-and Image search's Brave key, and the AI tool's per-provider keys
+and Image search's Brave key, photo backgrounds' Unsplash and Pexels keys,
+and the AI tool's per-provider keys
 (Anthropic, OpenAI, Gemini) plus its Hugging Face token for gated on-device
 models. Leave any of them blank and that tool either falls back to a free
 endpoint (Translate) or shows a "needs an API key" state (GIF, search, AI);

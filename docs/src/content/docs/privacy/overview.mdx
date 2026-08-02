@@ -41,9 +41,10 @@ Every one of these is a distinct, optional tool. Most only fetch while you have 
 | Currency converter | `open.er-api.com`, falling back to `api.frankfurter.app` | No |
 | GIF & sticker search | KLIPY and/or GIPHY | Yes |
 | Web & image search | Brave Search | Yes |
+| Photo backgrounds | Unsplash and/or Pexels | Yes |
 | AI writing tools | Anthropic, OpenAI, or Gemini; or a self-hosted Ollama/LM Studio server on your own network | Yes (bring your own key) |
 
-Every one of those is off until you open that specific tool. The AI tools go further: each provider field starts blank, so the feature is inert on a fresh install even once you open the panel: nothing sends until you supply your own key (or point it at a server you run). Self-hosted Ollama/LM Studio is also the one tool that talks plain HTTP rather than HTTPS, since it's a server on your own local network rather than the public internet. The app allows cleartext traffic app-wide to make that possible, though every other service in the table above is still contacted over HTTPS regardless.
+Every one of those is off until you open that specific tool, with one qualification for photo backgrounds: searching only happens while you have the picker open, but a **rotating background** keeps a small set of photos topped up in the background once you turn it on. See [Online photos and rotation](/themes/online-photos/#when-the-background-actually-changes) for exactly when that fetch runs and the four conditions that stop it. The AI tools go further: each provider field starts blank, so the feature is inert on a fresh install even once you open the panel: nothing sends until you supply your own key (or point it at a server you run). Self-hosted Ollama/LM Studio is also the one tool that talks plain HTTP rather than HTTPS, since it's a server on your own local network rather than the public internet. The app allows cleartext traffic app-wide to make that possible, though every other service in the table above is still contacted over HTTPS regardless.
 
 ### The exceptions: what fires without you opening a tool
 
@@ -72,7 +73,7 @@ There's no packaged release yet (see [Installation](/start/installation/)), so v
 The two other repositories the app talks to for downloads (word lists, CJK dictionaries and emoji-keyword packs, and the sample addon repository seeded on first launch) are public too, so what a download actually contains is inspectable before, or instead of, installing it. Full attribution for every bundled component, data pack and third-party service lives in the app itself; see [About & diagnostics](/reference/settings/about/).
 
 :::note[One thing this page can't verify]
-Whether any particular build of the app ships with a working built-in key for Translate, KLIPY, GIPHY or Brave Search is a build-time secret, not something visible in the public source. Those fields are populated from environment variables when the APK is built, including when you build it yourself. Don't assume a tool works out of the box or requires your own key without checking; either is possible depending on how a given build was produced.
+Whether any particular build of the app ships with a working built-in key for Translate, KLIPY, GIPHY, Brave Search, Unsplash or Pexels is a build-time secret, not something visible in the public source. Those fields are populated from environment variables when the APK is built, including when you build it yourself. Don't assume a tool works out of the box or requires your own key without checking; either is possible depending on how a given build was produced.
 :::
 
 ## Options

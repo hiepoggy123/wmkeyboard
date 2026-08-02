@@ -1,6 +1,6 @@
 ---
 title: "Image backgrounds"
-description: "Put a photo behind your keys: with crop, opacity, blur and a separate landscape image."
+description: "Put a photo behind your keys, with crop, opacity, blur and a separate landscape image."
 sidebar:
   order: 3
 ---
@@ -10,6 +10,8 @@ import SettingsPath from '@components/SettingsPath.astro';
 
 Any keyboard theme can carry a photo behind its keys instead of a flat color or gradient. You crop it to the keyboard's shape, dial in opacity and blur so keys stay readable, and optionally swap in a different image for landscape.
 
+This page covers a picture from your own device. A photo from Unsplash or Pexels, the collection they go into, and the background that changes on a schedule are all in [Online photos and rotation](/themes/online-photos/).
+
 <PhoneFrame caption="A theme with a background image showing through the keys.">
   ![A theme with a background image showing through the keys.](@assets/screens/themes/background-image-live.webp)
 </PhoneFrame>
@@ -18,9 +20,16 @@ Any keyboard theme can carry a photo behind its keys instead of a flat color or 
 
 <SettingsPath path="Appearance / Keyboard themes / (edit a theme) / Board" />
 
-Open a theme for editing and scroll to the **Board** section. **Background image** opens the system photo picker (image files only): the picture you choose is copied into the app's own storage, it isn't read from the original file again later.
+Open a theme for editing and scroll to the **Board** section. **Background image** opens a **Select a background** dialog; **Add from this device** is the system photo picker (image files only). The picture you choose is copied into the app's own storage, it isn't read from the original file again later.
 
-Picking an image automatically clears the alpha on the board's own color, so the photo shows through at full strength right away rather than being hidden under an opaque background. The editor calls this out directly under the sliders: raise the board color's opacity afterward if you want to tint or dim the photo. See [Editing a theme](/themes/editor/) for that color control.
+Picking an image changes two things about the theme so the photo is actually visible, both of which stay editable afterward:
+
+- **The board color's opacity drops to zero**, so the photo shows at full strength rather than being hidden under an opaque background. Raise it again if you want to tint or dim the photo.
+- **Fully opaque key and modifier colors drop to about 62% opacity.** A keyboard is mostly keys, so leaving them solid means the photo is only visible around the edges. Keys you had already made see-through are left alone.
+
+See [Editing a theme](/themes/editor/) for both color controls.
+
+The photo also joins your [photo collection](/themes/online-photos/#the-photo-collection), so you can put it on another theme, or into the rotation, without finding it in your gallery again.
 
 ### Cropping to fit
 
@@ -62,7 +71,9 @@ Opacity and blur are shared between both images rather than set per orientation,
 ## Details and edge cases
 
 - **No image by default.** A freshly created theme, every built-in gallery theme, and the Default (system) theme all start with no background image, so the board is a flat color or gradient until you add one.
-- **Switching themes crossfades the rest of the theme, but not the image.** Colors and gradients blend smoothly between themes; the background image itself switches over abruptly partway through the transition rather than cross-dissolving, since blending two unrelated photos frame-by-frame wouldn't look right anyway.
+- **Switching themes crossfades the rest of the theme, but not the image.** Colors and gradients blend smoothly between themes; the background image itself switches over abruptly partway through the transition rather than cross-dissolving, since blending two unrelated photos frame-by-frame wouldn't look right anyway. Blur switches over at the same moment for the same reason.
+- **Changing the seed color keeps your photo visible.** Picking a seed swatch, or flipping the light and dark switch, rebuilds every color in the theme. When the theme has a background image, how see-through the board and keys are is carried across, so the new palette does not bury the photo under a fresh opaque color.
+- **Images are decoded at the size they are drawn.** A photo straight off a camera is far larger than the strip behind your keys, so it is sampled down before it is drawn rather than held at full size.
 - **The gallery preview card only shows the portrait image.** The small theme thumbnail in the theme list never shows the landscape variant, even if one is set.
 - **Background images travel with exports.** Both a single-theme export and a full settings backup embed the image data directly in the file, so restoring the export or importing the theme on another device brings the photo with it; you don't need to re-pick the image after importing. See [Sharing themes](/themes/sharing/) for what else a theme export contains.
-- **This page is about a single theme's own image.** Switching between two different themes automatically by time of day or by system light/dark mode (where each half of the pair might have its own background image) is covered in [Themes overview](/themes/overview/).
+- **This page is about a single theme's own image.** Switching between two different themes automatically by time of day or by system light/dark mode (where each half of the pair might have its own background image) is covered in [Themes overview](/themes/overview/). A single theme whose *photo* changes on a schedule is [Online photos and rotation](/themes/online-photos/).

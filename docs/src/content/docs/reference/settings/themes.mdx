@@ -95,14 +95,23 @@ Tapping a swatch, or flipping **Dark theme**, reseeds every seed-derived color a
 |---|---|---|
 | Background | Color, alpha | `#17181C` |
 | Gradient background | [Gradient](#gradients), off by default | Off |
-| Background image | Photo picker | None |
+| Background image | Opens **Select a background** | None |
 | Crop image *(image set)* | Opens the [crop dialog](#cropping-an-image) | — |
 | Image opacity *(image set)* | Slider, 0–100% | 100% |
 | Image blur *(image set)* | Slider, 0–25 | 0 (off) |
-| Landscape background image | Photo picker, always shown | None |
+| Landscape background image | Opens **Select a background**, always shown | None |
 | Crop landscape image *(landscape image set)* | Opens the crop dialog | — |
+| Photo credit *(service photo set)* | Opens the photographer's page | — |
+| Rotating background *(collection not empty, or rotation on)* | Opens [Rotating background](/themes/online-photos/#rotating-background) | Off |
+| Photo services *(own key set, or a service photo kept)* | Opens the [service keys](/themes/online-photos/#service-keys) screen | — |
 
-Picking a background image zeroes the board color's alpha automatically, so the photo shows at full strength; raise the board color's opacity back up to tint or dim it. The landscape image row is independent: it's shown even with no portrait image set, falls back to the portrait image (or the plain background color) when empty, and lets a portrait photo and a wide crop each fit their own orientation instead of one being stretched into the other. Full walkthrough: [Image backgrounds](/themes/backgrounds/).
+**Select a background** offers four choices: **Add from this device** (the system photo picker), **Find a photo online** ([Unsplash and Pexels](/themes/online-photos/)), **Photo collection**, and **Remove** when the slot already has an image.
+
+Applying a background zeroes the board color's alpha and drops fully opaque key and modifier colors to about 62%, so the photo is visible rather than covered by solid keys; both stay editable afterward. Keys you had already made see-through are left alone.
+
+The landscape image row is independent: it's shown even with no portrait image set, falls back to the portrait image (or the plain background color) when empty, and lets a portrait photo and a wide crop each fit their own orientation instead of one being stretched into the other.
+
+The last two rows stay hidden until you have started using photos, so a theme with one gallery picture never shows them. Full walkthroughs: [Image backgrounds](/themes/backgrounds/) and [Online photos and rotation](/themes/online-photos/).
 
 ### Keys
 
@@ -203,13 +212,16 @@ Tapping any color row opens the same dialog: a hex field (label "Hex (AARRGGBB)"
 - **Mode, Material You colors, and the Auto trigger picker have no settings-search entry.** They're real rows on the gallery screen; searching for "Mode" or "Trigger" won't surface them directly, so search "themes" or "auto theme" instead.
 - **Corner radii aren't fully symmetric with the global sliders.** Turning on Theme-specific corner radii seeds Key corner radius and Tool circle radius from their matching Appearance sliders, but Popup corner radius has no global counterpart and always starts at 12dp.
 - **Deleting or exporting is only offered for Your themes.** The Default card and every built-in card skip both buttons; a built-in's pencil makes an editable copy instead of opening it directly.
-- **No edition split.** Every control on both screens (colors, gradients, images, corners, animation) behaves the same on the full and lite editions.
+- **Changing the seed keeps a photo visible.** A seed swatch or the light/dark switch rebuilds every color, but when the theme has a background image, how see-through the board and keys are is carried across rather than reset to opaque.
+- **The photo rows are conditional, and so is their settings-search behavior.** Rotating background and Photo services are reachable from search whether or not their rows are currently visible in the editor, since search navigates to the screen directly.
+- **No edition split.** Every control on both screens (colors, gradients, images, corners, animation, photos) behaves the same on the full and lite editions.
 
 ## Related pages
 
 - [Theming overview](/themes/overview/) — why you'd pick each mode, the full built-in theme list, and how Auto's three triggers behave.
 - [Theme editor](/themes/editor/) — the guided walkthrough of building a theme, with the exact fallback formula behind every Auto color.
 - [Image backgrounds](/themes/backgrounds/) — the background-image picker, crop, opacity, and blur controls in full.
+- [Online photos and rotation](/themes/online-photos/) — searching Unsplash and Pexels, the photo collection, and the background that changes on a schedule.
 - [Sharing themes](/themes/sharing/) — exporting, importing, and installing a theme from an addon repository.
 - [Appearance](/reference/settings/appearance/) — the Style group Keyboard themes opens from, alongside Keyboard font and Icons.
 - [Keyboard font](/reference/settings/fonts/) and [Icons](/reference/settings/icons/) — the two other Style rows; typography and icon glyphs are outside `ThemeSpec` entirely.

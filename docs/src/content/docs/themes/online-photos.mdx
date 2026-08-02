@@ -1,0 +1,142 @@
+---
+title: "Online photos and rotation"
+description: "Search Unsplash and Pexels for a background, keep photos in a collection, and let the keyboard change its background on a schedule."
+sidebar:
+  order: 4
+---
+
+import PhoneFrame from '@components/PhoneFrame.astro';
+import SettingsPath from '@components/SettingsPath.astro';
+
+Besides picking a picture from your gallery, a theme can take its background from Unsplash or Pexels. Photos you keep go into a **photo collection** that any theme can draw on, and the keyboard can work through that collection on a schedule so the background changes on its own.
+
+<PhoneFrame caption="Searching Unsplash and Pexels for a keyboard background." />
+
+## Where it lives
+
+<SettingsPath path="Appearance / Keyboard themes / (edit a theme) / Board / Background image" />
+
+Everything starts from the same **Background image** row you use for a gallery picture. Tapping it opens **Select a background** with four choices:
+
+- **Add from this device** — the system photo picker, exactly as before.
+- **Find a photo online** — search Unsplash and Pexels.
+- **Photo collection** — photos you already kept.
+- **Remove** — only shown when the slot already has an image.
+
+Two more rows can appear in the same **Board** section, and both stay hidden until you have actually started using photos:
+
+- **Rotating background** appears once your collection has at least one photo, or once rotation is already on.
+- **Photo services** appears once you have entered a key of your own, or once your collection holds a photo that came from a service.
+
+That is deliberate. Most people set one picture and stop, and there is no reason to show them a service-key screen they will never open. Both screens stay reachable: the picker's own **Add a key** button goes straight to **Photo services**.
+
+## Finding a photo
+
+The browse screen has a search field, chips for each service when both have a key, a row of subject chips, and a color filter.
+
+**Subjects and search words are optional.** With neither, you get each service's own selected photos. Type a word, tap a subject, or do both.
+
+The **color swatches** always search for something, because neither service can filter by color on its own: their feed endpoints ignore a color, and their search endpoints refuse a query with no words. So a color on its own searches for the subject you picked, and failing that for the color's own name.
+
+Each tile dims the parts of the photo the keyboard crops away, leaving the strip it actually uses bright, so what stands out in the grid is what ends up behind your keys. Scrolling to the bottom loads more.
+
+### The photo page
+
+Tapping a photo opens a page that shows it three ways: the photo itself, then a live keyboard mock-up with **this theme's** keys over **this photo**, and the photographer's name with a link back.
+
+- **Preview this photo for** switches the mock-up between portrait and landscape. It changes nothing on your theme.
+- **Use it for** decides which slot the photo lands in: portrait, landscape or both.
+- **Use as the background** downloads it and applies it.
+- **Add to the collection** keeps it without changing the current theme.
+
+After it is applied the page does not close. It swaps in **Undo**, **Done**, and **Match the colors to the photo**, so the things you are most likely to want next are already in front of you.
+
+## What applying a photo changes
+
+Putting a photo behind your keys changes three theme values, all of which stay editable afterwards:
+
+1. **The board color's opacity drops to zero**, so the photo shows at full strength rather than sitting under an opaque color.
+2. **Fully opaque key and modifier colors drop to about 62% opacity.** A keyboard is mostly keys, so leaving them solid means the photo is only visible around the edges. Keys you had already made see-through are left alone.
+3. **The photographer's credit is stored on the theme**, so it survives an export and shows with no network.
+
+If the keys end up hard to read over a busy or bright photo, the page says so and offers a one-tap fix. See [Keeping keys readable](/themes/backgrounds/#keeping-keys-readable).
+
+## The photo collection
+
+<SettingsPath path="Appearance / Keyboard themes / (edit a theme) / Board / Rotating background / Photo collection" />
+
+Anything that becomes a background joins the collection, whether it came from a service or from your gallery. Two buttons at the top add more: **Find photos online** and **Add from this device**.
+
+Photos are **copied** into the collection rather than referenced. The file a theme holds is deleted the moment that theme takes a different picture, and a gallery URI stops working once the picker's permission lapses, so a reference would rot either way. A service photo is stored under its own id, so using one photo on two themes keeps one copy.
+
+Each tile's menu can use the photo as the current theme's background, match the theme colors to it, or delete it. A line at the top shows how much storage the collection is using.
+
+## Rotating background
+
+<SettingsPath path="Appearance / Keyboard themes / (edit a theme) / Board / Rotating background" />
+
+Turned off, this screen is one explanation and one button. Turned on, it fills in.
+
+**In use now** shows how many photos are ready, or the progress of the first fetch, plus **Change the photo now**.
+
+**Schedule**
+
+- **Change the background** — the on/off switch.
+- **How frequently** — every time the keyboard opens, every hour, every 6 hours, every day, every week, or only when you press Change.
+- **Change the background of** — the theme in use, every theme, or themes you select.
+
+Because the override happens as a theme is drawn rather than being written into it, a **built-in theme can rotate too**, even though a built-in has nowhere to store an image of its own.
+
+**Sources**
+
+- **Photo collection** — the photos you added yourself.
+- **Online photos** — new photos fetched by subject and search word.
+
+Turning a source off hides its photos immediately, it does not merely stop new ones arriving. The files stay on disk, so turning it back on brings them back rather than fetching them again.
+
+**Online photos** (shown only when that source is on) holds subjects, search words, **Wide photos only**, **Safe photos only**, **Use mobile data**, and a link to **Photo services**.
+
+**Photos and storage** holds **Photos to keep ready** (3 to 20), a link to the collection, and **Delete the photos that the app got**.
+
+## When the background actually changes
+
+The keyboard moves to the next photo **when a session starts**, never in the middle of one. A picture changing under your fingers while you type reads as a glitch rather than a feature, and a timer running inside an input method is a leak waiting to happen.
+
+So "every hour" means *at most* once an hour, applied the next time you open the keyboard. The swap itself is a local file read: the photo is already on disk, which is the whole reason the app keeps a few ready.
+
+Refilling happens as the keyboard goes away, so a download never competes with the first frame of a session. Refilling is skipped while the device is locked, under power saving, on mobile data unless you allow it, and when **High contrast keys** is on. **Rotation itself is never skipped for any of those.** A phone with no signal for a week still works through the photos it already has.
+
+## Service keys
+
+<SettingsPath path="Appearance / Keyboard themes / (edit a theme) / Board / Photo services" />
+
+Both services are free but rate limited: Unsplash allows 50 requests an hour on a free key, Pexels 200. A key built into the app is shared by everyone using that build, so adding your own key is what gets you a budget of your own.
+
+Pasting a key clears the remembered budget and the cached search pages, since both belonged to the old key.
+
+If a search says there are no requests left, the picker falls back to the other service where it can, and says which one ran out rather than emptying the grid.
+
+## Credit and licensing
+
+Both services require the photographer to be named wherever their photo is shown, with a link back to them. The app does this in three places: on each grid tile, on the photo's page, and on the **Background image** row of any theme using a service photo.
+
+- Thumbnails are loaded straight from each service's own servers rather than copied first. That is how a photographer is credited with the view.
+- Unsplash is told when you really take a photo, once per photo, which is how its download counts stay honest.
+- Links back to Unsplash carry the referral parameters its terms ask for.
+- The credit is stored on the theme, so it survives an export and shows with no network and no key.
+
+## Details and edge cases
+
+- **Photos are downloaded at keyboard size, not full size.** A service original is commonly 6000 px wide, which is about 96 MB of bitmap once decoded. What lands on your device is a few hundred KB.
+- **A rotating photo never rewrites your theme.** It is laid over the theme as it is drawn, so nothing a rotation does can damage the colors you set.
+- **Light and dark themes rotate separately.** Each theme keeps its own current photo, so an automatic light/dark pair does not share one.
+- **Nothing shows on the lock screen.** Photos live in storage that is unreadable before the first unlock, so a theme draws its plain colors there, with no credit line.
+- **High contrast keys hides background photos entirely.** Every photo screen says so rather than letting a picked photo quietly do nothing.
+- **Rotation settings are shared, not per theme.** One schedule and one set of sources, with **Change the background of** deciding which themes it applies to.
+- **Exports carry the photo, not the rotation pool.** A theme export embeds its current background and its credit. It does not carry the collection, which is a cache of your own making rather than part of the theme.
+
+## See also
+
+- [Image backgrounds](/themes/backgrounds/) — cropping, opacity, blur, and the separate landscape image
+- [Editing a theme](/themes/editor/) — the color controls a photo interacts with
+- [Sharing themes](/themes/sharing/) — what a theme export contains
