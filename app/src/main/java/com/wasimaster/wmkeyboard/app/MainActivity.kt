@@ -8028,20 +8028,20 @@ private fun AiToolSettings(repository: SettingsRepository, settings: KeyboardSet
         }
         for (provider in providers) {
             FilterChip(
-                selected = settings.aiProvider == provider,
+                selected = settings.ai.provider == provider,
                 onClick = { scope.launch { repository.setAiProvider(provider) } },
                 label = { Text(stringResource(provider.labelRes), maxLines = 1) },
             )
         }
     }
-    when (settings.aiProvider) {
+    when (settings.ai.provider) {
         AiProvider.ANTHROPIC -> SettingsGroup(
             stringResource(R.string.toolai_ai_anthropic_group_title),
         ) {
             item {
                 ApiKeyField(
                     label = stringResource(R.string.toolai_ai_anthropic_key_label),
-                    value = settings.aiAnthropicKey,
+                    value = settings.ai.anthropicKey,
                     builtInAvailable = false,
                     emptyHint = stringResource(R.string.toolai_ai_anthropic_key_hint),
                 ) { repository.setAiAnthropicKey(it) }
@@ -8049,7 +8049,7 @@ private fun AiToolSettings(repository: SettingsRepository, settings: KeyboardSet
             item {
                 TextFieldSetting(
                     label = stringResource(R.string.toolai_ai_model_label),
-                    value = settings.aiAnthropicModel,
+                    value = settings.ai.anthropicModel,
                     hint = stringResource(
                         R.string.toolai_ai_model_hint,
                         AiClient.DefaultModels.ANTHROPIC,
@@ -8063,7 +8063,7 @@ private fun AiToolSettings(repository: SettingsRepository, settings: KeyboardSet
             item {
                 ApiKeyField(
                     label = stringResource(R.string.toolai_ai_openai_key_label),
-                    value = settings.aiOpenAiKey,
+                    value = settings.ai.openAiKey,
                     builtInAvailable = false,
                     emptyHint = stringResource(R.string.toolai_ai_openai_key_hint),
                 ) { repository.setAiOpenAiKey(it) }
@@ -8071,7 +8071,7 @@ private fun AiToolSettings(repository: SettingsRepository, settings: KeyboardSet
             item {
                 TextFieldSetting(
                     label = stringResource(R.string.toolai_ai_model_label),
-                    value = settings.aiOpenAiModel,
+                    value = settings.ai.openAiModel,
                     hint = stringResource(
                         R.string.toolai_ai_model_hint,
                         AiClient.DefaultModels.OPENAI,
@@ -8085,7 +8085,7 @@ private fun AiToolSettings(repository: SettingsRepository, settings: KeyboardSet
             item {
                 ApiKeyField(
                     label = stringResource(R.string.toolai_ai_gemini_key_label),
-                    value = settings.aiGeminiKey,
+                    value = settings.ai.geminiKey,
                     builtInAvailable = false,
                     emptyHint = stringResource(R.string.toolai_ai_gemini_key_hint),
                 ) { repository.setAiGeminiKey(it) }
@@ -8093,7 +8093,7 @@ private fun AiToolSettings(repository: SettingsRepository, settings: KeyboardSet
             item {
                 TextFieldSetting(
                     label = stringResource(R.string.toolai_ai_model_label),
-                    value = settings.aiGeminiModel,
+                    value = settings.ai.geminiModel,
                     hint = stringResource(
                         R.string.toolai_ai_model_hint,
                         AiClient.DefaultModels.GEMINI,
@@ -8107,14 +8107,14 @@ private fun AiToolSettings(repository: SettingsRepository, settings: KeyboardSet
             item {
                 TextFieldSetting(
                     label = stringResource(R.string.toolai_ai_server_address_label),
-                    value = settings.aiOllamaUrl,
+                    value = settings.ai.ollamaUrl,
                     hint = stringResource(R.string.toolai_ai_ollama_url_hint),
                 ) { repository.setAiOllamaUrl(it) }
             }
             item {
                 TextFieldSetting(
                     label = stringResource(R.string.toolai_ai_model_label),
-                    value = settings.aiOllamaModel,
+                    value = settings.ai.ollamaModel,
                     hint = stringResource(
                         R.string.toolai_ai_model_hint,
                         AiClient.DefaultModels.OLLAMA,
@@ -8128,30 +8128,30 @@ private fun AiToolSettings(repository: SettingsRepository, settings: KeyboardSet
             item {
                 TextFieldSetting(
                     label = stringResource(R.string.toolai_ai_server_address_label),
-                    value = settings.aiLmStudioUrl,
+                    value = settings.ai.lmStudioUrl,
                     hint = stringResource(R.string.toolai_ai_lm_studio_url_hint),
                 ) { repository.setAiLmStudioUrl(it) }
             }
             item {
                 TextFieldSetting(
                     label = stringResource(R.string.toolai_ai_model_label),
-                    value = settings.aiLmStudioModel,
+                    value = settings.ai.lmStudioModel,
                     hint = stringResource(R.string.toolai_ai_lm_studio_model_hint),
                 ) { repository.setAiLmStudioModel(it) }
             }
         }
         AiProvider.ON_DEVICE -> LocalLlmModelManager(repository, settings)
     }
-    if (settings.aiProvider == AiProvider.OLLAMA || settings.aiProvider == AiProvider.LM_STUDIO) {
+    if (settings.ai.provider == AiProvider.OLLAMA || settings.ai.provider == AiProvider.LM_STUDIO) {
         CaptionText(stringResource(R.string.toolai_ai_local_server_info))
     }
     SettingsGroup(stringResource(R.string.toolai_ai_output_title)) {
-        if (settings.aiProvider != AiProvider.ON_DEVICE) {
+        if (settings.ai.provider != AiProvider.ON_DEVICE) {
             item {
                 SliderSetting(
                     stringResource(R.string.toolai_ai_max_tokens_title),
                     subtitle = stringResource(R.string.toolai_ai_max_tokens_subtitle),
-                    value = settings.aiMaxTokens.toFloat(),
+                    value = settings.ai.maxTokens.toFloat(),
                     range = 256f..8192f,
                     display = { numberFormat.format(it.roundToInt()) },
                 ) { scope.launch { repository.setAiMaxTokens(it.roundToInt()) } }
@@ -8160,7 +8160,7 @@ private fun AiToolSettings(repository: SettingsRepository, settings: KeyboardSet
         item {
             TextFieldSetting(
                 label = stringResource(R.string.toolai_ai_translate_to_label),
-                value = settings.aiTranslateTo,
+                value = settings.ai.translateTo,
                 hint = stringResource(R.string.toolai_ai_translate_to_hint),
             ) { repository.setAiTranslateTo(it) }
         }
@@ -8168,14 +8168,14 @@ private fun AiToolSettings(repository: SettingsRepository, settings: KeyboardSet
             ToggleSetting(
                 stringResource(R.string.toolai_ai_show_thinking_title),
                 stringResource(R.string.toolai_ai_show_thinking_subtitle),
-                settings.aiShowThinking,
+                settings.ai.showThinking,
             ) { scope.launch { repository.setAiShowThinking(it) } }
         }
         item {
             ToggleSetting(
                 stringResource(R.string.toolai_ai_model_picker_title),
                 stringResource(R.string.toolai_ai_model_picker_subtitle),
-                settings.aiPanelModelPicker,
+                settings.ai.panelModelPicker,
             ) { scope.launch { repository.setAiPanelModelPicker(it) } }
         }
     }
@@ -8185,16 +8185,16 @@ private fun AiToolSettings(repository: SettingsRepository, settings: KeyboardSet
         // Custom has no stored prompt — its instruction is typed per run.
         if (action == AiAction.CUSTOM) continue
         val current = when (action) {
-            AiAction.REWRITE -> settings.aiPromptRewrite
-            AiAction.SUMMARIZE -> settings.aiPromptSummarize
-            AiAction.TRANSLATE -> settings.aiPromptTranslate
-            AiAction.IMPROVE -> settings.aiPromptImprove
-            AiAction.FIX_GRAMMAR -> settings.aiPromptFixGrammar
-            AiAction.EXPLAIN -> settings.aiPromptExplain
-            AiAction.CONTINUE -> settings.aiPromptContinue
+            AiAction.REWRITE -> settings.ai.promptRewrite
+            AiAction.SUMMARIZE -> settings.ai.promptSummarize
+            AiAction.TRANSLATE -> settings.ai.promptTranslate
+            AiAction.IMPROVE -> settings.ai.promptImprove
+            AiAction.FIX_GRAMMAR -> settings.ai.promptFixGrammar
+            AiAction.EXPLAIN -> settings.ai.promptExplain
+            AiAction.CONTINUE -> settings.ai.promptContinue
             AiAction.CUSTOM -> ""
         }
-        val builtIn = AiPrompts.defaultPrompt(action, settings.aiTranslateTo)
+        val builtIn = AiPrompts.defaultPrompt(action, settings.ai.translateTo)
         PromptFieldSetting(
             label = stringResource(action.labelRes),
             // Pre-filled with the built-in prompt so editing starts from the
@@ -8206,7 +8206,7 @@ private fun AiToolSettings(repository: SettingsRepository, settings: KeyboardSet
     }
     CaptionText(
         stringResource(
-            if (settings.aiProvider == AiProvider.ON_DEVICE) {
+            if (settings.ai.provider == AiProvider.ON_DEVICE) {
                 R.string.toolai_ai_on_device_info
             } else {
                 R.string.toolai_ai_cloud_info

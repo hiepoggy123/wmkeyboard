@@ -1,17 +1,17 @@
 package com.wasimaster.wmkeyboard.core.tools
 
 import com.wasimaster.wmkeyboard.core.settings.AiProvider
-import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
+import com.wasimaster.wmkeyboard.core.settings.AiSettings
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class AiClientMaxTokensTest {
 
-    private fun openAi(model: String, max: Int = 2048) = KeyboardSettings(
-        aiProvider = AiProvider.OPENAI,
-        aiOpenAiKey = "k",
-        aiOpenAiModel = model,
-        aiMaxTokens = max,
+    private fun openAi(model: String, max: Int = 2048) = AiSettings(
+        provider = AiProvider.OPENAI,
+        openAiKey = "k",
+        openAiModel = model,
+        maxTokens = max,
     )
 
     @Test

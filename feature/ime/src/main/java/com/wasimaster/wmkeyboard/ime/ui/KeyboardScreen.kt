@@ -5489,7 +5489,7 @@ private fun KeyboardBody(
                     // box as the answer, so that mode — and only that mode —
                     // needs the taller window; otherwise the panel stays at
                     // the normal keyboard height.
-                    extraHeight = if (state.settings.aiShowThinking) 160.dp else 0.dp,
+                    extraHeight = if (state.settings.ai.showThinking) 160.dp else 0.dp,
                     // The Custom instruction types on the key rows, so the
                     // panel collapses to leave room for them below.
                     compact = state.aiCustomInputActive,

@@ -93,7 +93,7 @@ internal fun AiPanel(
             .padding(horizontal = 8.dp, vertical = 4.dp),
     ) {
         val ai0 = state.ai
-        if (state.settings.aiPanelModelPicker &&
+        if (state.settings.ai.panelModelPicker &&
             (ai0 is AiUi.Idle || ai0 is AiUi.NeedSetup || ai0 is AiUi.NeedModel)
         ) {
             ModelPickerRow(state, onPickModel)
@@ -141,7 +141,7 @@ internal fun AiPanel(
             AiUi.Idle -> Column(Modifier.fillMaxSize()) {
                 ActionChips(onAction, enabled = state.aiHasText)
                 Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                    val provider = stringResource(state.settings.aiProvider.labelRes)
+                    val provider = stringResource(state.settings.ai.provider.labelRes)
                     // An empty field has nothing to act on, so the chips are
                     // greyed out — say why rather than leaving the user tapping
                     // a dead row, and point at Custom, which still works
@@ -205,7 +205,7 @@ internal fun AiPanel(
                         enabled = !blank,
                     ) { onRunCustom() }
                     Spacer(Modifier.width(8.dp))
-                    val provider = stringResource(state.settings.aiProvider.labelRes)
+                    val provider = stringResource(state.settings.ai.provider.labelRes)
                     Text(
                         if (state.aiHasText) {
                             stringResource(R.string.ime_ai_custom_body, provider)
@@ -420,7 +420,7 @@ private fun ModelPickerRow(
     val settings = state.settings
     // Cheap file stats; keyed on ai state so re-opening after a download or
     // delete re-scans.
-    val localIds = remember(state.ai, settings.aiLocalModelId) {
+    val localIds = remember(state.ai, settings.ai.localModelId) {
         LocalLlmCatalog.models
             .filter { LocalLlmStore.isDownloaded(filesDir, it) }
             .map { it.id to it.displayName } +
@@ -428,10 +428,10 @@ private fun ModelPickerRow(
                 (LocalLlmStore.CUSTOM_PREFIX + it.name) to it.name.substringBeforeLast('.')
             }
     }
-    val remote = AiClient.configuredRemoteProviders(settings)
+    val remote = AiClient.configuredRemoteProviders(settings.ai)
     if (remote.size + localIds.size < 2) return
 
-    val selectedLocalId = settings.aiLocalModelId
+    val selectedLocalId = settings.ai.localModelId
         .takeIf { id -> localIds.any { it.first == id } }
         ?: localIds.singleOrNull()?.first
 
@@ -439,14 +439,14 @@ private fun ModelPickerRow(
         ModelPick(
             key = "local:$id",
             label = name,
-            selected = settings.aiProvider == AiProvider.ON_DEVICE && id == selectedLocalId,
+            selected = settings.ai.provider == AiProvider.ON_DEVICE && id == selectedLocalId,
             onClick = { onPickModel(AiProvider.ON_DEVICE, id) },
         )
     } + remote.map { provider ->
         ModelPick(
             key = "remote:${provider.name}",
             label = stringResource(provider.labelRes),
-            selected = settings.aiProvider == provider,
+            selected = settings.ai.provider == provider,
             onClick = { onPickModel(provider, null) },
         )
     }
@@ -518,7 +518,7 @@ private fun ActionChips(
 @Composable
 private fun AiProgress(ai: AiUi.Loading, settings: KeyboardSettings) {
     val kb = LocalKbTheme.current
-    val onDevice = settings.aiProvider == AiProvider.ON_DEVICE
+    val onDevice = settings.ai.provider == AiProvider.ON_DEVICE
     val steps = buildList {
         add(AiPhase.PREPARING)
         // On-device has no connection to make, so those steps would sit
@@ -530,7 +530,7 @@ private fun AiProgress(ai: AiUi.Loading, settings: KeyboardSettings) {
         // Only promise a reasoning step for a model that reasons — otherwise
         // every plain request ends on a step it never reaches. The id sniff can
         // be wrong, so a run that *is* reasoning shows it regardless.
-        if (AiClient.expectsReasoning(settings) || ai.phase == AiPhase.THINKING) {
+        if (AiClient.expectsReasoning(settings.ai) || ai.phase == AiPhase.THINKING) {
             add(AiPhase.THINKING)
         }
     }

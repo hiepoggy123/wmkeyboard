@@ -1,7 +1,7 @@
 package com.wasimaster.wmkeyboard.core.tools
 
 import com.wasimaster.wmkeyboard.core.settings.AiProvider
-import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
+import com.wasimaster.wmkeyboard.core.settings.AiSettings
 import com.wasimaster.wmkeyboard.tools.feature.R
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -47,32 +47,32 @@ object AiClient {
         const val OLLAMA = "qwen3"
     }
 
-    fun config(settings: KeyboardSettings): Config = when (settings.aiProvider) {
+    fun config(settings: AiSettings): Config = when (settings.provider) {
         AiProvider.ANTHROPIC -> Config(
-            AiProvider.ANTHROPIC, settings.aiAnthropicKey,
-            settings.aiAnthropicModel.ifBlank { DefaultModels.ANTHROPIC }, "",
+            AiProvider.ANTHROPIC, settings.anthropicKey,
+            settings.anthropicModel.ifBlank { DefaultModels.ANTHROPIC }, "",
         )
         AiProvider.OPENAI -> Config(
-            AiProvider.OPENAI, settings.aiOpenAiKey,
-            settings.aiOpenAiModel.ifBlank { DefaultModels.OPENAI }, "",
+            AiProvider.OPENAI, settings.openAiKey,
+            settings.openAiModel.ifBlank { DefaultModels.OPENAI }, "",
         )
         AiProvider.GEMINI -> Config(
-            AiProvider.GEMINI, settings.aiGeminiKey,
-            settings.aiGeminiModel.ifBlank { DefaultModels.GEMINI }, "",
+            AiProvider.GEMINI, settings.geminiKey,
+            settings.geminiModel.ifBlank { DefaultModels.GEMINI }, "",
         )
         AiProvider.OLLAMA -> Config(
             AiProvider.OLLAMA, "",
-            settings.aiOllamaModel.ifBlank { DefaultModels.OLLAMA },
-            settings.aiOllamaUrl,
+            settings.ollamaModel.ifBlank { DefaultModels.OLLAMA },
+            settings.ollamaUrl,
         )
         AiProvider.LM_STUDIO -> Config(
             AiProvider.LM_STUDIO, "",
-            settings.aiLmStudioModel,
-            settings.aiLmStudioUrl,
+            settings.lmStudioModel,
+            settings.lmStudioUrl,
         )
         AiProvider.ON_DEVICE -> Config(
             AiProvider.ON_DEVICE, "",
-            settings.aiLocalModelId, "",
+            settings.localModelId, "",
         )
     }
 
@@ -96,7 +96,7 @@ object AiClient {
      * guess from the model id — see [REASONING_MODEL_HINTS] — so callers must
      * treat a `false` as "probably not" rather than proof.
      */
-    fun expectsReasoning(settings: KeyboardSettings): Boolean {
+    fun expectsReasoning(settings: AiSettings): Boolean {
         val model = config(settings).model.lowercase()
         return REASONING_MODEL_HINTS.any { it in model }
     }
@@ -108,15 +108,15 @@ object AiClient {
      * the *answer* — buys them nothing but truncated reasoning. Multiply it for
      * those models instead of making the user discover the problem.
      */
-    fun effectiveMaxTokens(settings: KeyboardSettings): Int {
-        if (!expectsReasoning(settings)) return settings.aiMaxTokens
-        return (settings.aiMaxTokens.toLong() * REASONING_HEADROOM)
+    fun effectiveMaxTokens(settings: AiSettings): Int {
+        if (!expectsReasoning(settings)) return settings.maxTokens
+        return (settings.maxTokens.toLong() * REASONING_HEADROOM)
             .coerceAtMost(MAX_TOKENS_CEILING.toLong())
             .toInt()
     }
 
     /** Whether the selected provider has what it needs to make a request. */
-    fun isConfigured(settings: KeyboardSettings): Boolean {
+    fun isConfigured(settings: AiSettings): Boolean {
         val config = config(settings)
         return when (config.provider) {
             AiProvider.OLLAMA, AiProvider.LM_STUDIO -> config.baseUrl.isNotBlank()
@@ -130,14 +130,14 @@ object AiClient {
      * panel's model picker only offers these. ON_DEVICE is excluded: its
      * choices are per-model and need file checks the caller owns.
      */
-    fun configuredRemoteProviders(settings: KeyboardSettings): List<AiProvider> =
+    fun configuredRemoteProviders(settings: AiSettings): List<AiProvider> =
         AiProvider.entries.filter { provider ->
             when (provider) {
-                AiProvider.ANTHROPIC -> settings.aiAnthropicKey.isNotBlank()
-                AiProvider.OPENAI -> settings.aiOpenAiKey.isNotBlank()
-                AiProvider.GEMINI -> settings.aiGeminiKey.isNotBlank()
-                AiProvider.OLLAMA -> settings.aiOllamaUrl.isNotBlank()
-                AiProvider.LM_STUDIO -> settings.aiLmStudioUrl.isNotBlank()
+                AiProvider.ANTHROPIC -> settings.anthropicKey.isNotBlank()
+                AiProvider.OPENAI -> settings.openAiKey.isNotBlank()
+                AiProvider.GEMINI -> settings.geminiKey.isNotBlank()
+                AiProvider.OLLAMA -> settings.ollamaUrl.isNotBlank()
+                AiProvider.LM_STUDIO -> settings.lmStudioUrl.isNotBlank()
                 AiProvider.ON_DEVICE -> false
             }
         }

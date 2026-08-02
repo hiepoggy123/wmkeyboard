@@ -7635,7 +7635,7 @@ open class WMKeyboardService : InputMethodService() {
      * itself while a sole alternative exists.
      */
     private fun effectiveLocalModelId(settings: KeyboardSettings): String? =
-        settings.aiLocalModelId
+        settings.ai.localModelId
             .takeIf { LocalLlmStore.selectedModelFile(filesDir, it) != null }
             ?: LocalLlmStore.soleDownloadedId(filesDir)
 
@@ -7678,10 +7678,11 @@ open class WMKeyboardService : InputMethodService() {
 
     /** What the AI panel should show before any action runs. */
     private fun aiInitialState(settings: KeyboardSettings): AiUi = when {
-        settings.aiProvider == AiProvider.ON_DEVICE && BuildConfig.ENABLE_LOCAL_LLM &&
+        settings.ai.provider == AiProvider.ON_DEVICE && BuildConfig.ENABLE_LOCAL_LLM &&
             effectiveLocalModelFile(settings) == null -> AiUi.NeedModel
-        settings.aiProvider == AiProvider.ON_DEVICE && !BuildConfig.ENABLE_LOCAL_LLM -> AiUi.NeedSetup
-        !AiClient.isConfigured(settings) -> AiUi.NeedSetup
+        settings.ai.provider == AiProvider.ON_DEVICE && !BuildConfig.ENABLE_LOCAL_LLM ->
+            AiUi.NeedSetup
+        !AiClient.isConfigured(settings.ai) -> AiUi.NeedSetup
         else -> AiUi.Idle
     }
 
@@ -7693,9 +7694,12 @@ open class WMKeyboardService : InputMethodService() {
             settingsRepository.setAiProvider(provider)
             // Re-derive the panel state for the new choice; the settings flow
             // update races this tap, so compute from the edited values.
-            val updated = _uiState.value.settings.copy(
-                aiProvider = provider,
-                aiLocalModelId = localModelId ?: _uiState.value.settings.aiLocalModelId,
+            val current = _uiState.value.settings
+            val updated = current.copy(
+                ai = current.ai.copy(
+                    provider = provider,
+                    localModelId = localModelId ?: current.ai.localModelId,
+                ),
             )
             _uiState.update { it.copy(ai = aiInitialState(updated)) }
         }
@@ -7773,13 +7777,13 @@ open class WMKeyboardService : InputMethodService() {
         aiJob = serviceScope.launch {
             val settings = _uiState.value.settings
             val system = when {
-                action != AiAction.CUSTOM -> AiPrompts.systemPrompt(action, settings)
+                action != AiAction.CUSTOM -> AiPrompts.systemPrompt(action, settings.ai)
                 // Generating from an empty field: the instruction rides in the
                 // user message, so the system prompt only has to frame it.
                 aiCustomGenerate -> AiPrompts.generatePrompt()
                 else -> AiPrompts.customPrompt(aiCustomInstruction)
             }
-            val config = AiClient.config(settings)
+            val config = AiClient.config(settings.ai)
             val result = withContext(Dispatchers.IO) {
                 runCatching {
                     if (config.provider == AiProvider.ON_DEVICE) {
@@ -7795,7 +7799,7 @@ open class WMKeyboardService : InputMethodService() {
                     ai = result.fold(
                         onSuccess = { raw ->
                             val text =
-                                if (settings.aiShowThinking) raw.trim()
+                                if (settings.ai.showThinking) raw.trim()
                                 else AiThinking.stripped(raw)
                             when {
                                 text.isNotBlank() -> AiUi.Ready(
@@ -7845,7 +7849,7 @@ open class WMKeyboardService : InputMethodService() {
         return LocalLlmEngine.generate(
             context = applicationContext,
             modelFile = modelFile,
-            backend = settings.aiLocalBackend,
+            backend = settings.ai.localBackend,
             system = system,
             user = source,
         ) { raw ->
@@ -7875,7 +7879,7 @@ open class WMKeyboardService : InputMethodService() {
             config = config,
             system = system,
             user = source,
-            maxTokens = AiClient.effectiveMaxTokens(settings),
+            maxTokens = AiClient.effectiveMaxTokens(settings.ai),
             onPhase = { phase ->
                 if (seq == aiRunSeq) {
                     _uiState.update {
@@ -7921,7 +7925,7 @@ open class WMKeyboardService : InputMethodService() {
     ) {
         // Reasoning models: keep the progress view (marked "thinking") until
         // real output starts, unless the user wants the raw stream.
-        val shown = if (settings.aiShowThinking) {
+        val shown = if (settings.ai.showThinking) {
             AiThinking.Split(raw, thinking = false)
         } else {
             AiThinking.split(raw, implicitThink)
@@ -7997,8 +8001,8 @@ open class WMKeyboardService : InputMethodService() {
             "WM Keyboard — AI generation report",
             Support.aiGenerationReport(
                 action = getString(ai.action.labelRes),
-                provider = getString(state.settings.aiProvider.labelRes),
-                model = AiClient.config(state.settings).model,
+                provider = getString(state.settings.ai.provider.labelRes),
+                model = AiClient.config(state.settings.ai).model,
                 input = ai.sourceText,
                 output = ai.result,
                 instruction = if (ai.action == AiAction.CUSTOM) aiCustomInstruction else "",

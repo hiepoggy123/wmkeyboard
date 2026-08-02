@@ -1314,37 +1314,54 @@ data class KeyboardSettings(
     /** Side length of the QR image the generator inserts. */
     val qrSizePx: Int = 1024,
     val qrEcc: QrEccLevel = QrEccLevel.M,
-    // AI tool: provider, per-provider keys/models, self-hosted URLs and
-    // per-action prompt overrides (blank = built-in prompt).
-    val aiProvider: AiProvider = AiProvider.ANTHROPIC,
-    val aiAnthropicKey: String = "",
-    val aiOpenAiKey: String = "",
-    val aiGeminiKey: String = "",
-    val aiAnthropicModel: String = "",
-    val aiOpenAiModel: String = "",
-    val aiGeminiModel: String = "",
-    val aiOllamaUrl: String = "",
-    val aiOllamaModel: String = "",
-    val aiLmStudioUrl: String = "",
-    val aiLmStudioModel: String = "",
+    /** Everything the AI tool owns — see [AiSettings]. */
+    val ai: AiSettings = AiSettings(),
+)
+
+/**
+ * AI-tool settings, grouped rather than flat because [KeyboardSettings] sits against
+ * the JVM's 255-slot method-argument limit: Kotlin's generated `copy$default` takes
+ * every field plus its mask ints, so a flat class stops loading once the count creeps
+ * past ~245. Grouping a tool's own settings is the pattern [CameraSettings] and
+ * [WhisperSettings] already follow.
+ *
+ * The DataStore keys are unchanged by the nesting (`ai_provider`, `ai_max_tokens`,
+ * `hf_token`, …), so no existing preference is lost — only the Kotlin path moved. That
+ * also means [SettingsBackup] and [LockedSettings], which work on the raw preference
+ * map, need no change at all.
+ */
+data class AiSettings(
+    // Provider, per-provider keys/models and self-hosted URLs.
+    val provider: AiProvider = AiProvider.ANTHROPIC,
+    val anthropicKey: String = "",
+    val openAiKey: String = "",
+    val geminiKey: String = "",
+    val anthropicModel: String = "",
+    val openAiModel: String = "",
+    val geminiModel: String = "",
+    val ollamaUrl: String = "",
+    val ollamaModel: String = "",
+    val lmStudioUrl: String = "",
+    val lmStudioModel: String = "",
     // Reasoning models get a multiple of this at request time (AiClient) —
     // their think block spends the same budget as the answer.
-    val aiMaxTokens: Int = 2048,
+    val maxTokens: Int = 2048,
     /** Target language of the AI translate action. */
-    val aiTranslateTo: String = "English",
-    val aiPromptRewrite: String = "",
-    val aiPromptSummarize: String = "",
-    val aiPromptTranslate: String = "",
-    val aiPromptImprove: String = "",
-    val aiPromptFixGrammar: String = "",
-    val aiPromptExplain: String = "",
-    val aiPromptContinue: String = "",
+    val translateTo: String = "English",
+    // Per-action prompt overrides (blank = built-in prompt).
+    val promptRewrite: String = "",
+    val promptSummarize: String = "",
+    val promptTranslate: String = "",
+    val promptImprove: String = "",
+    val promptFixGrammar: String = "",
+    val promptExplain: String = "",
+    val promptContinue: String = "",
     /**
      * Selected on-device model: a LocalLlmCatalog id, or "custom:<fileName>"
      * for an imported file. Blank = none selected.
      */
-    val aiLocalModelId: String = "",
-    val aiLocalBackend: LocalLlmBackend = LocalLlmBackend.CPU,
+    val localModelId: String = "",
+    val localBackend: LocalLlmBackend = LocalLlmBackend.CPU,
     /** Hugging Face access token — only needed to download gated models (Gemma). */
     val hfToken: String = "",
     /**
@@ -1352,9 +1369,9 @@ data class KeyboardSettings(
      * Off (default) hides them behind a "reasoning" progress bar and strips
      * them from the result.
      */
-    val aiShowThinking: Boolean = false,
+    val showThinking: Boolean = false,
     /** Show a model/provider switcher row on the AI panel itself. */
-    val aiPanelModelPicker: Boolean = true,
+    val panelModelPicker: Boolean = true,
 )
 
 /**
@@ -3215,35 +3232,37 @@ class SettingsRepository(private val context: Context) {
             qrSizePx = p[QR_SIZE_PX] ?: defaults.qrSizePx,
             qrEcc = p[QR_ECC]?.let { runCatching { QrEccLevel.valueOf(it) }.getOrNull() }
                 ?: defaults.qrEcc,
-            aiProvider = p[AI_PROVIDER]
-                ?.let { runCatching { AiProvider.valueOf(it) }.getOrNull() }
-                ?: defaults.aiProvider,
-            aiAnthropicKey = p[AI_ANTHROPIC_KEY] ?: defaults.aiAnthropicKey,
-            aiOpenAiKey = p[AI_OPENAI_KEY] ?: defaults.aiOpenAiKey,
-            aiGeminiKey = p[AI_GEMINI_KEY] ?: defaults.aiGeminiKey,
-            aiAnthropicModel = p[AI_ANTHROPIC_MODEL] ?: defaults.aiAnthropicModel,
-            aiOpenAiModel = p[AI_OPENAI_MODEL] ?: defaults.aiOpenAiModel,
-            aiGeminiModel = p[AI_GEMINI_MODEL] ?: defaults.aiGeminiModel,
-            aiOllamaUrl = p[AI_OLLAMA_URL] ?: defaults.aiOllamaUrl,
-            aiOllamaModel = p[AI_OLLAMA_MODEL] ?: defaults.aiOllamaModel,
-            aiLmStudioUrl = p[AI_LM_STUDIO_URL] ?: defaults.aiLmStudioUrl,
-            aiLmStudioModel = p[AI_LM_STUDIO_MODEL] ?: defaults.aiLmStudioModel,
-            aiMaxTokens = p[AI_MAX_TOKENS] ?: defaults.aiMaxTokens,
-            aiTranslateTo = p[AI_TRANSLATE_TO] ?: defaults.aiTranslateTo,
-            aiPromptRewrite = p[AI_PROMPT_REWRITE] ?: defaults.aiPromptRewrite,
-            aiPromptSummarize = p[AI_PROMPT_SUMMARIZE] ?: defaults.aiPromptSummarize,
-            aiPromptTranslate = p[AI_PROMPT_TRANSLATE] ?: defaults.aiPromptTranslate,
-            aiPromptImprove = p[AI_PROMPT_IMPROVE] ?: defaults.aiPromptImprove,
-            aiPromptFixGrammar = p[AI_PROMPT_FIX_GRAMMAR] ?: defaults.aiPromptFixGrammar,
-            aiPromptExplain = p[AI_PROMPT_EXPLAIN] ?: defaults.aiPromptExplain,
-            aiPromptContinue = p[AI_PROMPT_CONTINUE] ?: defaults.aiPromptContinue,
-            aiLocalModelId = p[AI_LOCAL_MODEL_ID] ?: defaults.aiLocalModelId,
-            aiLocalBackend = p[AI_LOCAL_BACKEND]
-                ?.let { runCatching { LocalLlmBackend.valueOf(it) }.getOrNull() }
-                ?: defaults.aiLocalBackend,
-            hfToken = p[HF_TOKEN] ?: defaults.hfToken,
-            aiShowThinking = p[AI_SHOW_THINKING] ?: defaults.aiShowThinking,
-            aiPanelModelPicker = p[AI_PANEL_MODEL_PICKER] ?: defaults.aiPanelModelPicker,
+            ai = AiSettings(
+                provider = p[AI_PROVIDER]
+                    ?.let { runCatching { AiProvider.valueOf(it) }.getOrNull() }
+                    ?: defaults.ai.provider,
+                anthropicKey = p[AI_ANTHROPIC_KEY] ?: defaults.ai.anthropicKey,
+                openAiKey = p[AI_OPENAI_KEY] ?: defaults.ai.openAiKey,
+                geminiKey = p[AI_GEMINI_KEY] ?: defaults.ai.geminiKey,
+                anthropicModel = p[AI_ANTHROPIC_MODEL] ?: defaults.ai.anthropicModel,
+                openAiModel = p[AI_OPENAI_MODEL] ?: defaults.ai.openAiModel,
+                geminiModel = p[AI_GEMINI_MODEL] ?: defaults.ai.geminiModel,
+                ollamaUrl = p[AI_OLLAMA_URL] ?: defaults.ai.ollamaUrl,
+                ollamaModel = p[AI_OLLAMA_MODEL] ?: defaults.ai.ollamaModel,
+                lmStudioUrl = p[AI_LM_STUDIO_URL] ?: defaults.ai.lmStudioUrl,
+                lmStudioModel = p[AI_LM_STUDIO_MODEL] ?: defaults.ai.lmStudioModel,
+                maxTokens = p[AI_MAX_TOKENS] ?: defaults.ai.maxTokens,
+                translateTo = p[AI_TRANSLATE_TO] ?: defaults.ai.translateTo,
+                promptRewrite = p[AI_PROMPT_REWRITE] ?: defaults.ai.promptRewrite,
+                promptSummarize = p[AI_PROMPT_SUMMARIZE] ?: defaults.ai.promptSummarize,
+                promptTranslate = p[AI_PROMPT_TRANSLATE] ?: defaults.ai.promptTranslate,
+                promptImprove = p[AI_PROMPT_IMPROVE] ?: defaults.ai.promptImprove,
+                promptFixGrammar = p[AI_PROMPT_FIX_GRAMMAR] ?: defaults.ai.promptFixGrammar,
+                promptExplain = p[AI_PROMPT_EXPLAIN] ?: defaults.ai.promptExplain,
+                promptContinue = p[AI_PROMPT_CONTINUE] ?: defaults.ai.promptContinue,
+                localModelId = p[AI_LOCAL_MODEL_ID] ?: defaults.ai.localModelId,
+                localBackend = p[AI_LOCAL_BACKEND]
+                    ?.let { runCatching { LocalLlmBackend.valueOf(it) }.getOrNull() }
+                    ?: defaults.ai.localBackend,
+                hfToken = p[HF_TOKEN] ?: defaults.ai.hfToken,
+                showThinking = p[AI_SHOW_THINKING] ?: defaults.ai.showThinking,
+                panelModelPicker = p[AI_PANEL_MODEL_PICKER] ?: defaults.ai.panelModelPicker,
+            ),
         )
     }
 

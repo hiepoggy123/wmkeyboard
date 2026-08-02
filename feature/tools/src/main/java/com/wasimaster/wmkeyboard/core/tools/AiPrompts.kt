@@ -1,7 +1,7 @@
 package com.wasimaster.wmkeyboard.core.tools
 
 import com.wasimaster.wmkeyboard.core.settings.AiAction
-import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
+import com.wasimaster.wmkeyboard.core.settings.AiSettings
 
 /**
  * Built-in system prompts for the AI tool's actions. Each can be overridden
@@ -83,19 +83,19 @@ object AiPrompts {
             "Write that text." + OUTPUT_ONLY
 
     /** Effective system prompt: the user's override, or the built-in. */
-    fun systemPrompt(action: AiAction, settings: KeyboardSettings): String {
+    fun systemPrompt(action: AiAction, settings: AiSettings): String {
         val custom = when (action) {
-            AiAction.REWRITE -> settings.aiPromptRewrite
-            AiAction.SUMMARIZE -> settings.aiPromptSummarize
-            AiAction.TRANSLATE -> settings.aiPromptTranslate
-            AiAction.IMPROVE -> settings.aiPromptImprove
-            AiAction.FIX_GRAMMAR -> settings.aiPromptFixGrammar
-            AiAction.EXPLAIN -> settings.aiPromptExplain
-            AiAction.CONTINUE -> settings.aiPromptContinue
+            AiAction.REWRITE -> settings.promptRewrite
+            AiAction.SUMMARIZE -> settings.promptSummarize
+            AiAction.TRANSLATE -> settings.promptTranslate
+            AiAction.IMPROVE -> settings.promptImprove
+            AiAction.FIX_GRAMMAR -> settings.promptFixGrammar
+            AiAction.EXPLAIN -> settings.promptExplain
+            AiAction.CONTINUE -> settings.promptContinue
             // No stored override — the caller builds Custom's prompt from the
             // typed instruction via customPrompt() instead of this path.
             AiAction.CUSTOM -> ""
         }
-        return custom.ifBlank { defaultPrompt(action, settings.aiTranslateTo) }
+        return custom.ifBlank { defaultPrompt(action, settings.translateTo) }
     }
 }
