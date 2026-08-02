@@ -44,7 +44,7 @@
     <string name="photo_color_magenta_label">Magenta</string>
     <string name="photo_refresh_action">Get new photos</string>
     <string name="photo_grid_band_body">The bright band on each photo is the part that the keyboard uses.</string>
-    <string name="photo_loading_more_progress">The app gets more photos</string>
+    <string name="photo_loading_more_progress">The app is getting more photos</string>
     <string name="photo_end_of_results">There are no more photos for this search</string>
     <!-- %1$s is the word that the user typed. -->
     <string name="photo_search_empty">There are no photos for <xliff:g id="query" example="mountains">%1$s</xliff:g>. Try a different word.</string>
@@ -71,22 +71,22 @@
     <string name="photo_tile_fallback_desc">Photo by <xliff:g id="photographer" example="Ana Silva">%1$s</xliff:g></string>
 
     <!-- Use a photo -->
-    <string name="photo_use_section_title">Use this photo</string>
+    <string name="photo_use_section_title">Preview this photo for</string>
     <string name="photo_use_slot_title">Use it for</string>
-    <string name="photo_use_slot_portrait_label">Upright</string>
-    <string name="photo_use_slot_landscape_label">Sideways</string>
+    <string name="photo_use_slot_portrait_label">Portrait</string>
+    <string name="photo_use_slot_landscape_label">Landscape</string>
     <string name="photo_use_slot_both_label">Both</string>
     <string name="photo_apply_action">Use as the background</string>
     <string name="photo_save_action">Add to the collection</string>
     <string name="photo_saved_action">In the collection</string>
     <string name="photo_view_source_action">Open the page of the photo</string>
-    <string name="photo_download_progress">The app gets the photo</string>
+    <string name="photo_download_progress">The app is getting the photo</string>
     <!-- %1$s is the name of a theme. -->
     <string name="photo_applied_title">This photo is the background of <xliff:g id="theme" example="Forest">%1$s</xliff:g></string>
     <string name="photo_applied_body">Change the photo below, or press Done.</string>
     <string name="photo_apply_no_themes_body">You have no themes of your own. Make a theme first, then use a photo on it.</string>
-    <string name="photo_preview_upright_label">Upright</string>
-    <string name="photo_preview_sideways_label">Sideways</string>
+    <string name="photo_preview_upright_label">Portrait</string>
+    <string name="photo_preview_sideways_label">Landscape</string>
 
     <!-- Readability -->
     <string name="photo_readability_warn_title">The keys are difficult to read</string>
@@ -102,6 +102,10 @@
     <!-- Colors from a photo -->
     <string name="photo_seed_title">Match the colors to the photo</string>
     <string name="photo_seed_subtitle">Make the theme colors again from this photo</string>
+    <string name="photo_seed_from_collection_action">Match the colors to this photo</string>
+    <string name="photo_reveal_title">Show more of the photo</string>
+    <string name="photo_reveal_body">The app made the keys and the tool circles see-through, so that more of the photo is visible. Change the key colors in this theme to adjust it.</string>
+    <string name="photo_seed_keeps_image_body">The theme colors changed. The photo is still there, because the app kept the see-through board.</string>
     <string name="photo_seed_dialog_body">The app replaces each color of the theme. The background image, the gradients, the key shape and the corners do not change.</string>
 
     <!-- Rotation -->
@@ -116,9 +120,9 @@
     <string name="photo_rotation_shuffle_subtitle">Go to the next photo</string>
     <string name="photo_rotation_shuffle_action">Change</string>
     <string name="photo_rotation_now_section_title">In use now</string>
-    <string name="photo_rotation_now_empty_body">There is no photo. The app gets the first photos.</string>
+    <string name="photo_rotation_now_empty_body">There is no photo yet. The app is getting the first photos.</string>
     <!-- %1$d is the number of photos that are ready, %2$d the number that the app keeps. -->
-    <string name="photo_rotation_filling_progress">The app gets photos: <xliff:g id="ready" example="3">%1$d</xliff:g> of <xliff:g id="total" example="8">%2$d</xliff:g></string>
+    <string name="photo_rotation_filling_progress">The app is getting photos: <xliff:g id="ready" example="3">%1$d</xliff:g> of <xliff:g id="total" example="8">%2$d</xliff:g></string>
     <string name="photo_rotation_no_source_body">No source is on. Turn on one source or more below.</string>
     <string name="photo_rotation_sources_section_title">Sources</string>
     <string name="photo_rotation_source_saved_title">Photo collection</string>
@@ -143,7 +147,7 @@
     <string name="photo_rotation_scope_title">Change the background of</string>
     <string name="photo_rotation_scope_pick_title">Select the themes</string>
     <string name="photo_rotation_delete_downloads_title">Delete the photos that the app got</string>
-    <string name="photo_rotation_delete_downloads_subtitle">The app gets a new set at the next change</string>
+    <string name="photo_rotation_delete_downloads_subtitle">The app will get a new set at the next change</string>
     <!-- %1$d is the number of subjects that the user selected. -->
     <plurals name="photo_rotation_topics_value">
         <item quantity="one">%1$d selected</item>

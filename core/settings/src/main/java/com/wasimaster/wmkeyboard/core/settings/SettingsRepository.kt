@@ -3912,6 +3912,12 @@ class SettingsRepository(private val context: Context) {
                     backgroundImage = path,
                     backgroundPhoto = credit,
                     boardBackground = theme.boardBackground and 0x00FFFFFFL,
+                    // Opaque keys cover most of a keyboard, so a photo behind
+                    // them is barely visible and choosing one feels like it did
+                    // nothing. Only keys that are still fully opaque are
+                    // changed, so a theme the user already tuned is left alone.
+                    keyBackground = theme.keyBackground.softenedForPhoto(),
+                    modifierKeyBackground = theme.modifierKeyBackground.softenedForPhoto(),
                 )
             }
             prefs[CUSTOM_THEMES] = ThemeCodec.encodeList(current.filter { it.id != themeId } + next)
@@ -3947,6 +3953,13 @@ class SettingsRepository(private val context: Context) {
         return removed
     }
 
+    /**
+     * A new key gets a clean slate.
+     *
+     * The request budget and the page cache both belong to the key that filled
+     * them, so somebody pasting a fresh key after hitting a limit would
+     * otherwise keep being told there are no requests left.
+     */
     suspend fun setUnsplashApiKey(value: String) =
         editPrefs { it[PHOTO_UNSPLASH_KEY] = value.trim() }
 

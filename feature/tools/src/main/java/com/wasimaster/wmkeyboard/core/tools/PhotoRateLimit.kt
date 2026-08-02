@@ -33,11 +33,20 @@ object PhotoRateLimit {
 
     private const val HOUR_MS = 3_600_000L
 
+    /**
+     * How long a refusal with no readable budget is believed for. Short on
+     * purpose: the guess is cleared by the next response that works, and until
+     * then this is all that stands between one bad reply and a dead feature.
+     */
+    private const val DENIAL_BACK_OFF_MS = 5 * 60_000L
+
     data class Budget(
         val limit: Int,
         val remaining: Int,
         val resetAtMs: Long,
         val stampedAtMs: Long,
+        /** True when this was assumed after a refusal, not read from a header. */
+        val guessed: Boolean = false,
     )
 
     private val budgets = HashMap<PhotoSource, Budget>()
@@ -60,10 +69,24 @@ object PhotoRateLimit {
     }
 
     /**
-     * Records a refusal we could not read a budget from. Pexels answers an
-     * error with no headers at all, so the only safe reading is "assume spent
-     * until the hour is out" — an optimistic guess here means hammering a
-     * provider that is already saying no.
+     * Records that a request went through.
+     *
+     * This is what lets a guessed lockout end early. [recordDenial] has to
+     * assume the worst, and a service that sends no budget headers — Pexels on
+     * most responses — would otherwise never say anything to contradict the
+     * guess, leaving the picker insisting there were no requests left for a
+     * whole hour after one refusal. A response that arrived is proof enough.
+     */
+    @Synchronized
+    fun recordSuccess(source: PhotoSource) {
+        val known = budgets[source] ?: return
+        if (known.guessed) budgets.remove(source)
+    }
+
+    /**
+     * Records a refusal there was no budget to read from. Held only briefly:
+     * a refusal means "slow down", and treating it as "you are finished for the
+     * hour" turns one bad response into an hour of a feature that looks broken.
      */
     @Synchronized
     fun recordDenial(source: PhotoSource, nowMs: Long) {
@@ -71,8 +94,9 @@ object PhotoRateLimit {
         budgets[source] = Budget(
             limit = known?.limit ?: 0,
             remaining = 0,
-            resetAtMs = nowMs + HOUR_MS,
+            resetAtMs = nowMs + DENIAL_BACK_OFF_MS,
             stampedAtMs = nowMs,
+            guessed = true,
         )
     }
 

@@ -177,6 +177,7 @@ object PhotoBackgroundManager {
             // after the write rather than before it, so a failure part-way
             // leaves the old background in place instead of none at all.
             replaced?.let { old -> withContext(Dispatchers.IO) { runCatching { File(old).delete() } } }
+            addToCollection(context, file, photo.toAttribution(), nowMs)
             trackDownload(photo, apiKey, nowMs)
             _status.update { it + (key to PhotoApplyStatus.Done) }
             measured
@@ -244,6 +245,38 @@ object PhotoBackgroundManager {
         // Outside the try: a cancellation here has to propagate rather than
         // be reported as "the photo could not be added".
         addLocalToPool(context, file, RotationSourceKind.SAVED, measured, nowMs)
+        true
+    }
+
+    /**
+     * Copies a photo that has become a background into the collection.
+     *
+     * Anything the user deliberately made a background is worth keeping: it can
+     * then be put on another theme, or taken into the rotation, without being
+     * found again. Copied rather than referenced, because the file it came from
+     * belongs to one theme and is deleted when that theme replaces it.
+     */
+    suspend fun addToCollection(
+        context: Context,
+        source: File,
+        credit: PhotoAttribution? = null,
+        nowMs: Long = System.currentTimeMillis(),
+    ): Boolean = withContext(Dispatchers.IO) {
+        if (!source.isFile) return@withContext false
+        // Keyed off the photo where there is one, so the same service photo
+        // used on two themes is stored once.
+        val name = credit?.let { "p_${it.provider}_${it.photoId.filter(Char::isLetterOrDigit)}.img" }
+            ?: "c_${nowMs}_${source.name.hashCode().toUInt()}.img"
+        val target = File(poolDir(context), name)
+        val measured = try {
+            if (!target.isFile) source.copyTo(target, overwrite = true)
+            measure(target)
+        } catch (failed: IOException) {
+            DebugLog.e(LOG_TAG, "cannot copy a background into the collection", failed)
+            target.delete()
+            return@withContext false
+        }
+        addLocalToPool(context, target, RotationSourceKind.SAVED, measured, nowMs, credit)
         true
     }
 
@@ -437,6 +470,7 @@ object PhotoBackgroundManager {
         source: RotationSourceKind,
         measured: PhotoMeasurements?,
         nowMs: Long,
+        credit: PhotoAttribution? = null,
     ) = poolLock.withLock {
         val index = readPoolLocked(context)
         val bounds = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
@@ -444,7 +478,7 @@ object PhotoBackgroundManager {
         val entry = PoolEntry(
             fileName = file.name,
             source = source,
-            credit = null,
+            credit = credit,
             widthPx = bounds.outWidth.coerceAtLeast(0),
             heightPx = bounds.outHeight.coerceAtLeast(0),
             bytes = file.length(),

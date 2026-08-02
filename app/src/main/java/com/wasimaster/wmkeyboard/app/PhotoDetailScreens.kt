@@ -44,6 +44,7 @@ import coil3.compose.AsyncImage
 import com.wasimaster.wmkeyboard.R
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
+import com.wasimaster.wmkeyboard.core.settings.softenedForPhoto
 import com.wasimaster.wmkeyboard.core.theme.Readability
 import com.wasimaster.wmkeyboard.core.theme.ThemeSpec
 import com.wasimaster.wmkeyboard.core.theme.readabilityOver
@@ -57,7 +58,6 @@ import com.wasimaster.wmkeyboard.core.tools.PhotoMeasurements
 import com.wasimaster.wmkeyboard.core.tools.ToolApiKeys
 import com.wasimaster.wmkeyboard.core.tools.toAttribution
 import com.wasimaster.wmkeyboard.ime.ui.rememberMediaImageLoader
-import java.io.File
 import kotlinx.coroutines.launch
 import com.wasimaster.wmkeyboard.common.R as CommonR
 
@@ -94,6 +94,19 @@ fun PhotoDetailScreen(
     val busy = status[photo.key].let {
         it is PhotoApplyStatus.Downloading || it is PhotoApplyStatus.Applying
     }
+    // Applying a photo makes the board see-through so the photo shows. The
+    // preview has to do the same, or a theme with an opaque board previews as
+    // a flat colour and the photo appears to do nothing.
+    val previewTheme = remember(theme, applied) {
+        if (theme == null || applied) {
+            theme
+        } else {
+            theme.copy(
+                boardBackground = theme.boardBackground.withAlphaFraction(0f),
+                keyBackground = theme.keyBackground.softenedForPhoto(),
+            )
+        }
+    }
 
     WmScreen(
         title = stringResource(R.string.photo_detail_title),
@@ -118,7 +131,7 @@ fun PhotoDetailScreen(
             )
         }
 
-        if (theme != null) {
+        if (theme != null && previewTheme != null) {
             SectionHeaderPublic(stringResource(R.string.photo_use_section_title))
             SingleChoiceSegmentedButtonRow(
                 modifier = Modifier
@@ -141,12 +154,14 @@ fun PhotoDetailScreen(
                 }
             }
             Spacer(Modifier.height(8.dp))
-            // The live mock-up: this theme's keys over this photo.
-            val previewPath = appliedPath(theme, previewLandscape)
+            // The live mock-up: this theme's keys over *this* photo. Before
+            // the photo is applied it is not on disk yet, so the preview is
+            // given the service's own URL -- showing the theme's existing
+            // image here answered a question nobody asked.
             Box(Modifier.padding(horizontal = 16.dp)) {
                 ThemePreview(
-                    theme = theme,
-                    imageOverride = previewPath,
+                    theme = previewTheme,
+                    imageOverride = if (applied) null else photo.thumbUrl,
                     landscape = previewLandscape,
                 )
             }
@@ -386,14 +401,10 @@ private fun ReadabilityBanner(
     }
 }
 
-/** The file the theme is actually showing for this orientation, if any. */
-private fun appliedPath(theme: ThemeSpec, landscape: Boolean): String? {
-    val path = if (landscape) theme.backgroundImageLandscape ?: theme.backgroundImage else theme.backgroundImage
-    return path?.takeIf { File(it).isFile }
-}
-
 /** Enough of the photo to judge it by, in the shape the keyboard uses. */
 private const val HERO_ASPECT = 16f / 9f
 
 /** What the busy-photo fix sets, on the editor's 0..25 scale. */
 private const val BUSY_BLUR = 8f
+
+

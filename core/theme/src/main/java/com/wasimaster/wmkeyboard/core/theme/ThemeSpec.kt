@@ -272,12 +272,20 @@ fun Long.alphaFraction(): Float = ((this ushr 24) and 0xFFL) / 255f
  */
 fun ThemeSpec.reseeded(seed: Long, dark: Boolean): ThemeSpec {
     val generated = themeFromSeed(id, name, seed, dark)
+    // A generated palette is fully opaque, which over a background photo means
+    // the photo disappears — and "match the colours to this photo" erasing the
+    // photo is the least useful thing it could do. So when there is an image,
+    // the see-through-ness the user set is carried across even though the
+    // colours themselves are replaced.
+    val hasImage = backgroundImage != null || backgroundImageLandscape != null
+    fun keepAlpha(fresh: Long, previous: Long): Long =
+        if (hasImage) fresh.withAlphaFraction(previous.alphaFraction()) else fresh
     return copy(
         dark = generated.dark,
-        boardBackground = generated.boardBackground,
-        keyBackground = generated.keyBackground,
+        boardBackground = keepAlpha(generated.boardBackground, boardBackground),
+        keyBackground = keepAlpha(generated.keyBackground, keyBackground),
         keyText = generated.keyText,
-        modifierKeyBackground = generated.modifierKeyBackground,
+        modifierKeyBackground = keepAlpha(generated.modifierKeyBackground, modifierKeyBackground),
         enterKeyBackground = generated.enterKeyBackground,
         enterKeyText = generated.enterKeyText,
         pressedKeyBackground = generated.pressedKeyBackground,

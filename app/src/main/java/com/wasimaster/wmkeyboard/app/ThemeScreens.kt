@@ -95,6 +95,7 @@ import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import com.wasimaster.wmkeyboard.core.settings.ThemeMode
 import com.wasimaster.wmkeyboard.core.settings.PoolEntry
+import com.wasimaster.wmkeyboard.core.settings.softenedForPhoto
 import com.wasimaster.wmkeyboard.core.tools.PhotoBackgroundManager
 import com.wasimaster.wmkeyboard.core.theme.BuiltInThemes
 import com.wasimaster.wmkeyboard.core.theme.DEFAULT_THEME_ID
@@ -799,14 +800,22 @@ fun ThemeEditorScreen(
                         file.outputStream().use { input.copyTo(it) }
                     }
                     theme.backgroundImage?.let { File(it).delete() }
-                    // Zero the board color's alpha so the fresh image shows at
-                    // full strength; the user raises it back to add a scrim.
+                    // Same treatment an online photo gets: the board goes
+                    // see-through so the image shows, and the keys stop
+                    // covering all of it. The user raises either back.
                     repository.upsertCustomTheme(
                         theme.copy(
                             backgroundImage = file.absolutePath,
+                            backgroundPhoto = null,
                             boardBackground = theme.boardBackground and 0x00FFFFFFL,
+                            keyBackground = theme.keyBackground.softenedForPhoto(),
+                            modifierKeyBackground = theme.modifierKeyBackground.softenedForPhoto(),
                         )
                     )
+                    // A photo the user picked is worth keeping: it can then go
+                    // on another theme, or into the rotation, without being
+                    // hunted down in the gallery again.
+                    PhotoBackgroundManager.addToCollection(context, file)
                 }
             }
         }
@@ -828,8 +837,12 @@ fun ThemeEditorScreen(
                     }
                     theme.backgroundImageLandscape?.let { File(it).delete() }
                     repository.upsertCustomTheme(
-                        theme.copy(backgroundImageLandscape = file.absolutePath),
+                        theme.copy(
+                            backgroundImageLandscape = file.absolutePath,
+                            backgroundPhotoLandscape = null,
+                        ),
                     )
+                    PhotoBackgroundManager.addToCollection(context, file)
                 }
             }
         }
@@ -907,6 +920,12 @@ fun ThemeEditorScreen(
 
     SettingsGroup(stringResource(R.string.theme_seed_section_title)) {
         item { CaptionText(stringResource(R.string.theme_seed_section_body)) }
+        // Changing the seed or the light/dark switch rebuilds every colour. The
+        // board keeps how see-through it is, so the photo stays visible -- but
+        // it is worth saying, because the colours around it do all change.
+        if (theme.backgroundImage != null || theme.backgroundImageLandscape != null) {
+            item { CaptionText(stringResource(R.string.photo_seed_keeps_image_body)) }
+        }
         item {
             ListItem(
                 headlineContent = { Text(stringResource(R.string.theme_editor_dark_title)) },

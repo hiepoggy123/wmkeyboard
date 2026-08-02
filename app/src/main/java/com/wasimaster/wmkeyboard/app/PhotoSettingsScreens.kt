@@ -63,8 +63,11 @@ import com.wasimaster.wmkeyboard.core.settings.RotationScope
 import com.wasimaster.wmkeyboard.core.settings.RotationSourceKind
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import com.wasimaster.wmkeyboard.core.theme.BuiltInThemes
+import com.wasimaster.wmkeyboard.core.theme.reseeded
 import com.wasimaster.wmkeyboard.core.theme.themeName
 import com.wasimaster.wmkeyboard.core.tools.PhotoBackgroundManager
+import com.wasimaster.wmkeyboard.core.tools.PhotoCache
+import com.wasimaster.wmkeyboard.core.tools.PhotoRateLimit
 import com.wasimaster.wmkeyboard.core.tools.PhotoTopic
 import com.wasimaster.wmkeyboard.core.tools.ToolApiKeys
 import java.io.File
@@ -95,7 +98,13 @@ fun PhotoServicesScreen(
                     value = photos.unsplashApiKey,
                     builtInAvailable = ToolApiKeys.builtInUnsplash,
                     emptyHint = stringResource(R.string.photo_unsplash_key_hint),
-                ) { repository.setUnsplashApiKey(it) }
+                ) { key ->
+                    repository.setUnsplashApiKey(key)
+                    // The old key's budget and its cached pages belong to it,
+                    // not to this one.
+                    PhotoRateLimit.reset()
+                    PhotoCache.clear()
+                }
             }
             item {
                 ApiKeyField(
@@ -103,7 +112,11 @@ fun PhotoServicesScreen(
                     value = photos.pexelsApiKey,
                     builtInAvailable = ToolApiKeys.builtInPexels,
                     emptyHint = stringResource(R.string.photo_pexels_key_hint),
-                ) { repository.setPexelsApiKey(it) }
+                ) { key ->
+                    repository.setPexelsApiKey(key)
+                    PhotoRateLimit.reset()
+                    PhotoCache.clear()
+                }
             }
             item { CaptionText(stringResource(R.string.photo_licence_body)) }
         }
@@ -524,6 +537,16 @@ fun PhotoLibraryScreen(
                                 onBack()
                             }
                         },
+                        onSeed = {
+                            val target = themeId.takeIf { it.isNotBlank() } ?: settings.keyboardThemeId
+                            scope.launch {
+                                settings.customThemes.find { it.id == target }?.let { current ->
+                                    repository.upsertCustomTheme(
+                                        current.reseeded(entry.seedColor, current.dark),
+                                    )
+                                }
+                            }
+                        },
                         onDelete = {
                             scope.launch {
                                 PhotoBackgroundManager.removeFromPool(context, entry.fileName)
@@ -652,6 +675,7 @@ private fun SavedPhotoTile(
     file: File,
     entry: PoolEntry,
     onApply: () -> Unit,
+    onSeed: () -> Unit,
     onDelete: () -> Unit,
 ) {
     var menuOpen by remember { mutableStateOf(false) }
@@ -674,6 +698,17 @@ private fun SavedPhotoTile(
                     onApply()
                 },
             )
+            // The colour was measured when the photo was added, so this costs
+            // nothing to offer here as well as on a photo's own page.
+            if (entry.seedColor != 0L) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.photo_seed_from_collection_action)) },
+                    onClick = {
+                        menuOpen = false
+                        onSeed()
+                    },
+                )
+            }
             DropdownMenuItem(
                 text = { Text(stringResource(CommonR.string.common_delete)) },
                 onClick = {

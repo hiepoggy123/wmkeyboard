@@ -174,23 +174,43 @@ object PhotoSearchClient {
 
     /** Blocking; the single dispatch point over the providers. */
     private fun fetch(source: PhotoSource, query: PhotoQuery, apiKey: String, nowMs: Long): PhotoPage {
-        val searching = query.text.isNotBlank()
+        // A colour has to go through search: the feed endpoints take no
+        // `color`, so a colour picked on its own used to be dropped and the
+        // swatch looked broken. Search needs *something* to search for, so a
+        // blank query borrows the topic, and failing that the colour's name.
+        val searching = query.text.isNotBlank() || query.color != PhotoColor.ANY
+        val effective = if (!searching || query.text.isNotBlank()) {
+            query
+        } else {
+            query.copy(
+                text = query.topicId.replace('-', ' ').trim()
+                    .ifBlank { query.color.searchWord() },
+            )
+        }
         val response = timed(source, nowMs) {
             when (source) {
                 PhotoSource.UNSPLASH ->
-                    if (searching) UnsplashClient.search(query, apiKey) else UnsplashClient.feed(query, apiKey)
+                    if (searching) {
+                        UnsplashClient.search(effective, apiKey)
+                    } else {
+                        UnsplashClient.feed(effective, apiKey)
+                    }
                 PhotoSource.PEXELS ->
-                    if (searching) PexelsClient.search(query, apiKey) else PexelsClient.curated(query, apiKey)
+                    if (searching) {
+                        PexelsClient.search(effective, apiKey)
+                    } else {
+                        PexelsClient.curated(effective, apiKey)
+                    }
             }
         }
         return when (source) {
             PhotoSource.UNSPLASH ->
                 if (searching) {
-                    UnsplashClient.parseSearch(response.body, query.page)
+                    UnsplashClient.parseSearch(response.body, effective.page)
                 } else {
-                    UnsplashClient.parseList(response.body, query.page, query.perPage)
+                    UnsplashClient.parseList(response.body, effective.page, effective.perPage)
                 }
-            PhotoSource.PEXELS -> PexelsClient.parsePage(response.body, query.page, query.perPage)
+            PhotoSource.PEXELS -> PexelsClient.parsePage(response.body, effective.page, effective.perPage)
         }
     }
 
@@ -203,7 +223,12 @@ object PhotoSearchClient {
     private inline fun timed(source: PhotoSource, nowMs: Long, request: () -> HttpResponse): HttpResponse {
         PhotoRateLimit.recordRequest(source, nowMs)
         try {
-            return request().also { PhotoRateLimit.recordHeaders(source, it.headers, nowMs) }
+            return request().also {
+                // A response that arrived is proof the budget is not spent,
+                // even when the service sends no headers to say so.
+                PhotoRateLimit.recordSuccess(source)
+                PhotoRateLimit.recordHeaders(source, it.headers, nowMs)
+            }
         } catch (e: ToolHttpException) {
             when {
                 e.headers.isNotEmpty() -> PhotoRateLimit.recordHeaders(source, e.headers, nowMs)

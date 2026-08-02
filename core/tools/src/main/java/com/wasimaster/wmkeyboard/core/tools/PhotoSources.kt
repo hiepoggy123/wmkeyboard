@@ -39,6 +39,31 @@ enum class PhotoColor(val swatch: Long) {
 }
 
 /**
+ * The English word to search for when a colour is the only filter chosen.
+ *
+ * Neither service can filter by colour alone: `/search/photos` and `/v1/search`
+ * both require a query, and the feed endpoints that need none ignore `color`
+ * entirely. Searching for the colour's own name is what makes the swatch do
+ * something rather than quietly nothing.
+ */
+fun PhotoColor.searchWord(): String = when (this) {
+    PhotoColor.ANY -> ""
+    PhotoColor.MONOCHROME -> "black and white"
+    PhotoColor.BLACK -> "black"
+    PhotoColor.WHITE -> "white"
+    PhotoColor.GRAY -> "gray"
+    PhotoColor.BROWN -> "brown"
+    PhotoColor.RED -> "red"
+    PhotoColor.ORANGE -> "orange"
+    PhotoColor.YELLOW -> "yellow"
+    PhotoColor.GREEN -> "green"
+    PhotoColor.TEAL -> "teal"
+    PhotoColor.BLUE -> "blue"
+    PhotoColor.PURPLE -> "purple"
+    PhotoColor.MAGENTA -> "magenta"
+}
+
+/**
  * One fixed size a provider offers for a photo. Pexels serves a handful of
  * named sizes and nothing between them; Unsplash resizes on demand and so
  * reports no variants at all (see [PhotoItem.resizable]).

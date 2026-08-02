@@ -3,6 +3,7 @@ package com.wasimaster.wmkeyboard.core.settings
 import com.wasimaster.wmkeyboard.core.theme.PhotoAttribution
 import com.wasimaster.wmkeyboard.core.theme.ThemeSpec
 import com.wasimaster.wmkeyboard.core.theme.reseeded
+import com.wasimaster.wmkeyboard.core.theme.alphaFraction
 import com.wasimaster.wmkeyboard.core.theme.withAlphaFraction
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -155,3 +156,18 @@ fun List<ThemeSpec>.withRotatingBackgrounds(
         }
     }
 }
+
+/**
+ * A key colour made see-through enough that a background photo reads through
+ * it, or the colour unchanged if it is already see-through.
+ *
+ * Applied when a photo becomes the background. A keyboard is mostly keys, so
+ * leaving them opaque means the photo is only visible around the edges — which
+ * makes choosing one feel like nothing happened. The value is a starting point:
+ * the key colours stay editable, and the readability check runs over the result.
+ */
+fun Long.softenedForPhoto(alpha: Float = PHOTO_KEY_ALPHA): Long =
+    if (alphaFraction() >= 1f) withAlphaFraction(alpha) else this
+
+/** How see-through a key becomes when a photo is put behind it. */
+const val PHOTO_KEY_ALPHA = 0.62f
