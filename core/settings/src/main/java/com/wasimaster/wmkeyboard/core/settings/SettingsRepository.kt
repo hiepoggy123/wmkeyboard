@@ -47,6 +47,7 @@ import com.wasimaster.wmkeyboard.core.script.ScriptRegistry
 import android.util.Base64
 import com.wasimaster.wmkeyboard.core.stickers.StickerPackStore
 import com.wasimaster.wmkeyboard.core.theme.DEFAULT_THEME_ID
+import com.wasimaster.wmkeyboard.core.theme.PhotoAttribution
 import com.wasimaster.wmkeyboard.core.theme.ThemeCodec
 import com.wasimaster.wmkeyboard.core.theme.ThemeSpec
 import com.wasimaster.wmkeyboard.core.theme.withEmbeddedImages
@@ -3793,6 +3794,68 @@ class SettingsRepository(private val context: Context) {
         }
 
     // ---- Online photo backgrounds -------------------------------------
+
+    /**
+     * Puts a downloaded photo on a theme, with the credit that has to travel
+     * with it, and hands back the file it replaced so the caller can delete it.
+     *
+     * Zeroing the board colour's alpha on the portrait slot is what the device
+     * photo picker already does: the fresh photo shows at full strength, and
+     * the user raises the alpha back to dim it. The landscape slot leaves the
+     * alpha alone, because the portrait slot has already set the scrim.
+     */
+    suspend fun applyThemePhoto(
+        themeId: String,
+        path: String,
+        credit: PhotoAttribution?,
+        landscape: Boolean,
+    ): String? {
+        var replaced: String? = null
+        editPrefs { prefs ->
+            val current = prefs[CUSTOM_THEMES]?.let { ThemeCodec.decodeList(it) }.orEmpty()
+            val theme = current.find { it.id == themeId } ?: return@editPrefs
+            replaced = if (landscape) theme.backgroundImageLandscape else theme.backgroundImage
+            val next = if (landscape) {
+                theme.copy(backgroundImageLandscape = path, backgroundPhotoLandscape = credit)
+            } else {
+                theme.copy(
+                    backgroundImage = path,
+                    backgroundPhoto = credit,
+                    boardBackground = theme.boardBackground and 0x00FFFFFFL,
+                )
+            }
+            prefs[CUSTOM_THEMES] = ThemeCodec.encodeList(current.filter { it.id != themeId } + next)
+        }
+        return replaced?.takeIf { it != path }
+    }
+
+    /**
+     * Takes a photo off a theme, restoring the board's opacity if applying one
+     * had zeroed it — otherwise removing the image leaves a see-through board.
+     */
+    suspend fun clearThemePhoto(themeId: String, landscape: Boolean): String? {
+        var removed: String? = null
+        editPrefs { prefs ->
+            val current = prefs[CUSTOM_THEMES]?.let { ThemeCodec.decodeList(it) }.orEmpty()
+            val theme = current.find { it.id == themeId } ?: return@editPrefs
+            removed = if (landscape) theme.backgroundImageLandscape else theme.backgroundImage
+            val next = if (landscape) {
+                theme.copy(backgroundImageLandscape = null, backgroundPhotoLandscape = null)
+            } else {
+                theme.copy(
+                    backgroundImage = null,
+                    backgroundPhoto = null,
+                    boardBackground = if ((theme.boardBackground ushr 24) == 0L) {
+                        theme.boardBackground or 0xFF000000L
+                    } else {
+                        theme.boardBackground
+                    },
+                )
+            }
+            prefs[CUSTOM_THEMES] = ThemeCodec.encodeList(current.filter { it.id != themeId } + next)
+        }
+        return removed
+    }
 
     suspend fun setUnsplashApiKey(value: String) =
         editPrefs { it[PHOTO_UNSPLASH_KEY] = value.trim() }

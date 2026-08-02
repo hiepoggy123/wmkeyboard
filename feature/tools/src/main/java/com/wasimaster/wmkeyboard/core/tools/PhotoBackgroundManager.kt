@@ -1,0 +1,456 @@
+package com.wasimaster.wmkeyboard.core.tools
+
+import android.content.Context
+import android.os.SystemClock
+import android.os.StatFs
+import com.wasimaster.wmkeyboard.core.directboot.DirectBoot
+import com.wasimaster.wmkeyboard.core.settings.MAX_FETCH_PER_RUN
+import com.wasimaster.wmkeyboard.core.settings.PhotoBackgroundSettings
+import com.wasimaster.wmkeyboard.core.settings.PhotoNetworkConditions
+import com.wasimaster.wmkeyboard.core.settings.PoolEntry
+import com.wasimaster.wmkeyboard.core.settings.PoolIndex
+import com.wasimaster.wmkeyboard.core.settings.PoolIndexCodec
+import com.wasimaster.wmkeyboard.core.settings.RotationSourceKind
+import com.wasimaster.wmkeyboard.core.settings.RotationState
+import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
+import com.wasimaster.wmkeyboard.core.settings.mayFetch
+import com.wasimaster.wmkeyboard.core.settings.needsTopUp
+import com.wasimaster.wmkeyboard.core.settings.pickNextPhoto
+import com.wasimaster.wmkeyboard.core.settings.poolEvictionPlan
+import com.wasimaster.wmkeyboard.core.theme.PhotoAttribution
+import com.wasimaster.wmkeyboard.core.theme.PhotoSampling
+import com.wasimaster.wmkeyboard.core.theme.Readability
+import com.wasimaster.wmkeyboard.core.theme.regionLuminance
+import com.wasimaster.wmkeyboard.core.theme.scrimAlphaFor
+import com.wasimaster.wmkeyboard.core.theme.seedsFrom
+import java.io.File
+import java.io.IOException
+import kotlin.random.Random
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
+
+/** What a photo the user asked for is doing right now. */
+sealed interface PhotoApplyStatus {
+    data object Downloading : PhotoApplyStatus
+    data object Applying : PhotoApplyStatus
+    data object Done : PhotoApplyStatus
+    data class Failed(val failure: PhotoFailure) : PhotoApplyStatus
+}
+
+/**
+ * Downloads background photos, applies them to a theme, and keeps the pool the
+ * rotating background draws from.
+ *
+ * A process singleton with its own scope and a status flow, following
+ * `AddonDownloadManager` and the model downloaders: there is deliberately no
+ * WorkManager and no foreground service anywhere in this app, so work that has
+ * to outlive a screen lives in an object like this one.
+ */
+object PhotoBackgroundManager {
+
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    private val _status = MutableStateFlow<Map<String, PhotoApplyStatus>>(emptyMap())
+
+    /** Per-photo progress, keyed by [PhotoItem.key]. Collected by the picker. */
+    val status: StateFlow<Map<String, PhotoApplyStatus>> = _status.asStateFlow()
+
+    /** One writer at a time for the pool index and its directory. */
+    private val poolLock = Mutex()
+
+    /** Photos already reported to Unsplash, so one selection counts once. */
+    private val trackedDownloads = HashSet<String>()
+
+    // ---- directories ---------------------------------------------------
+
+    /** Where a photo applied to a theme lands, beside the images the picker writes. */
+    fun themeImagesDir(context: Context): File =
+        File(context.applicationContext.filesDir, "theme_images").apply { mkdirs() }
+
+    /** The rotation pool, its saved library, and copies of device photos. */
+    fun poolDir(context: Context): File =
+        File(context.applicationContext.filesDir, POOL_DIR_NAME).apply { mkdirs() }
+
+    private fun poolIndexFile(context: Context) = File(poolDir(context), "pool.json")
+
+    // ---- applying one photo to a theme ---------------------------------
+
+    /**
+     * Downloads [photo] at the size the board draws and hands back the file.
+     *
+     * Blocking; call on an IO dispatcher. The caller writes it into the theme,
+     * because what "apply" means differs between the portrait slot, the
+     * landscape slot and the saved library.
+     */
+    private fun download(context: Context, photo: PhotoItem, target: PhotoTarget, into: File): File {
+        requireSpace(context, target.maxBytes)
+        val url = PhotoSizing.downloadUrl(photo, target)
+        ToolHttp.download(url, into, maxBytes = target.maxBytes)
+        return into
+    }
+
+    /**
+     * Reports a download to the provider that asks to be told.
+     *
+     * Unsplash's terms require one call per photo a user really takes, which is
+     * how a photographer's download count stays honest. Fired off the critical
+     * path and its failure ignored on purpose: a tracking call must never be
+     * the reason a background did not get set.
+     */
+    private fun trackDownload(photo: PhotoItem, apiKey: String, nowMs: Long) {
+        if (photo.source != PhotoSource.UNSPLASH || photo.downloadLocation.isBlank()) return
+        if (apiKey.isBlank()) return
+        // A double tap is one download; two separate uses of the same photo,
+        // minutes apart, are two. Under-reporting cheats the photographer
+        // exactly as much as over-reporting inflates them.
+        val stamp = "${photo.key}@${nowMs / DOWNLOAD_DEDUPE_WINDOW_MS}"
+        synchronized(trackedDownloads) {
+            if (!trackedDownloads.add(stamp)) return
+            if (trackedDownloads.size > MAX_TRACKED_DOWNLOADS) trackedDownloads.clear()
+        }
+        scope.launch {
+            runCatching { UnsplashClient.triggerDownload(photo.downloadLocation, apiKey) }
+        }
+    }
+
+    /**
+     * Applies [photo] to a theme.
+     *
+     * [landscape] writes the theme's separate landscape slot. Returns the
+     * measurements taken from the photo, which the editor uses to offer a
+     * palette and a scrim without decoding it a second time.
+     */
+    suspend fun applyToTheme(
+        context: Context,
+        repository: SettingsRepository,
+        photo: PhotoItem,
+        themeId: String,
+        landscape: Boolean,
+        apiKey: String,
+        nowMs: Long = System.currentTimeMillis(),
+    ): PhotoMeasurements? {
+        val key = photo.key
+        _status.update { it + (key to PhotoApplyStatus.Downloading) }
+        return try {
+            val target = if (landscape) PhotoSizing.LANDSCAPE_STRIP else PhotoSizing.PORTRAIT_STRIP
+            val suffix = if (landscape) "_land" else ""
+            val file = File(themeImagesDir(context), "$themeId${suffix}_$nowMs.img")
+            withContext(Dispatchers.IO) { download(context, photo, target, file) }
+            _status.update { it + (key to PhotoApplyStatus.Applying) }
+            val measured = withContext(Dispatchers.IO) { measure(file) }
+            repository.applyThemePhoto(
+                themeId = themeId,
+                path = file.absolutePath,
+                credit = photo.toAttribution(),
+                landscape = landscape,
+            )
+            trackDownload(photo, apiKey, nowMs)
+            _status.update { it + (key to PhotoApplyStatus.Done) }
+            measured
+        } catch (e: IOException) {
+            _status.update { it + (key to PhotoApplyStatus.Failed(photoFailureOf(photo.source, e, nowMs))) }
+            null
+        }
+    }
+
+    /** Keeps [photo] in the user's library, for reuse across themes. */
+    suspend fun saveToLibrary(
+        context: Context,
+        photo: PhotoItem,
+        apiKey: String,
+        nowMs: Long = System.currentTimeMillis(),
+    ): Boolean {
+        val key = photo.key
+        _status.update { it + (key to PhotoApplyStatus.Downloading) }
+        return try {
+            val file = File(poolDir(context), fileNameFor(photo))
+            withContext(Dispatchers.IO) {
+                if (!file.isFile) download(context, photo, PhotoSizing.LANDSCAPE_STRIP, file)
+            }
+            val measured = withContext(Dispatchers.IO) { measure(file) }
+            addToPool(context, photo, file, RotationSourceKind.SAVED, measured, nowMs)
+            trackDownload(photo, apiKey, nowMs)
+            _status.update { it + (key to PhotoApplyStatus.Done) }
+            true
+        } catch (e: IOException) {
+            _status.update { it + (key to PhotoApplyStatus.Failed(photoFailureOf(photo.source, e, nowMs))) }
+            false
+        }
+    }
+
+    // ---- the rotation pool ---------------------------------------------
+
+    suspend fun readPool(context: Context): PoolIndex = poolLock.withLock {
+        readPoolLocked(context)
+    }
+
+    private fun readPoolLocked(context: Context): PoolIndex {
+        val file = poolIndexFile(context)
+        if (!file.isFile) return PoolIndex()
+        return runCatching { PoolIndexCodec.decode(file.readText()) }.getOrDefault(PoolIndex())
+    }
+
+    private fun writePoolLocked(context: Context, index: PoolIndex) {
+        runCatching { poolIndexFile(context).writeText(PoolIndexCodec.encode(index)) }
+    }
+
+    /**
+     * Fetches photos until the pool is full enough, within the request budget.
+     *
+     * Silent on failure by design: nothing is on screen waiting for this, and a
+     * top-up that could not happen should simply be tried again later.
+     */
+    suspend fun topUpPool(
+        context: Context,
+        settings: PhotoBackgroundSettings,
+        keys: PhotoSearchClient.Keys,
+        sources: List<PhotoSource>,
+        conditions: PhotoNetworkConditions,
+        nowMs: Long = System.currentTimeMillis(),
+    ) {
+        if (!settings.mayFetch(conditions)) return
+        val index = readPool(context)
+        val ready = index.entries.count { it.lastShownAt == 0L }
+        if (!settings.needsTopUp(ready, index.lastTopUpAt, nowMs)) return
+
+        val wanted = (settings.poolTarget - index.entries.size).coerceIn(1, MAX_FETCH_PER_RUN)
+        val known = index.entries.mapNotNull { it.credit?.let { c -> "${c.provider}:${c.photoId}" } }
+            .toSet() + index.recentlyEvicted
+        val fetched = PhotoSearchClient.prefetch(
+            sources = sources,
+            query = poolQuery(settings, nowMs),
+            keys = keys,
+            count = wanted * FETCH_OVERSAMPLE,
+            nowMs = nowMs,
+        ).filterNot { it.key in known }.take(wanted)
+
+        for (photo in fetched) {
+            val file = File(poolDir(context), fileNameFor(photo))
+            val ok = runCatching {
+                if (!file.isFile) download(context, photo, PhotoSizing.LANDSCAPE_STRIP, file)
+            }.isSuccess
+            if (!ok) continue
+            addToPool(context, photo, file, RotationSourceKind.ONLINE, measure(file), nowMs)
+        }
+        poolLock.withLock {
+            writePoolLocked(context, readPoolLocked(context).copy(lastTopUpAt = nowMs))
+        }
+    }
+
+    /**
+     * Moves [themeId] on to the next photo, if the pool has one.
+     *
+     * Purely local: the file is already on disk, so this is a couple of reads
+     * and one preference write, which is why it is safe to do as the keyboard
+     * is coming up.
+     */
+    suspend fun rotate(
+        context: Context,
+        repository: SettingsRepository,
+        themeId: String,
+        current: RotationState?,
+        wantWide: Boolean,
+        random: Random = Random.Default,
+        nowMs: Long = System.currentTimeMillis(),
+        elapsedMs: Long = SystemClock.elapsedRealtime(),
+    ): Boolean {
+        if (!DirectBoot.isUserUnlocked(context)) return false
+        val index = readPool(context)
+        val currentName = current?.imagePath?.let { File(it).name }
+        val next = pickNextPhoto(index.entries, currentName, wantWide, random) ?: return false
+        val file = File(poolDir(context), next.fileName)
+        if (!file.isFile) return false
+
+        repository.setRotationState(
+            themeId = themeId,
+            state = RotationState(
+                imagePath = file.absolutePath,
+                credit = next.credit,
+                seedColor = next.seedColor,
+                scrimAlpha = next.scrimAlpha,
+                rotatedAtEpochMs = nowMs,
+                rotatedAtElapsedMs = elapsedMs,
+            ),
+        )
+        poolLock.withLock {
+            val stored = readPoolLocked(context)
+            writePoolLocked(
+                context,
+                stored.copy(
+                    entries = stored.entries.map { entry ->
+                        if (entry.fileName == next.fileName) {
+                            entry.copy(lastShownAt = nowMs, showCount = entry.showCount + 1)
+                        } else {
+                            entry
+                        }
+                    },
+                ),
+            )
+        }
+        return true
+    }
+
+    /** Drops photos past the budget, and records the ones that went. */
+    suspend fun prunePool(context: Context, settings: PhotoBackgroundSettings) = poolLock.withLock {
+        val index = readPoolLocked(context)
+        val dir = poolDir(context)
+        val onDisk = dir.listFiles()?.map { it.name }?.toSet().orEmpty()
+        val plan = poolEvictionPlan(
+            entries = index.entries,
+            existingFiles = onDisk,
+            maxEntries = settings.poolTarget * POOL_HEADROOM,
+            maxBytes = POOL_BUDGET_BYTES,
+        )
+        plan.deleteFiles.forEach { runCatching { File(dir, it).delete() } }
+        writePoolLocked(
+            context,
+            index.copy(
+                entries = plan.keep,
+                recentlyEvicted = (plan.evictedKeys + index.recentlyEvicted)
+                    .distinct()
+                    .take(PoolIndexCodec.EVICTION_MEMORY),
+            ),
+        )
+    }
+
+    /** Removes one photo from the pool and deletes its file. */
+    suspend fun removeFromPool(context: Context, fileName: String) = poolLock.withLock {
+        val index = readPoolLocked(context)
+        runCatching { File(poolDir(context), fileName).delete() }
+        writePoolLocked(context, index.copy(entries = index.entries.filterNot { it.fileName == fileName }))
+    }
+
+    private suspend fun addToPool(
+        context: Context,
+        photo: PhotoItem,
+        file: File,
+        source: RotationSourceKind,
+        measured: PhotoMeasurements?,
+        nowMs: Long,
+    ) = poolLock.withLock {
+        val index = readPoolLocked(context)
+        val entry = PoolEntry(
+            fileName = file.name,
+            source = source,
+            credit = photo.toAttribution(),
+            widthPx = photo.width,
+            heightPx = photo.height,
+            bytes = file.length(),
+            seedColor = measured?.seedColor ?: 0L,
+            scrimAlpha = measured?.scrimAlpha ?: -1f,
+            addedAt = nowMs,
+            sourceTag = photo.altText,
+        )
+        writePoolLocked(
+            context,
+            index.copy(entries = index.entries.filterNot { it.fileName == entry.fileName } + entry),
+        )
+    }
+
+    // ---- measuring ------------------------------------------------------
+
+    /**
+     * The palette seed and the scrim, taken once when a photo arrives rather
+     * than every time it is shown.
+     */
+    fun measure(
+        file: File,
+        boardArgb: Long = DEFAULT_BOARD_ARGB,
+        keyBackgroundArgb: Long = DEFAULT_KEY_ARGB,
+        keyTextArgb: Long = DEFAULT_KEY_TEXT_ARGB,
+    ): PhotoMeasurements? {
+        val grid = PhotoSampling.gridOf(file) ?: return null
+        val luminance = regionLuminance(grid)
+        return PhotoMeasurements(
+            seedColor = seedsFrom(grid, max = 1).firstOrNull() ?: 0L,
+            luminance = luminance,
+            scrimAlpha = scrimAlphaFor(
+                photoLuminance = luminance,
+                imageOpacity = 1f,
+                boardArgb = boardArgb,
+                keyBackgroundArgb = keyBackgroundArgb,
+                keyTextArgb = keyTextArgb,
+                target = Readability.TARGET_CONTRAST,
+            ),
+        )
+    }
+
+    private fun requireSpace(context: Context, bytes: Long) {
+        val stat = StatFs(context.applicationContext.filesDir.absolutePath)
+        if (stat.availableBytes < bytes + SPACE_MARGIN_BYTES) {
+            throw IOException("not enough free space for a background photo")
+        }
+    }
+
+    /** Stable per photo, so the same one is never downloaded twice. */
+    private fun fileNameFor(photo: PhotoItem): String =
+        "p_${photo.source.name.lowercase()}_${photo.id.filter { it.isLetterOrDigit() || it == '-' }}.img"
+
+    /** One of the user's topics or search terms, taking a turn each time. */
+    private fun poolQuery(settings: PhotoBackgroundSettings, nowMs: Long): PhotoQuery {
+        val terms = settings.topics + settings.queries
+        val pick = if (terms.isEmpty()) "" else terms[((nowMs / 1000) % terms.size).toInt()]
+        val isTopic = pick in settings.topics
+        return PhotoQuery(
+            text = if (isTopic) "" else pick,
+            topicId = if (isTopic) pick else "",
+            perPage = MAX_FETCH_PER_RUN * FETCH_OVERSAMPLE,
+            orientation = if (settings.landscapeOnly) PhotoOrientation.LANDSCAPE else PhotoOrientation.ANY,
+            safe = settings.safeSearch,
+            // Successive top-ups walk down the feed rather than fetching the
+            // same first page and discarding it as already known.
+            page = (((nowMs / PhotoBackgroundSettings.MIN_FETCH_PERIOD_MS) % MAX_FEED_PAGE) + 1).toInt(),
+        )
+    }
+
+    /** Fetch more than needed, since some come back already known. */
+    private const val FETCH_OVERSAMPLE = 3
+
+    /** Two taps inside this window are one download; further apart, two. */
+    private const val DOWNLOAD_DEDUPE_WINDOW_MS = 60_000L
+
+    private const val MAX_TRACKED_DOWNLOADS = 256
+
+    /** How far into a feed a top-up will page. */
+    private const val MAX_FEED_PAGE = 20
+
+    /** Room above the target before eviction starts, so the pool is not churned. */
+    private const val POOL_HEADROOM = 3
+
+    private const val POOL_BUDGET_BYTES = 24L * 1024 * 1024
+    private const val SPACE_MARGIN_BYTES = 32L * 1024 * 1024
+    private const val POOL_DIR_NAME = "theme_photos"
+
+    // The default dark theme, which is what an unmeasured photo is judged
+    // against. Close enough: the editor re-measures against the real theme.
+    private const val DEFAULT_BOARD_ARGB = 0xFF17181CL
+    private const val DEFAULT_KEY_ARGB = 0x00000000L
+    private const val DEFAULT_KEY_TEXT_ARGB = 0xFFE9E9EEL
+}
+
+/** What one photo measured, taken at download time. */
+data class PhotoMeasurements(
+    val seedColor: Long,
+    val luminance: Float,
+    val scrimAlpha: Float,
+)
+
+/** The credit to store on a theme, from a search result. */
+fun PhotoItem.toAttribution(): PhotoAttribution = PhotoAttribution(
+    provider = PhotoLinks.providerKey(source),
+    photoId = id,
+    photographer = photographer,
+    photographerUrl = photographerUrl,
+    photoUrl = pageUrl,
+    altText = altText,
+    avgColor = avgColor,
+)
